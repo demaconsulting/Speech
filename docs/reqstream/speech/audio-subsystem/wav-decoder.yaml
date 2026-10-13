@@ -13,14 +13,21 @@ sections:
               - id: Speech-Audio-WavDecoder-Encodings
                 title: >-
                   The WavDecoder class shall decode 8-bit unsigned and 16-, 24- and 32-bit signed PCM
-                  WAV data, scaling integer samples to [-1, 1) (the most negative value maps to
-                  exactly -1 and the largest positive value stays below 1).
+                  WAV data, scaling integer samples to [-1, 1).
                 justification: |
-                  These are the integer encodings hosts commonly produce; exact scaling keeps
-                  full-scale audio within the unit range.
+                  These are the integer encodings hosts commonly produce.
                 tests:
                   - WavDecoder_Decode_PcmDepths_ScaleToUnitRange
+
+              - id: Speech-Audio-WavDecoder-ExtremeValueScaling
+                title: >-
+                  The WavDecoder class shall map the most negative PCM value of each depth to exactly
+                  -1 and keep the largest positive value below 1.
+                justification: |
+                  Exact scaling keeps full-scale audio within the unit range.
+                tests:
                   - WavDecoder_Decode_ExtremePcmValues_ScaleAsExpected
+                  - WavDecoder_Decode_EightBitExtremes_ScaleAsExpected
 
               - id: Speech-Audio-WavDecoder-FloatPassThrough
                 title: >-
@@ -42,27 +49,45 @@ sections:
                 tests:
                   - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
 
+              - id: Speech-Audio-WavDecoder-DuplicateFmtLastWins
+                title: >-
+                  The WavDecoder class shall use the last fmt chunk that precedes the data chunk when
+                  several are present.
+                justification: |
+                  A deterministic rule avoids ambiguity for the rare files that repeat the chunk.
+                tests:
+                  - WavDecoder_Decode_DuplicateFmtChunks_LastOneWins
+
               - id: Speech-Audio-WavDecoder-ExtensibleFormat
                 title: >-
                   The WavDecoder class shall decode the WAVE_FORMAT_EXTENSIBLE form using the tag of its
-                  sub-format (PCM or float) and reject an unsupported sub-format or bit depth with
-                  NotSupportedException.
+                  sub-format (PCM or float).
                 justification: |
                   Multichannel and high-resolution encoders commonly write the extensible header.
                 tests:
                   - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
                   - WavDecoder_Decode_ExtensibleFloatSubFormat_DecodesAsFloat
+
+              - id: Speech-Audio-WavDecoder-ExtensibleUnsupportedRejection
+                title: >-
+                  The WavDecoder class shall reject an unsupported extensible sub-format or bit depth
+                  with NotSupportedException.
+                justification: |
+                  A clearly typed failure lets callers distinguish an unsupported encoding from a
+                  damaged file.
+                tests:
                   - WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws
 
               - id: Speech-Audio-WavDecoder-OverstatedDataSize
                 title: >-
-                  The WavDecoder class shall clamp an overstated data chunk size to the bytes actually
-                  present.
+                  The WavDecoder class shall clamp an overstated data chunk size, including 0xFFFFFFFF, to
+                  the bytes actually present.
                 justification: |
                   Streaming and interrupted encoders write inexact sizes; clamping avoids needless
                   failures on files that are otherwise valid.
                 tests:
                   - WavDecoder_Decode_OverstatedDataSize_IsClamped
+                  - WavDecoder_Decode_MaxDataSize_IsClampedToBytesPresent
 
               - id: Speech-Audio-WavDecoder-TrailingPartialFrame
                 title: >-
@@ -102,44 +127,51 @@ sections:
 
               - id: Speech-Audio-WavDecoder-MalformedChunkRejection
                 title: >-
-                  The WavDecoder class shall reject an image whose required chunks are missing
-                  or out of order with InvalidDataException.
+                  The WavDecoder class shall reject an image with no data chunk, or with a data chunk
+                  before the fmt chunk, with InvalidDataException.
                 justification: |
-                  Hostile or damaged files must fail clearly rather than decode garbage. This
-                  covers a missing data chunk, a data chunk that precedes the fmt chunk, and a
-                  chunk running past the end of the image.
+                  Hostile or damaged files must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
                   - WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk
 
               - id: Speech-Audio-WavDecoder-TruncatedImageRejection
                 title: >-
-                  The WavDecoder class shall reject a truncated image with InvalidDataException.
+                  The WavDecoder class shall reject a truncated fmt or extensible fmt chunk with
+                  InvalidDataException.
                 justification: |
-                  A cut-off file must fail clearly rather than decode garbage. This covers a
-                  truncated file and a truncated or too-short fmt or extensible fmt chunk.
+                  A cut-off file must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
 
               - id: Speech-Audio-WavDecoder-InvalidFormatFieldRejection
                 title: >-
-                  The WavDecoder class shall reject an image with an invalid channel count or
-                  sample rate with InvalidDataException.
+                  The WavDecoder class shall reject an image with zero channels or a zero sample rate
+                  with InvalidDataException.
                 justification: |
-                  Zero channels, a zero sample rate, or a rate above the 32-bit signed range
-                  cannot describe playable audio and must fail clearly.
+                  Such a header cannot describe playable audio and must fail clearly.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
+
+              - id: Speech-Audio-WavDecoder-SampleRateRangeRejection
+                title: >-
+                  The WavDecoder class shall reject a sample rate above the 32-bit signed range with
+                  InvalidDataException and a message naming the rate.
+                justification: |
+                  Such a rate cannot be represented by AudioClip, and the message must not blame a
+                  missing rate.
+                tests:
                   - WavDecoder_Decode_SampleRateAboveIntMax_Throws
 
               - id: Speech-Audio-WavDecoder-NonWavRejection
                 title: >-
-                  The WavDecoder class shall reject data that lacks a RIFF/WAVE header with
-                  InvalidDataException.
+                  The WavDecoder class shall reject data that lacks a RIFF/WAVE header, including data
+                  shorter than the 12-byte header, with InvalidDataException.
                 justification: |
                   Data that is not a WAV image must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_NonWavHeader_Throws
+                  - WavDecoder_Decode_ImageShorterThanHeader_Throws
 
               - id: Speech-Audio-WavDecoder-SampleCap
                 title: >-

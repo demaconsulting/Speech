@@ -580,10 +580,12 @@ public sealed class FlacDecoderTests
         // Act
         var cutHeader = Assert.Throws<InvalidDataException>(() => Decode(good[..6]));
         var cutBody = Assert.Throws<InvalidDataException>(() => Decode(good[..20]));
+        var noAudio = Assert.Throws<InvalidDataException>(() => Decode(good[..FirstFrameOffset]));
 
         // Assert
         Assert.Contains("truncated in its metadata", cutHeader.Message);
         Assert.Contains("runs past the end", cutBody.Message);
+        Assert.NotEmpty(noAudio.Message);
     }
 
     /// <summary>Proves damaged subframe headers (reserved type, padding bit, excess wasted bits, order above block size) are rejected with specific messages.</summary>

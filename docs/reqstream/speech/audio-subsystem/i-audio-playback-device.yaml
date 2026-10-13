@@ -22,20 +22,36 @@ sections:
                   - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
                   - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
 
-              - id: Speech-Audio-IAudioPlaybackDevice-StartStopWrite
+              - id: Speech-Audio-IAudioPlaybackDevice-Start
                 title: >-
-                  The IAudioPlaybackDevice interface shall define Start/Stop lifecycle methods
-                  and a Write method for submitting audio for playback.
+                  The IAudioPlaybackDevice interface shall define a Start lifecycle method that
+                  begins playback.
                 justification: |
                   A mockable playback-device contract lets hosts and tests depend on playback
                   behavior without tying themselves to native PortAudio types.
                 tests:
                   - UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException
-                  - UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
-                  - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
-                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
                   - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
                   - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioPlaybackDevice-Stop
+                title: >-
+                  The IAudioPlaybackDevice interface shall define a Stop lifecycle method that
+                  ends playback.
+                justification: |
+                  Callers must be able to release the playback stream deterministically.
+                tests:
+                  - UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioPlaybackDevice-Write
+                title: >-
+                  The IAudioPlaybackDevice interface shall define a Write method for submitting
+                  audio for playback.
+                justification: |
+                  Hosts feed synthesized audio to the device through one fire-and-forget method.
+                tests:
+                  - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
 
               - id: Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
                 title: >-
@@ -57,7 +73,7 @@ sections:
 
               - id: Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
                 title: >-
-                  The IAudioPlaybackDevice interface shall expose a non-throwing, non-blocking
+                  The IAudioPlaybackDevice interface shall expose a non-throwing
                   PendingSampleCount reporting how many samples passed to Write the playback
                   hardware has not yet actually rendered, reported as zero when the device is
                   unavailable.

@@ -11,9 +11,13 @@ only, so hosts and models can accept either format without a native decoder depe
 
 - **Read(path | stream, options)**: first bounds the input by a byte cap derived from `MaxSamples`
   (five bytes per sample plus 1 MiB of slack, never above the maximum array length): a file is
-  rejected from its `FileInfo.Length`, a seekable stream from its remaining length, and a
-  non-seekable stream is copied in chunks that stop as soon as the cap is exceeded, so an oversized
-  input is never fully read. Then reads all bytes, detects the container from its magic
+  rejected from the remaining length of the `FileStream` it opens (read-only, `FileShare.Read`), a
+  seekable stream from its remaining length (measured from its current position, never negative),
+  and a non-seekable stream is copied in chunks that stop as soon as the cap is exceeded, so an
+  oversized input is never fully read. The cap is an estimate, not an exact bound: the decoders
+  enforce the exact `MaxSamples` limit on the decoded sample count. A seekable stream positioned at
+  or past its end yields no bytes and is rejected by the container sniffing as neither WAV nor FLAC.
+  Then reads all bytes, detects the container from its magic
   (`RIFF`/`WAVE`, or `fLaC` optionally behind an ID3v2 tag), and delegates to `WavDecoder` or
   `FlacDecoder`. The decoders enforce `MaxSamples` on the decoded sample count, and
   `VerifyChecksums` is passed to the FLAC decoder (it has no effect on WAV)
@@ -21,13 +25,20 @@ only, so hosts and models can accept either format without a native decoder depe
   `AudioResampler.DownMix`), returning the mono samples with the file's native sample rate. It
   repeats every error of `Read`, unchanged.
 
-**Error Handling**: `FileNotFoundException` for a missing file; `InvalidDataException` for data
+**Thread safety**: the class is static and stateless, so concurrent reads of different inputs are
+safe; a single stream must not be shared between concurrent reads. A stream read starts at the
+stream's current position, not at its start.
+
+**Error Handling**: `FileNotFoundException` for a missing file or a directory path; `InvalidDataException` for data
 that is neither WAV nor FLAC or that is malformed; `NotSupportedException` for a WAV encoding that
-is not supported; `ArgumentNullException`/`ArgumentException` for a null stream or an empty path;
+is not supported; `ArgumentNullException` for a null stream or a null path, `ArgumentException` for an empty or
+whitespace path; `IOException` (for example a file locked by another process) and
+`UnauthorizedAccessException` propagate unwrapped from the file open or read;
 `ArgumentOutOfRangeException` for a negative `MaxSamples`. The negative `MaxSamples` exception
 reports `options.MaxSamples` as its parameter name (the faulty value), and a
 path-based read checks that the file exists first, so a negative `MaxSamples` with a missing path
-reports `FileNotFoundException`. Path-based reads prefix the path to the message of decoder
+reports `FileNotFoundException` (a stream read has no existence check, so it reports the negative
+value directly). Path-based reads prefix the path to the message of decoder
 failures and of byte-cap failures; stream reads have no path and so add no prefix.
 
 **Dependencies**: `WavDecoder`, `FlacDecoder`, `AudioClip`, `AudioResampler`.

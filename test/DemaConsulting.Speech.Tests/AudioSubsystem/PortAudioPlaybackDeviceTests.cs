@@ -810,6 +810,230 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a native stop failure leaves no stale head block behind: after the failed
+    ///     stop, a restarted stream sees silence rather than the partially consumed remainder, and
+    ///     the pending count never goes negative.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_AfterFailedNativeStop_DoesNotReplayStaleHeadBlock()
+    {
+        // Arrange: a started device whose first native stop will fail, with a block of which only
+        // half has been consumed by the callback
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+        device.Write([0.1f, 0.2f, 0.3f, 0.4f]);
+        device.Start();
+        stream.RequestSamples(2);
+        stream.StopException = new InvalidOperationException("Native stop failed.");
+        Assert.Throws<AudioDeviceUnavailableException>(device.Stop);
+
+        // Act: restart after the failed stop and request a callback block
+        stream.StopException = null;
+        device.Start();
+        var drainedSamples = stream.RequestSamples(4);
+
+        // Assert: the stale remainder was discarded, and the pending count is exact (a stale
+        // replay would have driven the raw counter negative, which the clamped property hides
+        // until a later write offsets it)
+        Assert.Equal([0.0f, 0.0f, 0.0f, 0.0f], drainedSamples);
+        Assert.Equal(0, device.PendingSampleCount);
+        device.Write([0.7f, 0.8f]);
+        Assert.Equal(2, device.PendingSampleCount);
+        Assert.Equal([0.7f, 0.8f], stream.RequestSamples(2));
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
+    ///     Proves that a native <c>Start()</c> failure disposes the already-opened stream and
+    ///     releases the active-stream registration, with the original failure wrapped.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_NativeStreamStartFails_DisposesStreamAndReleasesRegistration()
+    {
+        // Arrange: a stream that opens but fails to start, and disposes cleanly
+        var startException = new InvalidOperationException("Native start failed.");
+        var stream = new FakePortAudioStream { StartException = startException };
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: start the device
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
+
+        // Assert: the opened stream was disposed once and the registration released
+        Assert.Same(startException, exception.InnerException);
+        Assert.Equal(1, stream.DisposeCallCount);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     Proves that a null environment is rejected at construction.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_NullEnvironment_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null environment is the only construction-time exception
+        Assert.Throws<ArgumentNullException>(() => new PortAudioPlaybackDevice(null!));
+    }
+
+    /// <summary>
+    ///     Proves that an exact-name selection resolves that device (not the default) and that the
+    ///     diagnostic names the selection as the resolution basis.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_NamedSelectionPresent_ResolvesNamedDevice()
+    {
+        // Arrange: two output devices, the default being the first
+        var api = new FakePortAudioApi(
+        [
+            new PortAudioDeviceInfo("Default Speaker", 5, 0, 2, 48000, 0.0, 0.01),
+            new PortAudioDeviceInfo("Backup Speaker", 5, 0, 1, 16000, 0.0, 0.01)
+        ])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act: construct with a selection naming the non-default device
+        var device = new PortAudioPlaybackDevice(environment, new AudioDeviceSelection("Backup Speaker"), diagnostics);
+
+        // Assert: the named device and its format were resolved
+        Assert.True(device.IsAvailable);
+        Assert.Equal(1, device.ChannelCount);
+        Assert.Equal(16000, device.SampleRate);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            "Resolved PortAudio playback device 'Backup Speaker' via selection.");
+    }
+
+    /// <summary>
+    ///     Proves that an unresolvable preferred host API leaves the device unavailable.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_HostApiUnresolvable_ReportsUnavailable()
+    {
+        // Arrange: a runtime that cannot find the preferred host API
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = null
+        };
+
+        // Act: construct the device
+        var device = new PortAudioPlaybackDevice(new PortAudioEnvironment(api, OSPlatform.Windows));
+
+        // Assert: honestly unavailable
+        Assert.False(device.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that a write racing with a stop-time queue clear keeps the pending count equal
+    ///     to the samples still queued (sequential model of the interleaving: write after stop).
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Write_AfterStop_PendingCountMatchesQueuedSamples()
+    {
+        // Arrange: a device that was started, written to, stopped, then written to again
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var device = new PortAudioPlaybackDevice(new PortAudioEnvironment(api, OSPlatform.Windows));
+        device.Start();
+        device.Write([0.1f, 0.2f, 0.3f]);
+        device.Stop();
+
+        // Act: write again after the stop, then restart and drain
+        device.Write([0.4f, 0.5f]);
+        device.Start();
+        var drained = stream.RequestSamples(3);
+
+        // Assert: only the post-stop samples remain, counted exactly
+        Assert.Equal([0.4f, 0.5f, 0.0f], drained);
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="PortAudioPlaybackDevice.Write"/> copies the caller's buffer, so
+    ///     mutating it after the call does not alter the queued audio.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Write_CallerMutatesBufferAfterWrite_QueuedAudioUnchanged()
+    {
+        // Arrange: a started device and a caller-owned buffer
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var device = new PortAudioPlaybackDevice(new PortAudioEnvironment(api, OSPlatform.Windows));
+        device.Start();
+        var buffer = new[] { 0.1f, 0.2f };
+
+        // Act: write, then overwrite the caller's buffer
+        device.Write(buffer);
+        buffer[0] = 0.9f;
+        buffer[1] = 0.9f;
+
+        // Assert: the original samples are delivered
+        Assert.Equal([0.1f, 0.2f], stream.RequestSamples(2));
+    }
+
+    /// <summary>
+    ///     Proves that when both the native stop and the following dispose fail, the stop failure
+    ///     is the one thrown and the dispose fault is only reported.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure()
+    {
+        // Arrange: a started device whose stream fails to stop and to dispose
+        var stopException = new InvalidOperationException("Native stop failed.");
+        var stream = new FakePortAudioStream
+        {
+            StopException = stopException,
+            DisposeException = new InvalidOperationException("Native dispose failed.")
+        };
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var device = new PortAudioPlaybackDevice(new PortAudioEnvironment(api, OSPlatform.Windows), diagnostics: diagnostics);
+        device.Start();
+
+        // Act: stop the device
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Stop);
+
+        // Assert: the stop failure is thrown and the dispose fault was reported, not thrown
+        Assert.Same(stopException, exception.InnerException);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Error,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.Contains("after a stop failure", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     A read-only list that deliberately does not implement <see cref="ICollection{T}"/>.
     /// </summary>
     /// <param name="items">The items exposed by the list.</param>

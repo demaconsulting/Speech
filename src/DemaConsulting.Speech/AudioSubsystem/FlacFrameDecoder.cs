@@ -171,7 +171,15 @@ internal static class FlacFrameDecoder
         var wasted = 0;
         if (reader.ReadBits(1) == 1)
         {
-            wasted = (int)reader.ReadUnary() + 1;
+            // Range-checked before narrowing to int: a unary run longer than the sample's bit depth
+            // is malformed, and an absurdly long run (over int.MaxValue zero bits) must not wrap
+            var wastedRun = reader.ReadUnary();
+            if (wastedRun >= bits)
+            {
+                throw new InvalidDataException($"A FLAC subframe at byte {reader.BytePosition} wastes more bits than the sample has.");
+            }
+
+            wasted = (int)wastedRun + 1;
         }
 
         var effectiveBits = bits - wasted;

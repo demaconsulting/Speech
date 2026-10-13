@@ -127,7 +127,9 @@ sections:
               - Speech-Audio-IAudioCaptureDevice-AvailabilityFlag
               - Speech-Audio-IAudioCaptureDevice-StartStopFrameCaptured
               - Speech-Audio-IAudioPlaybackDevice-AvailabilityFlag
-              - Speech-Audio-IAudioPlaybackDevice-StartStopWrite
+              - Speech-Audio-IAudioPlaybackDevice-Start
+              - Speech-Audio-IAudioPlaybackDevice-Stop
+              - Speech-Audio-IAudioPlaybackDevice-Write
               - Speech-Audio-IAudioCaptureDeviceProbe-EnumerateNeverThrows
               - Speech-Audio-IAudioPlaybackDeviceProbe-EnumerateNeverThrows
             tests:
@@ -178,11 +180,24 @@ sections:
               for manual end-to-end use outside CI, while automated tests still need a mockable seam.
             children:
               - Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
+              - Speech-Audio-PortAudioPlaybackDevice-ResolutionFaultsContained
+              - Speech-Audio-PortAudioPlaybackDevice-NullEnvironmentRejected
+              - Speech-Audio-PortAudioPlaybackDevice-UnresolvedOperationsThrow
+              - Speech-Audio-PortAudioPlaybackDevice-NullWriteRejected
+              - Speech-Audio-PortAudioPlaybackDevice-NamedSelectionResolved
               - Speech-Audio-PortAudioPlaybackDevice-QueuedPlayback
+              - Speech-Audio-PortAudioPlaybackDevice-RestartNeverReplaysStaleAudio
+              - Speech-Audio-PortAudioPlaybackDevice-WriteCopiesBuffer
+              - Speech-Audio-PortAudioPlaybackDevice-EmptyWriteIgnored
               - Speech-Audio-PortAudioPlaybackDevice-UnderrunZeroFill
-              - Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-OpenFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
+              - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountExcludesZeroFill
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountZeroWhenUnresolved
             tests:
@@ -377,6 +392,7 @@ sections:
               - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
               - Speech-Audio-PortAudioCaptureDevice-ActiveStreamDeregistration
               - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistrationOnStartFailure
               - Speech-Audio-AudioDeviceFactory-RefreshPropagatesInUse
               - Speech-Audio-AudioDeviceInUseException-Constructors
             tests:
@@ -395,24 +411,33 @@ sections:
             children:
               - Speech-Audio-AudioFileReader-DetectsContainer
               - Speech-Audio-AudioFileReader-DecodesFileOrStream
+              - Speech-Audio-AudioFileReader-ReadsFromCurrentStreamPosition
+              - Speech-Audio-AudioFileReader-DecodesId3PrefixedFlac
               - Speech-Audio-AudioFileReader-ListsSupportedExtensions
               - Speech-Audio-AudioFileReader-ReportsMissingFile
+              - Speech-Audio-AudioFileReader-ReportsIoFailures
               - Speech-Audio-AudioFileReader-ReportsMalformedFile
               - Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
-              - Speech-Audio-AudioFileReader-ReportsInvalidArguments
+              - Speech-Audio-AudioFileReader-NamesPathInFailures
+              - Speech-Audio-AudioFileReader-RejectsNullStream
+              - Speech-Audio-AudioFileReader-RejectsBlankPath
+              - Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
               - Speech-Audio-AudioFileReader-ByteCap
               - Speech-Audio-AudioFileReader-MaxSamples
               - Speech-Audio-AudioFileReader-VerifyChecksums
+              - Speech-Audio-AudioFileReader-VerifyChecksumsOptOut
               - Speech-Audio-AudioFileReader-ReadMono
-              - Speech-Audio-AudioFileReader-FlacFixtures
               - Speech-Audio-AudioClip-DerivedMembers
               - Speech-Audio-AudioClip-ToMono
               - Speech-Audio-AudioClip-ToPcm16
               - Speech-Audio-AudioClip-ValidatesInput
               - Speech-Audio-WavDecoder-Encodings
+              - Speech-Audio-WavDecoder-ExtremeValueScaling
               - Speech-Audio-WavDecoder-FloatPassThrough
               - Speech-Audio-WavDecoder-HeaderTolerance
+              - Speech-Audio-WavDecoder-DuplicateFmtLastWins
               - Speech-Audio-WavDecoder-ExtensibleFormat
+              - Speech-Audio-WavDecoder-ExtensibleUnsupportedRejection
               - Speech-Audio-WavDecoder-OverstatedDataSize
               - Speech-Audio-WavDecoder-TrailingPartialFrame
               - Speech-Audio-WavDecoder-ZeroLengthData
@@ -421,12 +446,19 @@ sections:
               - Speech-Audio-WavDecoder-MalformedChunkRejection
               - Speech-Audio-WavDecoder-TruncatedImageRejection
               - Speech-Audio-WavDecoder-InvalidFormatFieldRejection
+              - Speech-Audio-WavDecoder-SampleRateRangeRejection
               - Speech-Audio-WavDecoder-NonWavRejection
               - Speech-Audio-WavDecoder-SampleCap
               - Speech-Audio-FlacDecoder-Prediction
-              - Speech-Audio-FlacDecoder-StereoAndBitDepth
+              - Speech-Audio-FlacDecoder-ResidualCoding
+              - Speech-Audio-FlacDecoder-WastedBits
+              - Speech-Audio-FlacDecoder-StereoModes
+              - Speech-Audio-FlacDecoder-BitDepths
+              - Speech-Audio-FlacDecoder-LibFlacFixtures
               - Speech-Audio-FlacDecoder-HeaderCodes
-              - Speech-Audio-FlacDecoder-StreamShapes
+              - Speech-Audio-FlacDecoder-ContainerLayouts
+              - Speech-Audio-FlacDecoder-UnknownLength
+              - Speech-Audio-FlacDecoder-MarkerDetection
               - Speech-Audio-FlacDecoder-Integrity
               - Speech-Audio-FlacDecoder-IntegrityOptOut
               - Speech-Audio-FlacDecoder-TruncatedStreamRejection

@@ -155,16 +155,26 @@ public sealed class AudioFileReaderTests
         }
     }
 
-    /// <summary>Proves invalid arguments are reported with the matching argument exception.</summary>
+    /// <summary>Proves a null stream is reported with <see cref="ArgumentNullException"/>.</summary>
     [Fact]
-    public void AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions()
+    public void AudioFileReader_Read_NullStream_ThrowsArgumentNullException() =>
+        Assert.Throws<ArgumentNullException>(() => AudioFileReader.Read((Stream)null!));
+
+    /// <summary>Proves null, empty and blank paths are reported with <see cref="ArgumentException"/>.</summary>
+    [Fact]
+    public void AudioFileReader_Read_BlankPath_ThrowsArgumentException()
     {
         // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => AudioFileReader.Read((Stream)null!));
         Assert.Throws<ArgumentException>(() => AudioFileReader.Read(string.Empty));
+        Assert.Throws<ArgumentException>(() => AudioFileReader.Read("   "));
+        Assert.Throws<ArgumentNullException>(() => AudioFileReader.Read((string)null!));
+    }
+
+    /// <summary>Proves a negative MaxSamples is reported with <see cref="ArgumentOutOfRangeException"/> for a stream.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NegativeMaxSamplesStream_ThrowsArgumentOutOfRange() =>
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             AudioFileReader.Read(new MemoryStream([1]), new AudioFileReadOptions { MaxSamples = -1 }));
-    }
 
     /// <summary>Proves a negative MaxSamples is reported against the options parameter, and for a path only after the file is found.</summary>
     [Fact]
@@ -258,6 +268,94 @@ public sealed class AudioFileReaderTests
     public void AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws() =>
         Assert.Throws<InvalidDataException>(() =>
             AudioFileReader.Read(new NonSeekableStream(new byte[2 << 20]), new AudioFileReadOptions { MaxSamples = 0 }));
+
+    /// <summary>Proves a seekable stream positioned past its end is rejected with <see cref="InvalidDataException"/> (no negative-length overflow).</summary>
+    [Fact]
+    public void AudioFileReader_Read_SeekableStreamPositionedPastEnd_ThrowsInvalidData()
+    {
+        // Arrange: a stream whose position lies beyond its length
+        var stream = new MemoryStream(File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.flac")));
+        stream.Position = stream.Length + 100;
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(stream));
+
+        // Assert: no bytes remain, so the content is not a recognizable container
+        Assert.Contains("neither a RIFF/WAVE nor a FLAC", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves reading starts at the stream's current position, not at its start.</summary>
+    [Fact]
+    public void AudioFileReader_Read_SeekableStreamAtNonZeroPosition_ReadsFromCurrentPosition()
+    {
+        // Arrange: junk bytes, then a WAV file; the stream is positioned at the WAV
+        var wav = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.wav"));
+        var stream = new MemoryStream([.. new byte[] { 9, 9, 9, 9, 9 }, .. wav]) { Position = 5 };
+
+        // Act
+        var clip = AudioFileReader.Read(stream);
+
+        // Assert
+        Assert.Equal(44100, clip.SampleRate);
+        Assert.Equal(1, clip.ChannelCount);
+    }
+
+    /// <summary>Proves a FLAC stream behind an ID3v2 tag is decoded.</summary>
+    [Fact]
+    public void AudioFileReader_Read_Id3PrefixedFlac_Decodes()
+    {
+        // Arrange: a minimal ID3v2.4 header declaring four bytes of tag body, then the FLAC fixture
+        var flac = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.flac"));
+        byte[] image = [.. "ID3"u8.ToArray(), 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, .. flac];
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(image));
+
+        // Assert
+        Assert.Equal(44100, clip.SampleRate);
+        Assert.Equal(1, clip.ChannelCount);
+    }
+
+    /// <summary>Proves an unsupported WAV encoding read from a stream is reported without a path prefix.</summary>
+    [Fact]
+    public void AudioFileReader_Read_UnsupportedWavStream_ThrowsNotSupportedWithoutPath()
+    {
+        // Arrange: format tag 2 (ADPCM)
+        var bytes = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.wav"));
+        bytes[20] = 2;
+
+        // Act
+        var error = Assert.Throws<NotSupportedException>(() => AudioFileReader.Read(new MemoryStream(bytes)));
+
+        // Assert
+        Assert.DoesNotContain("'", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a path that names a directory is reported as a missing file.</summary>
+    [Fact]
+    public void AudioFileReader_Read_DirectoryPath_ThrowsFileNotFound() =>
+        Assert.Throws<FileNotFoundException>(() => AudioFileReader.Read(FlacDirectory));
+
+    /// <summary>Proves a file locked against reading surfaces its <see cref="IOException"/> unwrapped.</summary>
+    [Fact]
+    public void AudioFileReader_Read_FileLockedExclusively_ThrowsIOException()
+    {
+        // Arrange: a file held open with no sharing
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(path, [1, 2, 3]);
+
+        try
+        {
+            using var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+            // Act / Assert: an IOException, not an InvalidDataException
+            Assert.Throws<IOException>(() => AudioFileReader.Read(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 
     /// <summary>Proves a non-seekable stream within the cap still decodes.</summary>
     [Fact]

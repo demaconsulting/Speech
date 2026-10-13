@@ -22,7 +22,8 @@ hostile declared length cannot force a large allocation; samples are scaled by `
   bit depth come from STREAMINFO, and the effective cap is `maxSamples` clamped to
   `Array.MaxLength`. An internal overload `Decode(data, verifyChecksums, maxSamples, maxArrayLength)`
   takes the array-length ceiling explicitly (the public form passes `Array.MaxLength`) so tests can
-  exercise the clamp with a small value. `verifyChecksums` is the unit's form of the
+  exercise the clamp with a small value. The container check (ID3v2 skip and `fLaC` marker) runs
+once per decode, shared with `IsFlac`. `verifyChecksums` is the unit's form of the
   `AudioFileReadOptions.VerifyChecksums` option
 - **Metadata walk**: after the `fLaC` marker, STREAMINFO must be the first block and exactly 34
   bytes long; every later block is skipped by its length, and a block running past the end of the
@@ -41,6 +42,11 @@ hostile declared length cannot force a large allocation; samples are scaled by `
 - **FlacBitReader**: bounds-checked bit, unary, signed and UTF-8 number reads, `PeekFrameSync`
   (are the next two byte-aligned bytes the 14-bit frame sync code) and `AlignToByte` (skip to the
   next byte boundary after the last subframe)
+
+`FlacBitReader` reads unary codes and single bits one bit at a time. That is simple and
+bounds-checked; the cost is acceptable for the short reference clips this library decodes and is a
+known performance trade-off, not an oversight. A wasted-bits unary run is range-checked against the
+sample bit depth before it is narrowed to `int`.
 
 All arithmetic is in 64-bit integers so 32-bit audio and 33-bit side channels cannot overflow. The
 STREAMINFO MD5 is not verified and damaged frames are not skipped.

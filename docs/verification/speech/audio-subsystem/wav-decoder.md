@@ -14,7 +14,8 @@ Verified by `WavDecoderTests.cs` (`test/DemaConsulting.Speech.Tests/AudioSubsyst
 
 PCM 8/16/24/32-bit and float32 decode to the expected values, extensible headers (PCM and float
 sub-formats) and unknown chunks are tolerated, a trailing partial frame is dropped, multichannel
-order is kept, and unsupported, malformed or oversized input is rejected.
+order is kept, a data size of 0xFFFFFFFF is clamped, the last of several `fmt` chunks wins, and
+unsupported, malformed, too-short or oversized input is rejected.
 
 #### Test Scenarios
 
@@ -118,7 +119,8 @@ negative extremes scale to exactly -1.
 
 **Arrange**: A `fmt` chunk declaring 2,147,483,648 Hz.
 
-**Expected**: `InvalidDataException` containing `no channels or no sample rate`.
+**Expected**: `InvalidDataException` containing `above the supported maximum` (and not
+`no channels`).
 
 **Test**: `WavDecoder_Decode_SampleRateAboveIntMax_Throws`
 
@@ -171,3 +173,35 @@ the header first).
 **Expected**: The decoded sample is NaN.
 
 **Test**: `WavDecoder_Decode_FloatNaN_PassesThroughUnchanged`
+
+##### Data size of 0xFFFFFFFF
+
+**Arrange**: Mono 16-bit data of four bytes with a declared data size of 0xFFFFFFFF.
+
+**Expected**: Samples `[0, 0.5]` (clamped to the bytes present).
+
+**Test**: `WavDecoder_Decode_MaxDataSize_IsClampedToBytesPresent`
+
+##### 8-bit extremes
+
+**Arrange**: Mono 8-bit samples 0, 128 and 255.
+
+**Expected**: `-1`, `0` and `127/128`.
+
+**Test**: `WavDecoder_Decode_EightBitExtremes_ScaleAsExpected`
+
+##### Duplicate fmt chunks
+
+**Arrange**: A 16-bit 8000 Hz `fmt` chunk, then an 8-bit 44100 Hz `fmt` chunk, then one data byte 255.
+
+**Expected**: The second format is used: 8 bits, 44100 Hz, samples `[127/128]`.
+
+**Test**: `WavDecoder_Decode_DuplicateFmtChunks_LastOneWins`
+
+##### Image shorter than the header
+
+**Arrange**: 0, 8 and 11 bytes of the `RIFF....WAVE` header.
+
+**Expected**: `IsWav` is false and `Decode` throws `InvalidDataException` containing `not a RIFF/WAVE`.
+
+**Test**: `WavDecoder_Decode_ImageShorterThanHeader_Throws`

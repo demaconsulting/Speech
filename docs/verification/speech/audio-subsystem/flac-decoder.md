@@ -7,11 +7,13 @@ produced by soundfile; see `TestData/NOTICE.md`) are compared bit-exactly with l
 and a test-only FLAC encoder (`TestFlacEncoder`) writes streams that exercise every subframe type,
 residual coding, stereo mode and header code, and most error paths, that the fixtures do not. The
 `FlacBitReader` and `FlacCrc` helpers are verified through the decoder (and the CRC check values)
-rather than by their own tests. Not exercised by any test: a reserved residual coding method,
-`PeekFrameSync` returning false other than at the end of an unknown-length stream, a duplicate
-STREAMINFO or oversized metadata block, and metadata block type 127. The reserved residual method is
-rejected by a single check before any partition is read, and the metadata blocks are skipped by
-length like any non-STREAMINFO block; these are residual verification gaps, not covered claims.
+rather than by their own tests. Not exercised by any test: `PeekFrameSync` returning false other
+than at the end of an unknown-length stream, a duplicate STREAMINFO or oversized metadata block,
+metadata block type 127, and a wasted-bits unary run longer than `int.MaxValue` bits (it would need a
+2 GiB input; the range check that rejects it is the same one the tested over-long run hits). The
+reserved residual coding method is covered by `FlacDecoder_Decode_InvalidPredictorParameters_Throw`.
+The metadata blocks are skipped by length like any non-STREAMINFO block; the remaining items are
+residual verification gaps, not covered claims.
 
 #### Test Environment
 
@@ -57,7 +59,8 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 ##### Wasted bits
 
-**Test**: `FlacDecoder_Decode_WastedBits_AreRestored`
+**Test**: `FlacDecoder_Decode_WastedBits_AreRestored`; an excessive wasted-bits run is rejected by
+`FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors`
 
 ##### Stereo decorrelation modes
 
@@ -99,7 +102,8 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 ##### Marker detection, STREAMINFO values, metadata damage and subframe-header damage
 
 **Tests**: `FlacDecoder_IsFlac_VariousInputs_DetectsMarkerOnly`,
-`FlacDecoder_Decode_InvalidStreamInfoValues_Throw`, `FlacDecoder_Decode_MetadataDamage_ReportsTruncation`,
+`FlacDecoder_Decode_InvalidStreamInfoValues_Throw`, `FlacDecoder_Decode_MetadataDamage_ReportsTruncation`
+(a cut metadata header, a cut metadata body, and a stream holding only the metadata with no audio),
 `FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors`
 
 ##### Unknown total length

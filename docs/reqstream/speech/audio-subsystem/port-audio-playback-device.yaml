@@ -14,15 +14,63 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
                 title: >-
                   The PortAudioPlaybackDevice class shall report availability according to
-                  whether a playback device can be resolved on the preferred host API,
-                  containing faults raised during resolution as unavailability.
+                  whether a playback device can be resolved on the preferred host API.
                 justification: |
                   Hosts need an honest, non-throwing way to decide whether manual playback is
                   currently possible.
                 tests:
                   - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - PortAudioPlaybackDevice_Constructor_HostApiUnresolvable_ReportsUnavailable
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ResolutionFaultsContained
+                title: >-
+                  The PortAudioPlaybackDevice class shall contain a fault raised while resolving
+                  the playback device and report the device as unavailable.
+                justification: |
+                  Construction happens at application start-up, so a native device-table fault
+                  must degrade to honest unavailability rather than an arbitrary interop
+                  exception.
+                tests:
                   - PortAudioPlaybackDevice_Constructor_DeviceQueryFaults_ReportsUnavailableAndDiagnostic
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-NullEnvironmentRejected
+                title: >-
+                  The PortAudioPlaybackDevice class shall reject a null environment with an
+                  ArgumentNullException.
+                justification: |
+                  A null environment is a programming error and the only condition for which
+                  construction throws.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_NullEnvironment_ThrowsArgumentNullException
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-UnresolvedOperationsThrow
+                title: >-
+                  The PortAudioPlaybackDevice class shall throw AudioDeviceUnavailableException
+                  from Start, Stop and Write when no playback device could be resolved.
+                justification: |
+                  Operating on an honestly unavailable device is a programming error that must
+                  surface as the library's documented exception.
+                tests:
                   - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-NullWriteRejected
+                title: >-
+                  The PortAudioPlaybackDevice class shall reject a null sample list passed to
+                  Write with an ArgumentNullException.
+                justification: |
+                  A null sample list is a programming error that must be reported distinctly from
+                  device unavailability.
+                tests:
+                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-NamedSelectionResolved
+                title: >-
+                  The PortAudioPlaybackDevice class shall resolve the device whose name exactly
+                  matches the persisted selection when that device is present.
+                justification: |
+                  A user's explicit device choice must be honored over the host-API default.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_NamedSelectionPresent_ResolvesNamedDevice
 
               - id: Speech-Audio-PortAudioPlaybackDevice-StaleSelectionUsesDefault
                 title: >-
@@ -37,14 +85,44 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-QueuedPlayback
                 title: >-
                   The PortAudioPlaybackDevice class shall queue interleaved floating-point
-                  samples and deliver them to the playback callback in the order written.
+                  samples and deliver them to the stream's sample requests in the order written.
                 justification: |
                   Callback-driven playback must avoid blocking for new audio data.
                 tests:
                   - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-RestartNeverReplaysStaleAudio
+                title: >-
+                  The PortAudioPlaybackDevice class shall never replay audio left over from a
+                  previous stream when playback is restarted, including after a failed native
+                  stop.
+                justification: |
+                  A partially consumed block surviving a stop would play stale audio at the start
+                  of the next stream; a failed native stop must not defeat this guarantee.
+                tests:
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
+                  - PortAudioPlaybackDevice_Start_AfterFailedNativeStop_DoesNotReplayStaleHeadBlock
+                  - PortAudioPlaybackDevice_Write_AfterStop_PendingCountMatchesQueuedSamples
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-WriteCopiesBuffer
+                title: >-
+                  The PortAudioPlaybackDevice class shall copy the samples passed to Write so the
+                  caller may reuse its buffer as soon as the call returns.
+                justification: |
+                  Write is fire-and-forget; queued audio must own stable storage.
+                tests:
+                  - PortAudioPlaybackDevice_Write_CallerMutatesBufferAfterWrite_QueuedAudioUnchanged
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-EmptyWriteIgnored
+                title: >-
+                  The PortAudioPlaybackDevice class shall ignore an empty sample list passed to
+                  Write.
+                justification: |
+                  An empty write carries no audio and must not queue a zero-length block.
+                tests:
+                  - PortAudioPlaybackDevice_Write_EmptyAndNonCollectionLists_HandledCorrectly
 
               - id: Speech-Audio-PortAudioPlaybackDevice-UnderrunZeroFill
                 title: >-
@@ -55,18 +133,58 @@ sections:
                 tests:
                   - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
 
-              - id: Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
+              - id: Speech-Audio-PortAudioPlaybackDevice-OpenFailureThrowsUnavailable
                 title: >-
-                  The PortAudioPlaybackDevice class shall surface native stream-open, start and
-                  stop failures as AudioDeviceUnavailableException.
+                  The PortAudioPlaybackDevice class shall surface a native stream-open failure as
+                  AudioDeviceUnavailableException.
                 justification: |
                   A device that disappeared or could not open after selection should fail at
                   first use with a library-specific exception rather than leaking native details.
                 tests:
                   - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
+                title: >-
+                  The PortAudioPlaybackDevice class shall surface a native stream-start failure
+                  as AudioDeviceUnavailableException wrapping the original failure, disposing
+                  the opened stream.
+                justification: |
+                  A stream that opened but could not start must not leak, and the original
+                  failure rather than a cleanup fault must reach the caller.
+                tests:
+                  - PortAudioPlaybackDevice_Start_NativeStreamStartFails_DisposesStreamAndReleasesRegistration
                   - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
+                title: >-
+                  The PortAudioPlaybackDevice class shall surface a native stream-stop failure as
+                  AudioDeviceUnavailableException wrapping the original failure, still disposing
+                  the stream and logging, not throwing, any dispose fault that follows.
+                justification: |
+                  Shutdown faults must not escape as arbitrary interop exceptions, and the
+                  primary stop failure must remain visible to the caller.
+                tests:
                   - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
+                title: >-
+                  The PortAudioPlaybackDevice class shall surface a stream-dispose failure that
+                  follows a successful stop as AudioDeviceUnavailableException.
+                justification: |
+                  A dispose fault is the final interop cleanup boundary and must be wrapped
+                  consistently.
+                tests:
                   - PortAudioPlaybackDevice_Stop_DisposeFailsAfterStop_ThrowsWrappedDisposeFailure
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
+                title: >-
+                  The PortAudioPlaybackDevice class shall treat Start on an already started
+                  device as a no-op.
+                justification: |
+                  Opening a second native stream would leak the first.
+                tests:
+                  - PortAudioPlaybackDevice_Start_AlreadyStarted_OpensResolvedFormatOnce
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
                 title: >-
@@ -141,8 +259,7 @@ sections:
                 title: >-
                   The PortAudioPlaybackDevice class shall track, with PendingSampleCount, how
                   many samples passed to Write have not yet been dequeued by the playback
-                  callback, decrementing only by samples the callback genuinely dequeues (never
-                  by a zero-fill shortfall).
+                  callback.
                 justification: |
                   A caller that must not cut playback off, notably speech synthesis, needs a
                   signal of real drain progress. Write is fire-and-forget, so only a count that
@@ -155,6 +272,18 @@ sections:
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
                   - PortAudioPlaybackDevice_Write_EmptyAndNonCollectionLists_HandledCorrectly
                   - PortAudioPlaybackDevice_ProvideSamples_NonPositiveRequest_ReturnsEmptyAndKeepsQueue
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountExcludesZeroFill
+                title: >-
+                  The PortAudioPlaybackDevice class shall decrement the pending sample count only
+                  by samples the playback callback genuinely dequeues, never by a zero-fill
+                  shortfall.
+                justification: |
+                  Counting zero-fill padding as drained would drive the count below the real
+                  queue depth and let a drain-waiting caller stop playback early.
+                tests:
+                  - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
                 title: >-
@@ -176,7 +305,7 @@ sections:
                   A device that never resolved can never deliver samples, so reporting any as
                   pending would stall drain-waiting callers.
                 tests:
-                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
 
               - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
                 title: >-
@@ -194,14 +323,25 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistration
                 title: >-
                   The PortAudioPlaybackDevice class shall unregister itself from the environment's
-                  active-stream tracking once Stop completes (or Start's open attempt fails), so a
-                  later PortAudioEnvironment.Refresh() is no longer blocked by this device.
+                  active-stream tracking once Stop completes, so a later
+                  PortAudioEnvironment.Refresh() is no longer blocked by this device.
                 justification: |
                   A stream left registered after Stop would block every future refresh
                   indefinitely.
                 tests:
                   - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistrationOnStartFailure
+                title: >-
+                  The PortAudioPlaybackDevice class shall unregister itself from the environment's
+                  active-stream tracking when Start's native open or start attempt fails.
+                justification: |
+                  A registration left behind by a failed start would block every future refresh
+                  indefinitely, even though no stream is running.
+                tests:
                   - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
+                  - PortAudioPlaybackDevice_Start_NativeStreamStartFails_DisposesStreamAndReleasesRegistration
 
               - id: Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
                 title: >-

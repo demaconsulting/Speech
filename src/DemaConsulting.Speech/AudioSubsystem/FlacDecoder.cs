@@ -28,11 +28,14 @@ internal static class FlacDecoder
     /// <summary>Gets a value indicating whether <paramref name="data"/> is a FLAC stream, optionally behind an ID3v2 tag.</summary>
     /// <param name="data">The file bytes.</param>
     /// <returns><see langword="true"/> when the <c>fLaC</c> marker is found.</returns>
-    public static bool IsFlac(ReadOnlySpan<byte> data)
-    {
-        var start = SkipId3(data);
-        return start >= 0 && data.Length >= start + 4 && data.Slice(start, 4).SequenceEqual("fLaC"u8);
-    }
+    public static bool IsFlac(ReadOnlySpan<byte> data) => HasMarker(data, SkipId3(data));
+
+    /// <summary>Gets a value indicating whether the <c>fLaC</c> marker sits at <paramref name="start"/>.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="start">The offset just past any ID3v2 tag, or a negative value when the tag is damaged.</param>
+    /// <returns><see langword="true"/> when <paramref name="start"/> is valid and holds the marker.</returns>
+    private static bool HasMarker(ReadOnlySpan<byte> data, int start) =>
+        start >= 0 && data.Length >= start + 4 && data.Slice(start, 4).SequenceEqual("fLaC"u8);
 
     /// <summary>
     ///     Decodes a FLAC stream.
@@ -57,7 +60,7 @@ internal static class FlacDecoder
     internal static AudioClip Decode(byte[] data, bool verifyChecksums, long maxSamples, int maxArrayLength)
     {
         var position = SkipId3(data);
-        if (position < 0 || !IsFlac(data))
+        if (!HasMarker(data, position))
         {
             throw new InvalidDataException("The data is not a FLAC stream.");
         }

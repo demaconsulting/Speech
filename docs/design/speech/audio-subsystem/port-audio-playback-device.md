@@ -29,9 +29,17 @@ The `_headBlock`/`_headOffset` cursor requires no additional synchronization: it
 and reset by `ClearQueuedSamples` (a caller thread) only after the native stream-stop call has
 returned successfully, which blocks until the callback thread finished. `Start`/`Stop` are
 serialized under the same lock. When the native stop fails the callback may still be running, so
-the stop-failure path resets only the thread-safe queue and counter and leaves the cursor alone.
+the stop-failure path drains only the thread-safe queue and leaves the cursor alone; the next
+`Start()` then discards that stale head block (before the replacement stream is opened) so a
+restart never replays it, and removes its unconsumed remainder from `_pendingSampleCount` so the
+counter never goes negative. Until that restart, `PendingSampleCount` after a failed stop may
+still include the unconsumed remainder of the head block. `ClearQueuedSamples` subtracts each
+dequeued block's length from `_pendingSampleCount` instead of resetting the counter, so a
+concurrent `Write` (which counts a block before enqueueing it) can never leave the counter out of
+step with the queue.
 The queue is unbounded: audio written faster than the hardware renders it, or written before
-`Start()`, is retained until drained or cleared by `Stop()`.
+`Start()`, is retained until drained or cleared by `Stop()`; audio written after `Stop()` is
+likewise retained and played by the next `Start()`.
 
 **Key Methods**:
 
@@ -59,7 +67,8 @@ The queue is unbounded: audio written faster than the hardware renders it, or wr
   raises) inside a `finally` that clears the stream reference and unregisters the active-stream
   entry, so a throwing `Dispose()` can never leave this device stuck registered as active; the
   original start failure is what is ultimately reported and thrown.
-  Calling `Start()` on an already started device does nothing.
+  Calling `Start()` on an already started device does nothing. Before opening the stream, `Start()`
+  discards any stale head block left by an earlier failed native stop.
 - **Write(IReadOnlyList&lt;float&gt;)**: Requires a non-null list (`ArgumentNullException`) and a
   resolved device (`AudioDeviceUnavailableException` otherwise); an empty list is ignored. Copies
   the interleaved samples into a new block, so the caller may reuse its buffer immediately, adds

@@ -10,8 +10,9 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// </summary>
 /// <remarks>
 ///     Construction throws only <see cref="ArgumentNullException"/> for a null environment; a
-///     fault raised while resolving the device is contained and reported as a diagnostic. When PortAudio initialized successfully but no device can be
-///     resolved for the current selection or host-API default, the instance honestly reports
+///     fault raised while resolving the device is contained and reported as a diagnostic. When
+///     PortAudio initialized successfully but no device can be resolved for the current
+///     selection or host-API default, the instance honestly reports
 ///     <see cref="IsAvailable"/> as <see langword="false"/> and operational members throw
 ///     <see cref="AudioDeviceUnavailableException"/> only when invoked.
 ///     <para>
@@ -124,6 +125,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     serialized under <see cref="_syncRoot"/>, and <c>Stop()</c> only calls
     ///     <see cref="ClearQueuedSamples"/> after the native <c>stream.Stop()</c> call has already
     ///     blocked until the callback thread finished - so the two accessors never run concurrently.
+    ///     <see cref="Start"/> also discards a stale block left behind by a failed native stop,
+    ///     before the replacement stream is opened.
     /// </summary>
     private float[]? _headBlock;
 
@@ -229,6 +232,11 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     "AudioDeviceFactory instead.");
             }
 
+            // A previous native stop may have failed, leaving a stale partially consumed head
+            // block behind (the callback might still have owned it at that time). No stream is
+            // running now, so drop it here rather than replaying stale audio on the new stream.
+            DiscardHeadBlock();
+
             try
             {
                 _stream = _environment.Api.OpenPlaybackStream(
@@ -324,7 +332,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     stopException = ex;
 
                     // The native stop failed, so the callback thread may still be running and
-                    // owns the head-block fields: reset only the thread-safe queue and counter.
+                    // owns the head-block fields: drain only the thread-safe queue; the next
+                    // Start() discards any stale head block.
                     ClearQueuedSamples(callbackCeased: false);
                     _diagnostics.Report(
                         SpeechDiagnosticLevel.Error,
@@ -670,18 +679,40 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     <see langword="true"/> when the native stream has genuinely stopped, so the callback
     ///     thread can no longer touch <see cref="_headBlock"/>; <see langword="false"/> after a
     ///     failed native stop, when the callback may still be running and only the thread-safe
-    ///     queue and counter may be reset.
+    ///     queue may be drained (a stale head block is then discarded by the next
+    ///     <see cref="Start"/>).
     /// </param>
     private void ClearQueuedSamples(bool callbackCeased = true)
     {
-        _queuedBlocks.Clear();
-        if (callbackCeased)
+        // Each dequeued block's length is subtracted individually (rather than resetting the
+        // counter to zero afterwards) so a Write racing with this clear can never leave the
+        // counter out of step with the queue: Write counts a block before enqueueing it, so
+        // only blocks actually removed here are subtracted.
+        while (_queuedBlocks.TryDequeue(out var block))
         {
-            _headBlock = null;
-            _headOffset = 0;
+            Interlocked.Add(ref _pendingSampleCount, -block.Length);
         }
 
-        Interlocked.Exchange(ref _pendingSampleCount, 0);
+        if (callbackCeased)
+        {
+            DiscardHeadBlock();
+        }
+    }
+
+    /// <summary>
+    ///     Drops the partially consumed head block, if any, removing its unconsumed remainder from
+    ///     the pending count. Must only be called when the callback thread cannot be touching the
+    ///     head-block fields (no stream running, or the native stream has genuinely stopped).
+    /// </summary>
+    private void DiscardHeadBlock()
+    {
+        if (_headBlock is not null)
+        {
+            Interlocked.Add(ref _pendingSampleCount, -(_headBlock.Length - _headOffset));
+        }
+
+        _headBlock = null;
+        _headOffset = 0;
     }
 
     /// <summary>

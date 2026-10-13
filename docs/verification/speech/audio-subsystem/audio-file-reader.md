@@ -2,9 +2,9 @@
 
 #### Verification Approach
 
-Verified by `AudioFileReaderTests.cs` (container detection, errors, options, byte cap, mono read) and by
-`FlacDecoderTests.cs`, whose fixture theory compares libFLAC-encoded files with lossless WAV files
-of the same samples. Both files live under `test/DemaConsulting.Speech.Tests/AudioSubsystem`.
+Verified by `AudioFileReaderTests.cs` (container detection, errors, options, byte cap, mono read) under
+`test/DemaConsulting.Speech.Tests/AudioSubsystem`. The libFLAC fixture comparison lives with the
+FlacDecoder unit.
 
 #### Test Environment
 
@@ -16,8 +16,7 @@ of the same samples. Both files live under `test/DemaConsulting.Speech.Tests/Aud
 Containers are detected by content, errors map to the documented exceptions with the path in the
 message, an input over the byte cap is rejected before decoding (file, seekable stream and
 non-seekable stream), `VerifyChecksums` and `MaxSamples` are honored, `ReadMono` returns native-rate
-mono, and every libFLAC fixture decodes
-bit-exactly to its WAV twin.
+mono, a stream is read from its current position, and an I/O failure propagates unwrapped.
 
 #### Test Scenarios
 
@@ -52,12 +51,35 @@ message and no path prefix.
 
 ##### Invalid arguments are rejected
 
-**Tests**: `AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions`,
+**Tests**: `AudioFileReader_Read_NullStream_ThrowsArgumentNullException`,
+`AudioFileReader_Read_BlankPath_ThrowsArgumentException`,
+`AudioFileReader_Read_NegativeMaxSamplesStream_ThrowsArgumentOutOfRange`,
 `AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter`
 
-**Expected**: A null stream throws `ArgumentNullException`; an empty path throws
-`ArgumentException`; a negative `MaxSamples` throws `ArgumentOutOfRangeException` whose parameter
-name is `options`, except that a missing path reports `FileNotFoundException` first.
+**Expected**: A null stream throws `ArgumentNullException`; an empty or blank path throws
+`ArgumentException`; a negative `MaxSamples` on the stream overload throws
+`ArgumentOutOfRangeException`, and on the path overload one whose parameter name is
+`options.MaxSamples`, except that a missing path reports `FileNotFoundException` first.
+
+##### Stream position, ID3-prefixed FLAC and positions past the end
+
+**Tests**: `AudioFileReader_Read_SeekableStreamAtNonZeroPosition_ReadsFromCurrentPosition`,
+`AudioFileReader_Read_SeekableStreamPositionedPastEnd_ThrowsInvalidData`,
+`AudioFileReader_Read_Id3PrefixedFlac_Decodes`
+
+**Expected**: A seekable stream with leading junk and its position set to the audio decodes from
+that position; a position past the end throws `InvalidDataException` (no negative-length
+allocation); an ID3v2-prefixed FLAC stream decodes through the reader.
+
+##### Directory, locked file and unsupported-WAV stream errors
+
+**Tests**: `AudioFileReader_Read_DirectoryPath_ThrowsFileNotFound`,
+`AudioFileReader_Read_FileLockedExclusively_ThrowsIOException`,
+`AudioFileReader_Read_UnsupportedWavStream_ThrowsNotSupportedWithoutPath`
+
+**Expected**: A directory path throws `FileNotFoundException`; a file held open without sharing
+throws `IOException` unwrapped; an unsupported WAV read from a stream throws
+`NotSupportedException` with no path prefix.
 
 ##### WAV stream and mono read errors
 
@@ -120,6 +142,5 @@ with one mono sample per frame and identical samples from both overloads.
 
 ##### libFLAC fixtures decode bit-exactly
 
-**Test**: `FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact`
-
-**Expected**: Each libFLAC fixture's decoded samples equal those of its lossless WAV twin.
+This scenario is owned by the FlacDecoder unit (`Speech-Audio-FlacDecoder-LibFlacFixtures`);
+it is exercised through `AudioFileReader` and is listed in the FlacDecoder verification document.

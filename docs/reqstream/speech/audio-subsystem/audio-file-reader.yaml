@@ -31,6 +31,26 @@ sections:
                   - AudioFileReader_Read_NonSeekableStream_Decodes
                   - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
 
+              - id: Speech-Audio-AudioFileReader-ReadsFromCurrentStreamPosition
+                title: >-
+                  The AudioFileReader class shall read a stream from its current position rather
+                  than from its start.
+                justification: |
+                  Hosts embed audio inside larger containers and hand over a stream already
+                  positioned at the audio.
+                tests:
+                  - AudioFileReader_Read_SeekableStreamAtNonZeroPosition_ReadsFromCurrentPosition
+
+              - id: Speech-Audio-AudioFileReader-DecodesId3PrefixedFlac
+                title: >-
+                  The AudioFileReader class shall decode a FLAC stream that is preceded by an ID3v2
+                  tag.
+                justification: |
+                  Tagging tools commonly prepend ID3v2 tags to FLAC files, and such files remain
+                  valid audio.
+                tests:
+                  - AudioFileReader_Read_Id3PrefixedFlac_Decodes
+
               - id: Speech-Audio-AudioFileReader-ListsSupportedExtensions
                 title: >-
                   The AudioFileReader class shall list the supported file extensions (.wav and .flac).
@@ -42,45 +62,94 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-ReportsMissingFile
                 title: >-
-                  The AudioFileReader class shall report a missing file with FileNotFoundException.
+                  The AudioFileReader class shall report a path that names no file, including a
+                  directory, with FileNotFoundException.
                 justification: |
                   Callers must be able to tell a missing file from a bad format.
                 tests:
                   - AudioFileReader_Read_MissingFile_ThrowsFileNotFound
+                  - AudioFileReader_Read_DirectoryPath_ThrowsFileNotFound
+
+              - id: Speech-Audio-AudioFileReader-ReportsIoFailures
+                title: >-
+                  The AudioFileReader class shall let an IOException raised while opening or reading
+                  a file propagate unwrapped.
+                justification: |
+                  An I/O failure such as a locked file is not a format problem, and callers must be
+                  able to tell the two apart.
+                tests:
+                  - AudioFileReader_Read_FileLockedExclusively_ThrowsIOException
 
               - id: Speech-Audio-AudioFileReader-ReportsMalformedFile
                 title: >-
-                  The AudioFileReader class shall report an unrecognized or malformed file with
-                  InvalidDataException, naming the file path in path-based failures.
+                  The AudioFileReader class shall report an unrecognized or malformed file or
+                  stream, including a seekable stream positioned at or past its end, with
+                  InvalidDataException.
                 justification: |
-                  Callers must be able to tell a bad format from a missing file and to locate the offender.
+                  Callers must be able to tell a bad format from a missing file.
                 tests:
                   - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
                   - AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath
+                  - AudioFileReader_Read_SeekableStreamPositionedPastEnd_ThrowsInvalidData
 
               - id: Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
                 title: >-
-                  The AudioFileReader class shall report an unsupported encoding with NotSupportedException,
-                  naming the file path in path-based failures.
+                  The AudioFileReader class shall report an unsupported encoding with
+                  NotSupportedException.
                 justification: |
                   Callers must be able to tell an unsupported encoding from a damaged file.
                 tests:
                   - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
+                  - AudioFileReader_Read_UnsupportedWavStream_ThrowsNotSupportedWithoutPath
 
-              - id: Speech-Audio-AudioFileReader-ReportsInvalidArguments
+              - id: Speech-Audio-AudioFileReader-NamesPathInFailures
                 title: >-
-                  The AudioFileReader class shall report invalid arguments with the matching argument
-                  exception.
+                  The AudioFileReader class shall name the file path in the message of a path-based
+                  read's InvalidDataException or NotSupportedException, and shall add no path to a
+                  stream-based read's message.
+                justification: |
+                  A failure among many voice or audio files must be attributable to its file; a
+                  stream has no path to name.
+                tests:
+                  - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
+                  - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
+                  - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
+                  - AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath
+                  - AudioFileReader_Read_UnsupportedWavStream_ThrowsNotSupportedWithoutPath
+
+              - id: Speech-Audio-AudioFileReader-RejectsNullStream
+                title: >-
+                  The AudioFileReader class shall reject a null stream with ArgumentNullException.
                 justification: |
                   Caller mistakes must fail at the call site with a conventional exception type.
                 tests:
-                  - AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions
+                  - AudioFileReader_Read_NullStream_ThrowsArgumentNullException
+
+              - id: Speech-Audio-AudioFileReader-RejectsBlankPath
+                title: >-
+                  The AudioFileReader class shall reject a null path with ArgumentNullException and
+                  an empty or blank path with ArgumentException.
+                justification: |
+                  Caller mistakes must fail at the call site with a conventional exception type.
+                tests:
+                  - AudioFileReader_Read_BlankPath_ThrowsArgumentException
+
+              - id: Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
+                title: >-
+                  The AudioFileReader class shall reject a negative MaxSamples option with
+                  ArgumentOutOfRangeException whose parameter name is options.MaxSamples, after
+                  reporting a missing file for a path-based read.
+                justification: |
+                  Caller mistakes must fail at the call site with a conventional exception type.
+                tests:
+                  - AudioFileReader_Read_NegativeMaxSamplesStream_ThrowsArgumentOutOfRange
                   - AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter
 
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
-                  The AudioFileReader class shall reject an input larger than the byte cap derived from
-                  the configured maximum sample count with InvalidDataException before decoding it.
+                  The AudioFileReader class shall reject an input larger than the byte cap, five
+                  bytes per permitted sample plus 1 MiB and never more than the largest array
+                  length, with InvalidDataException before decoding it.
                 justification: |
                   Hostile or accidental oversized inputs must fail with a bounded memory and time cost
                   rather than exhausting the host.
@@ -102,11 +171,18 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-VerifyChecksums
                 title: >-
-                  The AudioFileReader class shall verify FLAC checksums by default and skip the
-                  verification when the VerifyChecksums option is false.
+                  The AudioFileReader class shall verify FLAC checksums by default.
                 justification: |
-                  Hosts choose between failing fast on damaged files and recovering as much audio as
-                  possible.
+                  Hosts normally want to fail fast on damaged files.
+                tests:
+                  - AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly
+
+              - id: Speech-Audio-AudioFileReader-VerifyChecksumsOptOut
+                title: >-
+                  The AudioFileReader class shall skip FLAC checksum verification when the
+                  VerifyChecksums option is false.
+                justification: |
+                  Hosts may prefer to recover as much audio as possible from a damaged file.
                 tests:
                   - AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly
 
@@ -119,12 +195,3 @@ sections:
                 tests:
                   - AudioFileReader_ReadMono_Stereo_DownMixesAtNativeRate
                   - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
-
-              - id: Speech-Audio-AudioFileReader-FlacFixtures
-                title: >-
-                  The AudioFileReader class shall decode FLAC files produced by libFLAC (via libsndfile)
-                  bit-exactly, matching a lossless WAV made from the same samples.
-                justification: |
-                  Independent encoder output is the ground truth that the managed decoder is correct.
-                tests:
-                  - FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact

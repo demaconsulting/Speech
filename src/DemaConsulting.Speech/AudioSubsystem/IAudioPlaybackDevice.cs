@@ -104,6 +104,11 @@ public interface IAudioPlaybackDevice
     ///     reported itself as available but the underlying native playback path failed before the
     ///     queued samples could be rendered.
     /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown by an available device when <paramref name="samples"/> is <see langword="null"/>.
+    ///     An unavailable device throws <see cref="AudioDeviceUnavailableException"/> before
+    ///     examining its argument.
+    /// </exception>
     void Write(IReadOnlyList<float> samples);
 
     /// <summary>

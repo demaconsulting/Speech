@@ -13,8 +13,7 @@ sections:
             requirements:
               - id: Speech-Audio-FlacDecoder-Prediction
                 title: >-
-                  The FlacDecoder shall decode constant, verbatim, fixed-predictor and linear-predictor subframes
-                  with both Rice residual methods, escape partitions and wasted bits.
+                  The FlacDecoder shall decode constant, verbatim, fixed-predictor and linear-predictor subframes.
                 justification: |
                   A decoder must support every subframe type of the FLAC format to read arbitrary encoder output.
                 tests:
@@ -22,18 +21,49 @@ sections:
                   - FlacDecoder_Decode_VerbatimMultiFrame_RoundTrips
                   - FlacDecoder_Decode_FixedPredictor_RoundTrips
                   - FlacDecoder_Decode_LpcPredictor_RoundTrips
+
+              - id: Speech-Audio-FlacDecoder-ResidualCoding
+                title: >-
+                  The FlacDecoder shall decode both Rice residual coding methods, including escape
+                  partitions.
+                justification: |
+                  Encoders choose either residual method and may escape partitions to raw samples.
+                tests:
                   - FlacDecoder_Decode_ResidualCoding_RoundTrips
+
+              - id: Speech-Audio-FlacDecoder-WastedBits
+                title: >-
+                  The FlacDecoder shall restore wasted low bits into the decoded samples.
+                justification: |
+                  Encoders signal always-zero low bits as wasted bits; ignoring them would scale the
+                  audio wrongly.
+                tests:
                   - FlacDecoder_Decode_WastedBits_AreRestored
 
-              - id: Speech-Audio-FlacDecoder-StereoAndBitDepth
+              - id: Speech-Audio-FlacDecoder-StereoModes
                 title: >-
-                  The FlacDecoder shall handle all stereo decorrelation modes and bit depths from 4 to
-                  32.
+                  The FlacDecoder shall handle all stereo decorrelation modes.
                 justification: |
-                  Real FLAC files vary in channel assignment and sample width.
+                  Real FLAC files vary in channel assignment.
                 tests:
                   - FlacDecoder_Decode_StereoModes_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-BitDepths
+                title: >-
+                  The FlacDecoder shall handle bit depths from 4 to 32.
+                justification: |
+                  Real FLAC files vary in sample width.
+                tests:
                   - FlacDecoder_Decode_BitDepths_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-LibFlacFixtures
+                title: >-
+                  The FlacDecoder shall decode FLAC files produced by libFLAC (via libsndfile)
+                  bit-exactly, matching a lossless WAV made from the same samples.
+                justification: |
+                  Independent encoder output is the ground truth that the managed decoder is correct.
+                tests:
+                  - FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact
 
               - id: Speech-Audio-FlacDecoder-HeaderCodes
                 title: >-
@@ -46,16 +76,31 @@ sections:
                   - FlacDecoder_Decode_BlockSizeCodes_RoundTrip
                   - FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers
 
-              - id: Speech-Audio-FlacDecoder-StreamShapes
+              - id: Speech-Audio-FlacDecoder-ContainerLayouts
                 title: >-
-                  The FlacDecoder shall handle up to eight channels, ID3v2 prefixes, extra metadata
-                  blocks and streams of unknown length.
+                  The FlacDecoder shall handle up to eight channels, ID3v2 prefixes and extra metadata
+                  blocks.
                 justification: |
                   Real FLAC files vary in container layout.
                 tests:
                   - FlacDecoder_Decode_ContainerVariants_RoundTrip
                   - FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader
+
+              - id: Speech-Audio-FlacDecoder-UnknownLength
+                title: >-
+                  The FlacDecoder shall decode a stream of unknown length until no further frame follows.
+                justification: |
+                  Streaming encoders write a zero total-sample count.
+                tests:
                   - FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends
+
+              - id: Speech-Audio-FlacDecoder-MarkerDetection
+                title: >-
+                  The FlacDecoder shall recognize a FLAC stream by its fLaC marker, optionally behind an
+                  ID3v2 tag, and by nothing else.
+                justification: |
+                  Container detection by content must not mistake other data for FLAC.
+                tests:
                   - FlacDecoder_IsFlac_VariousInputs_DetectsMarkerOnly
 
               - id: Speech-Audio-FlacDecoder-Integrity
@@ -136,8 +181,8 @@ sections:
 
               - id: Speech-Audio-FlacDecoder-SampleCap
                 title: >-
-                  The FlacDecoder shall reject a stream exceeding the sample cap (clamped to the maximum
-                  array length) with InvalidDataException.
+                  The FlacDecoder shall reject a stream exceeding the sample cap, which never exceeds the
+                  maximum array length, with InvalidDataException.
                 justification: |
                   A bounded decode cost protects hosts from oversized or hostile files.
                 tests:

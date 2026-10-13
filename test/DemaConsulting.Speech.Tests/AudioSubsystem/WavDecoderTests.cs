@@ -216,7 +216,71 @@ public sealed class WavDecoderTests
         var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(Riff(("fmt ", fmt), ("data", new byte[2])))));
 
         // Assert
-        Assert.Contains("no channels or no sample rate", ex.Message);
+        Assert.Contains("above the supported maximum", ex.Message);
+        Assert.DoesNotContain("no channels", ex.Message);
+    }
+
+    /// <summary>Proves a data size of 0xFFFFFFFF (streaming writers) is clamped to the bytes present.</summary>
+    [Fact]
+    public void WavDecoder_Decode_MaxDataSize_IsClampedToBytesPresent()
+    {
+        // Arrange: two mono 16-bit samples behind a data size of 0xFFFFFFFF
+        var image = Wav(1, 8000, 16, 1, new byte[] { 0, 0, 0, 0x40 });
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(40), 0xFFFFFFFFu);
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(image));
+
+        // Assert
+        Assert.Equal([0f, 0.5f], clip.Samples);
+    }
+
+    /// <summary>Proves the 8-bit unsigned extremes map to -1 (0) and just below 1 (255).</summary>
+    [Theory]
+    [InlineData(0, -1f)]
+    [InlineData(128, 0f)]
+    [InlineData(255, 127f / 128f)]
+    public void WavDecoder_Decode_EightBitExtremes_ScaleAsExpected(int value, float expected)
+    {
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 8, 1, new[] { (byte)value })));
+
+        // Assert
+        Assert.Equal([expected], clip.Samples);
+    }
+
+    /// <summary>Proves that when a second fmt chunk appears before data, the last one wins.</summary>
+    [Fact]
+    public void WavDecoder_Decode_DuplicateFmtChunks_LastOneWins()
+    {
+        // Arrange: a 16-bit fmt followed by an 8-bit fmt, then one byte of data
+        var image = Riff(("fmt ", Format(1, 8000, 16, 1)), ("fmt ", Format(1, 44100, 8, 1)), ("data", new byte[] { 255 }));
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(image));
+
+        // Assert
+        Assert.Equal(8, clip.BitsPerSample);
+        Assert.Equal(44100, clip.SampleRate);
+        Assert.Equal([127f / 128f], clip.Samples);
+    }
+
+    /// <summary>Proves images shorter than the 12-byte RIFF/WAVE header are rejected as not WAV.</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    [InlineData(11)]
+    public void WavDecoder_Decode_ImageShorterThanHeader_Throws(int length)
+    {
+        // Arrange
+        var image = "RIFF\0\0\0\0WAVE"u8[..length].ToArray();
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(image, long.MaxValue));
+
+        // Assert
+        Assert.Contains("not a RIFF/WAVE", ex.Message, StringComparison.Ordinal);
+        Assert.False(WavDecoder.IsWav(image));
     }
 
     /// <summary>Proves a non-data chunk whose padded body runs past the end ends the walk with "no data chunk".</summary>
