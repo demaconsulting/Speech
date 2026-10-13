@@ -4,7 +4,7 @@
 
 The ModelManagementSubsystem is verified through deterministic unit tests against a fake
 `IModelDownloadClient` for `SpeechModelStore`'s atomic-swap/install-state logic and
-`SpeechModelDownloader`'s queueing/verification/failure-state orchestration, plus a real
+`SpeechModelDownloader`'s fetch/verification/failure-state orchestration, plus a real
 end-to-end test of `HttpModelDownloadClient` against an in-process `WireMock.Net`-stubbed HTTP
 server. This proves both the pure orchestration logic (fast,
 deterministic, no network) and the one real network-facing implementation (genuinely downloads
@@ -63,6 +63,17 @@ installs nothing; a canceled download installs nothing.
 **Expected**: The client is asked for the mirror-resolved URI.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
+
+#### Downloads are serialized per model id and concurrent across models
+
+**Stimulus**: Two concurrent `DownloadAsync` calls for the same model id, then for two different model ids.
+
+**Expected**: Same-id calls run one after the other (a call canceled while waiting never reaches the
+client); different-id calls run concurrently with no pool limit.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`,
+`SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient`,
+`SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForDifferentModels_RunConcurrently`
 
 #### Catalog tracks download state
 
@@ -151,6 +162,107 @@ catalog instance.
 
 **Tests**: `SpeechModelCatalog_AddModels_Called_AppearsInEnumerate`,
 `SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance`
+
+#### Store reports installed only with `current/` and a valid manifest
+
+**Stimulus**: `SpeechModelStore.IsInstalled` for no install, `current/` without a manifest, and a
+malformed, empty or unreadable manifest.
+
+**Expected**: `false` in every case, never an exception.
+
+**Tests**: `SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse`,
+`SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse`,
+`SpeechModelStore_IsInstalled_ManifestIsMalformedJson_ReturnsFalse`,
+`SpeechModelStore_CompleteInstall_ManifestWriteFails_ThrowsAndReadsAsNotInstalled`
+
+#### Storage root is configurable
+
+**Stimulus**: Construct a store with no options, and with a root path override.
+
+**Expected**: The default root is under `LocalApplicationData`; an override is used verbatim.
+
+**Tests**: `SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData`,
+`SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim`
+
+#### Failed uninstall is signaled and never reads as installed
+
+**Stimulus**: Uninstall while a file handle is open in `current/`, or with an undeletable manifest.
+
+**Expected**: `SpeechModelStoreException` is thrown; after a failed uninstall that removed the
+manifest the model reads as not installed (Windows-only open-handle scenario).
+
+**Tests**: `SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException`,
+`SpeechModelStore_Uninstall_ManifestDeleteFails_ThrowsSpeechModelStoreException`
+
+#### Download descriptors validate themselves
+
+**Stimulus**: Build download files and descriptors with an HTTP URI, a bad checksum, an escaping
+install path, an empty list or duplicate install paths.
+
+**Expected**: `ArgumentException` (or `ArgumentNullException`) at construction.
+
+**Tests**: `SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException`,
+`SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException`,
+`SpeechModelDownloadDescriptor_Constructor_EmptyFileList_ThrowsArgumentException`,
+`SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException`
+
+#### Progress is reported
+
+**Stimulus**: A download through the fake client with an `IProgress` sink; progress fractions with a
+known, unknown and zero total.
+
+**Expected**: Increasing progress is reported; the fraction is computed, `null` or one respectively.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress`,
+`SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction`,
+`SpeechModelDownloadProgress_FractionComplete_UnknownTotal_ReturnsNull`,
+`SpeechModelDownloadProgress_FractionComplete_ZeroTotalBytes_ReturnsOne`
+
+#### Mirror authentication is sent only to the mirror
+
+**Stimulus**: `HttpModelDownloadClient` with a bearer or credential mirror, against the WireMock.Net server.
+
+**Expected**: The matching `Authorization` header is sent to the mirror, none outside it, and none on a
+redirected request.
+
+**Tests**: `HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader`,
+`HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader`,
+`HttpModelDownloadClient_DownloadAsync_NonMirrorUriWithMirrorConfigured_SendsNoAuthorizationHeader`,
+`HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest`
+
+#### Timeouts are classified as network-blocked
+
+**Stimulus**: The built-in client's own timeout, and a non-timeout cancellation from an injected client.
+
+**Expected**: `NetworkBlocked` for the internal timeout; `Failed` for an unrelated cancellation exception.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`,
+`SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed`
+
+#### Catalog states and store exposure
+
+**Stimulus**: A catalog download that succeeds, one that fails its checksum, and a read of `Store`.
+
+**Expected**: `Downloaded` after success; `FailedOrCorrupt` after a failure; `Store` is the catalog's own store;
+a mirror passed to the catalog constructor is used.
+
+**Tests**: `SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion`,
+`SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt`,
+`SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance`,
+`SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor`
+
+#### Model contract declarations and hooks
+
+**Stimulus**: Fake recognition and synthesis models declaring parameters, audio formats and defaults.
+
+**Expected**: Declarations are exposed through the contract; default hooks leave staging and text unchanged.
+
+**Tests**: `ISpeechModel_Parameters_DeclaresEveryDescriptorKind`,
+`ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed`,
+`IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`,
+`ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed`,
+`ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory`,
+`ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged`
 
 ### Acceptance Criteria
 

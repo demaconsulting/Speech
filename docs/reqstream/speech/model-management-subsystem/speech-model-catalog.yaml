@@ -98,11 +98,22 @@ sections:
                   installed model's directory, or compose a recognizer or synthesizer, through
                   the same catalog instance used for enumeration and download.
                 justification: |
-                  SpeechRecognizerFactory and SpeechSynthesizerFactory accept a SpeechModelStore, but a host still
-                  had to construct a second, independent SpeechModelStore to use them, risking silent
-                  divergence from the catalog's own store (for example, a custom
+                  SpeechRecognizerFactory and SpeechSynthesizerFactory accept a SpeechModelStore; a second,
+                  independent store could silently diverge from the catalog's own (for example, a custom
                   SpeechModelStoreOptions root passed to one but not the other). Exposing the
-                  catalog's own store as Store closes that gap and is the composition seam the
-                  new SpeechModelCatalog-accepting Create overloads use internally.
+                  catalog's own store as Store is the composition seam the catalog-accepting Create
+                  overloads use internally.
                 tests:
                   - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance
+
+              - id: Speech-Models-SpeechModelCatalog-MirrorComposition
+                title: >-
+                  The SpeechModelCatalog class shall accept SpeechModelDownloaderOptions (for
+                  example a DownloadMirror) at construction and forward them to the downloader it
+                  composes, so catalog downloads go through the mirror.
+                justification: |
+                  A host that configures a mirror still wants the catalog's install-hook
+                  orchestration rather than a hand-built downloader.
+                tests:
+                  - SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughCatalog
+                  - SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor

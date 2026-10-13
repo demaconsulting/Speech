@@ -80,9 +80,8 @@ sections:
           - id: Speech-Models-Uninstall
             title: >-
               The ModelManagementSubsystem shall support explicitly uninstalling an installed
-              model and best-effort cleaning up leftover scratch/replaced directories from prior
-              interrupted operations, signaling a documented exception only when an explicit
-              uninstall cannot complete.
+              model, signaling a documented exception only when an explicit uninstall cannot
+              complete.
             justification: |
               Per this library's "nothing throws at composition" decision, only an explicit,
               user-invoked uninstall (never composition, install-state queries, or catalog
@@ -93,13 +92,6 @@ sections:
               - Speech-Models-SpeechModelStore-UninstallNotInstalledNoOp
               - Speech-Models-SpeechModelStore-UninstallAsync
               - Speech-Models-SpeechModelStore-UninstallAsyncRejection
-              - Speech-Models-SpeechModelStore-UninstallLeavesLiveStaging
-              - Speech-Models-SpeechModelStore-UninstallRemovesReplaced
-              - Speech-Models-SpeechModelStore-CleanUpLeftoversStaging
-              - Speech-Models-SpeechModelStore-CleanUpLeftoversReplaced
-              - Speech-Models-SpeechModelStore-CleanUpLeftoversNeverThrows
-              - Speech-Models-SpeechModelStore-EmptyTempCleanup
-              - Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
               - Speech-Models-SpeechModelStore-UninstallCurrentFailureReporting
               - Speech-Models-SpeechModelStore-UninstallManifestFailureReporting
               - Speech-Models-SpeechModelStore-UninstallAsyncFailureReporting
@@ -109,10 +101,27 @@ sections:
               - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
               - SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest
               - SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected
-              - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
               - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
-              - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
 
+          - id: Speech-Models-LeftoverCleanup
+            title: >-
+              The ModelManagementSubsystem shall best-effort clean up leftover scratch and
+              replaced directories from prior interrupted operations without throwing and without
+              touching live staging.
+            justification: |
+              A crashed or interrupted install must not leave scratch space accumulating, while an
+              operation that is still running must keep its staging directory.
+            children:
+              - Speech-Models-SpeechModelStore-UninstallLeavesLiveStaging
+              - Speech-Models-SpeechModelStore-UninstallRemovesReplaced
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversStaging
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversReplaced
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversNeverThrows
+              - Speech-Models-SpeechModelStore-EmptyTempCleanup
+              - Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
+            tests:
+              - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
+              - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
           - id: Speech-Models-DownloadOrchestration
             title: >-
               The ModelManagementSubsystem shall orchestrate one model's download as a SHA-256
@@ -167,13 +176,10 @@ sections:
           - id: Speech-Models-HonestFailureStates
             title: >-
               The ModelManagementSubsystem shall never mark a corrupted, partial,
-              checksum-mismatched, or install-hook-failed download as installed, with Error always
-              populated for any non-Installed outcome.
+              checksum-mismatched, or install-hook-failed download as installed.
             justification: |
               A host must be able to trust that "installed" means "verified" (and, when
-              applicable, successfully unpacked), and that any non-Installed
-              SpeechModelDownloadResult carries a diagnosable Error rather than leaving a host to
-              special-case which outcomes populate it.
+              applicable, successfully unpacked).
             children:
               - Speech-Models-SpeechModelDownloader-ChecksumMismatch
               - Speech-Models-SpeechModelDownloader-ChecksumMismatchInstallsNothing
@@ -257,6 +263,8 @@ sections:
               implementation still needs proof it genuinely performs an HTTP transfer.
             children:
               - Speech-Models-IModelDownloadClient-Seam
+              - Speech-Models-IModelDownloadClient-ThrowsOnFailure
+              - Speech-Models-IModelDownloadClient-CancellationSurfaces
               - Speech-Models-HttpModelDownloadClient-RealDownload
               - Speech-Models-HttpModelDownloadClient-NonSuccessResponseHandling
             tests:
@@ -266,33 +274,48 @@ sections:
           - id: Speech-Models-MirrorRedirect
             title: >-
               The ModelManagementSubsystem shall let a host redirect every model download through
-              a single, optionally-authenticated internal HTTP(S) mirror, uniformly for every
-              model, with no change to any model's own declared download descriptor, and with
-              zero change to the no-mirror-configured behavior of any existing caller.
+              a single internal HTTP(S) mirror, uniformly for every model, with no change to any
+              model's own declared download descriptor, and shall download from each declared URI
+              unchanged when no mirror is configured.
             justification: |
               Some customers' IT departments block the public hosts every model's declared
               download URI points at (for example a TLS-interception policy breaking
               `huggingface.co`); redirecting every model download to an internal mirror the
               customer controls, without any per-model code change, requires one uniform
-              URI-rewriting and authentication seam at this library's single download choke
-              point, not a per-model opt-in.
+              URI-rewriting seam at this library's single download choke point, not a per-model
+              opt-in.
             children:
               - Speech-Models-DownloadMirror-SchemeValidation
-              - Speech-Models-DownloadMirror-MutualExclusivity
               - Speech-Models-DownloadMirror-NullArgumentValidation
               - Speech-Models-DownloadMirror-QueryFragmentValidation
-              - Speech-Models-DownloadMirror-CredentialedHttpRejection
-              - Speech-Models-SpeechModelDownloader-CredentialedMirrorRequiresOwnClient
-              - Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
-              - Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
               - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
               - Speech-Models-SpeechModelDownloader-MirrorUriResolution
               - Speech-Models-SpeechModelDownloader-MirrorUriComposition
               - Speech-Models-SpeechModelDownloader-MirrorUriEscaping
+              - Speech-Models-SpeechModelCatalog-MirrorComposition
+            tests:
+              - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
+              - DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException
+              - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
+
+          - id: Speech-Models-MirrorAuthentication
+            title: >-
+              The ModelManagementSubsystem shall apply a mirror's optional Basic or bearer
+              authentication only to requests to that mirror, never to other hosts or to
+              redirected requests, and shall refuse to send credentials over plain HTTP except to
+              a loopback address.
+            justification: |
+              Mirror credentials must not leak to public hosts, redirect targets or an
+              eavesdropper, while mirror authentication stays configured once at construction
+              rather than per call.
+            children:
+              - Speech-Models-DownloadMirror-MutualExclusivity
+              - Speech-Models-DownloadMirror-CredentialedHttpRejection
+              - Speech-Models-SpeechModelDownloader-CredentialedMirrorRequiresOwnClient
+              - Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
+              - Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
               - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
-              - Speech-Models-IModelDownloadClient-ThrowsOnFailure
-              - Speech-Models-IModelDownloadClient-CancellationSurfaces
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
               - Speech-Models-HttpModelDownloadClient-BasicAuthApplication
               - Speech-Models-HttpModelDownloadClient-NoAuthorizationWithoutMirror
@@ -300,20 +323,17 @@ sections:
               - Speech-Models-HttpModelDownloadClient-RedirectAuthorizationStripping
             tests:
               - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
-              - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
-              - DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException
               - DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException
-              - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
               - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
               - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
               - HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest
-
           - id: Speech-Models-RicherFailureClassification
             title: >-
               The ModelManagementSubsystem shall classify each download/install failure into a
-              distinct outcome category.
+              distinct outcome category and populate Error for every non-Installed outcome.
             justification: |
-              The categories are NetworkBlocked, HttpError, and IoFailure, with the generic
+              Every non-Installed result carries a diagnosable Error rather than leaving a host to
+              special-case which outcomes populate it. The categories are NetworkBlocked, HttpError, and IoFailure, with the generic
               Failed outcome as the fallback for any unrecognized exception shape, so a host
               need not inspect Error's exception type itself.
               Collapsing every failure into one generic Failed outcome leaves a host unable to
@@ -345,35 +365,17 @@ sections:
           - id: Speech-Models-ContractDeclaration
             title: >-
               The ModelManagementSubsystem shall describe every model through a common contract
-              that is independent of engine-specific construction.
+              that declares its identity, role, parameters, audio-tag support, download
+              descriptor and license, independent of engine-specific construction.
             justification: |
-              The contract covers identity, role, declared parameters, declared audio-tag
-              support, download descriptor, an install hook, a text-normalization hook, and a
-              declared license, with role-specific recognition/synthesis marker interfaces so a
-              catalog can report and filter models by role.
-              The design keeps engine-specific construction behind IRecognitionModel/ISynthesisModel,
-              so SpeechModelCatalog can report and filter by role through the common contract
-              without knowing any engine-specific member.
-              The design additionally lists "own archive unpacking" and "own
-              text-normalization/correction" as per-model responsibilities alongside a model's
-              declared parameters and audio-tag support, so the contract declares both hooks
-              (with no-op-friendly defaults) rather than leaving them to each host.
-              License information previously existed only as DisplayName prose or per-class XML
-              documentation, neither reliably discoverable by a host; declaring LicenseName/
-              LicenseUrl as further default-hooked members closes that gap without breaking any
-              existing model or test/demo fake.
+              Role-specific recognition/synthesis marker interfaces let a catalog report and
+              filter models by role through the common contract without knowing any
+              engine-specific member. Declaring the license as a default-hooked member lets a host
+              discover it without parsing DisplayName.
             children:
               - Speech-Models-SpeechModelContract-RoleMarkerInterfaces
               - Speech-Models-SpeechModelContract-ParameterDeclaration
               - Speech-Models-SpeechModelContract-AudioTagAndDownloadDescriptorDeclaration
-              - Speech-Models-SpeechModelContract-InstallHook
-              - Speech-Models-SpeechModelContract-NormalizeTextHook
-              - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
-              - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
-              - Speech-Models-SpeechModelContract-RecognitionBackendCreation
-              - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
-              - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
-              - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
               - Speech-Models-SpeechModelContract-LicenseDeclaration
               - Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
             tests:
@@ -381,15 +383,44 @@ sections:
               - ISynthesisModel_Role_IsSynthesis
               - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
               - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
-              - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
-              - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
-              - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
-              - ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed
-              - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
               - SpeechModelRole_Values_DeclaresRecognitionAndSynthesisOnly
               - SpeechModelState_Values_DeclaresFixedStateSet
               - SpeechModelAudioTagSupport_Values_DeclaresNoneParameterMappedAndNative
 
+          - id: Speech-Models-ContractHooks
+            title: >-
+              The ModelManagementSubsystem shall let a model own its archive unpacking and its
+              text normalization through contract hooks that have no-op-friendly defaults.
+            justification: |
+              Archive unpacking and text normalization are per-model responsibilities; default
+              hooks let a simple model ignore them.
+            children:
+              - Speech-Models-SpeechModelContract-InstallHook
+              - Speech-Models-SpeechModelContract-NormalizeTextHook
+              - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
+            tests:
+              - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
+              - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+              - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
+
+          - id: Speech-Models-ContractRoleMembers
+            title: >-
+              The ModelManagementSubsystem shall expose the role-specific recognition and
+              synthesis members (audio format, backend creation, engine configuration and
+              capability profile) through the public IRecognitionModel and ISynthesisModel
+              interfaces.
+            justification: |
+              Keeping engine-specific construction behind the role interfaces lets a third-party
+              package implement a model without internal access.
+            children:
+              - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+              - Speech-Models-SpeechModelContract-RecognitionBackendCreation
+              - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
+              - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
+              - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
+            tests:
+              - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+              - ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed
           - id: Speech-Models-TunableParameters
             title: >-
               The ModelManagementSubsystem shall describe a model's tunable parameters through a
@@ -430,10 +461,8 @@ sections:
               The ModelManagementSubsystem shall throw ArgumentException for an invalid value
               supplied for a parameter the model declares.
             justification: |
-              This is a deliberate, user-approved breaking change from this library's earlier
-              silent-default behavior for a recognized parameter's invalid value: an invalid
-              value for a parameter the caller explicitly targeted on this specific model is a
-              caller bug that must be surfaced immediately and loudly rather than silently
+              An invalid value for a parameter the caller explicitly targeted on this specific
+              model is a caller bug that must be surfaced immediately rather than silently
               substituted. One shared validation guarantees both factories apply identical rules.
             children:
               - Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
@@ -448,13 +477,20 @@ sections:
               - Speech-Models-SpeechModelParameterDiagnostics-ValidChoiceAndBooleanAccepted
               - Speech-Models-SpeechModelParameterDiagnostics-NullValueThrows
               - Speech-Models-SpeechModelParameterDiagnostics-UnsupportedDescriptorThrows
-              - Speech-Models-SpeechModelParameterDiagnostics-ParamName
-              - Speech-Models-SpeechModelParameterDiagnostics-NullArguments
             tests:
               - ValidateAndReport_NumericParameterOutOfRange_Throws
               - ValidateAndReport_ChoiceParameterInvalidOption_Throws
               - ValidateAndReport_BooleanParameterWrongType_Throws
 
+          - id: Speech-Models-TunableParameterArgumentValidation
+            title: >-
+              The ModelManagementSubsystem shall reject null arguments to parameter validation
+              and name the offending argument in the exception it throws for an invalid value.
+            justification: |
+              A caller fixing a rejected value needs to know which supplied argument was at fault.
+            children:
+              - Speech-Models-SpeechModelParameterDiagnostics-ParamName
+              - Speech-Models-SpeechModelParameterDiagnostics-NullArguments
           - id: Speech-Models-TunableParameterUnrecognizedIdTolerance
             title: >-
               The ModelManagementSubsystem shall ignore a supplied parameter id the model does not
@@ -510,13 +546,11 @@ sections:
               SpeechModelCatalog instance used for enumeration and download, without
               constructing a second SpeechModelStore.
             justification: |
-              A host that already owns a SpeechModelCatalog for enumeration and download
-              previously had to construct a second, independent SpeechModelStore just to
-              resolve an installed model's directory for RecognitionSubsystem/
-              SynthesisSubsystem composition - two objects for one "model management" concept
-              that could silently diverge. Exposing the catalog's own store through a public
-              property is the seam that lets a host compose everything model-related through
-              exactly one object.
+              A host that owns a SpeechModelCatalog for enumeration and download needs the model
+              directory for RecognitionSubsystem/SynthesisSubsystem composition; a second,
+              independent SpeechModelStore for one "model management" concept could silently
+              diverge. Exposing the catalog's own store through a public property lets a host
+              compose everything model-related through exactly one object.
             children:
               - Speech-Models-SpeechModelCatalog-StoreExposure
             tests:
@@ -619,7 +653,7 @@ sections:
           - id: Speech-Models-ReferenceVoiceEmotionInstall
             title: >-
               The ModelManagementSubsystem shall install a reference-voice pack's emotion
-              variants only when they are requested, installing them by default.
+              variants by default and omit them when the host opts out.
             justification: |
               The emotion clips are the larger part of the pack (about 528 MiB against about
               44 MiB for the base voices), so hosts can opt out, and a later voices-only request
@@ -709,14 +743,17 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-VoiceMerge
               - Speech-Models-ReferenceVoiceLibrary-EmptyListWhenNothingPresent
               - Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
+              - Speech-Models-ReferenceVoiceLibrary-DuplicateVoiceDiagnostic
+              - Speech-Models-ReferenceVoiceLibrary-UnreadableFolderWarning
+              - Speech-Models-ReferenceVoiceLibrary-AudioFileExtensions
             tests:
               - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
               - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
 
           - id: Speech-Models-ReferenceVoiceConsentNotice
             title: >-
-              The ModelManagementSubsystem shall expose a shared consent notice stating that
-              cloning a real person's voice requires that person's consent.
+              The ModelManagementSubsystem shall expose a shared notice telling users to clone only
+              voices they have permission to use.
             justification: |
               Hosts listing or choosing voices need one shared, consistent warning wording.
             children:
