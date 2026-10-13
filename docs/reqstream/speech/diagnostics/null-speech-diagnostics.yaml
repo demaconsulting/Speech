@@ -12,7 +12,9 @@ sections:
           - title: NullSpeechDiagnostics Requirements
             requirements:
               - id: Speech-Diagnostics-NullSpeechDiagnostics-Singleton
-                title: The Diagnostics subsystem shall always provide a ready-to-use default sink, and every caller shall receive the same one.
+                title: >-
+                  The Diagnostics subsystem shall always provide a ready-to-use default sink, and
+                  every caller shall receive the same one.
                 justification: |
                   A host that supplies no sink still needs a working one, and the default holds no
                   state, so sharing one avoids allocation and gives every caller identical behavior.

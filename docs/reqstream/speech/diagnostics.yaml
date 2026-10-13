@@ -11,7 +11,9 @@ sections:
       - title: Diagnostics Requirements
         requirements:
           - id: Speech-Diagnostics-Interface
-            title: The Diagnostics subsystem shall let a host receive structural events from the library through a host-implemented sink.
+            title: >-
+              The Diagnostics subsystem shall let a host receive structural events from the library
+              through a host-implemented sink.
             justification: |
               Hosts need a single, stable contract to implement in order to receive diagnostic
               events, independent of which library component raises them.

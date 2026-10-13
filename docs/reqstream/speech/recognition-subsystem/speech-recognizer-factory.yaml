@@ -27,7 +27,8 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
                 title: >-
-                  The factory shall return an unavailable engine, without failing, when the requested model is not installed
+                  The factory shall return an unavailable engine, without failing, when the
+                  requested model is not installed
                   or the model does not declare the recognition role.
                 justification: |
                   Per this library's "nothing throws at composition" decision, a model that has
@@ -113,7 +114,9 @@ sections:
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend
 
               - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesDefault
-                title: The factory shall configure the recognizer without parameter values when the caller supplies none.
+                title: >-
+                  The factory shall configure the recognizer without parameter values when the
+                  caller supplies none.
                 justification: |
                   Most callers need no tunable values and must not have to construct an empty set.
                 tests:
@@ -137,8 +140,8 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
-                  The factory shall reject composition with an argument error when a supplied numeric parameter value is invalid for the
-                  declared NumericParameter.
+                  The factory shall reject composition with an argument error when a supplied
+                  numeric parameter value is invalid for the declared NumericParameter.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
                   value invalid for it, is a caller bug rather than a legitimate cross-model
@@ -152,8 +155,8 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidChoiceParameterValueThrows
                 title: >-
-                  The factory shall reject composition with an argument error when a supplied choice parameter value is not a declared
-                  option.
+                  The factory shall reject composition with an argument error when a supplied
+                  choice parameter value is not a declared option.
                 justification: |
                   A value outside the closed option set can never be honored and must be surfaced
                   loudly as an error.
@@ -162,7 +165,8 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidBooleanParameterValueThrows
                 title: >-
-                  The factory shall reject composition with an argument error when a supplied boolean parameter value is not a bool.
+                  The factory shall reject composition with an argument error when a supplied
+                  boolean parameter value is not a bool.
                 justification: |
                   A non-bool value cannot be interpreted as a flag and must be surfaced loudly
                   as an error.

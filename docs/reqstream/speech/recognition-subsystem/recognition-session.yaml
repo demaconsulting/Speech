@@ -43,7 +43,8 @@ sections:
                   A recognition session shall deliver every result with its text normalized by the
                   owning model, which is told whether the result is final.
                 justification: |
-                  Some recognition models' raw output is UPPERCASE and unpunctuated ; consumers must see readable, cased,
+                  Some recognition models' raw output is UPPERCASE and unpunctuated; consumers must see
+                  readable, cased,
                   punctuated text rather than the backend's raw output, and the session is the
                   one place every result passes through regardless of which model produced it.
                 tests:
