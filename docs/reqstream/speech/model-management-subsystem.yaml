@@ -209,8 +209,7 @@ sections:
             tests:
               - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
               - SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact
-              -
-                SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
+              - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
 
           - id: Speech-Models-DownloadDescriptors
             title: >-
@@ -368,8 +367,7 @@ sections:
               - Speech-Models-SpeechModelDownloader-CallerCancellationPropagates
             tests:
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
-              -
-                SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
+              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed
               - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked
