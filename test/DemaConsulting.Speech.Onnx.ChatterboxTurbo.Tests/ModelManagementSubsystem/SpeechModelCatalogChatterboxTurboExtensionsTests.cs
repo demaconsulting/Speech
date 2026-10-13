@@ -45,10 +45,11 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
 
         // Act
         var result = catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")] });
+        var registered = catalog.Enumerate();
 
         // Assert
         Assert.Same(catalog, result);
-        var model = Assert.Single(catalog.Enumerate());
+        var model = Assert.Single(registered);
         Assert.Equal("chatterbox-turbo-onnx-en", model.Id);
     }
 
@@ -56,8 +57,14 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
     [Fact]
     public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_NullCatalog_ThrowsArgumentNullException()
     {
-        // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => SpeechModelCatalogChatterboxTurboExtensions.AddChatterboxTurboModels(null!));
+        // Arrange
+        SpeechModelCatalog? catalog = null;
+
+        // Act
+        var exception = Record.Exception(() => catalog!.AddChatterboxTurboModels());
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(exception);
     }
 
     /// <summary>Proves the catalog extension offers voices from the catalog store's library by default.</summary>
@@ -75,12 +82,39 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
 
         // Act
         catalog.AddChatterboxTurboModels(options);
+        var registered = catalog.Enumerate();
 
         // Assert
-        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
+        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(Assert.Single(registered).Model);
         var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
         Assert.Equal(["mine"], choice.Options.Select(option => option.Value));
         Assert.Null(options.ReferenceVoiceLibrary);
+    }
+
+    /// <summary>Proves variants and voices compose through the catalog extension: the registered model carries the selected variant's id and file set and offers the supplied voices.</summary>
+    [Fact]
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        var options = new ChatterboxTurboModelOptions
+        {
+            LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
+            AuxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Fp16,
+            ReferenceVoices = [Voice("a"), Voice("b")],
+            IncludeStoreVoices = false,
+        };
+
+        // Act
+        catalog.AddChatterboxTurboModels(options);
+        var registered = Assert.Single(catalog.Enumerate());
+
+        // Assert
+        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(registered.Model);
+        Assert.Equal("chatterbox-turbo-onnx-en-lm-fp32-aux-fp16", registered.Id);
+        Assert.Equal(8, model.DownloadDescriptor.Files.Count);
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["a", "b"], choice.Options.Select(option => option.Value));
     }
 
     /// <summary>Creates a one-second voice.</summary>

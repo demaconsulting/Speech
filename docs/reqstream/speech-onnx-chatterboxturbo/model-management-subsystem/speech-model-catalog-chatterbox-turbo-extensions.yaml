@@ -52,3 +52,13 @@ sections:
                   options object must not be mutated by registering it against one catalog.
                 tests:
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
+                  with the precision variants and the voices named by the supplied options.
+                justification: |
+                  A host selects variants and voices through the options and expects the
+                  registered model to reflect both.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed

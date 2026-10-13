@@ -68,19 +68,26 @@ byte-level BPE models.
 
 `ChatterboxTurboReferenceVoice` is created from samples, a WAV or FLAC file, or lazily from a file. It
 down-mixes channels by averaging, resamples to 24 kHz with the core `AudioResampler`, rejects clips
-shorter than 1 second and trims clips longer than 30 seconds (see the reference-voice unit design).
+shorter than 1 second (minimum 1 s) and trims clips longer than 30 seconds (maximum 30 s); see the
+reference-voice unit design.
+
+The model class declares the model metadata: id, display name, license, 24 kHz mono output and native
+audio tags with the supported mood tags. The capability profile itself is the
+`ChatterboxTurboCapabilityProfile` supplied by the SynthesisSubsystem, built with the configured mood join
+silence.
 
 ### Error Handling
 
-Argument errors throw `ArgumentException`-family exceptions (duplicate explicit or directory voice ids and
-undefined variants included). A null catalog or null voice list throws `ArgumentNullException`; an option
-value outside its range (for example a mood join silence above the maximum) throws
-`ArgumentOutOfRangeException`; a missing voice directory throws
+Argument errors throw `ArgumentException`-family exceptions (duplicate explicit or directory voice ids
+included). A null catalog, a null voice list assigned to the options or a null model directory throws
+`ArgumentNullException`; an option value outside its range or an undefined variant or end-of-sentence
+policy value throws `ArgumentOutOfRangeException` at assignment; a missing voice directory throws
 `DirectoryNotFoundException`. Unreadable files throw
 `FileNotFoundException`; malformed or unsupported WAV or FLAC data throws `InvalidDataException` or
 `NotSupportedException`, and a damaged library or directory voice fails only when first used, with an
 `InvalidDataException` naming the file. A corrupt embedded tokenizer throws `InvalidDataException`.
-`CreateBackend` throws `InvalidOperationException` when no voice exists and `FileNotFoundException` for a
+`CreateBackend` throws `ArgumentNullException` for a null directory, `ArgumentException` for an empty one,
+`InvalidOperationException` when no voice exists and `FileNotFoundException` for a
 missing model file.
 
 ### Dependencies
