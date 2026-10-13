@@ -129,7 +129,8 @@ public sealed class UninstallCommandTests
         using var context = Context.Create(["uninstall"]);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
@@ -143,7 +144,8 @@ public sealed class UninstallCommandTests
         using var context = Context.Create(["uninstall", "model-1", "extra"]);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>

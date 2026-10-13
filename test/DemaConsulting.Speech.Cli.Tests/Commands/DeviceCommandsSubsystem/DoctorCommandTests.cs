@@ -224,6 +224,40 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that audio probes that throw while enumerating degrade the informational audio section
+    ///     instead of crashing the health check.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy()
+    {
+        var context = Context.Create(["doctor"]);
+
+        var output = RunCapturingOutput(context, new ThrowingCaptureProbe(), new ThrowingPlaybackProbe(), new FakeCliModelCatalog(), _tempDir);
+
+        Assert.Contains("Input devices detected: (could not be determined)", output);
+        Assert.Contains("Output devices detected: (could not be determined)", output);
+        Assert.Contains("Overall: HEALTHY", output);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that a model catalog that throws while enumerating degrades the informational models
+    ///     section instead of crashing the health check.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy()
+    {
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog { EnumerateException = new InvalidOperationException("catalog broke") };
+
+        var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        Assert.Contains("Installed: (could not be determined)", output);
+        Assert.Contains("Overall: HEALTHY", output);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
     ///     Test that an unsupported extra argument throws <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
@@ -296,6 +330,20 @@ public sealed class DoctorCommandTests : IDisposable
             Console.SetOut(originalOut);
             Console.SetError(originalError);
         }
+    }
+
+    /// <summary>A capture probe whose enumeration always fails.</summary>
+    private sealed class ThrowingCaptureProbe : IAudioCaptureDeviceProbe
+    {
+        /// <inheritdoc/>
+        public IReadOnlyList<AudioDeviceDescription> Enumerate() => throw new InvalidOperationException("probe broke");
+    }
+
+    /// <summary>A playback probe whose enumeration always fails.</summary>
+    private sealed class ThrowingPlaybackProbe : IAudioPlaybackDeviceProbe
+    {
+        /// <inheritdoc/>
+        public IReadOnlyList<AudioDeviceDescription> Enumerate() => throw new InvalidOperationException("probe broke");
     }
 
     /// <summary>

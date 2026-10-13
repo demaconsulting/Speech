@@ -371,6 +371,59 @@ public sealed class DevicesTestCommandTests
         Assert.Contains("no audio samples", exception.Message);
     }
 
+    /// <summary>
+    ///     Test that a capture device whose <c>Start</c> throws is still stopped and unsubscribed, so a
+    ///     partially started device is never left running.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RecordTestClip_StartThrows_StopsDevice()
+    {
+        var context = Context.Create(["devices", "test", "--direction", "input"]);
+        var device = new FramingCaptureDevice([0.1f]) { ThrowOnStart = true };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
+
+        Assert.True(device.Stopped);
+    }
+
+    /// <summary>
+    ///     Test that an unavailable playback device is rejected with a clean error naming the playback device.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RequireAvailable_UnavailablePlaybackDevice_ThrowsInvalidOperationException()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            DevicesTestCommand.RequireAvailable(new RecordingPlaybackDevice { Available = false }));
+
+        Assert.Contains("playback", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that an unavailable capture device is rejected with a clean error naming the capture device.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RequireAvailable_UnavailableCaptureDevice_ThrowsInvalidOperationException()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            DevicesTestCommand.RequireAvailable(new FramingCaptureDevice([]) { Available = false }));
+
+        Assert.Contains("capture", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that available playback and capture devices are returned unchanged.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RequireAvailable_AvailableDevices_ReturnsSameDevice()
+    {
+        var playback = new RecordingPlaybackDevice();
+        var capture = new FramingCaptureDevice([]);
+
+        Assert.Same(playback, DevicesTestCommand.RequireAvailable(playback));
+        Assert.Same(capture, DevicesTestCommand.RequireAvailable(capture));
+    }
+
     /// <summary>Runs an action while capturing everything written to stdout.</summary>
     private static string CaptureOutput(Action action)
     {
@@ -400,8 +453,11 @@ public sealed class DevicesTestCommandTests
         /// <summary>Gets a value indicating whether <see cref="Stop"/> was called.</summary>
         public bool Stopped { get; private set; }
 
+        /// <summary>Gets or sets a value indicating whether the device reports itself available.</summary>
+        public bool Available { get; set; } = true;
+
         /// <inheritdoc/>
-        public bool IsAvailable => true;
+        public bool IsAvailable => Available;
 
         /// <inheritdoc/>
         public int ChannelCount => 2;
@@ -431,8 +487,14 @@ public sealed class DevicesTestCommandTests
         /// <summary>Gets a value indicating whether <see cref="Stop"/> was called.</summary>
         public bool Stopped { get; private set; }
 
+        /// <summary>Gets or sets a value indicating whether the device reports itself available.</summary>
+        public bool Available { get; set; } = true;
+
+        /// <summary>Gets or sets a value indicating whether <see cref="Start"/> throws after being marked started.</summary>
+        public bool ThrowOnStart { get; set; }
+
         /// <inheritdoc/>
-        public bool IsAvailable => true;
+        public bool IsAvailable => Available;
 
         /// <inheritdoc/>
         public int ChannelCount => 1;
@@ -447,6 +509,11 @@ public sealed class DevicesTestCommandTests
         public void Start()
         {
             Started = true;
+            if (ThrowOnStart)
+            {
+                throw new InvalidOperationException("Start failed after partially starting.");
+            }
+
             if (samples.Length > 0)
             {
                 FrameCaptured?.Invoke(this, new AudioCaptureFrameEventArgs(samples));

@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// cspell:ignore NOSONAR
 using System.Diagnostics;
 using System.Globalization;
 using System.Numerics.Tensors;
@@ -67,6 +66,7 @@ internal static class DevicesTestCommand
 
     /// <summary>The margin, in seconds, beyond the tone duration allowed for the playback queue to drain.</summary>
     private const double PlaybackDrainMarginSeconds = 5.0;
+
     /// <summary>
     ///     Runs the <c>devices</c> subcommand (currently only the <c>test</c> sub-action) against
     ///     a real, composed <see cref="AudioDeviceFactory"/>.
@@ -269,14 +269,46 @@ internal static class DevicesTestCommand
         var knownDevices = factory.PlaybackProbe.Enumerate();
         var selection = ResolveDeviceSelectionOrThrow(knownDevices, deviceName, "playback");
 
-        var device = factory.CreatePlaybackDevice(selection);
+        var device = RequireAvailable(factory.CreatePlaybackDevice(selection));
+        PlayTestTone(context, device);
+    }
+
+    /// <summary>
+    ///     Returns <paramref name="device"/> when it is available, otherwise throws a clean error.
+    /// </summary>
+    /// <param name="device">The resolved playback device. Must not be null.</param>
+    /// <returns>The same device, known to be available.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the device reports <c>IsAvailable == false</c>.</exception>
+    internal static IAudioPlaybackDevice RequireAvailable(IAudioPlaybackDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
         if (!device.IsAvailable)
         {
             throw new InvalidOperationException(
                 "No audio playback device is available on this machine; cannot run 'devices test'.");
         }
 
-        PlayTestTone(context, device);
+        return device;
+    }
+
+    /// <summary>
+    ///     Returns <paramref name="device"/> when it is available, otherwise throws a clean error.
+    /// </summary>
+    /// <param name="device">The resolved capture device. Must not be null.</param>
+    /// <returns>The same device, known to be available.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the device reports <c>IsAvailable == false</c>.</exception>
+    internal static IAudioCaptureDevice RequireAvailable(IAudioCaptureDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (!device.IsAvailable)
+        {
+            throw new InvalidOperationException(
+                "No audio capture device is available on this machine; cannot run 'devices test'.");
+        }
+
+        return device;
     }
 
     /// <summary>
@@ -342,13 +374,7 @@ internal static class DevicesTestCommand
         var knownDevices = factory.CaptureProbe.Enumerate();
         var selection = ResolveDeviceSelectionOrThrow(knownDevices, deviceName, "capture");
 
-        var device = factory.CreateCaptureDevice(selection);
-        if (!device.IsAvailable)
-        {
-            throw new InvalidOperationException(
-                "No audio capture device is available on this machine; cannot run 'devices test'.");
-        }
-
+        var device = RequireAvailable(factory.CreateCaptureDevice(selection));
         RecordTestClip(context, device, TimeSpan.FromSeconds(CaptureDurationSeconds));
     }
 
@@ -383,10 +409,11 @@ internal static class DevicesTestCommand
         {
             device.Start();
             Thread.Sleep(duration);
-            device.Stop();
         }
         finally
         {
+            // Always stop, even when Start partially succeeded or the wait was interrupted
+            device.Stop();
             device.FrameCaptured -= OnFrameCaptured;
         }
 

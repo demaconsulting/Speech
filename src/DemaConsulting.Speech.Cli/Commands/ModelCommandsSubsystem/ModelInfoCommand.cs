@@ -67,12 +67,12 @@ internal static class ModelInfoCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("model-info requires a <modelId> argument.", nameof(context));
+            throw new ArgumentException("model-info requires a <modelId> argument.");
         }
 
         if (args.Count > 1)
         {
-            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'model-info'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'model-info'.");
         }
 
         var modelId = args[0];
@@ -82,8 +82,7 @@ internal static class ModelInfoCommand
         if (descriptor is null)
         {
             throw new ArgumentException(
-                $"Unknown model id '{modelId}'. Use 'list-models' to see available models.",
-                nameof(context));
+                $"Unknown model id '{modelId}'. Use 'list-models' to see available models.");
         }
 
         WriteModelInfo(context, descriptor);

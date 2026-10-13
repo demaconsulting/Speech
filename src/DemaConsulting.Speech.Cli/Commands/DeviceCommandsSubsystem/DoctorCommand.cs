@@ -133,7 +133,7 @@ internal static class DoctorCommand
 
         if (context.CommandArgs.Count > 0)
         {
-            throw new ArgumentException($"Unsupported argument '{context.CommandArgs[0]}' for 'doctor'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{context.CommandArgs[0]}' for 'doctor'.");
         }
 
         context.WriteLine("Speech CLI environment health check");
@@ -379,13 +379,26 @@ internal static class DoctorCommand
     /// </summary>
     private static void CheckAudioDevices(Context context, IAudioCaptureDeviceProbe captureProbe, IAudioPlaybackDeviceProbe playbackProbe)
     {
-        var inputCount = captureProbe.Enumerate().Count;
-        var outputCount = playbackProbe.Enumerate().Count;
-
         context.WriteLine("Audio devices:");
-        context.WriteLine($"  Input devices detected: {inputCount.ToString(CultureInfo.InvariantCulture)}");
-        context.WriteLine($"  Output devices detected: {outputCount.ToString(CultureInfo.InvariantCulture)}");
+        context.WriteLine($"  Input devices detected: {CountDevices(() => captureProbe.Enumerate().Count)}");
+        context.WriteLine($"  Output devices detected: {CountDevices(() => playbackProbe.Enumerate().Count)}");
         context.WriteLine("");
+    }
+
+    /// <summary>
+    ///     Evaluates one informational device count, degrading to a placeholder when the probe throws.
+    /// </summary>
+    private static string CountDevices(Func<int> count)
+    {
+        try
+        {
+            return count().ToString(CultureInfo.InvariantCulture);
+        }
+        // Intentionally broad: an informational probe failure must never crash the health check.
+        catch (Exception)
+        {
+            return "(could not be determined)";
+        }
     }
 
     /// <summary>
@@ -394,10 +407,21 @@ internal static class DoctorCommand
     /// </summary>
     private static void CheckModels(Context context, ICliModelCatalog catalog)
     {
-        var descriptors = catalog.Enumerate();
-        var installedCount = descriptors.Count(descriptor => descriptor.State == SpeechModelState.Downloaded);
-
         context.WriteLine("Models:");
+
+        IReadOnlyList<SpeechModelDescriptor> descriptors;
+        try
+        {
+            descriptors = catalog.Enumerate();
+        }
+        // Intentionally broad: an informational catalog failure must never crash the health check.
+        catch (Exception)
+        {
+            context.WriteLine("  Installed: (could not be determined)");
+            return;
+        }
+
+        var installedCount = descriptors.Count(descriptor => descriptor.State == SpeechModelState.Downloaded);
         context.WriteLine($"  Installed: {installedCount.ToString(CultureInfo.InvariantCulture)} / {descriptors.Count.ToString(CultureInfo.InvariantCulture)} known");
     }
 }

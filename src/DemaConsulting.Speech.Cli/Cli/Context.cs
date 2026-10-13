@@ -552,7 +552,7 @@ internal sealed class Context : IDisposable
             {
                 if (CommandDispatch.Find(arg) == null)
                 {
-                    throw new ArgumentException($"Unsupported argument '{arg}'", nameof(arg));
+                    throw new ArgumentException($"Unsupported argument '{arg}'");
                 }
 
                 Command = arg;
@@ -575,7 +575,7 @@ internal sealed class Context : IDisposable
         {
             if (index >= args.Length)
             {
-                throw new ArgumentException($"{arg} requires {description}", nameof(args));
+                throw new ArgumentException($"{arg} requires {description}");
             }
 
             return args[index];
@@ -596,7 +596,7 @@ internal sealed class Context : IDisposable
             var value = GetRequiredStringArgument(arg, args, index, description);
             if (!int.TryParse(value, out var result) || result < min || result > max)
             {
-                throw new ArgumentException($"{arg} requires an integer between {min} and {max} for {description}", nameof(args));
+                throw new ArgumentException($"{arg} requires an integer between {min} and {max} for {description}");
             }
 
             return result;
@@ -643,8 +643,14 @@ internal sealed class Context : IDisposable
         {
             var previousColor = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine(message);
-            Console.ForegroundColor = previousColor;
+            try
+            {
+                Console.Error.WriteLine(message);
+            }
+            finally
+            {
+                Console.ForegroundColor = previousColor;
+            }
         }
 
         // Write to log file if logging is enabled

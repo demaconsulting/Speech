@@ -237,6 +237,7 @@ public sealed class ModelInfoCommandTests
         var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
         Assert.Contains("Unknown model id 'does-not-exist'", ex.Message);
         Assert.Contains("list-models", ex.Message);
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
@@ -250,7 +251,8 @@ public sealed class ModelInfoCommandTests
         using var context = Context.Create(["model-info"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
@@ -264,7 +266,8 @@ public sealed class ModelInfoCommandTests
         using var context = Context.Create(["model-info", "model-1", "extra"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>

@@ -134,7 +134,8 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Act
         using var adapter = CliModelCatalogFactory.Create(context);
 
-        // Assert: enumerating does not throw and returns the compiled-in known models
+        // Assert: the store root and the user-voices folder lie under the supplied --models-dir
+        Assert.StartsWith(_testRoot, adapter.UserVoicesDirectory, StringComparison.OrdinalIgnoreCase);
         Assert.NotEmpty(adapter.Enumerate());
     }
 
@@ -252,6 +253,24 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that a composition failure part-way through the adapter constructor propagates the
+    ///     original exception (after releasing the partially built catalog) rather than hiding it.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_CompositionFails_PropagatesAndReleasesPartialCatalog()
+    {
+        // Arrange: a NUL character makes the Chatterbox voice-directory read fail after the catalog was built
+        var options = new SpeechModelStoreOptions { RootPathOverride = _testRoot };
+
+        // Act & Assert
+        Assert.ThrowsAny<Exception>(() => new SpeechModelCatalogAdapter(options, voicesDir: "bad\0voices"));
+
+        // The store root must remain usable (nothing left locked by the abandoned catalog)
+        using var adapter = new SpeechModelCatalogAdapter(options);
+        Assert.NotEmpty(adapter.Enumerate());
+    }
+
+    /// <summary>
     ///     Test that <see cref="CliModelCatalogFactory.Create"/> rejects a null context.
     /// </summary>
     [Fact]
@@ -296,6 +315,34 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.NotNull(result.Error);
         var errorText = result.Error.ToString();
         Assert.Contains($"127.0.0.1:{freePort}", errorText, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="CliModelCatalogFactory.Create"/> applies a configured <c>--mirror-url</c>
+    ///     to the voice-pack install path too (the voice library shares the same mirror), so a pack install
+    ///     only ever attempts the loopback mirror and never the pack's public host.
+    /// </summary>
+    [Fact]
+    public async Task CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToVoicePackInstall()
+    {
+        // Arrange: a loopback port with nothing listening, so the attempt fails fast and deterministically
+        using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        probe.Start();
+        var freePort = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        probe.Stop();
+
+        using var context = Context.Create([
+            "voices", "install", "x", "--models-dir", _testRoot, "--mirror-url", $"http://127.0.0.1:{freePort}/models"
+        ]);
+        using var adapter = CliModelCatalogFactory.Create(context);
+
+        // Act
+        var result = await adapter.InstallVoicePackAsync(adapter.VoicePacks[0].Id, false, null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.NotNull(result.Error);
+        Assert.Contains($"127.0.0.1:{freePort}", result.Error.ToString(), StringComparison.Ordinal);
     }
 
     /// <summary>

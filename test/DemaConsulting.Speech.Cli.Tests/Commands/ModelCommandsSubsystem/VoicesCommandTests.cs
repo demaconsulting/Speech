@@ -252,6 +252,88 @@ public sealed class VoicesCommandTests
     }
 
     /// <summary>
+    ///     Test that a cancellation while the installed-pack emotion check runs ahead of an upgrade
+    ///     install is reported as an error rather than escaping as an unhandled exception.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_InstallCanceledDuringPreCheck_ReportsErrorExitCode()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { HasEmotionsThrowsCanceled = true };
+        catalog.PackStates[PackId] = SpeechModelState.Downloaded;
+
+        // Act
+        var (_, exitCode) = await ExecuteAsync(["voices", "install", PackId], catalog, new CancellationToken(canceled: true));
+
+        // Assert
+        Assert.Equal(1, exitCode);
+        Assert.Empty(catalog.InstallPackCalls);
+    }
+
+    /// <summary>
+    ///     Test that a cancellation while <c>voices packs</c> reads an installed pack's emotion state is
+    ///     reported as an error rather than escaping as an unhandled exception.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { HasEmotionsThrowsCanceled = true };
+        catalog.PackStates[PackId] = SpeechModelState.Downloaded;
+
+        // Act
+        var (_, exitCode) = await ExecuteAsync(["voices", "packs"], catalog, new CancellationToken(canceled: true));
+
+        // Assert
+        Assert.Equal(1, exitCode);
+    }
+
+    /// <summary>
+    ///     Test that an <see cref="OperationCanceledException"/> not caused by Ctrl+C (the token is not
+    ///     canceled) is not masked as a user cancellation.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_InstallCanceledWithoutToken_Propagates()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { HasEmotionsThrowsCanceled = true };
+        catalog.PackStates[PackId] = SpeechModelState.Downloaded;
+        using var context = Context.Create(["voices", "install", PackId]);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => VoicesCommand.RunAsync(context, catalog, CancellationToken.None));
+    }
+
+    /// <summary>
+    ///     Test that argument-parse errors report no misleading parameter name (not <c>context</c>).
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_MissingSubAction_ReportsNoParameterName()
+    {
+        using var context = Context.Create(["voices"]);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => VoicesCommand.RunAsync(context, new FakeCliModelCatalog(), CancellationToken.None));
+
+        Assert.Null(exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Test that an unsupported sub-action reports no misleading parameter name.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_UnknownSubAction_ReportsNoParameterName()
+    {
+        using var context = Context.Create(["voices", "bogus"]);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => VoicesCommand.RunAsync(context, new FakeCliModelCatalog(), CancellationToken.None));
+
+        Assert.Null(exception.ParamName);
+    }
+
+    /// <summary>
     ///     Test that an unknown pack id is a clean <see cref="ArgumentException"/> for install.
     /// </summary>
     [Fact]

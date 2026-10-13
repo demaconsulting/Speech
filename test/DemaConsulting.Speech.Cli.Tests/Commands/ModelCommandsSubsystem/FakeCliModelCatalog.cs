@@ -67,6 +67,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets or sets an exception to throw from <see cref="DownloadAsync"/> before any result is produced.</summary>
     public Exception? DownloadException { get; set; }
 
+    /// <summary>Gets or sets an exception to throw from <see cref="Enumerate"/>.</summary>
+    public Exception? EnumerateException { get; set; }
+
+    /// <summary>
+    ///     Gets or sets a value indicating whether <see cref="VoicePackHasEmotionsAsync"/> throws
+    ///     <see cref="OperationCanceledException"/> bound to the supplied token (simulating Ctrl+C mid-call).
+    /// </summary>
+    public bool HasEmotionsThrowsCanceled { get; set; }
+
     /// <summary>
     ///     Adds or replaces a model descriptor this fake enumerates.
     /// </summary>
@@ -77,7 +86,8 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _descriptors.Values.ToList();
+    public IReadOnlyList<SpeechModelDescriptor> Enumerate() =>
+        EnumerateException is null ? _descriptors.Values.ToList() : throw EnumerateException;
 
     /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> DownloadAsync(
@@ -263,8 +273,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
-        Task.FromResult(PacksWithEmotions.Contains(packId));
+    public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken)
+    {
+        if (HasEmotionsThrowsCanceled)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
+        return Task.FromResult(PacksWithEmotions.Contains(packId));
+    }
 
     /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> InstallVoicePackAsync(

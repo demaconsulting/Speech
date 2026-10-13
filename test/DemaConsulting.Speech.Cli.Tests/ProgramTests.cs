@@ -83,6 +83,7 @@ public class ProgramTests
             Assert.Contains("--version", output);
             Assert.Contains("--help", output);
             Assert.Contains("--models-dir", output);
+            Assert.Contains("--mirror-bearer-token <t>  HTTP Bearer token for --mirror-url", output);
             foreach (var command in CommandDispatch.Commands)
             {
                 Assert.Contains(command.Name, output);

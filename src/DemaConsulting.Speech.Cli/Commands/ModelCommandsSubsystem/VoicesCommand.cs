@@ -75,14 +75,23 @@ internal static class VoicesCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("voices requires a sub-action: packs, install <packId>, or uninstall <packId>.", nameof(context));
+            throw new ArgumentException("voices requires a sub-action: packs, install <packId>, or uninstall <packId>.");
         }
 
         switch (args[0])
         {
             case "packs":
                 RequireArgumentCount(args, 1);
-                await WritePacksAsync(context, catalog, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await WritePacksAsync(context, catalog, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // Ctrl+C while the emotion state of an installed pack is being read
+                    context.WriteError("Listing voice packs was canceled.");
+                }
+
                 break;
 
             case "install":
@@ -96,7 +105,7 @@ internal static class VoicesCommand
                 break;
 
             default:
-                throw new ArgumentException($"Unsupported sub-action '{args[0]}' for 'voices'; expected packs, install, or uninstall.", nameof(context));
+                throw new ArgumentException($"Unsupported sub-action '{args[0]}' for 'voices'; expected packs, install, or uninstall.");
         }
     }
 
@@ -118,10 +127,10 @@ internal static class VoicesCommand
     private static async Task WritePacksAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         var packs = catalog.VoicePacks;
-        var idWidth = Math.Max("Id".Length, packs.Max(p => p.Id.Length));
+        var idWidth = Math.Max("Id".Length, packs.Select(p => p.Id.Length).DefaultIfEmpty(0).Max());
         var rawStates = packs.Select(p => catalog.GetVoicePackState(p.Id)).ToList();
         var states = rawStates.Select(s => s.ToString()).ToList();
-        var stateWidth = Math.Max("State".Length, states.Max(s => s.Length));
+        var stateWidth = Math.Max("State".Length, states.Select(s => s.Length).DefaultIfEmpty(0).Max());
 
         context.WriteLine($"{"Id".PadRight(idWidth)}  {"State".PadRight(stateWidth)}  Download  Voices  +Emotions  License");
         for (var i = 0; i < packs.Count; i++)
@@ -153,10 +162,11 @@ internal static class VoicesCommand
         // Resolve first so an unknown id gives the clean "not a known pack" error before any output
         var state = catalog.GetVoicePackState(packId);
         var includeEmotions = !context.NoEmotions;
-        var upgrading = includeEmotions && state == SpeechModelState.Downloaded && !await catalog.VoicePackHasEmotionsAsync(packId, cancellationToken).ConfigureAwait(false);
 
         try
         {
+            var upgrading = includeEmotions && state == SpeechModelState.Downloaded && !await catalog.VoicePackHasEmotionsAsync(packId, cancellationToken).ConfigureAwait(false);
+
             context.WriteLine(includeEmotions
                 ? $"Installing reference-voice pack '{packId}' with emotion variants (use --no-emotions to skip them)..."
                 : $"Installing reference-voice pack '{packId}' with the base voices only (--no-emotions)...");
@@ -184,7 +194,7 @@ internal static class VoicesCommand
                 context.WriteError($"Voice pack '{packId}' failed to install: {result.Outcome} ({result.Error?.Message}).");
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             context.WriteError($"Installation of voice pack '{packId}' was canceled.");
         }

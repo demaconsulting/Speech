@@ -72,12 +72,12 @@ internal static class CleanCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("clean requires a <modelId> argument.", nameof(context));
+            throw new ArgumentException("clean requires a <modelId> argument.");
         }
 
         if (args.Count > 1)
         {
-            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'clean'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'clean'.");
         }
 
         var modelId = args[0];

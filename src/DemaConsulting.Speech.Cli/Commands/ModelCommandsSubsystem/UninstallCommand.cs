@@ -79,12 +79,12 @@ internal static class UninstallCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("uninstall requires a <modelId> argument.", nameof(context));
+            throw new ArgumentException("uninstall requires a <modelId> argument.");
         }
 
         if (args.Count > 1)
         {
-            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'uninstall'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'uninstall'.");
         }
 
         var modelId = args[0];

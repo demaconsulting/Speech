@@ -238,6 +238,64 @@ public class ContextTests
     }
 
     /// <summary>
+    ///     Test that an unsupported argument produces an operator-facing message without the internal
+    ///     <c>(Parameter ...)</c> suffix that a parameter name would append.
+    /// </summary>
+    [Fact]
+    public void Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["bogus-command"]));
+
+        Assert.Equal("Unsupported argument 'bogus-command'", exception.Message);
+        Assert.Null(exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Test that a global option missing its value produces a message without the internal
+    ///     <c>(Parameter ...)</c> suffix.
+    /// </summary>
+    [Fact]
+    public void Context_Create_OptionMissingValue_MessageHasNoParameterSuffix()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["--models-dir"]));
+
+        Assert.DoesNotContain("(Parameter", exception.Message, StringComparison.Ordinal);
+        Assert.Null(exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.WriteError"/> restores the console foreground color even when
+    ///     writing to the error stream throws.
+    /// </summary>
+    [Fact]
+    public void Context_WriteError_ErrorWriterThrows_RestoresForegroundColor()
+    {
+        var originalError = Console.Error;
+        var originalColor = Console.ForegroundColor;
+        try
+        {
+            Console.SetError(new ThrowingWriter());
+            using var context = Context.Create(["--version"]);
+
+            Assert.Throws<IOException>(() => context.WriteError("boom"));
+
+            Assert.Equal(originalColor, Console.ForegroundColor);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Console.ForegroundColor = originalColor;
+        }
+    }
+
+    /// <summary>A text writer whose every write fails.</summary>
+    private sealed class ThrowingWriter : StringWriter
+    {
+        /// <inheritdoc/>
+        public override void WriteLine(string? value) => throw new IOException("write failed");
+    }
+
+    /// <summary>
     ///     Test that mirror credentials supplied without <c>--mirror-url</c> are rejected even for
     ///     invocations that never build a model catalog, such as <c>--help</c>.
     /// </summary>

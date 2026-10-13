@@ -89,7 +89,8 @@ public sealed class CleanCommandTests
         using var context = Context.Create(["clean"]);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
@@ -103,7 +104,8 @@ public sealed class CleanCommandTests
         using var context = Context.Create(["clean", "model-1", "extra"]);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>

@@ -75,19 +75,34 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
         string? voicesDir = null)
     {
         _voicesDir = voicesDir;
-        _catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
+        var catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
             .AddSherpaModels()
             .AddKokoroModels()
             .AddNemotronSttModels();
+        ReferenceVoiceLibrary? voiceLibrary = null;
 
-        // One library instance serves both the Chatterbox model (voice list read now) and the
-        // voice commands (install/uninstall/enumerate), so they share the same store and mirror.
-        _voiceLibrary = new ReferenceVoiceLibrary(_catalog.Store, downloaderOptions);
-        _catalog.AddChatterboxTurboModels(new ChatterboxTurboModels.ChatterboxTurboModelOptions
+        try
         {
-            ReferenceVoiceDirectory = voicesDir,
-            ReferenceVoiceLibrary = _voiceLibrary
-        });
+            // One library instance serves both the Chatterbox model (voice list read now) and the
+            // voice commands (install/uninstall/enumerate), so they share the same store and mirror.
+            voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, downloaderOptions);
+            catalog.AddChatterboxTurboModels(new ChatterboxTurboModels.ChatterboxTurboModelOptions
+            {
+                ReferenceVoiceDirectory = voicesDir,
+                ReferenceVoiceLibrary = voiceLibrary
+            });
+
+            _catalog = catalog;
+            _voiceLibrary = voiceLibrary;
+        }
+        catch
+        {
+            // Composition failed part-way: release what was built, since no caller will receive
+            // this instance to dispose
+            voiceLibrary?.Dispose();
+            catalog.Dispose();
+            throw;
+        }
     }
 
     /// <inheritdoc/>
