@@ -537,17 +537,6 @@ reviews:
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceInUseException.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceInUseExceptionTests.cs"
 
-  # Speech-AudioSubsystem-AudioDeviceRefresh Review (grouped small supporting behavior)
-  - id: Speech-AudioSubsystem-AudioDeviceRefresh
-    title: Review that Speech AudioSubsystem Audio Device Refresh Behavior Satisfies Requirements
-    context:
-      - "docs/design/speech.md"
-      - "docs/design/speech/audio-subsystem.md"
-      - "docs/reqstream/speech.yaml"
-      - "docs/reqstream/speech/audio-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech/audio-subsystem/audio-device-refresh.yaml"
-
   # Speech-ModelManagementSubsystem Review (one per subsystem)
   - id: Speech-ModelManagementSubsystem
     title: Review that Speech ModelManagementSubsystem Satisfies Subsystem Requirements

@@ -2,8 +2,8 @@
 # Software Unit Requirements for AudioDeviceInUseException
 #
 # These requirements describe the design-level behavior of the AudioDeviceInUseException
-# unit. The refresh-refusal behavior that throws it is owned by the Device Refresh Seam
-# requirements (audio-device-refresh.yaml).
+# unit. The refresh-refusal behavior that throws it is owned by the PortAudioEnvironment
+# requirements (port-audio/port-audio-environment.yaml).
 
 sections:
   - title: Speech Requirements

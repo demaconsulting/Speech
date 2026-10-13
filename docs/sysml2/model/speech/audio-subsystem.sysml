@@ -17,7 +17,6 @@ package Speech {
         part iAudioCaptureDeviceProbe : IAudioCaptureDeviceProbe;
         part iAudioPlaybackDeviceProbe : IAudioPlaybackDeviceProbe;
         part audioDeviceFactory : AudioDeviceFactory;
-        part audioDeviceRefreshSeam : AudioDeviceRefreshSeam;
         part portAudioCaptureDeviceProbe : PortAudioCaptureDeviceProbe;
         part portAudioPlaybackDeviceProbe : PortAudioPlaybackDeviceProbe;
         part portAudioCaptureDevice : PortAudioCaptureDevice;

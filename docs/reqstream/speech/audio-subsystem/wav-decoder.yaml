@@ -100,20 +100,45 @@ sections:
                 tests:
                   - WavDecoder_Decode_UnsupportedEncoding_Throws
 
-              - id: Speech-Audio-WavDecoder-MalformedImageRejection
+              - id: Speech-Audio-WavDecoder-MalformedChunkRejection
                 title: >-
-                  The WavDecoder class shall reject a malformed image with InvalidDataException naming
-                  the defect: a missing data chunk, a data chunk that precedes the fmt chunk, a
-                  truncated or too-short fmt or extensible fmt chunk, a truncated file, a chunk running
-                  past the end of the image, zero channels, a zero sample rate or a rate above the
-                  32-bit signed range, and data that lacks a RIFF/WAVE header.
+                  The WavDecoder class shall reject an image whose required chunks are missing
+                  or out of order with InvalidDataException.
                 justification: |
-                  Hostile or damaged files must fail clearly rather than decode garbage; the
-                  defects share one error type and one purpose, so they form a single requirement.
+                  Hostile or damaged files must fail clearly rather than decode garbage. This
+                  covers a missing data chunk, a data chunk that precedes the fmt chunk, and a
+                  chunk running past the end of the image.
+                tests:
+                  - WavDecoder_Decode_MalformedImages_Throw
+                  - WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk
+
+              - id: Speech-Audio-WavDecoder-TruncatedImageRejection
+                title: >-
+                  The WavDecoder class shall reject a truncated image with InvalidDataException.
+                justification: |
+                  A cut-off file must fail clearly rather than decode garbage. This covers a
+                  truncated file and a truncated or too-short fmt or extensible fmt chunk.
+                tests:
+                  - WavDecoder_Decode_MalformedImages_Throw
+
+              - id: Speech-Audio-WavDecoder-InvalidFormatFieldRejection
+                title: >-
+                  The WavDecoder class shall reject an image with an invalid channel count or
+                  sample rate with InvalidDataException.
+                justification: |
+                  Zero channels, a zero sample rate, or a rate above the 32-bit signed range
+                  cannot describe playable audio and must fail clearly.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
                   - WavDecoder_Decode_SampleRateAboveIntMax_Throws
-                  - WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk
+
+              - id: Speech-Audio-WavDecoder-NonWavRejection
+                title: >-
+                  The WavDecoder class shall reject data that lacks a RIFF/WAVE header with
+                  InvalidDataException.
+                justification: |
+                  Data that is not a WAV image must fail clearly rather than decode garbage.
+                tests:
                   - WavDecoder_Decode_NonWavHeader_Throws
 
               - id: Speech-Audio-WavDecoder-SampleCap

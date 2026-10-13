@@ -78,27 +78,59 @@ sections:
                 tests:
                   - FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled
 
-              - id: Speech-Audio-FlacDecoder-MalformedStreamRejection
+              - id: Speech-Audio-FlacDecoder-TruncatedStreamRejection
                 title: >-
-                  The FlacDecoder shall reject truncated streams, invalid STREAMINFO values,
-                  damaged metadata, invalid header, frame-number, subframe or predictor fields,
-                  oversized blocks, a frame that holds more samples than remain of a known
-                  STREAMINFO total, and a damaged ID3v2 prefix (including a size field that is not
-                  syncsafe) with InvalidDataException.
+                  The FlacDecoder shall reject a truncated stream with InvalidDataException.
                 justification: |
-                  Corrupt or hostile input must fail with a clear, bounded error instead of producing
-                  garbage.
+                  Corrupt or hostile input must fail with a clear, bounded error instead of
+                  producing garbage. This covers missing frames and damaged metadata that ends
+                  early.
                 tests:
                   - FlacDecoder_Decode_Truncated_Throws
                   - FlacDecoder_Decode_MissingFrames_Throws
-                  - FlacDecoder_Decode_InvalidFields_Throw
-                  - FlacDecoder_Decode_InvalidStreamInfoValues_Throw
                   - FlacDecoder_Decode_MetadataDamage_ReportsTruncation
+
+              - id: Speech-Audio-FlacDecoder-InvalidStreamInfoRejection
+                title: >-
+                  The FlacDecoder shall reject invalid STREAMINFO values with
+                  InvalidDataException.
+                justification: |
+                  STREAMINFO drives every later decoding decision, so invalid values must fail
+                  clearly.
+                tests:
+                  - FlacDecoder_Decode_InvalidStreamInfoValues_Throw
+
+              - id: Speech-Audio-FlacDecoder-InvalidFrameFieldRejection
+                title: >-
+                  The FlacDecoder shall reject a frame with invalid header, frame-number,
+                  subframe or predictor fields with InvalidDataException.
+                justification: |
+                  Corrupt or hostile frames must fail with a clear, bounded error instead of
+                  producing garbage.
+                tests:
+                  - FlacDecoder_Decode_InvalidFields_Throw
                   - FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors
                   - FlacDecoder_Decode_FrameNumberBadContinuation_Throws
-                  - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_InvalidPredictorParameters_Throw
+
+              - id: Speech-Audio-FlacDecoder-OversizedBlockRejection
+                title: >-
+                  The FlacDecoder shall reject a block larger than the stream maximum or a frame
+                  holding more samples than remain of a known total with InvalidDataException.
+                justification: |
+                  Frames that exceed the sizes the stream declares indicate corruption and must
+                  not be decoded.
+                tests:
+                  - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws
+
+              - id: Speech-Audio-FlacDecoder-DamagedId3Rejection
+                title: >-
+                  The FlacDecoder shall reject a damaged ID3v2 prefix with InvalidDataException.
+                justification: |
+                  A damaged prefix, including a size field that is not syncsafe, prevents locating
+                  the stream and must fail clearly.
+                tests:
                   - FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws
                   - FlacDecoder_Decode_DamagedId3Tag_ThrowsNotFlacStream
 

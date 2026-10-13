@@ -148,7 +148,7 @@ sections:
                   from Start when the PortAudioEnvironment it was resolved against has completed
                   a device-table refresh since this instance was constructed.
                 justification: |
-                  See Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances: a device
+                  See Speech-Audio-DeviceRefreshInvalidation: a device
                   resolved before a refresh caches a device index that the refresh may have
                   invalidated (reused for a different physical device, or removed entirely), so
                   starting it afterward without this check risks opening a stream against the

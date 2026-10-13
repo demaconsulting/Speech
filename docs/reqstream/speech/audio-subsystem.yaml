@@ -340,14 +340,30 @@ sections:
               AudioDeviceFactory needs a way to make newly attached or removed hardware visible
               without recomposing the whole factory.
             children:
-              - Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
-              - Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
-              - Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances
               - Speech-Audio-AudioDeviceFactory-RefreshDevices
               - Speech-Audio-AudioDeviceFactory-RefreshReevaluatesDefaultProbes
+              - Speech-Audio-AudioDeviceFactory-RefreshPreservesInjectedProbes
             tests:
               - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
               - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
+
+          - id: Speech-Audio-DeviceRefreshInvalidation
+            title: >-
+              The AudioSubsystem shall prevent a device instance created before a completed
+              device-table refresh from starting a stream.
+            justification: |
+              PortAudio device indices are runtime-assigned and can be reused for a different
+              physical device (or become invalid entirely) once the device table is re-scanned.
+              A pre-refresh instance must fail safely and direct the caller to create a fresh
+              instance via AudioDeviceFactory rather than open a stream against the wrong
+              hardware.
+            children:
+              - Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
+              - Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
+              - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
+            tests:
+              - PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+              - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
 
           - id: Speech-Audio-DeviceRefreshRefusal
             title: >-
@@ -356,7 +372,7 @@ sections:
             justification: |
               A refresh must never silently invalidate a stream that is currently open.
             children:
-              - Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
+              - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
               - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
               - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
               - Speech-Audio-PortAudioCaptureDevice-ActiveStreamDeregistration
@@ -402,7 +418,10 @@ sections:
               - Speech-Audio-WavDecoder-ZeroLengthData
               - Speech-Audio-WavDecoder-MultichannelOrder
               - Speech-Audio-WavDecoder-UnsupportedEncodingRejection
-              - Speech-Audio-WavDecoder-MalformedImageRejection
+              - Speech-Audio-WavDecoder-MalformedChunkRejection
+              - Speech-Audio-WavDecoder-TruncatedImageRejection
+              - Speech-Audio-WavDecoder-InvalidFormatFieldRejection
+              - Speech-Audio-WavDecoder-NonWavRejection
               - Speech-Audio-WavDecoder-SampleCap
               - Speech-Audio-FlacDecoder-Prediction
               - Speech-Audio-FlacDecoder-StereoAndBitDepth
@@ -410,7 +429,11 @@ sections:
               - Speech-Audio-FlacDecoder-StreamShapes
               - Speech-Audio-FlacDecoder-Integrity
               - Speech-Audio-FlacDecoder-IntegrityOptOut
-              - Speech-Audio-FlacDecoder-MalformedStreamRejection
+              - Speech-Audio-FlacDecoder-TruncatedStreamRejection
+              - Speech-Audio-FlacDecoder-InvalidStreamInfoRejection
+              - Speech-Audio-FlacDecoder-InvalidFrameFieldRejection
+              - Speech-Audio-FlacDecoder-OversizedBlockRejection
+              - Speech-Audio-FlacDecoder-DamagedId3Rejection
               - Speech-Audio-FlacDecoder-SampleCap
             tests:
               - AudioFileReader_Read_DetectsContainerByContent

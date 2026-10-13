@@ -241,7 +241,7 @@ sections:
                 justification: |
                   The library's refresh can also propagate a general exception - for example, a
                   native Terminate() failure - that is not AudioDeviceInUseException (see the
-                  library-level Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse design).
+                  library-level Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive design).
                   Treating every refresh fault the same way keeps the UI crash-free and the
                   explanation honest regardless of which failure mode the native runtime
                   reports.

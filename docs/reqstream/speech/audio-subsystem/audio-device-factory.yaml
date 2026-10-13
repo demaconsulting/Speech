@@ -79,12 +79,8 @@ sections:
 
               - id: Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
                 title: >-
-                  The AudioDeviceFactory class shall resolve capture/playback device creation
-                  consistently with whichever probe was actually injected (or the real
-                  PortAudio-backed default when none was supplied): a requested selection or
-                  default device not known to the corresponding probe's enumeration shall yield
-                  the honest Unavailable* fallback rather than a device resolved independently
-                  against the real environment.
+                  The AudioDeviceFactory class shall create devices only for devices known to
+                  the probe in use, returning an unavailable device otherwise.
                 justification: |
                   The factory's own contract states callers should use it "as the sole source"
                   of capture/playback device instances, with device resolution and fallback
@@ -112,10 +108,9 @@ sections:
                   The AudioDeviceFactory class shall expose a RefreshDevices() method that
                   delegates to the environment's Refresh().
                 justification: |
-                  See the AudioSubsystem-level Speech-Audio-DeviceRefresh requirement in
-                  audio-subsystem.yaml and the dedicated audio-device-refresh.yaml requirement
-                  file for the full rationale; this entry ties that shared behavior to the
-                  AudioDeviceFactory unit specifically.
+                  Audio devices are hot-pluggable; a host application that has already composed
+                  an AudioDeviceFactory needs a way to make newly attached or removed hardware
+                  visible without recomposing the whole factory.
                 tests:
                   - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
 
@@ -131,12 +126,21 @@ sections:
 
               - id: Speech-Audio-AudioDeviceFactory-RefreshReevaluatesDefaultProbes
                 title: >-
-                  The AudioDeviceFactory class shall re-evaluate only its own defaulted
-                  (non-explicitly-injected) capture/playback probes against the new initialization
-                  outcome when RefreshDevices() succeeds.
+                  The AudioDeviceFactory class shall re-evaluate its defaulted probes against
+                  the new initialization outcome when RefreshDevices() succeeds.
                 justification: |
-                  A refresh that makes PortAudio newly available must be reflected by the default
-                  probes, while a probe a host injected deliberately must never be replaced.
+                  A refresh that makes PortAudio newly available must be reflected by the
+                  default probes.
                 tests:
                   - AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal
+
+              - id: Speech-Audio-AudioDeviceFactory-RefreshPreservesInjectedProbes
+                title: >-
+                  The AudioDeviceFactory class shall keep a probe injected at construction
+                  unchanged when RefreshDevices() succeeds.
+                justification: |
+                  A caller who explicitly supplied a probe (for example, a test double) did so
+                  deliberately; this is consistent with the factory's general policy of never
+                  overriding an explicitly injected dependency.
+                tests:
                   - AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced
