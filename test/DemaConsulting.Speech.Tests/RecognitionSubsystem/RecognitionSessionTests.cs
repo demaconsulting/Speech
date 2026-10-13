@@ -372,7 +372,7 @@ public class RecognitionSessionTests
     ///     every final result is still delivered, in order.
     /// </summary>
     [Fact]
-    public async Task RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap()
+    public async Task RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults()
     {
         // Arrange: a backend that yields several short final results before anything reads them
         var engine = new FakeRecognitionEngine(

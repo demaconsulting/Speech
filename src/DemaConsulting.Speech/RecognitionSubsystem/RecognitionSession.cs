@@ -184,7 +184,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         _releaseLease = releaseLease;
         _diagnostics = diagnostics;
         _worker = worker;
-        _resultBuffer = new RecognitionResultBuffer(diagnostics, DiagnosticsCategory);
+        _resultBuffer = new RecognitionResultBuffer();
 
         var deviceSampleRate = device.SampleRate;
         var deviceChannelCount = device.ChannelCount;

@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     ordinary machine state - a missing model, an absent native runtime, and a machine with no
 ///     microphone are not programming errors - returning
 ///     <see cref="UnavailableRecognitionSession.Instance"/> rather than throwing for any of them.
-///     A null device argument or An already-canceled cancellation token is a caller/programming
+///     A null device argument or an already-canceled cancellation token is a caller/programming
 ///     error rather than a machine state, and <see cref="CreateSessionAsync"/> still throws
 ///     synchronously for either, exactly like the real engine. The type is stateless and holds
 ///     no resources, so the shared <see cref="Instance"/> is safe for concurrent use by any

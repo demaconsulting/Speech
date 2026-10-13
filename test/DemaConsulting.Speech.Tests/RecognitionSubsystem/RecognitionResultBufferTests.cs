@@ -20,7 +20,7 @@ public class RecognitionResultBufferTests
     public async Task RecognitionResultBuffer_AddResult_FinalAfterProvisional_SupersedesProvisional()
     {
         // Arrange
-        var buffer = new RecognitionResultBuffer(NullSpeechDiagnostics.Instance, "RecognitionSubsystem");
+        var buffer = new RecognitionResultBuffer();
 
         // Act: a provisional arrives, then its own final - both before anything reads the buffer
         buffer.AddResult(new SpeechRecognitionEvent(new SpeechRecognitionResult("hello", IsFinal: false)));
@@ -43,7 +43,7 @@ public class RecognitionResultBufferTests
     public async Task RecognitionResultBuffer_AddResult_ProvisionalThenFinalForDifferentUtterances_DeliversBoth()
     {
         // Arrange
-        var buffer = new RecognitionResultBuffer(NullSpeechDiagnostics.Instance, "RecognitionSubsystem");
+        var buffer = new RecognitionResultBuffer();
 
         // Act: a provisional for one utterance, then (after it would have been read) a final for
         // a later, unrelated utterance
@@ -59,6 +59,34 @@ public class RecognitionResultBufferTests
         var second = Assert.Single(afterSecondRead);
         Assert.Equal("done", second.Result.Text);
         Assert.True(second.Result.IsFinal);
+    }
+
+    /// <summary>
+    ///     Proves that final results are never dropped, however large the unread backlog grows.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionResultBuffer_AddResult_ManyLargeFinals_NeverDropsAnyFinal()
+    {
+        // Arrange
+        var buffer = new RecognitionResultBuffer();
+        const int count = 50;
+        var text = new string('x', 10_000);
+
+        // Act: buffer far more than 64 KiB of final text before anything reads
+        for (var i = 0; i < count; i++)
+        {
+            buffer.AddResult(new SpeechRecognitionEvent(new SpeechRecognitionResult(text + i, IsFinal: true)));
+        }
+
+        buffer.Complete();
+
+        // Assert: every final survived, in order
+        var results = await CollectAsync(buffer);
+        Assert.Equal(count, results.Count);
+        for (var i = 0; i < count; i++)
+        {
+            Assert.Equal(text + i, results[i].Result.Text);
+        }
     }
 
     private static async Task<List<SpeechRecognitionEvent>> CollectAsync(RecognitionResultBuffer buffer)
