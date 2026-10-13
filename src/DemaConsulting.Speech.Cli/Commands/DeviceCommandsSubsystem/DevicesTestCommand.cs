@@ -67,6 +67,9 @@ internal static class DevicesTestCommand
     /// <summary>The margin, in seconds, beyond the tone duration allowed for the playback queue to drain.</summary>
     private const double PlaybackDrainMarginSeconds = 5.0;
 
+    /// <summary>Every option token <c>devices test</c> recognizes; a value-taking flag never accepts one as its value.</summary>
+    private static readonly string[] RecognizedOptions = ["--device", "--direction"];
+
     /// <summary>
     ///     Runs the <c>devices</c> subcommand (currently only the <c>test</c> sub-action) against
     ///     a real, composed <see cref="AudioDeviceFactory"/>.
@@ -166,11 +169,12 @@ internal static class DevicesTestCommand
 
     /// <summary>
     ///     Gets the value following a flag, throwing a clean <see cref="ArgumentException"/> when
-    ///     none was supplied.
+    ///     none was supplied or the next argument is one of this command's recognized options
+    ///     (so a forgotten value never silently swallows the next option).
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || RecognizedOptions.Contains(args[index], StringComparer.Ordinal))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
@@ -317,12 +321,13 @@ internal static class DevicesTestCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="device">The available playback device to play the tone on. Must not be null.</param>
     /// <param name="drainLimit">
-    ///     The total time to wait for the device to drain before reporting a failure;
+    ///     The total time allowed, measured from before the device is started, for starting,
+    ///     writing, and draining before reporting a failure;
     ///     <see langword="null"/> uses the built-in limit (the tone duration plus
     ///     <see cref="PlaybackDrainMarginSeconds"/> seconds).
     /// </param>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when the device still has queued samples after the drain limit.
+    ///     Thrown when the device still has queued samples after the total limit.
     /// </exception>
     internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainLimit = null)
     {
@@ -331,6 +336,11 @@ internal static class DevicesTestCommand
 
         var samples = GenerateToneSamples(device.SampleRate, device.ChannelCount, ToneDurationSeconds, ToneFrequencyHz);
 
+        // The total-time limit covers starting the device, writing the tone, and draining it, so a
+        // slow Start or Write counts against the same bound as a stalled drain.
+        var totalClock = Stopwatch.StartNew();
+        var limit = drainLimit ?? TimeSpan.FromSeconds(ToneDurationSeconds + PlaybackDrainMarginSeconds);
+
         try
         {
             device.Start();
@@ -338,14 +348,11 @@ internal static class DevicesTestCommand
 
             // Write is fire-and-forget: poll PendingSampleCount until the hardware has actually
             // consumed the queued tone, per IAudioPlaybackDevice's own documented contract. The wait
-            // is bounded (tone duration plus a fixed 5-second margin by default) so a stalled device
-            // is reported as a failure instead of hanging the command forever.
-            var drainDeadline = Stopwatch.StartNew();
-            var limit = drainLimit ??
-                        TimeSpan.FromSeconds(ToneDurationSeconds + PlaybackDrainMarginSeconds);
+            // is bounded (tone duration plus a fixed 5-second margin by default, measured from
+            // before Start) so a stalled device is reported as a failure instead of hanging forever.
             while (device.PendingSampleCount > 0)
             {
-                if (drainDeadline.Elapsed > limit)
+                if (totalClock.Elapsed > limit)
                 {
                     throw new InvalidOperationException(
                         "The playback device did not finish playing the test tone in time; " +

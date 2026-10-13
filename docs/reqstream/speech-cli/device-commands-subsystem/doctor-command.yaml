@@ -49,7 +49,9 @@ sections:
                   resolvable.
                 tags: [unit]
                 justification: |
-                  A missing native runtime is a common cause of recognition failures.
+                  A missing native runtime is a common cause of recognition failures. The native-library test
+                  deliberately exercises the real load path and is skipped on a platform with no supported
+                  runtime identifier.
                 tests:
                   - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
                   - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
@@ -110,3 +112,13 @@ sections:
                   - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
                   - DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy
                   - DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy
+
+              - id: SpeechCli-DeviceCommands-DoctorArgumentValidation
+                title: >-
+                  The DoctorCommand shall reject any extra argument given to `doctor` with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `doctor` takes no options, so a mistyped one must fail predictably instead of being ignored.
+                tests:
+                  - DoctorCommand_Run_ExtraArgument_ThrowsArgumentException

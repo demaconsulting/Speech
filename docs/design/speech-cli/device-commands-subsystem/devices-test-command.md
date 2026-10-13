@@ -41,12 +41,12 @@ mono device and each channel of a stereo device play an identical signal. The sa
 
 `PlayTestTone` starts the device, writes the whole tone and then polls `PendingSampleCount` every
 50 ms until the queue is empty, because `Write` is fire-and-forget. The wait is bounded by a total
-drain limit: when the caller passes no limit it is the 2-second tone duration plus a fixed 5-second
+limit measured from before the device is started, so a slow start counts against it: when the caller passes no limit it is the 2-second tone duration plus a fixed 5-second
 margin, **7 seconds in all**. If samples are still queued when the limit passes, the command throws
 `InvalidOperationException` (a clean message and a non-zero exit code) rather than hanging on a
-stalled device. Tests pass a 1 ms limit so the stalled-device path completes instantly. `Stop` runs
-in a `finally` block, so a stalled device is stopped before the exception reaches the caller; the
-`Start` call is made before that `try` block, so a device whose `Start` throws is not stopped. The
+stalled device. Tests pass a 1 ms limit so the stalled-device path completes instantly. ``Stop` runs
+in a `finally` block that also covers `Start`, so a stalled device, or one whose`Start` or write throws, is
+stopped before the exception reaches the caller. The
 report line states the tone duration and frequency, and the device's sample rate and channel count.
 
 **Input test.** The same name resolution and availability checks apply to the capture probe and
@@ -64,7 +64,7 @@ every machine regardless of the operator's culture.
 
 **Error Handling**: A null `Context`, factory, device or known-device list throws
 `ArgumentNullException`. A missing or unknown sub-action, an unrecognized `--direction` value, a
-value-less `--device` or `--direction`, and any unsupported argument throw `ArgumentException`. An
+value-less `--device` or `--direction` (including one followed by another option token), and any unsupported argument throw `ArgumentException`. An
 unknown device name throws `ArgumentException` naming the device and suggesting `list-devices`. A
 device whose `IsAvailable` is false, a stalled playback queue and an empty capture throw
 `InvalidOperationException`. `GenerateToneSamples` throws `ArgumentOutOfRangeException` when the

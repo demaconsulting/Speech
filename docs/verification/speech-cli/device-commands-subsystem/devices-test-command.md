@@ -18,7 +18,7 @@ independent of any injected probe, so that step cannot be deterministically fake
 `Run` through device creation into those checks is verified only manually.
 
 Two timing facts shape the tests. `RecordTestClip` really waits for the duration it is given, so
-its tests use a short duration. `PlayTestTone` accepts an optional total drain limit; the
+its tests use a short duration. `PlayTestTone` accepts an optional total time limit that is counted from before the device is started; the
 stalled-device test injects a 1 ms limit, so the failure path is instant instead of waiting the
 default 7 seconds (2-second tone plus 5-second margin). The default limit itself is therefore not
 asserted by any automated test; it is a constant in the unit.
@@ -40,8 +40,8 @@ The unit passes when it defaults to the output direction and parses its flags; r
 arguments, an unknown device name (either direction) and an unavailable device cleanly; generates a
 tone of the expected length that stays within full scale, is identical on every channel and rejects
 a non-positive sample rate; writes the whole tone and stops the device; fails instead of hanging
-when the playback queue never drains; reports capture statistics with invariant-culture durations;
-fails when capture delivers no samples; always stops a capture device whose `Start` threw; and
+when the playback queue never drains or the device start alone exceeds the total limit; reports capture statistics with invariant-culture durations;
+fails when capture delivers no samples; always stops a capture device whose `Start` threw and a playback device whose `Start` or write threw; and
 rejects a missing context, factory or device list.
 
 #### Test Scenarios
@@ -98,7 +98,25 @@ rejects a missing context, factory or device list.
 
 **Scenario**: `--device` with no value.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message says `--device requires a value`.
+
+##### DevicesTestCommand_ParseArguments_DirectionFlagMissingValue_ThrowsArgumentException
+
+**Scenario**: `--direction` with no value.
+
+**Expected**: `ArgumentException` whose message says `--direction requires a value`.
+
+##### DevicesTestCommand_ParseArguments_DeviceFlagFollowedByOption_ThrowsArgumentException
+
+**Scenario**: `--device --direction input`.
+
+**Expected**: `ArgumentException`; the option token is not swallowed as the device name.
+
+##### DevicesTestCommand_ParseArguments_DirectionFlagFollowedByOption_ThrowsArgumentException
+
+**Scenario**: `--direction --device x`.
+
+**Expected**: `ArgumentException`; the option token is not swallowed as the direction.
 
 ##### DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull
 
@@ -206,6 +224,26 @@ the report mentions the 440 Hz tone and the 48000 Hz sample rate. No model or ca
 **Expected**: `InvalidOperationException` ("did not finish...") and the device has been stopped,
 proving the `finally` stop. The test returns immediately rather than waiting 7 seconds.
 
+##### DevicesTestCommand_PlayTestTone_SlowStartExceedsTotalLimit_ThrowsInvalidOperationException
+
+**Scenario**: A fake device whose `Start` blocks for 250 ms and whose queue then drains at once, with a 50 ms total
+limit.
+
+**Expected**: `InvalidOperationException` ("did not finish...") and the device has been stopped. This fails if the limit
+is counted only from the drain wait, which is the regression it guards.
+
+##### DevicesTestCommand_PlayTestTone_StartThrows_StillStopsDevice
+
+**Scenario**: The fake playback device's `Start` throws.
+
+**Expected**: The exception propagates and the device has been stopped.
+
+##### DevicesTestCommand_PlayTestTone_WriteThrows_StillStopsDevice
+
+**Scenario**: The fake playback device's write throws.
+
+**Expected**: The exception propagates and the device has been stopped.
+
 ##### DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak
 
 **Scenario**: A fake capture device raises one frame of known samples.
@@ -223,8 +261,7 @@ proving the `finally` stop. The test returns immediately rather than waiting 7 s
 **Scenario**: The fake capture device's `Start` throws.
 
 **Expected**: The exception propagates and the device has been stopped, proving the stop in the
-`finally` block. The frame unsubscription in the same block is not asserted separately. The
-playback side has no equivalent test, because `PlayTestTone` calls `Start` before its `try` block.
+`finally` block. The frame unsubscription in the same block is not asserted separately.
 
 ##### DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration
 

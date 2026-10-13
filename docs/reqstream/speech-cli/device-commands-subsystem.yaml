@@ -11,8 +11,9 @@
 # devices-test-command.yaml (DevicesTestCommand) and
 # doctor-command.yaml (DoctorCommand).
 #
-# The requirement below is the subsystem's own behavior: the commands taken together treat a
-# machine with no audio hardware as a normal condition rather than an error.
+# The requirements below are the subsystem's own behavior: the commands taken together treat a
+# machine with no audio hardware as a normal condition rather than an error, and `devices test` plays
+# a tone for a known device and rejects an unknown one cleanly.
 
 sections:
   - title: SpeechCli Requirements
@@ -34,3 +35,18 @@ sections:
               - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
               - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
               - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
+
+          - id: SpeechCli-DeviceCommands-DevicesTestNormalAndError
+            title: >-
+              The DeviceCommandsSubsystem shall play the test tone on a known playback device and report it when
+              `devices test` is invoked, and shall reject an unknown device name with a clean error naming the
+              device.
+            tags: [subsystem]
+            justification: |
+              The test command is the operator's proof that audio works, so both its success path and its
+              mistyped-device failure path must behave predictably when the command's parts run together, with
+              no audio hardware needed.
+            tests:
+              - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+              - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+              - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError

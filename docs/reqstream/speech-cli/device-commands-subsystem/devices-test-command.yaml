@@ -110,9 +110,9 @@ sections:
               - id: SpeechCli-DeviceCommands-DevicesTestArgumentValidation
                 title: >-
                   The DevicesTestCommand shall reject a `devices` invocation with a missing or
-                  unknown sub-action, an invalid or valueless `--direction` or `--device`, or an
-                  unsupported flag, with a clean, non-zero-exit-code error rather than a stack
-                  trace.
+                  unknown sub-action, an invalid `--direction`, a `--direction` or `--device` that is
+                  followed by no value or by another option, or an unsupported flag, with a clean,
+                  non-zero-exit-code error rather than a stack trace.
                 tags: [unit]
                 justification: |
                   A mistyped devices command must fail predictably so a script can detect it.
@@ -122,14 +122,17 @@ sections:
                   - DevicesTestCommand_ParseArguments_InvalidDirectionValue_ThrowsArgumentException
                   - DevicesTestCommand_ParseArguments_UnsupportedFlag_ThrowsArgumentException
                   - DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_DirectionFlagMissingValue_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_DeviceFlagFollowedByOption_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_DirectionFlagFollowedByOption_ThrowsArgumentException
                   - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
 
               - id: SpeechCli-DeviceCommands-DevicesTestOutputDrainTimeout
                 title: >-
                   The DevicesTestCommand shall fail the output test with a non-zero exit code
                   and a clear message, rather than hanging, when the playback device has not
-                  finished playing the test tone within 7 seconds in total (the 2-second tone
-                  duration plus a fixed 5-second margin).
+                  finished playing the test tone within 7 seconds in total, counted from the start of
+                  the device (the 2-second tone duration plus a fixed 5-second margin).
                 tags: [unit]
                 justification: |
                   A stalled or disconnected output device must not leave a diagnostic command
@@ -137,6 +140,20 @@ sections:
                   fault. The test injects a 1 ms limit so the failure path is instant; the
                   7-second default is a constant that no automated test asserts.
                 tests:
+                  - DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException
+                  - DevicesTestCommand_PlayTestTone_SlowStartExceedsTotalLimit_ThrowsInvalidOperationException
+
+              - id: SpeechCli-DeviceCommands-DevicesTestDeviceStopped
+                title: >-
+                  The DevicesTestCommand shall stop the playback device it started, even when starting,
+                  writing or draining fails.
+                tags: [unit]
+                justification: |
+                  A diagnostic that fails must not leave a half-started audio device running and holding the
+                  operator's speakers.
+                tests:
+                  - DevicesTestCommand_PlayTestTone_StartThrows_StillStopsDevice
+                  - DevicesTestCommand_PlayTestTone_WriteThrows_StillStopsDevice
                   - DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException
 
               - id: SpeechCli-DeviceCommands-DevicesTestInvariantFormatting

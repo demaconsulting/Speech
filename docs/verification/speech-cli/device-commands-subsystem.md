@@ -28,8 +28,9 @@ hardware-dependent behavior.
 ### Acceptance Criteria
 
 A DeviceCommandsSubsystem test run passes when `list-devices` and `doctor` both report a machine
-with no audio devices as an informational outcome rather than an error, and the built tool runs
-`list-devices` and `doctor` to completion with the expected output.
+with no audio devices as an informational outcome rather than an error, the built tool runs
+`list-devices` and `doctor` to completion with the expected output, and `devices test` plays its tone on a known
+playback device and rejects an unknown device name with a clean error.
 
 ### Test Scenarios
 
@@ -56,3 +57,22 @@ with no audio devices as an informational outcome rather than an error, and the 
 **Scenario**: The built tool runs `doctor` against an isolated, writable `--models-dir`.
 
 **Expected**: The checklist is printed and the run is healthy.
+
+#### DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+
+**Scenario**: `devices test` plays its tone on a fake playback device.
+
+**Expected**: The full tone is written to the device, the device is stopped, and the tone frequency and sample rate are
+reported.
+
+#### DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+
+**Scenario**: `devices test --device does-not-exist` runs against a factory over fake probes that do not know that name.
+
+**Expected**: A clean `ArgumentException` naming the device, before any device is created.
+
+#### SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
+
+**Scenario**: The built tool runs `devices test` with an unknown device name.
+
+**Expected**: A clean, non-zero-exit-code error rather than a stack trace.

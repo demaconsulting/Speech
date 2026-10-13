@@ -21,8 +21,8 @@ runs the built tool against an isolated `--models-dir`.
 - **Native-library coupling**: `DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable`
   depends on the environment rather than on a fake: it passes because the `org.k2fsa.sherpa.onnx`
   package unconditionally depends on every platform's runtime package, so the real native asset is
-  transitively copied into the test project's output on every supported runner. If that packaging
-  changed, this test would fail for an environmental reason, not because of a defect in the unit.
+  transitively copied into the test project's output on every supported runner. If the asset is
+  absent on a runner, the test is skipped rather than failed.
 
 #### Acceptance Criteria
 
@@ -70,7 +70,20 @@ store path, an empty store path and an extra argument are rejected.
 
 **Scenario**: A run through the real `TryProbeSherpaOnnxNativeLibrary`/`CheckNativeRuntimes` path.
 
-**Expected**: The `[ OK ]` SherpaOnnx line is present (see the native-library coupling above).
+**Expected**: The `[ OK ]` SherpaOnnx line is present (see the native-library coupling above). The test is
+skipped, not failed, on a runner where the native asset is absent.
+
+##### DoctorCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
+
+**Scenario**: The capture probe is null.
+
+**Expected**: `ArgumentNullException`.
+
+##### DoctorCommand_Run_NullPlaybackProbe_ThrowsArgumentNullException
+
+**Scenario**: The playback probe is null.
+
+**Expected**: `ArgumentNullException`.
 
 ##### DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
 
@@ -147,5 +160,4 @@ healthy end to end.
 
 Running `dotnet run --project src/DemaConsulting.Speech.Cli -- doctor` on a real development machine
 reports a checklist that matches that machine's actual native runtimes, model store, audio devices
-and installed models. This is manual because the result depends on the host environment. No
-automated test passes a null capture or playback probe, so those two guards are unverified.
+and installed models. This is manual because the result depends on the host environment.

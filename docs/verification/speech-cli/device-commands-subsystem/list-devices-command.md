@@ -22,7 +22,7 @@ hardware, because the command exits cleanly in both cases.
 
 The unit passes when it lists the devices of both probes by default and only those of the
 requested direction under `--direction`, reports "No devices found." for an empty result, reports
-each device with the name the probe returned, rejects an invalid or valueless `--direction`, an
+each device with the name, channel count and sample rate the probe returned, rejects an invalid `--direction`, a `--direction` with no value or followed by another option, an
 unsupported flag and a missing context or probe, and the built tool lists devices cleanly.
 
 #### Test Scenarios
@@ -32,8 +32,14 @@ unsupported flag and a missing context or probe, and the built tool lists device
 **Scenario**: One capture and one playback device are enumerated and no flag is given.
 
 **Expected**: The output contains both device names, exactly as the fakes returned them, and the
-`Capture` and `Playback` direction names. The test does not assert the channel and sample-rate
-columns or the column alignment.
+`Capture` and `Playback` direction names. The next scenario asserts the channel and sample-rate columns.
+
+##### ListDevicesCommand_Run_Devices_ReportChannelCountAndSampleRate
+
+**Scenario**: A capture device with 7 channels at 44123 Hz and a playback device with 5 channels at 96321 Hz are
+enumerated. These values are distinctive so they cannot appear in the output by coincidence.
+
+**Expected**: Each device's line contains that device's own channel count and sample rate.
 
 ##### ListDevicesCommand_Run_DirectionInput_ListsOnlyCaptureDevices
 
@@ -63,7 +69,13 @@ columns or the column alignment.
 
 **Scenario**: `--direction` is the last argument.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message says `--direction requires a value`.
+
+##### ListDevicesCommand_Run_DirectionFlagFollowedByOption_ThrowsArgumentException
+
+**Scenario**: `--direction` is followed by another `--direction` token instead of a value.
+
+**Expected**: `ArgumentException` whose message says `--direction requires a value`; the option token is not swallowed as the value.
 
 ##### ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
 
@@ -106,5 +118,4 @@ has.
 
 Running `dotnet run --project src/DemaConsulting.Speech.Cli -- list-devices` on a development machine
 with audio hardware shows the genuinely detected devices with sane column output. This is manual
-because the automated tests cannot depend on the host's hardware. The tests do not check that the
-channel and sample-rate columns carry the probe's values; a test asserting them is recommended.
+because the automated tests cannot depend on the host's hardware.

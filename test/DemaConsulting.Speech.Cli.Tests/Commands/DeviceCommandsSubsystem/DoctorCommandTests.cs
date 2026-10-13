@@ -42,13 +42,16 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_WritableModelStore_ReportsHealthy()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog()
             .WithModel(new FakeSpeechModel("model-a"), SpeechModelState.Downloaded)
             .WithModel(new FakeSpeechModel("model-b"), SpeechModelState.NotDownloaded);
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains("Overall: HEALTHY", output);
         Assert.Equal(0, context.ExitCode);
     }
@@ -59,11 +62,14 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsModelStoreRootPath()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog();
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains(_tempDir, output);
     }
 
@@ -73,11 +79,14 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsAvailableDiskSpace()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog();
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains("Available disk space:", output);
     }
 
@@ -87,14 +96,17 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog()
             .WithModel(new FakeSpeechModel("model-a"), SpeechModelState.Downloaded)
             .WithModel(new FakeSpeechModel("model-b"), SpeechModelState.NotDownloaded)
             .WithModel(new FakeSpeechModel("model-c"), SpeechModelState.NotDownloaded);
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains("Installed: 1 / 3 known", output);
     }
 
@@ -104,13 +116,16 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsAudioDeviceCounts()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var captureProbe = new FakeAudioCaptureDeviceProbe([new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 1, 16000)]);
         var playbackProbe = new FakeAudioPlaybackDeviceProbe();
         var catalog = new FakeCliModelCatalog();
 
+        // Act
         var output = RunCapturingOutput(context, captureProbe, playbackProbe, catalog, _tempDir);
 
+        // Assert
         Assert.Contains("Input devices detected: 1", output);
         Assert.Contains("Output devices detected: 0", output);
     }
@@ -129,11 +144,18 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable()
     {
+        // Arrange: this test deliberately exercises the real native load path, which depends on the
+        // platform's runtime identifier being supported; on an unsupported platform it is skipped.
+        Assert.SkipUnless(
+            DoctorCommand.ResolveRuntimeIdentifier() is not null,
+            "The current platform has no supported SherpaOnnx runtime identifier.");
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog();
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
     }
 
@@ -146,8 +168,11 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath()
     {
+        // Arrange
         var runtimeIdentifier = DoctorCommand.ResolveRuntimeIdentifier();
-        Assert.NotNull(runtimeIdentifier);
+        Assert.SkipUnless(
+            runtimeIdentifier is not null,
+            "The current platform has no supported SherpaOnnx runtime identifier.");
 
         var fileName = DoctorCommand.ResolveSherpaOnnxNativeLibraryFileName();
         var nativeDir = Path.Join(_tempDir, "runtimes", runtimeIdentifier, "native");
@@ -155,8 +180,10 @@ public sealed class DoctorCommandTests : IDisposable
         var assetPath = Path.Join(nativeDir, fileName);
         File.WriteAllText(assetPath, string.Empty);
 
+        // Act
         var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
 
+        // Assert
         Assert.Equal(assetPath, resolved);
     }
 
@@ -168,8 +195,12 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull()
     {
+        // Arrange: _tempDir contains no runtimes directory.
+
+        // Act
         var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
 
+        // Assert
         Assert.Null(resolved);
     }
 
@@ -180,9 +211,11 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog();
 
+        // Act
         var output = RunCapturingOutput(
             context,
             UnavailableAudioCaptureDeviceProbe.Instance,
@@ -190,6 +223,7 @@ public sealed class DoctorCommandTests : IDisposable
             catalog,
             _tempDir);
 
+        // Assert
         Assert.Contains("[INFO] PortAudio", output);
         Assert.Contains("Overall: HEALTHY", output);
         Assert.Equal(0, context.ExitCode);
@@ -212,8 +246,10 @@ public sealed class DoctorCommandTests : IDisposable
 
         try
         {
+            // Act
             var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+            // Assert
             Assert.Contains("[FAIL]", output);
             Assert.NotEqual(0, context.ExitCode);
         }
@@ -230,10 +266,13 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
 
+        // Act
         var output = RunCapturingOutput(context, new ThrowingCaptureProbe(), new ThrowingPlaybackProbe(), new FakeCliModelCatalog(), _tempDir);
 
+        // Assert
         Assert.Contains("Input devices detected: (could not be determined)", output);
         Assert.Contains("Output devices detected: (could not be determined)", output);
         Assert.Contains("Overall: HEALTHY", output);
@@ -247,11 +286,14 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog { EnumerateException = new InvalidOperationException("catalog broke") };
 
+        // Act
         var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
 
+        // Assert
         Assert.Contains("Installed: (could not be determined)", output);
         Assert.Contains("Overall: HEALTHY", output);
         Assert.Equal(0, context.ExitCode);
@@ -263,11 +305,15 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ExtraArgument_ThrowsArgumentException()
     {
+        // Arrange
         var context = Context.Create(["doctor", "bogus"]);
         var catalog = new FakeCliModelCatalog();
 
-        Assert.Throws<ArgumentException>(() =>
-            DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir));
+        // Act
+        void Act() => DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -276,8 +322,48 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            DoctorCommand.Run(null!, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), new FakeCliModelCatalog(), _tempDir));
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        void Act() => DoctorCommand.Run(null!, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
+    }
+
+    /// <summary>
+    ///     Test that a <see langword="null"/> capture probe is rejected.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_NullCaptureProbe_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        void Act() => DoctorCommand.Run(context, null!, new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
+    }
+
+    /// <summary>
+    ///     Test that a <see langword="null"/> playback probe is rejected.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_NullPlaybackProbe_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        void Act() => DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), null!, catalog, _tempDir);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -286,10 +372,14 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
 
-        Assert.Throws<ArgumentNullException>(() =>
-            DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), null!, _tempDir));
+        // Act
+        void Act() => DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), null!, _tempDir);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -298,10 +388,15 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_EmptyModelStoreRootPath_ThrowsArgumentException()
     {
+        // Arrange
         var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
 
-        Assert.Throws<ArgumentException>(() =>
-            DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), new FakeCliModelCatalog(), string.Empty));
+        // Act
+        void Act() => DoctorCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, string.Empty);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>

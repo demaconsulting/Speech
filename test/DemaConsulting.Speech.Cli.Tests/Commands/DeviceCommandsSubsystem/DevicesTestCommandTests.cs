@@ -48,8 +48,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection()
     {
-        var options = DevicesTestCommand.ParseArguments(["test"]);
+        // Arrange
+        string[] args = ["test"];
 
+        // Act
+        var options = DevicesTestCommand.ParseArguments(args);
+
+        // Assert
         Assert.Null(options.DeviceName);
         Assert.Equal(AudioDeviceDirection.Playback, options.Direction);
     }
@@ -60,8 +65,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection()
     {
-        var options = DevicesTestCommand.ParseArguments(["test", "--direction", "input"]);
+        // Arrange
+        string[] args = ["test", "--direction", "input"];
 
+        // Act
+        var options = DevicesTestCommand.ParseArguments(args);
+
+        // Assert
         Assert.Equal(AudioDeviceDirection.Capture, options.Direction);
     }
 
@@ -71,8 +81,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_DirectionOutput_ParsesToPlaybackDirection()
     {
-        var options = DevicesTestCommand.ParseArguments(["test", "--direction", "output"]);
+        // Arrange
+        string[] args = ["test", "--direction", "output"];
 
+        // Act
+        var options = DevicesTestCommand.ParseArguments(args);
+
+        // Assert
         Assert.Equal(AudioDeviceDirection.Playback, options.Direction);
     }
 
@@ -82,8 +97,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_DeviceFlag_ParsesDeviceName()
     {
-        var options = DevicesTestCommand.ParseArguments(["test", "--device", "My Speakers"]);
+        // Arrange
+        string[] args = ["test", "--device", "My Speakers"];
 
+        // Act
+        var options = DevicesTestCommand.ParseArguments(args);
+
+        // Assert
         Assert.Equal("My Speakers", options.DeviceName);
     }
 
@@ -93,7 +113,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_MissingSubAction_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => DevicesTestCommand.ParseArguments([]));
+        // Arrange
+        string[] args = [];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -102,7 +129,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_UnknownSubAction_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => DevicesTestCommand.ParseArguments(["bogus"]));
+        // Arrange
+        string[] args = ["bogus"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -111,7 +145,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_InvalidDirectionValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => DevicesTestCommand.ParseArguments(["test", "--direction", "sideways"]));
+        // Arrange
+        string[] args = ["test", "--direction", "sideways"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -120,16 +161,84 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ParseArguments_UnsupportedFlag_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => DevicesTestCommand.ParseArguments(["test", "--bogus"]));
+        // Arrange
+        string[] args = ["test", "--bogus"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
-    ///     Test that a flag missing its value throws <see cref="ArgumentException"/>.
+    ///     Test that a <c>--device</c> flag missing its value throws <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
     public void DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => DevicesTestCommand.ParseArguments(["test", "--device"]));
+        // Arrange
+        string[] args = ["test", "--device"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--device requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that a <c>--direction</c> flag missing its value throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_ParseArguments_DirectionFlagMissingValue_ThrowsArgumentException()
+    {
+        // Arrange
+        string[] args = ["test", "--direction"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--direction requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that <c>--device</c> followed by another recognized option is rejected rather than
+    ///     swallowing the option token as the device name.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_ParseArguments_DeviceFlagFollowedByOption_ThrowsArgumentException()
+    {
+        // Arrange
+        string[] args = ["test", "--device", "--direction", "input"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--device requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that <c>--direction</c> followed by another recognized option is rejected rather than
+    ///     swallowing the option token as the direction.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_ParseArguments_DirectionFlagFollowedByOption_ThrowsArgumentException()
+    {
+        // Arrange
+        string[] args = ["test", "--direction", "--device", "x"];
+
+        // Act
+        void Act() => DevicesTestCommand.ParseArguments(args);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--direction requires a value", exception.Message);
     }
 
     /// <summary>
@@ -139,8 +248,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull()
     {
-        var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow([], null, "playback");
+        // Arrange
+        IReadOnlyList<AudioDeviceDescription> known = [];
 
+        // Act
+        var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(known, null, "playback");
+
+        // Assert
         Assert.Null(selection);
     }
 
@@ -150,8 +264,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ResolveDeviceSelectionOrThrow_KnownDeviceName_ReturnsSelection()
     {
-        var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow([OutputDevice], OutputDevice.Name, "playback");
+        // Arrange
+        IReadOnlyList<AudioDeviceDescription> known = [OutputDevice];
 
+        // Act
+        var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(known, OutputDevice.Name, "playback");
+
+        // Assert
         Assert.NotNull(selection);
         Assert.Equal(OutputDevice.Name, selection.DeviceName);
     }
@@ -164,9 +283,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ResolveDeviceSelectionOrThrow_UnknownDeviceName_ThrowsArgumentException()
     {
-        var exception = Assert.Throws<ArgumentException>(() =>
-            DevicesTestCommand.ResolveDeviceSelectionOrThrow([InputDevice], "does-not-exist", "capture"));
+        // Arrange
+        IReadOnlyList<AudioDeviceDescription> known = [InputDevice];
 
+        // Act
+        void Act() => DevicesTestCommand.ResolveDeviceSelectionOrThrow(known, "does-not-exist", "capture");
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
         Assert.Contains("does-not-exist", exception.Message);
         Assert.Contains("list-devices", exception.Message);
     }
@@ -177,8 +301,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullKnownDevices_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            DevicesTestCommand.ResolveDeviceSelectionOrThrow(null!, "any", "playback"));
+        // Arrange
+        IReadOnlyList<AudioDeviceDescription>? known = null;
+
+        // Act
+        void Act() => DevicesTestCommand.ResolveDeviceSelectionOrThrow(known!, "any", "playback");
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -188,8 +318,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount()
     {
-        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate: 1000, channelCount: 2, durationSeconds: 1.0, frequencyHz: 100.0);
+        // Arrange
+        const int sampleRate = 1000;
 
+        // Act
+        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate, channelCount: 2, durationSeconds: 1.0, frequencyHz: 100.0);
+
+        // Assert
         Assert.Equal(2000, samples.Length);
     }
 
@@ -199,8 +334,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange()
     {
-        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate: 44100, channelCount: 1, durationSeconds: 0.5, frequencyHz: 440.0);
+        // Arrange
+        const int sampleRate = 44100;
 
+        // Act
+        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate, channelCount: 1, durationSeconds: 0.5, frequencyHz: 440.0);
+
+        // Assert
         Assert.All(samples, sample => Assert.InRange(sample, -1.0f, 1.0f));
     }
 
@@ -211,8 +351,13 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_GenerateToneSamples_IdenticalAcrossChannels()
     {
-        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate: 8000, channelCount: 2, durationSeconds: 0.1, frequencyHz: 440.0);
+        // Arrange
+        const int sampleRate = 8000;
 
+        // Act
+        var samples = DevicesTestCommand.GenerateToneSamples(sampleRate, channelCount: 2, durationSeconds: 0.1, frequencyHz: 440.0);
+
+        // Assert
         for (var frame = 0; frame < samples.Length / 2; frame++)
         {
             Assert.Equal(samples[frame * 2], samples[(frame * 2) + 1]);
@@ -225,8 +370,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            DevicesTestCommand.GenerateToneSamples(sampleRate: 0, channelCount: 1, durationSeconds: 1.0, frequencyHz: 440.0));
+        // Arrange
+        const int sampleRate = 0;
+
+        // Act
+        void Act() => DevicesTestCommand.GenerateToneSamples(sampleRate, channelCount: 1, durationSeconds: 1.0, frequencyHz: 440.0);
+
+        // Assert
+        Assert.Throws<ArgumentOutOfRangeException>(Act);
     }
 
     /// <summary>
@@ -237,10 +388,15 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--device", "does-not-exist", "--direction", "output"]);
         var factory = new AudioDeviceFactory(new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe([OutputDevice]));
 
-        var exception = Assert.Throws<ArgumentException>(() => DevicesTestCommand.Run(context, factory));
+        // Act
+        void Act() => DevicesTestCommand.Run(context, factory);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -251,10 +407,15 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_Run_UnknownCaptureDevice_ThrowsArgumentException()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--device", "does-not-exist", "--direction", "input"]);
         var factory = new AudioDeviceFactory(new FakeAudioCaptureDeviceProbe([InputDevice]), new FakeAudioPlaybackDeviceProbe());
 
-        var exception = Assert.Throws<ArgumentException>(() => DevicesTestCommand.Run(context, factory));
+        // Act
+        void Act() => DevicesTestCommand.Run(context, factory);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -264,7 +425,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => DevicesTestCommand.Run(null!, new AudioDeviceFactory()));
+        // Arrange
+        var factory = new AudioDeviceFactory();
+
+        // Act
+        void Act() => DevicesTestCommand.Run(null!, factory);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -273,9 +441,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_Run_NullFactory_ThrowsArgumentNullException()
     {
+        // Arrange
         var context = Context.Create(["devices", "test"]);
 
-        Assert.Throws<ArgumentNullException>(() => DevicesTestCommand.Run(context, null!));
+        // Act
+        void Act() => DevicesTestCommand.Run(context, null!);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -285,11 +458,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt()
     {
+        // Arrange
         var context = Context.Create(["devices", "test"]);
         var device = new RecordingPlaybackDevice();
 
+        // Act
         var output = CaptureOutput(() => DevicesTestCommand.PlayTestTone(context, device));
 
+        // Assert
         Assert.True(device.Started);
         Assert.True(device.Stopped);
         Assert.Equal(48000 * 2 * 2, device.Written.Count);
@@ -304,15 +480,44 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException()
     {
+        // Arrange
         var context = Context.Create(["devices", "test"]);
         var device = new RecordingPlaybackDevice { PendingSampleCount = 1 };
 
+        // Act
         // The drain limit is injected, so the stalled-device path completes immediately.
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(1)));
+        void Act() => DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(1));
 
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
         Assert.True(device.Stopped);
         Assert.Contains("did not finish", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that the time spent starting the playback device counts toward the total time limit: a
+    ///     device whose <c>Start</c> alone exceeds the limit is reported as not finishing even though its
+    ///     queue then drains immediately. Without the total bound (a drain-only clock), this would succeed.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_SlowStartExceedsTotalLimit_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice
+        {
+            StartDelay = TimeSpan.FromMilliseconds(250),
+            PendingSampleCount = 1,
+            DrainAfterFirstRead = true
+        };
+
+        // Act
+        void Act() => DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(50));
+
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
+        Assert.Contains("did not finish", exception.Message);
+        Assert.True(device.Stopped);
     }
 
     /// <summary>
@@ -321,11 +526,35 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_PlayTestTone_WriteThrows_StillStopsDevice()
     {
+        // Arrange
         var context = Context.Create(["devices", "test"]);
         var device = new RecordingPlaybackDevice { WriteException = new InvalidOperationException("write failed") };
 
-        Assert.Throws<InvalidOperationException>(() => DevicesTestCommand.PlayTestTone(context, device));
+        // Act
+        void Act() => DevicesTestCommand.PlayTestTone(context, device);
 
+        // Assert
+        Assert.Throws<InvalidOperationException>(Act);
+        Assert.True(device.Stopped);
+    }
+
+    /// <summary>
+    ///     Test that the playback device is stopped even when starting it throws partway, so a
+    ///     partially started device is never left running.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_StartThrows_StillStopsDevice()
+    {
+        // Arrange
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice { StartException = new InvalidOperationException("start failed") };
+
+        // Act
+        void Act() => DevicesTestCommand.PlayTestTone(context, device);
+
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
+        Assert.Equal("start failed", exception.Message);
         Assert.True(device.Stopped);
     }
 
@@ -336,14 +565,18 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--direction", "input"]);
         var device = new FramingCaptureDevice([0.1f]);
         var originalCulture = CultureInfo.CurrentCulture;
         try
         {
             CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            // Act
             var output = CaptureOutput(() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(1500)));
 
+            // Assert
             Assert.Contains("Recorded 1.5 second(s)", output);
         }
         finally
@@ -358,11 +591,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--direction", "input"]);
         var device = new FramingCaptureDevice([0.1f, -0.5f, 0.25f]);
 
+        // Act
         var output = CaptureOutput(() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
 
+        // Assert
         Assert.True(device.Started);
         Assert.True(device.Stopped);
         Assert.Contains("Samples captured: 3", output);
@@ -375,12 +611,15 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--direction", "input"]);
         var device = new FramingCaptureDevice([]);
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
+        // Act
+        void Act() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10));
 
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
         Assert.True(device.Stopped);
         Assert.Contains("no audio samples", exception.Message);
     }
@@ -392,12 +631,15 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RecordTestClip_StartThrows_StopsDevice()
     {
+        // Arrange
         var context = Context.Create(["devices", "test", "--direction", "input"]);
         var device = new FramingCaptureDevice([0.1f]) { ThrowOnStart = true };
 
-        Assert.Throws<InvalidOperationException>(() =>
-            DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
+        // Act
+        void Act() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10));
 
+        // Assert
+        Assert.Throws<InvalidOperationException>(Act);
         Assert.True(device.Stopped);
     }
 
@@ -407,9 +649,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RequireAvailable_UnavailablePlaybackDevice_ThrowsInvalidOperationException()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            DevicesTestCommand.RequireAvailable(new RecordingPlaybackDevice { Available = false }));
+        // Arrange
+        var device = new RecordingPlaybackDevice { Available = false };
 
+        // Act
+        void Act() => DevicesTestCommand.RequireAvailable(device);
+
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
         Assert.Contains("playback", exception.Message);
     }
 
@@ -419,9 +666,14 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RequireAvailable_UnavailableCaptureDevice_ThrowsInvalidOperationException()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            DevicesTestCommand.RequireAvailable(new FramingCaptureDevice([]) { Available = false }));
+        // Arrange
+        var device = new FramingCaptureDevice([]) { Available = false };
 
+        // Act
+        void Act() => DevicesTestCommand.RequireAvailable(device);
+
+        // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
         Assert.Contains("capture", exception.Message);
     }
 
@@ -431,11 +683,17 @@ public sealed class DevicesTestCommandTests
     [Fact]
     public void DevicesTestCommand_RequireAvailable_AvailableDevices_ReturnsSameDevice()
     {
+        // Arrange
         var playback = new RecordingPlaybackDevice();
         var capture = new FramingCaptureDevice([]);
 
-        Assert.Same(playback, DevicesTestCommand.RequireAvailable(playback));
-        Assert.Same(capture, DevicesTestCommand.RequireAvailable(capture));
+        // Act
+        var playbackResult = DevicesTestCommand.RequireAvailable(playback);
+        var captureResult = DevicesTestCommand.RequireAvailable(capture);
+
+        // Assert
+        Assert.Same(playback, playbackResult);
+        Assert.Same(capture, captureResult);
     }
 
     /// <summary>Runs an action while capturing everything written to stdout.</summary>
@@ -458,6 +716,9 @@ public sealed class DevicesTestCommandTests
     /// <summary>A playback device that records what was written to it.</summary>
     private sealed class RecordingPlaybackDevice : IAudioPlaybackDevice
     {
+        /// <summary>Tracks whether the pending count has been read once already.</summary>
+        private bool _pendingRead;
+
         /// <summary>Gets the samples written so far.</summary>
         public List<float> Written { get; } = [];
 
@@ -470,6 +731,18 @@ public sealed class DevicesTestCommandTests
         /// <summary>Gets or sets a value indicating whether the device reports itself available.</summary>
         public bool Available { get; set; } = true;
 
+        /// <summary>Gets or sets how long <see cref="Start"/> blocks before returning.</summary>
+        public TimeSpan StartDelay { get; set; }
+
+        /// <summary>
+        ///     Gets or sets a value indicating whether <see cref="PendingSampleCount"/> reports zero after
+        ///     the first read, simulating a queue that drains immediately.
+        /// </summary>
+        public bool DrainAfterFirstRead { get; set; }
+
+        /// <summary>Gets or sets an exception thrown by <see cref="Start"/> when not <see langword="null"/>.</summary>
+        public Exception? StartException { get; set; }
+
         /// <inheritdoc/>
         public bool IsAvailable => Available;
 
@@ -479,14 +752,41 @@ public sealed class DevicesTestCommandTests
         /// <inheritdoc/>
         public int SampleRate => 48000;
 
-        /// <inheritdoc/>
-        public long PendingSampleCount { get; set; }
+        /// <summary>Gets or sets the pending sample count; see <see cref="DrainAfterFirstRead"/>.</summary>
+        public long PendingSampleCount
+        {
+            get
+            {
+                if (DrainAfterFirstRead && _pendingRead)
+                {
+                    return 0;
+                }
+
+                _pendingRead = true;
+                return field;
+            }
+
+            set;
+        }
 
         /// <summary>Gets or sets an exception thrown by <see cref="Write"/> when not <see langword="null"/>.</summary>
         public Exception? WriteException { get; set; }
 
         /// <inheritdoc/>
-        public void Start() => Started = true;
+        public void Start()
+        {
+            if (StartDelay > TimeSpan.Zero)
+            {
+                Thread.Sleep(StartDelay);
+            }
+
+            if (StartException != null)
+            {
+                throw StartException;
+            }
+
+            Started = true;
+        }
 
         /// <inheritdoc/>
         public void Stop() => Stopped = true;

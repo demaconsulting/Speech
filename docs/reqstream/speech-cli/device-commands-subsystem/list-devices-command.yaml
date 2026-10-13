@@ -32,6 +32,7 @@ sections:
                   `recognize`, or `ask`.
                 tests:
                   - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+                  - ListDevicesCommand_Run_Devices_ReportChannelCountAndSampleRate
                   - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
 
               - id: SpeechCli-DeviceCommands-LibraryDelegation
@@ -71,8 +72,9 @@ sections:
 
               - id: SpeechCli-DeviceCommands-ListDevicesArgumentValidation
                 title: >-
-                  The ListDevicesCommand shall reject an invalid or valueless `--direction`, or
-                  an unsupported flag, with a clear, non-zero-exit-code error rather than a
+                  The ListDevicesCommand shall reject an invalid `--direction`, a `--direction` followed by
+                  no value or by another option, or an unsupported flag, with a clear, non-zero-exit-code error rather than
+                  a
                   stack trace.
                 tags: [unit]
                 justification: |
@@ -81,5 +83,6 @@ sections:
                 tests:
                   - ListDevicesCommand_Run_InvalidDirectionValue_ThrowsArgumentException
                   - ListDevicesCommand_Run_DirectionFlagMissingValue_ThrowsArgumentException
+                  - ListDevicesCommand_Run_DirectionFlagFollowedByOption_ThrowsArgumentException
                   - ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
                   - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
