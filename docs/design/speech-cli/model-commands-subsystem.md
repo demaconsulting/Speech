@@ -66,7 +66,7 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | --- | --- | --- |
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(id, progress, token)` | `Task<SpeechModelDownloadResult>` | Throws for unknown id; no-op if installed |
-| `UninstallAsync(id, token)` | `Task` | `ArgumentException` for bad id; no-op if absent; `SpeechModelStoreException` on failure |
+| `UninstallAsync(id, token)` | `Task` | `ArgumentException` for bad id; no-op if absent; `SpeechModelStoreException` |
 | `CleanUpLeftoversAsync(id, token)` | `Task` | `ArgumentException` for bad id; else best-effort, never throws |
 
 These four model-management members are the original seam; the format/engine members (see _Seam
