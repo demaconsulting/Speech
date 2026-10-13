@@ -111,7 +111,8 @@ reviews:
     paths:
       - "docs/reqstream/speech/diagnostics.yaml"                          # subsystem requirements
       - "docs/reqstream/speech/diagnostics/*.yaml"                        # unit requirements
-      - "docs/design/speech/diagnostics.md"                               # subsystem + inline unit design
+      - "docs/design/speech/diagnostics.md"                               # subsystem design
+      - "docs/design/speech/diagnostics/*.md"                             # unit design
       - "docs/verification/speech/diagnostics.md"                         # subsystem + inline unit verification
       - "src/DemaConsulting.Speech/Diagnostics/**/*.cs"                   # subsystem source
       - "test/DemaConsulting.Speech.Tests/Diagnostics/**/*.cs"            # subsystem tests
@@ -859,7 +860,7 @@ reviews:
       - "docs/reqstream/speech.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem.yaml"           # subsystem requirements
-      - "docs/design/speech/recognition-subsystem.md"                # subsystem design + inline fallback units
+      - "docs/design/speech/recognition-subsystem.md"                # subsystem design
       - "docs/verification/speech/recognition-subsystem.md"          # subsystem verification + inline units
       - "src/DemaConsulting.Speech/RecognitionSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
 

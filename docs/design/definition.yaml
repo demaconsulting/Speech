@@ -7,6 +7,8 @@ input-files:
   - docs/design/introduction.md
   - docs/design/speech.md
   - docs/design/speech/diagnostics.md
+  - docs/design/speech/diagnostics/i-speech-diagnostics.md
+  - docs/design/speech/diagnostics/null-speech-diagnostics.md
   - docs/design/speech/audio-subsystem.md
   - docs/design/speech/audio-subsystem/audio-file-reader.md
   - docs/design/speech/audio-subsystem/audio-clip.md

@@ -128,6 +128,12 @@ The system exposes the following public API to external consumers:
   closed, fixed inline audio-tag vocabulary and the model-independent parser that recognizes it
 - **ISynthesisBackend** / **BackendAudio**: the engine-neutral synthesis backend seam that model
   extensions implement and the plain-data audio result its `Generate` call returns
+- **IRecognitionBackend**: the engine-neutral recognition backend seam that model extensions
+  implement and that `RecognitionSession` streams converted audio through
+- **IModelCapabilityProfile** / **SpeechPlan** / **SpeechSegment**: the public Layer 2 rendering
+  seam a model supplies to declare how it handles audio tags, and the plan/segment value types
+  it produces from a parsed span sequence (the default profile, `SentenceChunker`, and
+  `SpeechParameterConventions` are internal to the library)
 - **ISpeechSynthesizerEngine** / **ISynthesisSession** / **SynthesizedSpeech**: the loaded-model
   engine and per-device session halves of the streaming synthesis-and-playback contract, their
   state enums (`SynthesisSessionState`, `SessionStateChangedEventArgs`), and the immutable value
@@ -164,6 +170,7 @@ The system exposes the following public API to external consumers:
 | `SpeechModelStore.Uninstall`/`UninstallAsync` | Inbound | Method call | Throws store exception if blocked |
 | `SpeechModelDownloader.DownloadAsync(...)` | Inbound/Outbound | Method call/return | One at a time; honest failures |
 | `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call | Throws on any non-success/transport failure |
+| `SpeechModelCatalog.AddModels(...)` | Inbound | Method call | Registers host-supplied models; the extension point |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return | Throws for unknown model id |
 | `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
@@ -171,6 +178,9 @@ The system exposes the following public API to external consumers:
 | `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call | Throws only unavailable/dispose/restart |
 | `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` | Single-consumer; flushes before stop |
 | `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
+| `IRecognitionBackend` (implemented by model extensions) | Outbound | Interface | Engine-neutral; managed fakes in CI |
+| `ISynthesisBackend.Generate(...)` (implemented by model extensions) | Outbound | Method call/return | Returns `BackendAudio` |
+| `IModelCapabilityProfile` (implemented by model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
 | `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
@@ -220,10 +230,15 @@ direct safety impact is introduced.
 
 **Diagnostics reporting path:**
 
-1. **Input**: A host optionally supplies an `ISpeechDiagnostics` implementation to
-   `AudioDeviceFactory`; when none is supplied, `NullSpeechDiagnostics.Instance` is used
+1. **Input**: A host optionally supplies an `ISpeechDiagnostics` implementation to the factories
+   it constructs (`AudioDeviceFactory`, `SpeechModelCatalog`, `SpeechRecognizerFactory`,
+   `SpeechSynthesizerFactory`, and the model downloader); when none is supplied,
+   `NullSpeechDiagnostics.Instance` is used
 2. **Processing**: `AudioDeviceFactory`, `PortAudioCaptureDevice`, and `PortAudioPlaybackDevice`
-   report structural selection, start/stop, and fault events
+   report structural selection, start/stop, and fault events; the model-management units
+   (`SpeechModelCatalog`, `SpeechModelDownloader`, `ReferenceVoiceLibrary`) report download and
+   install outcomes; the recognition and synthesis factories, engines, sessions, and
+   `DedicatedWorker`s report composition, lifecycle, fault, eviction, and abandonment events
 3. **Output**: The supplied sink receives the event (or discards it, for the null sink); no raw
    audio samples or recognized/synthesized text are ever passed through this path
 
@@ -389,15 +404,14 @@ direct safety impact is introduced.
 - **Recognition owns audio-format conversion**: A capture device delivers whatever format its
   hardware resolved, and a recognition model accepts exactly one mono rate, so the
   RecognitionSubsystem - not the AudioSubsystem and not the host - converts between them. The
-  converter uses channel averaging and linear interpolation, a deliberate simplicity/quality
+  converter averages channels and uses linear interpolation for rate conversion, except on the
+  downsampling path, where a windowed-sinc FIR lowpass anti-alias filter runs before decimation; this is a deliberate simplicity/quality
   trade-off recorded in _RecognitionSession Design_
 - **Real models are proven alongside their backends**: The library's recognition and synthesis
   pipelines are proven here against fake models and fake backends; real
   microphone-to-real-text and real-text-to-real-speech behavior is proven with the two
   recognition models and two synthesis models shipped today by the sibling `SpeechSherpa`
   package, alongside the sherpa-onnx backends they construct - see _SpeechSherpa Design_
-- **Compliance**: All functionality must be traceable to requirements
-- **Quality**: Zero warnings, full targeted tests, complete documentation
 
 ### Platform Support
 
@@ -425,5 +439,3 @@ Machines or publish targets outside that set degrade to unavailable audio device
 - **NuGet Packaging**: Standard .NET library packaging and distribution
 - **Callback-based audio I/O**: PortAudio callback streams feed capture and playback through
   library-owned abstractions
-- **Requirements Traceability**: All features linked to passing tests
-- **Review Management**: Systematic file review using ReviewMark patterns
