@@ -27,8 +27,8 @@ sections:
 
           - id: SpeechDemo-MirrorOptions-BlankUrlNoMirror
             title: >-
-              The MirrorOptionsFactory unit shall return no mirror for a null, empty or whitespace URL when no credential
-              is supplied.
+              The MirrorOptionsFactory unit shall return no mirror for a null, empty or whitespace
+              URL when no credential is supplied.
             justification: |
               Without a mirror every model downloads from its own declared public location.
             tests:
