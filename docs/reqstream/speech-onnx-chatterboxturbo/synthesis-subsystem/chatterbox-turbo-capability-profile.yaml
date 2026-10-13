@@ -36,13 +36,31 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall render a sigh as 300 ms of
-                  silence, a short pause as 300 ms of silence and a long pause as 900 ms of
                   silence.
                 justification: |
-                  The model has no usable token for these, so real silence is the faithful
+                  The model has no usable token for a sigh, so real silence is the faithful
                   rendering.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-ShortPauseSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a short pause as 300 ms
+                  of silence.
+                justification: |
+                  The model has no usable token for a pause, so real silence is the faithful
+                  rendering.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongPauseSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a long pause as 900 ms
+                  of silence.
+                justification: |
+                  The model has no usable token for a pause, so real silence is the faithful
+                  rendering.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
@@ -69,7 +87,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffix
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall suffix a native tag that would
-                  end a sentence when the configured policy is suffix.
+                  end a sentence when the configured policy is suffix, and shall drop a tag that
+                  has no suffix form (gasp and throat clear).
                 justification: |
                   A host may prefer to keep the tag at the end of the sentence.
                 tests:
@@ -104,10 +123,18 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall split text into sentences and
-                  add a 500 ms pause after an ellipsis ending.
+                  The ChatterboxTurboCapabilityProfile class shall split text into sentences.
                 justification: |
                   The model is reliable only on moderate-length sentences.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-EllipsisPause
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add a 500 ms pause after a
+                  sentence that ends in an ellipsis.
+                justification: |
+                  An ellipsis signals a trailing-off pause that the model does not produce itself.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
 
@@ -123,14 +150,35 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
-                  200 characters into parts, keeping every word. The budget is measured on text in
-                  which each native tag counts as one character, before the tag is expanded to its
-                  model token, so a part may exceed 200 characters by the tags' expansion.
+                  200 characters into parts, keeping every word, at clause boundaries where
+                  possible.
                 justification: |
                   The model degrades on long inputs, and splitting must never lose speech.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
+                  - ChatterboxTurboCapabilityProfile_Render_LongSentenceWithClauses_SplitsAtClauseBoundaries
                   - ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceBudget
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall measure the 200-character
+                  budget on text in which each native tag counts as one character, before the tag
+                  is expanded to its model token.
+                justification: |
+                  The budget protects the model from long inputs; counting the tag as one
+                  character keeps a tagged sentence in one unit, so a part may exceed 200
+                  characters by the tags' expansion.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TagExpansion_MayExceedBudgetByTheExpansionOnly
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-OverLongToken
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall cut a single unbroken run of
+                  characters longer than 200 characters into parts of at most 200 characters.
+                justification: |
+                  No input, however pathological, may produce a unit over the limit.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_SingleOverLongToken_IsCutToTheLimit
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
                 title: >-
@@ -151,13 +199,14 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall map the 15 mood tags (excited,
-                  enthused, happy, sad, angry as anger, loud as shout, calm, surprised, bored as
-                  tired, worried, panicked as worried, confused, frustrated, neutral and serious
-                  as neutral, giving 13 distinct moods) to moods.
+                  The ChatterboxTurboCapabilityProfile class shall map each mood audio tag to the
+                  reference-clip mood of the same meaning (excited, enthused, happy, sad, anger,
+                  shout, calm, surprised, tired, worried, confused, frustrated and neutral).
                 justification: |
                   The model has no emotion tokens, so moods are realized by switching the
-                  reference clip per segment.
+                  reference clip per segment. Fifteen tags map onto thirteen distinct moods:
+                  angry maps to anger, loud to shout, bored to tired, panicked to worried and
+                  serious to neutral.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
 
@@ -258,7 +307,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceValidation
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall accept a join silence from 0 to
-                  1000 ms.
+                  1000 ms and throw an ArgumentOutOfRangeException for a value outside that range.
                 justification: |
                   Out-of-range configuration must fail early instead of producing odd audio.
                 tests:

@@ -203,6 +203,54 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         Assert.Equal(words, rejoined);
     }
 
+    /// <summary>Proves clauses are split at secondary boundaries (including with a digit-flanked colon kept intact) without losing words.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_LongSentenceWithClauses_SplitsAtClauseBoundaries()
+    {
+        // Arrange: ten clauses of about 30 characters, one holding a time like 12:30
+        var clauses = Enumerable.Range(0, 10).Select(i => $"clause number {i} at 12:30 sharp").ToArray();
+        var sentence = string.Join(", ", clauses) + ".";
+
+        // Act
+        var plan = Render(ChatterboxTurboEndOfSentenceTagPolicy.Strip, Text(sentence));
+
+        // Assert: every unit ends at a clause boundary, within the limit, and nothing is lost
+        Assert.True(plan.Segments.Count > 1);
+        Assert.All(plan.Segments, segment => Assert.True(segment.Text.Length <= 200));
+        Assert.All(plan.Segments, segment => Assert.Contains("12:30", segment.Text, StringComparison.Ordinal));
+        Assert.Equal(sentence, string.Join(' ', plan.Segments.Select(s => s.Text)));
+    }
+
+    /// <summary>Proves a single token longer than the unit limit is cut so no unit exceeds the limit.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_SingleOverLongToken_IsCutToTheLimit()
+    {
+        // Arrange
+        var token = new string('a', 450);
+
+        // Act
+        var plan = Render(ChatterboxTurboEndOfSentenceTagPolicy.Strip, Text(token));
+
+        // Assert
+        Assert.Equal(3, plan.Segments.Count);
+        Assert.All(plan.Segments, segment => Assert.True(segment.Text.Length <= 200));
+        Assert.Equal(token, string.Concat(plan.Segments.Select(s => s.Text)));
+    }
+
+    /// <summary>Proves the 200-character budget counts a tag as one character, so a unit may exceed it by the tag expansion.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_TagExpansion_MayExceedBudgetByTheExpansionOnly()
+    {
+        // Arrange: 199 characters of placeholder text, one of them a laugh tag (expanded to "[laugh]")
+        var words = string.Join(' ', Enumerable.Repeat("abcd", 38)) + " abc";
+        var plan = Render(ChatterboxTurboEndOfSentenceTagPolicy.Strip, Text(words + " "), Tag(NaturalLanguageAudioTag.Laughs), Text(" end"));
+
+        // Assert: still one unit although the expanded text is longer than 200 characters
+        Assert.Single(plan.Segments);
+        Assert.Contains("[laugh]", plan.Segments[0].Text, StringComparison.Ordinal);
+        Assert.InRange(plan.Segments[0].Text.Length, 201, 200 + "[laugh]".Length);
+    }
+
     /// <summary>Proves empty input produces an empty plan and null arguments are rejected.</summary>
     [Fact]
     public void ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely()
@@ -442,6 +490,8 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         // Act & Assert
         Assert.NotNull(new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, 0));
         Assert.NotNull(new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, ChatterboxTurboCapabilityProfile.MaxMoodJoinMilliseconds));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, ChatterboxTurboCapabilityProfile.MaxMoodJoinMilliseconds + 1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile((ChatterboxTurboEndOfSentenceTagPolicy)99));
     }
 

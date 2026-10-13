@@ -247,7 +247,8 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-LongTextSegmentation
         title: >-
           The library shall speak text of any length by splitting it into sentences of at most
-          200 characters, keeping every word.
+          200 characters of source text (each audio tag counting as one character, so the
+          spoken form of a tagged sentence may be slightly longer), keeping every word.
         tags: [system]
         justification: |
           The model degrades on long inputs, and splitting must never lose speech.
@@ -259,8 +260,9 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RunawayProtection
         title: >-
           The library shall bound every generation so a failure to emit the end-of-speech token
-          yields a truncated utterance after a bounded amount of work rather than an unbounded
-          loop or an exception.
+          yields a truncated utterance after at most the configured maximum number of new speech
+          tokens (and a bound proportional to the text length) rather than an unbounded loop or
+          an exception.
         tags: [system]
         justification: |
           An autoregressive model can fail to stop on unusual inputs; an unbounded loop would

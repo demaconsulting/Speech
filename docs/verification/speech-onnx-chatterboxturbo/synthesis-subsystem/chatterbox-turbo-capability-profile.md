@@ -73,7 +73,11 @@ A decimal such as `3.14` stays inside one segment.
 
 ##### An over-long clause is split on the word budget
 
-**Test**: `ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord`
+**Test**: `ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord`,
+`ChatterboxTurboCapabilityProfile_Render_LongSentenceWithClauses_SplitsAtClauseBoundaries` (clauses with a
+digit-flanked colon, every word kept),
+`ChatterboxTurboCapabilityProfile_Render_SingleOverLongToken_IsCutToTheLimit` (a 450-character run becomes three
+units) and `ChatterboxTurboCapabilityProfile_Render_TagExpansion_MayExceedBudgetByTheExpansionOnly`
 
 A clause with no clause punctuation and more than 200 characters is split by word budget and every word is
 kept. The 200-character budget is measured on placeholder text, where each native tag counts as one

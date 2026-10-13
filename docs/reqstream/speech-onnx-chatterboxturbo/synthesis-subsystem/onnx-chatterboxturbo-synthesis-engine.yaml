@@ -66,8 +66,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at
-                  most the configured number of speech tokens per text token plus the configured
-                  slack (the model options own the defaults).
+                  most the configured number of speech tokens per text token plus a fixed slack of 32
+                  tokens.
                 justification: |
                   A runaway generation on short text must end long before the absolute maximum.
                 tests:

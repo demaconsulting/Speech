@@ -36,9 +36,12 @@ or a join outside 0 to 1000 (both bounds accepted).
   the tag before the final word, else a per-tag suffix, else strip), attaches a tag between
   sentences to the following sentence, attaches a trailing tag-only chunk (a tag with no speech after it) to
   the previous unit so the policy places it, adds a 500 ms pause after ellipsis-ending sentences, and splits
-  sentences over 200 characters at `,;:` and then by word budget. The 200-character budget is measured on
+  sentences over 200 characters at `,;:`, then by word budget, and finally cuts any single unbroken run longer
+  than 200 characters. The 200-character budget is measured on
   the placeholder text (each native tag is one character) before tags expand to their model tokens, so a
-  unit may exceed 200 characters by the expansion. Output never contains
+  unit may exceed 200 characters by the expansion. A tag-only run with no speech before or after it in its
+  mood run (for example a laugh directly before a mood tag with no earlier unit) is dropped, since a tag
+  without speech makes the model misbehave. Output never contains
   bracketed text for unsupported tags.
 - **AddMoodJoinSilence(segments, moods)** (private): after rendering, for each pair of directly adjacent
   spoken segments whose moods differ (including a change from or to the base clip), raises the earlier
@@ -53,7 +56,10 @@ is the per-tag treatment table entry.
 **Error Handling**: `ArgumentNullException` for null `spans` or `model`; otherwise empty or invalid input
 produces an empty, safe result.
 
-**Dependencies**: Speech's public capability-profile and rendering types.
+**Dependencies**: Speech's public capability-profile and rendering types, plus package-local
+`ReferenceVoiceInfo.KnownMoods` (the mood marker code points are offset from the known-mood list, so the
+marker range follows its length), `ChatterboxTurboModelOptions` (default and maximum mood join silence) and
+`ChatterboxTurboEndOfSentenceTagPolicy`.
 
 **Callers**: `OnnxChatterboxTurboEnglishSynthesisModel` (exposes it), Speech's renderer and
 `OnnxChatterboxTurboSynthesisEngine` (which calls `ReadMoodMarker` to split the mood marker off a segment).

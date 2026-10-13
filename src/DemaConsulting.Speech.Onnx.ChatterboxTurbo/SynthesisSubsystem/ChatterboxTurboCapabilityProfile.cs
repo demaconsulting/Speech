@@ -469,13 +469,18 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
         var current = new StringBuilder();
         foreach (var word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (current.Length > 0 && current.Length + 1 + word.Length > MaxUnitLength)
+            // A single token longer than the budget (for example a URL) is cut so no unit exceeds the limit
+            for (var rest = word; rest.Length > 0; rest = rest.Length > MaxUnitLength ? rest[MaxUnitLength..] : string.Empty)
             {
-                pieces.Add(current.ToString());
-                current.Clear();
-            }
+                var part = rest.Length > MaxUnitLength ? rest[..MaxUnitLength] : rest;
+                if (current.Length > 0 && current.Length + 1 + part.Length > MaxUnitLength)
+                {
+                    pieces.Add(current.ToString());
+                    current.Clear();
+                }
 
-            current.Append(current.Length > 0 ? " " : string.Empty).Append(word);
+                current.Append(current.Length > 0 ? " " : string.Empty).Append(part);
+            }
         }
 
         if (current.Length > 0)

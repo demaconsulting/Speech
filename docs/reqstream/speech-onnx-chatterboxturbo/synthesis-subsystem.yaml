@@ -149,6 +149,8 @@ sections:
               rendering.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-ShortPauseSilence
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongPauseSilence
             tests:
               - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
 
@@ -234,13 +236,17 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-Segmentation
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall split text into sentences
-              of at most 200 characters, keeping every word.
+              of at most 200 characters of source text (each audio tag counting as one
+              character), keeping every word.
             justification: |
               The model degrades on long inputs, and splitting must never lose speech.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-EllipsisPause
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-DigitFlankedStop
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceBudget
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-OverLongToken
             tests:
               - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
 
