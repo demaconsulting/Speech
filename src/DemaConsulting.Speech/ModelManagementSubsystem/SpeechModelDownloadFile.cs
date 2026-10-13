@@ -130,7 +130,7 @@ public sealed record SpeechModelDownloadFile
 
     /// <summary>
     ///     Resolves the exact file-system path this declared file is staged at (and is installed
-    ///     at, since <see cref="SpeechModelStore"/> atomically swaps the staging directory in
+    ///     at, since <see cref="SpeechModelStore"/> switches the staging directory in
     ///     place), using this platform's own <see cref="Path.DirectorySeparatorChar"/> regardless
     ///     of which separator <see cref="RelativeInstallPath"/> was declared with.
     /// </summary>

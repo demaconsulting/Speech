@@ -270,7 +270,7 @@ public sealed class SpeechModelCatalog : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, and atomically installs a known model, tracking its state as
+    ///     Downloads, verifies, and installs a known model, tracking its state as
     ///     <see cref="SpeechModelState.Downloading"/> for the duration of the call.
     /// </summary>
     /// <param name="modelId">
@@ -310,7 +310,7 @@ public sealed class SpeechModelCatalog : IDisposable
         {
             // Use the ISpeechModel-aware overload (not the bare modelId/descriptor form) so the
             // model's own InstallAsync hook genuinely runs on its verified staged files before
-            // the atomic swap - required for any model whose declared payload is an archive.
+            // the install - required for any model whose declared payload is an archive.
             var result = await _downloader
                 .DownloadAsync(model, progress, cancellationToken)
                 .ConfigureAwait(false);

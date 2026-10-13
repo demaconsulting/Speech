@@ -3,7 +3,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <summary>
 ///     Mockable seam for fetching one downloadable file's bytes to a local destination stream,
 ///     isolating <see cref="SpeechModelDownloader"/> from any real HTTP client so its
-///     queueing/verification/atomic-swap orchestration logic can be unit tested without any real
+///     queueing/verification/install orchestration logic can be unit tested without any real
 ///     network access.
 /// </summary>
 /// <remarks>

@@ -446,6 +446,74 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a canceled token takes precedence over a missing staged archive, so the caller sees the
+    ///     cancellation rather than a file error.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_CanceledTokenAndMissingArchive_ThrowsOperationCanceled()
+    {
+        // Arrange
+        var pack = ReferenceVoiceTestPacks.PackFor(ReferenceVoiceTestPacks.BuildTypicalZip());
+        var staging = Path.Join(_root, "staging");
+        Directory.CreateDirectory(staging);
+        using var source = new CancellationTokenSource();
+        await source.CancelAsync();
+
+        // Act
+        var act = () => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions: false, staging, source.Token);
+
+        // Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(act);
+    }
+
+    /// <summary>
+    ///     Proves that a canceled token takes precedence over the no-voices failure of an archive with no entries.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_CanceledTokenAndEmptyArchive_ThrowsOperationCanceled()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip([]);
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+        using var source = new CancellationTokenSource();
+        await source.CancelAsync();
+
+        // Act
+        var act = () => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions: false, staging, source.Token);
+
+        // Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(act);
+    }
+
+    /// <summary>
+    ///     Proves that an entry the allow-list would ignore (outside the root folder, not allow-listed, or an
+    ///     emotion entry when emotions are not requested) still fails the install when it has a name segment that
+    ///     is invalid on some platform.
+    /// </summary>
+    [Theory]
+    [InlineData("other-root/notes/bad*name.txt")]
+    [InlineData("voice-zero/docs/CON.txt")]
+    [InlineData("voice-zero/docs/trailing.")]
+    [InlineData("voice-zero/voices-emotion/spk./happy.flac")]
+    public async Task ReferenceVoicePackInstaller_Install_IgnoredEntryWithInvalidSegment_ThrowsInvalidData(string entryName)
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", "flac"u8.ToArray()),
+            (entryName, "ignored"u8.ToArray()),
+        ]);
+
+        // Act
+        var act = () => InstallAsync(zip, includeEmotions: false);
+
+        // Assert
+        await Assert.ThrowsAsync<InvalidDataException>(act);
+    }
+
+    /// <summary>
     ///     Proves that an entry whose central-directory header understates its uncompressed size can never leave more
     ///     than the per-entry cap on disk: the install either fails or extracts at most the cap.
     /// </summary>

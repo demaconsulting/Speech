@@ -9,23 +9,23 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <summary>
 ///     Orchestrates a single model's download: fetching its declared file(s) through an
 ///     <see cref="IModelDownloadClient"/>, verifying each against its declared SHA-256 checksum,
-///     and handing a fully verified result to <see cref="SpeechModelStore"/> for atomic install.
+///     and handing a fully verified result to <see cref="SpeechModelStore"/> for installation.
 /// </summary>
 /// <remarks>
 ///     Per this library's "download integrity and progress" decision, downloads of different
 ///     models run fully concurrently with no pool limit, since each model is staged and installed
 ///     under its own isolated subtree in <see cref="SpeechModelStore"/>. A per-model-id lock
 ///     serializes only two concurrent <c>DownloadAsync</c> calls for the *same* model id - the
-///     minimal guard needed to avoid racing the store's atomic <c>Directory.Move</c>-based install
+///     minimal guard needed to avoid racing the store's directory-move-based install
 ///     swap for that model - so a second concurrent call for the same model id queues behind the
 ///     first while calls for different model ids proceed in parallel. A corrupted, partial, or
-///     checksum-mismatched download is never handed to the store's atomic-install step, so a prior
+///     checksum-mismatched download is never handed to the store's install step, so a prior
 ///     successful install of the same model (if any) is left completely untouched and still
 ///     reports installed - a failed repair attempt never regresses an already-working model.
 /// </remarks>
 public sealed class SpeechModelDownloader : IDisposable
 {
-    /// <summary>The store used to stage, atomically install, and clean up this downloader's results.</summary>
+    /// <summary>The store used to stage, install, and clean up this downloader's results.</summary>
     private readonly SpeechModelStore _store;
 
     /// <summary>The seam used to fetch each declared file's bytes.</summary>
@@ -58,11 +58,11 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class.
     /// </summary>
-    /// <param name="store">The store used to stage and atomically install downloaded models.</param>
+    /// <param name="store">The store used to stage and install downloaded models.</param>
     /// <param name="client">
     ///     An optional download seam, or <see langword="null"/> to create and own a default
     ///     <see cref="HttpModelDownloadClient"/> internally. Tests substitute a fake here to
-    ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
+    ///     exercise queueing, checksum verification, and install logic deterministically
     ///     without any real network access.
     /// </param>
     /// <param name="diagnostics">
@@ -89,11 +89,11 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class with
     ///     host-configurable download options.
     /// </summary>
-    /// <param name="store">The store used to stage and atomically install downloaded models.</param>
+    /// <param name="store">The store used to stage and install downloaded models.</param>
     /// <param name="client">
     ///     An optional download seam, or <see langword="null"/> to create and own a default
     ///     <see cref="HttpModelDownloadClient"/> internally. Tests substitute a fake here to
-    ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
+    ///     exercise queueing, checksum verification, and install logic deterministically
     ///     without any real network access.
     ///     <para>
     ///     Supplying a non-<see langword="null"/> <paramref name="client"/> together with an
@@ -173,7 +173,7 @@ public sealed class SpeechModelDownloader : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, and atomically installs one model's declared files.
+    ///     Downloads, verifies, and installs one model's declared files.
     /// </summary>
     /// <param name="modelId">The model identifier to install under in the store. Must be a valid directory name.</param>
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
@@ -231,14 +231,14 @@ public sealed class SpeechModelDownloader : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, atomically installs, and runs the model's own
+    ///     Downloads, verifies, installs, and runs the model's own
     ///     <see cref="ISpeechModel.InstallAsync"/> hook for one model's declared files.
     /// </summary>
     /// <param name="model">
     ///     The model to install, supplying both its <see cref="ISpeechModel.DownloadDescriptor"/>
     ///     (via <see cref="ISpeechModel.Id"/>/<see cref="ISpeechModel.DownloadDescriptor"/>) and
     ///     its own <see cref="ISpeechModel.InstallAsync"/> hook, invoked on the verified staged
-    ///     files before the atomic swap into <c>current/</c>.
+    ///     files before the staged files are moved into <c>current/</c>.
     /// </param>
     /// <param name="progress">
     ///     An optional progress sink invoked as each file transfers, with
@@ -303,15 +303,15 @@ public sealed class SpeechModelDownloader : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, atomically installs, and runs a caller-supplied install hook for
+    ///     Downloads, verifies, installs, and runs a caller-supplied install hook for
     ///     one payload identified by a store id (used by the reference-voice pack, which is not an
     ///     <see cref="ISpeechModel"/>).
     /// </summary>
     /// <param name="modelId">The id to install under in the store. Must be a valid directory name.</param>
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
     /// <param name="installHook">
-    ///     Invoked with the staging directory after every file is verified and before the atomic
-    ///     swap; a thrown exception abandons the staging directory and is classified as an
+    ///     Invoked with the staging directory after every file is verified and before the staged files are moved
+    ///     into place; a thrown exception abandons the staging directory and is classified as an
     ///     install-hook failure.
     /// </param>
     /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
@@ -349,7 +349,7 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
     /// <param name="installHook">
     ///     The install hook (an <see cref="ISpeechModel.InstallAsync"/> delegate, or a caller-owned
-    ///     equivalent) invoked on the verified staged files before the atomic swap, or
+    ///     equivalent) invoked on the verified staged files before the staged files are moved into place, or
     ///     <see langword="null"/> when no install hook runs at all.
     /// </param>
     /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
@@ -446,7 +446,7 @@ public sealed class SpeechModelDownloader : IDisposable
             }
 
             // Every file verified - let the model unpack/process its own staged files (if it
-            // declares an install hook) before the atomic current/ swap. The default
+            // declares an install hook) before the current/ replace. The default
             // ISpeechModel.InstallAsync implementation is a no-op, so this is always safe to
             // call even for a model that needs no post-download processing at all.
             if (installHook is not null)
@@ -461,7 +461,7 @@ public sealed class SpeechModelDownloader : IDisposable
             }
 
             // Hand off the fully verified (and, if applicable, installed) staging directory to
-            // the store for the atomic current/ swap.
+            // the store for the current/ replace.
             _store.CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes);
             return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed);
         }
@@ -788,7 +788,7 @@ public sealed class SpeechModelDownloader : IDisposable
 /// </remarks>
 public enum SpeechModelDownloadOutcome
 {
-    /// <summary>Every declared file was fetched, verified, and atomically installed.</summary>
+    /// <summary>Every declared file was fetched, verified, and installed.</summary>
     Installed,
 
     /// <summary>

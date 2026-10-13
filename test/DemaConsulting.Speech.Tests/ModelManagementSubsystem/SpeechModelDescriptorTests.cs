@@ -112,9 +112,10 @@ public class SpeechModelDescriptorTests
 
     /// <summary>
     ///     Proves that a changed state (simulating a store-state transition between two <c>Enumerate()</c>
-    ///     calls) produces an unequal descriptor - since <see cref="SpeechModelDescriptor"/> is a
-    ///     record, this proves state transitions are correctly reflected in a fresh snapshot.
+    ///     calls) produces an unequal descriptor, so state transitions are correctly reflected in a fresh snapshot.
     /// </summary>
+    /// <param name="before">The state of the first descriptor.</param>
+    /// <param name="after">The state of the second descriptor.</param>
     [Theory]
     [InlineData(SpeechModelState.NotDownloaded, SpeechModelState.Downloading)]
     [InlineData(SpeechModelState.Downloading, SpeechModelState.Downloaded)]
@@ -134,5 +135,59 @@ public class SpeechModelDescriptorTests
         Assert.NotEqual(beforeDescriptor, afterDescriptor);
         Assert.Equal(before, beforeDescriptor.State);
         Assert.Equal(after, afterDescriptor.State);
+    }
+
+    /// <summary>
+    ///     Proves that two descriptors with the same state but different model instances are not equal, because
+    ///     equality is defined on model identity.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_DifferentModelInstance_SameState_AreNotEqual()
+    {
+        // Arrange
+        var first = new SpeechModelDescriptor(new FakeRecognitionModel("model-d"), SpeechModelState.Downloaded);
+
+        // Act
+        var second = new SpeechModelDescriptor(new FakeRecognitionModel("model-d"), SpeechModelState.Downloaded);
+
+        // Assert
+        Assert.NotEqual(first, second);
+    }
+
+    /// <summary>
+    ///     Proves that the descriptor offers no way to change its model or state after construction.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_Snapshot_PublicProperties_HaveNoSetters()
+    {
+        // Arrange
+        var properties = typeof(SpeechModelDescriptor).GetProperties();
+
+        // Act
+        var writable = properties.Where(property => property.GetSetMethod(nonPublic: false) is not null).ToArray();
+
+        // Assert
+        Assert.NotEmpty(properties);
+        Assert.Empty(writable);
+    }
+
+    /// <summary>
+    ///     Proves that the state a descriptor was built with stays the observed value, and the model reference
+    ///     stays the same instance, even when the wrapped model's own values change afterwards.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_Snapshot_ModelChangesLater_StateRemainsObservedValue()
+    {
+        // Arrange
+        var model = Substitute.For<ISpeechModel>();
+        model.Id.Returns("first-id");
+        var descriptor = new SpeechModelDescriptor(model, SpeechModelState.Downloaded);
+
+        // Act
+        model.Id.Returns("second-id");
+
+        // Assert
+        Assert.Equal(SpeechModelState.Downloaded, descriptor.State);
+        Assert.Same(model, descriptor.Model);
     }
 }

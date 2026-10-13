@@ -16,7 +16,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     clips still fails.
 ///     <b>Safety</b>: an entry whose name is rooted, contains a backslash, a drive colon, a NUL or a <c>..</c>/<c>.</c>
 ///     segment fails the whole install (a legitimate, hash-pinned archive never has one), even when the entry would
-///     otherwise be ignored by the allow-list; an extracted entry with a segment that is not valid on every platform
+///     otherwise be ignored by the allow-list; an entry (extracted or ignored) with a segment that is not valid on
+///     every platform
 ///     (invalid or control characters, reserved device names, a trailing dot or space) fails it too, two entries that
 ///     map to one destination fail it, each extracted path is re-checked to
 ///     lie inside the staging directory, and the number of bytes actually read per entry and in total is capped
@@ -99,6 +100,9 @@ internal static class ReferenceVoicePackInstaller
         // entry is then copied with asynchronous file I/O so the install never blocks a thread for the transfer
         await Task.Yield();
 
+        // Cancellation takes precedence over a missing or unreadable archive
+        cancellationToken.ThrowIfCancellationRequested();
+
         var archivePath = Path.Combine(stagingDirectory, pack.ArchiveFileName);
         var stagingRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingDirectory));
         var voiceCount = 0;
@@ -112,14 +116,16 @@ internal static class ReferenceVoicePackInstaller
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Every entry is validated for portability before the allow-list decides whether it is extracted, so an
+                // ignored entry with a name that is invalid on some platform still fails the install
                 var segments = SplitSafely(entry.FullName);
+                ValidateDestinationSegments(entry.FullName, segments);
+
                 var relativePath = MapToDestination(pack, includeEmotions, segments, out var kind);
                 if (relativePath is null)
                 {
                     continue;
                 }
-
-                ValidateDestinationSegments(entry.FullName, relativePath);
 
                 var destination = Path.GetFullPath(Path.Combine(stagingRoot, relativePath));
                 if (!destination.StartsWith(stagingRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
@@ -138,6 +144,9 @@ internal static class ReferenceVoicePackInstaller
                 emotionCount += kind == EntryKind.Emotion ? 1 : 0;
             }
         }
+
+        // An archive with no entries never observes cancellation inside the loop, so honor it before the empty-archive failure
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (voiceCount == 0)
         {
@@ -193,13 +202,14 @@ internal static class ReferenceVoicePackInstaller
     }
 
     /// <summary>
-    ///     Rejects a destination whose segments cannot be created on every platform (invalid characters, control
+    ///     Rejects an entry whose segments cannot be created on every platform (invalid characters, control
     ///     characters, reserved device names, trailing dots or spaces) with an <see cref="InvalidDataException"/>
-    ///     instead of letting the file system throw an unrelated exception type.
+    ///     instead of letting the file system throw an unrelated exception type. Applied to every archive entry,
+    ///     whether or not the allow-list extracts it.
     /// </summary>
-    private static void ValidateDestinationSegments(string entryName, string relativePath)
+    private static void ValidateDestinationSegments(string entryName, string[] segments)
     {
-        foreach (var segment in relativePath.Replace('\\', '/').Split('/'))
+        foreach (var segment in segments)
         {
             var stem = segment.Split('.')[0].TrimEnd(' ');
             if (segment.IndexOfAny(InvalidSegmentChars) >= 0

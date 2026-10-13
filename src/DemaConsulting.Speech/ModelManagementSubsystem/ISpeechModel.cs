@@ -59,15 +59,15 @@ public interface ISpeechModel
 
     /// <summary>
     ///     Unpacks this model's verified, downloaded file(s) in place within
-    ///     <paramref name="stagedFilesDirectory"/> before <see cref="SpeechModelStore"/> atomically
-    ///     promotes that directory to the model's installed <c>current/</c> content. The default
+    ///     <paramref name="stagedFilesDirectory"/> before <see cref="SpeechModelStore"/> promotes
+    ///     that directory to the model's installed content. The default
     ///     implementation is a no-op, matching the common case of a model whose single downloaded
     ///     file needs no unpacking at all.
     /// </summary>
     /// <param name="stagedFilesDirectory">
     ///     The staging directory already containing this model's fully checksum-verified downloaded
     ///     file(s), named per <see cref="DownloadDescriptor"/>'s declared relative install paths.
-    ///     Never <see cref="SpeechModelStore"/>'s <c>current/</c> directory - this method must
+    ///     Never a directory holding already-installed content - this method must
     ///     never be given, and must never touch, installed content.
     /// </param>
     /// <param name="cancellationToken">A token to observe while unpacking.</param>
@@ -84,12 +84,12 @@ public interface ISpeechModel
     ///     <see cref="DownloadDescriptor"/> entry rather than <see cref="Path.Join(string, string)"/>
     ///     or string concatenation directly on the declared
     ///     <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> - that method is the same one
-    ///     same one <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
+    ///     <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
     ///     destination, so it is the only way to guarantee this hook agrees with the downloader on
     ///     the exact path regardless of which path separator the file's declared install path used.
     ///     <see cref="SpeechModelDownloader"/> invokes this after every declared file has been
     ///     fetched and its checksum verified, and before the staging directory is handed to
-    ///     <see cref="SpeechModelStore"/> for the atomic swap - an exception thrown here is
+    ///     <see cref="SpeechModelStore"/> for installation - an exception thrown here is
     ///     handled identically to a download failure: nothing is installed, and any prior
     ///     successful install of the same model is left completely untouched.
     /// </remarks>

@@ -3,14 +3,16 @@ using System.Text.Json;
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
 /// <summary>
-///     Owns the on-disk layout, atomic install/replace, and uninstall of downloaded models under
+///     Owns the on-disk layout, staged install/replace-with-rollback, and uninstall of downloaded models under
 ///     a single per-user root directory.
 /// </summary>
 /// <remarks>
-///     Implements the atomic-swap design resolving the download-while-in-use residual risk: for
+///     Implements the staged-install design resolving the download-while-in-use residual risk: for
 ///     each model id, this type manages
-///     <c>{root}/{model-id}/current/</c> (the stable, installed content, only ever replaced by a
-///     directory rename), <c>{root}/{model-id}/install-manifest.json</c> (a sidecar written only
+///     <c>{root}/{model-id}/current/</c> (the stable, installed content, only ever replaced by directory
+///     renames; an installed model is never observed partially replaced, but because Windows cannot atomically
+///     swap two non-empty directories a replacement is a two-step rename with rollback, so <c>current/</c> may be
+///     momentarily absent and a failed replacement restores the prior content), <c>{root}/{model-id}/install-manifest.json</c> (a sidecar written only
 ///     after a successful swap, so the store can report "installed" cheaply without re-hashing
 ///     gigabytes on every query), and <c>{root}/{model-id}/.tmp/{operation-id}/</c> (scratch space
 ///     for an in-progress download/install, never read as installed content). <c>current/</c> is
@@ -137,8 +139,9 @@ public sealed class SpeechModelStore
     }
 
     /// <summary>
-    ///     Atomically swaps a fully verified staging directory into place as the model's new
-    ///     <c>current/</c> content, then writes the install manifest.
+    ///     Promotes a fully verified staging directory into place as the model's new
+    ///     <c>current/</c> content (a two-step replace with rollback when content already exists),
+    ///     then writes the install manifest.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
     /// <param name="operationId">The operation id returned by the matching <see cref="BeginStaging"/> call.</param>
@@ -205,8 +208,9 @@ public sealed class SpeechModelStore
             }
         }
 
-        // The verified staging directory becomes the new current/ - also a same-volume rename,
-        // atomic and effectively instantaneous on NTFS/POSIX.
+        // The verified staging directory becomes the new current/ - also a same-volume rename. Together with the
+        // rename-aside above this is a two-step replace (not one atomic swap): current/ is momentarily absent, and
+        // a failure here is rolled back below so the prior install is restored.
         try
         {
             Directory.Move(stagingDirectory, currentDirectory);
@@ -561,7 +565,7 @@ public sealed class SpeechModelStore
     }
 
     /// <summary>
-    ///     The on-disk sidecar recorded alongside a successful atomic swap, letting
+    ///     The on-disk sidecar recorded alongside a successful install, letting
     ///     <see cref="IsInstalled"/> report "installed" cheaply without re-hashing gigabytes of
     ///     model content on every query.
     /// </summary>

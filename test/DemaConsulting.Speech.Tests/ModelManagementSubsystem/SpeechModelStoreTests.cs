@@ -776,15 +776,60 @@ public sealed class SpeechModelStoreTests : IDisposable
     /// <summary>
     ///     Proves that a whitespace-only root path override falls back to the default root.
     /// </summary>
-    [Fact]
-    public void SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot()
+    /// <param name="whitespaceOverride">A whitespace-only override.</param>
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    [InlineData(" \r\n ")]
+    public void SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot(string whitespaceOverride)
     {
-        // Arrange & Act
-        var store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = "   " });
+        // Arrange
+        var options = new SpeechModelStoreOptions { RootPathOverride = whitespaceOverride };
+
+        // Act
+        var store = new SpeechModelStore(options);
 
         // Assert
         Assert.Equal(new SpeechModelStore().RootPath, store.RootPath);
     }
+
+    /// <summary>
+    ///     Proves that a null or empty root path override falls back to the default root.
+    /// </summary>
+    /// <param name="emptyOverride">A null or empty override.</param>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void SpeechModelStore_Constructor_NullOrEmptyRootPathOverride_UsesDefaultRoot(string? emptyOverride)
+    {
+        // Arrange
+        var options = new SpeechModelStoreOptions { RootPathOverride = emptyOverride };
+
+        // Act
+        var store = new SpeechModelStore(options);
+
+        // Assert
+        Assert.Equal(new SpeechModelStore().RootPath, store.RootPath);
+    }
+
+    /// <summary>
+    ///     Proves that a root path override containing non-whitespace characters surrounded by whitespace
+    ///     is still treated as a real override (the boundary of the whitespace-only rule) and used verbatim.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Constructor_PaddedRootPathOverride_UsesOverrideVerbatim()
+    {
+        // Arrange
+        var paddedRoot = " " + _testRoot + " ";
+        var options = new SpeechModelStoreOptions { RootPathOverride = paddedRoot };
+
+        // Act
+        var store = new SpeechModelStore(options);
+
+        // Assert
+        Assert.Equal(paddedRoot, store.RootPath);
+    }
+
     /// <summary>
     ///     Proves that an invalid model id is rejected by <see cref="SpeechModelStore.Uninstall"/>.
     /// </summary>

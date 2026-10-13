@@ -213,6 +213,7 @@ public sealed class ReferenceVoicePackTests
     /// </summary>
     [Theory]
     [InlineData("abc")]
+    [InlineData("")]
     [InlineData("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")]
     public void ReferenceVoicePack_Constructor_BadChecksum_Throws(string checksum)
     {
@@ -359,10 +360,11 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
-    ///     Proves that a blank text argument or a null URI/checksum is rejected with the documented exception type.
+    ///     Proves that a null URI, checksum, license URL or source URL (or a null id) is rejected with an
+    ///     <see cref="ArgumentNullException"/>.
     /// </summary>
     [Fact]
-    public void ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw()
+    public void ReferenceVoicePack_Constructor_NullArguments_ThrowArgumentNull()
     {
         // Arrange
         var uri = new Uri("https://example.invalid/pack-1.zip");
@@ -371,10 +373,24 @@ public sealed class ReferenceVoicePackTests
         // Act and Assert
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", null!, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, null!, 10, "p.zip", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, string.Empty, 10, "p.zip", "root", "CC0", other, "A", other));
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", null!, "A", other));
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", null!));
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack(null!, "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+    }
+
+    /// <summary>
+    ///     Proves that an empty checksum or a blank display name, archive file name, root folder, license name or
+    ///     attribution is rejected with an <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_BlankArguments_ThrowArgument()
+    {
+        // Arrange
+        var uri = new Uri("https://example.invalid/pack-1.zip");
+        var other = new Uri("https://example.invalid/other");
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, string.Empty, 10, "p.zip", "root", "CC0", other, "A", other));
         Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", " ", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
         Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, " ", "root", "CC0", other, "A", other));
         Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "", "CC0", other, "A", other));
@@ -416,11 +432,11 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
-    ///     Proves that a voice keeps its own read-only, ordinally ordered copy of the mood clips, so neither the
-    ///     caller changing the supplied dictionary nor casting the exposed dictionary can alter it.
+    ///     Proves that a voice keeps its own copy of the mood clips, so the caller changing the supplied dictionary
+    ///     afterwards does not alter the clips the voice exposes, and that the clips are listed in ordinal mood order.
     /// </summary>
     [Fact]
-    public void ReferenceVoiceInfo_MoodClips_AreAnImmutableOrderedCopy()
+    public void ReferenceVoiceInfo_MoodClips_CallerChangesAfterCreation_DoNotAlterClips()
     {
         // Arrange
         var clips = new Dictionary<string, string> { ["sad"] = "/m/sad.flac", ["anger"] = "/m/anger.flac" };
@@ -433,6 +449,23 @@ public sealed class ReferenceVoicePackTests
         // Assert
         Assert.Equal(["anger", "sad"], voice.MoodClips!.Keys);
         Assert.Equal("/m/sad.flac", voice.MoodClips["sad"]);
-        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)voice.MoodClips)["x"] = "/x.flac");
+    }
+
+    /// <summary>
+    ///     Proves that a consumer cannot modify a voice's exposed mood clips, even by casting them to a mutable
+    ///     dictionary interface.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceInfo_MoodClips_ConsumerModification_IsRejected()
+    {
+        // Arrange
+        var clips = new Dictionary<string, string> { ["sad"] = "/m/sad.flac" };
+        var voice = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.Pack, "p", "v", MoodClips: clips);
+
+        // Act
+        var act = () => ((IDictionary<string, string>)voice.MoodClips!)["x"] = "/x.flac";
+
+        // Assert
+        Assert.Throws<NotSupportedException>(act);
     }
 }

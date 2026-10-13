@@ -75,6 +75,65 @@ public sealed class HttpModelDownloadClientTests
         }
 
         Assert.Equal(payload.Length, reports[^1].BytesTransferred);
+        Assert.All(reports, r =>
+        {
+            Assert.Equal(0, r.FileIndex);
+            Assert.Equal(1, r.FileCount);
+        });
+    }
+
+    /// <summary>
+    ///     Proves that a successful download leaves the caller-owned destination stream open and
+    ///     usable, since the caller (not the client) owns its lifetime.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+
+        // Act
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
+
+        // Assert
+        Assert.True(destination.CanWrite);
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that an already-canceled token surfaces as an
+    ///     <see cref="OperationCanceledException"/> and writes nothing to the destination.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException()
+    {
+        // Arrange
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(CreatePayload(sizeBytes: 16)));
+
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => client.DownloadAsync(sourceUri, destination, null, cancellation.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        Assert.Equal(0, destination.Length);
     }
 
     /// <summary>

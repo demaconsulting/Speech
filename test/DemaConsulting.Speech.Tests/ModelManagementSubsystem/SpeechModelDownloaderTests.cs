@@ -4,6 +4,9 @@ using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 using NSubstitute;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -285,8 +288,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that disposing the downloader while a download is still in flight neither fails that
-    ///     download nor throws from its lock release (the documented disposal race).
+    ///     Proves that disposing the downloader while a download using a caller-supplied client is
+    ///     still in flight neither fails that download nor throws from its lock release (the
+    ///     documented disposal race). A downloader-owned client is released by disposal and so
+    ///     gives no such guarantee; hosts cancel and await outstanding downloads first.
     /// </summary>
     [Fact]
     public async Task SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes()
@@ -958,9 +963,48 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
         var options = new SpeechModelDownloaderOptions { Mirror = mirror };
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(
+        // Act
+        var exception = Record.Exception(
             () => new SpeechModelDownloader(store, client, diagnostics: null, options: options));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
+    }
+
+    /// <summary>
+    ///     Proves that a credentialed <see cref="DownloadMirror"/> combined with no caller-supplied
+    ///     client is honored end to end: the downloader's own client sends the mirror's bearer
+    ///     token to the (loopback) mirror for the effective mirror URI, and the verified model
+    ///     installs.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_CredentialedLoopbackMirrorWithOwnedClient_SendsAuthorizationAndInstalls()
+    {
+        // Arrange
+        var payload = "mirror-payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/models/model-a/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+        var mirror = new DownloadMirror(new Uri($"{server.Urls[0]}/models"), bearerToken: "secret-token");
+        var options = new SpeechModelDownloaderOptions { Mirror = mirror };
+        using var downloader = new SpeechModelDownloader(store, client: null, diagnostics: null, options: options);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(store.IsInstalled("model-a"));
+        var request = Assert.Single(server.LogEntries).RequestMessage;
+        Assert.NotNull(request);
+        Assert.NotNull(request.Headers);
+        Assert.True(request.Headers.ContainsKey("Authorization"));
+        Assert.Equal(new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "secret-token").ToString(),
+            request.Headers["Authorization"].Single());
     }
 
     /// <summary>
