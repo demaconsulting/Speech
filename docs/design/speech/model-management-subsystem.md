@@ -37,7 +37,8 @@ It contains the following units:
   best-effort cleanup, plus the storage-root override options and the exception thrown only by
   an explicit uninstall that cannot complete
 - **SpeechModelDownloader** / **SpeechModelDownloaderOptions** / **DownloadMirror**: the
-  fetch → SHA-256 verify → atomic-install orchestrator (serialized per model id, concurrent across models), defining honest
+  fetch → SHA-256 verify → atomic-install orchestrator (serialized per model id, concurrent across models), defining
+  honest
   `SpeechModelDownloadOutcome` result states (including network/HTTP/I-O failure classification),
   plus the optional configuration seam and mirror-description type that let a host redirect every
   model download through an internal, possibly-authenticated HTTP(S) mirror
@@ -81,11 +82,14 @@ The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechMode
 `SpeechModelAudioTagSupport`, `ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
 `ChoiceParameterOption`, `BooleanParameter`, `ISpeechModel`, `IRecognitionModel`,
 `ISynthesisModel`, `SpeechModelDescriptor`, `SpeechModelCatalog`, `ReferenceVoicePack`,
-`ReferenceVoiceLibrary` (which also exposes the shared `ConsentNotice` text hosts show when listing voices), `ReferenceVoiceInfo` and `ReferenceVoiceSource` as its public API
+`ReferenceVoiceLibrary` (which also exposes the shared `ConsentNotice` text hosts show when listing voices),
+`ReferenceVoiceInfo` and `ReferenceVoiceSource` as its public API
 (`SpeechModelParameterDiagnostics` and `ReferenceVoicePackInstaller` are internal; the installer
 extracts a downloaded pack archive and is driven by `ReferenceVoiceLibrary`, which obtains the archive
-through `SpeechModelDownloader` into the shared `SpeechModelStore` layout). Value types it returns are owned by these units: `SpeechModelDownloadResult` by `SpeechModelDownloader`,
-`ChoiceParameterOption` by `ChoiceParameter` (in SpeechModelParameters), and `ReferenceVoiceInfo`/`ReferenceVoiceSource` by
+through `SpeechModelDownloader` into the shared `SpeechModelStore` layout). Value types it returns are owned by these
+units: `SpeechModelDownloadResult` by `SpeechModelDownloader`,
+`ChoiceParameterOption` by `ChoiceParameter` (in SpeechModelParameters), and
+`ReferenceVoiceInfo`/`ReferenceVoiceSource` by
 `ReferenceVoicePack`. It consumes `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural download-failure facts without ever exposing raw
 model bytes. It also consumes `AudioFormat` from the AudioSubsystem as a narrow plain-data
@@ -104,7 +108,8 @@ download is being fetched and verified, so an in-use recognizer/synthesizer cont
 unaffected content until the swap completes.
 
 `SpeechModelDownloader` is the only caller of `SpeechModelStore`'s internal staging/swap
-members. It serializes downloads of the same model id with a per-model-id lock (a second request for that id waits, honoring
+members. It serializes downloads of the same model id with a per-model-id lock (a second request for that id waits,
+honoring
 its cancellation token) while downloads of different model ids run fully concurrently, fetches each
 declared file through the injected `IModelDownloadClient`, verifies its SHA-256 checksum, and -
 when its `ISpeechModel`-aware `DownloadAsync` overload is used - invokes the model's own
@@ -174,7 +179,8 @@ returns the same catalog instance so registrations chain fluently (for example t
 `SpeechModelDownloader`. A distinct, all-required-parameter three-argument public constructor
 overload (`options, downloaderOptions, diagnostics`) additionally accepts
 `SpeechModelDownloaderOptions` (for example a `DownloadMirror`), forwarded to the internally
-created `SpeechModelDownloader` - exposing the catalog's normal composition path (with the model install-hook orchestration) to a mirror.
+created `SpeechModelDownloader` - exposing the catalog's normal composition path (with the model install-hook
+orchestration) to a mirror.
 Registration is a builder-phase step:
 every `AddModels` call must complete before the catalog is shared for concurrent enumeration or
 download. `Enumerate()`
@@ -204,7 +210,8 @@ the `ReferenceVoiceLibrary` unit design for details.
 
 #### Error handling
 
-Expected failures are reported as values, not exceptions (the downloader also reports structural failure facts, never raw model bytes, through `ISpeechDiagnostics`): a download returns a
+Expected failures are reported as values, not exceptions (the downloader also reports structural failure facts, never
+raw model bytes, through `ISpeechDiagnostics`): a download returns a
 `SpeechModelDownloadResult` whose outcome is `Installed`, `ChecksumMismatch`, `HttpError`,
 `NetworkBlocked`, `IoFailure`, or `Failed`, with any staging directory discarded and a prior
 install untouched. Cancellation always propagates unchanged as `OperationCanceledException`.

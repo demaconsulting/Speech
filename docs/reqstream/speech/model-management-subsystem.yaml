@@ -209,7 +209,8 @@ sections:
             tests:
               - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
               - SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact
-              - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
+              -
+                SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
 
           - id: Speech-Models-DownloadDescriptors
             title: >-
@@ -333,7 +334,8 @@ sections:
               distinct outcome category and populate Error for every non-Installed outcome.
             justification: |
               Every non-Installed result carries a diagnosable Error rather than leaving a host to
-              special-case which outcomes populate it. The categories are NetworkBlocked, HttpError, and IoFailure, with the generic
+              special-case which outcomes populate it. The categories are NetworkBlocked, HttpError, and IoFailure,
+              with the generic
               Failed outcome as the fallback for any unrecognized exception shape, so a host
               need not inspect Error's exception type itself.
               Collapsing every failure into one generic Failed outcome leaves a host unable to
@@ -353,7 +355,8 @@ sections:
               - Speech-Models-SpeechModelDownloader-CallerCancellationPropagates
             tests:
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
-              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
+              -
+                SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed
               - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked

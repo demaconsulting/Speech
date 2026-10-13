@@ -100,25 +100,30 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress`
 
-**Scenario**: A payload served in small chunks is downloaded, its checksum verifies, the model installs, and progress reports are monotonically increasing.
+**Scenario**: A payload served in small chunks is downloaded, its checksum verifies, the model installs, and progress
+reports are monotonically increasing.
 
 ##### Download: Checksum Mismatch Reports Mismatch, Populates Error, and Installs Nothing
 
 **Test**: `SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing`
 
-**Scenario**: The client serves bytes that do not match the declared checksum; the outcome is `ChecksumMismatch`, `Error` names the model and file, and the model is not installed.
+**Scenario**: The client serves bytes that do not match the declared checksum; the outcome is `ChecksumMismatch`,
+`Error` names the model and file, and the model is not installed.
 
 ##### Download: Already Installed Returns Installed Without Fetching or Staging
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging`
 
-**Scenario**: A model is installed once, then a second downloader with a client that must never be called is asked to download it; the outcome is `Installed`, the client is not invoked, an `Info` diagnostic is reported, and no `.tmp` staging directory is created.
+**Scenario**: A model is installed once, then a second downloader with a client that must never be called is asked to
+download it; the outcome is `Installed`, the client is not invoked, an `Info` diagnostic is reported, and no `.tmp`
+staging directory is created.
 
 ##### Download: Already Installed Cleans Up Leftover Staging Directory
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover`
 
-**Scenario**: A model is installed and a leftover staging directory exists; a second call returns `Installed` and removes the leftover.
+**Scenario**: A model is installed and a leftover staging directory exists; a second call returns `Installed` and
+removes the leftover.
 
 ##### Download: Second Call After Prior Success Takes Fast Path and Leaves Prior Install Intact
 
@@ -221,7 +226,8 @@ installed, and the content it leaves behind is what gets installed.
 
 ##### Download: Model-Aware Overload's Second Call After Prior Success Takes Fast Path and Never Invokes InstallAsync
 
-**Test**: `SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook`
+**Test**:
+`SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook`
 
 ##### Catalog: Zip-Archive Model Installs Extracted Content and Reports Downloaded
 
@@ -267,7 +273,8 @@ installed, and the content it leaves behind is what gets installed.
 
 ##### Download: HttpRequestException Wrapping AuthenticationException Reports NetworkBlocked
 
-**Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
+**Test**:
+`SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
 
 **Scenario**: The client throws an `HttpRequestException` wrapping an `AuthenticationException`; the outcome is
 `NetworkBlocked` and nothing is installed.
@@ -298,19 +305,22 @@ token is not canceled; the outcome is `NetworkBlocked` and nothing is installed.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure`
 
-**Scenario**: The client throws `IOException`; the outcome is `IoFailure` with the exception in `Error`, and nothing is installed.
+**Scenario**: The client throws `IOException`; the outcome is `IoFailure` with the exception in `Error`, and nothing
+is installed.
 
 ##### Download: UnauthorizedAccessException Reports IoFailure
 
 **Test**: `SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure`
 
-**Scenario**: The client throws `UnauthorizedAccessException`; the outcome is `IoFailure` with the exception in `Error`, and nothing is installed.
+**Scenario**: The client throws `UnauthorizedAccessException`; the outcome is `IoFailure` with the exception in
+`Error`, and nothing is installed.
 
 ##### Download: Staging Creation Failure Reports IoFailure
 
 **Test**: `SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure`
 
-**Scenario**: A file occupies the model's `.tmp` path so the staging directory cannot be created; the outcome is `IoFailure`, an `Error` diagnostic is reported, and the download client is never invoked.
+**Scenario**: A file occupies the model's `.tmp` path so the staging directory cannot be created; the outcome is
+`IoFailure`, an `Error` diagnostic is reported, and the download client is never invoked.
 
 ##### Download: Unmatched Exception Type Reports Failed
 

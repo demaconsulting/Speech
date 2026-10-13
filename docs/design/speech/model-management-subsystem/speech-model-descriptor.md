@@ -8,7 +8,8 @@ moment the snapshot was built.
 passthrough properties `Id`, `DisplayName`, `Role`, `LicenseName`, and `LicenseUrl` (`Uri?`, `null`
 when unknown) that delegate live to the wrapped model's own properties (no caching). The type is a
 sealed record whose immutability is shallow: `Model` is a reference to a model that
-is not itself copied, so the descriptor guarantees only that its own `Model` and `State` never change. Two descriptors are equal when they wrap the same `Model` instance (reference
+is not itself copied, so the descriptor guarantees only that its own `Model` and `State` never change. Two descriptors
+are equal when they wrap the same `Model` instance (reference
 equality, as the model type does not override equality) and have the same `State`.
 
 **Key Methods**:

@@ -18,7 +18,8 @@ staging space, never read as installed content). A nested `internal` `InstallMan
   whitespace-only), or from
   `SpeechModelStoreOptions.RootPathOverride` verbatim when supplied. Never throws.
 - **GetModelDirectory(modelId)**: Returns `{RootPath}/{modelId}`, the directory holding every
-  artifact for one model. Throws `ArgumentException` (`ArgumentNullException` for null) for an empty or invalid-name model id.
+  artifact for one model. Throws `ArgumentException` (`ArgumentNullException` for null) for an empty or invalid-name
+  model id.
 - **GetCurrentDirectory(modelId)**: Returns the model's `current/` directory path (which may not
   yet exist). Throws `ArgumentException` for an invalid model id.
 - **IsInstalled(modelId)**: Returns `true` only when `current/` exists and a valid manifest
@@ -47,7 +48,8 @@ staging space, never read as installed content). A nested `internal` `InstallMan
 - **AbandonStaging(stagingDirectory)** _(internal, static)_: Deletes a failed/canceled operation's
   staging directory without touching `current/`.
 - **Uninstall(modelId)**: Removes the manifest first and then `current/` for an installed model, so a failed
-  or partial delete never leaves a model that reads as installed; a no-op for a model that was never installed. **UninstallAsync(modelId, ct)** is the awaitable form for callers that must
+  or partial delete never leaves a model that reads as installed; a no-op for a model that was never installed.
+  **UninstallAsync(modelId, ct)** is the awaitable form for callers that must
   not block (the directory delete has no asynchronous API, so it runs on the thread pool); it validates the id
   at the call site, observes the token only before the removal starts, and reports failures through the task.
 - **CleanUpLeftovers(modelId)**: Best-effort deletes leftover `current.replaced-*` and `.tmp/*`
@@ -61,7 +63,8 @@ members that accept a model id throw `ArgumentException` for a null, empty, whit
 invalid-file-name, `.`, or `..` id. `Uninstall` removes the manifest before `current/` and throws
 `SpeechModelStoreException` when either cannot be removed, most commonly because another process still holds an
 open file handle into it. A manifest failure leaves the model fully installed; a `current/` failure leaves the
-model reading as not installed (a repeated `Uninstall` finishes the removal). After both are removed it deletes leftover `current.replaced-*` directories
+model reading as not installed (a repeated `Uninstall` finishes the removal). After both are removed it deletes
+leftover `current.replaced-*` directories
 (best-effort) but not `.tmp/*`, so a concurrent installer's live staging directory is never
 removed. `CompleteInstall` propagates I/O failures; if the second directory rename fails after an
 existing `current/` was renamed aside, it renames the previous content back into place
