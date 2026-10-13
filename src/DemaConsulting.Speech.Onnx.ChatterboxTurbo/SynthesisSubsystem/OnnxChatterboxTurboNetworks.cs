@@ -272,11 +272,35 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         }
 
         _disposed = true;
-        _encoder.Dispose();
-        _embedder.Dispose();
-        _languageModel.Dispose();
-        _decoder.Dispose();
-        _runOptions.Dispose();
+        try
+        {
+            _encoder.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                _embedder.Dispose();
+            }
+            finally
+            {
+                try
+                {
+                    _languageModel.Dispose();
+                }
+                finally
+                {
+                    try
+                    {
+                        _decoder.Dispose();
+                    }
+                    finally
+                    {
+                        _runOptions.Dispose();
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>Creates one CPU session and registers it for failure cleanup.</summary>
@@ -342,6 +366,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
             ArgumentNullException.ThrowIfNull(inputEmbeddings);
             ObjectDisposedException.ThrowIf(_disposed || _owner._disposed, this);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequenceLength);
+            ArgumentOutOfRangeException.ThrowIfNegative(firstPosition);
             if (inputEmbeddings.Length != (long)sequenceLength * OnnxChatterboxTurboSynthesisEngine.EmbeddingSize)
             {
                 throw new ArgumentException(

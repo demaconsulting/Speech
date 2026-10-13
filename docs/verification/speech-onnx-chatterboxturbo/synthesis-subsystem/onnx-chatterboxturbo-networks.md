@@ -14,8 +14,12 @@ These tests run in a non-parallel collection.
 - **Isolation**: scratch directories; no network I/O; no real model
 - **Collection**: the tests belong to a non-parallel xUnit collection because the session hook is
   process-wide
-- **Reflection**: the disposed flag of an ONNX Runtime session is read by reflection, since it has no public accessor
-- **Known limits**: "no session leak" beyond the disposed flags of the observed sessions is not
+- **Reflection**: the disposed flag of an ONNX Runtime session is read by reflection, since it has no public
+  accessor; this is fragile across ONNX Runtime upgrades and must be revisited when the package is upgraded
+  (the test fails loudly if the field disappears)
+- **Known limits**: the try/finally in `Dispose` (one failing session dispose must not leak the others) is not
+  exercised because `InferenceSession` cannot be made to throw on dispose; "no session leak" beyond the
+  disposed flags of the observed sessions is not
   verified; the multi-assertion tests (thread count, use after dispose) are kept whole because each
   asserts one lifecycle contract over one expensive session set
 
@@ -60,7 +64,8 @@ own `IntraOpThreads` property and the rejection of a non-positive count only.
 **Tests**: `OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException`,
 `OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException`,
 `OnnxChatterboxTurboNetworks_Step_ZeroSequenceLength_ThrowsArgumentOutOfRangeException` and
-`OnnxChatterboxTurboNetworks_Step_NullEmbeddings_ThrowsArgumentNullException`
+`OnnxChatterboxTurboNetworks_Step_NullEmbeddings_ThrowsArgumentNullException` and
+`OnnxChatterboxTurboNetworks_Step_NegativeFirstPosition_ThrowsArgumentOutOfRangeException`
 
 ##### Half-precision encoder, embedder and decoder outputs are converted
 

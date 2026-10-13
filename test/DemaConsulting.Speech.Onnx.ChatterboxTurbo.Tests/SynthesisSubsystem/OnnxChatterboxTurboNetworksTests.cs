@@ -68,6 +68,8 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
         Assert.Equal(3, conditioning.SpeakerFeatureFrames);
         Assert.Equal(6, conditioning.SpeakerFeatures.Length);
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
+        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
     }
 
     /// <summary>Proves an encoder whose four outputs are not named as expected is bound positionally.</summary>
@@ -201,6 +203,19 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
 
         // Act and Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => state.Step([], 0, 0, 0));
+    }
+
+    /// <summary>Proves a negative first position is rejected before any native call.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_NegativeFirstPosition_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+
+        // Act and Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, -1));
     }
 
     /// <summary>Proves a null embeddings array is rejected by <c>Step</c>.</summary>

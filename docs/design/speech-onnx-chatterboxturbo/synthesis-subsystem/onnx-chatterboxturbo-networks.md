@@ -29,11 +29,14 @@ tensors for embeddings and empty cache entries.
   consumed them), converts the embeddings to float16 when the graph declares them so, and returns the last
   position's logits as floats. `inputEmbeddings` must contain `sequenceLength` times
   `OnnxChatterboxTurboSynthesisEngine.EmbeddingSize` values, `sequenceLength` must be positive (zero is
-  rejected) and `attentionLength` must be at least `sequenceLength`. A step on a state that was itself
+  rejected), `firstPosition` must not be negative and `attentionLength` must be at least `sequenceLength`
+  (an `ArgumentOutOfRangeException` before any native call otherwise). A step on a state that was itself
   disposed, or whose owning networks were disposed, throws `ObjectDisposedException` before any native call
 - **Decode(speechTokens, conditioning)**: runs the conditional decoder and returns the waveform
 - **ReadFloats(value)**: copies a float32 or float16 tensor into a float array
-- **Dispose()**: disposes all sessions and the run options; it is idempotent. `Encode`, `Embed`, `Decode` and
+- **Dispose()**: disposes all sessions and the run options, each in its own try/finally so one failing
+  dispose cannot leak the others; it is idempotent. A state disposed after its networks is safe, and states
+  must be disposed by the caller. `Encode`, `Embed`, `Decode` and
   `BeginGeneration` throw `ObjectDisposedException` after dispose, because a call on a disposed ONNX Runtime
   session faults the process instead of throwing. Float16 outputs of any graph are converted to floats by
   one shared half-to-float helper.
