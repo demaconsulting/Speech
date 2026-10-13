@@ -2,13 +2,17 @@
 # System-Level Platform Requirements
 #
 # These requirements specify the platforms and frameworks the library must support.
-# They ensure the library works across the required execution environments.
+# They ensure the library works across the required execution environments. Each platform
+# or framework is split into a build requirement and a run requirement so that each criterion
+# has its own evidence.
 #
-# Test links can include a source filter prefix (e.g. "windows@", "ubuntu@", "net8.0@") to restrict
+# Test links carry a source filter prefix (e.g. "windows@", "ubuntu@", "net8.0@") to restrict
 # which test results count as evidence for a requirement. This is critical for platform and framework
-# requirements - removing these filters invalidates the evidence-based proof.
+# requirements - removing these filters invalidates the evidence-based proof. The evidence tests
+# (PlatformSupportTests) skip themselves on every platform they do not apply to, so a result only
+# exists for the platform or runtime it proves.
 #
-# Source filter prefixes:
+# Source filter prefixes (matched against the CI test-result file names):
 #   windows@TestName  - proves the test passed on a Windows platform
 #   ubuntu@TestName   - proves the test passed on a Linux (Ubuntu) platform
 #   macos@TestName    - proves the test passed on a macOS platform
@@ -20,52 +24,100 @@ sections:
   - title: Speech Requirements
     requirements:
       - id: Speech-Platform-Windows
-        title: The library shall build and run on Windows platforms.
+        title: The library shall build on Windows platforms.
         tags: [system]
         justification: |
           DEMA Consulting libraries must support Windows as a major development platform.
         tests:
-          # Tests link to "windows" to ensure results come from Windows platform
-          - "windows@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "windows@PlatformSupport_Build_Windows_LibraryBuiltAndLoaded"
+
+      - id: Speech-Platform-Windows-Run
+        title: The library shall run on Windows platforms.
+        tags: [system]
+        justification: |
+          A library that builds on Windows must also execute its parsing, audio, and device
+          composition behavior there.
+        tests:
+          - "windows@PlatformSupport_Run_Windows_LibraryRuns"
 
       - id: Speech-Platform-Linux
-        title: The library shall build and run on Linux platforms.
+        title: The library shall build on Linux platforms.
         tags: [system]
         justification: |
           DEMA Consulting libraries must support Linux for CI/CD and containerized environments.
         tests:
-          # Tests link to "ubuntu" to ensure results come from Linux platform
-          - "ubuntu@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "ubuntu@PlatformSupport_Build_Linux_LibraryBuiltAndLoaded"
+
+      - id: Speech-Platform-Linux-Run
+        title: The library shall run on Linux platforms.
+        tags: [system]
+        justification: |
+          A library that builds on Linux must also execute its parsing, audio, and device
+          composition behavior there, including in containers with no audio hardware.
+        tests:
+          - "ubuntu@PlatformSupport_Run_Linux_LibraryRuns"
 
       - id: Speech-Platform-MacOS
-        title: The library shall build and run on macOS platforms.
+        title: The library shall build on macOS platforms.
         tags: [system]
         justification: |
           DEMA Consulting libraries must support macOS for developers using Apple platforms.
         tests:
-          # Tests link to "macos" to ensure results come from macOS platform
-          - "macos@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "macos@PlatformSupport_Build_MacOS_LibraryBuiltAndLoaded"
+
+      - id: Speech-Platform-MacOS-Run
+        title: The library shall run on macOS platforms.
+        tags: [system]
+        justification: |
+          A library that builds on macOS must also execute its parsing, audio, and device
+          composition behavior there.
+        tests:
+          - "macos@PlatformSupport_Run_MacOS_LibraryRuns"
 
       - id: Speech-Platform-Net8
-        title: The library shall support .NET 8 runtime.
+        title: The library shall run on the .NET 8 runtime.
         tags: [system]
         justification: |
           .NET 8 is an LTS release providing long-term stability for enterprise users.
         tests:
-          - "net8.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "net8.0@PlatformSupport_Run_Net8_LibraryRunsOnNet8"
+
+      - id: Speech-Platform-Net8-Build
+        title: The library shall build for .NET 8.
+        tags: [system]
+        justification: |
+          Consumers on .NET 8 need a library build targeting that framework.
+        tests:
+          - "net8.0@PlatformSupport_Build_Net8_LibraryBuiltForNet8"
 
       - id: Speech-Platform-Net9
-        title: The library shall support .NET 9 runtime.
+        title: The library shall run on the .NET 9 runtime.
         tags: [system]
         justification: |
           .NET 9 support enables users to leverage the latest .NET features.
         tests:
-          - "net9.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "net9.0@PlatformSupport_Run_Net9_LibraryRunsOnNet9"
+
+      - id: Speech-Platform-Net9-Build
+        title: The library shall build for .NET 9.
+        tags: [system]
+        justification: |
+          Consumers on .NET 9 need a library build targeting that framework.
+        tests:
+          - "net9.0@PlatformSupport_Build_Net9_LibraryBuiltForNet9"
 
       - id: Speech-Platform-Net10
-        title: The library shall support .NET 10 runtime.
+        title: The library shall run on the .NET 10 runtime.
         tags: [system]
         justification: |
           .NET 10 support ensures the library remains compatible with the latest .NET ecosystem.
         tests:
-          - "net10.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
+          - "net10.0@PlatformSupport_Run_Net10_LibraryRunsOnNet10"
+
+      - id: Speech-Platform-Net10-Build
+        title: The library shall build for .NET 10.
+        tags: [system]
+        justification: |
+          Consumers on .NET 10 need a library build targeting that framework.
+        tests:
+          - "net10.0@PlatformSupport_Build_Net10_LibraryBuiltForNet10"
