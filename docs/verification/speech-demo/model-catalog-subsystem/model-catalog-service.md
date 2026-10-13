@@ -26,9 +26,10 @@ checksum-mismatched download; a factory-constructed instance rebuilds and takes 
 catalog when the mirror changes
 while one built without a factory rejects reconfiguration; and the reference-voice members report
 the library's packs, rebuild the catalog and library pair, and raise `ReferenceVoicesChanged`
-however an install ends, while an instance without a voice library reports no packs and refuses
-pack operations, and an uninstall refused because an install is in flight neither rebuilds nor
-raises.
+however an install ends (and an install's own exception is never replaced by a rebuild failure),
+while an instance without a voice library reports no packs and refuses
+pack operations, and an uninstall that finds an install in flight waits for it and then removes the
+pack, rebuilding and raising once.
 
 #### Test Scenarios
 
@@ -108,10 +109,11 @@ than silently doing nothing.
 
 ##### ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
 
-**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory.
+**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory, first with a
+mirror and then with `null`.
 
-**Expected**: The factory is invoked with downloader options carrying the requested mirror, and
-subsequent enumeration reflects the rebuilt catalog.
+**Expected**: The factory is invoked with downloader options carrying the requested mirror, then
+with no options at all, and subsequent enumeration reflects the rebuilt catalog.
 
 ##### ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
 
@@ -178,14 +180,15 @@ attempt against it surfacing `ObjectDisposedException`.
 
 **Scenario**: A pack is uninstalled through a composed service.
 
-**Expected**: The pair is rebuilt, the old one disposed, and `ReferenceVoicesChanged` raised
-exactly once.
+**Expected**: The pair is rebuilt, the old voice library is disposed (a later install through it
+throws `ObjectDisposedException`), and `ReferenceVoicesChanged` is raised exactly once.
 
 ##### ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 
 **Scenario**: The mirror is changed on a composed service.
 
-**Expected**: The pair is rebuilt and `ReferenceVoicesChanged` raised.
+**Expected**: The pair is rebuilt with the new options, the old voice library is disposed, and
+`ReferenceVoicesChanged` is raised.
 
 ##### ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
 
@@ -199,6 +202,12 @@ have changed the pack's installed state.
 **Scenario**: A pack install is canceled.
 
 **Expected**: The pair is still rebuilt and `ReferenceVoicesChanged` raised.
+
+##### ModelCatalogService_InstallReferenceVoicePackAsync_RebuildFailsAfterCancel_RethrowsCancellation
+
+**Scenario**: A pack install is canceled and the composition factory then throws during the rebuild.
+
+**Expected**: The cancellation propagates, not the rebuild's exception.
 
 ##### ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
 

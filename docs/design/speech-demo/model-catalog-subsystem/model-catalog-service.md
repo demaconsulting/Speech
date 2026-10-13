@@ -31,8 +31,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `UninstallReferenceVoicePackAsync(packId, ct)` | `Task` | Removes a pack and rebuilds; waits for an install |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 
-`Enumerate()` retries once if the catalog was just replaced. `UninstallReferenceVoicePackAsync` waits
-for an in-flight install of that pack to finish (honoring cancellation) and then removes it.
+`Enumerate()` retries once if the catalog was just replaced.
 
 **Key Methods**:
 
@@ -59,14 +58,17 @@ for an in-flight install of that pack to finish (honoring cancellation) and then
   one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirror` (see its own
   design doc) is this demo's sole production caller and enforces that by refusing to call
   through - reporting an explained panel error instead - while any row is downloading.
-
 - **Reference voice packs**: Supported when the service was constructed with the composition
   constructor (`ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?,
   Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>)`), where the composition pairs the
-  catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, in a `finally`, because an upgrade
+  catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, because an upgrade
   may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
   recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
-  library, and raises `ReferenceVoicesChanged`. `UninstallReferenceVoicePackAsync` first awaits the
+  library, and raises `ReferenceVoicesChanged`. When an install throws or is canceled, the rebuild still
+  runs but a failure of the rebuild itself is discarded so the install's own exception is the one that
+  propagates; after a successful install a rebuild failure propagates. A failing factory leaves the
+  previous pair published and undisposed, because the new pair is built before anything is replaced.
+  `UninstallReferenceVoicePackAsync` first awaits the
   library's asynchronous uninstall, which serializes with an in-flight install of that pack
   (waiting for it, honoring cancellation); if the uninstall throws or is canceled the exception
   propagates unchanged and the recompose step and notification are skipped, because nothing changed. Services built
@@ -89,12 +91,17 @@ shared `MirrorOptionsFactory` helper its caller uses to build the `DownloadMirro
 constructed without a voice library, and `UninstallReferenceVoicePackAsync` waits
 for an in-flight install of that pack to finish (honoring cancellation) and then removes it.
 
-**Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
-or with themselves - both read and then replace the same current-catalog field with no
-synchronization, so concurrent calls could race on which catalog ends up current or disposed.
-This panel invokes both members serially from the UI thread, one command at a time; any other
-caller must provide its own external synchronization. `Enumerate()` and `DownloadAsync` carry no
-such restriction beyond what the underlying `SpeechModelCatalog` itself documents.
+**Thread Safety**: `ApplyMirror`, `Dispose` and the pack install and uninstall rebuilds all read and
+then replace the same current catalog, voice library and downloader-options state with no
+synchronization (the options field is not volatile), so concurrent calls could race on which pair
+ends up current or disposed, and a rebuild disposes the previous pair, which aborts any
+`DownloadAsync` still running against it. This panel invokes these members serially from the UI
+thread, one command at a time, and its view model refuses overlapping transfers; any other caller
+must provide its own external synchronization. `Enumerate()` and `DownloadAsync` carry no such
+restriction beyond what the underlying `SpeechModelCatalog` itself documents.
+**Ownership**: A service built with a factory or composition factory owns every catalog and voice
+library it holds, disposing each replaced pair and the current pair on `Dispose`; otherwise it owns
+neither.
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
 `SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,

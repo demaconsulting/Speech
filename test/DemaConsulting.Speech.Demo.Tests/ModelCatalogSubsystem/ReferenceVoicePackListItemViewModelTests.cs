@@ -139,7 +139,7 @@ public class ReferenceVoicePackListItemViewModelTests
     }
 
     /// <summary>
-    ///     Proves that setting a failure message raises <c>HasFailureMessage</c>.
+    ///     Proves that setting a failure message raises <c>HasFailureMessage</c> and clearing it lowers it again.
     /// </summary>
     [Fact]
     public void ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage()
@@ -148,11 +148,52 @@ public class ReferenceVoicePackListItemViewModelTests
         var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
         Assert.False(row.HasFailureMessage);
 
-        // Act
+        // Act & Assert: set, then cleared
         row.FailureMessage = "oops";
+        Assert.True(row.HasFailureMessage);
+        row.FailureMessage = null;
+        Assert.False(row.HasFailureMessage);
+    }
+
+    /// <summary>
+    ///     Proves that the emotion option is shown for a not-installed or failed pack with emotions, hidden while
+    ///     installing or installed, and that the option defaults to on.
+    /// </summary>
+    [Theory]
+    [InlineData(SpeechModelState.NotDownloaded, true)]
+    [InlineData(SpeechModelState.FailedOrCorrupt, true)]
+    [InlineData(SpeechModelState.Downloading, false)]
+    [InlineData(SpeechModelState.Downloaded, false)]
+    public void ReferenceVoicePackListItemViewModel_ShowEmotionOption_FollowsState(SpeechModelState state, bool expected)
+    {
+        // Act
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, state);
 
         // Assert
-        Assert.True(row.HasFailureMessage);
+        Assert.True(row.IncludeEmotions);
+        Assert.Equal(expected, row.ShowEmotionOption);
+    }
+
+    /// <summary>
+    ///     Proves that <c>EffectiveIncludeEmotions</c> is announced when its inputs change.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_EffectiveIncludeEmotions_Announced()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act & Assert
+        row.IncludeEmotions = false;
+        Assert.Contains(nameof(row.EffectiveIncludeEmotions), raised);
+        raised.Clear();
+        row.State = SpeechModelState.Downloaded;
+        Assert.Contains(nameof(row.EffectiveIncludeEmotions), raised);
+        raised.Clear();
+        row.HasEmotions = true;
+        Assert.Contains(nameof(row.EffectiveIncludeEmotions), raised);
     }
 
     /// <summary>

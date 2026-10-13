@@ -27,12 +27,16 @@ captions and enablement values the row displays.
 | `StatusText` | `string` | "Not installed", "Installing", "Installed" (with or without emotions), "Failed or corrupt" |
 | `CanInstall` / `CanRemove` / `IsInstalling` / `HasFailureMessage` | `bool` | Derived enablement and visibility |
 
-**Key Methods**: None beyond the constructor (copies a `ReferenceVoicePack`) and property setters,
-which announce the derived values when `State`, `IncludeEmotions`, `HasEmotions` or
-`FailureMessage` changes.
+**Key Methods**: None beyond the constructor
+`ReferenceVoicePackListItemViewModel(ReferenceVoicePack pack, SpeechModelState state,
+bool hasEmotions = false)`, which copies the pack's identity, sizes and license and sets the initial
+state and emotion status, and the property setters, which announce the derived values when `State`,
+`IncludeEmotions`, `HasEmotions` or `FailureMessage` changes (including `EffectiveIncludeEmotions`,
+which depends on all three of `State`, `IncludeEmotions` and `HasEmotions`).
 
 `CanInstall` is true for `NotDownloaded` and `FailedOrCorrupt` (so a transient failure can be
-retried) and for a `Downloaded` pack that lacks emotions (the "Add emotions" upgrade); `CanRemove` is true only for `Downloaded`.
+retried) and for a `Downloaded` pack that lacks emotions (the "Add emotions" upgrade); `CanRemove`
+is true only for `Downloaded`.
 The panel-level "voice busy" message that explains a refused pack operation belongs to
 `ModelCatalogViewModel`, not to this row.
 

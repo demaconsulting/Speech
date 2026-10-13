@@ -152,8 +152,9 @@ public class ModelCatalogServiceTests
         // Arrange
         var root = IsolatedOptions().RootPathOverride!;
         var builds = 0;
+        var initial = Compose(root, null);
         using var service = new ModelCatalogService(
-            Compose(root, null),
+            initial,
             null,
             o =>
             {
@@ -166,9 +167,11 @@ public class ModelCatalogServiceTests
         // Act
         await service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
 
-        // Assert: one rebuild, one notification, and the service still works afterwards
+        // Assert: one rebuild, one notification, the replaced library is disposed, and the service still works afterwards
         Assert.Equal(1, builds);
         Assert.Equal(1, raised);
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initial.VoiceLibrary.InstallPackAsync("voice-zero-1.0", false, null, TestContext.Current.CancellationToken));
         Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState("voice-zero-1.0"));
         await Assert.ThrowsAsync<ArgumentException>(() => service.UninstallReferenceVoicePackAsync("missing-pack", TestContext.Current.CancellationToken));
     }
@@ -178,13 +181,14 @@ public class ModelCatalogServiceTests
     ///     options and raises <see cref="IModelCatalogService.ReferenceVoicesChanged"/>.
     /// </summary>
     [Fact]
-    public void ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent()
+    public async Task ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent()
     {
         // Arrange
         var root = IsolatedOptions().RootPathOverride!;
         SpeechModelDownloaderOptions? lastOptions = null;
+        var initial = Compose(root, null);
         using var service = new ModelCatalogService(
-            Compose(root, null),
+            initial,
             null,
             o =>
             {
@@ -198,9 +202,11 @@ public class ModelCatalogServiceTests
         // Act
         service.ApplyMirror(mirror);
 
-        // Assert
+        // Assert: the pair was rebuilt with the new options and the replaced library was disposed
         Assert.Equal(1, raised);
         Assert.Same(mirror, lastOptions!.Mirror);
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initial.VoiceLibrary.InstallPackAsync("voice-zero-1.0", false, null, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -268,6 +274,27 @@ public class ModelCatalogServiceTests
         // Assert
         Assert.Equal(1, builds);
         Assert.Equal(1, raised);
+    }
+
+    /// <summary>
+    ///     Proves that when a canceled pack install is followed by a failing catalog rebuild, the cancellation (the
+    ///     install's own exception) propagates rather than the rebuild's failure.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_RebuildFailsAfterCancel_RethrowsCancellation()
+    {
+        // Arrange: a factory that cannot rebuild
+        var root = IsolatedOptions().RootPathOverride!;
+        using var service = new ModelCatalogService(
+            Compose(root, null),
+            null,
+            _ => throw new InvalidOperationException("cannot rebuild"));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert: the install's own exception wins
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.InstallReferenceVoicePackAsync("voice-zero-1.0", true, null, cts.Token));
     }
 
     /// <summary>
@@ -369,9 +396,11 @@ public class ModelCatalogServiceTests
         // is invoked, so a successful rebuild is observable through Enumerate() alone
         var store = new SpeechModelStore(IsolatedOptions());
         var callCount = 0;
-        SpeechModelCatalog Factory(SpeechModelDownloaderOptions? _)
+        var requestedOptions = new List<SpeechModelDownloaderOptions?>();
+        SpeechModelCatalog Factory(SpeechModelDownloaderOptions? options)
         {
             callCount++;
+            requestedOptions.Add(options);
             var models = callCount == 1
                 ? []
                 : new List<ISpeechModel> { new FakeModel("model-after-apply") };
@@ -381,12 +410,16 @@ public class ModelCatalogServiceTests
         var initialCatalog = Factory(null);
         var service = new ModelCatalogService(initialCatalog, Factory);
         Assert.Empty(service.Enumerate());
+        var mirror = new DownloadMirror(new Uri("https://mirror.example.test/"));
 
-        // Act
+        // Act: apply a mirror, then clear it
+        service.ApplyMirror(mirror);
         service.ApplyMirror(null);
 
-        // Assert: the service now forwards to the catalog the factory built on its second call
-        Assert.Equal(2, callCount);
+        // Assert: the factory received the requested mirror, then no mirror, and the service forwards to the rebuilt catalog
+        Assert.Equal(3, callCount);
+        Assert.Same(mirror, requestedOptions[1]!.Mirror);
+        Assert.Null(requestedOptions[2]);
         Assert.Single(service.Enumerate());
         Assert.Equal("model-after-apply", service.Enumerate()[0].Id);
     }

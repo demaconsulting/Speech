@@ -42,11 +42,47 @@ canceled is explained on the pack's row instead of failing.
 
 ### Test Scenarios
 
+#### ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel
+
+**Scenario**: The panel is created over a service that enumerates several models.
+
+**Expected**: One row per model is built, each with its installation state.
+
 #### ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
 
 **Scenario**: The panel downloads a model through the seam and the library reports it installed.
 
 **Expected**: The row becomes installed at full progress.
+
+#### ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
+
+**Scenario**: The library reports a failed download.
+
+**Expected**: The row shows the failure as row state with the library's message; nothing is thrown.
+
+#### ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
+
+**Scenario**: The library reports a checksum mismatch.
+
+**Expected**: The row shows an explained failure rather than raising an application error.
+
+#### ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
+
+**Scenario**: A download is canceled.
+
+**Expected**: The row returns to not downloaded without an error.
+
+#### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+
+**Scenario**: A mirror is applied while a model download is in flight.
+
+**Expected**: The seam is not asked to reconfigure and the panel explains the refusal.
+
+#### ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused
+
+**Scenario**: A mirror is applied while a voice pack install is in flight.
+
+**Expected**: The change is refused and explained, and the seam is not called.
 
 #### ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
 
@@ -78,6 +114,25 @@ and refreshes.
 **Scenario**: The mirror is changed on a composed service.
 
 **Expected**: The pair is rebuilt and `ReferenceVoicesChanged` raised.
+
+#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+
+**Scenario**: A valid mirror is applied through the panel.
+
+**Expected**: The catalog is re-read so the rows reflect the rebuilt catalog.
+
+#### ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+
+**Scenario**: A pack is removed through the panel.
+
+**Expected**: The seam uninstalls it, the rows are re-read, and faults are reported on the row.
+
+#### SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
+
+**Scenario**: The service raises `ReferenceVoicesChanged` to a subscribed synthesis panel.
+
+**Expected**: The panel refreshes its voice choices and keeps the chosen voice; this is the
+observable effect of every voices-changed notification the subsystem raises.
 
 #### ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
 

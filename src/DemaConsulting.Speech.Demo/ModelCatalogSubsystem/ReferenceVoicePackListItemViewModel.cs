@@ -55,6 +55,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     [NotifyPropertyChangedFor(nameof(CanUpgradeToEmotions))]
     [NotifyPropertyChangedFor(nameof(ShowEmotionOption))]
     [NotifyPropertyChangedFor(nameof(InstallButtonText))]
+    [NotifyPropertyChangedFor(nameof(EffectiveIncludeEmotions))]
     public partial SpeechModelState State { get; set; }
 
     /// <summary>
@@ -63,6 +64,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InstalledSizeText))]
+    [NotifyPropertyChangedFor(nameof(EffectiveIncludeEmotions))]
     public partial bool IncludeEmotions { get; set; } = true;
 
     /// <summary>
@@ -74,6 +76,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     [NotifyPropertyChangedFor(nameof(CanInstall))]
     [NotifyPropertyChangedFor(nameof(CanUpgradeToEmotions))]
     [NotifyPropertyChangedFor(nameof(InstallButtonText))]
+    [NotifyPropertyChangedFor(nameof(EffectiveIncludeEmotions))]
     public partial bool HasEmotions { get; set; }
 
     /// <summary>

@@ -60,11 +60,23 @@ the installed variant.
 **Expected**: "Add emotions" and the upgrade flag are offered only for a voices-only install of a
 pack that has emotion variants.
 
+##### ReferenceVoicePackListItemViewModel_ShowEmotionOption_FollowsState
+
+**Scenario**: Rows for each install state are created for a pack with emotion variants.
+
+**Expected**: The emotion option defaults to on and is shown only for not-installed and failed rows.
+
+##### ReferenceVoicePackListItemViewModel_EffectiveIncludeEmotions_Announced
+
+**Scenario**: `IncludeEmotions`, `State` and `HasEmotions` are changed in turn.
+
+**Expected**: Each change announces `EffectiveIncludeEmotions`.
+
 ##### ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
 
-**Scenario**: A failure message is set and cleared.
+**Scenario**: A failure message is set and then cleared.
 
-**Expected**: The failure flag follows the message and is re-announced.
+**Expected**: The failure flag is true while the message is set and false after it is cleared.
 
 ##### ReferenceVoicePackListItemViewModel_State_Changed_RaisesDependentPropertyChanged
 

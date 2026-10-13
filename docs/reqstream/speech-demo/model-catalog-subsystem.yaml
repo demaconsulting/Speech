@@ -16,7 +16,10 @@
 # The requirements below are the subsystem's own behavior, verified through the panel view
 # model and the catalog service working together. Each requirement states one criterion:
 # browsing, downloading and mirror redirection are separate requirements, as are the voice-pack
-# change notification and the two voice-pack safety behaviors.
+# change notification and the two voice-pack safety behaviors. Each rebuild/notification pair is
+# evidenced differently: the rebuild requirement by the adapter rebuild plus the panel showing the
+# result, the notification requirement by the adapter raising the event plus the synthesis panel
+# reacting to it.
 
 sections:
   - title: SpeechDemo Requirements
@@ -94,16 +97,18 @@ sections:
               changed.
             tests:
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
-              - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+              - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
               after a voice pack is removed.
-            justification: |
+              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
+              after a voice pack is removed.: |
               A removed voice is only withdrawn once the catalog is rebuilt.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+              - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
             title: >-
@@ -113,18 +118,20 @@ sections:
               The notification lets the synthesis panel stop offering the removed voices.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+              - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
-          - id: SpeechDemo-ModelCatalog-VoicePackMirrorChangedRebuild
+          - id: SpeechDemo-ModelCatalog-MirrorChangedRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              when the mirror is changed.
+              when the mirror is changed, and show the rebuilt catalog's models.
             justification: |
               Voice packs download through the same mirror as models, so a mirror change
               produces a freshly configured catalog and library.
             tests:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+              - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
 
-          - id: SpeechDemo-ModelCatalog-VoicePackMirrorChangedNotification
+          - id: SpeechDemo-ModelCatalog-MirrorChangedNotification
             title: >-
               The ModelCatalogSubsystem shall raise a voices-changed notification when the
               mirror is changed, so that other panels can refresh.
@@ -132,6 +139,7 @@ sections:
               Dependent panels must pick up the freshly configured catalog and library.
             tests:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+              - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
           - id: SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
             title: >-

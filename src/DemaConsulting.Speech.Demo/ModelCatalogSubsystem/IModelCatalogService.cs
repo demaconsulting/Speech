@@ -46,7 +46,12 @@ public interface IModelCatalogService
     ///     library ships no known models, which is the honest state until a production model is
     ///     released.
     /// </returns>
-    /// <remarks>Never throws.</remarks>
+    /// <remarks>
+    ///     Reads the library's in-memory view; it does not touch the network. The production service
+    ///     retries once when a concurrent mirror change disposes the catalog it was reading, so a
+    ///     disposed-catalog <see cref="ObjectDisposedException"/> or any other fault from the library
+    ///     itself can still propagate to the caller.
+    /// </remarks>
     IReadOnlyList<SpeechModelDescriptor> Enumerate();
 
     /// <summary>

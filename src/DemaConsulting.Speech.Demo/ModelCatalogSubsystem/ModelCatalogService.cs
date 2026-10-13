@@ -25,12 +25,20 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     current when this adapter itself is disposed.
 ///     </para>
 ///     <para>
-///     <b>Thread safety</b>: <see cref="ApplyMirror"/> and <see cref="Dispose"/> are not safe to
-///     call concurrently with each other or with themselves - both read and then replace the
-///     same current-catalog field with no synchronization, so concurrent calls could race on
-///     which catalog ends up current or disposed. Callers must serialize their own calls to
-///     these two members (for example, as this demo's UI does, by invoking them one at a time
-///     from a single UI thread); this type provides no internal locking of its own.
+///     <b>Thread safety</b>: <see cref="ApplyMirror"/>, <see cref="Dispose"/> and the pack
+///     install/uninstall rebuilds (<see cref="InstallReferenceVoicePackAsync"/> and
+///     <see cref="UninstallReferenceVoicePackAsync"/>) all read and then replace the same
+///     current catalog, voice library and downloader-options state (the options field is not
+///     volatile) with no synchronization, so concurrent calls could race on which pair ends up
+///     current or disposed. In particular, a rebuild disposes the previous pair, which aborts any
+///     <see cref="DownloadAsync"/> still running against it. Callers must serialize their own
+///     calls to these members (for example, as this demo's UI does, by invoking them one at a time
+///     from a single UI thread and refusing overlapping transfers); this type provides no
+///     internal locking of its own. Every rebuild is a single publish-then-dispose step: the new
+///     pair is built first and published by plain assignments (which cannot fail), so a failing
+///     factory leaves the previous pair in place and untouched. Ownership: when constructed with a
+///     factory, this service owns every catalog and voice library it ever holds and disposes each
+///     replaced pair and the current pair on <see cref="Dispose"/>; otherwise it owns neither.
 ///     </para>
 /// </remarks>
 public sealed class ModelCatalogService : IModelCatalogService, IDisposable
@@ -164,6 +172,9 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     pack's installed state may have changed even then (an upgrade moves the old install aside and restores
     ///     it on failure). The rebuild aborts
     ///     any model download in flight; see <see cref="IModelCatalogService.InstallReferenceVoicePackAsync"/>.
+    ///     If the install itself throws (including cancellation) and the rebuild then also throws, the
+    ///     install's exception is the one that propagates; the rebuild failure is discarded so it cannot mask it.
+    ///     After a successful install, a rebuild failure propagates to the caller.
     /// </remarks>
     public async Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
         string packId,
@@ -172,16 +183,33 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         CancellationToken cancellationToken)
     {
         var library = RequireVoiceLibrary();
+        SpeechModelDownloadResult result;
         try
         {
-            return await library
+            result = await library
                 .InstallPackAsync(packId, includeEmotions, progress, cancellationToken)
                 .ConfigureAwait(true);
         }
-        finally
+#pragma warning disable CA1031 // The rebuild must not mask the install's own exception.
+        catch
+#pragma warning restore CA1031
         {
-            RebuildAndNotifyVoicesChanged();
+            try
+            {
+                RebuildAndNotifyVoicesChanged();
+            }
+#pragma warning disable CA1031 // Intentionally discarded: the install's exception is rethrown below.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+                // The install's own exception is more useful to the caller than a secondary rebuild failure
+            }
+
+            throw;
         }
+
+        RebuildAndNotifyVoicesChanged();
+        return result;
     }
 
     /// <inheritdoc/>
