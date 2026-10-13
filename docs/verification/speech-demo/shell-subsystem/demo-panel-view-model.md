@@ -26,7 +26,6 @@ missing title, a blank title, and a missing content.
 
 **Expected**: Both are carried unchanged.
 
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`, `SpeechDemo-Shell-PanelContent`.
 
 ##### DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
 
@@ -34,15 +33,12 @@ missing title, a blank title, and a missing content.
 
 **Expected**: `ArgumentException`, because an untitled navigation entry is unusable.
 
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitleRequired`.
-
 ##### DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException
 
 **Scenario**: A navigation entry is built with no title.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitleRequired`.
 
 ##### DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException
 
@@ -50,4 +46,3 @@ missing title, a blank title, and a missing content.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Shell-PanelContentRequired`.

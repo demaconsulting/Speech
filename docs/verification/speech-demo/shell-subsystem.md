@@ -35,4 +35,3 @@ honest empty state.
 
 **Expected**: Composition succeeds and each panel reports its own honest empty state.
 
-**Requirement coverage**: `SpeechDemo-Shell-EmptyEnvironmentComposition`.

@@ -33,7 +33,6 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Devices-FactoryRequired`.
 
 ##### AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
 
@@ -41,7 +40,6 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: The adapter returns exactly those devices, unfiltered and unsorted.
 
-**Requirement coverage**: `SpeechDemo-Devices-LibraryProbeDelegation`.
 
 ##### AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
 
@@ -49,7 +47,6 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: The adapter returns exactly those devices.
 
-**Requirement coverage**: `SpeechDemo-Devices-LibraryPlaybackProbeDelegation`.
 
 ##### AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
 
@@ -57,7 +54,6 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: Empty lists rather than null, so the panel never has to null-check the library.
 
-**Requirement coverage**: `SpeechDemo-Devices-EmptyProbeResult`.
 
 ##### AudioDeviceService_EnumerateCaptureDevices_ProbeResultChanges_ReturnsLatestProbeDevices
 
@@ -67,7 +63,6 @@ second.
 **Expected**: Each enumeration returns the probe's answer at that moment, proving nothing is
 cached.
 
-**Requirement coverage**: `SpeechDemo-Devices-ProbeResultsNotCached`.
 
 ##### AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
 
@@ -77,7 +72,6 @@ environment.
 **Expected**: The call is forwarded to `AudioDeviceFactory.RefreshDevices()` exactly once, proved by
 the environment being terminated once and initialized twice.
 
-**Requirement coverage**: `SpeechDemo-Devices-ServiceRefreshDelegation`.
 
 ##### AudioDeviceService_CreateCaptureDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
 
@@ -85,7 +79,6 @@ the environment being terminated once and initialized twice.
 
 **Expected**: The library's shared unavailable capture device is returned.
 
-**Requirement coverage**: `SpeechDemo-Devices-CaptureDeviceCreation`.
 
 ##### AudioDeviceService_CreatePlaybackDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
 
@@ -94,4 +87,3 @@ nothing.
 
 **Expected**: The library's shared unavailable playback device is returned.
 
-**Requirement coverage**: `SpeechDemo-Devices-PlaybackDeviceCreation`.

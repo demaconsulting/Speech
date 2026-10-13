@@ -37,7 +37,6 @@ two capture devices and one playback device.
 
 **Expected**: Both pickers list exactly those devices.
 
-**Requirement coverage**: `SpeechDemo-DeviceSelection-PanelListsLibraryDevices`.
 
 #### DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection
 
@@ -47,7 +46,6 @@ two capture devices and one playback device.
 **Expected**: The first device of each direction is preselected, and the derived selections are the
 library's name-based values for them.
 
-**Requirement coverage**: `SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice`.
 
 #### DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
 
@@ -57,7 +55,6 @@ nothing.
 **Expected**: Both pickers are empty with an explanatory status and both selections are the
 library's system default.
 
-**Requirement coverage**: `SpeechDemo-DeviceSelection-EmptyPanelExplained`.
 
 #### DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
@@ -67,7 +64,6 @@ environment.
 **Expected**: The environment is terminated once and initialized twice (the initial initialization
 plus the re-scan).
 
-**Requirement coverage**: `SpeechDemo-DeviceSelection-RefreshReachesLibrary`.
 
 #### DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
@@ -76,4 +72,3 @@ capture devices, with the second capture device selected.
 
 **Expected**: The second capture device stays selected.
 
-**Requirement coverage**: `SpeechDemo-DeviceSelection-RefreshKeepsSelection`.

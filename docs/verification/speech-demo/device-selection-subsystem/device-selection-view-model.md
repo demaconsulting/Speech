@@ -35,7 +35,6 @@ refresh recovers.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Devices-ServiceRequired`.
 
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_PopulatesBothLists
 
@@ -44,7 +43,6 @@ refresh recovers.
 **Expected**: Both lists are populated during construction, so the window shows real device names
 the instant it opens.
 
-**Requirement coverage**: `SpeechDemo-Devices-Enumeration`.
 
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_ReportsCountStatus
 
@@ -52,7 +50,6 @@ the instant it opens.
 
 **Expected**: Each status line reports how many devices of that direction were found.
 
-**Requirement coverage**: `SpeechDemo-Devices-EnumerationCount`.
 
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_SelectsFirstOfEachDirection
 
@@ -61,7 +58,6 @@ the instant it opens.
 **Expected**: The first device in each direction is preselected, so the demo is usable without
 configuration.
 
-**Requirement coverage**: `SpeechDemo-Devices-DefaultSelection`.
 
 ##### DeviceSelectionViewModel_Constructor_NeverCallsRefreshDevices
 
@@ -69,7 +65,6 @@ configuration.
 
 **Expected**: `RefreshDevices()` is never called and both lists are still populated.
 
-**Requirement coverage**: `SpeechDemo-Devices-ConstructionWithoutRefresh`.
 
 ##### DeviceSelectionViewModel_Constructor_NoDevices_ReportsHonestEmptyState
 
@@ -78,7 +73,6 @@ configuration.
 **Expected**: Both directions report no devices available and carry an explanatory message naming
 the possible cause.
 
-**Requirement coverage**: `SpeechDemo-Devices-EmptyStateExplanation`.
 
 ##### DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
 
@@ -87,7 +81,6 @@ the possible cause.
 **Expected**: The selection is cleared and the explanatory empty-state message is shown for both
 directions.
 
-**Requirement coverage**: `SpeechDemo-Devices-EmptyStateAfterRefresh`.
 
 ##### DeviceSelectionViewModel_CaptureSelection_DeviceSelected_ReturnsNameBasedSelection
 
@@ -96,7 +89,6 @@ directions.
 **Expected**: The exposed selection is the library's name-based `AudioDeviceSelection` for that
 device.
 
-**Requirement coverage**: `SpeechDemo-Devices-NameBasedSelection`.
 
 ##### DeviceSelectionViewModel_SelectedPlaybackDevice_Changed_NotifiesPlaybackSelection
 
@@ -105,7 +97,6 @@ device.
 **Expected**: The derived playback selection is re-announced, so a bound consumer never reads a
 stale selection.
 
-**Requirement coverage**: `SpeechDemo-Devices-SelectionNotification`.
 
 ##### DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault
 
@@ -114,7 +105,6 @@ stale selection.
 **Expected**: Both selections report the library's system-default selection, so a caller never
 has to special-case the no-device machine.
 
-**Requirement coverage**: `SpeechDemo-Devices-EmptySelectionFallback`.
 
 ##### DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices
 
@@ -122,7 +112,6 @@ has to special-case the no-device machine.
 
 **Expected**: Both directions are re-enumerated through the service.
 
-**Requirement coverage**: `SpeechDemo-Devices-Refresh`.
 
 ##### DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
 
@@ -131,7 +120,6 @@ has to special-case the no-device machine.
 **Expected**: `IAudioDeviceService.RefreshDevices()` is called exactly once, before either direction
 is re-enumerated.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshDelegation`.
 
 ##### DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
 
@@ -139,7 +127,6 @@ is re-enumerated.
 
 **Expected**: The chosen device stays selected.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshKeepsSelection`.
 
 ##### DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
 
@@ -149,8 +136,6 @@ sample rate.
 **Expected**: It is reselected by name, proving identity is name-based rather than
 instance-based.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshKeepsSelection`.
-
 ##### DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable
 
 **Scenario**: The selected capture device is unplugged and the panel is refreshed.
@@ -158,7 +143,6 @@ instance-based.
 **Expected**: The first remaining device is selected, so the picker is never left blank while
 devices exist.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshSelectionFallback`.
 
 ##### DeviceSelectionViewModel_Refresh_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
 
@@ -167,15 +151,12 @@ devices exist.
 **Expected**: The first remaining playback device is selected and the capture selection is
 unchanged.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshSelectionFallback`.
-
 ##### DeviceSelectionViewModel_Refresh_DevicesAppear_NotifiesAvailabilityFlags
 
 **Scenario**: A panel with no devices is refreshed and the service now reports devices.
 
 **Expected**: Change notifications are raised for both availability flags and both read true.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshAvailabilityNotification`.
 
 ##### DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
 
@@ -185,7 +166,6 @@ device is currently streaming.
 **Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
 neither list nor either selection is touched.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshInUseHandling`.
 
 ##### DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
 
@@ -195,8 +175,6 @@ unconditionally refuses with `AudioDeviceInUseException`.
 **Expected**: The status-message fallback still fires, proving the hook mechanism does not weaken
 the safety net.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshInUseHandling`.
-
 ##### DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 
 **Scenario**: `IAudioDeviceService.RefreshDevices()` throws a general exception (for example,
@@ -205,7 +183,6 @@ the safety net.
 **Expected**: Both status texts are set to the exception's message, and neither list nor either
 selection is touched.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshGeneralFaultHandling`.
 
 ##### DeviceSelectionViewModel_Refresh_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
 
@@ -215,7 +192,6 @@ succeeds.
 **Expected**: The first shows the refusal message; the second re-enumerates and reports the normal
 count status.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshRecovery`.
 
 ##### DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
 
@@ -226,7 +202,6 @@ is called.
 completes, `Refresh()` proceeds and calls `RefreshDevices()` exactly once, proving the hook is
 awaited to completion rather than fired without waiting.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshPreHooks`.
 
 ##### DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder
 
@@ -234,7 +209,6 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: The hooks run in registration order.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookOrder`.
 
 ##### DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
 
@@ -242,7 +216,6 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: The unregistered hook is never invoked.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookRemoval`.
 
 ##### DeviceSelectionViewModel_UnregisterPreRefreshHook_NeverRegistered_RefreshStillSucceeds
 
@@ -250,7 +223,6 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: No exception, and the refresh still reaches the service.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered`.
 
 ##### DeviceSelectionViewModel_RegisterPreRefreshHook_NullHook_ThrowsArgumentNullException
 
@@ -258,7 +230,6 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookRequired`.
 
 ##### DeviceSelectionViewModel_UnregisterPreRefreshHook_NullHook_ThrowsArgumentNullException
 
@@ -266,4 +237,3 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookUnregisterRequired`.
