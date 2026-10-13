@@ -16,20 +16,43 @@ sections:
         requirements:
           - id: SpeechDemo-Settings-GenericParameterRendering
             title: >-
-              The ModelSettingsSubsystem shall render one presenter per parameter the selected
-              model declares, in declaration order, choosing the presenter kind from the
-              parameter's concrete type alone.
+              The ModelSettingsSubsystem shall present one item for every recognized parameter
+              the selected model declares.
             justification: |
               This library's typed, self-describing parameter design lets a host build a
               completely generic settings UI with no prior knowledge of a specific model's
-              declared parameter set. Choosing the presenter by type check alone is the
-              demonstrable proof that this generic rendering works for every parameter kind the
-              library defines today.
+              declared parameter set; every declared parameter must therefore appear, whatever
+              the model. How each parameter kind is recognized is a design matter described in
+              the ModelSettingsSubsystem design document.
             children:
               - SpeechDemo-Settings-ParameterConstructionGuards
               - SpeechDemo-Settings-ChoicePresenter
               - SpeechDemo-Settings-ChoicePresenterSelectionNotification
               - SpeechDemo-Settings-ChoicePresenterSelection
+              - SpeechDemo-Settings-ChoicePresenterNullSelectionIgnored
+              - SpeechDemo-Settings-ChoicePresenterNonMemberSelectionIgnored
+            tests:
+              - ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters
+
+          - id: SpeechDemo-Settings-GenericParameterRenderingOrder
+            title: >-
+              The ModelSettingsSubsystem shall present the parameters of the selected model in
+              the order the model declares them.
+            justification: |
+              A model author orders parameters deliberately (for example the voice before its
+              fine-tuning controls); a settings panel that reordered them would misrepresent
+              that intent.
+            tests:
+              - ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters
+
+          - id: SpeechDemo-Settings-GenericParameterRenderingKind
+            title: >-
+              The ModelSettingsSubsystem shall present each parameter with the kind of control
+              appropriate to that parameter's kind (numeric, choice or boolean).
+            justification: |
+              A number, a selection from options and an on/off switch each need a different
+              control; presenting a parameter with the wrong kind of control would let the user
+              enter values the parameter cannot accept.
             tests:
               - ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters
 
@@ -48,6 +71,8 @@ sections:
               - SpeechDemo-Settings-NumericPresenter-Clamping
               - SpeechDemo-Settings-NumericPresenter-IntegerRounding
               - SpeechDemo-Settings-NumericPresenter-ControlSelection
+              - SpeechDemo-Settings-NumericPresenter-WholeNumberControl
+              - SpeechDemo-Settings-NumericPresenter-NonFiniteIgnored
               - SpeechDemo-Settings-ChoicePresenterDefaultSelection
               - SpeechDemo-Settings-BooleanPresenter
               - SpeechDemo-Settings-NumericPresenter-ContinuousPrecision
@@ -100,16 +125,31 @@ sections:
 
           - id: SpeechDemo-Voices-VoiceChoice-ModelSettingsSubsystem
             title: >-
-              The ModelSettingsSubsystem shall offer the voices of a newly installed reference
-              voice pack for Chatterbox Turbo synthesis immediately, keeping the voice the user
-              already chose.
+              The ModelSettingsSubsystem shall offer newly available reference voices
+              immediately after a model installation notification.
             justification: |
+              Installing or removing a reference voice pack changes the voices a model offers.
               Subsystem-level grouping of the ModelSettingsSubsystem unit requirements that
-              implement SpeechDemo-Voices-VoiceChoice.
+              implement SpeechDemo-Voices-VoiceChoice: the settings panel must reflect the new
+              voices without the user selecting again the model or restarting the application.
+            children:
+              - SpeechDemo-Settings-RestoreValues
+              - SpeechDemo-Settings-RestoreWithNewOptions
+            tests:
+              - ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained
+
+          - id: SpeechDemo-Voices-VoiceChoice-SelectionRetained-ModelSettingsSubsystem
+            title: >-
+              The ModelSettingsSubsystem shall keep the voice the user already chose across a
+              model installation notification.
+            justification: |
+              A catalog rebuild must not silently reset the user's voice to the default; the
+              prior selection survives whenever it is still offered.
             children:
               - SpeechDemo-Settings-RestoreValues
             tests:
               - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+              - ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained
 
           - id: SpeechDemo-Settings-EmptyStateExplanation-ModelSettingsSubsystem
             title: >-

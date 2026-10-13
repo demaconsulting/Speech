@@ -35,7 +35,11 @@ A RecognitionPanelSubsystem test run passes when: a successful Start composes an
 seam, creates a session, and enters the listening state with the session's `StartAsync()` invoked
 exactly once; an engine the seam reports as unavailable is explained and disposed; and the panel's
 registered pre-refresh hook stops an actively listening session before a shared device refresh is
-attempted (and is a safe no-op while idle), so the refresh succeeds deterministically.
+attempted (and is a safe no-op while idle), so the refresh succeeds deterministically; and the
+capture-debug recorder contains every diagnostic fault (late frames, write failures, finalization failures, repeated
+disposal) so
+listening is never affected, while the WAV writer produces valid, clamped, correctly rejected
+output as described in the scenarios.
 
 ### Test Scenarios
 
@@ -99,15 +103,72 @@ count, holding every recorded sample.
 
 #### CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow
 
-**Scenario**: The recorder is disposed twice.
+**Scenario** (boundary): The recorder is disposed twice.
 
 **Expected**: No exception.
 
-#### WavFileWriter tests
+#### CaptureDebugRecorder_FrameCallback_AfterDispose_IsDiscardedWithoutThrowing
 
-**Scenario**: `WavFileWriterTests` write samples and dispose, construct with invalid arguments,
-and dispose twice.
+**Scenario** (error/race): A captured frame is delivered to the recorder's callback after the
+recorder has been disposed.
 
-**Expected**: A valid RIFF/WAVE header, normalized floats round-trip as 16-bit PCM, out-of-range
-samples clamp, an empty path or non-positive rate/channel count is rejected, and repeated
-disposal is idempotent.
+**Expected**: The frame is discarded and no exception reaches the caller (the audio callback).
+
+#### CaptureDebugRecorder_FrameCaptured_WriteThrowsUnauthorized_StopsWritingAndFinalizesOnce
+
+**Scenario** (error): The WAV writer throws `UnauthorizedAccessException` on a write.
+
+**Expected**: The failure is contained and logged, no exception escapes, no further frames are
+written, and the file is finalized exactly once.
+
+#### CaptureDebugRecorder_Dispose_WriterFinalizationThrows_IsContained
+
+**Scenario** (error): Finalizing the WAV output throws during disposal.
+
+**Expected**: The exception is caught and logged; `Dispose()` does not throw and the process is
+not terminated.
+
+### Supporting Types: WavFileWriter
+
+#### WavFileWriter_Dispose_AfterWritingSamples_WritesValidRiffWaveHeader
+
+**Scenario** (normal): Samples are written and the writer is disposed.
+
+**Expected**: The file has a valid RIFF/WAVE header whose sizes, sample rate, and channel count
+match the data written.
+
+#### WavFileWriter_WriteSamples_NormalizedFloatSamples_RoundTripAsPcm16
+
+**Scenario** (normal): Normalized floating-point samples are written.
+
+**Expected**: Each sample is stored as the expected 16-bit PCM value and round-trips.
+
+#### WavFileWriter_WriteSamples_OutOfRangeSample_ClampsToBoundary
+
+**Scenario** (boundary): Samples beyond the normalized range (above 1.0, below -1.0) are written.
+
+**Expected**: They are clamped to the 16-bit PCM boundary values without overflow.
+
+#### WavFileWriter_Constructor_EmptyPath_ThrowsArgumentException
+
+**Scenario** (error): The writer is constructed with an empty path.
+
+**Expected**: `ArgumentException`.
+
+#### WavFileWriter_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+
+**Scenario** (error/boundary): The writer is constructed with a sample rate of zero or less.
+
+**Expected**: `ArgumentOutOfRangeException`.
+
+#### WavFileWriter_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+**Scenario** (error/boundary): The writer is constructed with a channel count of zero or less.
+
+**Expected**: `ArgumentOutOfRangeException`.
+
+#### WavFileWriter_Dispose_CalledTwice_IsIdempotent
+
+**Scenario** (boundary): The writer is disposed twice.
+
+**Expected**: No exception, and the file is not corrupted by the second call.

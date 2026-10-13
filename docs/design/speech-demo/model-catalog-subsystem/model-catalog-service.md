@@ -108,7 +108,9 @@ restriction beyond what the underlying `SpeechModelCatalog` itself documents.
 **Ownership**: A service built with a factory or composition factory owns every catalog and voice
 library it holds, disposing each replaced pair and the current pair on `Dispose`; the catalog is
 disposed first and the library in a `finally`, so a throwing catalog disposal cannot leak the
-library. Otherwise the service owns neither.
+library (the catalog's exception still propagates). `Dispose` is idempotent: it records that it
+has run before releasing anything, so a second call does nothing. Otherwise the service owns
+neither.
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
 `SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,

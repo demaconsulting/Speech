@@ -110,6 +110,18 @@ sections:
                 tests:
                   - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
 
+              - id: SpeechDemo-Settings-RestoreWithNewOptions
+                title: >-
+                  The ModelSettingsViewModel shall present, on a replacement model instance, any
+                  choice option the previous instance did not declare, while a restored
+                  selection that is still offered stays selected.
+                justification: |
+                  A model installation adds options (for example reference voices) to an
+                  existing choice parameter; the rebuilt panel must offer them immediately and
+                  must not drop the user's existing selection while doing so.
+                tests:
+                  - ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained
+
               - id: SpeechDemo-Settings-RestoreIgnoresStaleValues
                 title: >-
                   The ModelSettingsViewModel shall leave a control at its default when a

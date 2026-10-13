@@ -14,12 +14,13 @@
 # reference-voice-pack-list-item-view-model.yaml (ReferenceVoicePackListItemViewModel).
 #
 # The requirements below are the subsystem's own behavior, verified through the panel view
-# model and the catalog service working together. Each requirement states one criterion:
-# browsing, downloading and mirror redirection are separate requirements, as are the voice-pack
-# change notification and the two voice-pack safety behaviors. Each rebuild/notification pair is
-# evidenced differently: the rebuild requirement by the adapter rebuild plus the panel showing the
-# result, the notification requirement by the adapter raising the event plus the synthesis panel
-# reacting to it.
+# model and the catalog service working together. Each requirement states one criterion
+# as an observable result: browsing, downloading and mirror redirection are separate requirements,
+# as are the voice choices shown after a voice pack change, the dependent panel's state, the
+# completion of an operation, and the two voice-pack safety behaviors. How the catalog and voice
+# library are rebuilt, which event announces a change and how an install and a removal are
+# serialized are design concerns (docs/design/speech-demo/model-catalog-subsystem.md), not
+# requirements.
 
 sections:
   - title: SpeechDemo Requirements
@@ -109,11 +110,12 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackChangeRebuild
             title: >-
-              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              after a voice pack install attempt.
+              The ModelCatalogSubsystem shall offer voice choices that match the installed voice
+              packs once a voice pack install attempt has completed, whether it succeeded,
+              failed or was canceled.
             justification: |
-              The Chatterbox voice list is fixed when the model is constructed, so a stale
-              catalog would keep offering the old voices.
+              The Chatterbox voice list is fixed when the model is constructed, so stale voice
+              choices would keep offering voices that are gone or hide voices that are new.
             children:
               - SpeechDemo-Voices-PackService
               - SpeechDemo-Voices-PackPanel
@@ -151,11 +153,12 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
             title: >-
-              The ModelCatalogSubsystem shall raise a voices-changed notification after a voice
-              pack install attempt, so that other panels can refresh.
+              The ModelCatalogSubsystem shall make the synthesis panel's voice choices reflect
+              the installed voice packs once a voice pack install attempt has completed, without
+              the user reloading the panel.
             justification: |
-              The notification is how the synthesis panel learns that its voice choices
-              changed.
+              The synthesis panel must learn that its voice choices changed, or it would keep
+              showing stale voices until restarted.
             children:
               - SpeechDemo-Voices-PackUninstallAnnounce
               - SpeechDemo-Voices-PackInstallFailureAnnounce
@@ -173,10 +176,11 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
             title: >-
-              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              after a voice pack is removed.
+              The ModelCatalogSubsystem shall stop offering a voice pack's voices once that voice
+              pack has been removed.
             justification: |
-              A removed voice is only withdrawn once the catalog is rebuilt.
+              A removed voice must be withdrawn from the voice choices, or a user could select
+              a voice that no longer exists.
             children:
               - SpeechDemo-Voices-PackRemoveReloadFaultReported
             tests:
@@ -185,21 +189,22 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
             title: >-
-              The ModelCatalogSubsystem shall raise a voices-changed notification after a voice
-              pack is removed, so that other panels can refresh.
+              The ModelCatalogSubsystem shall make the synthesis panel stop offering the removed
+              voice pack's voices once that voice pack has been removed, keeping the user's
+              chosen voice when it is still available.
             justification: |
-              The notification lets the synthesis panel stop offering the removed voices.
+              The synthesis panel must reflect the removal without the user reloading it.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
               - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
           - id: SpeechDemo-ModelCatalog-MirrorChangedRebuild
             title: >-
-              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              when the mirror is changed.
+              The ModelCatalogSubsystem shall use the newly applied mirror for both model and
+              voice pack downloads once the mirror has been changed.
             justification: |
               Voice packs download through the same mirror as models, so a mirror change
-              produces a freshly configured catalog and library.
+              must take effect for both.
             children:
               - SpeechDemo-Voices-PackMirrorRebuild
             tests:
@@ -207,20 +212,21 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-MirrorChangedRowsShown
             title: >-
-              The ModelCatalogSubsystem shall show the rebuilt catalog's models after the mirror
-              is changed.
+              The ModelCatalogSubsystem shall show the models' current installation states after
+              the mirror is changed.
             justification: |
-              The rebuilt catalog may report different install states, so the panel must not
-              keep showing the old rows.
+              The reconfigured catalog may report different install states, so the panel must
+              not keep showing the old rows.
             tests:
               - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
           - id: SpeechDemo-ModelCatalog-MirrorChangedNotification
             title: >-
-              The ModelCatalogSubsystem shall raise a voices-changed notification when the
-              mirror is changed, so that other panels can refresh.
+              The ModelCatalogSubsystem shall make the synthesis panel's voice choices reflect
+              the reconfigured voice library once the mirror has been changed.
             justification: |
-              Dependent panels must pick up the freshly configured catalog and library.
+              Dependent panels must pick up the reconfigured voice library without the user
+              reloading them.
             children:
               - SpeechDemo-Voices-PackMirrorAnnounce
             tests:
@@ -267,11 +273,11 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
             title: >-
-              The ModelCatalogSubsystem shall wait, without blocking its caller, for an
-              in-progress install of a voice pack to finish before removing that pack.
+              The ModelCatalogSubsystem shall remove a voice pack whose install is in progress
+              only after that install has finished, and shall then remove it.
             justification: |
               Removing a pack that is being (re)installed would corrupt the install, so the
-              removal serializes with it.
+              removal must not take effect until the install is done.
             children:
               - SpeechDemo-Voices-PackUninstallWaitsForInstall
               - SpeechDemo-Voices-PackRowProgress
@@ -300,11 +306,11 @@ sections:
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovalFailureNoRebuild
             title: >-
-              The ModelCatalogSubsystem shall neither rebuild its catalog nor raise a
-              voices-changed notification when a voice pack removal fails.
+              The ModelCatalogSubsystem shall leave the voice choices, and the state of dependent
+              panels, unchanged when a voice pack removal fails.
             justification: |
-              Nothing changed, so rebuilding or announcing would make other panels refresh for
-              no reason and could mask the failure.
+              Nothing changed, so dependent panels must not be told otherwise; a spurious
+              refresh could mask the failure.
             children:
               - SpeechDemo-Voices-PackRemoveBlockedDuringDownload
               - SpeechDemo-Voices-PackUninstallDefersRebuild
@@ -444,6 +450,8 @@ sections:
               - SpeechDemo-Models-MirrorSettingsUi
               - SpeechDemo-Models-MirrorSettingsReloadFaultContained
               - SpeechDemo-Models-CatalogDisposedWithService
+              - SpeechDemo-Models-DisposeExceptionSafe
+              - SpeechDemo-Models-DisposeIdempotent
               - SpeechDemo-Models-ExternalCatalogNotDisposed
               - SpeechDemo-Models-MirrorSettingsRejectedReported
             tests:
@@ -452,6 +460,8 @@ sections:
               - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
               - ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
               - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
+              - ModelCatalogService_Dispose_CatalogDisposalThrows_StillDisposesVoiceLibrary
+              - ModelCatalogService_Dispose_CalledTwice_DoesNotThrow
               - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
               - ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
               - ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError

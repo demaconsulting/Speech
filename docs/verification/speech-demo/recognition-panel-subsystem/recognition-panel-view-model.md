@@ -22,12 +22,15 @@ message up to a bounded timeout.
 #### Acceptance Criteria
 
 The unit passes when: only installed recognition models are offered, the selection survives a
-refresh, and an empty catalog is explained; partial results replace the trailing transcript line
+refresh, an empty catalog is explained (and the explanation clears when a model appears); partial results replace the
+trailing transcript line
 while finals commit in order and a new run clears the previous transcript; Stop releases only the
 single-use session, is a safe no-op when idle, and two concurrent Stop calls both complete; a cached
-engine is reused across Start/Stop cycles, invalidated (stopping an active session first) when the
-selected model changes, while only the session is invalidated when the capture device changes or a
-device refresh occurs; every unavailable state is reported honestly with resources released;
+engine is reused across Start/Stop cycles and invalidated when the selected model changes while
+idle; a model change while listening is ignored (selection unchanged, session still running); only
+the session is invalidated when the capture device changes or a device refresh occurs; overlapping
+Stop and device-change requests are serialized, never stopping or releasing the session twice;
+every unavailable state is reported honestly with resources released;
 Dispose releases the session and engine and unsubscribes from `ModelInstalled`; a matching-role
 `ModelInstalled` event refreshes while others do not; and `CanChangeModel` is false only while
 listening.
@@ -44,8 +47,15 @@ listening.
 
 **Scenario**: The catalog reports no installed recognition models.
 
-**Expected**: `HasModels` is false and `AvailableModels`/`SelectedModel` reflect nothing to
-choose from.
+**Expected**: `HasModels` is false, `AvailableModels`/`SelectedModel` reflect nothing to choose
+from, and `StatusMessage` is `NoModelsMessage` (an explanation, not an error state).
+
+##### RecognitionPanelViewModel_Refresh_ModelAppearsAfterEmpty_ClearsNoModelsMessage
+
+**Scenario** (boundary): The catalog is empty, so `NoModelsMessage` is showing; an installed
+recognition model then appears and the panel refreshes.
+
+**Expected**: The model is offered and selected, and the stale `NoModelsMessage` is cleared.
 
 ##### RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels
 
@@ -177,13 +187,21 @@ cached (idle) for the previously selected model.
 **Expected**: The engine cached for the previous model is disposed, so a subsequent Start loads
 one for the newly selected model instead of reusing a stale instance.
 
-##### RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine
+##### RecognitionPanelViewModel_SelectedModelChanged_WhileListening_IsIgnored
 
-**Scenario**: The selected recognition model is changed while a session is actively listening -
-bypassing the view's disabled model picker, since `SelectedModel`'s setter remains public.
+**Scenario** (error): The selected recognition model is changed while a session is actively
+listening - bypassing the view's disabled model picker, since `SelectedModel`'s setter is public.
 
-**Expected**: The active session is stopped, then the engine is disposed; `State` returns to
-`Idle` rather than remaining stuck at `Listening`.
+**Expected**: The change is ignored: `SelectedModel` keeps its previous value, the session is not
+stopped, the engine is not disposed, and `State` remains `Listening`.
+
+##### RecognitionPanelViewModel_StopAndDeviceChange_Concurrent_AreSerialized
+
+**Scenario** (concurrency): A Stop is in flight (its session stop is held open by a blocking
+fake) while a capture-device change arrives; the stop is then released.
+
+**Expected**: The device change waits for the stop: at no time are two stops active at once, the
+session is never disposed while a stop is still running, and both requests complete.
 
 ##### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
 

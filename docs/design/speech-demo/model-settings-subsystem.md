@@ -32,13 +32,21 @@ descriptors (`NumericParameter`, `ChoiceParameter`, `BooleanParameter`).
 ### Design
 
 The subsystem is a generic presenter set: `ModelSettingsViewModel` type-checks each declared
-parameter and builds one presenter per recognized kind, and each presenter exposes the value-bag
-hook the view model assembles from. This library's typed, self-describing parameter design lets a
-host render an appropriate control for a parameter using only a type check against the three
-concrete `ISpeechModelParameter` implementations. `ModelSettingsViewModel` performs exactly that
-type check and nothing more, which is what proves a new model with its own declared parameter set
-works with this panel unmodified — the panel never needs prior knowledge of a specific model's
-parameter set.
+parameter and builds one presenter per recognized kind, in declaration order, and each presenter
+exposes the value-bag hook the view model assembles from. This library's typed, self-describing
+parameter design lets a host render an appropriate control for a parameter using only a type check
+against the three concrete `ISpeechModelParameter` implementations. `ModelSettingsViewModel`
+performs exactly that type check and nothing more, which is what proves a new model with its own
+declared parameter set works with this panel unmodified — the panel never needs prior knowledge of
+a specific model's parameter set. (This selection mechanism is a design constraint; the
+requirements state only the observable outcomes: one item per parameter, in declaration order,
+with a control kind matching the parameter kind.)
+
+When a model installation notification rebuilds the catalog, the host assigns a replacement model
+instance that may declare additional choice options (for example newly installed reference
+voices). Because presenters are rebuilt from the replacement instance, the new options are offered
+immediately; the host restores the captured bag afterwards, so the previously chosen option stays
+selected whenever the replacement still offers it.
 
 The untyped key-value bag that `BuildValueBag()` assembles is the interface between a host's
 settings UI and per-model synthesis parameter handling. `SynthesisPanelViewModel.PlayAsync`

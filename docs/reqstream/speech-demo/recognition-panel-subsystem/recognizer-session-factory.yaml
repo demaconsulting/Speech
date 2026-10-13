@@ -26,6 +26,17 @@ sections:
                 tests:
                   - RecognizerSessionFactory_LoadAsync_ModelNotRecognitionRole_ReturnsUnavailableEngine
 
+              - id: SpeechDemo-Recognition-SessionSeamRecognitionModel
+                title: >-
+                  The RecognizerSessionFactory shall return a recognizer engine for the given
+                  recognition model, using the installed model files, when the model implements
+                  the recognition role.
+                justification: |
+                  The normal outcome of choosing an installed recognition model is an engine that
+                  transcribes with that model.
+                tests:
+                  - RecognizerSessionFactory_LoadAsync_RecognitionModel_ReturnsEngineForThatModel
+
               - id: SpeechDemo-Recognition-SessionSeamArgumentValidation
                 title: >-
                   The RecognizerSessionFactory shall reject a missing model store with an

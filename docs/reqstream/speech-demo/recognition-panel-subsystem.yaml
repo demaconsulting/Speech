@@ -16,14 +16,13 @@ sections:
         requirements:
           - id: SpeechDemo-Recognition-SessionSeam
             title: >-
-              The RecognitionPanelSubsystem shall transcribe with an engine supplied by an
-              injectable seam, so a session can start with no downloaded model and no native
-              runtime.
+              The RecognitionPanelSubsystem shall operate deterministically, starting and stopping
+              a transcription session and presenting its results, when no downloaded model and no
+              native speech runtime is available.
             justification: |
-              The library's recognizer factory requires an interface only the library's own
-              assemblies can implement, so a demo-owned seam accepting the library's public model
-              contract is what makes Start/Stop testable with no downloaded model and no native
-              runtime.
+              A user or evaluator on a machine with no downloaded model and no native runtime
+              must still be able to exercise the Start/Stop lifecycle and see predictable
+              outcomes; the same property makes the lifecycle repeatable under automated test.
             children:
               - SpeechDemo-Recognition-ModelSelection
               - SpeechDemo-Recognition-EngineLifetime
@@ -31,6 +30,7 @@ sections:
               - SpeechDemo-Recognition-EngineReuse
               - SpeechDemo-Recognition-FailedAttemptReleasesResources
               - SpeechDemo-Recognition-SessionSeamWrongRole
+              - SpeechDemo-Recognition-SessionSeamRecognitionModel
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
 
@@ -63,6 +63,7 @@ sections:
               - SpeechDemo-Recognition-AutoRefreshOnInstall
               - SpeechDemo-Recognition-ModelSelectionFallback
               - SpeechDemo-Recognition-ModelSwitchAllowedAfterError
+              - SpeechDemo-Recognition-ModelSwitchAllowedAfterStop
               - SpeechDemo-Recognition-SessionSeamModelValidation
               - SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
               - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
@@ -81,6 +82,7 @@ sections:
               - SpeechDemo-Recognition-StopSession
               - SpeechDemo-Recognition-StopIdleSafe
               - SpeechDemo-Recognition-ConcurrentStopSafe
+              - SpeechDemo-Recognition-LifecycleSerialized
             tests:
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
@@ -108,18 +110,55 @@ sections:
 
           - id: SpeechDemo-Recognition-CaptureDebugFailureContained
             title: >-
-              The RecognitionPanelSubsystem shall contain capture-debug failures, with invalid
-              arguments rejected and repeated disposal harmless, so a diagnostic fault never
-              breaks listening.
+              The RecognitionPanelSubsystem shall continue listening unaffected, and stop
+              recording, when writing the capture-debug audio fails.
             justification: |
-              A temporary diagnostic must never be able to break the feature it observes.
+              A temporary diagnostic must never be able to break the feature it observes, and a
+              full or unwritable disk is an expected fault.
+            tests:
+              - CaptureDebugRecorder_FrameCaptured_WriteThrowsUnauthorized_StopsWritingAndFinalizesOnce
+
+          - id: SpeechDemo-Recognition-CaptureDebugFinalizationFailureContained
+            title: >-
+              The RecognitionPanelSubsystem shall continue unaffected, reporting the failure to
+              the console, when finalizing the capture-debug recording fails.
+            justification: |
+              Closing the recording can itself fail (for example while flushing or patching the
+              header); that must not terminate the process or break listening.
+            tests:
+              - CaptureDebugRecorder_Dispose_WriterFinalizationThrows_IsContained
+
+          - id: SpeechDemo-Recognition-CaptureDebugLateFrameDiscarded
+            title: >-
+              The RecognitionPanelSubsystem shall discard, without error, any captured audio frame
+              that arrives after the capture-debug recording has been disposed.
+            justification: |
+              Stopping a session can race with the capture device delivering a last frame; the
+              audio capture path must never receive an error from the diagnostic.
+            tests:
+              - CaptureDebugRecorder_FrameCallback_AfterDispose_IsDiscardedWithoutThrowing
+
+          - id: SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
+            title: >-
+              The RecognitionPanelSubsystem shall treat repeated disposal of a capture-debug
+              recording as harmless.
+            justification: |
+              Stop, error handling, and shutdown can each release the recording; a duplicate
+              release must not fault.
             tests:
               - CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow
               - WavFileWriter_Dispose_CalledTwice_IsIdempotent
+
+          - id: SpeechDemo-Recognition-CaptureDebugInvalidArgumentsRejected
+            title: >-
+              The RecognitionPanelSubsystem shall reject a capture-debug WAV output with an empty
+              path or a non-positive sample rate or channel count.
+            justification: |
+              Such a file could never be a valid, playable WAV recording.
+            tests:
               - WavFileWriter_Constructor_EmptyPath_ThrowsArgumentException
               - WavFileWriter_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
               - WavFileWriter_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
-
           - id: SpeechDemo-Recognition-StopsBeforeDeviceRefresh
             title: >-
               The RecognitionPanelSubsystem shall stop an active listening session before a
@@ -134,7 +173,6 @@ sections:
             children:
               - SpeechDemo-Recognition-ResourceLifetime
               - SpeechDemo-Recognition-ModelSwitchGuard
-              - SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
               - SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
               - SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
             tests:
@@ -206,6 +244,7 @@ sections:
               implement SpeechDemo-Recognition-UnavailableExplanation.
             children:
               - SpeechDemo-Recognition-HonestEmptyCatalogState
+              - SpeechDemo-Recognition-EmptyCatalogMessageClears
               - SpeechDemo-Recognition-NoModelSelectedReported
             tests:
               - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState

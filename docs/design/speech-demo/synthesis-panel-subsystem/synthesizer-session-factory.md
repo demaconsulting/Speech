@@ -8,11 +8,11 @@ role-specific `ISynthesisModel` interface at all.
 **Why a Demo-Owned Seam**: The library composes a synthesizer engine through the static
 `SpeechSynthesizerFactory.LoadAsync(ISynthesisModel, SpeechModelStore, ISpeechDiagnostics?,
 IReadOnlyDictionary<string, object>?, CancellationToken)` method, which requires an
-`ISynthesisModel`. `ISynthesisModel` is a public interface, but some of its members are
-`internal` to the library, so only the library's own assemblies can implement it. A demo-owned
-seam therefore accepts the common `ISpeechModel` contract instead and performs the narrowing
-itself, so a panel's unit tests can substitute a plain, publicly implementable fake model for
-every scenario (including "wrong role") rather than committing every fake model double to the
+`ISynthesisModel`. `ISynthesisModel` is a public interface that hosts may implement to register
+their own models, so tests can supply a deterministic implementation. A demo-owned
+seam nevertheless accepts the common `ISpeechModel` contract instead and performs the narrowing
+itself, so a panel's unit tests can substitute a plain fake model for every scenario (including
+"wrong role") rather than committing every fake model double to the
 synthesis-specific shape. This is also what works around the static factory method itself not
 being substitutable in a ViewModel unit test. `ISynthesizerSessionFactory` and
 `SynthesizerSessionFactory` are documented as one unit because the interface has no

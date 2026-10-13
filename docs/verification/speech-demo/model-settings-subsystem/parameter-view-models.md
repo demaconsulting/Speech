@@ -22,8 +22,9 @@ document.
 The unit passes when: each presenter kind starts at its declared default (the choice presenter
 resolving the default by value) and enforces its own constraint (numeric clamping, additionally
 rounding to the nearest whole number when the descriptor declares `IsInteger: true`, and keeping
-fractions otherwise); a changed choice selection or toggled boolean updates the boxed value and
-notifies observers; and every presenter kind rejects a missing descriptor.
+fractions otherwise, and ignoring non-finite writes); a changed choice selection or toggled boolean
+updates the boxed value and notifies observers, while a null or non-member choice selection is
+ignored and the previous selection kept; and every presenter kind rejects a missing descriptor.
 
 #### Test Scenarios
 
@@ -66,8 +67,28 @@ regardless of write order.
 **Scenario**: A numeric presenter is built from a descriptor declaring `IsInteger: true` (for
 example the LibriTTS-R `speaker` parameter).
 
-**Expected**: `IsInteger` is exposed as `true`, so the `DataTemplate` renders `NumericUpDown`
-instead of `Slider` for this presenter.
+**Expected**: `IsInteger` is exposed as `true`. This verifies both the presenter's reporting
+requirement and, as far as the unit can, the whole-number-control requirement: the `DataTemplate`
+binding that renders `NumericUpDown` instead of `Slider` is an accepted gap (see above).
+
+##### NumericParameterViewModel_Value_SetNonFinite_KeepsPreviousValue
+
+**Scenario**: (Theory) `Value` is set to `NaN`, `+Infinity` and `-Infinity` on a presenter that
+already holds a valid value.
+
+**Expected**: Each write is ignored and `Value` keeps its previous value.
+
+##### ChoiceParameterViewModel_SelectedOption_SetNull_KeepsPreviousSelection
+
+**Scenario**: `SelectedOption` is set to `null`.
+
+**Expected**: The previous selection is kept and `BoxedValue` is not `null`.
+
+##### ChoiceParameterViewModel_SelectedOption_SetNonMember_KeepsPreviousSelection
+
+**Scenario**: `SelectedOption` is set to an option that is not among the declared options.
+
+**Expected**: The previous selection is kept and `BoxedValue` still holds the previous option's value.
 
 ##### ChoiceParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefaultOption
 

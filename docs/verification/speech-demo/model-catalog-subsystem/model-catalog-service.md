@@ -34,7 +34,9 @@ The unit passes when all of the following hold:
 - An instance without a voice library reports no packs and refuses pack operations.
 - An uninstall that finds an install in flight waits for it and then removes the pack, rebuilding
   and raising once; a failed uninstall neither rebuilds nor raises.
-- Disposing a composed service disposes both the catalog and the voice library.
+- Disposing a composed service disposes both the catalog and the voice library, still disposes the
+  voice library when the catalog's disposal throws (the exception propagates), and a second
+  disposal does nothing.
 
 #### Test Scenarios
 
@@ -218,6 +220,20 @@ attempt against it surfacing `ObjectDisposedException`.
 
 **Expected**: Both the catalog and the voice library are disposed.
 
+##### ModelCatalogService_Dispose_CatalogDisposalThrows_StillDisposesVoiceLibrary
+
+**Scenario**: A composed service whose catalog disposal is made to throw (through the unit's
+internal disposal hook) is disposed.
+
+**Expected**: The voice library is still disposed and the catalog's exception propagates to the
+caller.
+
+##### ModelCatalogService_Dispose_CalledTwice_DoesNotThrow
+
+**Scenario**: A service is disposed twice.
+
+**Expected**: The second call does not throw and disposes nothing again.
+
 ##### ModelCatalogComposition_Constructor_NullMember_ThrowsArgumentNullException
 
 **Scenario**: A composition is constructed with a null catalog or a null library.
@@ -269,7 +285,8 @@ runs), then removes the pack and rebuilds and raises the event once more.
 - **Throwing disposal during a rebuild**: `Recompose` disposes the previous library even when
   disposing the previous catalog throws (a `try`/`finally`). The library's `SpeechModelCatalog` and
   `ReferenceVoiceLibrary` are sealed and their disposal cannot be made to throw through any public
-  seam, so this ordering is verified by inspection only.
+  seam, so this ordering is verified by inspection only. (Service `Dispose` itself is executable-
+  verified through the internal catalog-disposal hook.)
 - **Unknown role after install**: `ModelInstalled` is skipped when the installed model's role cannot
   be found in the enumeration. A model the catalog just installed is always enumerated with a role,
   so the branch is purely defensive and cannot be reached through the library's public API.

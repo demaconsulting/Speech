@@ -23,8 +23,8 @@ abstract base is only observable through its concrete presenters.
 
 | Presenter | Rendered as | Starting value | Constraint enforced |
 | --- | --- | --- | --- |
-| `NumericParameterViewModel` | Slider/`NumericUpDown` (`IsInteger`) | Declared default | Clamped, rounded if integer |
-| `ChoiceParameterViewModel` | Dropdown | Option matching default | `SelectedOption` restricted to declared options |
+| `NumericParameterViewModel` | Slider/`NumericUpDown` | Declared default | Clamped; whole if integer; NaN/inf ignored |
+| `ChoiceParameterViewModel` | Dropdown | Option matching default | Declared options only; null/non-member ignored |
 | `BooleanParameterViewModel` | Checkbox / toggle | Declared default | None beyond the two boolean states |
 
 **Key Methods**:
@@ -35,15 +35,21 @@ abstract base is only observable through its concrete presenters.
   underlying `NumericParameter.IsInteger` is `true` (for example a multi-speaker
   model's `speaker` parameter, a discrete index with no fractional meaning), `Value` additionally
   rounds every write to the nearest whole number (`MidpointRounding.AwayFromZero`) after clamping.
-  A continuous parameter keeps fractional values.
+  A continuous parameter keeps fractional values. A non-finite write (`NaN`, `+Infinity`,
+  `-Infinity`) cannot be clamped meaningfully and is ignored: `Value` keeps its previous value and
+  no notification is raised.
 - **Control selection**: `NumericParameterViewModel.IsInteger` mirrors the library descriptor's
-  flag. `ModelSettingsView.axaml`'s `DataTemplate` renders Avalonia's built-in `NumericUpDown` —
-  bound to `Value`/`Minimum`/`Maximum`/`Step` with `FormatString="0"` — for an integer parameter
+  flag; this is the presenter's only contribution (it reports the flag and offers no control).
+  The separate, view-level outcome is realized by `ModelSettingsView.axaml`'s `DataTemplate`, which renders
+  Avalonia's built-in `NumericUpDown` bound to `Value`/`Minimum`/`Maximum`/`Step` with `FormatString="0"` — for an
+  integer parameter
   instead of the `Slider` used for a continuous one, via `IsInteger`/`!IsInteger` visibility
   bindings, so a fractional value can never be selected in the first place.
 - **Choice presenter**: exposes the declared options and preselects the option whose value matches
   the declared default, resolved by value rather than by position. Changing `SelectedOption`
-  raises a property-changed notification and updates `BoxedValue`.
+  raises a property-changed notification and updates `BoxedValue`. A `null` or non-member option
+  assigned to `SelectedOption` is ignored: the previous selection is kept, so `BoxedValue` is
+  never `null` and only declared option values ever reach the value bag.
 - **Boolean presenter**: starts at the declared default; toggling `Value` updates `BoxedValue`.
 
 **Error Handling**:
@@ -54,6 +60,9 @@ abstract base is only observable through its concrete presenters.
   that numeric bounds are finite when the descriptor is constructed. The presenters therefore need
   no guards for those cases: `ChoiceParameterViewModel` selects the option matching the default
   with a lookup that always succeeds for a library-constructed descriptor.
+- Runtime writes are guarded instead: `ChoiceParameterViewModel.SelectedOption` ignores `null` and
+  options not in `Options`, and `NumericParameterViewModel.Value` ignores `NaN` and infinities,
+  each keeping the previous value rather than throwing.
 
 **Dependencies**:
 

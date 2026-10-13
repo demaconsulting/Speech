@@ -34,15 +34,19 @@ A ModelCatalogSubsystem test run passes when all of the following hold:
 
 - The panel shows, refreshes and downloads models purely through the catalog service seam and
   reports every outcome as row state rather than an application error.
-- Mirror changes reconfigure the catalog through the seam and are refused while a download or
-  pack install is in flight.
-- A voice pack install, removal or mirror change rebuilds the catalog and reference voice library
-  and raises the voices-changed notification so other panels can refresh, even when an install
-  fails or is canceled.
+- Mirror changes reconfigure the catalog through the seam, take effect for later downloads and
+  voice packs, and are refused while a download or pack install is in flight.
+- A voice pack install attempt (including a failed or canceled one), a voice pack removal or a
+  mirror change leaves the offered voice choices matching the installed packs, and the synthesis
+  panel's voice choices reflect it while keeping the chosen voice.
+- A voice pack removal that fails leaves the voice choices and dependent panels unchanged.
 - A voice pack that is still installed after a failed install or upgrade stays installed and
   removable with its failure message.
-- Removing a pack while its install is in flight waits for the install, and a removal that cannot
-  complete or is canceled is explained on the pack's row instead of failing.
+- Removing a pack whose install is in flight takes effect only after the install has finished,
+  and a removal that cannot complete or is canceled is explained on the pack's row instead of
+  failing.
+- Disposing the service releases its owned resources even when one release fails, and disposing it
+  twice is harmless.
 
 ### Test Scenarios
 
@@ -110,13 +114,15 @@ A ModelCatalogSubsystem test run passes when all of the following hold:
 
 **Scenario**: A pack is uninstalled through a composed service.
 
-**Expected**: The catalog and library pair is rebuilt and `ReferenceVoicesChanged` raised once.
+**Expected**: The offered voice choices no longer include the removed pack, the catalog and library
+pair is rebuilt (mechanism) and `ReferenceVoicesChanged` is raised once so dependent panels refresh.
 
 #### ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 
 **Scenario**: The mirror is changed on a composed service.
 
-**Expected**: The pair is rebuilt and `ReferenceVoicesChanged` raised.
+**Expected**: The new mirror takes effect for subsequent downloads and voice packs (the pair is
+rebuilt with it) and `ReferenceVoicesChanged` is raised so dependent panels refresh.
 
 #### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
@@ -147,7 +153,8 @@ observable effect of every voices-changed notification the subsystem raises.
 
 **Scenario**: A pack install fails.
 
-**Expected**: The pair is still rebuilt and the notification still raised.
+**Expected**: The voice choices are refreshed to match the pack's actual installed state and the
+notification is still raised.
 
 #### ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
 
@@ -177,9 +184,28 @@ is thrown at the user.
 
 **Expected**: The row shows "Removal canceled." and the pack stays installed.
 
+#### ModelCatalogService_Dispose_CatalogDisposalThrows_StillDisposesVoiceLibrary
+
+**Scenario**: A composed service is disposed while releasing its catalog throws.
+
+**Expected**: The voice library is still released and the catalog's failure reaches the caller.
+
+#### ModelCatalogService_Dispose_CalledTwice_DoesNotThrow
+
+**Scenario**: A service is disposed twice.
+
+**Expected**: The second disposal does nothing and does not throw.
+
+#### ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise
+
+**Scenario**: A pack removal fails.
+
+**Expected**: The voice choices stay as they were and no voices-changed notification is raised.
+
 #### ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
 
 **Scenario**: A pack is uninstalled through a composed service while an install of that pack is in flight.
 
-**Expected**: The uninstall waits (the pair is not rebuilt and `ReferenceVoicesChanged` is not raised while
-the install runs), then removes the pack once the install ends, rebuilding and raising the event.
+**Expected**: The uninstall does not take effect while the install runs (no voice change is
+reported), then removes the pack once the install ends, after which the voice choices change and the
+notification is raised.

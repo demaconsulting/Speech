@@ -63,15 +63,36 @@ sections:
               - id: SpeechDemo-Settings-NumericPresenter-ControlSelection
                 title: >-
                   The NumericParameterViewModel shall report whether its parameter is declared
-                  IsInteger, so a whole-number-only control is offered instead of a continuous
-                  slider for such a parameter.
+                  IsInteger.
                 justification: |
-                  A discrete parameter with no fractional meaning must never present a continuous
-                  slider control that implies fractional values are selectable; exposing the flag
-                  lets the view render a whole-number control and makes the parameter's discrete
-                  nature visible in the UI itself.
+                  Exposing the flag lets the view tell a discrete parameter from a continuous
+                  one; the presenter itself offers no control.
                 tests:
                   - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
+
+              - id: SpeechDemo-Settings-NumericPresenter-WholeNumberControl
+                title: >-
+                  The ModelSettingsSubsystem shall offer a whole-number-only control instead of a
+                  continuous slider for a parameter declared IsInteger.
+                justification: |
+                  A discrete parameter with no fractional meaning must never present a
+                  continuous slider that implies fractional values are selectable, which makes
+                  the parameter's discrete nature visible in the UI itself. The view binding
+                  that realizes this is an accepted verification gap (see the subsystem
+                  verification document); the reported IsInteger flag it binds to is tested.
+                tests:
+                  - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
+
+              - id: SpeechDemo-Settings-NumericPresenter-NonFiniteIgnored
+                title: >-
+                  The NumericParameterViewModel shall ignore a written value that is not a finite
+                  number (NaN or positive or negative infinity) and keep its previous value.
+                justification: |
+                  A non-finite value cannot honor the declared range and would corrupt the value
+                  bag forwarded to synthesis; keeping the previous value leaves the presenter
+                  valid.
+                tests:
+                  - NumericParameterViewModel_Value_SetNonFinite_KeepsPreviousValue
 
               - id: SpeechDemo-Settings-ChoicePresenter
                 title: >-
@@ -104,6 +125,26 @@ sections:
                   visible there.
                 tests:
                   - ChoiceParameterViewModel_SelectedOption_ChangedToDifferentOption_UpdatesBoxedValue
+
+              - id: SpeechDemo-Settings-ChoicePresenterNullSelectionIgnored
+                title: >-
+                  The ChoiceParameterViewModel shall ignore an attempt to select no option and
+                  keep its previous selection.
+                justification: |
+                  A choice always has a value in the bag; clearing the selection would leave the
+                  parameter without one.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_SetNull_KeepsPreviousSelection
+
+              - id: SpeechDemo-Settings-ChoicePresenterNonMemberSelectionIgnored
+                title: >-
+                  The ChoiceParameterViewModel shall ignore an attempt to select an option its
+                  parameter does not declare and keep its previous selection.
+                justification: |
+                  Only declared options are values the model accepts; an undeclared option must
+                  never reach the value bag.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_SetNonMember_KeepsPreviousSelection
 
               - id: SpeechDemo-Settings-ChoicePresenterSelectionNotification
                 title: >-

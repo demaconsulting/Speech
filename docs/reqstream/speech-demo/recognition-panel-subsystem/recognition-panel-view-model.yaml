@@ -62,6 +62,15 @@ sections:
                   an expected pre-download state.
                 tests:
                   - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+              - id: SpeechDemo-Recognition-EmptyCatalogMessageClears
+                title: >-
+                  The RecognitionPanelViewModel shall remove the no-models explanation once an
+                  installed recognition model becomes available.
+                justification: |
+                  A stale "no models" message beside a populated picker would mislead a user who
+                  has just downloaded a model.
+                tests:
+                  - RecognitionPanelViewModel_Refresh_ModelAppearsAfterEmpty_ClearsNoModelsMessage
 
               - id: SpeechDemo-Recognition-AutoRefreshOnInstall
                 title: >-
@@ -113,6 +122,18 @@ sections:
                 tests:
                   - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
 
+              - id: SpeechDemo-Recognition-LifecycleSerialized
+                title: >-
+                  The RecognitionPanelViewModel shall process overlapping Start, Stop,
+                  capture-device change, model change, and dispose requests one at a time, so a
+                  session is never stopped or released by two requests at once.
+                justification: |
+                  Overlapping requests (a double click, or a stop racing a device change) must
+                  leave the panel in one consistent state and must not double-stop or
+                  double-release a live capture session.
+                tests:
+                  - RecognitionPanelViewModel_StopAndDeviceChange_Concurrent_AreSerialized
+
               - id: SpeechDemo-Recognition-ConcurrentStopSafe
                 title: >-
                   The RecognitionPanelViewModel shall let two concurrent Stop invocations both
@@ -145,17 +166,6 @@ sections:
                   transcribe with the wrong model.
                 tests:
                   - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
-
-              - id: SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
-                title: >-
-                  The RecognitionPanelViewModel shall stop an active session before discarding
-                  the engine when the selected model changes while listening.
-                justification: |
-                  The model property is only disabled in the view, not guarded at the model
-                  level; invalidating without stopping would leave the panel listening with no
-                  way to stop it.
-                tests:
-                  - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine
 
               - id: SpeechDemo-Recognition-DeviceChangeInvalidatesSession
                 title: >-
@@ -350,12 +360,24 @@ sections:
 
               - id: SpeechDemo-Recognition-ModelSwitchGuard
                 title: >-
-                  The RecognitionPanelViewModel shall not allow the model to be changed while
-                  listening, and shall allow it again after Stop.
+                  The RecognitionPanelViewModel shall ignore an attempt to change the selected
+                  model while listening, keeping the current selection and leaving the session
+                  running.
                 justification: |
                   Switching the selected recognition model while a streaming session is active
-                  would leave a running recognizer bound to a model no longer reflected in
-                  SelectedModel; the view disables selection while this value is false.
+                  would leave a running recognizer bound to a model no longer reflected in the
+                  selection; refusing the change keeps what is shown and what is running the
+                  same, and the model can be changed after Stop.
+                tests:
+                  - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_IsIgnored
+                  - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
+
+              - id: SpeechDemo-Recognition-ModelSwitchAllowedAfterStop
+                title: >-
+                  The RecognitionPanelViewModel shall allow the model to be changed again once
+                  listening has stopped.
+                justification: |
+                  Refusing a model change is only appropriate while a session is running.
                 tests:
                   - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
 

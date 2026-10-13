@@ -1,12 +1,12 @@
 ---
 # Software Unit Requirements for the SpeechDemo SynthesizerSessionFactory
 #
-# These requirements describe the design-level behavior of the ISynthesizerSessionFactory /
-# SynthesizerSessionFactory unit - the demo-owned synthesizer-engine composition seam over the
-# library's SpeechModelStore and SpeechSynthesizerFactory - decomposing the parent
-# SynthesisPanelSubsystem requirements. ISynthesizerSessionFactory and SynthesizerSessionFactory
-# are treated as one unit because the interface has no independently observable behavior of its
-# own; every test exercises it through SynthesizerSessionFactory, its sole implementation.
+# These requirements describe the externally observable behavior of the ISynthesizerSessionFactory /
+# SynthesizerSessionFactory unit - the demo-owned way the panel obtains a speech synthesizer for
+# an installed model - decomposing the parent SynthesisPanelSubsystem requirements.
+# ISynthesizerSessionFactory and SynthesizerSessionFactory are treated as one unit because the
+# interface has no independently observable behavior of its own; every test exercises it through
+# SynthesizerSessionFactory, its sole implementation.
 
 sections:
   - title: SpeechDemo Requirements
@@ -31,9 +31,9 @@ sections:
                   The SynthesizerSessionFactory shall report a wrong-role model as an unavailable
                   engine even when a parameter value bag is supplied.
                 justification: |
-                  The panel always supplies the settings panel's value bag; the role check must
-                  not depend on it, or a wrong-role model with settings would fail differently
-                  from one without.
+                  The panel always supplies the settings panel's value bag; the outcome for a
+                  wrong-role model must not depend on it, or a wrong-role model with settings
+                  would fail differently from one without.
                 tests:
                   - SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableEngine
 
@@ -56,3 +56,27 @@ sections:
                   of as a later, unrelated failure.
                 tests:
                   - SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Synthesis-SessionSeamCorrectRole
+                title: >-
+                  The SynthesizerSessionFactory shall return the speech synthesizer for a model
+                  that has the synthesis role, prepared from that model and the supplied
+                  parameter values.
+                justification: |
+                  Speaking text with a user's chosen voice depends on the model and the values
+                  chosen for it reaching the synthesizer unchanged; this is the normal outcome
+                  that the wrong-role and invalid-input outcomes are exceptions to.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_SynthesisModel_ReturnsEngineForThatModel
+
+              - id: SpeechDemo-Synthesis-SessionSeamInvalidParameter
+                title: >-
+                  The SynthesizerSessionFactory shall reject an invalid parameter value for a
+                  parameter the model declares with an invalid-argument error, which callers
+                  handle.
+                justification: |
+                  An out-of-range, wrongly typed or non-offered value must be reported rather than
+                  silently producing a synthesizer that speaks with an unintended voice; the
+                  caller turns the error into an explained state for the user.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_InvalidParameters_PropagatesArgumentException

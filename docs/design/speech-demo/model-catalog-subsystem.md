@@ -90,6 +90,22 @@ the previous voices-only install, so the row stays installed and removable, with
 message preserved. A refused removal is shown as a message on the row and the pack stays
 installed. Services built without a library report no packs and hide the section.
 
+#### Observable Outcomes and Their Mechanisms
+
+The subsystem requirements state only outcomes the user or a dependent panel can observe; this
+design owns the mechanisms behind them:
+
+- **Voice choices shown after a pack change**: the rebuild of the catalog and library through the
+  composition factory (described above) is how install, removal and mirror changes make the voice
+  choices match the installed packs.
+- **Dependent panel state**: `ReferenceVoicesChanged` is the mechanism by which the synthesis
+  panel refreshes its voice choices and keeps the chosen voice when it is still offered.
+- **Operation completion**: an uninstall of a pack whose install is in flight awaits the library's
+  asynchronous uninstall without blocking the calling thread; the library serializes the removal
+  after the install, and the rebuild and notification happen only once the removal has run.
+- **Removed items**: a removal that fails or is canceled changes nothing, so no rebuild or
+  notification occurs and the pack stays installed with an explanation on its row.
+
 ### Error Handling
 
 Every failure in this subsystem is reported in place instead of thrown at the user: row

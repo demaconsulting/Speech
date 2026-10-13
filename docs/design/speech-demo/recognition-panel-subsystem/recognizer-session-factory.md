@@ -10,7 +10,7 @@ The library composes a recognizer engine through the static
 `SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelStore, ISpeechDiagnostics?,
 IReadOnlyDictionary<string,object>?, CancellationToken)` method, which requires an
 `IRecognitionModel`. `IRecognitionModel` is a fully public interface (any assembly, including a
-third-party one, may implement it), but a demo-owned seam still accepts the common `ISpeechModel`
+third-party one or a test project, may implement it), but a demo-owned seam still accepts the common `ISpeechModel`
 contract instead and performs the narrowing itself, so a panel's unit tests can depend on the
 simpler, role-agnostic contract rather than committing every fake model double to the
 recognition-specific shape. This also works around the static factory method itself not being
@@ -20,7 +20,7 @@ substitutable in a ViewModel unit test.
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
-| `LoadAsync(model, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | Never throws for a valid argument |
+| `LoadAsync(model, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | No throw for a valid model |
 
 The unit holds the shared `SpeechModelStore` it was constructed with.
 
@@ -32,13 +32,17 @@ The unit holds the shared `SpeechModelStore` it was constructed with.
   role other than recognition - and is therefore not an `IRecognitionModel` - returns the library's
   own `UnavailableSpeechRecognizerEngine.Instance`, exactly like a model that is not installed,
   rather than throwing: a host that lets a user choose an installed model with the wrong role must
-  still get a working, if unavailable, engine back.
+  still get a working, if unavailable, engine back. For a recognition-role model the engine returned
+  by the library factory is returned unchanged, and invalid parameters declared by the model are
+  rejected by the library with `ArgumentException`, which propagates to the caller.
 
 **Error Handling**:
 
 - A null model store at construction or a null model at `LoadAsync` throws
   `ArgumentNullException`, because both are composition mistakes that must surface at the call
   site.
+- Invalid recognition-model parameters propagate the library's `ArgumentException`; callers
+  (the view model) treat it as a caller mistake, not an unavailable engine.
 - Every other outcome — a wrong-role model or an uninstalled model — is reported as an unavailable
   engine, not an exception.
 

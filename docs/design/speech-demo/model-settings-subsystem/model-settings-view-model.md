@@ -40,6 +40,9 @@ bag onto a replacement model's presenters.
   values and options the model no longer offers are ignored, leaving the default.
   `SynthesisPanelViewModel` captures the bag before a catalog rebuild (a voice pack install or
   removal) and restores it afterwards so the user keeps their chosen voice and other settings.
+  Because the replacement model instance is presented before the restore, options that only the
+  replacement declares (for example newly installed reference voices) are offered immediately, and
+  a restored selection that the replacement still offers stays selected.
 
 **Error Handling**:
 

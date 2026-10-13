@@ -22,7 +22,8 @@ The unit passes when: both "no model" and "model with no parameters" are explain
 shown blank and the empty-state members are notified on change; switching models replaces rather
 than merges presenters and an unrecognized parameter kind is skipped; the value bag is empty rather
 than faulted with no model and a duplicate identifier does not throw; and a restore applies
-captured values while ignoring stale, unknown or wrongly typed entries.
+captured values while ignoring stale, unknown or wrongly typed entries, and offers options that only
+the replacement model instance declares while keeping a still-offered captured selection.
 
 #### Test Scenarios
 
@@ -87,6 +88,13 @@ bag captured, the model replaced by an equivalent instance (defaults restored) a
 restored.
 
 **Expected**: Every control is back at its captured value.
+
+##### ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained
+
+**Scenario**: A choice selection is captured, a replacement model instance declaring additional
+options is assigned, and the bag is restored.
+
+**Expected**: The additional options are presented and the captured selection remains selected.
 
 ##### ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
 

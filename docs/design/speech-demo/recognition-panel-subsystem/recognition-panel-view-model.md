@@ -41,7 +41,9 @@ resources, a live capture device, or a stale event subscription.
   and whose state is `Downloaded`, mirroring the synthesis panel's own filtering and refresh
   algorithm, because a model of the wrong role or one not yet downloaded cannot honestly
   transcribe audio. A still-installed selection is preserved; otherwise the first offered model is
-  selected.
+  selected. When no installed recognition model exists, `Refresh()` sets `StatusMessage` to
+  `NoModelsMessage` (an honest empty state, not an error: `State` is unchanged); when a model
+  appears on a later refresh and that message is still showing, `Refresh()` clears it.
 - **Auto-refresh on install**: the constructor subscribes to `IModelCatalogService.ModelInstalled`.
   The handler ignores any event whose `ModelInstalledEventArgs.Role` is not
   `SpeechModelRole.Recognition`, and otherwise calls `Refresh()` marshaled onto the UI thread
@@ -55,12 +57,19 @@ resources, a live capture device, or a stale event subscription.
   disposes and clears the engine) only when the selected model changes; the cached session alone
   is invalidated whenever the selected capture device changes or the shared device-selection panel
   forces a device refresh - a session, not an engine, is bound to a capture device.
-- **Stop before invalidating**: both `OnSelectedModelChanged` and `OnDeviceSelectionChanged` call
-  `StopAsync()` first when `CanStop` is `true`, before invalidating. `SelectedModel` and the shared
-  `DeviceSelectionViewModel.SelectedCaptureDevice`/`CaptureSelection` both have public setters and
-  are only disabled in the view while listening (`CanChangeModel` for the model picker; the capture
-  picker is never disabled), so either change can arrive while a session is active. Disposing a
-  session without stopping it first would leave `State` stuck at `Listening` forever.
+- **Serialized lifecycle**: Start, Stop, capture-device change, model change, shared-refresh
+  pre-hook and `DisposeAsync()` all run their body while holding a single lifecycle gate (a
+  `SemaphoreSlim(1,1)`). The command attribute `AllowConcurrentExecutions` only lets command
+  invocations overlap; it does not serialize ownership of the session, pump task, and recorder, so
+  the gate is what guarantees two requests never stop, drain, or dispose the same session at the
+  same time and that the cached engine/session/pump fields are only mutated by one request.
+  The fire-and-forget handlers (`OnDeviceSelectionChanged`, `OnSelectedModelChanged`) acquire the
+  same gate. Internal steps that are reached with the gate already held use gate-free variants.
+- **Stop before invalidating**: `OnDeviceSelectionChanged` stops an active session
+  (`CanStop` true) before invalidating the cached session, because the capture picker is never
+  disabled while listening and disposing a session without stopping it first would leave `State`
+  stuck at `Listening`. A change of `SelectedModel` while listening is not stopped-and-invalidated
+  but refused (see _Model-switch guard_).
 - **Stop before a shared device refresh**: the constructor registers a pre-refresh hook
   (`StopBeforeDeviceRefreshAsync`) with the shared `DeviceSelectionViewModel` via
   `RegisterPreRefreshHook`. The hook delegates to the same stop-then-invalidate-session path used
@@ -77,6 +86,11 @@ resources, a live capture device, or a stale event subscription.
   applying it synchronously when none was captured) before `ApplySessionStateChanged` touches
   `State`; a session reporting `Faulted` additionally sets `StatusMessage` to
   `SessionFaultedMessage`.
+- **Threading**: the library raises `IRecognitionSession.StateChanged` (and resumes the result
+  stream) on the session's own background threads, never on the UI thread. The view model owns the
+  marshaling: every transition and result is posted to the UI `SynchronizationContext` captured in
+  `StartAsync()` before any bound property is changed, so the view only ever observes property
+  changes on the UI thread.
 - **Start algorithm** (`StartAsync()`):
   1. Reports `NoModelSelectedMessage` and enters `Error` when no model is selected.
   2. Creates the capture device through `IAudioDeviceService` before paying for the comparatively
@@ -104,7 +118,7 @@ resources, a live capture device, or a stale event subscription.
   utterance becomes a stable committed line the instant the recognizer considers it final.
   `BuildTranscriptText()` renders every committed line followed by any in-progress partial.
 - **Stop algorithm**: `StopAsync()` (`AllowConcurrentExecutions = true`, so a concurrent second
-  call completes without racing to double-dispose) is a safe no-op when nothing is cached.
+  call completes, and the lifecycle gate ensures the two never double-dispose) is a safe no-op when nothing is cached.
   Otherwise it calls `session.StopAsync()`, awaits the pump task to fully drain, finalizes any
   diagnostic capture recording, clears the captured UI context, and - if not already in `Error` -
   reports `StoppedMessage`. The stopped session stays cached only until the next invalidation: a
@@ -114,13 +128,17 @@ resources, a live capture device, or a stale event subscription.
   `State != RecognitionStreamingState.Listening`, computed via
   `[NotifyPropertyChangedFor(nameof(CanChangeModel))]` on the generated `State` partial property,
   so it recomputes on every state transition. `RecognitionPanelView.axaml` binds the
-  model-selection `ComboBox`'s `IsEnabled` to it. This is a view-level convenience, not the sole
-  safeguard: `SelectedModel`'s setter remains public, so `OnSelectedModelChanged` still stops an
-  active session defensively before invalidating.
+  model-selection `ComboBox`'s `IsEnabled` to it, but the guard is also enforced at the unit
+  boundary: while `State` is `Listening`, a write to `SelectedModel` is ignored (the previous
+  selection is restored, and the running session and cached engine are left untouched). The model
+  can be changed again after Stop or in `Error`.
 
 **Error Handling**:
 
 - A null constructor dependency throws `ArgumentNullException`.
+- An empty catalog is reported through `StatusMessage` (`NoModelsMessage`) without entering `Error`;
+  the message is cleared once a model becomes available.
+- A `SelectedModel` write while listening is ignored rather than throwing.
 - No selected model, no capture device, an unavailable engine, a busy engine, and a session whose
   `StartAsync()` throws `SpeechRecognizerUnavailableException` are each reported through
   `StatusMessage` with `State` set to `Error`, never thrown to the caller; any engine or session
@@ -129,7 +147,8 @@ resources, a live capture device, or a stale event subscription.
   `RecognitionSessionFaultedException` and `SpeechRecognizerUnavailableException` are reported
   through `StatusMessage`. A session that reports `Faulted` through `StateChanged` sets `Error`
   and `SessionFaultedMessage`.
-- `StopAsync()` and `DisposeAsync()` are safe no-ops with nothing active, and neither throws.
+- `StopAsync()` and `DisposeAsync()` are safe no-ops with nothing active, and neither throws;
+  overlapping calls are serialized by the lifecycle gate.
 
 **Dependencies**:
 

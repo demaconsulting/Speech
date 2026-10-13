@@ -37,7 +37,11 @@ The unit passes when all of the following hold:
 - The model-switch guard is false while synthesizing or playing and true while idle or in error.
 - Matching-role installs and reference voice changes refresh the panel while keeping the chosen
   voice, and non-matching installs do not.
-- The voice notice shows for Chatterbox only.
+- The voice notice shows for Chatterbox only, with both the consent note and the pack attribution.
+- Empty-catalog state: nothing offered, Play unavailable, and an install-guidance message.
+- Closing the panel (twice, with or without a Play in flight) frees the playback device and voice
+  once and ends reaction to catalog events; these are outcome checks on freed resources, not on
+  internal call order.
 - `DisposeAsync` stops an in-flight Play, releases the session and engine once, is idempotent and
   unsubscribes from catalog events.
 - The pre-refresh hook stops an in-flight Play and awaits its completion before a shared device
@@ -316,8 +320,10 @@ stale session is disposed.
 **Scenario**: The real Chatterbox Turbo model is selected with the pack reported installed, then a
 different synthesis model.
 
-**Expected**: The notice contains the consent note and "OwenTyme" for Chatterbox and is absent for
-the other model.
+**Expected**: The notice contains the consent note (`ConsentAndAttribution`) and "OwenTyme", the
+installed pack's attribution (`PackAttribution`), for Chatterbox and is absent for the other model
+(`NoNoticeForOtherModels`). One scenario evidences the consent note and the attribution because
+both are produced by the same selection.
 
 ##### SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing
 

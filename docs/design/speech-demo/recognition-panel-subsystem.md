@@ -40,6 +40,13 @@ _SpeechDemo ModelSettingsSubsystem Design_). Only the engine is composed through
 capture device is bound per run, through `ISpeechRecognizerEngine.CreateSessionAsync` directly
 against the returned engine.
 
+**Deterministic operation without a model or runtime** (`SpeechDemo-Recognition-SessionSeam`): the
+observable guarantee is realized by the injectable `IRecognizerSessionFactory` seam. The library's
+recognizer factory is a static method and so cannot be substituted in a panel unit test; the
+demo-owned seam accepts the common `ISpeechModel` contract and returns an `ISpeechRecognizerEngine`,
+so tests (and an installation with no downloaded model) can drive Start/Stop with a deterministic
+engine or with the library's unavailable engine, without a native runtime.
+
 ### Interactions with Other Units
 
 `RecognitionPanelViewModel` calls `IRecognizerSessionFactory.LoadAsync` (implemented by
@@ -64,3 +71,23 @@ producer/consumer queue so a slow or failing disk can never block or throw into 
 callback. The Stop algorithm finalizes (disposes) any active recording before clearing the
 captured UI context. A recorder that fails to start (for example, an inaccessible directory)
 logs the failure to the console and live recognition proceeds completely unaffected.
+
+**Containment of diagnostic failures.** The recorder must never affect listening:
+
+- _Coordinated disposal and callback admission_: disposal is claimed atomically (an interlocked
+  flag), and the frame callback checks it and catches `InvalidOperationException` and
+  `ObjectDisposedException` from the queue, so a frame that is already in flight when the recorder
+  is disposed is silently discarded rather than throwing into the audio callback. Disposal
+  unsubscribes from `FrameCaptured`, completes the queue, waits a bounded time for the writer
+  thread, and finalizes under a writer lock shared with the writer thread so the file is finalized
+  exactly once.
+- _Writer failure containment_: the writer loop catches `IOException`,
+  `UnauthorizedAccessException`, `ObjectDisposedException`, `NotSupportedException`,
+  `InvalidOperationException`, and `ArgumentException`, logs the failure to the console, and stops
+  accepting further frames (the queue is completed so producers are discarded) instead of retrying
+  against a failed disk; recognition continues unaffected.
+- _Finalization failure containment_: finalizing the WAV file (flush, header patch, close) can
+  itself throw; that failure is caught and logged by both the writer thread and disposal, so it can
+  neither escape the writer thread and terminate the process nor propagate out of `Dispose()`.
+- _Start failure_: an inaccessible directory or invalid path is caught in `TryStart`, logged, and
+  results in no recorder.

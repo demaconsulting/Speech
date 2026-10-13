@@ -26,9 +26,11 @@ library's public parameter contract.
 ### Acceptance Criteria
 
 A ModelSettingsSubsystem test run passes when: one presenter is rendered per declared parameter,
-chosen by concrete type alone, in declaration order; and the value bag assembled from the
+of the kind matching the parameter, in declaration order; and the value bag assembled from the
 presenters round-trips every presented value keyed by its declared identifier; captured values are
-restored while keeping defaults for keys or options that no longer apply; an empty panel explains
+restored while keeping defaults for keys or options that no longer apply; after a model
+installation notification newly available voices are offered immediately and the prior voice
+selection is retained; an empty panel explains
 whether no model is selected or the model has no parameters; and a parameter of an unrecognized
 kind is skipped without hiding the others. The acceptance
 criteria of each unit are stated in its own verification document.
@@ -39,8 +41,18 @@ criteria of each unit are stated in its own verification document.
 
 **Scenario**: A model declaring one numeric, one choice, and one boolean parameter is selected.
 
-**Expected**: Exactly three presenters are built, each of the concrete type matching its
-parameter, in declaration order.
+**Expected**: Exactly three presenters are built (one item per declared parameter), each of the
+kind matching its parameter (numeric, choice, boolean), in declaration order. This single test
+verifies the count, order and kind requirements as separate assertions.
+
+#### ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained
+
+**Scenario**: A model with a voice choice is presented and the user selects one voice; the bag is
+captured. A model installation notification then yields a replacement model instance whose voice
+choice declares additional voices; it is assigned and the captured bag restored.
+
+**Expected**: The newly available voices are offered immediately among the choice's options, and
+the voice the user chose is still selected.
 
 #### ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
 

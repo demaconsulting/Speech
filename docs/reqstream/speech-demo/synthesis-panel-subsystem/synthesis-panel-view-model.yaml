@@ -1,9 +1,10 @@
 ---
 # Software Unit Requirements for the SpeechDemo SynthesisPanelViewModel
 #
-# These requirements describe the design-level behavior of the SynthesisPanelViewModel unit -
-# the text-to-speech panel's presentation state, model selection, embedded settings, audio-tag
+# These requirements describe the externally observable behavior of the SynthesisPanelViewModel
+# unit - the text-to-speech panel's presentation state, model selection, model settings, audio-tag
 # hints, and Play/Stop lifecycle - decomposing the parent SynthesisPanelSubsystem requirements.
+# Mechanisms (collaborators, caching, event handling, disposal order) live in the unit design.
 
 sections:
   - title: SpeechDemo Requirements
@@ -14,12 +15,11 @@ sections:
             requirements:
               - id: SpeechDemo-Synthesis-DependencyValidation
                 title: >-
-                  The SynthesisPanelViewModel shall reject a missing collaborator when it is
-                  constructed.
+                  The SynthesisPanelViewModel shall reject a missing required dependency with an
+                  argument-null error when it is constructed.
                 justification: |
-                  Every library call the panel makes goes through an injected collaborator, so a
-                  missing one is a composition mistake that must surface immediately rather than
-                  as a failure on the first Play.
+                  A missing dependency is a composition mistake that must surface immediately
+                  rather than as a failure on the first Play.
                 tests:
                   - SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
 
@@ -29,7 +29,7 @@ sections:
                   user may choose to speak text with.
                 justification: |
                   A model of the wrong role, or one not yet downloaded, cannot honestly speak
-                  text; offering it would let a user start a session that can only fail.
+                  text; offering it would let a user start a Play that can only fail.
                 tests:
                   - SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels
 
@@ -46,24 +46,20 @@ sections:
               - id: SpeechDemo-Synthesis-EmbeddedSettings
                 title: >-
                   The SynthesisPanelViewModel shall present the selected model's tunable
-                  parameters through the embedded model-settings panel, replacing them whenever
-                  the selection changes.
+                  parameters for editing, replacing them whenever the selection changes.
                 justification: |
-                  A voice's tunable parameters are only meaningful once a model is chosen;
-                  embedding the generic settings panel is what lets this panel reuse the settings
-                  subsystem instead of duplicating its rendering logic.
+                  A voice's tunable parameters are only meaningful once a model is chosen, and
+                  must always describe the model that will speak.
                 tests:
                   - SynthesisPanelViewModel_SelectedModel_Changed_UpdatesEmbeddedSettings
 
               - id: SpeechDemo-Synthesis-AudioTagHints
                 title: >-
-                  The SynthesisPanelViewModel shall show example Natural Language Audio Tags
-                  drawn from the library's closed, published vocabulary as inline help alongside
-                  the text input.
+                  The SynthesisPanelViewModel shall show example Natural Language Audio Tags that
+                  the speech library recognizes as inline help alongside the text input.
                 justification: |
-                  Drawing the examples from the library's own tag catalog, rather than a
-                  hand-maintained demo list, keeps the hints in sync with the vocabulary the
-                  library actually recognizes.
+                  Examples that stay in step with the tags the library actually recognizes let a
+                  user discover expressive markup without consulting separate documentation.
                 tests:
                   - SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags
 
@@ -73,8 +69,7 @@ sections:
                   playback device when Play is invoked.
                 justification: |
                   Speaking the exact text the user entered, on the device the user chose, is the
-                  panel's core purpose and the demonstration that a host can drive the library's
-                  asynchronous synthesis contract from a UI thread.
+                  panel's core purpose.
                 tests:
                   - SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
 
@@ -90,13 +85,13 @@ sections:
 
               - id: SpeechDemo-Synthesis-SessionStateMapping
                 title: >-
-                  The SynthesisPanelViewModel shall show a stopping session as playing back, a
-                  newly created session as idle, and a faulted session as an error state with the
-                  panel's session-fault message.
+                  The SynthesisPanelViewModel shall show speech that is being stopped as playing
+                  back, speech that has not started as idle, and a speech failure as an error
+                  state with the panel's failure message.
                 justification: |
-                  The displayed state must not drift from what the session is actually doing, so
-                  a user is never told the panel is idle while audio is still stopping, or that
-                  it is healthy after the session has faulted.
+                  The displayed state must not drift from what is actually happening, so a user
+                  is never told the panel is idle while audio is still stopping, or that it is
+                  healthy after speech has failed.
                 tests:
                   - SynthesisPanelViewModel_SessionStateChanged_StoppingCreatedFaulted_MapsToPlayingIdleError
 
@@ -105,8 +100,8 @@ sections:
                   The SynthesisPanelViewModel shall refuse to start another Play while one is
                   synthesizing or playing.
                 justification: |
-                  A second concurrent Play would contend for the same session and playback device;
-                  refusing it keeps one utterance in flight at a time.
+                  A second concurrent Play would contend for the same playback device; refusing
+                  it keeps one utterance in flight at a time.
                 tests:
                   - SynthesisPanelViewModel_Play_WhilePlaying_IsRefused
 
@@ -122,56 +117,54 @@ sections:
 
               - id: SpeechDemo-Synthesis-EngineSessionReuse
                 title: >-
-                  The SynthesisPanelViewModel shall load a synthesizer engine once and reuse it
-                  across repeated Play calls while the selected model and its parameter values
-                  are unchanged.
+                  The SynthesisPanelViewModel shall prepare the selected voice only once across
+                  repeated Play calls while the selected model and its parameter values are
+                  unchanged.
                 justification: |
-                  Loading a model is the expensive step, and the library's guidance for its
-                  synthesizer engine is to construct once and reuse across many sessions.
-                  Replaying the same text with the same voice is the common case and must stay
-                  cheap.
+                  Preparing a voice (loading its model) is the expensive step. Replaying the same
+                  text with the same voice is the common case and must stay fast.
                 tests:
                   - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
 
               - id: SpeechDemo-Synthesis-SessionReuse
                 title: >-
-                  The SynthesisPanelViewModel shall create a synthesizer session once and reuse
-                  it across repeated Play calls while the selected model, its parameter values
-                  and the playback device are unchanged.
+                  The SynthesisPanelViewModel shall open the playback device only once across
+                  repeated Play calls while the selected model, its parameter values and the
+                  playback device are unchanged.
                 justification: |
-                  The library's guidance for its synthesizer session is to construct once and
-                  reuse it, so replaying the same text with the same voice stays cheap.
+                  Reopening the playback device for every replay of the same voice adds avoidable
+                  delay.
                 tests:
                   - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
 
               - id: SpeechDemo-Synthesis-EngineReloadOnChange
                 title: >-
-                  The SynthesisPanelViewModel shall reload the synthesizer engine and recreate
-                  the session on the next Play after the selected model's parameter values
-                  change.
+                  The SynthesisPanelViewModel shall speak the next Play with the changed values,
+                  preparing the voice again, after the selected model's parameter values change.
                 justification: |
-                  An engine is composed with the parameter values in effect when it was loaded;
-                  reusing it after a change would speak with a stale voice.
+                  A voice is prepared with the parameter values in effect at that moment; speaking
+                  after a change without preparing it again would use a stale voice.
                 tests:
                   - SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession
 
               - id: SpeechDemo-Synthesis-EngineReloadOnModelChange
                 title: >-
-                  The SynthesisPanelViewModel shall reload the synthesizer engine on the next
-                  Play after the selected model is replaced by a different model instance.
+                  The SynthesisPanelViewModel shall prepare the voice again on the next Play after
+                  the selected model is replaced by a different model.
                 justification: |
-                  A catalog re-read yields new model instances; an engine loaded from the
-                  previous instance must not be reused for the new one.
+                  A refreshed catalog can supply a rebuilt model; a voice prepared from the
+                  previous model must not be used to speak for the new one.
                 tests:
                   - SynthesisPanelViewModel_Play_ModelInstanceChanged_ReloadsEngine
 
               - id: SpeechDemo-Synthesis-SessionRecreateOnDeviceChange
                 title: >-
-                  The SynthesisPanelViewModel shall recreate only the session, keeping the
-                  loaded engine, on the next Play after the playback device changes.
+                  The SynthesisPanelViewModel shall speak the next Play through the newly selected
+                  playback device, without preparing the voice again, after the playback device
+                  changes.
                 justification: |
-                  A session is bound to one playback device while the engine is independent of
-                  it, so a device change must not pay for a model reload.
+                  Playback is bound to one device while the prepared voice is independent of it,
+                  so a device change must not pay for preparing the voice again.
                 tests:
                   - SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine
 
@@ -197,10 +190,10 @@ sections:
               - id: SpeechDemo-Synthesis-HonestUnavailableStates
                 title: >-
                   The SynthesisPanelViewModel shall report an explanatory error state, rather
-                  than a crash or a silent no-op, when the synthesizer engine or session reports
-                  itself unavailable.
+                  than a crash or a silent no-op, when the speech synthesizer reports itself
+                  unavailable.
                 justification: |
-                  An engine fault beyond the library's control must be visible to the user.
+                  A synthesizer fault beyond the library's control must be visible to the user.
                 tests:
                   - SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes
                   - SynthesisPanelViewModel_Play_UnavailableSession_ReportsErrorStateAndDisposesSession
@@ -208,67 +201,67 @@ sections:
 
               - id: SpeechDemo-Synthesis-UnavailableEngineReleased
                 title: >-
-                  The SynthesisPanelViewModel shall dispose a synthesizer engine that reports
-                  itself unavailable.
+                  The SynthesisPanelViewModel shall free the resources held by a speech
+                  synthesizer that reports itself unavailable.
                 justification: |
-                  A failed attempt must not leak the unusable engine and the model it holds.
+                  A failed attempt must not leak the unusable synthesizer and the model it holds.
                 tests:
                   - SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes
 
               - id: SpeechDemo-Synthesis-UnavailableSessionReleased
                 title: >-
-                  The SynthesisPanelViewModel shall dispose a synthesis session that reports
-                  itself unavailable, without speaking through it.
+                  The SynthesisPanelViewModel shall free the playback device held by a playback
+                  that reports itself unavailable, without speaking through it.
                 justification: |
-                  A failed attempt must not leak the unusable session and the playback device it
+                  A failed attempt must not leak the unusable playback and the playback device it
                   holds.
                 tests:
                   - SynthesisPanelViewModel_Play_UnavailableSession_ReportsErrorStateAndDisposesSession
 
               - id: SpeechDemo-Synthesis-EngineBusyState
                 title: >-
-                  The SynthesisPanelViewModel shall report the engine's own explanation as an
-                  error state when the engine is busy and cannot create a session.
+                  The SynthesisPanelViewModel shall report the synthesizer's own explanation as an
+                  error state when the synthesizer is busy and cannot start playback.
                 justification: |
-                  A busy engine is an expected condition the user can act on, not a defect that
-                  should surface as an unhandled exception.
+                  A busy synthesizer is an expected condition the user can act on, not a defect
+                  that should surface as an unhandled exception.
                 tests:
                   - SynthesisPanelViewModel_Play_EngineBusy_ReportsErrorStateWithEngineMessage
 
               - id: SpeechDemo-Synthesis-SessionFaultRecovery
                 title: >-
-                  The SynthesisPanelViewModel shall release a faulted session and speak
-                  through a fresh session on the next Play.
+                  The SynthesisPanelViewModel shall speak normally on the next Play after a
+                  speech failure, without reusing the failed playback.
                 justification: |
-                  A faulted session is terminal, so the user can only recover if the panel
-                  discards it rather than reusing a session known to be dead.
+                  A failure leaves the failed playback unusable, so the user can only recover if
+                  the panel starts fresh playback rather than reusing one known to be dead.
                 tests:
                   - SynthesisPanelViewModel_Play_SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers
 
               - id: SpeechDemo-Synthesis-SessionFaultReported
                 title: >-
-                  The SynthesisPanelViewModel shall report a session that faults while speaking
-                  as an error state carrying the fault message.
+                  The SynthesisPanelViewModel shall report a playback that fails while speaking as
+                  an error state carrying the failure message.
                 justification: |
-                  A session fault must be explained to the user rather than thrown to the UI.
+                  A playback failure must be explained to the user rather than thrown to the UI.
                 tests:
                   - SynthesisPanelViewModel_Play_SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers
 
               - id: SpeechDemo-Synthesis-SetupFaultReported
                 title: >-
-                  The SynthesisPanelViewModel shall report an unexpected fault while loading the
-                  engine or creating the session as an error state carrying the fault message,
-                  rather than letting it escape the Play command.
+                  The SynthesisPanelViewModel shall report an unexpected fault while preparing the
+                  voice or opening playback as an error state carrying the fault message, rather
+                  than letting it escape the Play command.
                 justification: |
-                  Seam faults such as an invalid parameter value must be explained to the user
-                  and must not crash the demo.
+                  Faults such as an invalid parameter value must be explained to the user and
+                  must not crash the demo.
                 tests:
                   - SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
 
               - id: SpeechDemo-Synthesis-SetupCanceledReported
                 title: >-
-                  The SynthesisPanelViewModel shall report a Play canceled while loading the
-                  engine or creating the session as stopped and return to idle.
+                  The SynthesisPanelViewModel shall report a Play canceled while the voice is
+                  being prepared or playback is being opened as stopped and return to idle.
                 justification: |
                   Stopping during a long model load is a normal user action, not a fault.
                 tests:
@@ -277,19 +270,20 @@ sections:
               - id: SpeechDemo-Synthesis-SpeakFaultReleasesSession
                 title: >-
                   The SynthesisPanelViewModel shall report an unexpected fault while speaking as
-                  an error state and release the session, whose state is unknown.
+                  an error state and free the playback device.
                 justification: |
-                  Reusing a session in an unknown state could repeat the fault.
+                  An unexpected fault leaves the playback in an unknown state, so it must not
+                  keep holding the playback device or be reused.
                 tests:
                   - SynthesisPanelViewModel_Play_SpeakThrowsUnexpected_ReportsErrorAndReleasesSession
 
               - id: SpeechDemo-Synthesis-StaleSessionEventIgnored
                 title: >-
-                  The SynthesisPanelViewModel shall ignore a state change reported by any session
-                  other than its current one.
+                  The SynthesisPanelViewModel shall ignore a late state report from playback that
+                  has since been replaced.
                 justification: |
-                  An event queued before its session was released must not overwrite the state
-                  of the panel afterwards.
+                  A late report from discarded playback must not overwrite the state the panel
+                  shows for the current playback.
                 tests:
                   - SynthesisPanelViewModel_SessionStateChanged_ForeignSender_IsIgnored
 
@@ -301,81 +295,79 @@ sections:
                   nothing.
                 justification: |
                   Consistent with the honest-empty-state precedent set by the model catalog
-                  panel, an unexplained empty picker reads to a user as a broken application
-                  rather than an expected pre-download state. The view renders the supplied
-                  `NoModelsMessage` when `HasModels` is false; rendering is not itself under
-                  automated UI test.
+                  panel and the recognition panel, an unexplained empty picker reads to a user as
+                  a broken application rather than an expected pre-download state. Rendering of
+                  the message is not itself under automated UI test.
                 tests:
                   - SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState
 
               - id: SpeechDemo-Synthesis-RefreshWhilePlayingUndisturbed
                 title: >-
-                  The SynthesisPanelViewModel shall leave an in-flight Play, its session and the
-                  selected model undisturbed when the model list is refreshed.
+                  The SynthesisPanelViewModel shall leave an in-flight Play and the selected model
+                  undisturbed when the model list is refreshed.
                 justification: |
                   A voice-pack change or an install can refresh the list during playback; the
-                  refresh must not stop or dispose the running session.
+                  refresh must not interrupt the speech being played.
                 tests:
                   - SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle
 
               - id: SpeechDemo-Synthesis-AutoRefreshOnInstall
                 title: >-
-                  The SynthesisPanelViewModel shall refresh its offered models automatically when
-                  a synthesis model is installed from the model catalog.
+                  The SynthesisPanelViewModel shall offer a newly installed synthesis model
+                  without a manual refresh or application restart.
                 justification: |
                   A user who downloads a synthesis model from the Model Catalog panel should see
-                  it become available on this panel immediately, without a manual refresh or an
-                  application restart.
+                  it become available on this panel immediately.
                 tests:
                   - SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
 
               - id: SpeechDemo-Synthesis-AutoRefreshRoleFilter
                 title: >-
-                  The SynthesisPanelViewModel shall not refresh its offered models when the model
-                  installed is not a synthesis model.
+                  The SynthesisPanelViewModel shall leave its offered models unchanged when the
+                  model installed is not a synthesis model.
                 justification: |
-                  An unrelated recognition-model install must not cause a spurious refresh.
+                  An unrelated recognition-model install must not cause a spurious change of the
+                  offered models.
                 tests:
                   - SynthesisPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
 
               - id: SpeechDemo-Synthesis-VoiceSelectionForwarding
                 title: >-
                   The SynthesisPanelViewModel shall synthesize with the voice and other parameter
-                  values chosen in the embedded settings panel.
+                  values chosen in the model settings.
                 justification: |
                   A voice selected through the panel's settings controls must genuinely change
-                  what is synthesized; the chosen values reach the library's engine composition,
-                  which resolves them against the model's own per-voice knowledge.
+                  what is spoken.
                 tests:
                   - SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory
 
               - id: SpeechDemo-Synthesis-ResourceLifetime
                 title: >-
-                  The SynthesisPanelViewModel shall release its cached session when it is
-                  disposed.
+                  The SynthesisPanelViewModel shall free the playback device it holds when it is
+                  closed.
                 justification: |
-                  The panel caches a session across Play calls; leaking it at shutdown would
+                  The panel keeps playback open across Play calls; leaking it at shutdown would
                   keep an open playback device alive.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
 
               - id: SpeechDemo-Synthesis-EngineLifetime
                 title: >-
-                  The SynthesisPanelViewModel shall release its cached engine when it is
-                  disposed.
+                  The SynthesisPanelViewModel shall free the loaded voice it holds when it is
+                  closed.
                 justification: |
-                  The panel caches an engine across Play calls; leaking it at shutdown would
+                  The panel keeps a prepared voice across Play calls; leaking it at shutdown would
                   keep a loaded model alive.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
 
               - id: SpeechDemo-Synthesis-DisposeIdempotent
                 title: >-
-                  The SynthesisPanelViewModel shall tolerate being disposed more than once
-                  without faulting or releasing its session and engine a second time.
+                  The SynthesisPanelViewModel shall tolerate being closed more than once without
+                  failing or freeing its resources a second time.
                 justification: |
-                  A duplicate DisposeAsync call, however the shell triggers it, must not fault or
-                  double-release the cached session and engine.
+                  A duplicate close, however the shell triggers it, must not fault or free the
+                  same playback device and voice twice.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_NoActiveSession_IsSafeAndIdempotent
                   - SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
@@ -383,19 +375,19 @@ sections:
               - id: SpeechDemo-Synthesis-DisposeStopsPlayback
                 title: >-
                   The SynthesisPanelViewModel shall stop an in-flight Play and wait for it to
-                  finish when it is disposed.
+                  finish when it is closed.
                 justification: |
-                  Releasing the session and engine while speech is still running would pull them
-                  out from under the in-flight Play.
+                  Freeing the playback device and voice while speech is still running would pull
+                  them out from under the in-flight Play.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_WhilePlaying_StopsPlayAndReleasesSessionAndEngine
 
               - id: SpeechDemo-Synthesis-DisposeUnsubscribes
                 title: >-
-                  The SynthesisPanelViewModel shall stop refreshing in response to model installs
-                  once it is disposed.
+                  The SynthesisPanelViewModel shall not change its offered models in response to
+                  model installs once it is closed.
                 justification: |
-                  A disposed panel must not keep reacting to later catalog events.
+                  A closed panel must not keep reacting to later catalog changes.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
 
@@ -422,12 +414,12 @@ sections:
 
               - id: SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
                 title: >-
-                  The SynthesisPanelViewModel shall stop an in-flight Play and wait for its
-                  playback device to be released before a shared device refresh proceeds.
+                  The SynthesisPanelViewModel shall stop an in-flight Play and wait until its
+                  playback device is free before a shared device refresh proceeds.
                 justification: |
-                  This panel's session stop only requests cancellation; the playback device is
-                  not closed until the in-flight Play itself settles. Waiting for that makes a
-                  shared device refresh deterministic.
+                  Stopping speech does not free the playback device instantly; waiting for it
+                  makes a shared device refresh deterministic instead of hitting a device that is
+                  still in use.
                 tests:
                   - SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
 
@@ -442,8 +434,8 @@ sections:
 
               - id: SpeechDemo-Voices-SynthesisRefresh
                 title: >-
-                  The SynthesisPanelViewModel shall re-read the catalog when the reference voices
-                  change.
+                  The SynthesisPanelViewModel shall offer the updated model list when the
+                  reference voices change.
                 justification: |
                   A voice pack install or removal rebuilds the model, so the panel must adopt the
                   new voice list immediately.
@@ -462,21 +454,30 @@ sections:
 
               - id: SpeechDemo-Voices-SynthesisRefreshAfterDispose
                 title: >-
-                  The SynthesisPanelViewModel shall stop re-reading the catalog in response to
-                  reference voice changes once it is disposed.
+                  The SynthesisPanelViewModel shall not change its offered models in response to
+                  reference voice changes once it is closed.
                 justification: |
-                  A disposed panel must not keep reacting to catalog events.
+                  A closed panel must not keep reacting to catalog changes.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged
 
               - id: SpeechDemo-Voices-ConsentAndAttribution
                 title: >-
-                  The SynthesisPanelViewModel shall show the voice-cloning consent note and the
-                  license attribution of every installed voice pack when the Chatterbox Turbo
-                  model is selected.
+                  The SynthesisPanelViewModel shall show the voice-cloning consent note when the
+                  Chatterbox Turbo model is selected.
                 justification: |
-                  Cloning a voice needs the speaker's consent and the pack's license requires
-                  attribution, so both must be visible where the voice is chosen.
+                  Cloning a voice needs the speaker's consent, so the note must be visible where
+                  the voice is chosen.
+                tests:
+                  - SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
+
+              - id: SpeechDemo-Voices-PackAttribution
+                title: >-
+                  The SynthesisPanelViewModel shall show the license attribution of every
+                  installed voice pack when the Chatterbox Turbo model is selected.
+                justification: |
+                  A voice pack's license requires attribution, so it must be visible where the
+                  voice is chosen.
                 tests:
                   - SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
 

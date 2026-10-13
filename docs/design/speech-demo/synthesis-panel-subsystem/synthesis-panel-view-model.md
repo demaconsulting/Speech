@@ -148,6 +148,35 @@ so the wrapping `Border` correctly disables the settings view. This prevents a u
 switching the selected model or its voice/speaker parameters while synthesis is in flight or
 audio is playing.
 
+**Observable outcomes and where the mechanism lives.** The unit requirements state only the
+outcome; the mechanisms that deliver them are described in this document:
+
+- _Embedded settings_ (`EmbeddedSettings`): assigning `SelectedModel` re-points the hosted
+  `ModelSettingsViewModel` at the model (see "Embedded settings").
+- _Audio-tag hints_ (`AudioTagHints`): projected from the library's `AudioTagCatalog` (see "Audio
+  tag hints").
+- _Prepared-voice and playback reuse, reload on change_ (`EngineSessionReuse`, `SessionReuse`,
+  `EngineReloadOnChange`, `EngineReloadOnModelChange`, `SessionRecreateOnDeviceChange`): the
+  cached engine and session and their lazy comparison (see "Engine/session reuse").
+- _Freed resources on unavailable or faulted synthesizers_ (`UnavailableEngineReleased`,
+  `UnavailableSessionReleased`, `SpeakFaultReleasesSession`, `SessionFaultRecovery`,
+  `StaleSessionEventIgnored`): the unusable engine or session is disposed and never cached, and
+  state events are accepted only from the current session (see "State derivation" and "Error
+  Handling").
+- _Closing the panel_ (`ResourceLifetime`, `EngineLifetime`, `DisposeIdempotent`,
+  `DisposeStopsPlayback`, `DisposeUnsubscribes`, `SynthesisRefreshAfterDispose`): the ordered,
+  repeat-safe `DisposeAsync` sequence described under Key Methods.
+- _Offered models after catalog events_ (`AutoRefreshOnInstall`, `AutoRefreshRoleFilter`,
+  `SynthesisRefresh`, `SynthesisVoiceChoiceKept`): event subscriptions and the capture/restore of
+  the settings value bag (see "Auto-refresh on install" and "Reference voice refresh and notice").
+- _Voice notice_ (`ConsentAndAttribution`, `PackAttribution`, `NoNoticeForOtherModels`): a single
+  `VoiceNotice` string built from the consent note and the installed packs' attributions, `null`
+  for any other model.
+- _Empty catalog_ (`HonestEmptyCatalogState`): `HasModels` is false, nothing is offered or
+  selected, `CanPlay` is false and `NoModelsMessage` is available to the view, which renders it
+  when `HasModels` is false. The recognition panel follows the same convention with its own
+  `NoModelsMessage`, so each panel owns the empty-state explanation for its own role.
+
 **Threading**: Not thread-safe; the panel is used from the UI thread. Catalog events and session
 state changes that may be raised on another thread are marshaled onto the UI context captured at
 construction (or session creation) before they touch presentation state.
