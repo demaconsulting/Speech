@@ -79,7 +79,8 @@ than a stack trace, consistent with the library's own honest-failure convention 
 wave is generated in-CLI by `GenerateToneSamples` - no TTS model is invoked for this command. The tone is a
 sine at an amplitude of 0.2 (well below full scale, so it is audible but not painful), and on a
 multi-channel device every channel carries the same tone (a mono or stereo device plays an identical signal on each
-channel). The tone is written to the device, polling `PendingSampleCount` until playback finishes. The poll is bounded: if the device
+channel). The tone is written to the device, polling `PendingSampleCount` until playback finishes.
+The poll is bounded: if the device
 still has queued samples after the tone duration plus a fixed margin (5 seconds), `PlayTestTone` stops the device and
 throws an `InvalidOperationException` (clean message, non-zero exit code) instead of hanging on a stalled device.
 Durations in the report are formatted with the invariant culture so the text is identical on every machine.

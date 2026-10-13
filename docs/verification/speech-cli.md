@@ -252,7 +252,8 @@ Verifies `Program.Version` returns a non-empty string.
 ### Argument Errors
 
 Context argument-error messages carry no "(Parameter 'x')" suffix (`Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix`,
-`Context_Create_OptionMissingValue_MessageHasNoParameterSuffix`), and `WriteError` restores the console foreground color even
+`Context_Create_OptionMissingValue_MessageHasNoParameterSuffix`), and `WriteError` restores the console
+foreground color even
 when the error writer throws (`Context_WriteError_ErrorWriterThrows_RestoresForegroundColor`).
 
 **Tests**: `Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode`,

@@ -21,7 +21,9 @@ sections:
               - Create_NoPreferredProviders_CreatesWorkingCpuSession
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
-            title: Microsoft.ML.OnnxRuntime shall report an unrecognized execution provider through OnnxRuntimeException.
+            title: >-
+              Microsoft.ML.OnnxRuntime shall report an unrecognized execution provider through
+              OnnxRuntimeException.
             justification: |
               Accelerated providers are optional and machine-dependent; the selector's layered
               fallback relies on an unrecognized provider name surfacing as an

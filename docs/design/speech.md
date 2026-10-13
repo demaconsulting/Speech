@@ -179,8 +179,8 @@ The system exposes the following public API to external consumers:
 | `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` | Single-consumer; flushes before stop |
 | `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
 | `IRecognitionBackend` (implemented by model extensions) | Outbound | Interface | Engine-neutral; managed fakes in CI |
-| `ISynthesisBackend.Generate(...)` (implemented by model extensions) | Outbound | Method call/return | Returns `BackendAudio` |
-| `IModelCapabilityProfile` (implemented by model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
+| `ISynthesisBackend.Generate(...)` (model extensions) | Outbound | Method call/return | Returns `BackendAudio` |
+| `IModelCapabilityProfile` (model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
 | `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
