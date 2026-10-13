@@ -127,27 +127,55 @@ sections:
 
               - id: Speech-Audio-WavDecoder-MalformedChunkRejection
                 title: >-
-                  The WavDecoder class shall reject an image with no data chunk, or with a data chunk
-                  before the fmt chunk, with InvalidDataException.
+                  The WavDecoder class shall reject an image with no data chunk with
+                  InvalidDataException.
                 justification: |
                   Hostile or damaged files must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
                   - WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk
 
+              - id: Speech-Audio-WavDecoder-DataBeforeFmtRejection
+                title: >-
+                  The WavDecoder class shall reject an image with a data chunk before the fmt chunk
+                  with InvalidDataException.
+                justification: |
+                  Audio samples cannot be interpreted before their format is known, so such an
+                  image must fail clearly rather than decode garbage.
+                tests:
+                  - WavDecoder_Decode_MalformedImages_Throw
+
               - id: Speech-Audio-WavDecoder-TruncatedImageRejection
                 title: >-
-                  The WavDecoder class shall reject a truncated fmt or extensible fmt chunk with
+                  The WavDecoder class shall reject a truncated fmt chunk with
                   InvalidDataException.
                 justification: |
                   A cut-off file must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
 
+              - id: Speech-Audio-WavDecoder-TruncatedExtensibleFmtRejection
+                title: >-
+                  The WavDecoder class shall reject a truncated extensible fmt chunk with
+                  InvalidDataException.
+                justification: |
+                  A cut-off extensible header must fail clearly rather than decode garbage.
+                tests:
+                  - WavDecoder_Decode_MalformedImages_Throw
+
               - id: Speech-Audio-WavDecoder-InvalidFormatFieldRejection
                 title: >-
-                  The WavDecoder class shall reject an image with zero channels or a zero sample rate
-                  with InvalidDataException.
+                  The WavDecoder class shall reject an image with zero channels with
+                  InvalidDataException.
+                justification: |
+                  Such a header cannot describe playable audio and must fail clearly.
+                tests:
+                  - WavDecoder_Decode_MalformedImages_Throw
+
+              - id: Speech-Audio-WavDecoder-ZeroSampleRateRejection
+                title: >-
+                  The WavDecoder class shall reject an image with a zero sample rate with
+                  InvalidDataException.
                 justification: |
                   Such a header cannot describe playable audio and must fail clearly.
                 tests:

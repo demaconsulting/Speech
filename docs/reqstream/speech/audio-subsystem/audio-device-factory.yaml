@@ -13,13 +13,40 @@ sections:
             requirements:
               - id: Speech-Audio-AudioDeviceFactory-NeverThrows
                 title: >-
-                  The AudioDeviceFactory class shall never throw when constructed or when
-                  creating a capture or playback device.
+                  The AudioDeviceFactory class shall not throw when constructed with any supported
+                  combination of environment, probes and diagnostics sink, including when the
+                  PortAudio runtime is missing or fails to initialize.
                 justification: |
                   Composition happens at application start-up, where a missing device or backend
                   is an ordinary machine state, not a programming error.
                 tests:
                   - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
+                  - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+
+              - id: Speech-Audio-AudioDeviceFactory-CreateCaptureDeviceNeverThrows
+                title: >-
+                  The AudioDeviceFactory class shall not throw when creating a capture device for
+                  any device selection, including one that names no known device or an empty
+                  name, returning an unavailable device when none can be provided.
+                justification: |
+                  A missing or vanished input device is an ordinary machine state, not a
+                  programming error.
+                tests:
+                  - AudioDeviceFactory_CreateCaptureDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
+                  - AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice
+                  - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
+
+              - id: Speech-Audio-AudioDeviceFactory-CreatePlaybackDeviceNeverThrows
+                title: >-
+                  The AudioDeviceFactory class shall not throw when creating a playback device for
+                  any device selection, including one that names no known device, returning an
+                  unavailable device when none can be provided.
+                justification: |
+                  A missing or vanished output device is an ordinary machine state, not a
+                  programming error.
+                tests:
+                  - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
+                  - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
 
               - id: Speech-Audio-AudioDeviceFactory-InjectableProbes
                 title: >-
@@ -105,19 +132,21 @@ sections:
 
               - id: Speech-Audio-AudioDeviceFactory-RefreshDevices
                 title: >-
-                  The AudioDeviceFactory class shall expose a RefreshDevices() method that
-                  delegates to the environment's Refresh().
+                  The AudioDeviceFactory class shall let a host application re-scan the audio
+                  device table on demand, so newly attached or removed hardware becomes visible
+                  without recomposing the factory.
                 justification: |
                   Audio devices are hot-pluggable; a host application that has already composed
                   an AudioDeviceFactory needs a way to make newly attached or removed hardware
-                  visible without recomposing the whole factory.
+                  visible without recomposing the whole factory. How the re-scan is delegated is
+                  described in the AudioDeviceFactory design document.
                 tests:
                   - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
 
               - id: Speech-Audio-AudioDeviceFactory-RefreshPropagatesInUse
                 title: >-
                   The AudioDeviceFactory class shall propagate AudioDeviceInUseException untouched
-                  from RefreshDevices() when the environment refuses the refresh.
+                  to the caller when the device-table refresh is refused.
                 justification: |
                   A host must see the documented refusal rather than a wrapped or swallowed error
                   so it can retry once the active stream is stopped.
@@ -127,7 +156,7 @@ sections:
               - id: Speech-Audio-AudioDeviceFactory-RefreshReevaluatesDefaultProbes
                 title: >-
                   The AudioDeviceFactory class shall re-evaluate its defaulted probes against
-                  the new initialization outcome when RefreshDevices() succeeds.
+                  the new initialization outcome when a device-table refresh succeeds.
                 justification: |
                   A refresh that makes PortAudio newly available must be reflected by the
                   default probes.
@@ -137,7 +166,7 @@ sections:
               - id: Speech-Audio-AudioDeviceFactory-RefreshPreservesInjectedProbes
                 title: >-
                   The AudioDeviceFactory class shall keep a probe injected at construction
-                  unchanged when RefreshDevices() succeeds.
+                  unchanged when a device-table refresh succeeds.
                 justification: |
                   A caller who explicitly supplied a probe (for example, a test double) did so
                   deliberately; this is consistent with the factory's general policy of never

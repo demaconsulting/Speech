@@ -11,8 +11,9 @@ the values requested when the playback stream is opened: either the resolved dev
 default/full-capacity format, or the caller-preferred format with channel count clamped down to
 device capability and sample rate negotiated against the device/host API's actual capability. They
 report `0` when nothing was resolved. The resolved device metadata also captures the
-environment's `Generation` at the moment resolution succeeded, so `Start()` can detect a later
-`PortAudioEnvironment.Refresh()`. The stream is opened with a callback block size of
+environment's `Generation` immediately before the device-table query begins (not after
+resolution succeeds), so `Start()` detects a `PortAudioEnvironment.Refresh()` that occurred at
+any point during or after resolution. The stream is opened with a callback block size of
 `FramesPerBuffer` (`0`, letting the host API choose).
 
 A `ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one enqueue per
@@ -48,8 +49,8 @@ likewise retained and played by the next `Start()`.
   actual capability via `IPortAudioApi.IsPlaybackFormatSupported`, honoring it only when
   confirmed openable and otherwise falling back to the device's own default sample rate with an
   Info-level diagnostic, and clamps any preferred channel count down to the device's maximum
-  output-channel capability. Captures the environment's current `Generation` alongside the
-  resolved device metadata. The only exception is `ArgumentNullException` for a null
+  output-channel capability. Captures the environment's `Generation` before querying the device
+  table and stores it alongside the resolved device metadata. The only exception is `ArgumentNullException` for a null
   environment: a fault raised by the native device-table queries is contained, reported as an
   Error-level diagnostic, and leaves the device unresolved (unavailable).
 - **Start()**: Atomically validates the resolved device's captured `Generation` against the

@@ -4,7 +4,9 @@
 devices and their enumeration probes.
 
 **Data Model**: `CaptureProbe` and `PlaybackProbe` hold the public probe implementations exposed
-by the factory. A private `_environment` field tracks whether PortAudio initialized
+by the factory. Private `_captureProbeIsExplicit` and `_playbackProbeIsExplicit` flags record
+whether each probe was injected at construction, so a refresh never replaces an injected probe. A
+private `_environment` field tracks whether PortAudio initialized
 successfully, and `_diagnostics` records structural selection and fallback events.
 
 **Key Methods**:

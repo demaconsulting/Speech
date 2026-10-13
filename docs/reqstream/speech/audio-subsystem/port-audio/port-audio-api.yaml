@@ -15,11 +15,13 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
                     title: >-
-                      The PortAudioApi class shall bridge PortAudioSharp2-managed calls and the
-                      supplementary native host-API bindings behind the IPortAudioApi seam.
+                      The PortAudioApi class shall give the audio-device layer a single managed
+                      entry point to the native PortAudio runtime, including the host-API queries
+                      that the PortAudio managed bindings do not provide.
                     justification: |
-                      The public audio-device layer must consume one coherent managed adapter,
-                      not a mixture of direct PortAudioSharp2 and raw P/Invoke calls.
+                      The public audio-device layer must consume one coherent adapter, not a
+                      mixture of separate managed-binding and raw native calls. How the adapter
+                      combines the two call paths is described in the PortAudio design document.
                     tests:
                       - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
                       - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance

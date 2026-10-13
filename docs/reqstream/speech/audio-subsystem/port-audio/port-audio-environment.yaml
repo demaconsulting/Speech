@@ -22,9 +22,9 @@ sections:
                       The higher-level audio subsystem relies on deterministic host-API
                       selection to avoid duplicate device listings.
                     tests:
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                      - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                      - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                      - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
                       - PortAudioEnvironment_ResolvePreferredHostApiType_UnsupportedPlatform_ReturnsNull
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
@@ -52,9 +52,10 @@ sections:
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-Refresh
                     title: >-
-                      The PortAudioEnvironment class shall expose an internal Refresh() method
-                      that reinitializes the native runtime (terminating it first only if it was
-                      previously initialized) and reflects a new initialization outcome.
+                      The PortAudioEnvironment class shall let the device table be re-scanned on
+                      demand: a refresh reinitializes the native runtime (terminating it first
+                      only if it was previously initialized) and reflects the new initialization
+                      outcome.
                     justification: |
                       Audio devices are hot-pluggable; the device table must be re-scannable on
                       demand, which requires reinitializing the native runtime and picking up a
@@ -67,43 +68,42 @@ sections:
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
                     title: >-
-                      The PortAudioEnvironment class shall refuse Refresh() with
+                      The PortAudioEnvironment class shall refuse a refresh with
                       AudioDeviceInUseException, without terminating the native runtime, while any
                       registered capture/playback device currently has an active stream.
                     justification: |
                       Refreshing under a live stream would silently tear down audio that is
-                      playing or recording; the refusal is driven by the environment's own
-                      RegisterActiveStream()/UnregisterActiveStream() members.
+                      playing or recording. The registration members that drive the refusal are
+                      described in the PortAudio design document.
                     tests:
                       - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
                       - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
                     title: >-
-                      The PortAudioEnvironment class shall advance an internal generation counter
-                      exactly once for every refresh that actually proceeds, and not for one
-                      refused via AudioDeviceInUseException.
+                      The PortAudioEnvironment class shall let a device detect that a refresh has
+                      invalidated the device table it was resolved against: every refresh that
+                      proceeds is observable as a change, and a refresh refused via
+                      AudioDeviceInUseException is not.
                     justification: |
-                      The generation counter is what lets PortAudioCaptureDevice/
-                      PortAudioPlaybackDevice detect that they were resolved before a refresh
-                      invalidated the device table (see
-                      Speech-Audio-DeviceRefreshInvalidation).
+                      Capture and playback devices must detect that they were resolved before a
+                      refresh invalidated the device table (see
+                      Speech-Audio-DeviceRefreshInvalidation). The change-detection mechanism is
+                      described in the PortAudio design document.
                     tests:
                       - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
                       - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-SerializedInitializationEvaluation
                     title: >-
-                      The PortAudioEnvironment class shall serialize every evaluation of its
-                      cached initialization state with Refresh() under the same lock, so a
-                      concurrent first evaluation can never race Refresh() into an unbalanced
-                      Initialize()/Terminate() pair.
+                      The PortAudioEnvironment class shall give concurrent callers that read its
+                      initialization state while a refresh runs a consistent outcome, and shall
+                      keep native initialization and termination balanced.
                     justification: |
-                      IsInitialized and InitializationFailureMessage previously read the backing
-                      Lazy's Value directly, unsynchronized with Refresh()'s lock. A first
-                      evaluation racing a concurrent Refresh() could observe or produce an
-                      inconsistent initialization outcome, or cause Initialize()/Terminate() to
-                      be invoked an unbalanced number of times relative to each other. Acquiring
-                      the same lock around every read closes that race.
+                      An initialization-state read racing a concurrent refresh could previously
+                      observe or produce an inconsistent initialization outcome, or cause the
+                      native runtime to be initialized and terminated an unbalanced number of
+                      times. The serialization mechanism is described in the PortAudio design
+                      document.
                     tests:
                       - PortAudioEnvironment_IsInitialized_ConcurrentWithRefresh_SerializesAndPreservesInitializeTerminateBalance

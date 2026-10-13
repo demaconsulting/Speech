@@ -36,17 +36,19 @@ sections:
                       The runtime host-API index is machine-specific, so the platform policy must
                       begin from PortAudio's stable host-API type identifiers.
                     tests:
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                      - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                      - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                      - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
                     title: >-
-                      The PortAudioNativeMethods type shall expose the native host-API functions
-                      missing from PortAudioSharp2 so the subsystem can resolve preferred host APIs.
+                      The PortAudio supporting types shall provide host-API metadata, so the
+                      subsystem can resolve the preferred host API even though the PortAudio
+                      managed bindings expose device enumeration but not host-API enumeration.
                     justification: |
-                      PortAudioSharp2 exposes device enumeration but not host-API enumeration,
-                      leaving a gap the library must bridge itself.
+                      The managed bindings expose device enumeration but not host-API
+                      enumeration, leaving a gap the library must bridge itself. The native
+                      binding mechanism is described in the PortAudio design document.
                     tests:
                       - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                       - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

@@ -14,11 +14,14 @@ sections:
             requirements:
               - id: Speech-Audio-PortAudio-Seam
                 title: >-
-                  The PortAudio subsystem shall isolate native PortAudio interop behind a
-                  mockable managed seam.
+                  The PortAudio subsystem shall allow host-API selection, device enumeration and
+                  stream behavior to run against a substitute audio runtime, so that they operate
+                  without the native PortAudio library or any audio hardware.
                 justification: |
                   CI cannot assume access to audio hardware, so host-API selection and stream
                   lifecycle logic must be verifiable using fakes instead of the real runtime.
+                  The mechanism (a managed abstraction in front of the native runtime) is
+                  described in the PortAudio design document.
                 children:
                   - Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                   - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
@@ -45,9 +48,9 @@ sections:
                   - Speech-Audio-PortAudio-PortAudioEnvironment-PlatformMapping
                   - Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
                 tests:
-                  - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-                  - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-                  - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                  - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                  - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                  - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
 
               - id: Speech-Audio-PortAudio-HostApiIndexResolution
                 title: >-

@@ -36,13 +36,15 @@ sections:
 
               - id: Speech-Audio-AudioResampler-Resample
                 title: >-
-                  The AudioResampler class shall resample mono audio between sample rates with a windowed-sinc
-                  filter that preserves duration (within one sample) and tone content (within 0.02 of the
-                  ideal tone away from the clip edges).
+                  The AudioResampler class shall resample mono audio between sample rates while
+                  preserving duration (within one sample) and tone content (within 0.02 of the
+                  ideal tone away from the clip edges), without introducing aliasing.
                 justification: |
                   Models need audio at a fixed rate; band-limited interpolation avoids aliasing.
+                  The filtering technique is described in the AudioResampler design document.
                 tests:
                   - AudioResampler_Resample_ChangesRateKeepingTone
+                  - AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel
                   - AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges
 
               - id: Speech-Audio-AudioResampler-ResampleEqualRates
@@ -65,10 +67,19 @@ sections:
 
               - id: Speech-Audio-AudioResampler-ToMonoResampled
                 title: >-
-                  The AudioResampler class shall combine down-mixing and resampling of an AudioClip
-                  into a mono array at a target rate.
+                  The AudioResampler class shall convert an AudioClip into a mono sample array.
                 justification: |
                   The common model-input preparation is one call.
+                tests:
+                  - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampledTargetRate
+                title: >-
+                  The AudioResampler class shall deliver the mono sample array of a clip
+                  conversion at the requested target rate.
+                justification: |
+                  Models need audio at a fixed rate, so the conversion must land on the rate the
+                  caller asks for.
                 tests:
                   - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate
 

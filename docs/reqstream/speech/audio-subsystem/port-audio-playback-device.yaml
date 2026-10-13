@@ -146,25 +146,49 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
                 title: >-
                   The PortAudioPlaybackDevice class shall surface a native stream-start failure
-                  as AudioDeviceUnavailableException wrapping the original failure, disposing
-                  the opened stream.
+                  as AudioDeviceUnavailableException wrapping the original failure.
                 justification: |
-                  A stream that opened but could not start must not leak, and the original
-                  failure rather than a cleanup fault must reach the caller.
+                  The original failure rather than a cleanup fault must reach the caller.
                 tests:
                   - PortAudioPlaybackDevice_Start_NativeStreamStartFails_DisposesStreamAndReleasesRegistration
                   - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
 
+              - id: Speech-Audio-PortAudioPlaybackDevice-StartFailureDisposesStream
+                title: >-
+                  The PortAudioPlaybackDevice class shall dispose the opened stream when a native
+                  stream-start failure occurs.
+                justification: |
+                  A stream that opened but could not start must not leak.
+                tests:
+                  - PortAudioPlaybackDevice_Start_NativeStreamStartFails_DisposesStreamAndReleasesRegistration
+
               - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
                 title: >-
                   The PortAudioPlaybackDevice class shall surface a native stream-stop failure as
-                  AudioDeviceUnavailableException wrapping the original failure, still disposing
-                  the stream and logging, not throwing, any dispose fault that follows.
+                  AudioDeviceUnavailableException wrapping the original failure.
                 justification: |
                   Shutdown faults must not escape as arbitrary interop exceptions, and the
                   primary stop failure must remain visible to the caller.
                 tests:
                   - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureStillDisposesStream
+                title: >-
+                  The PortAudioPlaybackDevice class shall still dispose the stream when a native
+                  stream-stop failure occurs.
+                justification: |
+                  A failed stop must not leak the native stream.
+                tests:
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureDisposeFaultLogged
+                title: >-
+                  The PortAudioPlaybackDevice class shall log, and not throw, a stream-dispose
+                  fault that follows a native stream-stop failure.
+                justification: |
+                  The primary stop failure must remain the exception the caller sees.
+                tests:
                   - PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure
 
               - id: Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable

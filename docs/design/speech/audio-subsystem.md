@@ -62,7 +62,8 @@ The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`,
 Diagnostics subsystem to report structural selection, start/stop, and fallback facts without
 ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a
 narrow plain-data dependency for model format declarations, rather than duplicating another
-format type there.
+format type there. `AudioResampler` is also consumed by the Synthesis subsystem's
+`ChatterboxTurboReferenceVoice` to convert reference-voice audio to the model's sample rate.
 
 ### Design
 

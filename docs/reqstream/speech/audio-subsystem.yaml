@@ -68,8 +68,24 @@ sections:
               active (see Speech-Audio-DeviceRefreshRefusal).
             children:
               - Speech-Audio-AudioDeviceFactory-NeverThrows
+              - Speech-Audio-AudioDeviceFactory-CreateCaptureDeviceNeverThrows
+              - Speech-Audio-AudioDeviceFactory-CreatePlaybackDeviceNeverThrows
             tests:
               - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
+
+          - id: Speech-Audio-InitializationFallback
+            title: >-
+              The AudioSubsystem shall provide unavailable capture and playback devices and
+              probes when the PortAudio runtime cannot initialize.
+            justification: |
+              A machine missing compatible native audio support is an expected deployment state
+              that must not break composition. This subsystem requirement decomposes the
+              system-level initialization-failure requirement onto the factory behavior.
+            children:
+              - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+            tests:
+              - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+              - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
 
           - id: Speech-Audio-FormatValue
             title: >-
@@ -194,7 +210,10 @@ sections:
               - Speech-Audio-PortAudioPlaybackDevice-UnderrunZeroFill
               - Speech-Audio-PortAudioPlaybackDevice-OpenFailureThrowsUnavailable
               - Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StartFailureDisposesStream
               - Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureStillDisposesStream
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureDisposeFaultLogged
               - Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
               - Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
@@ -260,18 +279,19 @@ sections:
 
           - id: Speech-Audio-PortAudioInterop
             title: >-
-              The AudioSubsystem shall isolate PortAudio interop behind a mockable internal seam
-              so host-API selection and device-resolution logic can be unit tested without real
-              audio hardware.
+              The AudioSubsystem shall allow host-API selection and device-resolution logic to be
+              exercised without real audio hardware or the native PortAudio library.
             justification: |
               CI cannot assume access to a microphone or speaker, so PortAudio selection and
-              degradation logic must be verifiable in pure managed tests.
+              degradation logic must be verifiable in pure managed tests. The isolation
+              mechanism is described in the AudioSubsystem design document.
             children:
               - Speech-Audio-PortAudio-Seam
             tests:
-              - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-              - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-              - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+              - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+              - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+              - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+              - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
               - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
 
           - id: Speech-Audio-CaptureFormatDisclosure
@@ -428,6 +448,7 @@ sections:
               - Speech-Audio-AudioFileReader-VerifyChecksums
               - Speech-Audio-AudioFileReader-VerifyChecksumsOptOut
               - Speech-Audio-AudioFileReader-ReadMono
+              - Speech-Audio-AudioFileReader-ReadMonoDownMix
               - Speech-Audio-AudioClip-DerivedMembers
               - Speech-Audio-AudioClip-ToMono
               - Speech-Audio-AudioClip-ToPcm16
@@ -450,8 +471,11 @@ sections:
               - Speech-Audio-WavDecoder-MultichannelOrder
               - Speech-Audio-WavDecoder-UnsupportedEncodingRejection
               - Speech-Audio-WavDecoder-MalformedChunkRejection
+              - Speech-Audio-WavDecoder-DataBeforeFmtRejection
               - Speech-Audio-WavDecoder-TruncatedImageRejection
+              - Speech-Audio-WavDecoder-TruncatedExtensibleFmtRejection
               - Speech-Audio-WavDecoder-InvalidFormatFieldRejection
+              - Speech-Audio-WavDecoder-ZeroSampleRateRejection
               - Speech-Audio-WavDecoder-SampleRateRangeRejection
               - Speech-Audio-WavDecoder-NonWavRejection
               - Speech-Audio-WavDecoder-SampleCap
@@ -462,7 +486,10 @@ sections:
               - Speech-Audio-FlacDecoder-BitDepths
               - Speech-Audio-FlacDecoder-LibFlacFixtures
               - Speech-Audio-FlacDecoder-HeaderCodes
+              - Speech-Audio-FlacDecoder-BlockSizeCodes
+              - Speech-Audio-FlacDecoder-MultiByteFrameNumbers
               - Speech-Audio-FlacDecoder-ContainerLayouts
+              - Speech-Audio-FlacDecoder-Id3Prefix
               - Speech-Audio-FlacDecoder-UnknownLength
               - Speech-Audio-FlacDecoder-MarkerDetection
               - Speech-Audio-FlacDecoder-Integrity
@@ -492,6 +519,7 @@ sections:
               - Speech-Audio-AudioResampler-ResampleEqualRates
               - Speech-Audio-AudioResampler-ResampleRateValidation
               - Speech-Audio-AudioResampler-ToMonoResampled
+              - Speech-Audio-AudioResampler-ToMonoResampledTargetRate
               - Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
               - Speech-Audio-AudioResampler-ToMonoResampledNullClip
               - Speech-Audio-AudioResampler-ToMonoResampledRateValidation

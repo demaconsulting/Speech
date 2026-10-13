@@ -67,23 +67,42 @@ sections:
 
               - id: Speech-Audio-FlacDecoder-HeaderCodes
                 title: >-
-                  The FlacDecoder shall handle every sample-rate and block-size header code and
-                  multi-byte frame numbers.
+                  The FlacDecoder shall handle every sample-rate header code.
                 justification: |
-                  Real FLAC files vary in the header codes their encoders choose.
+                  Real FLAC files vary in the sample-rate codes their encoders choose.
                 tests:
                   - FlacDecoder_Decode_SampleRateCodes_ReportRate
+
+              - id: Speech-Audio-FlacDecoder-BlockSizeCodes
+                title: >-
+                  The FlacDecoder shall handle every block-size header code.
+                justification: |
+                  Real FLAC files vary in the block-size codes their encoders choose.
+                tests:
                   - FlacDecoder_Decode_BlockSizeCodes_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-MultiByteFrameNumbers
+                title: >-
+                  The FlacDecoder shall handle multi-byte frame numbers.
+                justification: |
+                  Files with many frames encode frame numbers in more than one byte.
+                tests:
                   - FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers
 
               - id: Speech-Audio-FlacDecoder-ContainerLayouts
                 title: >-
-                  The FlacDecoder shall handle up to eight channels, ID3v2 prefixes and extra metadata
-                  blocks.
+                  The FlacDecoder shall handle up to eight channels and extra metadata blocks.
                 justification: |
                   Real FLAC files vary in container layout.
                 tests:
                   - FlacDecoder_Decode_ContainerVariants_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-Id3Prefix
+                title: >-
+                  The FlacDecoder shall handle an ID3v2 prefix before the FLAC stream.
+                justification: |
+                  Tagged files commonly carry an ID3v2 prefix ahead of the FLAC marker.
+                tests:
                   - FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader
 
               - id: Speech-Audio-FlacDecoder-UnknownLength

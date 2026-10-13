@@ -13,8 +13,9 @@ generated sine tones, comparing resampled output with the ideal tone at the outp
 #### Acceptance Criteria
 
 Down-mix averages channels and drops a trailing partial frame, resampling preserves duration and
-tone within 0.02 of full scale, equal rates copy, extreme down-sampling of a constant signal keeps
-unity gain, and invalid arguments (null clip, non-positive rate or channel count) throw.
+tone within 0.02 of full scale, equal rates copy, down-sampling of a constant signal preserves its
+level (and extreme down-sampling keeps unity gain), and invalid arguments (null clip, non-positive
+rate or channel count) throw.
 
 #### Test Scenarios
 
@@ -55,6 +56,13 @@ validation is covered by the dedicated scenario below.
 **Test**: `AudioResampler_Resample_NonPositiveRates_Throw`
 
 **Expected**: A source or target rate of 0 throws `ArgumentOutOfRangeException`.
+
+##### Down-sampling preserves the level of a constant signal
+
+**Test**: `AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel`
+
+**Expected**: A constant 0.5 signal at 16000 Hz resampled to 8000 Hz yields output whose samples in
+the middle half all equal 0.5 within 0.001.
 
 ##### Extreme down-sampling keeps unity gain
 
