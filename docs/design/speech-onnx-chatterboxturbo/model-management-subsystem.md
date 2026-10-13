@@ -68,12 +68,14 @@ byte-level BPE models.
 
 `ChatterboxTurboReferenceVoice` is created from samples, a WAV or FLAC file, or lazily from a file. It
 down-mixes channels by averaging, resamples to 24 kHz with the core `AudioResampler`, rejects clips
-shorter than a minimum useful length and trims clips longer than the maximum.
+shorter than 1 second and trims clips longer than 30 seconds (see the reference-voice unit design).
 
 ### Error Handling
 
 Argument errors throw `ArgumentException`-family exceptions (duplicate explicit or directory voice ids and
-undefined variants included). A null catalog throws `ArgumentNullException`; a missing voice directory throws
+undefined variants included). A null catalog or null voice list throws `ArgumentNullException`; an option
+value outside its range (for example a mood join silence above the maximum) throws
+`ArgumentOutOfRangeException`; a missing voice directory throws
 `DirectoryNotFoundException`. Unreadable files throw
 `FileNotFoundException`; malformed or unsupported WAV or FLAC data throws `InvalidDataException` or
 `NotSupportedException`, and a damaged library or directory voice fails only when first used, with an
@@ -83,5 +85,7 @@ missing model file.
 
 ### Dependencies
 
-The Speech library's public model contracts, `Microsoft.ML.OnnxRuntime` (through the networks unit),
+The Speech library's public model contracts, the `ChatterboxTurboCapabilityProfile` of the Synthesis
+subsystem (the model class supplies it, together with its license, 24 kHz output, native audio-tag support
+and mood tags), `Microsoft.ML.OnnxRuntime` (through the networks unit),
 `System.Text.Json` and `System.IO.Compression`.

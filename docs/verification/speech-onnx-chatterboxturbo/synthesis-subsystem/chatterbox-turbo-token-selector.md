@@ -56,8 +56,9 @@ throw `ArgumentException`) and `ChatterboxTurboTokenSelector_Select_NullHistory_
 ##### Non-finite logits terminate
 
 **Tests**: `ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId` (three NaN logits: id 0),
-`..._AllNegativeInfinity_ReturnsLowestUnblockedId` (three negative-infinity logits with id 0 blocked: id 1)
-and `..._NaNAmongRealScores_IsNeverChosen` (`[NaN, -5, NaN]`: id 1).
+`ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId` (three negative-infinity
+logits with id 0 blocked: id 1)
+and `ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen` (`[NaN, -5, NaN]`: id 1).
 
 ##### A blocked token is skipped
 

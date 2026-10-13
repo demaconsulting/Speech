@@ -50,7 +50,8 @@ directory. The system tests share the non-parallel collection used by the other 
 
 A system-level run passes when every scenario below passes and every subsystem suite passes with
 no network access. The automated boundary is honest: real-model intelligibility is a manual
-pre-release check. The registration extension's `AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
+pre-release check. The registration extension's
+`SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
 is owned by the extension unit's verification document, not by a system scenario.
 
 ## Test Scenarios

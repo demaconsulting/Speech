@@ -75,8 +75,7 @@ the one model instance and returns the same catalog. The model lists explicit, d
 
 **Model install path:** Speech's downloader fetches and checksum-verifies the files of the selected
 precision variants (the file list is defined by the model's download descriptor) directly into the install
-directory; no extraction step is
-needed.
+directory; no extraction step is needed.
 
 **Backend construction path:** `CreateBackend` verifies the files exist, opens the four ONNX
 sessions, constructs the tokenizer and engine, and returns the engine; failures dispose any
