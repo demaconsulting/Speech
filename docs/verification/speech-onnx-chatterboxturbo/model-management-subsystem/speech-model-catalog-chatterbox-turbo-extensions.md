@@ -35,9 +35,19 @@ variants and voices named by the options are reflected by the registered model.
 This unit owns the verification of that test; the model unit and subsystem documents refer to it only by
 description.
 
-##### Variants and voices from the options are composed
+##### Variants from the options are composed
 
-**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed`
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed`
 
-An Fp32 language model with Fp16 auxiliary graphs and two explicit voices registers a model whose id names
-that variant, whose descriptor lists eight files and whose voice choice offers exactly those voices.
+An Fp32 language model with Fp16 auxiliary graphs registers a model whose id names that variant and whose
+descriptor lists eight files.
+
+##### Explicit voices from the options are composed
+
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_ExplicitVoices_AreComposed`
+
+The registered model's voice choice offers exactly the supplied voices.
+
+##### The caller's options are not mutated
+
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_OptionsObject_IsNotMutated`

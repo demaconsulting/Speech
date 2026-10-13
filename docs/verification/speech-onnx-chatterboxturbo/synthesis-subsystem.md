@@ -31,9 +31,29 @@ segmentation in the capability profile.
 
 ### Test Scenarios
 
-See the unit verification documents: `onnx-chatterboxturbo-synthesis-engine.md`,
+The subsystem is exercised through its two collaborating units, the engine and the capability profile,
+with the networks replaced at the `IChatterboxTurboNetworks` seam. Each scenario below is mapped to the
+subsystem requirement it demonstrates; no scenario links requirements across levels.
+
+- **Seams**: `IChatterboxTurboNetworks` and `IChatterboxTurboLanguageModelState` (the engine's boundary to
+  the four graphs); the public `IModelCapabilityProfile` (the renderer's boundary).
+- **Fixtures**: a scripted fake networks object that returns programmed logits and records the
+  prompt, decoder input and call counts; synthetic ONNX graphs for the networks unit; in-memory reference
+  voices with and without mood clips.
+- **Boundary mocks**: the fake networks object replaces the ONNX Runtime sessions; no model files, network
+  or audio hardware are used.
+- **Acceptance**: every mapped scenario passes with the documented observable outcome (audio, flags,
+  rendered segments or a rejected argument).
+
+Detailed per-unit procedures are in the unit verification documents: `onnx-chatterboxturbo-synthesis-engine.md`,
 `onnx-chatterboxturbo-networks.md`, `chatterbox-turbo-conditioning.md`, `chatterbox-turbo-token-selector.md` and
 `chatterbox-turbo-capability-profile.md`.
+
+#### Manual verification (informational)
+
+That the real model produces audible, intelligible speech cannot be judged by an automated test. A
+maintainer listens to output from the real installed model before each release. The automated suites only
+assert non-empty, finite, 24 kHz audio. This check is not a requirement test.
 
 #### Integration evidence
 
@@ -44,6 +64,19 @@ tests in `SpeechOnnxChatterboxTurboTests.cs`. Both live outside this subsystem's
 
 #### Requirement-to-scenario map
 
+- **OnnxBackend, OnnxBackendSampleRate**:
+  `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`;
+  `OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz`
+- **MoodConditioning, MoodFallback**: _Mood conditioning_; _Mood fallback to the base clip_
+- **MoodTags, MoodSeamSilence**: _Tag rendering and mood join silence_
+- **TagProfile, TagBetweenSentences, TagOnlyChunk**: _Tag rendering and mood join silence_;
+  `ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence`;
+  `ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit`
+- **GenerationBounds, GenerationProportionalBound, GenerationTruncation, GenerationNoException**:
+  _Runaway generation is truncated, not failed_
+- **VoiceCaching, VoiceConditioning**:
+  `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`;
+  _Voice fallback for an unknown speaker id_
 - **MoodMarkerOnlyText**:
   `OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio`
 - **MoodMarkerHiding, MoodMarkerCallerSupplied**: _Mood conditioning_;

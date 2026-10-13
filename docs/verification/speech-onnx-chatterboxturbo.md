@@ -202,3 +202,44 @@ options and assertion; no scenario's evidence depends on another's.
 
 With a language model that never emits end-of-speech, every segment contains exactly the prompt, the
 maximum number of generated tokens and the trailing silence, and no exception is thrown.
+
+### Native tags stay inside the sentence
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_ThroatClearAndGaspStayInsideSentence`
+
+A theory over the throat-clear and gasp tags: each stays within its sentence rather than becoming a
+separate segment.
+
+### Pause tags become fixed silence
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_PauseIsFixedSilence`
+
+A theory over the short and long pause tags: each yields silence of the documented fixed length (300 ms and
+900 ms).
+
+### Every unsupported tag is omitted
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_EveryUnsupportedTagIsOmitted`
+
+A theory over the ten unsupported tags: none leaves bracketed text or audio of its own in the output.
+
+### The end-of-sentence tag policy is honored
+
+**Tests**: `SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_SuffixAndStripRenderDistinctly` and
+`SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_UndefinedValue_IsRejected`
+
+The suffix and strip policies produce different output for the same text, and an undefined policy value is
+rejected.
+
+### The configured bound sets the generated token count
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_ConfiguredBoundSetsGeneratedTokenCount`
+
+### A damaged store clip fails at first use naming the file
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipFailsAtFirstUseNamingFile`
+
+### Manual verification (informational)
+
+That the real model's output is audible, intelligible speech is checked by a maintainer listening before a
+release. The automated real-backend test asserts only non-empty, finite, 24 kHz audio.

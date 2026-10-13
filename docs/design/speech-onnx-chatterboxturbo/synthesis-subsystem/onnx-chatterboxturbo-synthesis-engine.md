@@ -3,8 +3,10 @@
 **Purpose**: The `ISynthesisBackend` implementation for Chatterbox Turbo. It assembles the language
 model prompt, runs the bounded autoregressive loop and decodes the speech tokens into audio.
 
-**Data Model**: The injected `IChatterboxTurboNetworks`, tokenizer, voices and bounds, plus a
-cache of `ChatterboxTurboConditioning` per (voice, mood) computed on first use. Constants: output rate
+**Data Model**: The injected `IChatterboxTurboNetworks`, tokenizer, a private snapshot of the voice list
+(copied at construction, so later changes to the caller's list do not affect the engine) and bounds, plus a
+cache of `ChatterboxTurboConditioning` per (voice, mood) computed on first use. The conditioning is an
+immutable copying value, so cached instances are shared safely across utterances. Constants: output rate
 24000 Hz, start token 6561 (never embedded), stop token 6562, silence token 4299 (appended three
 times to the decoder input) and embedding size 1024.
 
@@ -53,7 +55,8 @@ arguments (configured values); their defaults (1024, 25 and 12) belong to `Chatt
 (they run one at a time); `Dispose` may be called from another thread.
 
 **Error Handling**: null and invalid constructor arguments throw argument exceptions (a non-finite
-`maxAudioTokensPerTextToken` throws `ArgumentOutOfRangeException`); null text throws
+`maxAudioTokensPerTextToken` throws `ArgumentOutOfRangeException`; a null voice list throws
+`ArgumentNullException`); null text throws
 `ArgumentNullException`; runtime failures from the networks propagate.
 
 **Dependencies**: `IChatterboxTurboNetworks`, `ByteLevelBpeTokenizer`, `ChatterboxTurboTokenSelector`,

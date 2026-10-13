@@ -41,7 +41,8 @@ documented exceptions.
 
 ##### Invalid arguments throw
 
-**Tests**: `ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw` and
+**Tests**: `ChatterboxTurboReferenceVoice_FromSamples_NullOrBlankArguments_Throw`,
+`ChatterboxTurboReferenceVoice_FromSamples_NonPositiveRateOrChannels_Throw` and
 `ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw`
 
 ##### PCM16 WAV loads
@@ -60,9 +61,11 @@ documented exceptions.
 
 **Test**: `ChatterboxTurboReferenceVoice_FromFile_Flac_LoadsVoice`
 
-##### Bad files throw distinct exceptions
+##### Bad files fail with an identifying error
 
-**Test**: `ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions`
+**Tests**: `ChatterboxTurboReferenceVoice_FromFile_MissingFile_ThrowsFileNotFound`,
+`ChatterboxTurboReferenceVoice_FromFile_UnsupportedEncoding_ThrowsNotSupported` and
+`ChatterboxTurboReferenceVoice_FromFile_NonAudioFile_ThrowsInvalidData`
 
 ##### Lazy file voices defer decoding
 

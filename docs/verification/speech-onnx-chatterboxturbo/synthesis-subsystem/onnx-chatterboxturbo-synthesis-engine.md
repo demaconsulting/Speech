@@ -111,7 +111,13 @@ dispose has not completed. Releasing the step lets the generation stop at its ne
 
 ##### Invalid constructor arguments throw
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw`
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw`
+
+##### The voice list is snapshotted
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_VoiceListMutatedAfterConstruction_UsesSnapshot`
+
+Changing the caller's voice list after construction does not change which voices the engine speaks with.
 
 ##### Null text throws
 

@@ -4,25 +4,27 @@
 once per (voice, mood) and reuses it for every utterance spoken with that clip, so the expensive encoder
 graph never runs twice for the same clip.
 
-**Data Model**: An internal sealed record with six fields:
+**Data Model**: An internal sealed class with immutable state, constructed from six values. The
+constructor copies every array it receives, so the caller's arrays can change afterwards without
+affecting the instance, and each array property exposes the copy as `ReadOnlyMemory<T>` so consumers
+cannot modify it:
 
-- `ConditioningEmbeddings` (`float[]`): the flattened conditioning embeddings, `ConditioningLength` x
-  embedding size, prepended to the text embeddings of the language-model prompt
+- `ConditioningEmbeddings` (`ReadOnlyMemory<float>`): the flattened conditioning embeddings,
+  `ConditioningLength` x embedding size, prepended to the text embeddings of the language-model prompt
 - `ConditioningLength` (`int`): the number of conditioning positions
-- `PromptTokens` (`long[]`): the speech prompt tokens that open the decoder input
-- `SpeakerEmbeddings` (`float[]`): the flattened speaker embedding vector given to the decoder
-- `SpeakerFeatures` (`float[]`): the flattened speaker feature frames given to the decoder
+- `PromptTokens` (`ReadOnlyMemory<long>`): the speech prompt tokens that open the decoder input
+- `SpeakerEmbeddings` (`ReadOnlyMemory<float>`): the flattened speaker embedding vector given to the decoder
+- `SpeakerFeatures` (`ReadOnlyMemory<float>`): the flattened speaker feature frames given to the decoder
 - `SpeakerFeatureFrames` (`int`): the number of speaker feature frames
 
-**Key Methods**: N/A - the unit is a pure data record with value-style construction and `with`
-copying. It holds no behavior and validates nothing, because the only producer is
-`OnnxChatterboxTurboNetworks.Encode`, which builds it from the encoder graph's outputs.
+**Key Methods**: The constructor `(conditioningEmbeddings, conditioningLength, promptTokens,
+speakerEmbeddings, speakerFeatures, speakerFeatureFrames)` takes the six values above, rejects a null
+array, and stores copies. There are no other methods. The only producer is
+`OnnxChatterboxTurboNetworks.Encode`, which builds the instance from the encoder graph's outputs.
 
-**Error Handling**: N/A - construction never throws. The record is only shallowly immutable (the
-properties cannot be reassigned, but the arrays are shared by reference), so it is treated as
-read-only: no consumer modifies the arrays after construction, which makes one instance safely
-shareable across utterances.
-
+**Error Handling**: `ArgumentNullException` for a null array argument; nothing else is validated. Because
+the state is copied on construction and exposed read-only, one instance is safely shareable across
+utterances and threads.
 **Dependencies**: N/A - the record uses no other unit, subsystem, OTS item or shared package.
 
 **Callers**: `OnnxChatterboxTurboNetworks` (`Encode` produces it and `Decode` consumes it through

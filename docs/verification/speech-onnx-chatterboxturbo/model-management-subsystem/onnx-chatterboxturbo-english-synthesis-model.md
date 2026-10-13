@@ -82,11 +82,27 @@ exactly the selected files were loaded.
 The test also builds a backend from a synthetic install and asserts that generating with the damaged voice
 throws `InvalidDataException` naming the file.
 
-##### Duplicate explicit or directory voice ids are rejected
+##### Duplicate explicit ids are rejected
 
-**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException`,
-`OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException`
-and `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException`
+
+##### Duplicate directory voice ids are rejected
+
+**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException`,
+`OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException`
+
+##### Repeated library label clashes get unique labels
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_RepeatedLabelClashes_AssignsUniqueLabels`
+
+Several library voices sharing one display name receive numbered source suffixes, so every label in the voice
+list is unique.
+
+##### A damaged store clip fails at first use only
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Generate_CorruptStoreVoice_FailsAtFirstUseNamingFileAndOtherVoiceWorks`
+
+The damaged voice's first use fails naming its file, while another voice still synthesizes.
 
 ##### Backend creation synthesizes from a synthetic install
 

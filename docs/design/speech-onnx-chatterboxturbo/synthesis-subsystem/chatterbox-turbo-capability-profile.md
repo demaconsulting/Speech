@@ -31,7 +31,11 @@ or a join outside 0 to 1000 (both bounds accepted).
 - **WithMoodMarker(mood, text)** / **ReadMoodMarker(text, out mood)** (internal): add or split off the leading
   marker; the mood is matched against the known moods case-insensitively after trimming, and an unknown, null or
   blank mood leaves the text unchanged, and reading removes every marker character.
-- **Render(...)**: replaces tags with private-use placeholder characters while splitting text into
+- **Render(spans, model)**: _Parameters_: `spans`, the non-null tagged text spans of one utterance; `model`,
+  the non-null synthesis model description. _Returns_: the ordered speech and silence segments to
+  synthesize, never null (empty for empty or blank input). _Pre-condition_: none beyond non-null
+  arguments. _Post-condition_: no output text contains bracketed text for an unsupported tag. The
+  method replaces tags with private-use placeholder characters while splitting text into
   sentences (digit-flanked punctuation is not a boundary), applies the end-of-sentence policy (move
   the tag before the final word, else a per-tag suffix, else strip), attaches a tag between
   sentences to the following sentence, attaches a trailing tag-only chunk (a tag with no speech after it) to

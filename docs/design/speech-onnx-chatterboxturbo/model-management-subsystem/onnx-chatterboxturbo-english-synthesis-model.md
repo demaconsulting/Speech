@@ -31,7 +31,8 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   ordinally. A duplicate id among the explicit and directory voices (including `a.wav` and `a.flac` in one
   directory) is a caller error and throws `ArgumentException`; a library voice whose id is already present
   is skipped and reported to `ChatterboxTurboModelOptions.Diagnostics` at `Info` level. A library voice
-  whose display name clashes with an earlier one gets a `(user)` or `(pack)` suffix. The library is
+  whose display name clashes with an earlier label gets a `(user)` or `(pack)` suffix, and repeated
+  clashes are numbered (`(user 2)`, `(user 3)`), so every voice label in the list is unique. The library is
   `ChatterboxTurboModelOptions.ReferenceVoiceLibrary` when set; the catalog extension
   `AddChatterboxTurboModels` otherwise builds `new ReferenceVoiceLibrary(catalog.Store)` (without
   mutating the caller's options). The list is fixed at construction, so it refreshes when the catalog is

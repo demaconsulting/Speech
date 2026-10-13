@@ -2,8 +2,9 @@
 
 #### Verification Approach
 
-The unit is a data record with no behavior, so it has no test class of its own. It is verified through the
-tests of the units that produce and consume it: `OnnxChatterboxTurboNetworksTests.cs` (the encoder builds
+The unit is an immutable copying class. It is verified by `ChatterboxTurboConditioningTests.cs` (construction, copying
+and read-only exposure) and through the tests of the units that produce and consume it:
+`OnnxChatterboxTurboNetworksTests.cs` (the encoder builds
 it, the decoder consumes it) and `OnnxChatterboxTurboSynthesisEngineTests.cs` (the engine caches it and
 reuses it per voice and mood). No mocking is needed; the networks tests use synthetic graphs and the engine
 tests use a fake `IChatterboxTurboNetworks`.
@@ -39,8 +40,13 @@ reach the decoder, and the second shows that a record with different speaker val
 
 ##### Error and boundary scenarios
 
-N/A - construction of the record never throws and the record has no behavior to bound, so there is no
-error or boundary scenario to verify.
+**Tests**: `ChatterboxTurboConditioning_Constructor_NullArray_ThrowsArgumentNullException`,
+`ChatterboxTurboConditioning_Constructor_Values_ArePreserved`,
+`ChatterboxTurboConditioning_Constructor_SourceArraysMutatedAfterwards_ConditioningUnchanged` and
+`ChatterboxTurboConditioning_Properties_AreReadOnlyViewsOfUnchangedData`
+
+A null array is rejected; the constructed values are preserved; changing the source arrays afterwards does
+not change the conditioning; and the array properties are read-only views of the unchanged data.
 
 ##### The record is reused per voice
 
