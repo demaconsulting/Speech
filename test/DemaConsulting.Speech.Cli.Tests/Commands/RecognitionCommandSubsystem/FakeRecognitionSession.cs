@@ -38,6 +38,7 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
 {
     /// <summary>The channel backing <see cref="GetResultsAsync"/>; results are written via <see cref="RaiseResult"/>.</summary>
     private readonly Channel<SpeechRecognitionEvent> _channel = Channel.CreateUnbounded<SpeechRecognitionEvent>();
+    private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Gets the number of times <see cref="StartAsync"/> was called.</summary>
     public int StartCallCount { get; private set; }
@@ -47,6 +48,9 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
 
     /// <summary>Gets the number of times <see cref="DisposeAsync"/> was called.</summary>
     public int DisposeCallCount { get; private set; }
+
+    /// <summary>Gets a task that completes the first time <see cref="DisposeAsync"/> is called.</summary>
+    public Task Disposed => _disposed.Task;
 
     /// <summary>Gets or sets an exception to throw from <see cref="StartAsync"/>, or <see langword="null"/> for none.</summary>
     public Exception? StartException { get; set; }
@@ -120,6 +124,7 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     {
         DisposeCallCount++;
         _channel.Writer.TryComplete();
+        _disposed.TrySetResult();
         return ValueTask.CompletedTask;
     }
 

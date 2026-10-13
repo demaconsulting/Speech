@@ -314,6 +314,10 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         var first = library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
         await entered.Task;
         var second = library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        // Proving a negative: nothing can be awaited to show the second call is still queued, so a
+        // bounded delay gives it a chance to (wrongly) complete. It can only ever let a regression
+        // slip through, never fail a correct implementation, so it cannot cause a spurious failure
+        // on a slow machine; it cannot be replaced by a signal without a product seam on the lock.
         await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.False(second.IsCompleted);
         release.SetResult();

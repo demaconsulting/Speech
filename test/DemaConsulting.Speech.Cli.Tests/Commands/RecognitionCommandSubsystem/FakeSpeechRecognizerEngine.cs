@@ -32,6 +32,7 @@ internal sealed class FakeSpeechRecognizerEngine : ISpeechRecognizerEngine
 {
     /// <summary>The session <see cref="CreateSessionAsync"/> returns.</summary>
     private readonly FakeRecognitionSession _session;
+    private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="FakeSpeechRecognizerEngine"/> class.
@@ -48,6 +49,9 @@ internal sealed class FakeSpeechRecognizerEngine : ISpeechRecognizerEngine
 
     /// <summary>Gets the number of times <see cref="DisposeAsync"/> was called.</summary>
     public int DisposeCallCount { get; private set; }
+
+    /// <summary>Gets a task that completes the first time <see cref="DisposeAsync"/> is called.</summary>
+    public Task Disposed => _disposed.Task;
 
     /// <summary>Gets the capture device passed to the most recent <see cref="CreateSessionAsync"/> call.</summary>
     public IAudioCaptureDevice? LastDevice { get; private set; }
@@ -81,6 +85,7 @@ internal sealed class FakeSpeechRecognizerEngine : ISpeechRecognizerEngine
     public ValueTask DisposeAsync()
     {
         DisposeCallCount++;
+        _disposed.TrySetResult();
         return ValueTask.CompletedTask;
     }
 }

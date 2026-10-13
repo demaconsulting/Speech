@@ -107,26 +107,20 @@ public sealed class AskCommandTests
     }
 
     /// <summary>
-    ///     Polls <paramref name="condition"/> until it returns <see langword="true"/> or
-    ///     <paramref name="timeout"/> elapses, for use asserting on state that
-    ///     <c>AskCommand.RunAsync</c> now updates from a fire-and-forget background
-    ///     continuation (recognizer disposal after a canceled/failed Phase 1) rather than
-    ///     synchronously before returning.
+    ///     Awaits the disposal of a pre-warmed recognizer engine and session, which
+    ///     <c>AskCommand.RunAsync</c> performs from a fire-and-forget background continuation
+    ///     (after a canceled/failed Phase 1) rather than synchronously before returning. The fakes
+    ///     signal their disposal, so this waits on those signals (with a hang guard that only
+    ///     elapses on a regression) instead of polling.
     /// </summary>
-    private static async Task<bool> WaitForConditionAsync(Func<bool> condition, TimeSpan timeout)
+    private static async Task AwaitRecognizerDisposedAsync(
+        FakeRecognitionSession session,
+        FakeSpeechRecognizerEngine engine)
     {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
-        {
-            if (stopwatch.Elapsed >= timeout)
-            {
-                return false;
-            }
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
-
-        return true;
+        await Task.WhenAll(session.Disposed, engine.Disposed)
+            .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
     }
 
     // --- ParseArguments ---
@@ -408,7 +402,7 @@ public sealed class AskCommandTests
     ///     pre-warm task on every exit path, not only the <c>wasCanceled</c> path. Disposal is
     ///     now driven by <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background
     ///     continuation rather than completing synchronously before <c>Run</c> returns, so this
-    ///     polls for it instead of asserting immediately.
+    ///     awaits the fakes' disposal signals instead of asserting immediately.
     /// </summary>
     [Fact]
     public async Task AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
@@ -425,11 +419,7 @@ public sealed class AskCommandTests
         // The concurrently pre-warmed engine/session must eventually be disposed by the
         // background continuation, even though the exception that ended the call was thrown from
         // Phase 1's SpeakPromptAsync rather than from the wasCanceled path.
-        Assert.True(
-            await WaitForConditionAsync(
-                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
-                TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
+        await AwaitRecognizerDisposedAsync(recognizerSession, recognizerEngine);
     }
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
@@ -746,8 +736,8 @@ public sealed class AskCommandTests
     ///     proving <c>SpeakPromptAsync</c>'s playback-device disposal runs even when playback
     ///     itself is canceled, not only on the success path. Recognizer disposal is now driven by
     ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
-    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
-    ///     of asserting immediately.
+    ///     than completing synchronously before <c>Run</c> returns, so this awaits the fakes'
+    ///     disposal signals instead of asserting immediately.
     /// </summary>
     [Fact]
     public async Task AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
@@ -770,11 +760,7 @@ public sealed class AskCommandTests
         Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
         Assert.Equal(0, recognizerSession.StartCallCount);
-        Assert.True(
-            await WaitForConditionAsync(
-                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
-                TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
+        await AwaitRecognizerDisposedAsync(recognizerSession, recognizerEngine);
     }
 
     /// <summary>
@@ -784,8 +770,8 @@ public sealed class AskCommandTests
     ///     disposal runs on the thrown-exception path too, not only on the success and
     ///     canceled-during-speak paths. Recognizer disposal is now driven by
     ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
-    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
-    ///     of asserting immediately.
+    ///     than completing synchronously before <c>Run</c> returns, so this awaits the fakes'
+    ///     disposal signals instead of asserting immediately.
     /// </summary>
     [Fact]
     public async Task AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows()
@@ -807,11 +793,7 @@ public sealed class AskCommandTests
         Assert.Equal(1, synthSession.DisposeCallCount);
         Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
-        Assert.True(
-            await WaitForConditionAsync(
-                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
-                TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
+        await AwaitRecognizerDisposedAsync(recognizerSession, recognizerEngine);
     }
 
     /// <summary>
@@ -863,10 +845,17 @@ public sealed class AskCommandTests
             _ => { },
             cancellationSource.Token);
 
-        var promptlyCompleted = await Task.WhenAny(
-            runTask,
-            Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken)) == runTask;
-
+        // Completion is awaited with a generous hang guard (not a sleep): on success this returns
+        // as soon as RunAsync does, and the bound only elapses if the fix regresses.
+        var promptlyCompleted = true;
+        try
+        {
+            await runTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            promptlyCompleted = false;
+        }
         try
         {
             Assert.True(
@@ -885,11 +874,7 @@ public sealed class AskCommandTests
             holdPrewarm.Set();
         }
 
-        Assert.True(
-            await WaitForConditionAsync(
-                () => recognitionSession.DisposeCallCount == 1 && recognitionEngine.DisposeCallCount == 1,
-                TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer engine/session was never disposed by the background continuation once construction completed.");
+        await AwaitRecognizerDisposedAsync(recognitionSession, recognitionEngine);
     }
 
     /// <summary>

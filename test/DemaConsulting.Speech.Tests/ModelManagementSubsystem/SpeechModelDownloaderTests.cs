@@ -348,9 +348,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
         // Give the second call a brief window to run - since the first call still holds the
         // per-model-id lock open, the second call must still be queued behind it and so must not
-        // yet have reached the client or completed. Absence cannot be awaited on directly, so the
-        // wait is bounded; the delay can only ever let a regression slip through, never fail a
-        // correct implementation, so it cannot cause a spurious failure on a slow machine.
+        // yet have reached the client or completed. This is a proof of a negative: absence cannot
+        // be awaited on directly (no event fires when a call stays queued), so the wait is bounded;
+        // the delay can only ever let a regression slip through, never fail a correct
+        // implementation, so it cannot cause a spurious failure on a slow machine.
         await Task.Delay(200, TestContext.Current.CancellationToken);
         Assert.Equal(1, orderTrackingClient.CallCount);
         Assert.False(taskB.IsCompleted);

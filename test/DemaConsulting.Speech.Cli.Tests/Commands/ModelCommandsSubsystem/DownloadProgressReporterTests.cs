@@ -35,7 +35,7 @@ public sealed class DownloadProgressReporterTests
     ///     the label comes from the describe callback.
     /// </summary>
     [Fact]
-    public async Task DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent()
+    public void DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent()
     {
         // Arrange
         var originalOut = Console.Out;
@@ -44,13 +44,13 @@ public sealed class DownloadProgressReporterTests
             using var writer = new StringWriter();
             Console.SetOut(writer);
             using var context = Context.Create(["list-devices"]);
-            var reporter = DownloadProgressReporter.Create(context, _ => "'m1'");
+            var reporter = CreateInlineReporter(context);
 
             // Act: three reports, two of them inside 50%
             ((IProgress<SpeechModelDownloadProgress>)reporter).Report(new SpeechModelDownloadProgress(0, 1, 500, 1000));
             ((IProgress<SpeechModelDownloadProgress>)reporter).Report(new SpeechModelDownloadProgress(0, 1, 505, 1000));
             ((IProgress<SpeechModelDownloadProgress>)reporter).Report(new SpeechModelDownloadProgress(0, 1, 1000, 1000));
-            var output = await WaitForAsync(writer, "100%");
+            var output = writer.ToString();
 
             // Assert
             Assert.Contains("  'm1': 50%", output);
@@ -65,7 +65,7 @@ public sealed class DownloadProgressReporterTests
 
     /// <summary>Test that an unknown total reports whole kilobytes instead of a percentage.</summary>
     [Fact]
-    public async Task DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes()
+    public void DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes()
     {
         // Arrange
         var originalOut = Console.Out;
@@ -74,11 +74,11 @@ public sealed class DownloadProgressReporterTests
             using var writer = new StringWriter();
             Console.SetOut(writer);
             using var context = Context.Create(["list-devices"]);
-            var reporter = DownloadProgressReporter.Create(context, _ => "'m1'");
+            var reporter = CreateInlineReporter(context);
 
             // Act
             ((IProgress<SpeechModelDownloadProgress>)reporter).Report(new SpeechModelDownloadProgress(0, 1, 2048, null));
-            var output = await WaitForAsync(writer, "KB");
+            var output = writer.ToString();
 
             // Assert
             Assert.Contains("  'm1': 2 KB", output);
@@ -99,17 +99,29 @@ public sealed class DownloadProgressReporterTests
         Assert.Throws<ArgumentNullException>(() => DownloadProgressReporter.Create(context, null!));
     }
 
-    /// <summary>Waits (bounded) for the asynchronous <see cref="Progress{T}"/> callbacks to write the expected text.</summary>
-    private static async Task<string> WaitForAsync(StringWriter writer, string expected)
+    /// <summary>
+    ///     Creates the reporter while an inline <see cref="SynchronizationContext"/> is current.
+    ///     <see cref="Progress{T}"/> captures the context at construction and posts every callback to it, so
+    ///     the callbacks run synchronously inside <c>Report</c> and no waiting is needed.
+    /// </summary>
+    private static Progress<SpeechModelDownloadProgress> CreateInlineReporter(Context context)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < deadline && !writer.ToString().Contains(expected))
+        var original = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new InlineSynchronizationContext());
+        try
         {
-            await Task.Delay(20);
+            return DownloadProgressReporter.Create(context, _ => "'m1'");
         }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(original);
+        }
+    }
 
-        // Allow any trailing callbacks (which would indicate a throttling failure) to land.
-        await Task.Delay(100);
-        return writer.ToString();
+    /// <summary>A synchronization context that runs posted callbacks immediately on the calling thread.</summary>
+    private sealed class InlineSynchronizationContext : SynchronizationContext
+    {
+        /// <inheritdoc />
+        public override void Post(SendOrPostCallback d, object? state) => d(state);
     }
 }
