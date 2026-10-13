@@ -122,7 +122,9 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
 
         _networks = networks;
         _tokenizer = tokenizer;
-        _voices = voices;
+
+        // Snapshot so later changes to the caller's list cannot alter voice selection or the conditioning cache
+        _voices = voices.ToArray();
         _maxNewTokens = maxNewTokens;
         _maxAudioTokensPerTextToken = maxAudioTokensPerTextToken;
         _maxConsecutiveSpeechTokenRepeats = maxConsecutiveSpeechTokenRepeats;
@@ -168,7 +170,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             // Step 0 input: conditioning first, then the text embeddings (the start token is never embedded)
             var textEmbeddings = _networks.Embed(textIds);
             var inputs = new float[conditioning.ConditioningEmbeddings.Length + textEmbeddings.Length];
-            conditioning.ConditioningEmbeddings.CopyTo(inputs, 0);
+            conditioning.ConditioningEmbeddings.Span.CopyTo(inputs);
             textEmbeddings.CopyTo(inputs, conditioning.ConditioningEmbeddings.Length);
 
             // Computed in double and clamped so a huge ratio cannot overflow the int conversion
@@ -217,7 +219,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             // Assemble the decoder input: prompt, speech (minus start/stop), trailing silence
             var speech = generated.Skip(1).Where(token => token is not StopSpeechToken and not StartSpeechToken).ToArray();
             var decoderTokens = new long[conditioning.PromptTokens.Length + speech.Length + TrailingSilenceTokenCount];
-            conditioning.PromptTokens.CopyTo(decoderTokens, 0);
+            conditioning.PromptTokens.Span.CopyTo(decoderTokens);
             speech.CopyTo(decoderTokens, conditioning.PromptTokens.Length);
             Array.Fill(decoderTokens, SilenceToken, conditioning.PromptTokens.Length + speech.Length, TrailingSilenceTokenCount);
 

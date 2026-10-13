@@ -67,7 +67,6 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
-    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx\DemaConsulting.Speech.Onnx.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
   </ItemGroup>
 

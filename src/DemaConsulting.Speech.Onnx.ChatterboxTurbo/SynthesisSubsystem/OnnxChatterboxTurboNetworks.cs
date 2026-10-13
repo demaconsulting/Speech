@@ -259,11 +259,15 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
 
         var featureWidth = conditioning.SpeakerFeatures.Length / Math.Max(1, conditioning.SpeakerFeatureFrames);
         using var tokens = OrtValue.CreateTensorValueFromMemory(speechTokens, [1, speechTokens.Length]);
+
+        // ONNX Runtime needs writable backing arrays, so the read-only conditioning is copied for this call
+        var speakerEmbeddings = conditioning.SpeakerEmbeddings.ToArray();
+        var speakerFeatures = conditioning.SpeakerFeatures.ToArray();
         using var embeddings = OrtValue.CreateTensorValueFromMemory(
-            conditioning.SpeakerEmbeddings,
-            [1, conditioning.SpeakerEmbeddings.Length]);
+            speakerEmbeddings,
+            [1, speakerEmbeddings.Length]);
         using var features = OrtValue.CreateTensorValueFromMemory(
-            conditioning.SpeakerFeatures,
+            speakerFeatures,
             [1, conditioning.SpeakerFeatureFrames, featureWidth]);
         using var outputs = _decoder.Run(
             _runOptions,

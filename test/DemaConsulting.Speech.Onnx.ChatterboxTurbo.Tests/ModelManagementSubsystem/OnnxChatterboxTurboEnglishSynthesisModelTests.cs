@@ -810,6 +810,65 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(["broken"], choice.Options.Select(option => option.Value));
     }
 
+    /// <summary>Proves a corrupt library voice fails only at first use with an error naming its file, and another library voice stays usable.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Generate_CorruptStoreVoice_FailsAtFirstUseNamingFileAndOtherVoiceWorks()
+    {
+        // Arrange
+        InstallSynthetic(halfCache: true, "language_model_fp16");
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        var brokenPath = Path.Combine(library.EnsureUserDirectory(), "broken.wav");
+        File.WriteAllText(brokenPath, "not audio");
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "good_one.wav"));
+        ISynthesisModel model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoiceLibrary = library, MaxNewTokens = 4, IntraOpThreads = 1 });
+        using var backend = model.CreateBackend(_root);
+        var brokenId = model.ResolveSpeakerId(new Dictionary<string, object> { ["voice"] = "broken" });
+        var goodId = model.ResolveSpeakerId(new Dictionary<string, object> { ["voice"] = "good_one" });
+
+        // Act
+        var failure = Record.Exception(() => backend.Generate("Hello there.", 1.0f, brokenId));
+        var audio = backend.Generate("Hello there.", 1.0f, goodId);
+
+        // Assert
+        Assert.NotEqual(brokenId, goodId);
+        var invalid = Assert.IsType<InvalidDataException>(failure);
+        Assert.Contains("broken.wav", invalid.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(audio.Samples);
+    }
+
+    /// <summary>Proves repeated display-name collisions each receive a unique numbered source suffix.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_RepeatedLabelClashes_AssignsUniqueLabels()
+    {
+        // Arrange: one explicit voice plus a user voice and two pack voices that all humanize to "Alan X"
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "alan_x.wav"));
+        var packVoices = Path.Combine(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "current", "voices");
+        Directory.CreateDirectory(packVoices);
+        WriteWav(Path.Combine(packVoices, "alan-x.wav"));
+        WriteWav(Path.Combine(packVoices, "Alan X.wav"));
+        File.WriteAllText(
+            Path.Combine(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "install-manifest.json"),
+            "{\"TotalSizeBytes\":1,\"InstalledAtUtc\":\"2026-01-01T00:00:00+00:00\"}");
+        var explicitVoice = ChatterboxTurboReferenceVoice.FromSamples("explicit", new float[24000], 24000, displayName: "Alan X");
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [explicitVoice], ReferenceVoiceLibrary = library });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        var labels = choice.Options.Select(option => option.Label).ToArray();
+        Assert.Equal(labels.Length, labels.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal("Alan X", labels[0]);
+        Assert.Equal("Alan X (user)", labels[1]);
+        Assert.Equal("Alan X (pack)", labels[2]);
+        Assert.Equal("Alan X (pack 2)", labels[3]);
+    }
+
     /// <summary>Proves <c>IncludeStoreVoices = false</c> ignores the library entirely.</summary>
     [Fact]
     public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary()

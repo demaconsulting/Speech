@@ -186,6 +186,25 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         Assert.Equal(0.2f, networks.EncodeInputs[1][0], 3);
     }
 
+    /// <summary>Proves the engine snapshots the caller's voice list so later changes to it do not alter voice selection.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_VoiceListMutatedAfterConstruction_UsesSnapshot()
+    {
+        // Arrange
+        var networks = new FakeNetworks([OnnxChatterboxTurboSynthesisEngine.StopSpeechToken], repeatLast: true);
+        var voices = new List<ChatterboxTurboReferenceVoice> { ConstantVoice("first", 0.1f), ConstantVoice("second", 0.2f) };
+        using var engine = new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 1, 12);
+
+        // Act
+        voices.Clear();
+        voices.Add(ConstantVoice("intruder", 0.9f));
+        engine.Generate("One.", 1.0f, 1);
+
+        // Assert: the original second voice is still the one spoken
+        Assert.Single(networks.EncodeInputs);
+        Assert.Equal(0.2f, networks.EncodeInputs[0][0], 3);
+    }
+
     /// <summary>Proves an unknown speaker id is spoken with the first voice rather than another voice.</summary>
     [Fact]
     public void OnnxChatterboxTurboSynthesisEngine_Generate_UnknownSpeaker_UsesFirstVoiceClip()

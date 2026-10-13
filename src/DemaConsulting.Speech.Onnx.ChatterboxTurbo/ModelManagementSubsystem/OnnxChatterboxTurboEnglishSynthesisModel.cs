@@ -394,13 +394,19 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 continue;
             }
 
-            // Labels need not be unique, but a source suffix keeps same-named voices distinguishable
+            // Labels need not be unique, but a source suffix keeps same-named voices distinguishable; repeated
+            // collisions are numbered, e.g. "Name", "Name (user)", "Name (user 2)", so every label ends up unique
             var label = info.DisplayName;
             if (!labels.Add(label))
             {
                 var source = info.Source == ReferenceVoiceSource.Pack ? "pack" : "user";
-                label = $"{label} ({source})";
-                labels.Add(label);
+                var number = 2;
+                label = $"{info.DisplayName} ({source})";
+                while (!labels.Add(label))
+                {
+                    label = $"{info.DisplayName} ({source} {number})";
+                    number++;
+                }
             }
 
             voices.Add(ChatterboxTurboReferenceVoice.FromFileLazy(info.Id, info.FilePath, label, info.MoodClips));

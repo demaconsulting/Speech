@@ -64,11 +64,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Assert: every field of the record carries the encoder output unchanged
         Assert.Equal(2, conditioning.ConditioningLength);
         Assert.Equal(2 * ChatterboxTurboGraphFixture.EmbeddingSize, conditioning.ConditioningEmbeddings.Length);
-        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
-        Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens);
-        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
+        Assert.All(conditioning.ConditioningEmbeddings.ToArray(), value => Assert.Equal(0.5f, value));
+        Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens.ToArray());
+        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings.ToArray());
         Assert.Equal(3, conditioning.SpeakerFeatureFrames);
-        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures.ToArray());
     }
 
     /// <summary>Proves an encoder whose four outputs are not named as expected is bound positionally.</summary>
@@ -84,11 +84,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
 
         // Assert: positional binding puts each of the four outputs in its own field
         Assert.Equal(2, conditioning.ConditioningLength);
-        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
-        Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens);
-        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
+        Assert.All(conditioning.ConditioningEmbeddings.ToArray(), value => Assert.Equal(0.5f, value));
+        Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens.ToArray());
+        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings.ToArray());
         Assert.Equal(3, conditioning.SpeakerFeatureFrames);
-        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures.ToArray());
     }
 
     /// <summary>Proves the embedding graph is run for the supplied token ids.</summary>
@@ -174,11 +174,14 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Arrange: embeddings now sum to 100 and the three frames of features to 6
         var paths = ChatterboxTurboGraphFixture.Write(_root, speakerSensitiveDecoder: true);
         using var networks = Create(paths);
-        var conditioning = networks.Encode(new float[24000]) with
-        {
-            SpeakerEmbeddings = [100f, 0f, 0f, 0f],
-            SpeakerFeatures = [1f, 1f, 1f, 1f, 1f, 1f],
-        };
+        var encoded = networks.Encode(new float[24000]);
+        var conditioning = new ChatterboxTurboConditioning(
+            encoded.ConditioningEmbeddings.ToArray(),
+            encoded.ConditioningLength,
+            encoded.PromptTokens.ToArray(),
+            [100f, 0f, 0f, 0f],
+            [1f, 1f, 1f, 1f, 1f, 1f],
+            encoded.SpeakerFeatureFrames);
 
         // Act
         var waveform = networks.Decode([5, 6], conditioning);
@@ -639,9 +642,9 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         var waveform = networks.Decode([5, 6], conditioning);
 
         // Assert
-        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
-        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
-        Assert.Equal(0.5f, conditioning.ConditioningEmbeddings[0]);
+        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings.ToArray());
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures.ToArray());
+        Assert.Equal(0.5f, conditioning.ConditioningEmbeddings.Span[0]);
         Assert.Equal(0.004f, embeddings[0], 3);
         Assert.Equal([5f, 6f], waveform);
     }
