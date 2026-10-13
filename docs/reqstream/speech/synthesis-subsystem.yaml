@@ -38,6 +38,18 @@ sections:
               - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
               - AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags
 
+          - id: Speech-Synthesis-NoSynthesizedTextInDiagnostics
+            title: >-
+              The SynthesisSubsystem shall never include synthesized text in any diagnostic report.
+            justification: |
+              Synthesized text can contain private user or model content; diagnostics are
+              structural facts only, honoring the same contract the recognition direction
+              honors for recognized text.
+            children:
+              - Speech-Synthesis-SynthesisSession-NoTextInDiagnostics
+            tests:
+              - SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics
+
           - id: Speech-Synthesis-Layer1Parsing
             title: >-
               The SynthesisSubsystem shall parse text containing inline Natural Language Audio
@@ -52,24 +64,34 @@ sections:
               - Speech-Synthesis-AudioTagParser-OrderedSpanSequence
               - Speech-Synthesis-AudioTagParser-EmptyInputSpans
               - Speech-Synthesis-AudioTagParser-NoSpuriousEmptySpans
-              - Speech-Synthesis-AudioTagParser-TagPlacementSpans
               - Speech-Synthesis-AudioTagParser-NullTextRejection
+              - Speech-Synthesis-AudioTagParser-SpanNullTextRejection
+              - Speech-Synthesis-AudioTagParser-LinearTimeScan
             tests:
               - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
 
           - id: Speech-Synthesis-Layer1AliasResolution
             title: >-
               The SynthesisSubsystem shall resolve a tag alias to its canonical tag
-              case-insensitively and tolerant of extra whitespace, and reject null content.
+              case-insensitively and tolerant of extra whitespace.
             justification: |
               Hosts and users write tags in varied case and spacing; resolving them to one
               canonical tag keeps Layer 2 rendering independent of how a tag was typed.
             children:
               - Speech-Synthesis-AudioTagParser-CaseInsensitiveResolution
               - Speech-Synthesis-AudioTagParser-ExtraWhitespaceTolerance
-              - Speech-Synthesis-AudioTagParser-NullContentRejection
             tests:
               - AudioTagCatalog_TryResolve_MixedCaseWithExtraWhitespace_ResolvesToCanonicalTag
+
+          - id: Speech-Synthesis-Layer1AliasNullRejection
+            title: >-
+              The SynthesisSubsystem shall reject null content when resolving a tag alias.
+            justification: |
+              Null is a caller error, not text; failing fast avoids a later null dereference.
+            children:
+              - Speech-Synthesis-AudioTagParser-NullContentRejection
+            tests:
+              - AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException
 
           - id: Speech-Synthesis-Layer1LiteralPassthrough
             title: >-
@@ -80,7 +102,9 @@ sections:
               an unsupported bracket phrase, or an unbalanced bracket degrades to ordinary
               narration rather than failing or losing content.
             children:
-              - Speech-Synthesis-AudioTagParser-MalformedPassthrough
+              - Speech-Synthesis-AudioTagParser-UnclosedBracketPassthrough
+              - Speech-Synthesis-AudioTagParser-EmptyBracketsPassthrough
+              - Speech-Synthesis-AudioTagParser-StrayClosingBracketPassthrough
               - Speech-Synthesis-AudioTagParser-NestedBracketTagResolution
               - Speech-Synthesis-AudioTagParser-UnknownBracketPassthrough
               - Speech-Synthesis-AudioTagParser-UnknownContentUnresolved
@@ -139,7 +163,8 @@ sections:
             title: >-
               The SynthesisSubsystem shall expose a mockable Engine/Session text-to-speech
               contract (ISpeechSynthesizerEngine for a loaded model, ISynthesisSession bound to
-              one device) that reports availability and fails loudly when an operational member
+              one device) that reports availability and throws
+              SpeechSynthesizerUnavailableException when an operational member
               is invoked on an unavailable engine or session, without exposing any inference
               backend type.
             justification: |
@@ -326,6 +351,8 @@ sections:
               - Speech-Synthesis-SentenceChunker-NonPositiveMaxLengthRejection
               - Speech-Synthesis-SentenceChunker-NullTextRejection
               - Speech-Synthesis-SentenceChunker-NumeralPunctuationRetention
+              - Speech-Synthesis-SentenceChunker-LeadingDecimalPointRetention
+              - Speech-Synthesis-SentenceChunker-LetterPrecededPeriodSplits
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
               - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata

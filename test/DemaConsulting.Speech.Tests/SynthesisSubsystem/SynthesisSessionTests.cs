@@ -91,6 +91,34 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that no diagnostic report emitted over a successful and a faulted operation
+    ///     contains the synthesized text.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics()
+    {
+        // Arrange
+        const string secret = "ultra-secret-utterance";
+        var reports = new List<string>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        diagnostics.When(d => d.Report(Arg.Any<SpeechDiagnosticLevel>(), Arg.Any<string>(), Arg.Any<string>()))
+            .Do(call => reports.Add(call.ArgAt<string>(2)));
+        var goodBackend = new FakeSynthesisEngine();
+        var failingBackend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        await using var goodSession = CreateSession(goodBackend, CreateAvailablePlaybackDevice(), diagnostics: diagnostics);
+        await using var failingSession = CreateSession(failingBackend, CreateAvailablePlaybackDevice(), diagnostics: diagnostics);
+
+        // Act
+        await goodSession.SynthesizeAsync(secret, TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => failingSession.SynthesizeAsync(secret, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotEmpty(reports);
+        Assert.All(reports, report => Assert.DoesNotContain(secret, report, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     Proves that a faulted session rejects any further operation with
     ///     <see cref="SynthesisSessionFaultedException"/>, rather than attempting to synthesize
     ///     again.

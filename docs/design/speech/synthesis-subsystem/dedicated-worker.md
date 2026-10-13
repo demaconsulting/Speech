@@ -2,8 +2,9 @@
 
 **Purpose**: Run one native synthesis call on a dedicated, long-running background thread,
 applying a cooperative-cancel-then-abandon policy so a non-cooperative native call cannot hang a
-caller's awaited task indefinitely. `SynthesisSubsystem`'s own duplicated copy of
-`RecognitionSubsystem`'s identically-shaped internal utility.
+caller's awaited task indefinitely. It follows the same cancel-then-abandon policy as
+`RecognitionSubsystem`'s internal worker, but is a separate, static implementation (`Run`/`Start`
+returning a `DedicatedWorkerRun<T>`) rather than the recognition subsystem's instance class.
 
 **Data Model**: A stateless static class. `Run(delegate, cancellationToken, diagnostics,
 diagnosticsCategory, abandonTimeout = null)` and `Start(...)` (same parameters) take no instance

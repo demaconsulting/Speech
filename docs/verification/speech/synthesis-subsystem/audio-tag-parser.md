@@ -59,17 +59,27 @@ ordered spans with no spurious empty spans.
 `AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag`,
-`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`
+`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`,
+`AudioTagParser_Parse_UnclosedBracketAfterRecognizedTag_PassesThroughAsLiteralText`,
+`AudioTagParser_Parse_ManyNestedOpenersThenCloser_CompletesQuicklyAndPreservesText`
 
-Verifies that nothing malformed is thrown on or dropped, and that a nested opening bracket does
-not swallow a valid tag that follows it.
+Verifies that nothing malformed is thrown on or dropped, that a nested opening bracket does
+not swallow a valid tag that follows it, and that a pathological run of 200,000 opening brackets
+is scanned in linear time with its text preserved.
+
+##### AudioTagParser: Span Factories
+
+**Test**: `AudioTagParser_TagSpan_Factory_ProducesTagSpan`
+
+Verifies that the `TagSpan` factory yields a `Tag`-kind span carrying the given canonical tag.
 
 ##### AudioTagParser: Null Input Rejection
 
-**Test**: `AudioTagParser_Parse_NullText_ThrowsArgumentNullException`
+**Tests**: `AudioTagParser_Parse_NullText_ThrowsArgumentNullException`,
+`AudioTagParser_PlainTextSpan_NullText_ThrowsArgumentNullException`
 
-Verifies the error path: null text throws `ArgumentNullException`, unlike empty text, which
-returns an empty list.
+Verifies the error path: null text throws `ArgumentNullException` from both `Parse` and the
+`PlainText` span factory, unlike empty text, which returns an empty list.
 
 ##### AudioTagCatalog: Immutability, Kind Assignment, and Null Rejection
 

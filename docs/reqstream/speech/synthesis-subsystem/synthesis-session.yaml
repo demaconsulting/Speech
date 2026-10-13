@@ -243,6 +243,16 @@ sections:
                 tests:
                   - SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
 
+              - id: Speech-Synthesis-SynthesisSession-NoTextInDiagnostics
+                title: >-
+                  The SynthesisSession class shall not include synthesized text in any diagnostic
+                  report it emits.
+                justification: |
+                  Synthesized text can contain private content; session diagnostics report only
+                  structural lifecycle and fault facts.
+                tests:
+                  - SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics
+
               - id: Speech-Synthesis-SynthesisSession-PlaybackDeviceUnavailableContainment
                 title: >-
                   The SynthesisSession class shall surface an unavailable playback device

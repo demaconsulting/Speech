@@ -31,7 +31,7 @@ call returned" ordering is additionally captured by a witness recorded at the in
 released or `StopAsync` completes (the backend's `GenerateReturned` flag at that moment) and
 asserted afterwards, independent of scheduling. Abandonment is awaited through
 `StateChanged` reaching `Faulted`, never a sleep. The overlap rule is verified deterministically
-with a `BlockingSynthesisEngine`-style test double that holds the first call's `Generate` open on
+with a `BlockingSynthesisEngine` (a private nested test double in `SynthesisSessionTests.cs`) that holds the first call's `Generate` open on
 a `SemaphoreSlim` until the test releases it, letting a test assert that a second
 `SpeakAsync`/`SynthesizeAsync` call made while the first is still in flight throws
 `InvalidOperationException` immediately. Hot reuse across calls is verified by calling
@@ -51,13 +51,21 @@ between the test and the implementation - before asserting the awaited `SpeakAsy
 yet complete and `Stop()` has not yet been called.
 
 Cancellation is verified with semaphore-held test doubles rather than timing assumptions where
-possible: a `BlockingSynthesisEngine` test double uses `SemaphoreSlim`s to hold the backend call
-open mid-segment until the
-test explicitly releases it, letting a test assert that `StopAsync` cancels the in-flight operation only after the
-in-flight `Generate` call (routed through `DedicatedWorker`) has genuinely returned - proving the
-native call is never orphaned - and then, once released, that the operation unwound via
-cancellation rather than completing normally and that disposing the session immediately
-afterward is safe.
+possible: the same `BlockingSynthesisEngine` test double uses `SemaphoreSlim`s to hold the backend call
+open mid-segment until the test explicitly releases it, letting a test assert that `StopAsync`
+cancels the in-flight operation only after the in-flight `Generate` call (routed through
+`DedicatedWorker`) has genuinely returned - proving the native call is never orphaned - and then,
+once released, that the operation unwound via cancellation rather than completing normally and
+that disposing the session immediately afterward is safe.
+
+Disposal teardown running outside the session lock is verified by a handler subscribed to
+`StateChanged` that blocks while another thread reads `State` during `DisposeAsync`
+(`SynthesisSession_DisposeAsync_IdleSessionHandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`).
+Very long pauses are verified by a 150-second pause whose silence is asserted to be written in
+bounded chunks (`SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks`). That
+diagnostics never carry synthesized text is verified by running a successful and a faulting
+operation and asserting no recorded report contains the text
+(`SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics`).
 
 Speaker-id resolution is verified against a `FakeSynthesisModel` whose injectable
 `resolveSpeakerId` delegate lets a test assert exactly which speaker id
@@ -121,7 +129,7 @@ without aborting the teardown, and a stopped operation unwinds to `Stopped`; `St
 and the backend lease is not released until the in-flight native call has returned, and the lease
 is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop`
 that is deferred while a native call is in flight happens only after that call returns; and a
-disposed session rejects further calls with `ObjectDisposedException`. The default backend factory,
+disposed session rejects further calls with `ObjectDisposedException`. The
 `DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and `PlaybackAudioResampler` acceptance
 criteria are in their own unit verification documents.
 
@@ -134,7 +142,7 @@ Hot Reuse Across Repeated Calls", "Session: Faulted Is Terminal", "Session: Synt
 Full-Fidelity Segment List", "Session: Chunked Synthesis and Ordered Playback", "Session: Fault
 Containment", "Session: Genuine Playback Drain Before Stopping", "Session: Cancellation and
 Disposal Lifecycle", "Session: Abandoned Native Calls Fault the Session", "Session: Silence,
-Volume, and Unrequested Cancellation", "Session: Default Backend Factory", "Session:
+Volume, and Unrequested Cancellation", "Session:
 Voice/Speaker Selection", "DedicatedWorker: Cooperative
 Cancellation and Non-Cooperative Abandonment", and "Playback Format Conversion: Resampling,
 Anti-Aliasing, and Upmix".

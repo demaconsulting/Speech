@@ -497,13 +497,18 @@ without throwing.
 
 **Tests**: `SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio`,
 `SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples`,
-`SynthesisSession_SynthesizeAsync_BackendThrowsUnrequestedOperationCanceledException_TransitionsToFaultedNotStopped`
+`SynthesisSession_SynthesizeAsync_BackendThrowsUnrequestedOperationCanceledException_TransitionsToFaultedNotStopped`,
+`SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks`,
+`SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics`,
+`SynthesisSession_DisposeAsync_IdleSessionHandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`
 
 Verifies that a pause segment's silence is written to the device as zero samples sized for the
 device's rate and channel count, with backend audio up-mixed to the device's channel count; that
-a volume tag scales the amplitude and a large boost is clamped to full scale; and that an
+a very long pause is written in bounded chunks; that
+a volume tag scales the amplitude and a large boost is clamped to full scale; that an
 `OperationCanceledException` thrown by the backend without a cancellation request is treated as
-a fault, not a stop.
+a fault, not a stop; that no diagnostic report contains the synthesized text; and that disposal
+teardown never runs under the session lock.
 
 #### Session: Default Backend Factory
 

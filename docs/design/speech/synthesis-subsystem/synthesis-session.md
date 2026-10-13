@@ -71,7 +71,9 @@ thread can change.
   When `true` (`SpeakAsync`), starts the playback device through `DedicatedWorker.Start` (so a
   stuck device-open call is bounded by the same cancel-then-abandon policy, and its raw
   completion is published as `_pendingNativeCompletion`), builds one `PlaybackAudioResampler` for
-  the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced, and
+  the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced
+  (silence is written as zero samples in chunks of at most one second, with the frame count
+  computed in 64-bit arithmetic so very long pauses cannot overflow or allocate one huge buffer), and
   once every segment has been written, awaits `WaitForPlaybackDrainAsync` before a `finally` block
   stops the device - reporting (but not rethrowing) a failure to stop, so the device is never left
   running regardless of whether the loop, the drain wait, or neither completed, faulted, or was
@@ -100,12 +102,15 @@ thread can change.
   residual internal host buffering (e.g. PortAudio's own ring buffer) that has already left the
   managed queue but has not yet actually reached the speakers. Honors `cancellationToken`: a
   cancellation during either wait ends it immediately via `Task.Delay`'s own cancellation.
-- **DisposeAsync()**: Starts one single-flight teardown (`_disposeTask`) shared by every caller:
-  cancels any in-flight operation, awaits the operation task and then `_pendingNativeCompletion`
-  (so an abandoned native call has genuinely returned), transitions `Disposing` → `Disposed`,
-  and only then releases the owning engine's exclusivity lease exactly once (via the
-  constructor-supplied release callback). Idempotent; concurrent callers all complete after the
-  same teardown.
+- **DisposeAsync()**: Under `_syncRoot` it only publishes one single-flight completion
+  (`_disposeTask`, backed by a `TaskCompletionSource`) shared by every caller, then starts the
+  teardown after the lock is released, so no state-change handler or other thread reading `State`
+  can block on, or deadlock with, teardown. The teardown cancels any in-flight operation, awaits
+  the operation task and then `_pendingNativeCompletion`
+  (so an abandoned native call has genuinely returned), transitions `Disposing` → `Disposed`
+  (raising events outside the lock), and only then releases the owning engine's exclusivity lease
+  exactly once (via the constructor-supplied release callback). Idempotent; concurrent callers all
+  complete after the same teardown.
 
 **Error Handling**: A fault raised synthesizing or playing a segment transitions the session to
 `Faulted` and is reported through `ISpeechDiagnostics` before being rethrown to the caller of the
@@ -115,8 +120,9 @@ playback-device write failure still stops the device via the `finally` block bef
 A cancellation while `WaitForPlaybackDrainAsync` is polling ends the wait immediately via
 `Task.Delay`'s own cancellation, while `finally` still stops the device; when no native call was
 abandoned, the operation unwinds to `Stopped`, not `Faulted`, since cancellation is then an
-ordinary outcome. An unavailable
-playback device throws promptly rather than hanging. Calling an operational member after
+ordinary outcome. A failure to start the playback device (for example an unavailable device)
+propagates promptly, bounded by the abandon timeout, rather than hanging, and faults the session.
+Calling an operational member after
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
 same session throws `InvalidOperationException`.
 
@@ -125,7 +131,7 @@ record: mono samples plus sample rate), `ISynthesisModel` (`NormalizeText`, `Cap
 `ResolveSpeakerId`), `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
 `PlaybackAudioResampler`, `SynthesizedSpeech`, `SynthesisSessionState`,
 `SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker` and
-`DedicatedWorkerRun<T>`, `SpeechSynthesizerUnavailableException`, `AudioTagParser` from this
+`DedicatedWorkerRun<T>`, `AudioTagParser` from this
 subsystem's other units, `IAudioPlaybackDevice` from the AudioSubsystem, and `ISpeechDiagnostics`
 from the Diagnostics subsystem.
 

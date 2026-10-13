@@ -27,8 +27,6 @@ sections:
                   Failing the second CreateSessionAsync call fast and synchronously, rather than
                   queuing or silently sharing the engine, gives a caller an unambiguous signal to
                   dispose its current session before requesting another.
-                children:
-                  - Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
                 tests:
                   - SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
                   - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException

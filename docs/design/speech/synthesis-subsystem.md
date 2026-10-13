@@ -51,8 +51,8 @@ word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
 - **SynthesisEngineBusyException** and **SynthesisSessionFaultedException**: exceptions signaling
   a lease conflict and a terminal session fault respectively
 - **DedicatedWorker**: internal utility applying a cooperative-cancel-then-abandon policy to a
-  non-cooperative native synthesis call, synthesis's own duplicated copy of
-  RecognitionSubsystem's identically-shaped internal utility
+  non-cooperative native synthesis call; a separate, synthesis-specific implementation from
+  the RecognitionSubsystem's utility (see its own document for how the two differ)
 - **UnavailableSpeechSynthesizerEngine**, **UnavailableSynthesisSession**, and
   **SpeechSynthesizerUnavailableException**: honest fallback behavior when no model, no engine
   backend, or no playback device is available
@@ -147,8 +147,8 @@ stateDiagram-v2
 
 Operations on one session never overlap (a second call while an operation is in flight throws
 `InvalidOperationException`), and a non-cancellation failure - including a canceled operation whose
-native call had to be abandoned - makes the session terminally `Faulted`, directly from the state
-the operation was in. The
+native call had to be abandoned - makes the session terminally `Faulted`, directly from `Running`
+(the only state a fault can occur in). The
 transition rules, the stop and dispose behavior, and the fault handling are specified in _SynthesisSession_.
 
 #### Units
@@ -165,7 +165,7 @@ _SentenceChunker_, and _DedicatedWorker_ respectively).
 | `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
 | `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
 | `SentenceChunker` | `synthesis-subsystem/sentence-chunker.md` |
-| `ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory` | `synthesis-backend.md` |
+| `ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
 | `DedicatedWorker` | `synthesis-subsystem/dedicated-worker.md` |
 | `PlaybackAudioResampler` | `synthesis-subsystem/playback-audio-resampler.md` |
 | `SpeechSynthesizerEngine` | `synthesis-subsystem/speech-synthesizer-engine.md` |
@@ -181,18 +181,14 @@ _SentenceChunker_, and _DedicatedWorker_ respectively).
 
 #### Design Constraints
 
-**Volume is applied as post-hoc amplitude scaling, not a native backend parameter.** The
-backend seam has no volume/gain input, so a `Loud`/`Soft`/`Whispers` tag's numeric override is
-applied by scaling the generated segment's samples and clamping to `[-1.0, 1.0]`.
-
-**Speed is applied as a native backend parameter.** The backend seam accepts a speed multiplier,
-so a `Fast`/`VeryFast`/`Slow`/`VerySlow` tag's override is passed straight through rather than
-post-processed.
+**Volume and speed are applied by the session, not by tag rendering alone.** The backend seam has
+no volume input, so volume overrides are applied as post-hoc amplitude scaling, while speed
+overrides are passed to the backend; the exact mechanics are specified in _SynthesisSession_.
 
 **Voice/speaker selection is a session-level concern, not a per-segment override.** The speaker
 is resolved by the model from the session's selected parameter values, deliberately not through
-the Natural Language Audio Tag-scoped, transient per-segment parameter overrides (see Layer 2
-rendering). The exact resolution mechanics are specified in _SynthesisSession_.
+the transient, tag-scoped per-segment overrides. The exact resolution mechanics are specified in
+_SynthesisSession_.
 
 **Synthesized text is never reported through diagnostics.** Every diagnostic this subsystem emits
 is a structural fact - composed, started, stopped, faulted, or lease-related - and never includes

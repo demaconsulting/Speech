@@ -37,24 +37,31 @@ recognized-tag spans for a later Layer 2 rendering stage to consume.
 - **AudioTagCatalog.TryResolve(rawBracketContent, out tag, out kind)**: normalizes and looks up
   one piece of bracket-interior text. Returns `false` for unknown words and for empty or
   whitespace-only content.
-- **AudioTagParser.Parse(text)**: a single-pass scanner. Ordinary characters accumulate into a
-  running plain-text buffer. On encountering `[`, it searches for the next `]`; if none exists,
-  the remainder of the input (starting at the unmatched `[`) is appended to the plain-text buffer
-  and scanning stops - an unbalanced bracket can never be a tag, so nothing later in the input
-  could close it either. When a closing bracket is found, the interior text is resolved against
-  `AudioTagCatalog`: a match flushes the current plain-text buffer as its own span (so adjacent
-  tags and tags at either edge of the input never merge with neighboring text) and appends a
-  `Tag` span; anything else - an unknown word or empty brackets - appends only the opening `[`
-  to the running plain-text buffer and resumes scanning immediately after it, so the rest of the
-  candidate text (including a nested `[` that opens a valid tag, as in `[ [fast]`) is still
-  scanned and the text is passed through unchanged. The final buffer is flushed at the end
+- **AudioTagParser.Parse(text)**: a single-pass, linear-time scanner. Ordinary characters
+  accumulate into a running plain-text buffer. On encountering `[`, it searches for the nearest
+  following bracket of either kind. If none exists, the remainder of the input (starting at the
+  unmatched `[`) is appended to the plain-text buffer and scanning stops - an unbalanced bracket
+  can never be a tag. If the nearest bracket is another `[`, the candidate is unclosed, so only
+  the opening `[` is appended literally and scanning resumes right after it (no alias contains a
+  bracket, so this keeps every scan bounded by the distance to the next bracket, even for
+  adversarial input such as thousands of consecutive `[`). When the nearest bracket is `]`, the
+  interior text is resolved against `AudioTagCatalog`: a match flushes the current plain-text
+  buffer as its own span (so adjacent tags and tags at either edge of the input never merge with
+  neighboring text) and appends a `Tag` span; anything else - an unknown word or empty brackets -
+  appends only the opening `[` to the running plain-text buffer and resumes scanning immediately
+  after it, so the text is passed through unchanged. The final buffer is flushed at the end
   of the scan. An empty input produces an empty span list, not a spurious empty `PlainText` span.
+- **TaggedTextSpan.TagSpan(tag)** / **TaggedTextSpan.PlainText(text)**: factory methods building a
+  `Tag` span carrying a canonical tag, or a `PlainText` span carrying literal text (`PlainText`
+  rejects `null`).
 
-**Error Handling**: `Parse`, `AudioTagCatalog.Normalize`, and `AudioTagCatalog.TryResolve` throw
-`ArgumentNullException` for a `null` input; there is no other
-failure mode. Per this library's "never worse than plain narration" guarantee, no bracket
-content - however malformed - ever throws or is discarded; it always becomes literal
-`PlainText`.
+**Error Handling**: `Parse`, `TaggedTextSpan.PlainText`, `AudioTagCatalog.Normalize`, and
+`AudioTagCatalog.TryResolve` throw `ArgumentNullException` for a `null` input. The only other
+failure mode is a programming error caught at type initialization: the catalog is built with a
+fail-fast `Dictionary.Add`, so a duplicate alias would surface as a `TypeInitializationException`
+(prevented by the no-ambiguity test). Per this library's "never worse than plain narration"
+guarantee, no bracket content - however malformed - ever throws or is discarded; it always
+becomes literal `PlainText`.
 
 **Dependencies**: None outside this unit's own types. The parser and catalog have no reference to
 any model, engine, or audio device.
@@ -62,4 +69,4 @@ any model, engine, or audio device.
 **Callers**: `SynthesisSession` calls `AudioTagParser.Parse` as its Layer 1 tag-parsing
 step before Layer 2 rendering builds a `SpeechPlan` from the resulting spans, per
 this library's Layer 1 (model-independent parsing) / Layer 2 (model-specific rendering)
-split.
+split. The `speak` command of the SpeechCli system also calls it, to strip tags for `--no-tags`.

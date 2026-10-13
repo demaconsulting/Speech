@@ -291,6 +291,15 @@ public class AudioTagParserTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => AudioTagParser.Parse(null!));
+    }
+
+    /// <summary>
+    ///     Proves <see cref="TaggedTextSpan.PlainText"/> rejects null text.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_PlainTextSpan_NullText_ThrowsArgumentNullException()
+    {
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => TaggedTextSpan.PlainText(null!));
     }
 

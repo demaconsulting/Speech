@@ -4,8 +4,8 @@ namespace DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 /// <summary>
 ///     Deterministic <see cref="ISynthesisBackend"/> test double that records every call it
-///     receives and returns scripted (or generated) audio, so the synthesizer's chunking,
-///     pipelining, and playback behavior can be verified with no native sherpa-onnx runtime and
+///     receives and returns scripted (or generated) audio, so the session's chunking,
+///     ordering, and playback behavior can be verified with no native inference runtime and
 ///     no downloaded model.
 /// </summary>
 internal sealed class FakeSynthesisEngine : ISynthesisBackend
