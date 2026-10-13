@@ -112,6 +112,8 @@ sections:
               atomic swap, so any model whose payload is an archive can actually be installed.
             children:
               - Speech-Models-SpeechModelDownloader-FetchVerifyInstall
+              - Speech-Models-SpeechModelDownloader-DisposeWhileInFlight
+              - Speech-Models-SpeechModelDownloader-NestedInstallPaths
               - Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
               - Speech-Models-SpeechModelDownloader-InstallHookOverload
               - Speech-Models-SpeechModelDownloader-DisposedThrows
@@ -179,7 +181,7 @@ sections:
             children:
               - Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
               - Speech-Models-SpeechModelDownloader-AlreadyInstalledLeftoverCleanup
-              - Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
+              - Speech-Models-SpeechModelDownloader-AlreadyInstalledPreservesPriorInstall
               - Speech-Models-SpeechModelDownloader-InstallHookSkippedWhenAlreadyInstalled
             tests:
               - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging

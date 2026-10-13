@@ -58,9 +58,9 @@ underlying exception, populated for every non-`Installed` outcome.
   of a different model id proceeds immediately in parallel). Immediately after acquiring that
   lock - and before touching the network or the staging directory at all - checks
   `SpeechModelStore.IsInstalled(modelId)`: if the model is already installed, opportunistically
-  calls `SpeechModelStore.CleanUpLeftovers(modelId)` (a cheap, best-effort directory
+  calls `SpeechModelStore.CleanUpLeftoversAsync(modelId, cancellationToken)` (a cheap, best-effort directory
   enumeration/delete with no network or hashing involved, so it does not compromise the no-op
-  contract below), reports an `Info` diagnostic ("Model '{id}' is already installed; DownloadAsync
+  contract below; the sweep observes the caller's token before it starts), reports an `Info` diagnostic ("Model '{id}' is already installed; DownloadAsync
   is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)`
   immediately, with no fetch, verification, or network work performed at all - the only
   staging-directory activity is the cheap opportunistic leftover sweep. This fast-path check
@@ -102,7 +102,24 @@ underlying exception, populated for every non-`Installed` outcome.
   failure is classified exactly as a model hook failure is (`InvalidDataException` is `Failed`,
   `IOException` is `IoFailure`) and installs nothing.
 
-**Error Handling**: Every `DownloadAsync` overload throws `ObjectDisposedException` once the
+- **Dispose()**: Marks the downloader disposed (later `DownloadAsync` calls throw
+  `ObjectDisposedException`), disposes every per-model-id lock, and disposes the download client only
+  when this instance created it. It is idempotent. **Disposal race**: `Dispose` is not synchronized with
+  in-flight downloads. A download that started earlier may still be running when the semaphores are
+  disposed, and its `finally` block then releases a disposed semaphore; that release swallows the
+  `ObjectDisposedException` (`ReleaseQuietly`), so the in-flight download is not turned into a failure by
+  the disposal itself. A caller still waiting for the lock fails with `ObjectDisposedException`, and an
+  in-flight transfer can fail when the owned client is disposed under it, so hosts should cancel and
+  await outstanding downloads before disposing.
+- **Helpers**: `ComputeDirectorySizeBytes(directory)` sums the file sizes of the staging tree after the
+  install hook (used for the manifest's `TotalSizeBytes`), and `VerifyChecksumAsync(path, expected)` hashes
+  the staged file with SHA-256 and compares it to the declared checksum case-insensitively (the hash is
+  rendered as lower-case hex and the comparison ignores case, so an upper-case declared checksum matches).
+
+**Error Handling**: Every `DownloadAsync` overload throws `ArgumentNullException` for a null
+descriptor or model, `ArgumentException` for a null, empty or invalid model id (validated through
+`SpeechModelStore.GetModelDirectory` before the call is queued, so it fails fast without touching the
+network or the disk), and `ObjectDisposedException` once the
 downloader has been disposed. A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
 `Error` populated with a descriptive `InvalidOperationException` naming the model id and the
 offending file's relative install path. Any other exception - raised either by the transport fetch

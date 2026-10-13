@@ -58,7 +58,8 @@ already-installed model id returns `Installed` immediately without ever invoking
 client, reporting an `Info` diagnostic, regardless of what descriptor or model it is supplied
 (including one whose checksum would mismatch, or whose `InstallAsync` hook would throw), leaving
 the prior successful install completely untouched; cancellation mid-download throws
-`OperationCanceledException` and installs nothing; two concurrent download requests for different
+`OperationCanceledException` and installs nothing (leaving no staging files behind); disposing the
+downloader while a download is in flight does not fail that download; two concurrent download requests for different
 model ids both complete successfully having genuinely run concurrently; two concurrent download
 requests for the same, not-yet-installed model id serialize (the second never reaches the client
 until the first completes), with the second then observing the already-installed fast path once
@@ -115,9 +116,15 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact`
 
+**Scenario**: A second call whose descriptor has a wrong checksum still returns `Installed` (the fast path never
+inspects it) and the first install's bytes are unchanged.
+
 ##### Download: Canceled Mid-Download Throws and Installs Nothing
 
 **Test**: `SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing`
+
+**Scenario**: The client cancels the caller's token after two chunks; `OperationCanceledException` propagates,
+the model is not installed, and no staging files remain under the store root.
 
 ##### Download: Two Concurrent Requests For Different Models Run Concurrently
 
@@ -134,6 +141,16 @@ reclassified as `NetworkBlocked`.
 ##### Download: After Dispose Throws ObjectDisposedException
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed`
+
+**Scenario**: After disposing twice (idempotent), the string, delegate-hook and `ISpeechModel` overloads of
+`DownloadAsync` all throw `ObjectDisposedException`.
+
+##### Download: Disposed While In Flight Still Completes
+
+**Test**: `SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes`
+
+**Scenario**: The downloader is disposed while a download is held open in the client; once released, the
+download still reports `Installed` (the lock release swallows the `ObjectDisposedException`).
 
 ##### Download: Install-Hook Delegate Overload Runs the Hook Before the Swap
 

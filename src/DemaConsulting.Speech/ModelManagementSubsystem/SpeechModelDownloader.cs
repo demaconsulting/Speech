@@ -45,14 +45,15 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <summary>Whether <see cref="_client"/> was created internally and so must be disposed by this instance.</summary>
     private readonly bool _ownsClient;
 
-    /// <summary>Whether <see cref="Dispose"/> has been called; later downloads throw <see cref="ObjectDisposedException"/>.</summary>
-    private volatile bool _disposed;
     /// <summary>
     ///     The mirror every declared file's effective download URI is resolved beneath, or
     ///     <see langword="null"/> to fetch every file from exactly the URI its own
     ///     <see cref="SpeechModelDownloadFile.Uri"/> declares.
     /// </summary>
     private readonly DownloadMirror? _mirror;
+
+    /// <summary>Whether <see cref="Dispose"/> has been called; later downloads throw <see cref="ObjectDisposedException"/>.</summary>
+    private volatile bool _disposed;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class.
@@ -225,7 +226,7 @@ public sealed class SpeechModelDownloader : IDisposable
         }
         finally
         {
-            modelLock.Release();
+            ReleaseQuietly(modelLock);
         }
     }
 
@@ -297,7 +298,7 @@ public sealed class SpeechModelDownloader : IDisposable
         }
         finally
         {
-            modelLock.Release();
+            ReleaseQuietly(modelLock);
         }
     }
 
@@ -336,7 +337,7 @@ public sealed class SpeechModelDownloader : IDisposable
         }
         finally
         {
-            modelLock.Release();
+            ReleaseQuietly(modelLock);
         }
     }
 
@@ -452,10 +453,10 @@ public sealed class SpeechModelDownloader : IDisposable
         {
             // Only a genuine caller cancellation (the supplied token itself was signaled) takes
             // this branch and propagates unchanged. An OperationCanceledException/
-            // TaskCanceledException NOT caused by this token (for example HttpClient's own
-            // internal request timeout) falls through to the catch below instead, where
-            // ClassifyFailure honestly reports it as NetworkBlocked rather than being mistaken
-            // for a caller-driven cancellation.
+            // TaskCanceledException NOT caused by this token falls through to the catch below
+            // instead: the HTTP fetch step's own request timeout (wrapped in
+            // HttpFetchTimeoutException) is classified as NetworkBlocked there, and any other
+            // such cancellation is reported as Failed, never mistaken for a caller cancellation.
             SpeechModelStore.AbandonStaging(stagingDirectory);
             throw;
         }
@@ -693,6 +694,14 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     Disposes every per-model-id lock held in <see cref="_perModelLocks"/> and, when this
     ///     instance created it internally, the underlying download client.
     /// </summary>
+    /// <remarks>
+    ///     Dispose is idempotent but is not synchronized with in-flight downloads: a download that
+    ///     started before disposal may still be running, and its <c>finally</c> block then releases a
+    ///     semaphore that has already been disposed. That release swallows the resulting
+    ///     <see cref="ObjectDisposedException"/>, so an in-flight download never fails because of a
+    ///     concurrent disposal; it can, however, fail or be canceled when the owned download client is
+    ///     disposed under it. Callers should cancel and await outstanding downloads before disposing.
+    /// </remarks>
     public void Dispose()
     {
         _disposed = true;
@@ -704,6 +713,22 @@ public sealed class SpeechModelDownloader : IDisposable
         if (_ownsClient && _client is IDisposable disposableClient)
         {
             disposableClient.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Releases a per-model-id lock, ignoring the <see cref="ObjectDisposedException"/> that results when
+    ///     <see cref="Dispose"/> ran while the download was still in flight.
+    /// </summary>
+    private static void ReleaseQuietly(SemaphoreSlim modelLock)
+    {
+        try
+        {
+            modelLock.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The downloader was disposed while this download was in flight; nothing is left to release.
         }
     }
 
@@ -775,8 +800,10 @@ public enum SpeechModelDownloadOutcome
     ///     <see cref="System.Security.Authentication.AuthenticationException"/>), a DNS/
     ///     connection-level failure (an <c>HttpRequestException</c> wrapping a
     ///     <see cref="System.Net.Sockets.SocketException"/> - DNS resolution failure, connection
-    ///     refused, or host unreachable), or a request timeout that was <em>not</em> caused by
-    ///     the caller's own <see cref="CancellationToken"/> (a genuine caller cancellation still
+    ///     refused, or host unreachable), or the HTTP fetch step's own request timeout (the
+    ///     <c>HttpClient</c>'s <c>Timeout</c> elapsing, which is not caused by the caller's own
+    ///     <see cref="CancellationToken"/>; any other cancellation that the caller's token did not
+    ///     cause is reported as <see cref="Failed"/>, and a genuine caller cancellation still
     ///     propagates unchanged as <see cref="OperationCanceledException"/>, never this outcome).
     ///     Nothing was installed, and any prior successful install of the same model is
     ///     untouched.

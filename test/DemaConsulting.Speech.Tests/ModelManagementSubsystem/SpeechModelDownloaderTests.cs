@@ -220,7 +220,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
     /// <summary>
     ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model takes
-    ///     the Issue 3 fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
+    ///     the already-installed fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
     ///     without ever inspecting the second call's descriptor/checksum at all - leaving the
     ///     prior successful install completely untouched. This supersedes this library's earlier
     ///     "second call genuinely re-verifies and can report ChecksumMismatch" behavior: once
@@ -280,6 +280,33 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => downloader.DownloadAsync("model-a", descriptor, cancellationToken: cts.Token));
         Assert.False(store.IsInstalled("model-a"));
+        Assert.Empty(Directory.GetFiles(_testRoot, "*", SearchOption.AllDirectories));
+    }
+
+    /// <summary>
+    ///     Proves that disposing the downloader while a download is still in flight neither fails that
+    ///     download nor throws from its lock release (the documented disposal race).
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var store = NewStore();
+        var client = new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]> { [descriptor.Files[0].Uri] = payload });
+        var downloader = new SpeechModelDownloader(store, client);
+        var inFlight = downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        await client.FirstCallEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Act
+        downloader.Dispose();
+        client.ReleaseFirstCall();
+        var result = await inFlight;
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(store.IsInstalled("model-a"));
     }
 
     /// <summary>
@@ -358,8 +385,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
         // Release the first call so it can complete and install the model. The second call was
         // genuinely serialized behind the first (never raced its atomic-swap install); once it
-        // acquires the lock in turn, it now observes the already-installed fast path added for
-        // Issue 3 and short-circuits to Installed without ever reaching the client a second time
+        // acquires the lock in turn, it now observes the already-installed fast path and
+        // short-circuits to Installed without ever reaching the client a second time
         // - proving both that serialization held (only entry order [1] was ever recorded) and
         // that the fast path itself is race-safe when checked while holding the same lock a
         // concurrent first-time install just released.
@@ -424,6 +451,9 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() =>
             downloader.DownloadAsync("model-a", descriptor, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync(
+                new RecordingInstallHookModel("model-a", descriptor), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -643,7 +673,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
     /// <summary>
     ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model id takes
-    ///     the Issue 3 fast path even when supplied a model whose
+    ///     the already-installed fast path even when supplied a model whose
     ///     <see cref="ISpeechModel.InstallAsync"/> hook would throw - the hook is never invoked
     ///     at all, since the fast path returns before any staging/install work begins - leaving
     ///     the prior successful install completely untouched. This supersedes this library's

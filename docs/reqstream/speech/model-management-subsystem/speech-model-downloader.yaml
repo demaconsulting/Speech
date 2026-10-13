@@ -43,6 +43,16 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed
 
+              - id: Speech-Models-SpeechModelDownloader-DisposeWhileInFlight
+                title: >-
+                  The SpeechModelDownloader class shall let a download that is already running
+                  complete without a lock-release error when the downloader is disposed meanwhile.
+                justification: |
+                  Disposal is not synchronized with in-flight downloads; releasing a disposed
+                  per-model lock must not turn a successful install into an exception.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes
+
               - id: Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
                 title: >-
                   The SpeechModelDownloader class shall allow downloads of different model ids to
@@ -65,6 +75,16 @@ sections:
                   first passed checksum verification.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+
+              - id: Speech-Models-SpeechModelDownloader-NestedInstallPaths
+                title: >-
+                  The SpeechModelDownloader class shall stage a file whose relative install path
+                  contains a foreign directory separator under the corresponding nested
+                  subdirectory.
+                justification: |
+                  Descriptors may be authored on any platform; the staged layout must not depend
+                  on which separator the author used.
+                tests:
                   - SpeechModelDownloader_DownloadAsync_RelativeInstallPathWithForeignSeparator_StagesUnderNestedSubdirectory
 
               - id: Speech-Models-SpeechModelDownloader-ProgressReporting
@@ -130,7 +150,7 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover
 
-              - id: Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
+              - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledPreservesPriorInstall
                 title: >-
                   The SpeechModelDownloader class shall leave a model's prior successful install
                   completely untouched when a second DownloadAsync call is made for the same,
