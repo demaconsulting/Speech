@@ -117,8 +117,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{}}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves a stream that is not gzip is rejected with <see cref="InvalidDataException"/>.</summary>
@@ -128,8 +131,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("not gzip at all"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => ByteLevelBpeTokenizer.FromGzipStream(stream));
+        // Act
+        var exception = Record.Exception(() => ByteLevelBpeTokenizer.FromGzipStream(stream));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves a duplicate merge keeps its first (lowest) rank.</summary>
@@ -148,6 +154,22 @@ public sealed class ByteLevelBpeTokenizerTests
         Assert.Equal([3L, 2L], ids);
     }
 
+    /// <summary>Proves the earlier-listed merge applies first when two merges overlap.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Encode_EarlierMergeWins_OverLaterMerge()
+    {
+        // Arrange: "b c" is listed before "a b", so "abc" becomes a + bc rather than ab + c
+        var tokenizer = Create(
+            "{\"a\":0,\"b\":1,\"c\":2,\"ab\":3,\"bc\":4}",
+            "[\"b c\",\"a b\"]");
+
+        // Act
+        var ids = tokenizer.Encode("abc");
+
+        // Assert
+        Assert.Equal([0L, 4L], ids);
+    }
+
     /// <summary>Proves a negative trailing end-of-text count is rejected.</summary>
     [Fact]
     public void ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange()
@@ -155,8 +177,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]}}"));
 
-        // Act & Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: -1));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: -1));
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
     }
 
     /// <summary>Proves a missing end-of-text token is rejected when ids must be appended.</summary>
@@ -166,8 +191,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]}}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 1));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 1));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves a document with an empty vocabulary is rejected.</summary>
@@ -177,8 +205,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{},\"merges\":[]}}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves null or malformed merge entries are reported as <see cref="InvalidDataException"/>.</summary>
@@ -191,8 +222,11 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{\"a\":0},\"merges\":" + merges + "}}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves encoding a piece without a vocabulary entry reports a corrupt tokenizer.</summary>
@@ -202,19 +236,31 @@ public sealed class ByteLevelBpeTokenizerTests
         // Arrange
         var tokenizer = Create("{\"a\":0}", "[]");
 
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => tokenizer.Encode("z"));
+        // Act
+        var exception = Record.Exception(() => tokenizer.Encode("z"));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     /// <summary>Proves null arguments are rejected.</summary>
     [Fact]
     public void ByteLevelBpeTokenizer_NullArguments_Throw()
     {
+        // Arrange
+        using var stream = new MemoryStream();
+
+        // Act
+        var nullStream = Record.Exception(() => new ByteLevelBpeTokenizer(null!));
+        var nullGzip = Record.Exception(() => ByteLevelBpeTokenizer.FromGzipStream(null!));
+        var nullText = Record.Exception(() => _tokenizer.Encode(null!));
+        var nullEndOfText = Record.Exception(() => new ByteLevelBpeTokenizer(stream, endOfTextToken: null!));
+
         // Assert
-        Assert.Throws<ArgumentNullException>(() => new ByteLevelBpeTokenizer(null!));
-        Assert.Throws<ArgumentNullException>(() => ByteLevelBpeTokenizer.FromGzipStream(null!));
-        Assert.Throws<ArgumentNullException>(() => _tokenizer.Encode(null!));
-        Assert.Throws<ArgumentNullException>(() => new ByteLevelBpeTokenizer(new MemoryStream(), endOfTextToken: null!));
+        Assert.IsType<ArgumentNullException>(nullStream);
+        Assert.IsType<ArgumentNullException>(nullGzip);
+        Assert.IsType<ArgumentNullException>(nullText);
+        Assert.IsType<ArgumentNullException>(nullEndOfText);
     }
 
     /// <summary>Proves an added token with null content is reported as <see cref="InvalidDataException"/>.</summary>
@@ -225,8 +271,11 @@ public sealed class ByteLevelBpeTokenizerTests
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
             "{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]},\"added_tokens\":[{\"id\":1,\"content\":null}]}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves an added token with empty content is rejected instead of matching everywhere.</summary>
@@ -237,8 +286,11 @@ public sealed class ByteLevelBpeTokenizerTests
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
             "{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]},\"added_tokens\":[{\"id\":1,\"content\":\"\"}]}"));
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+        // Act
+        var exception = Record.Exception(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
     }
 
     /// <summary>Proves a custom end-of-text token found in the vocabulary is the one appended.</summary>

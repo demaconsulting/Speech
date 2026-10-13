@@ -17,9 +17,10 @@ generated from the real Hugging Face tokenizer by the committed script
 
 Every golden case matches exactly; empty text yields only the trailing ids; tags are atomic; zero
 trailing ids appends no end-of-text id; a custom end-of-text token present in the vocabulary is appended; an
-added token that prefixes another never shadows it (longest wins); a duplicate merge keeps its first rank;
-invalid or malformed documents, an empty vocabulary, null added-token content, a missing end-of-text token and
-non-gzip input throw `InvalidDataException`; a negative
+added token that prefixes another never shadows it (longest wins); an earlier-listed merge applies before a
+later one; a duplicate merge keeps its first rank;
+invalid or malformed documents, an empty vocabulary, null or empty added-token content, a missing
+end-of-text token and non-gzip input throw `InvalidDataException`; a negative
 trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabulary entry throws
 `InvalidOperationException`; null arguments throw.
 
@@ -72,6 +73,10 @@ trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabular
 ##### A duplicate merge keeps its first rank
 
 **Test**: `ByteLevelBpeTokenizer_Constructor_DuplicateMerge_KeepsFirstRank`
+
+##### An earlier merge wins over a later one
+
+**Test**: `ByteLevelBpeTokenizer_Encode_EarlierMergeWins_OverLaterMerge`
 
 ##### A non-gzip stream throws
 

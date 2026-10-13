@@ -19,7 +19,8 @@ is read-only, and a cache race only repeats deterministic work. The added-token 
 - **FromGzipStream(stream, trailingEndOfTextCount)** / constructor `(stream, endOfTextToken, trailingEndOfTextCount)`:
   load and validate a gzip-compressed `tokenizer.json`. `endOfTextToken` (default `<|endoftext|>`) is
   looked up in the added tokens then the vocabulary; `trailingEndOfTextCount` (default 2, 0 disables) is how
-  many of its id are appended to every encoding. A duplicate merge keeps its first (lowest) rank.
+  many of its id are appended to every encoding. Merges rank in document order (the earlier a merge is
+  listed, the sooner it applies); a duplicate merge keeps its first (lowest) rank.
 - **Encode(text)**: split out added tokens, pre-tokenize the remaining text with the GPT-2 style
   regex, map bytes to unicode, apply merges by rank, look up ids, and append the trailing ids
 
@@ -30,7 +31,8 @@ end-of-text token that is not in the tokenizer when ids must be appended;
 `trailingEndOfTextCount`; `InvalidOperationException` from `Encode` when a merged piece has no
 vocabulary entry (corrupt tokenizer). The regular expressions carry a five-second match timeout as a
 defensive guard against pathological input (`RegexMatchTimeoutException`); the timeout is not exercised by a
-test because the fixed patterns cannot be driven to it.
+test because the fixed patterns cannot be driven to it. The constructor never matches text, so only `Encode`
+can raise it.
 
 **Dependencies**: `System.Text.Json`, `System.IO.Compression`, `System.Text.RegularExpressions`.
 

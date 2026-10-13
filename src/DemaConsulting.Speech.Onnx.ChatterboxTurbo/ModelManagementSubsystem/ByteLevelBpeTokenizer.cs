@@ -179,6 +179,7 @@ internal sealed class ByteLevelBpeTokenizer
     /// <returns>The token ids.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown when a piece has no vocabulary entry (corrupt tokenizer).</exception>
+    /// <exception cref="RegexMatchTimeoutException">Thrown when pre-tokenization exceeds the five-second regex time limit.</exception>
     public long[] Encode(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
