@@ -17,9 +17,12 @@ public sealed class AudioDeviceDescriptionTests
         var first = new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 2, 48000);
         var second = new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 2, 48000);
 
-        // Act & Assert
+        // Act
+        var hashesEqual = first.GetHashCode() == second.GetHashCode();
+
+        // Assert
         Assert.Equal(first, second);
-        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+        Assert.True(hashesEqual);
     }
 
     /// <summary>
@@ -31,10 +34,16 @@ public sealed class AudioDeviceDescriptionTests
         // Arrange
         var baseline = new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 2, 48000);
 
-        // Act & Assert
-        Assert.NotEqual(baseline, baseline with { Name = "Other" });
-        Assert.NotEqual(baseline, baseline with { Direction = AudioDeviceDirection.Playback });
-        Assert.NotEqual(baseline, baseline with { ChannelCount = 1 });
-        Assert.NotEqual(baseline, baseline with { SampleRate = 16000 });
+        // Act
+        var withName = baseline with { Name = "Other" };
+        var withDirection = baseline with { Direction = AudioDeviceDirection.Playback };
+        var withChannels = baseline with { ChannelCount = 1 };
+        var withRate = baseline with { SampleRate = 16000 };
+
+        // Assert
+        Assert.NotEqual(baseline, withName);
+        Assert.NotEqual(baseline, withDirection);
+        Assert.NotEqual(baseline, withChannels);
+        Assert.NotEqual(baseline, withRate);
     }
 }

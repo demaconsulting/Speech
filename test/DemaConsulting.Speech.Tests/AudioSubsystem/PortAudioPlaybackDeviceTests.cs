@@ -244,7 +244,8 @@ public class PortAudioPlaybackDeviceTests
             diagnostics: diagnostics,
             preferredFormat: new AudioFormat(24000, 4));
 
-        // Assert: the channel count is clamped and reported        Assert.Equal(24000, device.SampleRate);
+        // Assert: the channel count is clamped and reported
+        Assert.Equal(24000, device.SampleRate);
         Assert.Equal(2, device.ChannelCount);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Info,
@@ -269,7 +270,8 @@ public class PortAudioPlaybackDeviceTests
         // Act: construct the device without a preferred format
         var device = new PortAudioPlaybackDevice(environment);
 
-        // Assert: the device's own default format is reported        Assert.Equal(44100, device.SampleRate);
+        // Assert: the device's own default format is reported
+        Assert.Equal(44100, device.SampleRate);
         Assert.Equal(3, device.ChannelCount);
     }
 

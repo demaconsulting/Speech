@@ -23,8 +23,13 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// </exception>
 public sealed record AudioClip(float[] Samples, int SampleRate, int ChannelCount, int BitsPerSample)
 {
+    /// <summary>Backing store for <see cref="Samples"/>; rejects <see langword="null"/>.</summary>
     private readonly float[] _samples = Samples ?? throw new ArgumentNullException(nameof(Samples));
+
+    /// <summary>Backing store for <see cref="SampleRate"/>; validated to be positive.</summary>
     private readonly int _sampleRate = Positive(SampleRate, nameof(SampleRate));
+
+    /// <summary>Backing store for <see cref="ChannelCount"/>; validated to be positive.</summary>
     private readonly int _channelCount = Positive(ChannelCount, nameof(ChannelCount));
 
     /// <summary>Gets the interleaved samples, <c>frame * ChannelCount + channel</c>.</summary>

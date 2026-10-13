@@ -92,8 +92,17 @@ public sealed class WavDecoderTests
     [InlineData(2, 16)]
     [InlineData(1, 12)]
     [InlineData(3, 64)]
-    public void WavDecoder_Decode_UnsupportedEncoding_Throws(int tag, int bits) =>
-        Assert.Throws<NotSupportedException>(() => AudioFileReader.Read(new MemoryStream(Wav(tag, 8000, bits, 1, new byte[8]))));
+    public void WavDecoder_Decode_UnsupportedEncoding_Throws(int tag, int bits)
+    {
+        // Arrange
+        var image = Wav(tag, 8000, bits, 1, new byte[8]);
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image)));
+
+        // Assert
+        Assert.IsType<NotSupportedException>(error);
+    }
 
     /// <summary>Proves malformed images raise <see cref="InvalidDataException"/> naming the defect.</summary>
     [Theory]
@@ -127,10 +136,18 @@ public sealed class WavDecoderTests
 
     /// <summary>Proves the sample cap is enforced.</summary>
     [Fact]
-    public void WavDecoder_Decode_ExceedsMaxSamples_Throws() =>
-        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(
-            new MemoryStream(Wav(1, 8000, 16, 1, new byte[100])),
-            new AudioFileReadOptions { MaxSamples = 10 }));
+    public void WavDecoder_Decode_ExceedsMaxSamples_Throws()
+    {
+        // Arrange
+        var image = Wav(1, 8000, 16, 1, new byte[100]);
+        var options = new AudioFileReadOptions { MaxSamples = 10 };
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image), options));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(error);
+    }
 
     /// <summary>Proves the cap is inclusive: exactly the cap decodes and one sample fewer than the data holds is rejected.</summary>
     [Fact]
@@ -318,9 +335,17 @@ public sealed class WavDecoderTests
     [InlineData(2, 16)]
     [InlineData(1, 12)]
     [InlineData(3, 64)]
-    public void WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws(int subFormat, int bits) =>
-        Assert.Throws<NotSupportedException>(() => AudioFileReader.Read(
-            new MemoryStream(Riff(("fmt ", Extensible(subFormat, bits, 1)), ("data", new byte[8])))));
+    public void WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws(int subFormat, int bits)
+    {
+        // Arrange
+        var image = Riff(("fmt ", Extensible(subFormat, bits, 1)), ("data", new byte[8]));
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image)));
+
+        // Assert
+        Assert.IsType<NotSupportedException>(error);
+    }
 
     /// <summary>Proves a ragged final frame is dropped when the declared data size is exact.</summary>
     [Fact]
