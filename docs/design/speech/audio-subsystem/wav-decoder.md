@@ -17,8 +17,8 @@
   clamped to `int.MaxValue` before use, so a huge non-data chunk simply ends the walk.
 - **ParseFormat(data, body, size)** (private): validates the `fmt` chunk - at least 16 bytes, at
   least 40 for `WAVE_FORMAT_EXTENSIBLE` (whose sub-format supplies the real tag) - and rejects zero
-  channels or sample rate, a rate above `int.MaxValue` (with its own message naming the rate), and any format tag or bit depth other than
-  8/16/24/32-bit PCM and 32-bit float. Returns a private `WavFormat` record. Only the format tag,
+  channels or sample rate, a rate above `int.MaxValue` (with its own message naming the rate), and any
+  format tag or bit depth other than 8/16/24/32-bit PCM and 32-bit float. Returns a private `WavFormat` record. Only the format tag,
   channel count, sample rate and bit depth are read; the byte rate, block align and the extensible
   channel mask and valid-bits fields are ignored.
 - **DecodeSamples(data, start, available, format, maxSamples)** (private): drops a trailing partial
