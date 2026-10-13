@@ -342,6 +342,7 @@ sections:
               chunk is still being synthesized.
             children:
               - Speech-Synthesis-SynthesisSession-ChunkedPipeline
+              - Speech-Synthesis-SynthesisSession-OrderedSegmentSynthesis
               - Speech-Synthesis-SynthesisSession-SequentialSynthesis
               - Speech-Synthesis-SynthesisSession-FullFidelitySegmentList
               - Speech-Synthesis-SynthesisSession-SynthesizeCompletesWhenAllSegmentsDone
@@ -361,7 +362,8 @@ sections:
               - Speech-Synthesis-SynthesisSession-StreamedPlayback
               - Speech-Synthesis-SynthesisSession-ContinuousPlayback
               - Speech-Synthesis-SynthesisSession-PlaybackDeviceReleased
-              - Speech-Synthesis-SynthesisSession-SilenceAndVolume
+              - Speech-Synthesis-SynthesisSession-SilenceWriting
+              - Speech-Synthesis-SynthesisSession-LongSilenceChunked
               - Speech-Synthesis-SynthesisSession-VolumeScaling
               - Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-SynthesisSession-DrainWaitCancellation
@@ -441,6 +443,7 @@ sections:
               - Speech-Synthesis-SynthesisSession-DisposeReleasesLeaseOnce
               - Speech-Synthesis-SynthesisSession-DisposedStateReporting
               - Speech-Synthesis-SynthesisSession-DisposedReportsUnavailable
+              - Speech-Synthesis-SynthesisSession-FaultedReportsUnavailable
               - Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
               - Speech-Synthesis-SynthesisSession-DisposeLeaseReleaseAfterNativeCompletion
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallReturnsPromptly

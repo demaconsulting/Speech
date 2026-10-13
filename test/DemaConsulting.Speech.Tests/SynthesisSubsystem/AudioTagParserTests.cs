@@ -318,4 +318,54 @@ public class AudioTagParserTests
                 Assert.Equal("[gibberish]", span.Text);
             });
     }
+
+    /// <summary>
+    ///     Proves an unclosed opening bracket that follows a recognized tag passes through literally.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_Parse_UnclosedBracketAfterRecognizedTag_PassesThroughAsLiteralText()
+    {
+        // Act
+        var spans = AudioTagParser.Parse("[fast] x [ y");
+
+        // Assert
+        Assert.Equal(2, spans.Count);
+        Assert.Equal(TaggedTextSpanKind.Tag, spans[0].Kind);
+        Assert.Equal(" x [ y", spans[1].Text);
+    }
+
+    /// <summary>
+    ///     Proves the factory <see cref="TaggedTextSpan.TagSpan"/> produces a tag span carrying the tag.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_TagSpan_Factory_ProducesTagSpan()
+    {
+        // Act
+        var span = TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast);
+
+        // Assert
+        Assert.Equal(TaggedTextSpanKind.Tag, span.Kind);
+        Assert.Equal(NaturalLanguageAudioTag.Fast, span.Tag);
+    }
+
+    /// <summary>
+    ///     Proves pathological input with a huge run of unclosed openers followed by a closer is
+    ///     parsed in linear time, preserving every character as literal text.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_Parse_ManyNestedOpenersThenCloser_CompletesQuicklyAndPreservesText()
+    {
+        // Arrange
+        var text = new string('[', 200_000) + "x]";
+
+        // Act
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var spans = AudioTagParser.Parse(text);
+        stopwatch.Stop();
+
+        // Assert
+        var span = Assert.Single(spans);
+        Assert.Equal(text, span.Text);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Parse took {stopwatch.Elapsed}");
+    }
 }

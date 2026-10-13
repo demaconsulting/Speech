@@ -565,6 +565,35 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves the dispose path honors the same rule: a handler that blocks on another thread
+    ///     reading the lock-protected state completes when an idle session is disposed.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_DisposeAsync_IdleSessionHandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        var observed = new List<SynthesisSessionState>();
+        session.StateChanged += (_, _) =>
+        {
+            var read = Task.Run(() => session.State);
+            Assert.True(read.Wait(TimeSpan.FromSeconds(10)), "State read blocked while a dispose-path handler was running");
+            lock (observed)
+            {
+                observed.Add(read.Result);
+            }
+        };
+
+        // Act
+        await session.DisposeAsync();
+
+        // Assert
+        Assert.Equal([SynthesisSessionState.Disposing, SynthesisSessionState.Disposed], observed);
+    }
+
+    /// <summary>
     ///     Proves that a <see cref="ISynthesisSession.StateChanged"/> handler that throws does not
     ///     propagate out of the session and does not destabilize its own lifecycle, mirroring this
     ///     library's event-exception-isolation convention.
@@ -1250,6 +1279,38 @@ public class SynthesisSessionTests
         Assert.Equal(4800 * 2, writes[1].Length);
         Assert.All(writes[1], sample => Assert.Equal(0f, sample));
         Assert.Equal("world.".Length * 4 * 2, writes[2].Length);
+    }
+
+    /// <summary>
+    ///     Proves a very long pause is written to the playback device in bounded chunks of at
+    ///     most one second each whose total length equals the pause, rather than one huge buffer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks()
+    {
+        // Arrange: a stereo 16 kHz device and a plan whose only segment is a 150 s pause
+        const int sampleRate = 16000;
+        const int channelCount = 2;
+        const int pauseSeconds = 150;
+        var backend = new FakeSynthesisEngine(sampleRate: sampleRate);
+        var device = CreateAvailablePlaybackDevice(sampleRate: sampleRate, channelCount: channelCount);
+        var writeLengths = new List<int>();
+        device.When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(call => writeLengths.Add(call.Arg<IReadOnlyList<float>>().Count));
+        var profile = Substitute.For<IModelCapabilityProfile>();
+        profile.Render(Arg.Any<IReadOnlyList<TaggedTextSpan>>(), Arg.Any<ISpeechModel>())
+            .Returns(new SpeechPlan([new SpeechSegment(string.Empty, 0, pauseSeconds * 1000, null)]));
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(profile);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        await session.SpeakAsync("pause", TestContext.Current.CancellationToken);
+
+        // Assert: every write is at most one second of frames and the total is the full pause
+        Assert.All(writeLengths, length => Assert.True(length <= sampleRate * channelCount));
+        Assert.Equal(pauseSeconds * sampleRate * channelCount, writeLengths.Sum());
     }
 
     /// <summary>

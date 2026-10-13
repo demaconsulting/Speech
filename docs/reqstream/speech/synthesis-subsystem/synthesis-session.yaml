@@ -16,13 +16,21 @@ sections:
               - id: Speech-Synthesis-SynthesisSession-ChunkedPipeline
                 title: >-
                   The SynthesisSession class shall normalize, tag-parse, and Layer 2
-                  render input text into an ordered SpeechPlan, then synthesize each resulting
-                  segment in order.
+                  render input text into an ordered SpeechPlan.
                 justification: |
                   Chunking keeps each backend call short, so a host is not left waiting for an
                   entire utterance's inference to complete before hearing anything.
                 tests:
                   - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+              - id: Speech-Synthesis-SynthesisSession-OrderedSegmentSynthesis
+                title: >-
+                  The SynthesisSession class shall synthesize the segments of a SpeechPlan in
+                  plan order.
+                justification: |
+                  Segments are consecutive parts of one utterance, so out-of-order synthesis
+                  would scramble the speech.
+                tests:
                   - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
 
               - id: Speech-Synthesis-SynthesisSession-SequentialSynthesis
@@ -98,7 +106,7 @@ sections:
               - id: Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
                 title: >-
                   The SynthesisSession class shall wait for the playback device to
-                  report a fully drained pending-sample count, plus a small safety margin, before
+                  report a fully drained pending-sample count, plus a fixed 40 ms safety margin, before
                   stopping the device at the end of a SpeakAsync operation.
                 justification: |
                   Treating "every segment enqueued" as "finished playing" would stop the playback
@@ -337,6 +345,15 @@ sections:
                 tests:
                   - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
 
+              - id: Speech-Synthesis-SynthesisSession-FaultedReportsUnavailable
+                title: >-
+                  The SynthesisSession class shall report IsAvailable as false once faulted.
+                justification: |
+                  A host checking availability before using a session must see that a faulted
+                  session can no longer perform an operation.
+                tests:
+                  - SynthesisSession_IsAvailable_AfterFault_ReturnsFalse
+
               - id: Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
                 title: >-
                   The SynthesisSession class shall not complete DisposeAsync until every native
@@ -412,8 +429,8 @@ sections:
                 title: >-
                   When a cancellation request is not honored by a native backend call within the
                   dedicated worker's abandon timeout, the SynthesisSession class shall return the
-                  canceled operation to its caller promptly, while the native call may still be
-                  running.
+                  canceled operation to its caller no later than that abandon timeout after the
+                  cancellation request, without waiting for the native call to return.
                 justification: |
                   A native call may never honor cancellation; a caller that cancels must be
                   released within a bounded time rather than waiting for a call it cannot
@@ -466,7 +483,7 @@ sections:
                 tests:
                   - SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately
 
-              - id: Speech-Synthesis-SynthesisSession-SilenceAndVolume
+              - id: Speech-Synthesis-SynthesisSession-SilenceWriting
                 title: >-
                   The SynthesisSession class shall write each segment's declared pre-silence and
                   post-silence to the playback device around that segment's audio, as the
@@ -476,6 +493,16 @@ sections:
                   the silence must be written to the device in order around the segment's audio.
                 tests:
                   - SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio
+
+              - id: Speech-Synthesis-SynthesisSession-LongSilenceChunked
+                title: >-
+                  The SynthesisSession class shall write a long silence to the playback device in
+                  chunks of at most one second each, preserving the total duration.
+                justification: |
+                  A single buffer sized for an arbitrarily long pause could overflow or exhaust
+                  memory; bounded chunks keep every write small.
+                tests:
+                  - SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks
 
               - id: Speech-Synthesis-SynthesisSession-VolumeScaling
                 title: >-

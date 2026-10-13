@@ -817,13 +817,21 @@ internal sealed class SynthesisSession : ISynthesisSession
 
         var sampleRate = _device.SampleRate > 0 ? _device.SampleRate : _backend.SampleRate;
         var channelCount = _device.ChannelCount > 0 ? _device.ChannelCount : 1;
-        var frameCount = (int)(duration.TotalSeconds * sampleRate);
+        var frameCount = (long)(duration.TotalSeconds * sampleRate);
         if (frameCount <= 0)
         {
             return;
         }
 
-        _device.Write(new float[frameCount * channelCount]);
+        // Written in bounded chunks (at most one second each) so a very long pause can neither
+        // overflow the int array size nor allocate one huge buffer.
+        var maxChunkFrames = Math.Max(1L, sampleRate);
+        while (frameCount > 0)
+        {
+            var chunkFrames = (int)Math.Min(frameCount, maxChunkFrames);
+            _device.Write(new float[chunkFrames * channelCount]);
+            frameCount -= chunkFrames;
+        }
     }
 
     /// <summary>
@@ -879,10 +887,43 @@ internal sealed class SynthesisSession : ISynthesisSession
     /// </remarks>
     public ValueTask DisposeAsync()
     {
+        TaskCompletionSource? completion = null;
+        Task disposeTask;
         lock (_syncRoot)
         {
-            _disposeTask ??= DisposeCoreAsync();
-            return new ValueTask(_disposeTask);
+            // Only publish the single-flight task under the lock; the teardown itself (which can
+            // run synchronously when the session is idle) starts after the lock is released so
+            // StateChanged handlers, cancellation callbacks and the engine's lease-release
+            // callback never execute under _syncRoot.
+            if (_disposeTask is null)
+            {
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+            }
+
+            disposeTask = _disposeTask;
+        }
+
+        if (completion is not null)
+        {
+            _ = RunDisposeAsync(completion);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    /// <summary>Runs <see cref="DisposeCoreAsync"/> outside the lock and relays its outcome to the published single-flight task.</summary>
+    /// <param name="completion">The completion source behind <see cref="_disposeTask"/>.</param>
+    private async Task RunDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 
