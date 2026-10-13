@@ -21,8 +21,11 @@ namespace DemaConsulting.Speech.Onnx.Tests.OnnxRuntimeSubsystem;
 ///     neither requires any accelerated hardware or native library to be present. All tests run
 ///     against <c>TestData/tiny-identity-model.onnx</c>, a tiny, hand-built, valid single-node
 ///     ONNX model generated offline with the Python <c>onnx</c>/<c>onnxruntime</c> packages
-///     purely as a test fixture (never shipped in production).
+///     purely as a test fixture (never shipped in production). The class belongs to the
+///     serialized <see cref="OnnxSelectorHookCollection"/> because the selector's test hook is
+///     process-wide static state.
 /// </remarks>
+[Collection(OnnxSelectorHookCollection.Name)]
 public sealed class OnnxExecutionProviderSelectorTests
 {
     /// <summary>The tiny, valid, single-node ONNX test fixture model shared by every test in this class.</summary>
@@ -30,24 +33,43 @@ public sealed class OnnxExecutionProviderSelectorTests
 
     /// <summary>
     ///     Proves that a null model path throws <see cref="ArgumentNullException"/> (itself an
-    ///     <see cref="ArgumentException"/>) before any execution provider is attempted.
+    ///     <see cref="ArgumentException"/>) naming the parameter, before any execution provider
+    ///     is attempted.
     /// </summary>
     [Fact]
     public void OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException()
     {
-        // Arrange & Act & Assert
-        Assert.Throws<ArgumentNullException>(() => OnnxExecutionProviderSelector.Create(null!));
+        // Arrange
+        var attemptedCandidates = 0;
+        using var scope = SelectorHookScope.Install(_ => attemptedCandidates++);
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => OnnxExecutionProviderSelector.Create(null!, ["CPUExecutionProvider"]));
+
+        // Assert
+        Assert.Equal("modelPath", exception.ParamName);
+        Assert.Equal(0, attemptedCandidates);
     }
 
     /// <summary>
-    ///     Proves that an empty model path throws <see cref="ArgumentException"/> before any
-    ///     execution provider is attempted.
+    ///     Proves that an empty model path throws <see cref="ArgumentException"/> naming the
+    ///     parameter before any execution provider is attempted.
     /// </summary>
     [Fact]
     public void OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException()
     {
-        // Arrange & Act & Assert
-        Assert.Throws<ArgumentException>(() => OnnxExecutionProviderSelector.Create(string.Empty));
+        // Arrange
+        var attemptedCandidates = 0;
+        using var scope = SelectorHookScope.Install(_ => attemptedCandidates++);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(
+            () => OnnxExecutionProviderSelector.Create(string.Empty, ["CPUExecutionProvider"]));
+
+        // Assert
+        Assert.Equal("modelPath", exception.ParamName);
+        Assert.Equal(0, attemptedCandidates);
     }
 
     /// <summary>
@@ -58,20 +80,20 @@ public sealed class OnnxExecutionProviderSelectorTests
     [Fact]
     public void OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession()
     {
-        // Arrange & Act
+        // Arrange
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 2.5f }, [1])),
+        };
+
+        // Act
         using var session = OnnxExecutionProviderSelector.Create(ModelPath);
+        using var results = session.Run(inputs);
 
         // Assert
         Assert.NotNull(session);
         Assert.Contains("input", session.InputMetadata.Keys);
         Assert.Contains("output", session.OutputMetadata.Keys);
-
-        // Run the model's single Identity node to prove the session is genuinely usable
-        var inputs = new List<NamedOnnxValue>
-        {
-            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 2.5f }, [1])),
-        };
-        using var results = session.Run(inputs);
         Assert.Equal(new[] { 2.5f }, results.Single().AsTensor<float>().ToArray());
     }
 
@@ -108,47 +130,119 @@ public sealed class OnnxExecutionProviderSelectorTests
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
         var probeInvocationCount = 0;
+        InferenceSession? rejectedCandidate = null;
         void ThrowingProbe(InferenceSession probedSession)
         {
             Interlocked.Increment(ref probeInvocationCount);
-
-            // Feeding a wrong-typed tensor (long instead of the graph's declared float "input")
-            // throws a genuine OnnxRuntimeException from ONNX Runtime's own input validation,
-            // standing in for a real accelerated-provider probe failure (e.g. DirectML's
-            // ConvTranspose) without needing any accelerated hardware or native library present.
-            var mismatchedInput = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("input", new DenseTensor<long>(new long[] { 1 }, [1])),
-            };
-            probedSession.Run(mismatchedInput);
+            rejectedCandidate = probedSession;
+            RunWithMismatchedInput(probedSession);
         }
 
         // Act
         using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, ThrowingProbe);
 
-        // Assert: the final returned session is a working fallback, and the probe ran exactly
-        // once - for the failed candidate, never for the CPU fallback itself.
+        // Assert: the final returned session is a distinct, working fallback; the probe ran
+        // exactly once (for the failed candidate, never for the CPU fallback); and the rejected
+        // candidate's session was disposed.
         Assert.NotNull(session);
         Assert.Contains("input", session.InputMetadata.Keys);
         Assert.Equal(1, probeInvocationCount);
+        Assert.NotNull(rejectedCandidate);
+        Assert.NotSame(rejectedCandidate, session);
+        AssertSessionIsDisposed(rejectedCandidate);
     }
 
     /// <summary>
-    ///     Proves that a non-<see cref="OnnxRuntimeException"/>/<see cref="DllNotFoundException"/>
-    ///     thrown by a <c>validateSession</c> probe propagates to the caller rather than being
-    ///     treated as "try the next candidate".
+    ///     Proves that a <c>validateSession</c> probe throwing <see cref="DllNotFoundException"/>
+    ///     (how some provider native libraries report a missing dependency) is treated as an
+    ///     unavailable provider: the candidate is abandoned and a working CPU session returned.
     /// </summary>
     [Fact]
-    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows()
+    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsDllNotFoundException_FallsBackToCpuSession()
     {
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
         void ThrowingProbe(InferenceSession probedSession) =>
-            throw new InvalidOperationException("Simulated unexpected probe failure.");
+            throw new DllNotFoundException("Simulated missing provider native library.");
+
+        // Act
+        using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, ThrowingProbe);
+
+        // Assert
+        Assert.NotNull(session);
+        Assert.Contains("input", session.InputMetadata.Keys);
+    }
+
+    /// <summary>
+    ///     Proves that a non-<see cref="OnnxRuntimeException"/>/<see cref="DllNotFoundException"/>
+    ///     thrown by a <c>validateSession</c> probe propagates to the caller unchanged rather than
+    ///     being treated as "try the next candidate", and that the probed candidate's session is
+    ///     disposed before the exception reaches the caller.
+    /// </summary>
+    [Fact]
+    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession()
+    {
+        // Arrange
+        var preferredProviderNames = new[] { "CPUExecutionProvider", "CPUExecutionProvider" };
+        var probeInvocationCount = 0;
+        InferenceSession? probedCandidate = null;
+        var unexpected = new InvalidOperationException("Simulated unexpected probe failure.");
+        void ThrowingProbe(InferenceSession probedSession)
+        {
+            Interlocked.Increment(ref probeInvocationCount);
+            probedCandidate = probedSession;
+            throw unexpected;
+        }
+
+        // Act
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, ThrowingProbe));
+
+        // Assert: the very same exception reached the caller, no later candidate was tried, and
+        // the candidate's session was disposed rather than leaked.
+        Assert.Same(unexpected, thrown);
+        Assert.Equal(1, probeInvocationCount);
+        Assert.NotNull(probedCandidate);
+        AssertSessionIsDisposed(probedCandidate);
+    }
+
+    /// <summary>
+    ///     Proves that a model file that does not exist is reported to the caller as an ONNX
+    ///     Runtime error from the final CPU attempt, exactly as a direct
+    ///     <c>new InferenceSession(modelPath)</c> call would, rather than being swallowed.
+    /// </summary>
+    [Fact]
+    public void OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException()
+    {
+        // Arrange
+        var missingPath = Path.Combine(AppContext.BaseDirectory, "TestData", "does-not-exist.onnx");
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(
-            () => OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, ThrowingProbe));
+        Assert.Throws<OnnxRuntimeException>(() => OnnxExecutionProviderSelector.Create(missingPath));
+    }
+
+    /// <summary>
+    ///     Proves that a malformed model file is reported to the caller even when a preferred
+    ///     provider was supplied: the candidate's failure only means "try the next candidate",
+    ///     but the final CPU attempt still reports the genuine model error.
+    /// </summary>
+    [Fact]
+    public void OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException()
+    {
+        // Arrange
+        var malformedPath = Path.Combine(Path.GetTempPath(), $"malformed-{Guid.NewGuid():N}.onnx");
+        File.WriteAllText(malformedPath, "this is not an ONNX model");
+
+        try
+        {
+            // Act & Assert
+            Assert.Throws<OnnxRuntimeException>(
+                () => OnnxExecutionProviderSelector.Create(malformedPath, ["CPUExecutionProvider"]));
+        }
+        finally
+        {
+            File.Delete(malformedPath);
+        }
     }
 
     /// <summary>
@@ -168,25 +262,38 @@ public sealed class OnnxExecutionProviderSelectorTests
         // Arrange
         var preferredProviderNames = new[] { "NotARealExecutionProvider", "CPUExecutionProvider" };
         var capturedOptions = new List<SessionOptions>();
-        void CaptureOptions(SessionOptions options) => capturedOptions.Add(options);
-        OnnxExecutionProviderSelector.OnCandidateOptionsCreated = CaptureOptions;
+        using var scope = SelectorHookScope.Install(capturedOptions.Add);
 
-        try
-        {
-            // Act
-            using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames);
+        // Act
+        using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames);
 
-            // Assert: both the failed "NotARealExecutionProvider" candidate and the winning
-            // "CPUExecutionProvider" candidate created their own options instance, and every one
-            // of them is disposed - none survives as a leaked native OrtSessionOptions handle.
-            Assert.NotNull(session);
-            Assert.Equal(2, capturedOptions.Count);
-            Assert.All(capturedOptions, options => Assert.True(options.IsClosed));
-        }
-        finally
-        {
-            OnnxExecutionProviderSelector.OnCandidateOptionsCreated = null;
-        }
+        // Assert: both the failed "NotARealExecutionProvider" candidate and the winning
+        // "CPUExecutionProvider" candidate created their own options instance, and every one
+        // of them is disposed - none survives as a leaked native OrtSessionOptions handle.
+        Assert.NotNull(session);
+        Assert.Equal(2, capturedOptions.Count);
+        Assert.All(capturedOptions, options => Assert.True(options.IsClosed));
+    }
+
+    /// <summary>
+    ///     Proves that the hook scope helper restores the previously installed hook on dispose, so
+    ///     a test can never leak its callback into another test.
+    /// </summary>
+    [Fact]
+    public void SelectorHookScope_Dispose_RestoresPreviousHook()
+    {
+        // Arrange
+        var previous = OnnxExecutionProviderSelector.OnCandidateOptionsCreated;
+        Action<SessionOptions> replacement = _ => { };
+
+        // Act
+        var scope = SelectorHookScope.Install(replacement);
+        var installed = OnnxExecutionProviderSelector.OnCandidateOptionsCreated;
+        scope.Dispose();
+
+        // Assert
+        Assert.Same(replacement, installed);
+        Assert.Same(previous, OnnxExecutionProviderSelector.OnCandidateOptionsCreated);
     }
 
     /// <summary>
@@ -282,7 +389,9 @@ public sealed class OnnxExecutionProviderSelectorTests
 
     /// <summary>
     ///     Feeds a wrong-typed tensor (long instead of the graph's declared float "input") so
-    ///     ONNX Runtime's own input validation throws a genuine <see cref="OnnxRuntimeException"/>.
+    ///     ONNX Runtime's own input validation throws a genuine <see cref="OnnxRuntimeException"/>,
+    ///     standing in for a real accelerated-provider probe failure (for example DirectML's
+    ///     <c>ConvTranspose</c>) without needing any accelerated hardware.
     /// </summary>
     /// <param name="probedSession">The session to run the mismatched input against.</param>
     private static void RunWithMismatchedInput(InferenceSession probedSession)
@@ -292,5 +401,23 @@ public sealed class OnnxExecutionProviderSelectorTests
             NamedOnnxValue.CreateFromTensor("input", new DenseTensor<long>(new long[] { 1 }, [1])),
         };
         probedSession.Run(mismatchedInput);
+    }
+
+    /// <summary>
+    ///     Asserts that <paramref name="session"/> has been disposed, observed by a valid inference
+    ///     failing on it (a live session would succeed).
+    /// </summary>
+    /// <param name="session">The session expected to be disposed.</param>
+    private static void AssertSessionIsDisposed(InferenceSession? session)
+    {
+        Assert.NotNull(session);
+        var validInput = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 1.0f }, [1])),
+        };
+        // A live session runs this valid input successfully, so any failure proves the native
+        // session handle was released (ONNX Runtime surfaces a disposed session as an
+        // ObjectDisposedException or NullReferenceException depending on its version).
+        Assert.ThrowsAny<SystemException>(() => session.Run(validInput));
     }
 }
