@@ -55,15 +55,20 @@ without being flagged truncated.
 
 ##### A run that reaches the cap still ends at the stop token
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation`
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation` and
+`OnnxChatterboxTurboSynthesisEngine_Generate_CapOfOne_StopTokenIsNeverExcluded`
 
 Scripted tokens: two identical tokens then the stop token, with a cap of two. Generation ends at the stop
-token and is not flagged truncated. That the selector never blocks the stop token is verified at unit level in
+token and is not flagged truncated. The second test scripts one token then the stop token with a cap of one,
+so the cap is reached immediately and the stop token must still be selectable. (The stop token ends
+generation, so it cannot itself repeat up to the cap; the cap only ever blocks the last non-stop token.)
+That the selector never blocks the stop token is also verified at unit level in
 `chatterbox-turbo-token-selector.md`.
 
 ##### Empty text returns empty audio without network calls
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_EmptyText_ReturnsEmptyAudioWithoutNetworkCalls`
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_EmptyText_ReturnsEmptyAudioWithoutNetworkCalls` and
+`OnnxChatterboxTurboSynthesisEngine_Generate_EmptyString_ReturnsEmptyAudioWithoutNetworkCalls`
 
 ##### Voices are encoded once and fall back
 
@@ -94,9 +99,15 @@ Two calls with different speeds return audio of identical length and sample rate
 **Tests**: `OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate` and
 `OnnxChatterboxTurboSynthesisEngine_Dispose_DuringGeneration_StopsGenerationAndWaitsForIt`
 
-The second test blocks the first language-model step, disposes from another thread, and checks that the
-disposal waits for the generation, the generation stops at its next step with `ObjectDisposedException` and
-the networks are disposed exactly once.
+The second test is deterministic and uses no timing assertion: the scripted network signals from inside
+the first language-model step and blocks there; a dedicated thread then calls dispose, and the test spins
+until that thread reports `WaitSleepJoin` (blocked on the engine's generation lock), which proves the
+dispose has not completed. Releasing the step lets the generation stop at its next step with
+`ObjectDisposedException`, after which the dispose finishes and the networks are disposed exactly once.
+
+##### A mood with an unknown speaker uses the first voice's mood clip
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarkerUnknownSpeaker_UsesFirstVoiceMoodClip`
 
 ##### Invalid constructor arguments throw
 

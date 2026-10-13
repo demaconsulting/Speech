@@ -8,7 +8,7 @@ tested against a fake `IChatterboxTurboNetworks`; the ONNX networks are tested a
 graphs written by the test project (an encoder, an embedder using Mod and Gather, a language model
 using MatMul and Concat with a key/value cache, and a decoder using Cast); the token selector and
 capability profile are pure functions tested directly. End-to-end construction through
-`CreateBackend` is verified by the model unit and the ModelManagementSubsystem verification; the
+`CreateBackend` is verified by the model unit (see _Integration evidence_ below); the
 subsystem scenarios below use the engine and capability-profile unit tests as their evidence. The
 following behaviors are verified at unit level only, in the unit verification documents: networks
 disposal and use after dispose, non-finite logits, tag relocation details, segmentation details and
@@ -35,12 +35,49 @@ See the unit verification documents: `onnx-chatterboxturbo-synthesis-engine.md`,
 `onnx-chatterboxturbo-networks.md`, `chatterbox-turbo-conditioning.md`, `chatterbox-turbo-token-selector.md` and
 `chatterbox-turbo-capability-profile.md`.
 
-#### Backend construction is verified in the model unit
+#### Integration evidence
 
-The scenario "End-to-end synthesis through a synthetic install" belongs to the model unit's verification
-(`OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`); it is
-the evidence that this subsystem's engine and networks compose into a working backend and returns audio at
-the 24 kHz output rate.
+The Synthesis subsystem's integration evidence is the model unit's
+`OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio` test, which
+builds the backend from a synthetic install and synthesizes 24 kHz audio, together with the system
+tests in `SpeechOnnxChatterboxTurboTests.cs`. Both live outside this subsystem's own test folder.
+
+#### Requirement-to-scenario map
+
+- **MoodMarkerOnlyText**:
+  `OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio`
+- **MoodMarkerHiding, MoodMarkerCallerSupplied**: _Mood conditioning_;
+  `ChatterboxTurboCapabilityProfile_Render_PlaceholderCharactersInUserText_AreRemoved`
+- **GenerationSegmentGuards**:
+  `OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment`
+- **GenerationStop, RepetitionGuard**: _Stop after a capped run_; _Repeated speech token is capped_
+- **TagOmission, TagSilence**:
+  `ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText`;
+  `ChatterboxTurboCapabilityProfile_Render_ShortPause_BecomesThreeHundredMillisecondSilence`;
+  `ChatterboxTurboCapabilityProfile_Render_LongPause_BecomesNineHundredMillisecondSilence`
+- **TagRelocation, TagSuffixing, TagStripping, TagPolicyValidation**:
+  `ChatterboxTurboCapabilityProfile_Render_TrailingTag_MoveBeforeFinalWord_RelocatesTag`;
+  `ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsSuffixedTag`;
+  `ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag`;
+  `ChatterboxTurboCapabilityProfile_Constructor_UndefinedPolicy_ThrowsArgumentOutOfRangeException`
+- **Segmentation**:
+  `ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplitKeepingEveryWord`;
+  `ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplit`
+- **TagInputSafety, TagNullArguments**:
+  `ChatterboxTurboCapabilityProfile_Render_EmptyInput_ProducesEmptyPlan`;
+  `ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw`;
+  `OnnxChatterboxTurboSynthesisEngine_Generate_EmptyString_ReturnsEmptyAudioWithoutNetworkCalls`
+- **VoiceCaching, VoiceConditioning**:
+  `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`
+- **TokenSelection, RepetitionPenalty**: the token-selector unit verification document
+
+#### Stop after a capped run
+
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation` and
+`OnnxChatterboxTurboSynthesisEngine_Generate_CapOfOne_StopTokenIsNeverExcluded`
+
+Verifies that once a token's run reaches the cap, the stop token is still selectable and ends the
+speech without truncation.
 
 #### Mood conditioning
 

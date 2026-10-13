@@ -8,6 +8,13 @@ cache of `ChatterboxTurboConditioning` per (voice, mood) computed on first use. 
 24000 Hz, start token 6561 (never embedded), stop token 6562, silence token 4299 (appended three
 times to the decoder input) and embedding size 1024.
 
+`ChatterboxTurboGenerationResult` is the value returned by `GenerateDetailed`: `Audio` (the 24 kHz
+samples, empty when there is no speech), `HitTokenLimit` (true when a generation bound ended the
+segment instead of the stop token) and `SpeechTokenCount` (the number of speech tokens generated).
+`IChatterboxTurboNetworks` and `IChatterboxTurboLanguageModelState` are the internal seams to the
+four graphs and to one generation's cache (see _OnnxChatterboxTurboNetworks_ design); the engine
+disposes each state it begins, and the networks it was given on `Dispose`.
+
 **Key Methods**:
 
 - **Generate(text, speed, speakerId)**: returns `GenerateDetailed(text, speakerId).Audio`.

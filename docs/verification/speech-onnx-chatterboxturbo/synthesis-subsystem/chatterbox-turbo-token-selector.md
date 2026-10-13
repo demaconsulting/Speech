@@ -57,8 +57,20 @@ throw `ArgumentException`) and `ChatterboxTurboTokenSelector_Select_NullHistory_
 
 **Tests**: `ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId` (three NaN logits: id 0),
 `ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId` (three negative-infinity
-logits with id 0 blocked: id 1)
-and `ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen` (`[NaN, -5, NaN]`: id 1).
+logits with id 0 blocked: id 1),
+`ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen` (`[NaN, -5, NaN]`: id 1),
+`ChatterboxTurboTokenSelector_Select_NaNWithHistoryId_IsNeverChosen` (`[NaN, -5]`, history `{0}`: id 1),
+`ChatterboxTurboTokenSelector_Select_PositiveInfinity_IsChosen` (`[1, +Inf, 100]`: id 1),
+`ChatterboxTurboTokenSelector_Select_PositiveInfinityWithHistoryId_IsChosen` (same logits, history `{1}`:
+id 1) and `ChatterboxTurboTokenSelector_Select_NegativeInfinityWithHistoryId_IsNotChosen`
+(`[-Inf, -50]`, history `{0}`: id 1).
+
+##### Selection is deterministic and the penalty is mild
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_SameInputs_ChooseSameTokenEveryTime` (logits
+`[0.5, 2, 1.9, -1]`, history `{1}`, five calls: id 2 every time) and
+`ChatterboxTurboTokenSelector_Select_RepeatedTokenFarAhead_StillWins` (`[1, 5]`, history `{1}`:
+5 / 1.2 = 4.17 still beats 1, so id 1).
 
 ##### A blocked token is skipped
 
@@ -82,5 +94,7 @@ Logits `[3]`, block id 0: id 0.
 
 **Test**: `ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored`
 
-A blocked id beyond the logits changes nothing; the argmax is returned. A NaN blocked id is not representable
+A blocked id beyond the logits changes nothing; the argmax is returned. A negative blocked id other than the
+none value (`ChatterboxTurboTokenSelector_Select_NegativeBlockedIdOtherThanNone_BlocksNothing`, logits
+`[0.1, 2, 1]`, block -5: id 1) also blocks nothing. A NaN blocked id is not representable
 (the blocked token is an integer), so the NaN case applies only to logits and is covered above.

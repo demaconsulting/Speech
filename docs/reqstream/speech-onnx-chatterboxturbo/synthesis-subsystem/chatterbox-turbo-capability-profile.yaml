@@ -234,7 +234,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagOnlyDropped
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall silently drop a tag run that has
-                  no neighbouring speech.
+                  no neighboring speech.
                 justification: |
                   A tag with no speech to attach to has nothing to render, and the model
                   misbehaves on a unit made of a tag alone.

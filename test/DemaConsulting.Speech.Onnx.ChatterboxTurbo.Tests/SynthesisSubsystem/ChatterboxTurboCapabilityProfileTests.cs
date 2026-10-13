@@ -707,7 +707,7 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         Assert.Equal("Hello [laugh] there.", segment.Text);
     }
 
-    /// <summary>Proves a tag with no neighbouring speech at all is silently dropped.</summary>
+    /// <summary>Proves a tag with no neighboring speech at all is silently dropped.</summary>
     [Fact]
     public void ChatterboxTurboCapabilityProfile_Render_TagWithNoSpeech_IsDropped()
     {

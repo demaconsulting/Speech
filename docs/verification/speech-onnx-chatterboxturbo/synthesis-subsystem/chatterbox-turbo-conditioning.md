@@ -25,11 +25,22 @@ waveform; one conditioning serves repeated utterances of the same voice and mood
 **Test**: `OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning`
 
 The encoder's named outputs populate the conditioning embeddings, length, prompt tokens, speaker embeddings
-and feature frames.
+and feature frames; the test asserts the element values of the embeddings and the speaker features, not
+just their lengths.
 
 ##### The decoder consumes the record
 
-**Test**: `OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform`
+**Tests**: `OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform` and
+`OnnxChatterboxTurboNetworks_Decode_ChangedConditioning_ChangesWaveform`
+
+The synthetic decoder's waveform is each speech token plus the sum of the speaker embeddings plus the sum
+of the speaker features, so the first test (waveform `[36, 37, 38]`) shows the record's speaker values
+reach the decoder, and the second shows that a record with different speaker values changes the waveform.
+
+##### Error and boundary scenarios
+
+N/A - construction of the record never throws and the record has no behavior to bound, so there is no
+error or boundary scenario to verify.
 
 ##### The record is reused per voice
 

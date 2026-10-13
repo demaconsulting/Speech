@@ -1,6 +1,6 @@
 ### ChatterboxTurboConditioning
 
-**Purpose**: The immutable bundle of speech-encoder outputs for one reference clip. The engine computes it
+**Purpose**: The shallowly immutable bundle of speech-encoder outputs for one reference clip. The engine computes it
 once per (voice, mood) and reuses it for every utterance spoken with that clip, so the expensive encoder
 graph never runs twice for the same clip.
 
@@ -14,14 +14,16 @@ graph never runs twice for the same clip.
 - `SpeakerFeatures` (`float[]`): the flattened speaker feature frames given to the decoder
 - `SpeakerFeatureFrames` (`int`): the number of speaker feature frames
 
-**Key Methods**: None; the unit is a pure data record with value-style construction and `with`
+**Key Methods**: N/A - the unit is a pure data record with value-style construction and `with`
 copying. It holds no behavior and validates nothing, because the only producer is
 `OnnxChatterboxTurboNetworks.Encode`, which builds it from the encoder graph's outputs.
 
-**Error Handling**: None; construction never throws. The arrays are shared by reference and are never
-modified after construction by any consumer.
+**Error Handling**: N/A - construction never throws. The record is only shallowly immutable (the
+properties cannot be reassigned, but the arrays are shared by reference), so it is treated as
+read-only: no consumer modifies the arrays after construction, which makes one instance safely
+shareable across utterances.
 
-**Dependencies**: None.
+**Dependencies**: N/A - the record uses no other unit, subsystem, OTS item or shared package.
 
 **Callers**: `OnnxChatterboxTurboNetworks` (`Encode` produces it and `Decode` consumes it through
 `IChatterboxTurboNetworks`) and `OnnxChatterboxTurboSynthesisEngine` (caches it per voice and mood, and reads
