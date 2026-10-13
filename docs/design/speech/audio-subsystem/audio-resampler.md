@@ -29,4 +29,6 @@ rate; `ArgumentNullException` for a null clip.
 **Dependencies**: `AudioClip` (for `ToMonoResampled`; `AudioClip.ToMono` in turn calls `DownMix`,
 a deliberate mutual reference within the subsystem) and the Base Class Library.
 
-**Callers**: `AudioClip`, `AudioFileReader`, `ChatterboxTurboReferenceVoice`.
+**Callers**: `AudioClip.ToMono` (`DownMix`) and `ChatterboxTurboReferenceVoice` (`DownMix` and
+`Resample`). `AudioFileReader` does not call it directly (`ReadMono` goes through `AudioClip.ToMono`),
+and `ToMonoResampled` is public API with no in-repository caller.

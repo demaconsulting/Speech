@@ -149,16 +149,21 @@ public sealed class AudioResamplerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.Resample(input, 8000, 0));
     }
 
-    /// <summary>Proves ToMonoResampled rejects a null clip and a non-positive target rate.</summary>
+    /// <summary>Proves ToMonoResampled rejects a null clip.</summary>
     [Fact]
-    public void AudioResampler_ToMonoResampled_InvalidArguments_Throw()
+    public void AudioResampler_ToMonoResampled_NullClip_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => AudioResampler.ToMonoResampled(null!, 24000));
+
+    /// <summary>Proves ToMonoResampled rejects a non-positive target rate.</summary>
+    [Fact]
+    public void AudioResampler_ToMonoResampled_NonPositiveTargetRate_Throws()
     {
         // Arrange
         var clip = new AudioClip([0.1f, 0.2f], 16000, 1, 16);
 
         // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => AudioResampler.ToMonoResampled(null!, 24000));
         Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.ToMonoResampled(clip, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.ToMonoResampled(clip, -1));
     }
 
     /// <summary>Generates a sine tone.</summary>

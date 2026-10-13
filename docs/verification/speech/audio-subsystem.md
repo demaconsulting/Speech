@@ -45,6 +45,8 @@ An AudioSubsystem test run passes when:
   device delivers a file's contents, signals end-of-file once and rejects an unsupported format
 - A name-only `AudioDeviceSelection` resolves a present device by exact name and resolves to no
   device (so the default is used) when the name is absent or the selection is the system default
+- A playback device created before a successful device-table refresh refuses to start afterwards
+  with `AudioDeviceUnavailableException`, without opening a native stream
 - The device and probe contracts can be substituted with mocks
 - WAV and FLAC files decode through `AudioFileReader` (FLAC bit-exactly against libFLAC fixtures)
   and are down-mixed and resampled by `AudioResampler`, with malformed input rejected
@@ -219,6 +221,13 @@ Verifies that a started capture or playback device registers itself with the env
 active-stream tracking (causing a concurrent `Refresh()` to throw `AudioDeviceInUseException`),
 and that `Stop()` unregisters it so a subsequent `Refresh()` succeeds.
 
+#### Playback Device: Start After a Device-Table Refresh
+
+**Tests**: `PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException`
+
+Verifies the refresh-generation invalidation: after a successful `Refresh()` a playback device
+created earlier throws `AudioDeviceUnavailableException` from `Start()` and opens no native stream.
+
 #### Mockable Contracts: Device and Probe Substitution
 
 **Tests**: `AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured`,
@@ -243,7 +252,15 @@ scenarios above.
 The managed WAV/FLAC decoding, `AudioFileReader` container detection and size caps,
 `AudioClip`, and `AudioResampler` are verified by their own unit verification documents
 (_AudioFileReader_, _WavDecoder_, _FlacDecoder_, _AudioClip_, and _AudioResampler_ under this
-subsystem); this subsystem document does not duplicate their scenarios.
+subsystem); this subsystem document does not duplicate their scenarios. The subsystem-level
+behaviors they provide are exercised by these parent-level tests:
+`AudioFileReader_Read_DetectsContainerByContent` and
+`FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact` (managed decoding),
+`AudioResampler_DownMix_AveragesChannels` and
+`AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate` (clip conversion),
+`UnavailableAudioCaptureDevice_*` / `UnavailableAudioPlaybackDevice_*` (honest fallbacks) and
+`WavFileAudioCaptureDevice_IsAvailable_Always_ReturnsTrue` (file-backed devices), each described in
+the corresponding unit verification document.
 
 #### File-Backed Playback Device: Round Trip, Format Disclosure, and Argument Validation
 

@@ -69,12 +69,17 @@ non-empty output whose every sample, edges included, lies within 0.99 to 1.01.
 
 **Expected**: A 16 kHz stereo clip resampled to 24 kHz yields about 6000 non-silent mono samples.
 
-##### Mono resampling rejects invalid arguments
+##### Mono resampling rejects a null clip
 
-**Test**: `AudioResampler_ToMonoResampled_InvalidArguments_Throw`
+**Test**: `AudioResampler_ToMonoResampled_NullClip_Throws`
 
-**Expected**: A null clip throws `ArgumentNullException` and a target rate of 0 throws
-`ArgumentOutOfRangeException`.
+**Expected**: A null clip throws `ArgumentNullException`.
+
+##### ToMonoResampled rejects a non-positive target rate
+
+**Test**: `AudioResampler_ToMonoResampled_NonPositiveTargetRate_Throws`
+
+**Expected**: Target rates of 0 and -1 throw `ArgumentOutOfRangeException`.
 
 ##### Known gap: nearest-sample fallback
 

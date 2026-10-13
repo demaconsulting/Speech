@@ -37,9 +37,13 @@ subsystem:
   `IAudioPlaybackDevice`/`IAudioCaptureDevice` implementations that write/read a mono, 16-bit PCM
   `.wav` file instead of using real hardware, for deterministic file-based synthesis/recognition
   by any host application
-- **AudioFileReader** / **AudioClip** / **AudioResampler**: managed WAV and FLAC decoding into a
-  floating-point clip, plus down-mixing and resampling, with no native decoder dependency
-- **WavDecoder** / **FlacDecoder**: the internal container decoders behind `AudioFileReader`
+- **AudioFileReader** / **AudioFileReadOptions** / **AudioClip** / **AudioResampler**: managed WAV and
+  FLAC decoding into a floating-point clip (with its options record), plus down-mixing and
+  resampling, with no native decoder dependency
+- **WavDecoder** / **FlacDecoder**: the internal container decoders behind `AudioFileReader`, with
+  the internal `FlacFrameDecoder`, `FlacBitReader`, `FlacCrc` and `FlacStreamInfo` helpers
+- **AudioCaptureFrameEventArgs** and **AudioDeviceDirection**: the capture frame event payload and
+  the capture/playback direction enumeration; `NamespaceDoc` only carries namespace documentation
 - **PortAudio**: child subsystem containing the internal interop seam and the real
   PortAudioSharp2 adapter
 
@@ -114,6 +118,16 @@ its own external synchronization may observe a stale or torn-looking probe refer
 application driving `RefreshDevices()` from a UI or background thread should serialize its own
 calls (for example, by routing every refresh through one thread or its own lock) rather than
 relying on the factory to do so.
+
+**Refresh-generation invalidation**: `PortAudioEnvironment` keeps a refresh generation that every
+successful `Refresh()` increments. A `PortAudioCaptureDevice` or `PortAudioPlaybackDevice`
+records the generation current when it is constructed. At `Start()` it compares that value with the
+environment's current generation (and registers its stream) atomically under the environment lock;
+a mismatch means the device table was re-scanned after the device was created, so the cached device
+may no longer name the same hardware and `Start()` throws `AudioDeviceUnavailableException` instead
+of opening a native stream. The caller must obtain a new device from the factory. Devices that are
+already started are protected differently: the refresh itself is refused while their stream is
+registered.
 
 #### Unit Design Documents
 

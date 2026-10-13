@@ -37,7 +37,8 @@ sections:
               - id: Speech-Audio-AudioResampler-Resample
                 title: >-
                   The AudioResampler class shall resample mono audio between sample rates with a windowed-sinc
-                  filter that preserves duration and tone content.
+                  filter that preserves duration (within one sample) and tone content (within 0.02 of the
+                  ideal tone away from the clip edges).
                 justification: |
                   Models need audio at a fixed rate; band-limited interpolation avoids aliasing.
                 tests:
@@ -71,11 +72,20 @@ sections:
                 tests:
                   - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate
 
-              - id: Speech-Audio-AudioResampler-ToMonoResampledValidation
+              - id: Speech-Audio-AudioResampler-ToMonoResampledNullClip
                 title: >-
-                  The AudioResampler class shall reject a null clip with ArgumentNullException and a
-                  non-positive target rate with ArgumentOutOfRangeException when preparing a mono array.
+                  The AudioResampler class shall reject a null clip with ArgumentNullException when
+                  preparing a mono array.
                 justification: |
                   Invalid input must fail at the call site.
                 tests:
-                  - AudioResampler_ToMonoResampled_InvalidArguments_Throw
+                  - AudioResampler_ToMonoResampled_NullClip_Throws
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampledRateValidation
+                title: >-
+                  The AudioResampler class shall reject a non-positive target rate with
+                  ArgumentOutOfRangeException when preparing a mono array.
+                justification: |
+                  Invalid input must fail at the call site.
+                tests:
+                  - AudioResampler_ToMonoResampled_NonPositiveTargetRate_Throws

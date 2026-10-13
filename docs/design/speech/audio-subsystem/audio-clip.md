@@ -5,6 +5,11 @@
 **Data Model**: An immutable sealed record of interleaved `float` `Samples` in [-1, 1], the
 `SampleRate`, the `ChannelCount` and the source `BitsPerSample`. `FrameCount` and `Duration` are
 derived. `BitsPerSample` is informational only: it is neither validated nor used by any member.
+`FrameCount` is `Samples.Length / ChannelCount` with integer division, so a sample count that is not a
+multiple of the channel count truncates: the stray trailing samples are not counted in `FrameCount`
+or `Duration` and are dropped by `ToMono` (but still converted by `ToPcm16`). Because `BitsPerSample`
+is not validated, a `with { BitsPerSample = ... }` expression accepts any value; only `Samples`,
+`SampleRate` and `ChannelCount` are guarded.
 The `Samples` array is shared, not copied, so callers must not modify it and thread safety depends
 on callers (the clip is safe to share while nobody writes to the array).
 

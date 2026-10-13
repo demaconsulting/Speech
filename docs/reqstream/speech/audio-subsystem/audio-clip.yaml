@@ -32,23 +32,63 @@ sections:
 
               - id: Speech-Audio-AudioClip-ToPcm16
                 title: >-
-                  The AudioClip record shall convert to 16-bit PCM, scaling by 32768 with rounding and
-                  clamping out-of-range samples.
+                  The AudioClip record shall convert to 16-bit PCM, scaling by 32768 with rounding.
                 justification: |
-                  Playback and file writers need 16-bit PCM and must not overflow on out-of-range samples.
+                  Playback and file writers need 16-bit PCM.
+                tests:
+                  - AudioClip_ToPcm16_ScalesWithRounding
+                  - AudioClip_DerivedMembers_AreConsistent
+
+              - id: Speech-Audio-AudioClip-ToPcm16Clamping
+                title: >-
+                  The AudioClip record shall clamp out-of-range samples to the 16-bit range when
+                  converting to PCM and convert NaN to zero.
+                justification: |
+                  Out-of-range or invalid samples must not overflow or produce arbitrary PCM values.
                 tests:
                   - AudioClip_ToPcm16_ClampsOutOfRangeSamples
-                  - AudioClip_ToPcm16_ScalesWithRounding
                   - AudioClip_DerivedMembers_AreConsistent
 
               - id: Speech-Audio-AudioClip-ValidatesInput
                 title: >-
-                  The AudioClip record shall reject null samples and a non-positive sample rate or channel
-                  count, both at construction and in with-expressions.
+                  The AudioClip record shall reject null samples with ArgumentNullException, both at
+                  construction and in with-expressions.
                 justification: |
-                  A zero rate or channel count would divide by zero in Duration and the down-mix. The
-                  checks share one mechanism (the validating property initializers) and one purpose, so
-                  they form a single requirement.
+                  A null sample array would fail later, far from the mistake.
                 tests:
                   - AudioClip_InvalidValues_Throw
+
+              - id: Speech-Audio-AudioClip-ValidatesRateAndChannels
+                title: >-
+                  The AudioClip record shall reject a non-positive sample rate or channel count with
+                  ArgumentOutOfRangeException, both at construction and in with-expressions.
+                justification: |
+                  A zero rate or channel count would divide by zero in Duration and the down-mix.
+                tests:
+                  - AudioClip_InvalidValues_Throw
+
+              - id: Speech-Audio-AudioClip-EmptyClip
+                title: >-
+                  The AudioClip record shall accept an empty sample array as a zero-duration clip.
+                justification: |
+                  An empty recording is valid data and must not be treated as an error.
+                tests:
                   - AudioClip_EmptySamples_HasZeroDuration
+
+              - id: Speech-Audio-AudioClip-PartialFrameTruncation
+                title: >-
+                  The AudioClip record shall count only whole frames when the sample count is not a
+                  multiple of the channel count.
+                justification: |
+                  Frame count and duration must describe complete frames; a stray sample is not one.
+                tests:
+                  - AudioClip_NonMultipleFrameCount_TruncatesToWholeFrames
+
+              - id: Speech-Audio-AudioClip-ToMonoIndependentCopy
+                title: >-
+                  The AudioClip record shall return an independent copy of the samples when
+                  down-mixing a mono clip.
+                justification: |
+                  Callers may modify the returned array without altering the clip.
+                tests:
+                  - AudioClip_ToMono_MonoClip_ReturnsIndependentCopy

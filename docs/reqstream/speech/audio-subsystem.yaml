@@ -59,11 +59,13 @@ sections:
 
           - id: Speech-Audio-FactoryNeverThrows
             title: >-
-              The AudioSubsystem shall never throw from its factory composition and creation
-              methods.
+              The AudioSubsystem shall never throw from the AudioDeviceFactory constructor or its
+              Create* methods.
             justification: |
               Composition happens at application start-up, where a missing device or backend is
               an ordinary machine state; a factory method must not turn that into an exception.
+              RefreshDevices is deliberately excluded: it refuses a refresh while a stream is
+              active (see Speech-Audio-DeviceRefreshRefusal).
             children:
               - Speech-Audio-AudioDeviceFactory-NeverThrows
             tests:
@@ -287,7 +289,6 @@ sections:
               - Speech-Audio-PortAudioCaptureDevice-CaptureFormat
               - Speech-Audio-PortAudioCaptureDevice-ZeroCaptureFormatWhenUnresolved
               - Speech-Audio-UnavailableAudioCaptureDevice-ZeroCaptureFormat
-              - Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
             tests:
               - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
               - UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount
@@ -430,7 +431,12 @@ sections:
               - Speech-Audio-AudioClip-DerivedMembers
               - Speech-Audio-AudioClip-ToMono
               - Speech-Audio-AudioClip-ToPcm16
+              - Speech-Audio-AudioClip-ToPcm16Clamping
+              - Speech-Audio-AudioClip-ToMonoIndependentCopy
               - Speech-Audio-AudioClip-ValidatesInput
+              - Speech-Audio-AudioClip-ValidatesRateAndChannels
+              - Speech-Audio-AudioClip-EmptyClip
+              - Speech-Audio-AudioClip-PartialFrameTruncation
               - Speech-Audio-WavDecoder-Encodings
               - Speech-Audio-WavDecoder-ExtremeValueScaling
               - Speech-Audio-WavDecoder-FloatPassThrough
@@ -486,7 +492,9 @@ sections:
               - Speech-Audio-AudioResampler-ResampleEqualRates
               - Speech-Audio-AudioResampler-ResampleRateValidation
               - Speech-Audio-AudioResampler-ToMonoResampled
-              - Speech-Audio-AudioResampler-ToMonoResampledValidation
+              - Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
+              - Speech-Audio-AudioResampler-ToMonoResampledNullClip
+              - Speech-Audio-AudioResampler-ToMonoResampledRateValidation
             tests:
               - AudioResampler_DownMix_AveragesChannels
               - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate

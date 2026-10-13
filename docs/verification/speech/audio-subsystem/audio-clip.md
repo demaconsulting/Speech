@@ -42,10 +42,28 @@ valid `with { SampleRate = 16000 }` succeeds.
 **Stimulus**: A 2-channel, 4 Hz clip of eight samples including out-of-range (`2`, `-2`) and
 `NaN` values; call `ToMono()` and `ToPcm16()`.
 
-**Expected**: `FrameCount` 4 and `Duration` 1.0; mono `[0, 0.5, 0, NaN]`; PCM has eight samples
-with `1.0 -> 32767`, `-1.0 -> -32768`, out-of-range values clamped, and `NaN -> 0`.
+**Expected**: `FrameCount` 4 and `Duration` 1.0; mono `[0, 0.5, 0, NaN]`; PCM is exactly
+`[32767, -32768, 16384, 16384, 32767, -32768, 0, 0]` (all eight samples asserted: `1.0 -> 32767`,
+`-1.0 -> -32768`, out-of-range values clamped, and `NaN -> 0`).
 
 **Test**: `AudioClip_DerivedMembers_AreConsistent`
+
+##### Non-multiple sample count
+
+**Stimulus**: A 2-channel, 4 Hz clip of three samples `[1, 0, 0.5]`.
+
+**Expected**: `FrameCount` 1, `Duration` 0.25, `ToMono()` `[0.5]` (the stray sample is dropped) and
+`ToPcm16()` has three samples.
+
+**Test**: `AudioClip_NonMultipleFrameCount_TruncatesToWholeFrames`
+
+##### BitsPerSample is not validated
+
+**Stimulus**: `with { BitsPerSample = -1 }` on a valid clip, and a clip constructed with 0 bits.
+
+**Expected**: Both succeed and report the given value.
+
+**Test**: `AudioClip_BitsPerSample_IsNotValidated`
 
 ##### Mono down-mix averages channels
 

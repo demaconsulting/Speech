@@ -22,12 +22,39 @@ public sealed class AudioClipTests
         Assert.Equal(4, clip.FrameCount);
         Assert.Equal(1.0, clip.Duration);
         Assert.Equal([0f, 0.5f, 0f, float.NaN], mono);
-        Assert.Equal(8, pcm.Length);
-        Assert.Equal(32767, pcm[0]);
-        Assert.Equal(-32768, pcm[1]);
-        Assert.Equal(32767, pcm[4]);
-        Assert.Equal(-32768, pcm[5]);
-        Assert.Equal(0, pcm[7]);
+        Assert.Equal([32767, -32768, 16384, 16384, 32767, -32768, 0, 0], pcm.Select(v => (int)v));
+    }
+
+    /// <summary>Proves a sample count that is not a multiple of the channel count truncates the frame count and drops the partial frame in the mono down-mix.</summary>
+    [Fact]
+    public void AudioClip_NonMultipleFrameCount_TruncatesToWholeFrames()
+    {
+        // Arrange: three samples in two channels is one whole frame plus one stray sample
+        var clip = new AudioClip([1f, 0f, 0.5f], 4, 2, 16);
+
+        // Act
+        var mono = clip.ToMono();
+
+        // Assert
+        Assert.Equal(1, clip.FrameCount);
+        Assert.Equal(0.25, clip.Duration);
+        Assert.Equal([0.5f], mono);
+        Assert.Equal(3, clip.ToPcm16().Length);
+    }
+
+    /// <summary>Proves BitsPerSample is informational: it is not validated, even through a <c>with</c> expression.</summary>
+    [Fact]
+    public void AudioClip_BitsPerSample_IsNotValidated()
+    {
+        // Arrange
+        var clip = new AudioClip([0f], 8000, 1, 16);
+
+        // Act
+        var changed = clip with { BitsPerSample = -1 };
+
+        // Assert
+        Assert.Equal(-1, changed.BitsPerSample);
+        Assert.Equal(0, new AudioClip([0f], 8000, 1, 0).BitsPerSample);
     }
 
     /// <summary>Proves ToMono averages the channels of each frame.</summary>
