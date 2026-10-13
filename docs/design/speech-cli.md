@@ -7,16 +7,18 @@ This document provides the system-level design for the SpeechCli application.
 
 ## Architecture
 
-SpeechCli is a cross-platform .NET global tool, packaged as `DemaConsulting.Speech.Cli` and
-installed under the command name `speech-cli`, that exposes the Speech library's model
+SpeechCli is a cross-platform .NET command-line tool, installed under the command name
+`speech-cli`, that exposes the Speech library's model
 management, audio device inspection, text-to-speech, and speech-to-text capabilities from the
 command line. Like SpeechDemo, it is a sibling system to Speech rather than a subsystem of it: it
-is separately built, separately packaged, and separately versioned, it has its own users (command-
+is separately built, separately versioned, it has its own users (command-
 line operators and scripts rather than an interactive desktop user), and the library must never
-depend on it.
+depend on it. How the tool is packaged and distributed (as a .NET global tool) is outside the scope
+of this design (see the introduction); only the constraints that packaging places on the design are
+noted under Platform Support.
 
-SpeechCli provides the process entry point, global-option and subcommand dispatch,
-self-validation, and .NET global tool packaging, plus five command subsystems that implement all
+SpeechCli provides the process entry point, global-option and subcommand dispatch, and
+self-validation, plus five command subsystems that implement all
 thirteen subcommands: `list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-voices`,
 `voices`, `list-devices`, `devices`, `doctor`, `speak`, `recognize`, and `ask`. Each subsystem is
 described in its own section below.
@@ -195,9 +197,9 @@ other model-package designs) - and the following NuGet dependencies:
 
 The OTS items this tool consumes are documented in their own OTS design documents:
 `docs/design/ots/sherpa-onnx.md` (native inference runtime, via the SpeechSherpa project
-reference) and `docs/design/ots/port-audio-sharp2.md` (audio device runtime, via the Speech
-library project reference). `DemaConsulting.TestResults` is used only for self-validation
-result serialization and has no OTS design document of its own.
+reference), `docs/design/ots/port-audio-sharp2.md` (audio device runtime, via the Speech
+library project reference) and `docs/design/ots/test-results.md` (`DemaConsulting.TestResults`,
+used only for self-validation result serialization).
 
 ## Risk Control Measures
 
@@ -265,14 +267,16 @@ directory.
 | --- | --- |
 | `net10.0` | .NET 10 |
 
-SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0`), because as a
-`PackAsTool` package it bundles a native inference runtime (`onnxruntime`/`sherpa-onnx-c-api`) per
-target framework; packing all three of the library's frameworks multiplied the bundled native
+SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0`). This is a
+packaging constraint rather than a design element: because the tool is distributed as a .NET global
+tool it bundles a native inference runtime (`onnxruntime`/`sherpa-onnx-c-api`) per target
+framework; packing all three of the library's frameworks multiplied the bundled native
 payload three-fold for no benefit, since a globally-installed tool only ever runs on one .NET
 version at a time. The packed native runtime assets are further pruned to `win-x64`, `linux-x64`,
 and `osx-arm64` only (configured in the project file), rather than every RID the transitive
 `org.k2fsa.sherpa.onnx.runtime.*` packages support (including irrelevant ones like Android),
 keeping the packed tool a manageable size instead of bundling every platform's native binaries.
+The packaging mechanism itself is not specified by this design.
 
 ### Integration Patterns
 
