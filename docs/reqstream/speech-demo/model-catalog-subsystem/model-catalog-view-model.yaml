@@ -321,7 +321,7 @@ sections:
                   The re-read is part of the mirror command; a fault there must not crash the
                   demo.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
 
               - id: SpeechDemo-Models-MirrorSettingsPrePopulation
                 title: >-

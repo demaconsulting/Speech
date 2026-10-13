@@ -251,6 +251,19 @@ remove controls, the consent note and the user voices folder; the synthesis pane
 consent note and each installed pack's attribution under the voice dropdown when Chatterbox
 Turbo is selected.
 
+## Error Handling
+
+The demo never lets an expected failure reach the user as a crash. Launch-time failures (an
+unrecognized or incomplete option, an invalid mirror configuration) are reported by `Program` as
+an explained error plus the usage text with exit code 1, before any window opens, and never echo
+the offending argument or any credential. Composition failures after the catalog has been built
+release the catalog before the exception propagates (`App.BuildOrDispose`, and the guarded
+`CatalogFactory`). Run-time failures inside a panel (a refused or failed device refresh, a failed
+download, a missing capture or playback device, an unavailable engine, a faulted session) are
+converted by the owning view model into an explained panel state. The optional capture-debug
+recorder is a temporary diagnostic whose failures are contained and never affect listening. The
+details of each rule live in the unit and subsystem designs.
+
 ## Design Constraints
 
 - **No new library API**: The demo must be buildable against the library exactly as shipped. It

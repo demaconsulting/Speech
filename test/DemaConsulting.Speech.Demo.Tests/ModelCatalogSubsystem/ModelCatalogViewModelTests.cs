@@ -138,31 +138,44 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
-    ///     Proves that an unexpected exception from the service's mirror reconfiguration, and a failure to
-    ///     re-read the catalog afterwards, are each reported in the panel rather than escaping the command.
+    ///     Proves that an unexpected exception from the service's mirror reconfiguration is reported
+    ///     in the panel rather than escaping the command.
     /// </summary>
-    /// <param name="failOnReload">
-    ///     <see langword="true"/> to fail the catalog re-read after a successful reconfiguration;
-    ///     <see langword="false"/> to fail the reconfiguration itself.
-    /// </param>
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel(bool failOnReload)
+    [Fact]
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel()
     {
         // Arrange
         var service = Service();
-        if (failOnReload)
-        {
-            service.Enumerate().Returns(_ => [], _ => throw new IOException("catalog unreadable"));
-        }
-        else
-        {
-            service
-                .When(s => s.ApplyMirror(Arg.Any<DownloadMirror?>()))
-                .Do(_ => throw new IOException("catalog unreadable"));
-        }
+        service
+            .When(s => s.ApplyMirror(Arg.Any<DownloadMirror?>()))
+            .Do(_ => throw new IOException("catalog unreadable"));
 
+        // Act & Assert
+        await AssertMirrorFaultReportedAsync(service);
+    }
+
+    /// <summary>
+    ///     Proves that a failure to re-read the catalog after a successful mirror reconfiguration is
+    ///     reported in the panel rather than escaping the command.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel()
+    {
+        // Arrange
+        var service = Service();
+        service.Enumerate().Returns(_ => [], _ => throw new IOException("catalog unreadable"));
+
+        // Act & Assert
+        await AssertMirrorFaultReportedAsync(service);
+    }
+
+    /// <summary>
+    ///     Applies a valid mirror through a view model over <paramref name="service"/> and asserts the
+    ///     fault is contained and reported.
+    /// </summary>
+    /// <param name="service">The service configured to fault.</param>
+    private static async Task AssertMirrorFaultReportedAsync(IModelCatalogService service)
+    {
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
 
         // Act
@@ -174,7 +187,6 @@ public class ModelCatalogViewModelTests
         Assert.False(viewModel.MirrorAppliedSuccessfully);
         Assert.Contains("catalog unreadable", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
     }
-
     /// <summary>
     ///     Proves that a typed bearer token is forwarded to the catalog service with the mirror.
     /// </summary>

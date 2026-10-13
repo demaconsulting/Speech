@@ -71,7 +71,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
   `MirrorPassword`/`MirrorBearerToken` fields via the shared `MirrorOptionsFactory` helper (the
   same validation rules the CLI's `Context.CreateMirror()` and the demo's launch-time
   `AppLaunchOptions.CreateDownloaderOptions()` already apply: the URL must be a valid absolute
-  URI, a lone user or password is rejected, and a blank URL means "no mirror"), then calls
+  URI, a lone user or password is rejected, and a blank URL with no credentials means "no mirror"), then calls
   `IModelCatalogService.ApplyMirror(mirror)`. Blank (empty or whitespace) user name, password and
   bearer token values are treated as absent (`null`), consistent with `MirrorOptionsFactory`, so
   an empty field is never sent as an empty credential; the URL is not normalized. Failure messages

@@ -8,6 +8,17 @@ namespace DemaConsulting.Speech.Demo.Tests.ModelCatalogSubsystem;
 /// </summary>
 public class ReferenceVoicePackListItemViewModelTests
 {
+    /// <summary>Gets the pack's voices-only installed size, derived from the library descriptor.</summary>
+    private static long VoicesOnlyBytes => ReferenceVoicePack.VoiceZero10.VoicesBytes;
+
+    /// <summary>Gets the pack's installed size including emotion clips, derived from the library descriptor.</summary>
+    private static long WithEmotionsBytes => ReferenceVoicePack.VoiceZero10.VoicesBytes + ReferenceVoicePack.VoiceZero10.EmotionsBytes;
+
+    /// <summary>Formats a byte count as whole MiB exactly as the view model does.</summary>
+    /// <param name="bytes">The byte count.</param>
+    /// <returns>The whole-MiB text.</returns>
+    private static string Mib(long bytes) => (bytes / (1024.0 * 1024.0)).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>
     ///     Proves that the row rejects a missing pack descriptor.
     /// </summary>
@@ -31,8 +42,8 @@ public class ReferenceVoicePackListItemViewModelTests
         // Assert
         Assert.Equal("voice-zero-1.0", row.Id);
         Assert.Equal(ReferenceVoicePack.VoiceZero10.DisplayName, row.DisplayName);
-        Assert.Equal("Download: 570 MiB", row.SizeText);
-        Assert.Equal("Installs about 572 MiB (with emotions)", row.InstalledSizeText);
+        Assert.Equal($"Download: {Mib(ReferenceVoicePack.VoiceZero10.SizeBytes)} MiB", row.SizeText);
+        Assert.Equal($"Installs about {Mib(WithEmotionsBytes)} MiB (with emotions)", row.InstalledSizeText);
         Assert.Contains("CC0 1.0 Universal", row.LicenseText, StringComparison.Ordinal);
         Assert.Contains("OwenTyme", row.LicenseText, StringComparison.Ordinal);
         Assert.Equal(ReferenceVoiceLibrary.ConsentNotice, row.ConsentNotice);
@@ -93,17 +104,17 @@ public class ReferenceVoicePackListItemViewModelTests
 
         // Act & Assert: the option drives the pre-install estimate
         row.IncludeEmotions = false;
-        Assert.Equal("Installs about 44 MiB (voices only)", row.InstalledSizeText);
+        Assert.Equal($"Installs about {Mib(VoicesOnlyBytes)} MiB (voices only)", row.InstalledSizeText);
         row.IncludeEmotions = true;
-        Assert.Equal("Installs about 572 MiB (with emotions)", row.InstalledSizeText);
+        Assert.Equal($"Installs about {Mib(WithEmotionsBytes)} MiB (with emotions)", row.InstalledSizeText);
 
         // Act & Assert: once installed, the actual install wins over the option
         row.State = SpeechModelState.Downloaded;
         row.HasEmotions = false;
         row.IncludeEmotions = true;
-        Assert.Equal("Uses about 44 MiB (voices only)", row.InstalledSizeText);
+        Assert.Equal($"Uses about {Mib(VoicesOnlyBytes)} MiB (voices only)", row.InstalledSizeText);
         row.HasEmotions = true;
-        Assert.Equal("Uses about 572 MiB (with emotions)", row.InstalledSizeText);
+        Assert.Equal($"Uses about {Mib(WithEmotionsBytes)} MiB (with emotions)", row.InstalledSizeText);
     }
 
     /// <summary>

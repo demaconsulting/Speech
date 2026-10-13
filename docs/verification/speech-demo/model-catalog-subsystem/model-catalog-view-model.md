@@ -222,8 +222,14 @@ state for a model.
 
 ##### ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel
 
-**Scenario**: Either the seam's `ApplyMirror` throws an unexpected exception, or the catalog
-re-read after a successful reconfiguration throws.
+**Scenario**: The seam's `ApplyMirror` throws an unexpected exception.
+
+**Expected**: Nothing escapes; the panel reports an error that names the cause and does not show
+the success confirmation.
+
+##### ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
+
+**Scenario**: The seam's `ApplyMirror` succeeds, but the catalog re-read that follows throws.
 
 **Expected**: Nothing escapes; the panel reports an error that names the cause and does not show
 the success confirmation.

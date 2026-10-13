@@ -68,7 +68,7 @@ through the same `MirrorOptionsFactory` the launch-time options use, then calls 
 `ApplyMirror`. An invalid configuration (a malformed URL, or a seam that rejects reconfiguration
 because it was not built with a catalog factory) is reported as an explained panel state rather
 than thrown at the user, consistent with how every other seam failure in this panel is handled; a
-blank URL applies a `null` mirror, reverting every subsequent download to each model's own public
+blank URL with no credentials applies a `null` mirror, reverting every subsequent download to each model's own public
 URI.
 
 ### Reference Voice Packs

@@ -49,8 +49,9 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   from the catalog's own `Enumerate()` and raises the event with `(modelId, role)`, so the STT
   and TTS panels (each already depending on this same seam) can refresh themselves automatically
   the moment a matching-role model finishes installing, without a manual click or app restart.
-  and the call raises no event when the installed model's role cannot be determined.
-  The event is never raised for a failed, canceled, or checksum-mismatched download attempt.
+  The call raises no event when the installed model's role cannot be determined (the model is
+  absent from the enumeration), and the event is never raised for a failed, canceled, or
+  checksum-mismatched download attempt.
 - **ApplyMirror(mirror)**: Supported only when this service was constructed with the
   two-argument constructor
   (`ModelCatalogService(SpeechModelCatalog, Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>)`)

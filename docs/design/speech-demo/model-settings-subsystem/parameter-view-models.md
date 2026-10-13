@@ -32,9 +32,8 @@ abstract base is only observable through its concrete presenters.
 - **Numeric `Value` setter**: clamps on every write specifically so a bound control that allows a
   wider range than declared — for example, free-text entry — or a test setting the value directly
   can never push the parameter outside the range the model declared it could honor. When the
-  underlying `NumericParameter.IsInteger` is `true` (for example the LibriTTS-R
-  `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`'s `speaker` parameter, a discrete 0-903 index with
-  no fractional meaning), `Value` additionally rounds every write to the nearest whole number
+  underlying `NumericParameter.IsInteger` is `true` (for example a multi-speaker
+  model's `speaker` parameter, a discrete index with no fractional meaning), `Value` additionally rounds every write to the nearest whole number
   (`MidpointRounding.AwayFromZero`) after clamping. A continuous parameter keeps fractional values.
 - **Control selection**: `NumericParameterViewModel.IsInteger` mirrors the library descriptor's
   flag. `ModelSettingsView.axaml`'s `DataTemplate` renders Avalonia's built-in `NumericUpDown` —

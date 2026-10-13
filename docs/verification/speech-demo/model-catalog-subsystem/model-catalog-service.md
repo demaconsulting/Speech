@@ -263,3 +263,12 @@ have changed the pack's installed state.
 
 **Expected**: The uninstall waits for the install (no rebuild and no `ReferenceVoicesChanged` while it
 runs), then removes the pack and rebuilds and raises the event once more.
+#### Accepted Gaps
+
+- **Throwing disposal during a rebuild**: `Recompose` disposes the previous library even when
+  disposing the previous catalog throws (a `try`/`finally`). The library's `SpeechModelCatalog` and
+  `ReferenceVoiceLibrary` are sealed and their disposal cannot be made to throw through any public
+  seam, so this ordering is verified by inspection only.
+- **Unknown role after install**: `ModelInstalled` is skipped when the installed model's role cannot
+  be found in the enumeration. A model the catalog just installed is always enumerated with a role,
+  so the branch is purely defensive and cannot be reached through the library's public API.
