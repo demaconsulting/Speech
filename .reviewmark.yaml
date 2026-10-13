@@ -69,7 +69,7 @@ reviews:
       - "docs/verification/introduction.md"                                    # verification introduction
       - "docs/verification/speech.md"                        # system verification
       - "test/DemaConsulting.Speech.Tests/SpeechTests.cs"  # integration tests
-
+      - "test/DemaConsulting.Speech.Tests/PlatformSupportTests.cs"  # per-platform and per-runtime evidence tests
   # Speech-Design Review (one per system)
   - id: Speech-Design
     title: Review that Speech Design is Consistent and Complete
@@ -864,6 +864,7 @@ reviews:
       - "docs/design/speech/recognition-subsystem.md"                # subsystem design
       - "docs/verification/speech/recognition-subsystem.md"          # subsystem verification + inline units
       - "src/DemaConsulting.Speech/RecognitionSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSubsystemTests.cs"  # subsystem integration
 
   # Speech-RecognitionSubsystem-ISpeechRecognizerEngine Review (one per unit)
   - id: Speech-RecognitionSubsystem-ISpeechRecognizerEngine
@@ -1070,7 +1071,7 @@ reviews:
       - "docs/design/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
       - "docs/verification/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerUnavailableException.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/UnavailableSpeechRecognizerEngineTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerUnavailableExceptionTests.cs"
 
   # Speech-RecognitionSubsystem-UnavailableRecognitionSession Review (one per unit)
   - id: Speech-RecognitionSubsystem-UnavailableRecognitionSession

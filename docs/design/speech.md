@@ -80,7 +80,8 @@ The system exposes the following public API to external consumers:
   WAV and FLAC decoding by content sniffing, optional downmix/resample, and the decoded clip
   value type (validated on construction: positive sample rate and channel count, non-null samples)
 - **AudioFormat** / **AudioDeviceInUseException**: the audio format description and the
-  exception reporting a device already held elsewhere
+  exception thrown when a device-table refresh is refused because a capture or playback device
+  created from the same environment still has an active stream
 - **DownloadMirror** / **SpeechModelDownloaderOptions**: optional mirror redirect (with
   credentials or a bearer token) and downloader options
 - **ReferenceVoiceLibrary** / **ReferenceVoicePack** / **ReferenceVoiceInfo** /
@@ -103,7 +104,8 @@ The system exposes the following public API to external consumers:
   **ChoiceParameterOption** / **BooleanParameter**: the typed, self-validating tunable-parameter
   descriptor hierarchy
 - **ISpeechModel** / **IRecognitionModel** / **ISynthesisModel**: the common per-model contract
-  and its two empty role-marker interfaces
+  and its two role-specific interfaces (each adds its own backend-construction and format or
+  capability members)
 - **SpeechModelDescriptor**: immutable catalog read-model pairing one `ISpeechModel` with its
   current `SpeechModelState`
 - **SpeechModelCatalog**: enumerates the host-registered known-model list (populated through
@@ -152,11 +154,13 @@ The system exposes the following public API to external consumers:
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
 | `ISpeechDiagnostics.Report(...)` | Inbound | Method call | Structural facts only |
-| `AudioDeviceFactory(...)` | Inbound | Constructor call | Never throws |
-| `AudioDeviceFactory.CreateCaptureDevice(...)` | Inbound/Outbound | Method call/return | Never throws |
-| `AudioDeviceFactory.CreatePlaybackDevice(...)` | Inbound/Outbound | Method call/return | Never throws |
-| `IAudioCaptureDevice.Start()`/`.Stop()` | Inbound | Method call | Throws only on unavailable or first-use faults |
-| `IAudioPlaybackDevice.Start()`/`.Stop()`/`.Write(...)` | Inbound | Method call | Unavailable/first-use faults only |
+| `AudioDeviceFactory(...)` | Inbound | Constructor call | Never throws (composition) |
+| `AudioDeviceFactory.CreateCaptureDevice(...)` | Inbound/Outbound | Method call/return | Never throws (composition) |
+| `AudioDeviceFactory.CreatePlaybackDevice(...)` | Inbound/Outbound | Method call/return | Never throws (composition) |
+| `AudioDeviceFactory.RefreshDevices()` | Inbound | Method call | Throws `AudioDeviceInUseException` if active |
+| `IAudioCaptureDevice.Start()`/`.Stop()` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
+| `IAudioPlaybackDevice.Start()`/`.Stop()` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
+| `IAudioPlaybackDevice.Write(...)` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
 | `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `AudioDeviceSelection.Resolve(...)` | Inbound/Outbound | Method call/return | Throws for a null list |
@@ -174,7 +178,7 @@ The system exposes the following public API to external consumers:
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return | Throws for unknown model id |
 | `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
-| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
+| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
 | `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call | Throws only unavailable/dispose/restart |
 | `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` | Single-consumer; flushes before stop |
 | `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
@@ -183,9 +187,13 @@ The system exposes the following public API to external consumers:
 | `IModelCapabilityProfile` (model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
-| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
+| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
 | `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Unavailable-only; no overlap |
 | `ISynthesisSession.DisposeAsync()` | Inbound | Method call | Idempotent |
+
+`CreateSessionAsync` on an unavailable engine returns the unavailable session instead of throwing;
+only a second concurrent lease attempt throws `RecognitionEngineBusyException` or
+`SynthesisEngineBusyException`.
 
 ## Dependencies
 
@@ -194,7 +202,8 @@ PortAudioSharp2 supplies the managed
 PortAudio binding and transitively restores native runtime packages for `win-x64`, `linux-x64`,
 `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64` PortAudio runtime package is
 currently available. System.Numerics.Tensors supplies the vectorized `TensorPrimitives` used by
-the audio pipeline (file-backed capture, the windowed-sinc resampling filter). See _OTS
+the audio pipeline (file-backed capture, the windowed-sinc resampling filter) and by synthesis
+(`SynthesisSession`). See _OTS
 Integration Design_, _PortAudioSharp2 Design_, and _System.Numerics.Tensors Design_ for details.
 
 Speech carries no speech-inference engine dependency of its own. Concrete speech models and their
@@ -238,7 +247,7 @@ direct safety impact is introduced.
    report structural selection, start/stop, and fault events; the model-management units
    (`SpeechModelCatalog`, `SpeechModelDownloader`, `ReferenceVoiceLibrary`) report download and
    install outcomes; the recognition and synthesis factories, engines, sessions, and
-   `DedicatedWorker`s report composition, lifecycle, fault, eviction, and abandonment events
+   `DedicatedWorker`s report composition, lifecycle, fault, and abandonment events
 3. **Output**: The supplied sink receives the event (or discards it, for the null sink); no raw
    audio samples or recognized/synthesized text are ever passed through this path
 
@@ -337,7 +346,7 @@ direct safety impact is introduced.
    `AudioFormat` via `AudioFrameResampler`, feeds it to the `IRecognitionBackend`, and polls for
    results
 5. **Output**: `GetResultsAsync()` yields each provisional and final `SpeechRecognitionResult`
-   through a byte-capped backpressure buffer that coalesces provisional results but never drops a
+   through a backpressure buffer that coalesces provisional results but never drops a
    final one; `StopAsync()` drains the queue so no result derived from already-captured audio is
    lost before the result stream completes
 

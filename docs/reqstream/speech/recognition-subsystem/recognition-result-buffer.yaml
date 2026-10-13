@@ -1,7 +1,7 @@
 ---
 # Software Unit Requirements for RecognitionResultBuffer
 #
-# These requirements describe the byte-capped result-buffering backpressure policy between the
+# These requirements describe the result-buffering backpressure policy between the
 # RecognitionSession pump thread and a possibly-slow GetResultsAsync consumer, decomposing the
 # parent RecognitionSubsystem requirements.
 
@@ -15,8 +15,8 @@ sections:
               - id: Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
                 title: >-
                   The RecognitionResultBuffer class shall coalesce queued provisional results
-                  down to a single latest-provisional slot while queuing final results in a
-                  bounded, drop-nothing FIFO up to a documented byte cap, so GetResultsAsync can
+                  down to a single latest-provisional slot while queuing every final result in a
+                  FIFO that never drops one, so GetResultsAsync can
                   apply the documented backpressure policy without dropping a final result.
                 justification: |
                   A session's result-delivery pipeline must never grow without bound merely

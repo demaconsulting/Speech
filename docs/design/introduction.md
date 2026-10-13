@@ -198,7 +198,8 @@ any of them:
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
-- **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by the Speech audio pipeline
+- **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by `WavFileAudioCaptureDevice`,
+  `SynthesisSession`, and `WindowedSincLowpassFilter`
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx family of
   libraries
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
@@ -240,7 +241,7 @@ This system is structured with five subsystems directly under the system level: 
 `SynthesisSubsystem`, described in turn below. `AudioSubsystem` contains the public audio-device
 contracts, the real PortAudio-backed implementations, the file-backed WAV capture and playback
 devices, and the managed audio-file pipeline (WAV and FLAC decoding behind `AudioFileReader`,
-`AudioClip`, and the windowed-sinc `AudioResampler`, which uses System.Numerics.Tensors). It also
+`AudioClip`, and the windowed-sinc `AudioResampler`, which uses its own scalar sinc kernel). It also
 contains a child `PortAudio` subsystem that
 isolates the PortAudioSharp2 wrapper and the supplementary host-API P/Invoke bindings behind
 internal, mockable abstractions. `ModelManagementSubsystem` provides
@@ -443,7 +444,7 @@ src/DemaConsulting.Speech/
     ├── DefaultRecognitionBackendFactory.cs       — Real model-driven backend loader
     ├── SpeechRecognizerEngine.cs                 — Real ISpeechRecognizerEngine implementation
     ├── RecognitionSession.cs                     — Real IRecognitionSession streaming pipeline
-    ├── RecognitionResultBuffer.cs                — Byte-capped backpressure buffer for GetResultsAsync
+    ├── RecognitionResultBuffer.cs                — Backpressure buffer (coalesces provisionals, keeps finals)
     ├── DedicatedWorker.cs                        — Long-running worker thread with cooperative-cancel-then-abandon
     └── AudioFrameResampler.cs                    — Downmix and rate conversion for captured audio
 ```

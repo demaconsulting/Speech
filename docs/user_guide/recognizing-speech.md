@@ -90,8 +90,8 @@ Points worth knowing:
   callback thread. Two bounded buffers isolate a slow consumer from that pump: captured audio
   waiting to be decoded queues in a bounded, drop-oldest buffer, and converted results queue in a
   backpressure buffer that coalesces unread provisional results into a single "latest" slot while
-  keeping a byte-capped FIFO of final results (evicting only the oldest unread final, as a
-  last-resort safety valve, and reporting that through diagnostics). A single concurrent
+  keeping every final result in an unbounded FIFO — a final result is never dropped or evicted.
+  A single concurrent
   `GetResultsAsync` enumeration is supported per session; a second overlapping call throws
   `InvalidOperationException`.
 - **`StopAsync` does not lose the tail of an utterance.** It drains audio already captured before

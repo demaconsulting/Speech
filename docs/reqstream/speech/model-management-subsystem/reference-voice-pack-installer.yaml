@@ -109,8 +109,8 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-MissingArchive
                 title: >-
-                  The ReferenceVoicePackInstaller shall report a missing staged archive as an
-                  IOException.
+                  The ReferenceVoicePackInstaller shall report a missing staged archive as a
+                  file-access failure, not as malformed archive data.
                 justification: |
                   A missing file is an environment fault, not malformed archive data.
                 tests:
@@ -127,7 +127,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-Cancellation
                 title: >-
-                  The ReferenceVoicePackInstaller shall stop with an OperationCanceledException
+                  The ReferenceVoicePackInstaller shall stop and report cancellation
                   when its cancellation token is canceled, including when the token is already
                   canceled before the staged archive is opened or the archive has no entries.
                 justification: |
@@ -140,7 +140,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
                 title: >-
-                  The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
+                  The ReferenceVoicePackInstaller shall fail the install as malformed archive data when
                   the bytes actually read for one entry exceed 128 MiB.
                 justification: |
                   Bounding the bytes read per entry limits disk use against a decompression bomb.
@@ -150,7 +150,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
                 title: >-
-                  The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
+                  The ReferenceVoicePackInstaller shall fail the install as malformed archive data when
                   the running total of bytes actually read exceeds 2 GiB.
                 justification: |
                   Many small entries can still exhaust the disk, so the total is bounded as well as each

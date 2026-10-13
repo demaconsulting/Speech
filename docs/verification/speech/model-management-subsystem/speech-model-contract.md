@@ -14,7 +14,7 @@ members are verified through `FakeRecognitionModel`, which builds a real managed
 recognizer configuration without loading any native library or opening any file, so the contract
 is provable with no downloaded model present. The synthesis role's engine, preferred-audio-format,
 and capability-profile members are verified the same way through
-`FakeSynthesisModel`, which builds a real managed VITS `OfflineTtsConfig` without loading any
+`FakeSynthesisModel`, which builds a real managed synthesis engine configuration without loading any
 native library, exposes a concrete best-effort `PreferredAudioFormat`, and relies on
 `ISynthesisModel.CapabilityProfile`'s default-hook implementation rather than overriding it,
 proving the default resolves to `DefaultModelCapabilityProfile.Instance` with zero model-specific

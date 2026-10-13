@@ -15,7 +15,7 @@ sections:
             requirements:
               - id: Speech-Models-ReferenceVoicePack-PublishedMetadata
                 title: >-
-                  The ReferenceVoicePack class shall expose a built-in voice-zero 1.0 descriptor
+                  The ReferenceVoicePack unit shall expose a built-in voice-zero 1.0 descriptor
                   carrying the published archive URL, size, SHA-256 checksum, CC0 license and
                   attribution.
                 justification: |
@@ -27,7 +27,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-KnownPacksListing
                 title: >-
-                  The ReferenceVoicePack class shall list the built-in voice-zero 1.0 descriptor in
+                  The ReferenceVoicePack unit shall list the built-in voice-zero 1.0 descriptor in
                   its set of known packs.
                 justification: |
                   A host discovers available packs without hard-coding them.
@@ -36,7 +36,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-HttpsUriRequired
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, an archive
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
                   URL that is not HTTPS.
                 justification: |
                   The archive is fetched over the network, so a descriptor must be unable to
@@ -46,7 +46,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-ChecksumShapeValidation
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, a SHA-256
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a SHA-256
                   checksum that is not 64 hexadecimal characters (including an empty one).
                 justification: |
                   The archive is verified against the checksum, so a malformed value could never
@@ -56,7 +56,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-PositiveSizeRequired
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, an archive
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
                   size that is zero or negative.
                 justification: |
                   The size drives progress and warnings, so a non-positive value is never
@@ -66,7 +66,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-NullOrBlankArguments
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, a
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a
                   missing (null) required value.
                 justification: |
                   Every descriptor field is required to download, show and attribute the voices, so
@@ -76,7 +76,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-BlankArgumentRejection
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, a blank
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a blank
                   or empty text value.
                 justification: |
                   A blank name, file name, license or attribution cannot be shown or used, so it
@@ -86,7 +86,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, an id that
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an id that
                   is not a single safe path segment.
                 justification: |
                   The id becomes a directory name, so a descriptor must be unable to describe a path
@@ -98,7 +98,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-UnsafeArchiveFileNameRejection
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, an archive
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
                   file name that is not a single safe path segment.
                 justification: |
                   The archive file name becomes a file name in the staging area, so a descriptor
@@ -108,7 +108,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-UnsafeRootFolderRejection
                 title: >-
-                  The ReferenceVoicePack class shall reject, when a descriptor is created, an archive
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
                   root folder that is not a single safe path segment, including a rooted or
                   drive-qualified one.
                 justification: |
@@ -120,7 +120,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-SizeMetadata
                 title: >-
-                  The ReferenceVoicePack class shall expose the measured installed size of its base
+                  The ReferenceVoicePack unit shall expose the measured installed size of its base
                   voices and of its emotion variants, and the combined installed size for a chosen
                   variant selection.
                 justification: |
@@ -132,7 +132,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-InstalledSizeSelection
                 title: >-
-                  The ReferenceVoicePack class shall report as installed size the base voices size,
+                  The ReferenceVoicePack unit shall report as installed size the base voices size,
                   plus the emotion size only when emotions are included.
                 justification: |
                   A host shows the disk size of whichever install variant the user chooses.
@@ -141,7 +141,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-InstalledSizeValidation
                 title: >-
-                  The ReferenceVoicePack class shall report a zero installed size when none is
+                  The ReferenceVoicePack unit shall report a zero installed size when none is
                   given and reject negative installed sizes.
                 justification: |
                   An unknown size must read as zero rather than a bogus value, and a negative size
@@ -199,7 +199,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-ReferenceIdentity
                 title: >-
-                  The ReferenceVoicePack class shall compare by reference, so two descriptors
+                  The ReferenceVoicePack unit shall compare by reference, so two descriptors
                   built from equal values are distinct.
                 justification: |
                   A pack is a singleton description; value equality would let a look-alike
@@ -209,7 +209,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-VoiceSources
                 title: >-
-                  The ReferenceVoiceSource enumeration shall distinguish voices from a named
+                  The ReferenceVoiceSource unit shall distinguish voices from a named
                   directory, the user folder and an installed pack.
                 justification: |
                   Hosts show and filter voices by where they came from.
@@ -218,7 +218,7 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-DownloadDescriptor
                 title: >-
-                  The ReferenceVoicePack class shall provide what the verified model download path
+                  The ReferenceVoicePack unit shall provide what the verified model download path
                   needs to retrieve its archive: the archive address, the SHA-256 checksum to verify
                   it against and the file name to save it under.
                 justification: |

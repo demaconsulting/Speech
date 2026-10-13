@@ -46,7 +46,8 @@ public class ChoiceParameterTests
             () => new ChoiceParameter("bad", "Bad", "No options.", options, "anything"));
 
         // Assert
-        Assert.NotNull(exception.Message);
+        Assert.Equal("options", exception.ParamName);
+        Assert.Contains("at least one option", exception.Message);
     }
 
     /// <summary>
@@ -68,7 +69,8 @@ public class ChoiceParameterTests
             () => new ChoiceParameter("bad", "Bad", "Duplicate values.", options, "a"));
 
         // Assert
-        Assert.NotNull(exception.Message);
+        Assert.Equal("options", exception.ParamName);
+        Assert.Contains("same value", exception.Message);
     }
 
     /// <summary>
@@ -85,7 +87,8 @@ public class ChoiceParameterTests
             () => new ChoiceParameter("bad", "Bad", "Unknown default.", options, "not-an-option"));
 
         // Assert
-        Assert.NotNull(exception.Message);
+        Assert.Equal("default", exception.ParamName);
+        Assert.Contains("not-an-option", exception.Message);
     }
 
     /// <summary>
