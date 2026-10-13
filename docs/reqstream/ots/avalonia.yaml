@@ -10,8 +10,8 @@ sections:
         requirements:
           - id: SpeechDemo-OTS-Avalonia-DesktopApplicationHost
             title: >-
-              Avalonia shall provide the cross-platform desktop application host, styling, and
-              view layer used by the SpeechDemo application.
+              Avalonia shall provide the cross-platform desktop application host, configured
+              through its application builder, for the SpeechDemo application.
             justification: |
               The demo has to run on the same desktop platforms the library supports, so a
               Windows-only UI framework was not an option. Avalonia supplies one XAML-based
@@ -21,7 +21,10 @@ sections:
 
               Automated verification is limited to configuring the application host, because a
               CI runner has no display and starting a windowing lifetime would prove nothing
-              about the demo that the ViewModel tests do not already prove.
+              about the demo that the ViewModel tests do not already prove. Styling (Fluent
+              theme, Inter font) and the XAML view layer are deliberately outside this
+              requirement; they are checked by compiled bindings at build time and by manual
+              visual inspection.
             tags: [ots]
             tests:
               - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder

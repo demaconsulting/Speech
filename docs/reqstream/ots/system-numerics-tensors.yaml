@@ -20,5 +20,6 @@ sections:
             tags: [ots]
             tests:
               - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+              - WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
               - AudioResampler_Resample_ChangesRateKeepingTone
               - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples

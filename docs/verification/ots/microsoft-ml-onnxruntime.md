@@ -19,7 +19,12 @@ runs without model downloads, a GPU, or network access:
   when a requested provider is unknown or fails its validation probe
 - The Chatterbox Turbo network wrapper binds named and positional tensor outputs and reuses a
   key/value cache across steps over real `InferenceSession` instances
-- The Nemotron recurrent network wrapper runs encoder and joint steps over real sessions
+- The Nemotron streaming encoder runs consecutive chunks over a real session and feeds the caches
+  of one chunk into the next
+
+The Nemotron joint/decoder steps and the Kokoro engine also use ONNX Runtime but are not given
+separate OTS scenarios: they bind tensors through the same `OrtValue` mechanism proven by the
+scenarios below, and their behavior is verified by their own unit tests.
 
 Automated tests do **not** claim proof of GPU execution providers or of the production model
 graphs; they prove the session-creation, fallback, and tensor-binding behavior the libraries rely
@@ -61,9 +66,11 @@ on.
 
 #### OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
 
-**Scenario**: Two consecutive language-model steps run over a real session.
+**Scenario**: Two consecutive language-model steps run over a real session, once with a full-size
+key/value cache and once with a half-size cache (the test is a theory over both variants).
 
-**Expected**: The cache tensors from the first step feed the second and the last logits return.
+**Expected**: The cache tensors from the first step feed the second and the last logits return,
+for both cache variants.
 
 **Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`.
 
@@ -74,15 +81,3 @@ on.
 **Expected**: The second chunk consumes the caches produced by the first.
 
 **Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference`**:
-  `Create_NoPreferredProviders_CreatesWorkingCpuSession`
-- **`Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback`**:
-  `Create_UnknownProviderName_FallsBackToCpuSession`,
-  `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
-- **`Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`**:
-  `OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning`,
-  `OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits`,
-  `Encode_SecondChunk_UsesPreviousCaches`

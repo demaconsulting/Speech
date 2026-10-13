@@ -26,7 +26,8 @@ contract: implementations must throw (rather than silently truncate) on any non-
 or transport failure, so a caller can distinguish a verified download from a partial or failed
 one without inspecting `destination`'s length itself.
 
-**Dependencies**: `SpeechModelDownloadProgress`.
+**Dependencies**: `SpeechModelDownloadProgress` (carried by the `IProgress<SpeechModelDownloadProgress>`
+parameter), plus the BCL types `Uri`, `Stream`, `IProgress<T>` and `CancellationToken`.
 
 **Callers**: `SpeechModelDownloader` (via its injected implementation); `HttpModelDownloadClient`
 (implements it).

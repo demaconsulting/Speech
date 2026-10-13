@@ -12,6 +12,10 @@ server.
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
+- **Fakes**: Hand-written `IModelDownloadClient` fakes supply deterministic payloads, delays and
+  failures; no network access is involved except the in-process `WireMock.Net` server used for
+  the real implementation
+- **Isolation**: Each test uses its own scratch directory under `Path.GetTempPath()`
 
 #### Acceptance Criteria
 
@@ -43,3 +47,21 @@ parameter ever passed, since this interface's `DownloadAsync` signature carries 
 ##### Download: Mirror Configured Forwards Effective URI (via fake seam)
 
 **Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
+
+##### Error path: Non-Success Response Throws (real implementation)
+
+**Scenario**: The stubbed server answers with a non-success status.
+
+**Expected**: The implementation throws `HttpRequestException` rather than silently truncating, as
+the interface contract requires.
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException`
+
+##### Error path: Cancellation Is Observed (via fake seam)
+
+**Scenario**: The caller's token is canceled while the fake client is mid-download.
+
+**Expected**: Cancellation propagates, nothing is installed, and the seam's cancellation contract is
+honored.
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing`

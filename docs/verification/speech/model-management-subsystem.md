@@ -111,37 +111,83 @@ the pack (or throws `OperationCanceledException` if canceled while waiting).
 **Stimulus**: `HttpModelDownloadClient` against the in-process WireMock.Net server.
 
 **Expected**: Exact bytes with monotonically increasing progress; non-2xx throws
-`HttpRequestException`. The test names are listed in `http-model-download-client.md`.
+`HttpRequestException`.
+
+**Tests**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`,
+`HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException`. Further
+scenarios are listed in `http-model-download-client.md`.
+
+#### Failure classification
+
+**Stimulus**: A download through the fake client that fails with an HTTP error, a network-level
+failure, a local I/O failure or an unexpected exception.
+
+**Expected**: The result is classified as `HttpError`, `NetworkBlocked`, `IoFailure` or the generic
+`Failed` fallback; a checksum mismatch is `ChecksumMismatch`; cancellation propagates unchanged.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError`,
+`SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked`,
+`SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure`,
+`SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing`
+
+#### Parameter diagnostics
+
+**Stimulus**: A `parameterValues` bag containing an invalid value, or an unknown key, is validated
+against a model's declared parameters.
+
+**Expected**: An invalid value throws `ArgumentException`; an unknown key is reported through an
+`Info` diagnostic and otherwise ignored.
+
+**Tests**: `ValidateAndReport_NumericParameterOutOfRange_Throws`,
+`ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow`
+
+#### Catalog registration
+
+**Stimulus**: Models are registered through `SpeechModelCatalog.AddModels` and the catalog is
+enumerated.
+
+**Expected**: The registered models appear in the enumeration, and `AddModels` returns the same
+catalog instance.
+
+**Tests**: `SpeechModelCatalog_AddModels_Called_AppearsInEnumerate`,
+`SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance`
 
 ### Acceptance Criteria
 
-A ModelManagementSubsystem test run passes when: `SpeechModelStore` never reports a model installed
-unless both `current/` and a valid manifest are present; a second `DownloadAsync` call for an
-already-installed model id returns `Installed` immediately without any network or staging activity,
-leaving a prior successful install completely untouched regardless of what the second call
-supplies; a canceled download discards its staging directory and propagates
-`OperationCanceledException` completely unchanged, never reclassified as a failure outcome; a
-download/install failure is classified into `HttpError`, `NetworkBlocked`, `IoFailure`, or the
-generic `Failed` fallback exactly as documented in `speech-model-downloader.md`; with no
-`DownloadMirror` configured every file resolves and fetches from its own declared URI completely
-unchanged, and with one configured every file resolves beneath the mirror, with its configured
-authentication applied - by the `HttpModelDownloadClient` instance constructed with it - to every
-request that instance issues; `HttpModelDownloadClient` genuinely
-downloads exact bytes with monotonically increasing progress from a WireMock.Net-stubbed server,
-throwing `HttpRequestException` for a non-2xx response, and sending a preemptive `Authorization`
-header (Basic or Bearer) only when a mirror is supplied at construction; every tunable-parameter descriptor
-rejects an internally inconsistent
-range/option-set/default at construction; `SpeechModelParameterDiagnostics` throws
-`ArgumentException` for a value invalid for a parameter a model declares while silently ignoring
-(with only an `Info` diagnostic) a supplied key naming a parameter the model does not declare; and
-`SpeechModelCatalog` correctly reports `NotDownloaded`, `Downloading`, `Downloaded`, and
-`FailedOrCorrupt` for an injected fake model as a download is requested, in progress, completes, or
-fails, using injected fakes for deterministic state-resolution coverage, and with models registered
-through `AddModels` appearing in its enumeration; and the reference-voice units install only the
-allow-listed pack entries safely, keep a failed or canceled upgrade's previous install, refuse
-(without blocking) to uninstall a pack while its install is in flight, never touch the user voice
-folder, and list voices merged in the documented precedence with emotion clips exposed as mood
-variants of a voice rather than as extra voices. The concrete
+A ModelManagementSubsystem test run passes when all of the following hold:
+
+- `SpeechModelStore` never reports a model installed unless both `current/` and a valid manifest are
+  present.
+- A second `DownloadAsync` call for an already-installed model id returns `Installed` immediately
+  without any network or staging activity, leaving a prior successful install completely untouched
+  regardless of what the second call supplies.
+- A canceled download discards its staging directory and propagates `OperationCanceledException`
+  completely unchanged, never reclassified as a failure outcome.
+- A download/install failure is classified into `HttpError`, `NetworkBlocked`, `IoFailure`, or the
+  generic `Failed` fallback exactly as documented in `speech-model-downloader.md`.
+- With no `DownloadMirror` configured every file resolves and fetches from its own declared URI
+  completely unchanged; with one configured every file resolves beneath the mirror, with its
+  configured authentication applied - by the `HttpModelDownloadClient` instance constructed with
+  it - to every request that instance issues.
+- `HttpModelDownloadClient` genuinely downloads exact bytes with monotonically increasing progress
+  from a WireMock.Net-stubbed server, throws `HttpRequestException` for a non-2xx response, and
+  sends a preemptive `Authorization` header (Basic or Bearer) only when a mirror is supplied at
+  construction.
+- Every tunable-parameter descriptor rejects an internally inconsistent range/option-set/default at
+  construction.
+- `SpeechModelParameterDiagnostics` throws `ArgumentException` for a value invalid for a parameter
+  a model declares, and for a supplied key naming a parameter the model does not declare it ignores
+  the key but reports it through an `Info` diagnostic.
+- `SpeechModelCatalog` correctly reports `NotDownloaded`, `Downloading`, `Downloaded`, and
+  `FailedOrCorrupt` for an injected fake model as a download is requested, in progress, completes,
+  or fails, and models registered through `AddModels` appear in its enumeration.
+- The reference-voice units install only the allow-listed pack entries safely, keep a failed or
+  canceled upgrade's previous install, make an uninstall that arrives during an in-flight install
+  wait for it and then remove the pack, never touch the user voice folder, and list voices merged in
+  the documented precedence with emotion clips exposed as mood variants of a voice rather than as
+  extra voices.
+
+The concrete
 `IRecognitionModel`/`ISynthesisModel` implementations shipped by this repository are not part of
 this subsystem; they are verified by the sibling SpeechSherpa library (see _SpeechSherpa
 ModelManagementSubsystem Verification_).

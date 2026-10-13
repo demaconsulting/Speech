@@ -4,11 +4,11 @@
 
 ### Overview
 
-The ModelManagementSubsystem provides the storage/download machinery and the model catalog/
-contract machinery for speech models. A per-user on-disk store provides
+The ModelManagementSubsystem provides the storage/download machinery and the model
+catalog/contract machinery for speech models. A per-user on-disk store provides
 atomic install/replace semantics, and a queued downloader fetches, SHA-256-verifies, and
-atomically installs a model's declared files. A generic model catalog/
-contract seam on top: a typed tunable-parameter descriptor set, the common `ISpeechModel`
+atomically installs a model's declared files. On top of that sits a generic model catalog and
+contract seam: a typed tunable-parameter descriptor set, the common `ISpeechModel`
 contract with its `IRecognitionModel`/`ISynthesisModel` role markers, and `SpeechModelCatalog`
 itself. The contracts also carry the model-owned extension hooks concrete models build on - an
 `ISynthesisModel.ResolveSpeakerId` hook for model-owned voice/speaker selection, a recognition-only
@@ -91,8 +91,8 @@ dependency for public model format declarations.
 
 ### Design
 
-`SpeechModelStore` owns the on-disk layout resolving the download-while-in-use concern
-(download-while-in-use). For each model id, it manages `{root}/{model-id}/current/` (the
+`SpeechModelStore` owns the on-disk layout that resolves the download-while-in-use concern. For
+each model id, it manages `{root}/{model-id}/current/` (the
 stable, installed content, only ever replaced by a directory rename),
 `{root}/{model-id}/install-manifest.json` (a sidecar written only after a successful swap so
 `IsInstalled` can report cheaply without re-hashing gigabytes on every query), and
@@ -177,12 +177,36 @@ model install-hook orchestration entirely) could reach. Registration is a builde
 every `AddModels` call must complete before the catalog is shared for concurrent enumeration or
 download. `Enumerate()`
 builds one immutable `SpeechModelDescriptor` snapshot per known model, resolving each model's
-`SpeechModelState` by combining `SpeechModelStore.IsInstalled` (installed/not-installed) with
+`SpeechModelState` by combining `SpeechModelStore.IsInstalled` (`Downloaded`/`NotDownloaded`) with
 in-memory tracking of which model ids currently have a `DownloadAsync` call in flight
 (`Downloading`) and which model ids' most recent attempt did not result in an installed model
 (`FailedOrCorrupt`) - tracking scoped to one catalog instance's lifetime, since a bare on-disk
 store has no durable concept of "currently downloading" or "last attempt failed". `DownloadAsync(
 modelId, ...)` looks up the named model and delegates to `SpeechModelDownloader.DownloadAsync(
 model, ...)` - the `ISpeechModel`-aware overload, so the model's own `InstallAsync` hook always
-runs - throwing only when `modelId` matches no known model - an explicit, user-invoked action,
-never composition or enumeration.
+runs - and throws only when `modelId` matches no known model. Downloading is an explicit,
+user-invoked action; composition and enumeration never trigger it.
+
+#### Reference-voice collaboration
+
+`ReferenceVoiceLibrary` is constructed from the catalog's `SpeechModelStore` (typically
+`catalog.Store`) and owns a second `SpeechModelStore` rooted at a `reference-voices` folder beside
+the model folders, so packs reuse the same atomic-swap layout. It obtains a pack archive through a
+lazily created `SpeechModelDownloader` (hash-verified and mirror-aware) with
+`ReferenceVoicePackInstaller` as the install hook. `EnumerateVoices` merges voices with a fixed
+precedence: caller-named directories first, then the user folder, then installed packs; the first
+voice id wins and later duplicates are dropped with an `Info` diagnostic. Installs and uninstalls of
+one pack are serialized by a per-pack lock: an uninstall that arrives during an install waits for
+it (honoring its cancellation token) and then removes the pack, and the two never interleave. See
+the `ReferenceVoiceLibrary` unit design for details.
+
+#### Error handling
+
+Expected failures are reported as values, not exceptions: a download returns a
+`SpeechModelDownloadResult` whose outcome is `Installed`, `ChecksumMismatch`, `HttpError`,
+`NetworkBlocked`, `IoFailure`, or `Failed`, with any staging directory discarded and a prior
+install untouched. Cancellation always propagates unchanged as `OperationCanceledException`.
+Programming errors (null or invalid arguments, an invalid parameter value, an unknown model id on
+an explicit download, use after dispose) throw `ArgumentException`-family or
+`ObjectDisposedException` exceptions, and only an explicit uninstall that cannot complete throws
+`SpeechModelStoreException`.

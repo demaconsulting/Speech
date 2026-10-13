@@ -11,16 +11,19 @@ sections:
         requirements:
           - id: SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
             title: >-
-              CommunityToolkit.Mvvm shall generate the observable-property change notification
-              used by the SpeechDemo ViewModels.
+              CommunityToolkit.Mvvm shall generate the observable-property change notification,
+              including notification of dependent computed properties, used by the SpeechDemo
+              ViewModels.
             justification: |
               Every demo panel is driven entirely from its ViewModel, which requires correct
-              change notification for each bound value. Hand-writing that boilerplate for every
-              property would add untested code to a demo whose purpose is to exercise the
-              Speech library, so the generated implementation is used instead.
+              change notification for each bound value, including derived display text that
+              must refresh when the value it depends on changes. Hand-writing that boilerplate
+              for every property would add untested code to a demo whose purpose is to exercise
+              the Speech library, so the generated implementation is used instead.
             tags: [ots]
             tests:
               - CommunityToolkitMvvm_ObservableProperty_Assigned_RaisesPropertyChanged
+              - CommunityToolkitMvvm_NotifyPropertyChangedFor_StateAssigned_RaisesDependentPropertyChanged
 
           - id: SpeechDemo-OTS-CommunityToolkitMvvm-Commands
             title: >-
@@ -33,4 +36,6 @@ sections:
             tags: [ots]
             tests:
               - CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod
+              - CommunityToolkitMvvm_RelayCommand_TestLocalPartialClass_GeneratesSynchronousCommand
               - CommunityToolkitMvvm_AsyncRelayCommand_Executed_AwaitsAnnotatedMethod
+              - CommunityToolkitMvvm_AsyncRelayCommand_Canceled_SignalsTokenToAnnotatedMethod

@@ -30,9 +30,21 @@ unbound user interface.
 
 #### CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod
 
-**Scenario**: A generated synchronous command is executed the way a bound button does.
+**Scenario**: A generated synchronous command (`RecognitionPanelViewModel.RefreshCommand`, over a
+`void` annotated method) is executed the way a bound button does.
 
-**Expected**: The command reports itself executable and the annotated method runs.
+**Expected**: The command is not an async command, reports itself executable, and the annotated
+method runs to completion (the model list is re-read).
+
+**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
+
+#### CommunityToolkitMvvm_RelayCommand_TestLocalPartialClass_GeneratesSynchronousCommand
+
+**Scenario**: A test-local `partial` class deriving from `ObservableObject` declares a `void`
+method annotated with `[RelayCommand]`.
+
+**Expected**: The generator emits a synchronous command that runs the annotated method once,
+demonstrating the generator prerequisites independently of any demo view model.
 
 **Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
 
@@ -41,15 +53,31 @@ unbound user interface.
 **Scenario**: A generated asynchronous command is executed and awaited.
 
 **Expected**: The command is an awaitable async command, and the awaited method completes and
-updates the bound state. Cancellation support is provided by the generator (the command exposes
-an awaitable `ExecutionTask` and a `CancelCommand`) but is not itself exercised by this scenario.
+updates the bound state.
 
 **Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
 
-### Requirements Coverage
+#### CommunityToolkitMvvm_AsyncRelayCommand_Canceled_SignalsTokenToAnnotatedMethod
 
-- **`SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification`**:
-  `CommunityToolkitMvvm_ObservableProperty_Assigned_RaisesPropertyChanged`
-- **`SpeechDemo-OTS-CommunityToolkitMvvm-Commands`**:
-  `CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod`,
-  `CommunityToolkitMvvm_AsyncRelayCommand_Executed_AwaitsAnnotatedMethod`
+**Scenario**: The generated download command is started over a download that only ends when its
+`CancellationToken` is canceled, and the command is then canceled.
+
+**Expected**: The command reports it can be canceled, the annotated method observes the
+cancellation through its token, and the row returns to not-downloaded with a cancellation message.
+
+**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
+
+#### CommunityToolkitMvvm_NotifyPropertyChangedFor_StateAssigned_RaisesDependentPropertyChanged
+
+**Scenario**: The generated `State` property of a model row is assigned.
+
+**Expected**: Change notification is raised for the dependent computed properties
+(`StatusText`, `CanDownload`) as well as for `State`.
+
+**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification`.
+
+### Test Location
+
+The OTS tests live in `test/DemaConsulting.Speech.Demo.Tests/Ots/` rather than in a repository-level
+`test/OtsSoftwareTests/` project. This is a documented deviation: the tests exercise the demo's view
+models, which are internal to the demo and only visible to the demo test project.

@@ -2734,6 +2734,9 @@ reviews:
       - "docs/reqstream/ots/microsoft-ml-onnxruntime.yaml"
       - "docs/design/ots/microsoft-ml-onnxruntime.md"
       - "docs/verification/ots/microsoft-ml-onnxruntime.md"
+      - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
 
   # OTS-SystemNumericsTensors Review (one per OTS item)
   - id: OTS-SystemNumericsTensors
@@ -2742,6 +2745,9 @@ reviews:
       - "docs/reqstream/ots/system-numerics-tensors.yaml"
       - "docs/design/ots/system-numerics-tensors.md"
       - "docs/verification/ots/system-numerics-tensors.md"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioCaptureDeviceTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
 
   # OTS-BuildMark Review (one per OTS item)
   - id: OTS-BuildMark

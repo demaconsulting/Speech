@@ -30,3 +30,9 @@ native assets excluded, so that sherpa-onnx's own native runtime is the one depl
 sessions through `OnnxExecutionProviderSelector.Create`, which keeps provider fallback in one
 place; no ONNX Runtime type appears in any public API of the Speech library, which does not
 reference the package at all.
+
+Disposal: `InferenceSession` and `SessionOptions` wrap native handles and must be disposed.
+`OnnxExecutionProviderSelector.Create` disposes its `SessionOptions` and every rejected candidate
+session itself, and returns only the winning session, whose ownership transfers to the caller; each
+network wrapper owns and disposes its sessions, and the `OrtValue` instances created for a run are
+disposed when that run completes. Tests that create sessions dispose them for the same reason.

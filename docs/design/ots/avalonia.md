@@ -27,6 +27,12 @@ code-behind, so nothing the demo verifies depends on Avalonia being started.
 `Avalonia.Diagnostics` is conditioned on `'$(Configuration)' == 'Debug'` because the
 developer-tools overlay is a development aid that must never ship in a `Release` build.
 
+The Avalonia packages (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`,
+`Avalonia.Fonts.Inter`) are pinned to 12.1.3. `Avalonia.Diagnostics` is intentionally pinned to
+11.3.22 because that is the last release of the package; the 12.x line replaced it with a
+separately distributed developer-tools offering. Since it is a Debug-only development aid that
+never ships, the version skew carries no runtime risk.
+
 The Speech library itself never references Avalonia. Its project file asserts this: the build
 fails if the library gains an `Avalonia*` package reference, which keeps the demo's UI framework
 out of the shipped NuGet package.

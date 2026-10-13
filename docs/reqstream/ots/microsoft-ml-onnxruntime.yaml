@@ -22,12 +22,14 @@ sections:
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
             title: >-
-              Microsoft.ML.OnnxRuntime shall report an unusable execution provider through its
-              documented exceptions so the selector can fall back to the CPU provider.
+              Microsoft.ML.OnnxRuntime shall report an unusable or unrecognized execution
+              provider through its documented OnnxRuntimeException so the selector can fall
+              back to the CPU provider.
             justification: |
               Accelerated providers are optional and machine-dependent; the selector's layered
-              fallback relies on a failing provider surfacing as an OnnxRuntimeException or being
-              ignored as unknown.
+              fallback relies on a failing provider (including an unrecognized provider name, or
+              a candidate session whose probe inference fails) surfacing as an
+              OnnxRuntimeException rather than as a crash or a silently broken session.
             tags: [ots]
             tests:
               - Create_UnknownProviderName_FallsBackToCpuSession

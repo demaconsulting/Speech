@@ -24,6 +24,10 @@ the view-model tests do not already provide: the views contain no application lo
 bindings are compiled, so a mistyped binding fails the build rather than failing silently at
 runtime. Visual appearance and interactive behavior remain manual/local verification activities.
 
+The OTS tests live in `test/DemaConsulting.Speech.Demo.Tests/Ots/` rather than in a repository-level
+`test/OtsSoftwareTests/` project. This is a documented deviation: the tests need `InternalsVisibleTo`
+access to the demo's `Program` and `App` types, which a separate project would not have.
+
 ### Test Scenarios
 
 #### Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
@@ -43,9 +47,3 @@ Avalonia packages are present and the host configuration is valid.
 resources, and desktop lifetime.
 
 **Requirement coverage**: `SpeechDemo-OTS-Avalonia-DesktopApplicationHost`.
-
-### Requirements Coverage
-
-- **`SpeechDemo-OTS-Avalonia-DesktopApplicationHost`**:
-  `Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder`,
-  `Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication`

@@ -489,6 +489,10 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-InstallSerialization
               - Speech-Models-ReferenceVoiceLibrary-Disposal
               - Speech-Models-ReferenceVoiceLibrary-InstallAfterDisposeThrows
+            tests:
+              - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+              - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
+              - ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState
 
           - id: Speech-Models-ReferenceVoicePackDescriptor
             title: >-
@@ -504,6 +508,10 @@ sections:
               - Speech-Models-ReferenceVoicePack-ArgumentValidation
               - Speech-Models-ReferenceVoicePack-SizeMetadata
               - Speech-Models-ReferenceVoicePack-InstalledSizeValidation
+            tests:
+              - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
+              - ReferenceVoicePack_Constructor_NonHttpsUri_Throws
+              - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
 
           - id: Speech-Models-ReferenceVoicePackInstall
             title: >-
@@ -522,6 +530,10 @@ sections:
               - Speech-Models-ReferenceVoicePackInstaller-Cancellation
               - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
               - Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps
+            tests:
+              - ReferenceVoicePackInstaller_Install_TypicalArchive_ExtractsOnlyAllowListedEntries
+              - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
+              - ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws
 
           - id: Speech-Models-ReferenceVoicePackUninstall
             title: >-
@@ -534,6 +546,9 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-PackUninstall
               - Speech-Models-ReferenceVoiceLibrary-UninstallDiscardsUpgradeBackup
               - Speech-Models-ReferenceVoiceLibrary-UninstallWaitsForInstall
+            tests:
+              - ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder
+              - ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves
 
           - id: Speech-Models-ReferenceVoiceEmotionInstall
             title: >-
@@ -553,6 +568,10 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-EmotionVariants
               - Speech-Models-ReferenceVoiceLibrary-BaseVoicesOnRequest
               - Speech-Models-ReferenceVoiceLibrary-NeverDowngradeEmotions
+            tests:
+              - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
+              - ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly
+              - ReferenceVoicePackInstaller_Install_WithoutEmotions_SkipsMoodClips
 
           - id: Speech-Models-ReferenceVoiceEmotionUpgrade
             title: >-
@@ -567,6 +586,10 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-UpgradeRestoresOnFailure
               - Speech-Models-ReferenceVoiceLibrary-AbandonedBackupRestored
               - Speech-Models-ReferenceVoiceLibrary-VariantReporting
+            tests:
+              - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
+              - ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall
+              - ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored
 
           - id: Speech-Models-ReferenceVoiceMoodClips
             title: >-
@@ -579,6 +602,9 @@ sections:
             children:
               - Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
               - Speech-Models-ReferenceVoicePack-MoodClipLookup
+            tests:
+              - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
+              - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
 
           - id: Speech-Models-ReferenceVoiceUserFolder
             title: >-
@@ -591,6 +617,9 @@ sections:
             children:
               - Speech-Models-ReferenceVoiceLibrary-StoreLayout
               - Speech-Models-ReferenceVoiceLibrary-LazyFolderCreation
+            tests:
+              - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
+              - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
 
           - id: Speech-Models-ReferenceVoiceListing
             title: >-
@@ -603,6 +632,9 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-VoiceMerge
               - Speech-Models-ReferenceVoiceLibrary-EmptyListWhenNothingPresent
               - Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
+            tests:
+              - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
+              - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
 
           - id: Speech-Models-ReferenceVoiceConsentNotice
             title: >-
@@ -612,3 +644,5 @@ sections:
               Hosts listing or choosing voices need one shared, consistent warning wording.
             children:
               - Speech-Models-ReferenceVoiceLibrary-ConsentNotice
+            tests:
+              - ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone

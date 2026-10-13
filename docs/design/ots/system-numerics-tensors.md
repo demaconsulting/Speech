@@ -21,5 +21,7 @@ run time, avoiding hand-written SIMD code and keeping the audio pipeline's inner
 `DemaConsulting.Speech.csproj` references `System.Numerics.Tensors` directly and is the single
 source of truth for the pinned version. The package is used only inside internal implementation
 code over `Span<float>` buffers; no `System.Numerics.Tensors` type appears in any public API. The
-SpeechCli tool's `devices test` command also uses it, taking it transitively through its Speech
-reference, for peak-level measurement.
+SpeechCli tool's `devices test` command also uses `TensorPrimitives.MaxMagnitude`, taking the
+package transitively through its Speech reference, for peak-level measurement. That use is a
+diagnostic convenience of the CLI, not a required feature of this OTS item: it is intentionally
+not part of the requirement or the OTS verification evidence.
