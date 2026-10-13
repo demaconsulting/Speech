@@ -36,7 +36,9 @@ handshake) that decodes to the exact configured username/password, sent through 
 in-scope mirror request leaves the mirror's authorization header on the initial request, but
 the follow-up (redirected) request carries no authorization header at all, confirming
 `HttpClient`'s own redirect handling - not this class - is what prevents the mirror's secret from
-ever reaching a redirect target.
+ever reaching a redirect target. A request to a URI outside the mirror's base, and a mirror whose
+base URI differs from the request only by a trailing slash, are likewise classified correctly: the
+former carries no authorization header, the latter does.
 
 #### Test Scenarios
 
@@ -63,3 +65,15 @@ ever reaching a redirect target.
 ##### Download: Mirror Redirect Strips Authorization Header On Redirected Request
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest`
+
+##### Download: Non-Mirror URI With Mirror Configured Sends No Authorization Header
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_NonMirrorUriWithMirrorConfigured_SendsNoAuthorizationHeader`
+
+Verifies the mirror's secret is never sent to a URI that is not under the mirror's base.
+
+##### Download: Mirror Base URI Trailing Slash Mismatch Still Sends Authorization Header
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_MirrorBaseUriTrailingSlashMismatch_SendsAuthorizationHeader`
+
+Verifies the in-scope check is insensitive to a trailing slash on the configured base URI.

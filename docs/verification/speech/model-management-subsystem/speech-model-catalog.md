@@ -7,8 +7,8 @@ constructor to inject a fake known-model list, a real temp-directory-backed `Spe
 and fake `IModelDownloadClient` implementations (a fixed-payload client for a successful/
 checksum-mismatched download, and a `TaskCompletionSource`-gated client to deterministically
 observe the `Downloading` state while a download is in flight). A system-level end-to-end test
-(`SpeechTests.cs`) additionally proves the full public composition (real store, real HTTP
-download client) enumerates and tracks state correctly.
+(`SpeechTests.cs`) additionally proves the full public composition (a scratch-directory store and
+a fake download client) enumerates and tracks state correctly.
 
 #### Test Environment
 
@@ -23,7 +23,9 @@ instance for chaining and every model it registers appears in `Enumerate()`; a n
 model reports `NotDownloaded`; a download in flight reports `Downloading`; a completed
 successful download reports `Downloaded`; a checksum-mismatched download reports
 `FailedOrCorrupt`; requesting a download for an unknown model id throws `ArgumentException`; the
-`Store` property returns the exact `SpeechModelStore` instance the catalog was composed with.
+`Store` property returns the exact `SpeechModelStore` instance the catalog was composed with; a
+null entry in `AddModels` is rejected; a configured mirror reaches the download client; and a
+zip-archive model is installed through its own install hook.
 
 #### Test Scenarios
 
@@ -65,6 +67,25 @@ verified separately by SpeechSherpa; see _SpeechSherpa ModelManagementSubsystem 
 ##### Downloading an unknown model id throws ArgumentException
 
 **Test**: `SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException`
+
+##### AddModels rejects an array containing a null entry
+
+**Test**: `SpeechModelCatalog_AddModels_NullEntry_ThrowsArgumentException`
+
+##### A configured mirror is forwarded through the catalog's download path
+
+**Tests**: `SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughCatalog`,
+`SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor`
+
+Verifies that the mirror-rewritten URI reaches the download client both through the internal test
+constructor and through the public constructor (against an in-process stubbed server).
+
+##### A zip-archive model is installed through its own install hook
+
+**Test**: `SpeechModelCatalog_DownloadAsync_ZipArchiveModel_InstallsExtractedContentAndReportsDownloaded`
+
+Verifies that the catalog's real download path runs the model's own install hook, leaving the
+extracted content (not the archive) installed and the state `Downloaded`.
 
 ##### System integration: the catalog enumerates and tracks download state end-to-end
 

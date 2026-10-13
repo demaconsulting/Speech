@@ -49,3 +49,18 @@ See the RecognitionSubsystem-level scenario "Engine Exclusivity and Lease Behavi
 ##### Disposal disposes the active session first
 
 **Test**: `SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst`
+
+##### A null capture device is rejected
+
+**Test**: `SpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`
+
+##### An unavailable capture device falls back and reports a warning
+
+**Test**: `SpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning`
+
+##### CreateSessionAsync racing DisposeAsync never observes a torn state
+
+**Test**: `SpeechRecognizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState`
+
+Verifies each racing attempt either yields a usable session or fails cleanly with a disposal or
+lease-busy exception, never any other exception.

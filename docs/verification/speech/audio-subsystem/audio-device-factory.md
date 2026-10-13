@@ -96,6 +96,14 @@ the real environment could otherwise resolve a device by that name.
 Proves the fix does not regress the common case where the injected probe agrees with the real
 environment: a selection the probe does know about still resolves to a real, available device.
 
+##### Creation: Empty Device Name Is Treated As No Preference
+
+**Test**: `AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice`
+
+##### Contracts: Substituted With Mocks Behave As Configured
+
+**Test**: `AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured`
+
 ##### RefreshDevices: Delegates to the Environment's Refresh
 
 **Test**: `AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh`

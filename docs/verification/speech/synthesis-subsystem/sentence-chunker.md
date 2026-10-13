@@ -78,3 +78,11 @@ dots; `Chunk` and `ChunkWithMetadata` agree on chunk text.
 `SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue`,
 `SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse`,
 `SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`
+
+##### Empty and Whitespace-Only Input
+
+**Stimulus**: Empty text and whitespace-only text.
+
+**Expected**: No chunks.
+
+**Test**: `SentenceChunker_Chunk_EmptyOrWhitespace_ReturnsEmpty`

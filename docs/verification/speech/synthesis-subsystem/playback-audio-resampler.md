@@ -62,3 +62,13 @@ channel.
 
 **Tests**: `PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes`,
 `PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix`
+
+##### Argument Validation
+
+**Stimulus**: `Resample` with a non-positive source or target rate; the constructor with a
+non-positive argument.
+
+**Expected**: `ArgumentOutOfRangeException` in each case.
+
+**Tests**: `PlaybackAudioResampler_Resample_NonPositiveRate_ThrowsArgumentOutOfRangeException`,
+`PlaybackAudioResampler_Constructor_NonPositiveArgument_ThrowsArgumentOutOfRangeException`
