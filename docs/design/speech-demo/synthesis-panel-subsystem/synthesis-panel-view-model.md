@@ -177,6 +177,12 @@ _Known limitations_ (the current behavior; not yet handled by the panel):
 - `SynthesisSessionFaultedException` and `SpeechSynthesizerUnavailableException` differ in
   handling: a fault releases the session, while an unavailable-synthesizer exception sets
   `Error` but keeps the session cached.
+- A catalog refresh (`Refresh()`, including the one a voice-pack change or install triggers) is
+  not deferred while a Play is in flight: it rebuilds `AvailableModels` and re-applies the selection
+  and, for a voice change, the settings values, but leaves the running session and cached engine
+  alone. The in-flight Play keeps using the model and values it started with; a change to the
+  selection or values is picked up by the next Play through the cache comparison. It is verified by
+  `SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle`.
 
 **Dependencies**: `IModelCatalogService` (installed-model list, `ModelInstalled`,
 `ReferenceVoicesChanged`, reference voice packs and their state), `IAudioDeviceService`, the

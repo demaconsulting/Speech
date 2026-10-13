@@ -47,8 +47,17 @@ completion before a shared device refresh.
 
 **Scenario**: The catalog reports no installed synthesis models.
 
-**Expected**: `HasModels` is false and `AvailableModels` and `SelectedModel` reflect nothing to
-choose from.
+**Expected**: `HasModels` is false, `AvailableModels` and `SelectedModel` reflect nothing to
+choose from, Play is unavailable, and `NoModelsMessage` points the user to the Model Catalog panel.
+The view's rendering of that message is not under automated UI test.
+
+##### SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle
+
+**Scenario**: A Play is in flight on a session that only ends when stopped, and the catalog is
+refreshed; Stop is then requested.
+
+**Expected**: The selected model is unchanged and the session is neither stopped nor disposed by
+the refresh; after Stop the Play ends and the panel is no longer `Playing`.
 
 ##### SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels
 
@@ -100,7 +109,8 @@ asked to speak.
 
 **Scenario**: The first session faults while speaking; a second Play follows.
 
-**Expected**: `Error` state with the fault message and the faulted session disposed; the second Play
+**Expected**: `Error` state with `SessionFaultedMessage` (the panel's fixed fault text, not the
+session's own message) and the faulted session disposed; the second Play
 creates a fresh session from the same engine and settles on `Idle`.
 
 ##### SynthesisPanelViewModel_Play_SpeakThrowsSynthesizerUnavailable_ReportsErrorStateWithMessage
@@ -274,3 +284,12 @@ the other model.
 reported installed.
 
 **Expected**: `HasVoiceNotice` is `false` and `VoiceNotice` is `null`.
+
+#### Accepted Gaps
+
+The behaviors listed as _Known limitations_ in the unit design - a cancellation surfacing from
+`LoadAsync` or `CreateSessionAsync`, an unexpected exception from a seam call (including the
+`ArgumentException` for an invalid parameter value), and Stop requested before any session exists -
+are intentionally not covered by tests, because they document behavior the panel does not yet
+handle; adding assertions would pin that unhandled behavior in place. They are tracked in the design
+document and should gain scenarios when the panel handles them.

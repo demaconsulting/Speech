@@ -132,6 +132,44 @@ public class SynthesisPanelViewModelTests
         Assert.Empty(viewModel.AvailableModels);
         Assert.Null(viewModel.SelectedModel);
         Assert.False(viewModel.CanPlay);
+        Assert.Contains("Model Catalog", SynthesisPanelViewModel.NoModelsMessage, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a Refresh triggered while a Play is in flight (a voice-pack change or an install can raise one)
+    ///     does not disturb the in-flight Play and leaves the panel settled once that Play ends.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle()
+    {
+        // Arrange: an installed model, a device, and a session whose speech only ends when stopped
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var session = new FakeSynthesisSession
+        {
+            SpeakImplementation = (_, token) => Task.Delay(Timeout.Infinite, token),
+        };
+        var engine = new FakeSpeechSynthesizerEngine { SessionFactory = _ => session };
+        var viewModel = new SynthesisPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        var playTask = viewModel.PlayCommand.ExecuteAsync(null);
+        var selectedBefore = viewModel.SelectedModel;
+
+        // Act: refresh the catalog while the Play is in flight
+        viewModel.Refresh();
+
+        // Assert: the in-flight Play, its session and the selection are undisturbed
+        Assert.Same(selectedBefore, viewModel.SelectedModel);
+        Assert.Equal(0, session.StopCallCount);
+        Assert.Equal(0, session.DisposeCallCount);
+        Assert.False(playTask.IsCompleted);
+
+        // Cleanup: stop the Play and confirm the panel settles
+        await viewModel.StopCommand.ExecuteAsync(null);
+        await playTask;
+        Assert.NotEqual(SynthesisPlaybackState.Playing, viewModel.State);
     }
 
     /// <summary>
@@ -300,7 +338,7 @@ public class SynthesisPanelViewModelTests
 
     /// <summary>
     ///     Proves that a full, successful Play lifecycle transitions through Synthesizing then
-    ///     Playing before settling on Idle, and disposes the session afterward via the
+    ///     Playing before settling on Idle, via the
     ///     <see cref="ISynthesisSession.StateChanged"/> mapping.
     /// </summary>
     [Fact]

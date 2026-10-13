@@ -650,6 +650,7 @@ sections:
           the application.
         children:
           - SpeechDemo-Synthesis-HonestEmptyCatalogState
+          - SpeechDemo-Synthesis-RefreshWhilePlayingUndisturbed
           - SpeechDemo-Synthesis-NoModelSelectedState
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly

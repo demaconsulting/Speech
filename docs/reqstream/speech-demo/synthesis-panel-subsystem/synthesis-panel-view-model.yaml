@@ -91,8 +91,8 @@ sections:
               - id: SpeechDemo-Synthesis-SessionStateMapping
                 title: >-
                   The SynthesisPanelViewModel shall show a stopping session as playing back, a
-                  newly created session as idle, and a faulted session as an error state carrying
-                  the fault message.
+                  newly created session as idle, and a faulted session as an error state with the
+                  panel's session-fault message.
                 justification: |
                   The displayed state must not drift from what the session is actually doing, so
                   a user is never told the panel is idle while audio is still stopping, or that
@@ -246,14 +246,28 @@ sections:
 
               - id: SpeechDemo-Synthesis-HonestEmptyCatalogState
                 title: >-
-                  The SynthesisPanelViewModel shall explain, rather than silently show nothing,
-                  when no installed synthesis model exists to choose from.
+                  The SynthesisPanelViewModel shall report an empty catalog as having no models to
+                  choose from (nothing offered or selected, and Play unavailable), with a message
+                  available that explains how to install one, rather than silently showing
+                  nothing.
                 justification: |
                   Consistent with the honest-empty-state precedent set by the model catalog
                   panel, an unexplained empty picker reads to a user as a broken application
-                  rather than an expected pre-download state.
+                  rather than an expected pre-download state. The view renders the supplied
+                  `NoModelsMessage` when `HasModels` is false; rendering is not itself under
+                  automated UI test.
                 tests:
                   - SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState
+
+              - id: SpeechDemo-Synthesis-RefreshWhilePlayingUndisturbed
+                title: >-
+                  The SynthesisPanelViewModel shall leave an in-flight Play, its session and the
+                  selected model undisturbed when the model list is refreshed.
+                justification: |
+                  A voice-pack change or an install can refresh the list during playback; the
+                  refresh must not stop or dispose the running session.
+                tests:
+                  - SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle
 
               - id: SpeechDemo-Synthesis-AutoRefreshOnInstall
                 title: >-
