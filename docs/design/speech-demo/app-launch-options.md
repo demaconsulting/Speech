@@ -23,6 +23,10 @@ launch as in the model catalog panel.
   command-line `--mirror-url` overrides the URL variable; any credential option on the command line
   disables all credential variables so the two sources are never mixed; an empty variable is
   treated as unset. Secret values and rejected URL values are never written to help or error text.
+  An empty option value (URL, user, password or token) is likewise treated as unset, so it neither
+  blocks the environment fallback nor counts as a command-line credential. A repeated option keeps
+  its last value. The `--voices-dir` folder is checked once, at parse time, unless help was
+  requested; the models directory is not checked.
 - `CreateStoreOptions()` returns store options with the root path override, or `null` when no
   models folder was given.
 - `CreateDownloaderOptions()` delegates mirror validation and construction to
@@ -35,7 +39,8 @@ launch as in the model catalog panel.
 
 **Error Handling**: `Parse` throws `ArgumentNullException` for null arguments or a null
 environment reader, and `ArgumentException` for an unrecognized argument, an option missing its
-value, or a `--voices-dir` folder that does not exist. `CreateDownloaderOptions` surfaces the
+value, or a `--voices-dir` folder that does not exist. An unrecognized argument is reported by its
+1-based position only, never by its text, because a mistyped option may be a secret. `CreateDownloaderOptions` surfaces the
 factory's `ArgumentException`.
 
 **Dependencies**: `MirrorOptionsFactory` and the library's `SpeechModelStoreOptions` and

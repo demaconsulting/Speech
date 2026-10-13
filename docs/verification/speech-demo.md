@@ -5,9 +5,10 @@ This document describes the system-level verification strategy for the SpeechDem
 ## Verification Approach
 
 SpeechDemo is verified through deterministic system-level integration tests that compose the
-application exactly as its own composition root does — the real `AudioDeviceFactory`, the real
+application through its own composition root (`App.Compose`) — the real `AudioDeviceFactory`, the real
 `SpeechModelCatalog` over an isolated store root, the real demo service adapters, and the real
-view models — and then assert the resulting state. This proves the demo genuinely works against
+view models — and then assert the resulting state. Some scenarios construct a single panel directly
+to isolate one machine condition. This proves the demo genuinely works against
 the shipped library on whatever machine the test run happens to use, including a machine with no
 audio backend and no installed model.
 
@@ -60,9 +61,9 @@ physical audio I/O, and real model downloads are explicitly left to manual/local
 
 **Test**: `SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell`
 
-Verifies that composing the whole demo object graph over the real library produces a shell
-offering the four panels (Devices, Model Catalog, Text-to-Speech, Speech-to-Text),
-opened on the first, and hosting the injected panel instances.
+Verifies that composing the demo through `App.Compose` (the composition root itself, isolated to
+a private models directory) produces a shell offering the four panels (Devices, Model Catalog,
+Text-to-Speech, Speech-to-Text), opened on the first, and hosting the composed panel instances.
 
 ### Integration: Real Audio Backend Device Enumeration Never Throws
 
@@ -83,12 +84,10 @@ picker a user would read as a bug.
 
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
-Verifies that the catalog panel composed over the real library catalog, populated through
-SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
-the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
-`AddChatterboxTurboModels()`, lists exactly the real, production models those extension methods
-register - spanning both the recognition and synthesis roles - rather than reporting an empty
-catalog or only the Sherpa models.
+Verifies that the catalog panel composed through `App.Compose` lists exactly the models the shared
+catalog service enumerates - spanning both the recognition and synthesis roles - rather than
+reporting an empty catalog. The test compares against the service rather than a hard-coded count,
+so adding a model family does not break it.
 
 The real multi-hundred-megabyte reference voice pack download is left to manual verification.
 

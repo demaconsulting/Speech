@@ -23,8 +23,8 @@ sections:
 
           - id: SpeechDemo-Program-FailFast
             title: >-
-              The Program unit shall report an invalid launch option on the error stream, print
-              the usage text and exit with a non-zero code without starting the application.
+              The Program unit shall report an invalid launch option on the error stream and exit
+              with a non-zero code without starting the application.
             justification: |
               A mistyped or invalid option must be explained at the console before any window
               opens, and a script must be able to detect the failure from the exit code.
@@ -32,15 +32,50 @@ sections:
               - Program_Run_UnrecognizedOption_ReportsErrorAndDoesNotStart
               - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
 
+          - id: SpeechDemo-Program-FailFastUsage
+            title: >-
+              The Program unit shall print the usage text after reporting an invalid launch
+              option.
+            justification: |
+              The user needs the valid options at hand to correct the command line.
+            tests:
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
+          - id: SpeechDemo-Program-ErrorNoEcho
+            title: >-
+              The Program unit shall not echo an unrecognized or invalid argument value in its
+              error output.
+            justification: |
+              A misplaced secret must not be copied into console logs.
+            tests:
+              - Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
           - id: SpeechDemo-Program-HelpRequest
             title: >-
-              The Program unit shall print the usage text and exit with code zero without
-              starting the application when a help flag is supplied.
+              The Program unit shall print the usage text without starting the application when
+              a help flag is supplied.
             justification: |
-              Asking for help is a successful request that must not open a window.
+              Asking for help must not open a window.
             tests:
               - Program_Run_HelpFlag_PrintsUsageAndDoesNotStart
 
+          - id: SpeechDemo-Program-HelpExitCode
+            title: >-
+              The Program unit shall exit with code zero when a help flag is supplied.
+            justification: |
+              Asking for help is a successful request.
+            tests:
+              - Program_Run_HelpFlag_PrintsUsageAndDoesNotStart
+
+          - id: SpeechDemo-Program-HelpWinsOverInvalidMirror
+            title: >-
+              The Program unit shall honor a help flag even when the mirror options are invalid.
+            justification: |
+              A user asking for help to learn the correct mirror options must not be rejected
+              for getting them wrong.
+            tests:
+              - Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero
           - id: SpeechDemo-Program-StartsApplication
             title: >-
               The Program unit shall start the application with the parsed launch options when

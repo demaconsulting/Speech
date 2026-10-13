@@ -84,6 +84,54 @@ invalid URL value.
 
 **Expected**: An explained error is shown and the service is not called.
 
+#### MirrorOptionsFactory_Create_BasicCredentialsOverPlainHttpToRemoteHost_ThrowsWithoutEchoingSecret
+
+**Scenario**: Basic credentials are given for a plain-HTTP remote host.
+
+**Expected**: `ArgumentException` that does not contain the password.
+
+#### MirrorOptionsFactory_Create_CredentialOverPlainHttpToLoopback_ReturnsMirror
+
+**Scenario**: A credential is given for a plain-HTTP loopback host.
+
+**Expected**: A configured mirror is returned.
+
+#### MirrorOptionsFactory_Create_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets
+
+**Scenario**: Basic credentials and a bearer token are both given.
+
+**Expected**: `ArgumentException` that contains neither secret.
+
+#### MirrorOptionsFactory_Create_NonHttpScheme_ThrowsWithoutEchoingValue
+
+**Scenario**: The URL uses `ftp://` or is a pasted `user:token@host` string.
+
+**Expected**: `ArgumentException` that does not contain the value.
+
+#### MirrorOptionsFactory_Create_RelativeUrl_ThrowsArgumentException
+
+**Scenario**: The URL is relative.
+
+**Expected**: `ArgumentException`.
+
+#### MirrorOptionsFactory_Create_BlankUrlWithEmptyCredentials_ReturnsNull
+
+**Scenario**: The URL is blank and the credentials are empty or null.
+
+**Expected**: `null` is returned.
+
+#### MirrorOptionsFactory_Create_UrlWithEmptyCredentials_ReturnsUnauthenticatedMirror
+
+**Scenario**: A valid URL is given with empty credentials.
+
+**Expected**: An unauthenticated mirror is returned.
+
+#### MirrorOptionsFactory_Create_EmptyUserWithPassword_ThrowsArgumentException
+
+**Scenario**: The user is empty and a password is given.
+
+**Expected**: `ArgumentException`.
+
 #### ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
 **Scenario**: The panel applies a credential with a blank URL.

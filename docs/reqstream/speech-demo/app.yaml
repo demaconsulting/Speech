@@ -19,14 +19,31 @@ sections:
               and model catalog.
             justification: |
               The demo exists to show how a host application wires itself to the library. A
-              single explicit composition root keeps that wiring readable, and composing over
-              the real entry points is the evidence that the library is consumable.
+              single explicit composition root keeps that wiring readable.
             tests:
               - App_Compose_IsolatedLaunchOptions_ComposesShellWithAllPanels
-              - App_Compose_IsolatedLaunchOptions_CatalogListsEveryRegisteredModel
               - App_Compose_NullLaunchOptions_ComposesShell
               - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
+
+          - id: SpeechDemo-App-CatalogRegistration
+            title: >-
+              The App unit shall register every model family the demo offers in the catalog it
+              composes, so the catalog panel lists them.
+            justification: |
+              A composition root that forgot a family would present an apparently empty or
+              partial catalog.
+            tests:
+              - App_Compose_IsolatedLaunchOptions_CatalogListsEveryRegisteredModel
               - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+          - id: SpeechDemo-App-MirrorPrePopulation
+            title: >-
+              The App unit shall pre-populate the model catalog panel's mirror settings from the
+              launch options.
+            justification: |
+              A mirror given on the command line must be visible and editable in the panel.
+            tests:
+              - App_Compose_MirrorLaunchOptions_PrePopulatesCatalogPanelMirrorSettings
 
           - id: SpeechDemo-App-ShutdownContainment
             title: >-
@@ -39,6 +56,26 @@ sections:
               - App_RunTeardownAsync_AllStepsSucceed_RunsEveryStepInOrder
               - App_RunTeardownAsync_StepsFail_ContainsEachFailureAndRunsRemainingSteps
 
+          - id: SpeechDemo-App-ShutdownDeferral
+            title: >-
+              The App unit shall defer the first shutdown request until asynchronous cleanup has
+              finished, then resume shutdown exactly once.
+            justification: |
+              Exiting while a synthesizer or recognizer is still releasing audio devices would
+              leak them.
+            tests:
+              - App_HandleShutdownRequested_FirstRequest_DefersThenResumesShutdownOnce
+              - App_ShutdownTask_BeforeAnyRequest_IsNull
+
+          - id: SpeechDemo-App-ShutdownReentrancy
+            title: >-
+              The App unit shall keep cancelling repeated shutdown requests while cleanup is
+              pending and start no second cleanup.
+            justification: |
+              A second close request during cleanup must neither exit mid-cleanup nor run the
+              disposal steps twice.
+            tests:
+              - App_HandleShutdownRequested_RepeatedRequest_StartsNoSecondCleanup
           - id: SpeechDemo-App-AvaloniaApplication
             title: >-
               The App unit shall be a valid Avalonia application.

@@ -62,13 +62,39 @@ model catalog panels all present.
 
 **Scenario**: The shell is composed over the real library entry points.
 
-**Expected**: A working shell with all panels is produced without a downloaded model.
+**Expected**: A working shell with all panels is produced without a downloaded model, composed
+through `App.Compose` with an isolated models directory.
 
 #### SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
 
-**Scenario**: The real catalog is enumerated through the demo seam.
+**Scenario**: The shell is composed through `App.Compose` and the catalog panel is inspected.
 
-**Expected**: The library's known models are reported.
+**Expected**: The panel lists exactly the models the shared service enumerates, covering both
+recognition and synthesis, and is not empty.
+
+#### App_Compose_MirrorLaunchOptions_PrePopulatesCatalogPanelMirrorSettings
+
+**Scenario**: The shell is composed with launch options that carry a mirror.
+
+**Expected**: The catalog panel's mirror fields show the launch-time values.
+
+#### App_HandleShutdownRequested_FirstRequest_DefersThenResumesShutdownOnce
+
+**Scenario**: The first shutdown request arrives.
+
+**Expected**: Shutdown is deferred (cancelled), cleanup runs, then shutdown is resumed exactly once.
+
+#### App_HandleShutdownRequested_RepeatedRequest_StartsNoSecondCleanup
+
+**Scenario**: A second shutdown request arrives while cleanup may still be pending.
+
+**Expected**: The request is cancelled while cleanup is pending, and no second cleanup starts.
+
+#### App_ShutdownTask_BeforeAnyRequest_IsNull
+
+**Scenario**: No shutdown has been requested.
+
+**Expected**: There is no shutdown task.
 
 #### Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication
 

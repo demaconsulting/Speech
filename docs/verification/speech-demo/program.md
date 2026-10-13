@@ -57,3 +57,15 @@ the start action is not called.
 **Scenario**: `Run` receives valid options.
 
 **Expected**: 0 is returned and the start action is called once with the parsed options.
+
+#### Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument
+
+**Scenario**: `Run` receives a stray argument that looks like a secret.
+
+**Expected**: The error output reports the argument position but not its text, and 1 is returned.
+
+#### Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero
+
+**Scenario**: `Run` receives `--help` together with an invalid `--mirror-url`.
+
+**Expected**: Usage text is printed, 0 is returned and no mirror error is reported.

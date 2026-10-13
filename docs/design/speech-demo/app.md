@@ -10,14 +10,20 @@ desktop lifetime.
 | Member | Type | Purpose |
 | --- | --- | --- |
 | `LaunchOptions` | static `AppLaunchOptions?` | Options parsed by `Program`, read when composing |
-| `_shuttingDown` | `bool` | Set when shutdown starts so a repeated close request is ignored |
+| `_shuttingDown` | `bool` | Set when shutdown starts so no second cleanup is started |
+| `_cleanupCompleted` | `bool` | Set when cleanup has finished, just before shutdown resumes |
 | `ShutdownTask` | internal `Task?` | The in-flight asynchronous shutdown, retained so it is observed and testable |
 | `CatalogFactory` | local function | `SpeechModelDownloaderOptions?` to `ModelCatalogComposition`; not a member |
 
 **Key Methods**:
 
 - `OnFrameworkInitializationCompleted` composes the desktop shell by calling `Compose` with
-  `LaunchOptions` and assigns the result to the main window.
+  `LaunchOptions`, assigns the result to the main window and subscribes `ShutdownRequested`,
+  delegating to `HandleShutdownRequested` and cancelling the request when it returns true.
+- `HandleShutdownRequested(Action, MainWindowViewModel)` is the testable shutdown decision. The
+  first call sets `_shuttingDown`, starts `CompleteShutdownAsync` and returns true (defer). A repeated
+  call returns true while cleanup is pending, so shutdown can never proceed mid-cleanup, and false
+  once `_cleanupCompleted` is set.
 - `Compose(AppLaunchOptions?, out ModelCatalogService)` is the internal composition seam. It builds
   the audio device service, the model catalog composition and service, and the synthesis and
   recognition panels, and returns the `MainWindowViewModel`. It reads the supplied options rather
@@ -30,15 +36,20 @@ desktop lifetime.
   returns the catalog and library together as the composition. The factory builds its own
   `SpeechModelStore` for the voice library because the catalog keeps its store private.
 - The shutdown handler defers application exit: it cancels the first shutdown request, sets
-  `_shuttingDown`, and starts `CompleteShutdownAsync`, keeping the task in `ShutdownTask`.
+  `_shuttingDown`, and starts `CompleteShutdownAsync(Action, MainWindowViewModel)`, keeping the task
+  in `ShutdownTask`.
 - `CompleteShutdownAsync` calls `RunTeardownAsync` to dispose the synthesis panel, then the
-  recognition panel, then the model catalog service, and finally calls the desktop lifetime's
-  shutdown from a `finally` block so exit always completes.
+  recognition panel, then the model catalog service, and finally sets `_cleanupCompleted` and calls
+  the supplied resume-shutdown action from a `finally` block so exit always completes.
 - `RunTeardownAsync(params Func<ValueTask>[])` runs each step in order inside its own `try/catch`,
   so a failing step neither skips the remaining steps nor propagates.
 
 **Error Handling**: Each disposal failure is contained separately and does not block the remaining
-steps or application exit. A repeated shutdown request while shutdown is in progress is ignored.
+steps or application exit. A repeated shutdown request while cleanup is pending is cancelled and
+starts no second cleanup. If constructing the shell view model fails, `Compose` disposes the catalog
+service before rethrowing so nothing leaks. `CatalogFactory` builds a catalog before the service
+takes ownership; a failure inside the factory itself is not guarded because it runs only through
+the service's own rebuild path, which handles its own errors.
 
 **Dependencies**: `AppLaunchOptions`, `MirrorOptionsFactory` (indirectly, through the options),
 the ShellSubsystem view models, the ModelCatalogSubsystem (`ModelCatalogComposition` and

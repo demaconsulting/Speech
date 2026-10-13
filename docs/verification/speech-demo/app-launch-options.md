@@ -213,3 +213,63 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 **Scenario**: The help text is printed.
 
 **Expected**: It names the four `DEMASPEECH_MIRROR_*` variables.
+
+#### Parse_UnrecognizedArgument_ErrorDoesNotEchoArgument
+
+**Scenario**: A stray secret-looking argument is the third argument.
+
+**Expected**: `ArgumentException` naming position 3 and not containing the argument text.
+
+#### Parse_HelpWithMissingVoicesDir_StillReportsHelp
+
+**Scenario**: `--help` is given beside a `--voices-dir` naming a missing folder.
+
+**Expected**: Help is reported and no exception is thrown.
+
+#### Parse_RepeatedOption_LastValueWins
+
+**Scenario**: An option is given twice.
+
+**Expected**: The last value is used.
+
+#### Parse_ArgumentsOnlyOverload_ParsesHelpFlag
+
+**Scenario**: The arguments-only `Parse` overload receives `--help`.
+
+**Expected**: Help is reported.
+
+#### Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
+
+**Scenario**: `--mirror-url ""` is given while the URL variable is set.
+
+**Expected**: The environment URL is used.
+
+#### Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
+
+**Scenario**: An empty credential option is given while credential variables are set.
+
+**Expected**: The environment credentials still apply.
+
+#### CreateDownloaderOptions_CommandLineUserWithEnvironmentPassword_IsRejectedNotMixed
+
+**Scenario**: `--mirror-user` is given and only the password variable is set.
+
+**Expected**: `ArgumentException`; the two sources are not combined.
+
+#### CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser
+
+**Scenario**: Only the user variable is set beside a mirror URL.
+
+**Expected**: `ArgumentException` that does not contain the user name.
+
+#### CreateDownloaderOptions_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets
+
+**Scenario**: Basic credentials and a bearer token are both supplied.
+
+**Expected**: `ArgumentException` that contains neither secret.
+
+#### CreateDownloaderOptions_BasicCredentialsOverPlainHttp_ThrowsWithoutEchoingPassword
+
+**Scenario**: Basic credentials are supplied for a plain-HTTP remote mirror.
+
+**Expected**: `ArgumentException` that does not contain the password.

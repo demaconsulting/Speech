@@ -30,6 +30,25 @@ sections:
               ask for usage text rather than open a window.
             tests:
               - Parse_HelpFlag_SetsHelp
+              - Parse_ArgumentsOnlyOverload_ParsesHelpFlag
+
+          - id: SpeechDemo-LaunchOptions-HelpSkipsVoicesDirCheck
+            title: >-
+              The AppLaunchOptions unit shall not require the --voices-dir folder to exist when a
+              help flag is supplied.
+            justification: |
+              A help request must always succeed, even beside an otherwise invalid option.
+            tests:
+              - Parse_HelpWithMissingVoicesDir_StillReportsHelp
+
+          - id: SpeechDemo-LaunchOptions-RepeatedOptionLastWins
+            title: >-
+              The AppLaunchOptions unit shall use the last value when an option is repeated.
+            justification: |
+              Wrapper scripts append overrides to a base command line; a defined rule keeps that
+              predictable.
+            tests:
+              - Parse_RepeatedOption_LastValueWins
 
           - id: SpeechDemo-LaunchOptions-RejectUnrecognized
             title: >-
@@ -41,6 +60,16 @@ sections:
               when it was not.
             tests:
               - Parse_UnrecognizedArgument_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-UnrecognizedNotEchoed
+            title: >-
+              The AppLaunchOptions unit shall identify an unrecognized argument by its position
+              only and shall not include the argument text in the error message.
+            justification: |
+              A misplaced secret value (for example a password typed without its option name)
+              must not be copied into logs or tickets by the error text.
+            tests:
+              - Parse_UnrecognizedArgument_ErrorDoesNotEchoArgument
 
           - id: SpeechDemo-LaunchOptions-RejectMissingValue
             title: >-
@@ -77,10 +106,18 @@ sections:
               The AppLaunchOptions unit shall write usage text naming every help flag and the
               mirror bearer-token option to a supplied writer.
             justification: |
-              Users discover each option, including the credential options, from the usage text,
-              and a testable writer keeps that text verifiable without capturing the console.
+              Users discover each option, including the credential options, from the usage text.
             tests:
               - PrintHelp_ListsHelpFlagsAndBearerTokenOption
+
+          - id: SpeechDemo-LaunchOptions-HelpTextNullWriter
+            title: >-
+              The AppLaunchOptions unit shall reject a null help writer with an
+              ArgumentNullException.
+            justification: |
+              A testable writer keeps the usage text verifiable without capturing the console,
+              and a null writer is a caller programming error.
+            tests:
               - PrintHelp_NullWriter_ThrowsArgumentNullException
 
           - id: SpeechDemo-LaunchOptions-StoreFolder
@@ -125,18 +162,74 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-MirrorRejection
             title: >-
-              The AppLaunchOptions unit shall reject an invalid mirror configuration with an
+              The AppLaunchOptions unit shall reject an invalid mirror URL with an
               ArgumentException.
             justification: |
-              Invalid combinations must be rejected before any window opens so the user gets
-              a clear console message.
+              An invalid URL must be rejected before any window opens so the user gets a clear
+              console message.
             tests:
               - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-MirrorHalfCredentialRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a mirror user without a password, or a
+              password without a user, with an ArgumentException.
+            justification: |
+              Half of a Basic-authentication pair can never authenticate.
+            tests:
               - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
+              - CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser
+
+          - id: SpeechDemo-LaunchOptions-MirrorCredentialWithoutUrlRejection
+            title: >-
+              The AppLaunchOptions unit shall reject mirror credentials or a bearer token
+              supplied without a mirror URL with an ArgumentException.
+            justification: |
+              A credential with no mirror to apply to would otherwise be silently dropped.
+            tests:
               - CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
 
+          - id: SpeechDemo-LaunchOptions-MirrorBasicAndBearerRejection
+            title: >-
+              The AppLaunchOptions unit shall reject Basic credentials supplied together with a
+              bearer token, without echoing either.
+            justification: |
+              Two competing authentication schemes are ambiguous; refusing them avoids sending
+              the wrong secret to the mirror.
+            tests:
+              - CreateDownloaderOptions_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets
+
+          - id: SpeechDemo-LaunchOptions-MirrorInsecureBasicRejection
+            title: >-
+              The AppLaunchOptions unit shall reject Basic credentials for a plain-HTTP mirror
+              on a non-loopback host, without echoing the password.
+            justification: |
+              Credentials sent over unencrypted HTTP to a remote host are exposed to the network.
+            tests:
+              - CreateDownloaderOptions_BasicCredentialsOverPlainHttp_ThrowsWithoutEchoingPassword
+
+          - id: SpeechDemo-LaunchOptions-MirrorMixedSourcesRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a command-line mirror user combined with an
+              environment password rather than mixing the two sources.
+            justification: |
+              A credential pair from two sources is almost always a mistake and would send an
+              ambient secret to a mirror the user did not intend.
+            tests:
+              - CreateDownloaderOptions_CommandLineUserWithEnvironmentPassword_IsRejectedNotMixed
+
+          - id: SpeechDemo-LaunchOptions-MirrorEmptyOptionIgnored
+            title: >-
+              The AppLaunchOptions unit shall treat an empty mirror option value as unset, so the
+              environment fallback still applies.
+            justification: |
+              Scripts commonly pass an empty expanded variable; it must not disable the
+              environment configuration nor count as a supplied credential.
+            tests:
+              - Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
+              - Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
           - id: SpeechDemo-LaunchOptions-MirrorUrlEnvironment
             title: >-
               The AppLaunchOptions unit shall take the mirror URL from the DEMASPEECH_MIRROR_URL

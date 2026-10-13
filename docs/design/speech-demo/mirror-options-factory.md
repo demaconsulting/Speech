@@ -10,14 +10,19 @@ when no mirror is requested.
 
 **Key Methods**: `Create(url, user, password, bearerToken)`:
 
+- An empty user, password or token is treated as not supplied (null), so a form field or expanded
+  variable that is empty never selects an authentication scheme.
 - A null or empty URL with no credential or token returns `null`, meaning each model uses its own
   public download address. A whitespace-only URL counts as supplied and is rejected as invalid.
 - A blank URL with any credential or token is rejected, so a stray credential is never silently
   discarded.
-- A URL that is not a valid absolute URI is rejected.
-- A user without a password, or a password without a user, is rejected.
+- A URL that is not a valid absolute URI, or whose scheme is not `http` or `https`, is rejected
+  before the mirror is constructed (a pasted `user:token@host` string parses with the user as its
+  scheme and would otherwise leak).
+- A user without a password, or a password without a user, is rejected; Basic credentials together
+  with a bearer token are rejected.
 - Otherwise it builds a `DownloadMirror` from the base URI, the credentials and the bearer token.
-  The `DownloadMirror` constructor rejects non-HTTP(S) schemes, query strings, fragments, embedded
+  The `DownloadMirror` constructor rejects query strings, fragments, embedded
   user info, and credentials sent over plain HTTP to a non-loopback host; that failure surfaces as
   an `ArgumentException` too.
 
