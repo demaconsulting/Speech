@@ -24,10 +24,19 @@ sections:
               - id: SpeechDemo-Voices-PackRowPresentation
                 title: >-
                   The ReferenceVoicePackListItemViewModel shall present each reference voice pack's name, size,
-                  license and attribution, and consent note in readable form.
+                  license and attribution as display text.
                 justification: |
-                  A user must see what they are about to download (size and license) and the
-                  voice-cloning consent note before installing.
+                  A user must see what they are about to download (size and license) before
+                  installing.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
+
+              - id: SpeechDemo-Voices-PackRowConsentNote
+                title: >-
+                  The ReferenceVoicePackListItemViewModel shall present the voice-cloning consent
+                  note of each reference voice pack's library.
+                justification: |
+                  The user must see the consent note before installing.
                 tests:
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
 
@@ -53,12 +62,23 @@ sections:
 
               - id: SpeechDemo-Voices-PackRowActionAvailability
                 title: >-
-                  The ReferenceVoicePackListItemViewModel shall offer a voice pack row's install and remove
-                  actions only where its install state makes them sensible, with a transient
-                  failure retryable.
+                  The ReferenceVoicePackListItemViewModel shall offer a voice pack row's install
+                  action only where its install state makes it sensible, with a transient failure
+                  retryable.
                 justification: |
                   A user must be offered only the actions that make sense for the pack's
                   state.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
+                  - ReferenceVoicePackListItemViewModel_State_VoicesOnly_DrivesFlagsAndStatusText
+
+              - id: SpeechDemo-Voices-PackRowRemoveAvailability
+                title: >-
+                  The ReferenceVoicePackListItemViewModel shall offer a voice pack row's remove
+                  action only where its install state makes it sensible.
+                justification: |
+                  A user must not be offered to remove a pack that is not installed or is being
+                  installed.
                 tests:
                   - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
                   - ReferenceVoicePackListItemViewModel_State_VoicesOnly_DrivesFlagsAndStatusText
@@ -73,15 +93,33 @@ sections:
                 tests:
                   - ReferenceVoicePackListItemViewModel_State_Changed_RaisesDependentPropertyChanged
 
+              - id: SpeechDemo-Voices-PackRowProgress
+                title: >-
+                  The ReferenceVoicePackListItemViewModel shall expose the install progress
+                  fraction it is given and announce each change to it.
+                justification: |
+                  The panel reports download progress through the row, so a bound progress bar
+                  must follow it.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_ProgressFraction_Changed_IsAnnouncedAndPassedThrough
+
               - id: SpeechDemo-Voices-PackRowFailureAnnouncement
                 title: >-
-                  The ReferenceVoicePackListItemViewModel shall announce, and report as present, a voice pack
-                  row's failure message when it changes.
+                  The ReferenceVoicePackListItemViewModel shall announce a voice pack row's
+                  failure message when it changes.
                 justification: |
                   A bound row must show a failure explanation as soon as it is recorded.
                 tests:
-                  - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
                   - ReferenceVoicePackListItemViewModel_FailureMessage_Changed_RaisesHasFailureMessageChanged
+
+              - id: SpeechDemo-Voices-PackRowFailurePresence
+                title: >-
+                  The ReferenceVoicePackListItemViewModel shall report whether a failure message
+                  is present on the row.
+                justification: |
+                  The view shows the failure area only when there is something to explain.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
 
               - id: SpeechDemo-Voices-PackRowEmotionsAnnouncement
                 title: >-
@@ -113,6 +151,7 @@ sections:
                   A pack that has no emotion variants must not offer a meaningless option.
                 tests:
                   - ReferenceVoicePackListItemViewModel_PackWithoutEmotionsOrSize_HidesEmotionOptionAndSize
+                  - ReferenceVoicePackListItemViewModel_PackWithoutEmotionVariants_IgnoresHasEmotions
 
               - id: SpeechDemo-Voices-PackEmotionSizeDisplay
                 title: >-

@@ -138,7 +138,7 @@ sections:
                 tests:
                   - ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
 
-              - id: SpeechDemo-Models-MirrorDisposesCurrentCatalog
+              - id: SpeechDemo-Models-CatalogDisposedWithService
                 title: >-
                   The ModelCatalogService shall, when it can rebuild its catalog,
                   dispose its current catalog when the service itself is disposed.
@@ -343,3 +343,91 @@ sections:
                   panels are never told to refresh for a removal that has not happened yet.
                 tests:
                   - ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
+
+              - id: SpeechDemo-Models-MirrorFailureKeepsPreviousCatalog
+                title: >-
+                  The ModelCatalogService shall keep its previous catalog and voice library in
+                  use when rebuilding them for a mirror change fails.
+                justification: |
+                  A failed rebuild must not leave the service with nothing to answer queries, so
+                  the working pair stays in place and the failure reaches the caller.
+                tests:
+                  - ModelCatalogService_ApplyMirror_Composed_FactoryFails_KeepsPreviousPair
+
+              - id: SpeechDemo-Models-CompositionMembersRequired
+                title: >-
+                  The ModelCatalogService shall reject a catalog and voice library composition
+                  that lacks its catalog or its voice library.
+                justification: |
+                  A half-built composition could only fail later and with a less obvious cause.
+                tests:
+                  - ModelCatalogComposition_Constructor_NullMember_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Voices-PackServiceDisposesLibrary
+                title: >-
+                  The ModelCatalogService shall dispose the catalog and voice library it composed
+                  when the service itself is disposed.
+                justification: |
+                  The service owns every pair it builds, so disposal is the only point at which
+                  the current voice library can be released at application shutdown.
+                tests:
+                  - ModelCatalogService_Dispose_Composed_DisposesCatalogAndVoiceLibrary
+
+              - id: SpeechDemo-Voices-PackServiceEmotionsQuery
+                title: >-
+                  The ModelCatalogService shall, with a reference voice library, answer whether a
+                  voice pack has emotion variants from that library.
+                justification: |
+                  The panel needs to tell a voices-only install from a full one, and the library
+                  is the only authority on what is installed.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_Composed_NotInstalledPackHasNoEmotions
+
+              - id: SpeechDemo-Voices-PackInstallSuccessRebuild
+                title: >-
+                  The ModelCatalogService shall rebuild its catalog and voice library after a
+                  voice pack install attempt that succeeds.
+                justification: |
+                  The Chatterbox voice list is fixed when the model is constructed, so a newly
+                  installed voice is only offered after the catalog is rebuilt.
+                tests:
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackInstallSuccessAnnounce
+                title: >-
+                  The ModelCatalogService shall raise ReferenceVoicesChanged after a voice pack
+                  install attempt that succeeds.
+                justification: |
+                  Announcing the change lets the synthesis panel offer the new voices
+                  immediately.
+                tests:
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackInstallSuccessRebuildFailure
+                title: >-
+                  The ModelCatalogService shall propagate a failure of the catalog rebuild that
+                  follows a successful voice pack install.
+                justification: |
+                  The install itself succeeded, so no earlier exception exists to preserve; the
+                  caller must learn that the catalog could not be re-read.
+                tests:
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_SuccessThenRebuildFails_Propagates
+
+              - id: SpeechDemo-Voices-PackUninstallFailureNoRebuild
+                title: >-
+                  The ModelCatalogService shall not rebuild its catalog and voice library after a
+                  voice pack uninstall fails.
+                justification: |
+                  Nothing changed, so rebuilding would only discard working state.
+                tests:
+                  - ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise
+
+              - id: SpeechDemo-Voices-PackUninstallFailureNoAnnounce
+                title: >-
+                  The ModelCatalogService shall not raise ReferenceVoicesChanged after a voice
+                  pack uninstall fails.
+                justification: |
+                  Announcing a change that did not happen would make other panels refresh for
+                  nothing.
+                tests:
+                  - ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise

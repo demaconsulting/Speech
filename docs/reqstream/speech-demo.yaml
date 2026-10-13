@@ -174,7 +174,11 @@ sections:
           - SpeechDemo-Models-StateChangeAnnouncement
           - SpeechDemo-Models-StatePresentation
           - SpeechDemo-Models-Refresh
-          - SpeechDemo-Models-RefreshBlockedDuringTransfer
+          - SpeechDemo-Models-RefreshBlockedDuringDownload
+          - SpeechDemo-Models-RefreshBlockedDuringPackInstall
+          - SpeechDemo-Models-RefreshFaultContained
+          - SpeechDemo-Models-RefreshSelectsFirstWithoutPrevious
+          - SpeechDemo-ModelCatalog-PanelRefreshFaultContained
           - SpeechDemo-Models-LibraryCatalogDelegation
           - SpeechDemo-ModelCatalog-PanelOperation
           - SpeechDemo-Models-LibraryDownloadDelegation
@@ -231,6 +235,7 @@ sections:
           rather than an exception, so the demo must surface honest failure in the list.
         children:
           - SpeechDemo-Models-DownloadOutcomes
+          - SpeechDemo-ModelCatalog-DownloadOutcomeOnRow
           - SpeechDemo-Models-LibraryUnknownModelError
           - SpeechDemo-Models-FailureMessageVisibility
           - SpeechDemo-Models-NoInstallNotificationOnFailure
@@ -336,16 +341,23 @@ sections:
           - SpeechDemo-Models-CatalogFactoryRequired
           - SpeechDemo-Models-MirrorCatalogOwnership
           - SpeechDemo-Models-MirrorSettingsUi
+          - SpeechDemo-Models-MirrorSettingsBasicCredentials
+          - SpeechDemo-Models-MirrorSettingsBlankCredentialsIgnored
+          - SpeechDemo-Models-MirrorSettingsCredentialsNotEchoed
           - SpeechDemo-Models-MirrorSettingsBearerToken
           - SpeechDemo-Models-MirrorSettingsReloadsRows
           - SpeechDemo-Models-MirrorSettingsFaultContained
+          - SpeechDemo-Models-MirrorSettingsReloadFaultContained
           - SpeechDemo-Models-MirrorBlockedDuringDownload
-          - SpeechDemo-Models-MirrorDisposesCurrentCatalog
+          - SpeechDemo-Models-MirrorFailureKeepsPreviousCatalog
+          - SpeechDemo-Models-CompositionMembersRequired
+          - SpeechDemo-Models-CatalogDisposedWithService
           - SpeechDemo-Models-ExternalCatalogNotDisposed
           - SpeechDemo-Models-MirrorSettingsInvalidReported
           - SpeechDemo-Models-MirrorSettingsRejectedReported
           - SpeechDemo-ModelCatalog-MirrorRedirection
           - SpeechDemo-ModelCatalog-MirrorApplyConfirmation
+          - SpeechDemo-ModelCatalog-MirrorBlockedDuringTransfer
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesWhileRunning
 
@@ -392,6 +404,7 @@ sections:
           - SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
           - SpeechDemo-ModelCatalog-VoicePackRemovedNotification
           - SpeechDemo-ModelCatalog-MirrorChangedRebuild
+          - SpeechDemo-ModelCatalog-MirrorChangedRowsShown
           - SpeechDemo-ModelCatalog-MirrorChangedNotification
           - SpeechDemo-Voices-PackServiceCompositionRequired
           - SpeechDemo-Voices-PackServiceNoLibrary
@@ -419,6 +432,26 @@ sections:
           - SpeechDemo-Voices-PackInstallRollbackKeepsPack
           - SpeechDemo-Voices-PackInstallStateReadFallback
           - SpeechDemo-Voices-PackRemove
+          - SpeechDemo-Voices-PackRemoveRowRefresh
+          - SpeechDemo-Voices-PackRemoveBlockedDuringPackInstall
+          - SpeechDemo-Voices-PackInstallRollbackKeepsMessage
+          - SpeechDemo-Voices-PackInstallReloadFaultReported
+          - SpeechDemo-Voices-PackRemoveReloadFaultReported
+          - SpeechDemo-Voices-PackInstallSuccessRebuild
+          - SpeechDemo-Voices-PackInstallSuccessAnnounce
+          - SpeechDemo-Voices-PackInstallSuccessRebuildFailure
+          - SpeechDemo-Voices-PackUninstallFailureNoRebuild
+          - SpeechDemo-Voices-PackUninstallFailureNoAnnounce
+          - SpeechDemo-Voices-PackServiceDisposesLibrary
+          - SpeechDemo-Voices-PackServiceEmotionsQuery
+          - SpeechDemo-Voices-PackRowConsentNote
+          - SpeechDemo-Voices-PackRowRemoveAvailability
+          - SpeechDemo-Voices-PackRowProgress
+          - SpeechDemo-Voices-PackRowFailurePresence
+          - SpeechDemo-ModelCatalog-VoicePackRollbackFailureExplained
+          - SpeechDemo-ModelCatalog-VoicePackRemovalCanceledExplained
+          - SpeechDemo-ModelCatalog-VoicePackRemovalFailureNoRebuild
+          - SpeechDemo-ModelCatalog-VoicePackSectionHidden
           - SpeechDemo-Voices-PackRemoveFaultReported
           - SpeechDemo-Voices-PackRemoveStoreErrorReported
           - SpeechDemo-Voices-PackRemoveCanceledReported
@@ -604,6 +637,15 @@ sections:
           - SpeechDemo-SynthesisPanel-LifecycleThroughSeams
           - SpeechDemo-SynthesisPanel-ExternalChangeHandling
           - SpeechDemo-SynthesisPanel-DeviceRefreshCoordination
+          - SpeechDemo-SynthesisPanel-SetupFaultReporting
+          - SpeechDemo-SynthesisPanel-ModelChangeGuard
+          - SpeechDemo-SynthesisPanel-VoiceNotice
+          - SpeechDemo-SynthesisPanel-EngineSessionReuse
+          - SpeechDemo-Synthesis-EngineReloadOnModelChange
+          - SpeechDemo-Synthesis-SetupFaultReported
+          - SpeechDemo-Synthesis-SetupCanceledReported
+          - SpeechDemo-Synthesis-SpeakFaultReleasesSession
+          - SpeechDemo-Synthesis-StaleSessionEventIgnored
           - SpeechDemo-Synthesis-DependencyValidation
           - SpeechDemo-Synthesis-SelectionPreservation
           - SpeechDemo-Synthesis-PlayWhileBusyRefused

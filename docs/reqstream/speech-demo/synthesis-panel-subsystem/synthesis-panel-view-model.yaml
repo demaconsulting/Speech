@@ -123,8 +123,8 @@ sections:
               - id: SpeechDemo-Synthesis-EngineSessionReuse
                 title: >-
                   The SynthesisPanelViewModel shall load a synthesizer engine once and reuse it
-                  across repeated Play calls while the selected model, its parameter values and
-                  the playback device are unchanged.
+                  across repeated Play calls while the selected model and its parameter values
+                  are unchanged.
                 justification: |
                   Loading a model is the expensive step, and the library's guidance for its
                   synthesizer engine is to construct once and reuse across many sessions.
@@ -154,6 +154,16 @@ sections:
                   reusing it after a change would speak with a stale voice.
                 tests:
                   - SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession
+
+              - id: SpeechDemo-Synthesis-EngineReloadOnModelChange
+                title: >-
+                  The SynthesisPanelViewModel shall reload the synthesizer engine on the next
+                  Play after the selected model is replaced by a different model instance.
+                justification: |
+                  A catalog re-read yields new model instances; an engine loaded from the
+                  previous instance must not be reused for the new one.
+                tests:
+                  - SynthesisPanelViewModel_Play_ModelInstanceChanged_ReloadsEngine
 
               - id: SpeechDemo-Synthesis-SessionRecreateOnDeviceChange
                 title: >-
@@ -243,6 +253,45 @@ sections:
                   A session fault must be explained to the user rather than thrown to the UI.
                 tests:
                   - SynthesisPanelViewModel_Play_SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers
+
+              - id: SpeechDemo-Synthesis-SetupFaultReported
+                title: >-
+                  The SynthesisPanelViewModel shall report an unexpected fault while loading the
+                  engine or creating the session as an error state carrying the fault message,
+                  rather than letting it escape the Play command.
+                justification: |
+                  Seam faults such as an invalid parameter value must be explained to the user
+                  and must not crash the demo.
+                tests:
+                  - SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
+
+              - id: SpeechDemo-Synthesis-SetupCanceledReported
+                title: >-
+                  The SynthesisPanelViewModel shall report a Play canceled while loading the
+                  engine or creating the session as stopped and return to idle.
+                justification: |
+                  Stopping during a long model load is a normal user action, not a fault.
+                tests:
+                  - SynthesisPanelViewModel_Play_SetupCanceled_ReportsStoppedAndReturnsToIdle
+
+              - id: SpeechDemo-Synthesis-SpeakFaultReleasesSession
+                title: >-
+                  The SynthesisPanelViewModel shall report an unexpected fault while speaking as
+                  an error state and release the session, whose state is unknown.
+                justification: |
+                  Reusing a session in an unknown state could repeat the fault.
+                tests:
+                  - SynthesisPanelViewModel_Play_SpeakThrowsUnexpected_ReportsErrorAndReleasesSession
+
+              - id: SpeechDemo-Synthesis-StaleSessionEventIgnored
+                title: >-
+                  The SynthesisPanelViewModel shall ignore a state change reported by any session
+                  other than its current one.
+                justification: |
+                  An event queued before its session was released must not overwrite the state
+                  of the panel afterwards.
+                tests:
+                  - SynthesisPanelViewModel_SessionStateChanged_ForeignSender_IsIgnored
 
               - id: SpeechDemo-Synthesis-HonestEmptyCatalogState
                 title: >-

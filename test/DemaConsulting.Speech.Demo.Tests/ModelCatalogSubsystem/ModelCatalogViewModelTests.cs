@@ -1162,6 +1162,24 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that removing a pack asks the catalog service to uninstall exactly that pack.
+    /// </summary>
+    /// <returns>A task that completes when the test finishes.</returns>
+    [Fact]
+    public async Task ModelCatalogViewModel_RemoveVoicePackAsync_Command_UninstallsRequestedPack()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.Downloaded);
+        var viewModel = new ModelCatalogViewModel(service);
+
+        // Act
+        await viewModel.RemoveVoicePackAsync(viewModel.VoicePacks[0], TestContext.Current.CancellationToken);
+
+        // Assert
+        await service.Received(1).UninstallReferenceVoicePackAsync("voice-zero-1.0", Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
     ///     Proves that an unexpected fault while removing a voice pack is reported on the pack's row, with the
     ///     fault's message, and the pack stays installed.
     /// </summary>

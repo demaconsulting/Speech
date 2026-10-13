@@ -25,7 +25,7 @@ sections:
               core purpose, and it must work end to end with no downloaded model, native runtime
               or speakers so it stays demonstrable and verifiable.
             tests:
-              - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
+              - SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
 
           - id: SpeechDemo-SynthesisPanel-LifecycleThroughSeams
             title: >-
@@ -50,18 +50,58 @@ sections:
 
           - id: SpeechDemo-SynthesisPanel-UnavailableDeviceReporting
             title: >-
-              The SynthesisPanelSubsystem shall report an error state instead of failing when no
-              playback device is available.
+              The SynthesisPanelSubsystem shall report an explained error state instead of
+              failing when no playback device is available.
             justification: |
               A machine with no speakers must show why nothing was spoken rather than crash or
               stay silent without explanation.
             tests:
               - SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState
 
+          - id: SpeechDemo-SynthesisPanel-SetupFaultReporting
+            title: >-
+              The SynthesisPanelSubsystem shall report an explained error state instead of
+              failing when loading the engine or creating the session faults.
+            justification: |
+              An invalid parameter value or a missing runtime must show why nothing was spoken
+              rather than crash the demo.
+            tests:
+              - SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
+
+          - id: SpeechDemo-SynthesisPanel-ModelChangeGuard
+            title: >-
+              The SynthesisPanelSubsystem shall allow the model to be changed only while no
+              speech is in progress.
+            justification: |
+              Changing the model under a running session would invalidate the engine in use.
+            tests:
+              - SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
+
+          - id: SpeechDemo-SynthesisPanel-VoiceNotice
+            title: >-
+              The SynthesisPanelSubsystem shall show the consent and attribution notice when the
+              selected model is Chatterbox Turbo, and no notice for other models.
+            justification: |
+              Voice cloning carries a consent obligation that the user must see at the point of
+              use.
+            tests:
+              - SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
+              - SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing
+
+          - id: SpeechDemo-SynthesisPanel-EngineSessionReuse
+            title: >-
+              The SynthesisPanelSubsystem shall reuse its loaded engine and session across
+              repeated Play calls while the model, its parameter values and the playback
+              device are unchanged.
+            justification: |
+              Loading a model is the expensive step; replaying the same text must stay cheap.
+            tests:
+              - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
+
           - id: SpeechDemo-SynthesisPanel-ExternalChangeHandling
             title: >-
-              The SynthesisPanelSubsystem shall refresh its offered models when a synthesis
-              model is installed in the model catalog.
+              The SynthesisPanelSubsystem shall refresh its offered models when a model with
+              the synthesis role is installed in the model catalog.
             justification: |
               The panel shares the catalog with the model catalog panel. Without handling its
               changes a user would see a stale model list.

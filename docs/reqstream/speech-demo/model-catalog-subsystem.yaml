@@ -65,7 +65,7 @@ sections:
               A user whose network blocks a model's public download host must be able to
               redirect downloads from the running application.
             tests:
-              - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+              - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
 
           - id: SpeechDemo-ModelCatalog-MirrorApplyConfirmation
             title: >-
@@ -85,6 +85,7 @@ sections:
               The Chatterbox voice list is fixed when the model is constructed, so a stale
               catalog would keep offering the old voices.
             tests:
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
               - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
 
@@ -96,6 +97,7 @@ sections:
               The notification is how the synthesis panel learns that its voice choices
               changed.
             tests:
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
               - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
@@ -103,12 +105,11 @@ sections:
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
               after a voice pack is removed.
-              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              after a voice pack is removed.: |
+            justification: |
               A removed voice is only withdrawn once the catalog is rebuilt.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
-              - ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
+              - ModelCatalogViewModel_RemoveVoicePackAsync_Installed_UninstallsAndRefreshesRows
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
             title: >-
@@ -123,12 +124,21 @@ sections:
           - id: SpeechDemo-ModelCatalog-MirrorChangedRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              when the mirror is changed, and show the rebuilt catalog's models.
+              when the mirror is changed.
             justification: |
               Voice packs download through the same mirror as models, so a mirror change
               produces a freshly configured catalog and library.
             tests:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+
+          - id: SpeechDemo-ModelCatalog-MirrorChangedRowsShown
+            title: >-
+              The ModelCatalogSubsystem shall show the rebuilt catalog's models after the mirror
+              is changed.
+            justification: |
+              The rebuilt catalog may report different install states, so the panel must not
+              keep showing the old rows.
+            tests:
               - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
           - id: SpeechDemo-ModelCatalog-MirrorChangedNotification
@@ -144,20 +154,27 @@ sections:
           - id: SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
             title: >-
               The ModelCatalogSubsystem shall keep a voice pack that remains installed after a
-              failed install or upgrade shown as installed and removable, together with the
-              failure explanation.
+              failed install or upgrade shown as installed and removable.
             justification: |
               A failed "Add emotions" upgrade leaves the previous voices-only install in place.
               Showing such a pack as broken would hide a working install and block its removal,
-              so the panel must report what is really installed while still explaining the
-              failure.
+              so the panel must report what is really installed.
+            tests:
+              - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRollbackFailureExplained
+            title: >-
+              The ModelCatalogSubsystem shall keep showing the failure explanation on the row of
+              a voice pack whose install or upgrade failed, even when the pack remains installed.
+            justification: |
+              Reporting the real install state must not hide the failure from the user.
             tests:
               - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
             title: >-
-              The ModelCatalogSubsystem shall wait, without blocking the UI, for an in-progress
-              install of a voice pack to finish before removing that pack.
+              The ModelCatalogSubsystem shall wait, without blocking its caller, for an
+              in-progress install of a voice pack to finish before removing that pack.
             justification: |
               Removing a pack that is being (re)installed would corrupt the install, so the
               removal serializes with it.
@@ -167,10 +184,71 @@ sections:
           - id: SpeechDemo-ModelCatalog-VoicePackRemovalFailureExplained
             title: >-
               The ModelCatalogSubsystem shall explain on the pack's row, without failing, a
-              voice pack removal that cannot complete or was canceled.
+              voice pack removal that cannot complete.
             justification: |
               Reporting a failure on the row keeps the user informed and the application
               running.
             tests:
               - ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovalCanceledExplained
+            title: >-
+              The ModelCatalogSubsystem shall explain on the pack's row, without failing, a
+              voice pack removal that was canceled.
+            justification: |
+              A canceled removal must tell the user nothing was removed instead of failing
+              silently.
+            tests:
               - ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovalFailureNoRebuild
+            title: >-
+              The ModelCatalogSubsystem shall neither rebuild its catalog nor raise a
+              voices-changed notification when a voice pack removal fails.
+            justification: |
+              Nothing changed, so rebuilding or announcing would make other panels refresh for
+              no reason and could mask the failure.
+            tests:
+              - ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise
+
+          - id: SpeechDemo-ModelCatalog-MirrorBlockedDuringTransfer
+            title: >-
+              The ModelCatalogSubsystem shall refuse a mirror change while a model download or a
+              voice pack install is in flight, reporting an explanation to the user.
+            justification: |
+              A mirror change replaces the catalog and would abort the transfer in flight, so
+              the panel refuses it rather than let the user abort their own transfer.
+            tests:
+              - ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
+              - ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
+
+          - id: SpeechDemo-ModelCatalog-DownloadOutcomeOnRow
+            title: >-
+              The ModelCatalogSubsystem shall report a failed, checksum-mismatched or canceled
+              model download on that model's row as a state, not as an application error.
+            justification: |
+              Download failures are ordinary outcomes; the user needs the row to show what
+              happened and offer a retry.
+            tests:
+              - ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
+              - ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
+              - ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
+
+          - id: SpeechDemo-ModelCatalog-PanelRefreshFaultContained
+            title: >-
+              The ModelCatalogSubsystem shall report a fault while re-reading the catalog as an
+              explained panel error, leaving the rows it already shows in place.
+            justification: |
+              A refresh is a fault-isolation boundary; an unexpected fault must neither crash
+              the demo nor leave the list cleared.
+            tests:
+              - ModelCatalogViewModel_RefreshAsync_SeamFault_ReportedAndRowsKept
+
+          - id: SpeechDemo-ModelCatalog-VoicePackSectionHidden
+            title: >-
+              The ModelCatalogSubsystem shall hide the reference voices section when its
+              catalog service has no voice library.
+            justification: |
+              Hosts built without voice support must not show an empty, confusing section.
+            tests:
+              - ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
