@@ -19,6 +19,12 @@ The table holds thirteen entries, in this order: `list-models`, `model-info`, `d
 
 **Key Methods**:
 
+- Dispatch contract: the entry point awaits a descriptor's `Handler`. A handler of an asynchronous
+  command faults its returned task, while a synchronous command (adapted by `Sync`) throws from the
+  handler call itself; an awaiting caller observes both identically, and neither is masked or
+  swallowed. Operator errors (`ArgumentException`, `InvalidOperationException`) therefore reach
+  `Program` unchanged. The `Func<Context, Task>` shape is a design choice that lets the entry point
+  treat every command uniformly; it is not an externally observable requirement.
 - `Find(name)` returns the descriptor whose name equals `name` by ordinal (case-sensitive)
   comparison, or `null` when there is none. A null `name` is rejected with `ArgumentNullException`.
 - `Sync(handler)` (private) adapts a synchronous `Action<Context>` command to the asynchronous

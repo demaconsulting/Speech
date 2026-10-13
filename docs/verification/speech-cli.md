@@ -276,10 +276,12 @@ the same `ArgumentException`/`InvalidOperationException` handling convention the
 Verifies `Program.RunAsync` rejects a `null` context argument immediately (as a faulted task), since it is never a valid
 runtime state for the process's own entry point to reach.
 
-**Test**: `CommandDispatch_Handlers_ReturnNonNullTasks`
+**Test**: `CommandDispatch_Handlers_RunAndReportOnlyOperatorErrors`
 
-Verifies every `CommandDispatch` handler (a `Func<Context, Task>`) is non-null and yields a non-null
-`Task` when invoked, confirming the asynchronous dispatch pipeline has no missing entry.
+Verifies every `CommandDispatch` handler runs when invoked and either completes or reports a documented
+operator error (`ArgumentException` or `InvalidOperationException`), with the outcome of every command
+asserted. `CommandDispatch_Handler_MissingArgument_SurfacesFaultForSyncAndAsyncCommands` verifies that
+a synchronous and an asynchronous command both surface their fault to the awaiting caller.
 
 ## Build-Time Verification
 

@@ -3,10 +3,14 @@
 ### Verification Approach
 
 `CommandDispatch` is verified with unit tests over the real dispatch table. One test looks up
-names with `Find`; the other invokes every registered handler with a context built for that command
-and checks that a task is always returned. Which handler does what is verified in each command
-subsystem; the table's validity (unique names, non-empty summaries, non-null handlers) is
-checked at run time by the `--validate` self-test, see the Validation verification.
+names with `Find` (including case and empty-name boundaries); one checks that every descriptor has
+a unique name and a usage summary; one invokes every registered handler with a context built for
+that command and asserts, for every command, that it either completes or reports a documented
+operator error (`ArgumentException` or `InvalidOperationException`); and one asserts that a
+synchronous command (`model-info`) and an asynchronous command (`download`) both surface their
+`ArgumentException` to an awaiting caller. Which handler does what is verified in each command
+subsystem; the table's validity is also checked at run time by the `--validate` self-test, see the
+Validation verification.
 
 ### Test Environment
 
@@ -18,25 +22,43 @@ checked at run time by the `--validate` self-test, see the Validation verificati
 
 ### Acceptance Criteria
 
-The unit passes when the voice subcommands resolve through `Find`, every handler in the table is
-non-null and yields a non-null task when invoked, and an unknown name is not resolved so that the
-caller rejects it.
+The unit passes when the voice subcommands resolve through `Find` and near-miss names do not,
+every handler in the table completes or reports only a documented operator error, a handler
+fault surfaces to the caller for both synchronous and asynchronous commands, every descriptor has
+a unique name and a usage summary, and an unknown name is not resolved so that the caller rejects
+it.
 
 ### Test Scenarios
 
 #### CommandDispatch_Find_VoiceCommands_AreRegistered
 
-**Scenario**: `Find` is called with `list-voices` and with `voices`.
+**Scenario**: `Find` is called with `list-voices` and with `voices`, then with `VOICES` and with an
+empty name.
 
-**Expected**: A descriptor is returned for each.
+**Expected**: A descriptor with the matching name is returned for each of the first two; `null` for
+the wrong-case and empty names.
 
-#### CommandDispatch_Handlers_ReturnNonNullTasks
+#### CommandDispatch_Commands_EveryDescriptorHasNameAndUsageSummary
+
+**Scenario**: Every descriptor in the table is inspected.
+
+**Expected**: The table is not empty, names are unique, and each name and usage summary is non-blank.
+
+#### CommandDispatch_Handlers_RunAndReportOnlyOperatorErrors
 
 **Scenario**: Every descriptor's handler is invoked with a context for its own name (and a temporary
-models directory), recording either a synchronous argument exception or the awaited outcome.
+models directory) and awaited.
 
-**Expected**: No handler is null and none returns a null task; the success or failure of the
-command itself is irrelevant to this test.
+**Expected**: Each handler either completes or fails with `ArgumentException` or
+`InvalidOperationException`; any other exception type fails the test. The outcome of every command is
+asserted, none is skipped.
+
+#### CommandDispatch_Handler_MissingArgument_SurfacesFaultForSyncAndAsyncCommands
+
+**Scenario**: `model-info` (synchronous) and `download` (asynchronous) are invoked without a model id
+and awaited.
+
+**Expected**: Both surface an `ArgumentException`; neither fault is masked.
 
 #### Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
 
@@ -65,7 +87,4 @@ handler.
 
 ### Not Covered By A Dedicated Test
 
-- `Find` with a null name (`ArgumentNullException`) and its case-sensitive matching are not asserted
-  directly.
-- The synchronous-throw versus faulted-task difference between adapted and asynchronous handlers is
-  tolerated by the handler test rather than asserted.
+- `Find` with a null name (`ArgumentNullException`) is not asserted directly.

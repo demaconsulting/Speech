@@ -8,7 +8,7 @@ redirected to a writer the test inspects, and `Main` is driven with argument lis
 stream is redirected, so exit codes and error text are asserted without a child process. The
 out-of-process integration tests in `IntegrationTests.cs` run the built tool the way an operator
 would and assert on its console output and exit code. Subcommand behavior itself is verified in
-each command subsystem; here only that the table dispatches to the real handlers is shown.
+each command subsystem; here only that a recognized subcommand name reaches its real handler is shown.
 
 ### Test Environment
 
@@ -33,8 +33,8 @@ environment secret value.
 
 **Scenario**: `RunAsync` receives `--version`.
 
-**Expected**: The output contains the version and neither the banner nor the copyright line;
-exit code 0.
+**Expected**: The output equals the version followed by a line terminator, with nothing else (no
+banner, no copyright line); exit code 0.
 
 #### Program_Run_WithShortVersionFlag_DisplaysVersion
 
@@ -53,7 +53,7 @@ exit code 0.
 **Scenario**: `RunAsync` receives `--help`.
 
 **Expected**: Usage, command list, global options (including `--version`, `--help`, `--models-dir`),
-the masked bearer-token help line, and the name of every dispatch-table command; exit code 0.
+the masked bearer-token help line, and the name of every registered subcommand; exit code 0.
 
 #### Program_Run_WithShortHelpFlag_DisplaysUsage
 
@@ -96,11 +96,15 @@ token.
 
 #### Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
-**Scenario**: `RunAsync` receives `--validate --help --version`, then `--validate --help`.
+**Scenario**: `RunAsync` receives `--validate --help --version`.
 
-**Expected**: The first prints the version only (no usage, no validation summary); the second prints
-usage and no validation summary. The priority of the subcommand relative to these three flags has
-no dedicated test.
+**Expected**: The version is printed; no usage text and no validation summary.
+
+#### Program_Run_HelpValidateTogether_HelpTakesPriority
+
+**Scenario**: `RunAsync` receives `--validate --help`.
+
+**Expected**: The usage text is printed and no validation summary appears.
 
 #### Program_Run_WithValidateFlag_RunsValidation
 

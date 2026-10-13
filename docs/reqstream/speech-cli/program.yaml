@@ -24,10 +24,13 @@ sections:
 
           - id: SpeechCli-Program-VersionString
             title: >-
-              The Program unit shall expose a non-empty version string.
+              The Program unit shall, when --version is supplied, print the version string and
+              nothing else, and exit with code 0.
             justification: |
-              The version output and the banner would otherwise be blank.
+              Scripts compare the output to an expected version, so it must be a non-empty
+              version followed by only a line terminator.
             tests:
+              - Program_Run_WithVersionFlag_DisplaysVersionOnly
               - Program_Version_ReturnsNonEmptyString
 
           - id: SpeechCli-Program-HelpOutput
@@ -79,17 +82,27 @@ sections:
 
           - id: SpeechCli-Program-ActionPriority
             title: >-
-              The Program unit shall give --version priority over --help, and --help priority
-              over --validate, when more than one is supplied.
+              The Program unit shall give --version priority over --help and --validate, so that
+              only the version is printed when they are supplied together.
             justification: |
               Combined top-level actions need a deterministic outcome.
             tests:
               - Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
+          - id: SpeechCli-Program-HelpOverValidatePriority
+            title: >-
+              The Program unit shall give --help priority over --validate, so that the usage text
+              is printed and no validation runs when both are supplied.
+            justification: |
+              Combined top-level actions need a deterministic outcome.
+            tests:
+              - Program_Run_HelpValidateTogether_HelpTakesPriority
+
           - id: SpeechCli-Program-SubcommandDispatch
             title: >-
-              The Program unit shall run the named subcommand through the dispatch table when no
-              higher-priority action is requested.
+              The Program unit shall, when no higher-priority action is requested, run the
+              recognized subcommand that was named and return that command's result and exit
+              code.
             justification: |
               The subcommand is the tool's main function. The subcommand also runs when it
               follows the banner, which is printed unless --silent is given.

@@ -21,12 +21,15 @@ sections:
 
           - id: SpeechCli-CommandDispatch-HandlersReturnTasks
             title: >-
-              The CommandDispatch unit shall provide, for every registered subcommand, a handler
-              that returns a task when invoked.
+              The CommandDispatch unit shall run the handler of a recognized subcommand when it
+              is invoked, yielding that command's completion or exit code, and shall let a
+              fault in the handler surface to the caller as an error.
             justification: |
-              The entry point awaits every handler uniformly; a null task would crash it.
+              The entry point must be able to rely on every recognized subcommand either
+              completing or reporting its error, never silently doing nothing.
             tests:
-              - CommandDispatch_Handlers_ReturnNonNullTasks
+              - CommandDispatch_Handlers_RunAndReportOnlyOperatorErrors
+              - CommandDispatch_Handler_MissingArgument_SurfacesFaultForSyncAndAsyncCommands
 
           - id: SpeechCli-CommandDispatch-UnknownNameNotResolved
             title: >-
@@ -40,10 +43,20 @@ sections:
 
           - id: SpeechCli-CommandDispatch-HelpUsageSummaries
             title: >-
-              The CommandDispatch unit shall supply a usage summary for every registered
-              subcommand, so that the usage text lists them all.
+              The CommandDispatch unit shall supply a non-empty usage summary for every
+              registered subcommand.
             justification: |
-              The usage text is built from the table, so it cannot drift from the commands.
+              The usage text can only describe a subcommand that has a summary.
+            tests:
+              - CommandDispatch_Commands_EveryDescriptorHasNameAndUsageSummary
+
+          - id: SpeechCli-CommandDispatch-HelpListsAllSubcommands
+            title: >-
+              The CommandDispatch unit shall make the usage text list every registered
+              subcommand.
+            justification: |
+              The usage text is built from the registered subcommands, so it cannot drift from
+              the commands.
             tests:
               - Program_Run_WithHelpFlag_DisplaysUsageInformation
               - SpeechCli_HelpFlag_Provided_ListsAllSubcommands

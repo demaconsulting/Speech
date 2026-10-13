@@ -23,10 +23,12 @@ exception handling rather than by a test; only the results-file failure paths ha
 
 ### Acceptance Criteria
 
-The unit passes when `--validate` completes with a `Total Tests:` / `Passed:` / `Failed: 0` summary
-and exit code 0 on a clean host; writes a TRX or JUnit file when `--results` names a `.trx` or
-`.xml` path; honors `--depth` for the report heading; and reports an unsupported results extension
-or an unwritable results path as an error with exit code 1.
+The unit passes when `--validate` completes with each of the five checks (version, help,
+subcommand registration, audio backend, model store) reported passed and a `Total Tests:` /
+`Passed:` / `Failed: 0` summary and exit code 0 on a clean host; writes a TRX file for a `.trx`
+path and a JUnit file for a `.xml` path; honors `--depth` for the report heading; and reports an
+unsupported results extension, and separately an unwritable results path, as an error with exit
+code 1.
 
 ### Test Scenarios
 
@@ -35,6 +37,42 @@ or an unwritable results path as an error with exit code 1.
 **Scenario**: `RunAsync` receives `--validate`.
 
 **Expected**: The summary containing `Total Tests:` is printed and the exit code is 0.
+
+#### Program_Run_WithValidateFlag_ReportsVersionCheckPassed
+
+**Scenario**: `RunAsync` receives `--validate`.
+
+**Expected**: The output contains `✓ SpeechCli_VersionDisplay - Passed`.
+
+#### Program_Run_WithValidateFlag_ReportsHelpCheckPassed
+
+**Scenario**: `RunAsync` receives `--validate`.
+
+**Expected**: The output contains `✓ SpeechCli_HelpDisplay - Passed`.
+
+#### Program_Run_WithValidateFlag_ReportsSubcommandRegistrationCheckPassed
+
+**Scenario**: `RunAsync` receives `--validate`.
+
+**Expected**: The output contains `✓ SpeechCli_DispatchTableWellFormed - Passed`.
+
+#### Program_Run_WithValidateFlag_ReportsAudioBackendCheckPassed
+
+**Scenario**: `RunAsync` receives `--validate`, on a host with or without audio devices.
+
+**Expected**: The output contains `✓ SpeechCli_AudioBackendProbe - Passed`.
+
+#### Program_Run_WithValidateFlag_ReportsModelStoreCheckPassed
+
+**Scenario**: `RunAsync` receives `--validate`.
+
+**Expected**: The output contains `✓ SpeechCli_ModelStoreRootWritable - Passed`.
+
+#### Program_Run_WithValidateFlag_PrintsSummaryTotals
+
+**Scenario**: `RunAsync` receives `--validate`.
+
+**Expected**: The summary shows `Total Tests: 5`, `Passed: 5` and `Failed: 0`; exit code 0.
 
 #### SpeechCli_ValidateFlag_Provided_RunsValidation
 
@@ -76,7 +114,9 @@ written.
 
 #### Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
-**Scenario**: `--validate` is combined with `--help` and with `--version`.
+**Scenario**: `--validate` is combined with `--help` and with `--version` (see the Program
+verification for `Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder` and
+`Program_Run_HelpValidateTogether_HelpTakesPriority`).
 
 **Expected**: Validation does not run (no `Total Tests:` line) when a higher-priority action is also
 requested.

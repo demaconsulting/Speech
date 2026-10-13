@@ -46,11 +46,9 @@ public class ProgramTests
             // Act: execute the operation being tested
             await Program.RunAsync(context);
 
-            // Assert: verify expected behavior
+            // Assert: verify expected behavior - the output is exactly the version and a line terminator
             var output = outWriter.ToString();
-            Assert.Contains(Program.Version, output);
-            Assert.DoesNotContain("Copyright", output);
-            Assert.DoesNotContain("Speech CLI version", output);
+            Assert.Equal(Program.Version + Environment.NewLine, output);
             Assert.Equal(0, context.ExitCode);
         }
         finally
@@ -98,34 +96,54 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that when several top-level actions are requested, version takes priority over help,
-    ///     and help takes priority over validation.
+    ///     Test that when version, help and validation are all requested, version takes priority and
+    ///     neither the usage text nor the validation report is produced.
     /// </summary>
     [Fact]
     public async Task Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder()
     {
+        // Arrange
         var originalOut = Console.Out;
         try
         {
             using var versionWriter = new StringWriter();
             Console.SetOut(versionWriter);
-            using (var context = Context.Create(["--validate", "--help", "--version"]))
-            {
-                await Program.RunAsync(context);
-            }
+            using var context = Context.Create(["--validate", "--help", "--version"]);
 
+            // Act
+            await Program.RunAsync(context);
+
+            // Assert
             var versionOutput = versionWriter.ToString();
             Assert.Contains(Program.Version, versionOutput);
             Assert.DoesNotContain("Usage:", versionOutput);
             Assert.DoesNotContain("Total Tests:", versionOutput);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
 
+    /// <summary>
+    ///     Test that when help and validation are both requested, help takes priority and the
+    ///     validation report is not produced.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_HelpValidateTogether_HelpTakesPriority()
+    {
+        // Arrange
+        var originalOut = Console.Out;
+        try
+        {
             using var helpWriter = new StringWriter();
             Console.SetOut(helpWriter);
-            using (var context = Context.Create(["--validate", "--help"]))
-            {
-                await Program.RunAsync(context);
-            }
+            using var context = Context.Create(["--validate", "--help"]);
 
+            // Act
+            await Program.RunAsync(context);
+
+            // Assert
             var helpOutput = helpWriter.ToString();
             Assert.Contains("Usage:", helpOutput);
             Assert.DoesNotContain("Total Tests:", helpOutput);
@@ -134,6 +152,96 @@ public class ProgramTests
         {
             Console.SetOut(originalOut);
         }
+    }
+
+    /// <summary>
+    ///     Runs <c>--validate</c> in process and returns the printed output and exit code.
+    /// </summary>
+    /// <returns>The captured standard output and the context exit code.</returns>
+    private static async Task<(string Output, int ExitCode)> RunValidateAsync()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var outWriter = new StringWriter();
+            Console.SetOut(outWriter);
+            using var context = Context.Create(["--validate"]);
+            await Program.RunAsync(context);
+            return (outWriter.ToString(), context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>Test that validation reports the version check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsVersionCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_VersionDisplay - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the help check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsHelpCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_HelpDisplay - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the subcommand registration check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsSubcommandRegistrationCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_DispatchTableWellFormed - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the audio backend check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsAudioBackendCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_AudioBackendProbe - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the model store writability check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsModelStoreCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_ModelStoreRootWritable - Passed", output);
+    }
+
+    /// <summary>Test that validation prints a summary whose totals are consistent with all checks passing.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_PrintsSummaryTotals()
+    {
+        // Arrange / Act
+        var (output, exitCode) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("Total Tests: 5", output);
+        Assert.Contains("Passed: 5", output);
+        Assert.Contains("Failed: 0", output);
+        Assert.Equal(0, exitCode);
     }
 
     /// <summary>

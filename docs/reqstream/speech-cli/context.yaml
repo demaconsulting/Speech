@@ -133,23 +133,38 @@ sections:
           - id: SpeechCli-Context-MirrorUrlEnvironment
             title: >-
               The Context unit shall use the mirror URL environment variable when the mirror URL
-              option is absent, and the option when both are present.
+              option is absent.
             justification: |
-              Environment configuration supports unattended use and the option overrides it.
+              Environment configuration supports unattended use.
             tests:
               - Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent
+
+          - id: SpeechCli-Context-MirrorUrlOptionOverride
+            title: >-
+              The Context unit shall use the mirror URL option in preference to the mirror URL
+              environment variable when both are present.
+            justification: |
+              An explicit command-line option wins over ambient configuration.
+            tests:
               - Context_Create_MirrorUrlOption_OverridesEnvironment
 
           - id: SpeechCli-Context-MirrorCredentialEnvironment
             title: >-
               The Context unit shall use the basic-credential or bearer-token environment
-              variables when the corresponding options are absent, and any credential option
-              shall disable the credential environment variables.
+              variables when the corresponding options are absent.
             justification: |
-              Credentials can be kept out of the command line, and an explicit option wins.
+              Credentials can be kept out of the command line.
             tests:
               - Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
               - Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent
+
+          - id: SpeechCli-Context-MirrorCredentialOptionOverride
+            title: >-
+              The Context unit shall ignore all credential environment variables when any
+              credential option is supplied.
+            justification: |
+              An explicit option wins, and credentials from two sources must not be mixed.
+            tests:
               - Context_Create_CredentialOption_DisablesEnvironmentCredentials
 
           - id: SpeechCli-Context-MirrorEnvironmentEmptyIgnored
