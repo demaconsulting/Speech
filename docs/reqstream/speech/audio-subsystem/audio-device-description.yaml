@@ -22,3 +22,5 @@ sections:
                   metadata to present a device meaningfully without querying the backend again.
                 tests:
                   - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
+                  - AudioDeviceDescription_Equality_IdenticalValues_AreEqual
+                  - AudioDeviceDescription_Equality_AnyDifferingValue_AreNotEqual
