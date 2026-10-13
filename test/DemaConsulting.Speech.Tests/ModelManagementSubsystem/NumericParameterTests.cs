@@ -105,6 +105,76 @@ public class NumericParameterTests
     }
 
     /// <summary>
+    ///     Proves that an empty or whitespace id and a null display name or description are
+    ///     rejected.
+    /// </summary>
+    [Fact]
+    public void NumericParameter_Constructor_InvalidCommonFields_Throw()
+    {
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 1, 0.1, 0.5);
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new NumericParameter("", "Name", "Desc.", bounds));
+        Assert.Throws<ArgumentException>(() => new NumericParameter("  ", "Name", "Desc.", bounds));
+        Assert.Throws<ArgumentNullException>(() => new NumericParameter("id", null!, "Desc.", bounds));
+        Assert.Throws<ArgumentNullException>(() => new NumericParameter("id", "Name", null!, bounds));
+    }
+
+    /// <summary>
+    ///     Proves that a non-finite Maximum, Step, or Default is rejected, naming
+    ///     <c>bounds</c> as the offending parameter.
+    /// </summary>
+    [Theory]
+    [InlineData(double.NaN, 0.1, 0.5)]
+    [InlineData(double.PositiveInfinity, 0.1, 0.5)]
+    [InlineData(1.0, double.NaN, 0.5)]
+    [InlineData(1.0, double.PositiveInfinity, 0.5)]
+    [InlineData(1.0, 0.1, double.NaN)]
+    [InlineData(1.0, 0.1, double.NegativeInfinity)]
+    public void NumericParameter_Constructor_NonFiniteMaximumStepOrDefault_ThrowsArgumentException(
+        double maximum, double step, double @default)
+    {
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad bound.", new NumericParameterBounds(0.0, maximum, step, @default)));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a default exactly at Minimum or Maximum is accepted (inclusive range).
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(1.0)]
+    public void NumericParameter_Constructor_DefaultAtBoundary_Succeeds(double @default)
+    {
+        // Act
+        var parameter = new NumericParameter(
+            "edge", "Edge", "Boundary default.", new NumericParameterBounds(0.0, 1.0, 0.1, @default));
+
+        // Assert
+        Assert.Equal(@default, parameter.Default);
+    }
+
+    /// <summary>
+    ///     Proves that an integer declaration with a fractional bound reports <c>bounds</c> as
+    ///     the offending parameter name.
+    /// </summary>
+    [Fact]
+    public void NumericParameter_Constructor_IsIntegerWithFractionalBound_ParamNameIsBounds()
+    {
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => new NumericParameter(
+            "bad", "Bad", "Fractional.", new NumericParameterBounds(0.5, 10, 1, 1), isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
+    }
+
+    /// <summary>
     ///     Proves that a valid whole-number declaration with <c>isInteger: true</c> constructs
     ///     successfully and exposes <see cref="NumericParameter.IsInteger"/> as
     ///     <see langword="true"/>, since a discrete parameter (for example a speaker index) has

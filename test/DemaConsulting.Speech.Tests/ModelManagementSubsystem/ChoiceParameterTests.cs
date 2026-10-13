@@ -77,6 +77,73 @@ public class ChoiceParameterTests
     }
 
     /// <summary>
+    ///     Proves that a null element in the option list is rejected with
+    ///     <see cref="ArgumentException"/> rather than a <see cref="NullReferenceException"/>.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameter_Constructor_NullOptionElement_ThrowsArgumentException()
+    {
+        // Arrange
+        IReadOnlyList<ChoiceParameterOption> options = [new ChoiceParameterOption("a", "A"), null!];
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(
+            () => new ChoiceParameter("bad", "Bad", "Null option.", options, "a"));
+    }
+
+    /// <summary>
+    ///     Proves that a null option list or null default is rejected.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameter_Constructor_NullOptionsOrDefault_ThrowsArgumentNullException()
+    {
+        // Arrange
+        IReadOnlyList<ChoiceParameterOption> options = [new ChoiceParameterOption("a", "A")];
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(
+            () => new ChoiceParameter("bad", "Bad", "Null options.", null!, "a"));
+        Assert.Throws<ArgumentNullException>(
+            () => new ChoiceParameter("bad", "Bad", "Null default.", options, null!));
+    }
+
+    /// <summary>
+    ///     Proves that an empty or whitespace id and a null display name or description are
+    ///     rejected.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameter_Constructor_InvalidCommonFields_Throw()
+    {
+        // Arrange
+        IReadOnlyList<ChoiceParameterOption> options = [new ChoiceParameterOption("a", "A")];
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new ChoiceParameter(" ", "Name", "Desc.", options, "a"));
+        Assert.Throws<ArgumentNullException>(() => new ChoiceParameter("id", null!, "Desc.", options, "a"));
+        Assert.Throws<ArgumentNullException>(() => new ChoiceParameter("id", "Name", null!, options, "a"));
+    }
+
+    /// <summary>
+    ///     Proves that mutating the caller's option list after construction does not change the
+    ///     descriptor's exposed options.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameter_Constructor_CallerListMutatedAfterwards_OptionsUnchanged()
+    {
+        // Arrange
+        var options = new List<ChoiceParameterOption> { new("a", "A") };
+        var parameter = new ChoiceParameter("id", "Name", "Desc.", options, "a");
+
+        // Act
+        options.Add(new ChoiceParameterOption("b", "B"));
+        options.Clear();
+
+        // Assert
+        Assert.Single(parameter.Options);
+        Assert.Equal("a", parameter.Options[0].Value);
+    }
+
+    /// <summary>
     ///     Proves that an empty option value is rejected.
     /// </summary>
     [Fact]

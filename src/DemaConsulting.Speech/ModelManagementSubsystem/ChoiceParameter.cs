@@ -71,7 +71,7 @@ public sealed record ChoiceParameter : ISpeechModelParameter
     ///     <see cref="ChoiceParameterOption.Value"/> exactly (ordinal comparison).
     /// </param>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="options"/> is empty, when two or more entries share the
+    ///     Thrown when <paramref name="options"/> is empty, contains a null element, when two or more entries share the
     ///     same <see cref="ChoiceParameterOption.Value"/>, or when <paramref name="default"/>
     ///     does not match any declared option's value.
     /// </exception>
@@ -93,27 +93,38 @@ public sealed record ChoiceParameter : ISpeechModelParameter
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(@default);
 
-        if (options.Count == 0)
+        // Defensive copy so a caller mutating its list after construction cannot invalidate the
+        // validated invariants below.
+        var optionsCopy = options.ToArray();
+
+        if (optionsCopy.Length == 0)
         {
             throw new ArgumentException(
                 "A choice parameter must declare at least one option.",
                 nameof(options));
         }
 
+        if (optionsCopy.Any(option => option is null))
+        {
+            throw new ArgumentException(
+                "A choice parameter must not contain a null option.",
+                nameof(options));
+        }
+
         // Two options sharing the same value would make a supplied bag entry ambiguous - reject
         // that up front rather than letting a model's own lookup logic silently pick one.
-        var distinctValueCount = options
+        var distinctValueCount = optionsCopy
             .Select(option => option.Value)
             .Distinct(StringComparer.Ordinal)
             .Count();
-        if (distinctValueCount != options.Count)
+        if (distinctValueCount != optionsCopy.Length)
         {
             throw new ArgumentException(
                 "A choice parameter must not declare two options with the same value.",
                 nameof(options));
         }
 
-        if (!options.Any(option => string.Equals(option.Value, @default, StringComparison.Ordinal)))
+        if (!optionsCopy.Any(option => string.Equals(option.Value, @default, StringComparison.Ordinal)))
         {
             throw new ArgumentException(
                 $"Default value '{@default}' must match one of the declared options.",
@@ -123,7 +134,7 @@ public sealed record ChoiceParameter : ISpeechModelParameter
         Id = id;
         DisplayName = displayName;
         Description = description;
-        Options = options;
+        Options = Array.AsReadOnly(optionsCopy);
         Default = @default;
     }
 

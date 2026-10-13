@@ -440,6 +440,151 @@ public sealed class SpeechModelParameterDiagnosticsTests
         Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Proves that a NaN or infinite numeric value is rejected with a message that reports
+    ///     it as non-finite rather than as a wrong type.
+    /// </summary>
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void ValidateAndReport_NumericParameterNonFiniteValue_ThrowsFiniteMessage(double value)
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter() };
+        var suppliedValues = new Dictionary<string, object> { ["tempo"] = value };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("finite", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Double", exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that <see langword="int"/> and <see langword="float"/> values are accepted for
+    ///     a <see cref="NumericParameter"/>.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_NumericParameterIntAndFloatValues_DoNotThrow()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new NumericParameter(
+            "volume", "Volume", "Playback volume.", new NumericParameterBounds(0, 100, 1, 50));
+        var parameters = new List<ISpeechModelParameter> { parameter };
+
+        // Act
+        var intException = Record.Exception(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, new Dictionary<string, object> { ["volume"] = 10 }, diagnostics, Category));
+        var floatException = Record.Exception(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, new Dictionary<string, object> { ["volume"] = 10.5f }, diagnostics, Category));
+
+        // Assert
+        Assert.Null(intException);
+        Assert.Null(floatException);
+        diagnostics.DidNotReceiveWithAnyArgs().Report(default, default!, default!);
+    }
+
+    /// <summary>
+    ///     Proves that values exactly at Minimum and Maximum are accepted (inclusive range).
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(100.0)]
+    public void ValidateAndReport_NumericParameterBoundaryValue_DoesNotThrow(double value)
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new NumericParameter(
+            "volume", "Volume", "Playback volume.", new NumericParameterBounds(0, 100, 1, 50));
+        var parameters = new List<ISpeechModelParameter> { parameter };
+        var suppliedValues = new Dictionary<string, object> { ["volume"] = value };
+
+        // Act
+        var exception = Record.Exception(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Proves that with several invalid values the first one in declared-parameter order is
+    ///     the one reported, regardless of the supplied bag's order.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter>
+        {
+            new BooleanParameter("first", "First", "First flag.", false),
+            new BooleanParameter("second", "Second", "Second flag.", false),
+        };
+        var suppliedValues = new Dictionary<string, object>
+        {
+            ["second"] = "bad",
+            ["first"] = "bad",
+        };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("'first'", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a wrong-type choice value message names the received type.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_ChoiceParameterWrongType_MessageNamesReceivedType()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new ChoiceParameter(
+            "speed", "Speed", "Speaking speed.", [new ChoiceParameterOption("normal", "Normal")], "normal");
+        var parameters = new List<ISpeechModelParameter> { parameter };
+        var suppliedValues = new Dictionary<string, object> { ["speed"] = 1.5 };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("System.Double", exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a null model id, declared-parameter list, diagnostics sink, or category
+    ///     throws <see cref="ArgumentNullException"/>.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_NullArguments_ThrowArgumentNullException()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter() };
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            null!, parameters, null, diagnostics, Category));
+        Assert.Throws<ArgumentNullException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, null!, null, diagnostics, Category));
+        Assert.Throws<ArgumentNullException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, null, null!, Category));
+        Assert.Throws<ArgumentNullException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, null, diagnostics, null!));
+    }
+
     /// <summary>Builds a small, reusable declared "tempo" <see cref="NumericParameter"/>.</summary>
     private static NumericParameter NumericTempoParameter() =>
         new("tempo", "Tempo", "Speaking rate multiplier.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0), "x");

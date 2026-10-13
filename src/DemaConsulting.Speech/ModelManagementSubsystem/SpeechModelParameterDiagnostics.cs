@@ -173,10 +173,17 @@ internal static class SpeechModelParameterDiagnostics
             _ => null,
         };
 
-        if (numericValue is not double resolved || !double.IsFinite(resolved))
+        if (numericValue is not double resolved)
         {
             throw new ArgumentException(
                 $"Parameter '{parameter.Id}' expected a numeric value but received {DescribeType(value)} for model '{modelId}'.",
+                paramName);
+        }
+
+        if (!double.IsFinite(resolved))
+        {
+            throw new ArgumentException(
+                $"Parameter '{parameter.Id}' value {resolved} must be a finite number for model '{modelId}'.",
                 paramName);
         }
 
