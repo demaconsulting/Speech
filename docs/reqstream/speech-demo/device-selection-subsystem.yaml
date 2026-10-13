@@ -27,6 +27,15 @@ sections:
               The demo exists to show the library's device enumeration working end to end. The
               property only holds when the view model and the adapter over the library factory
               work together, so it is verified with both composed.
+            children:
+              - SpeechDemo-Devices-Enumeration
+              - SpeechDemo-Devices-LibraryProbeDelegation
+              - SpeechDemo-Devices-LibraryPlaybackProbeDelegation
+              - SpeechDemo-Devices-EnumerationCount
+              - SpeechDemo-Devices-EmptyProbeResult
+              - SpeechDemo-Devices-ProbeResultsNotCached
+              - SpeechDemo-Devices-CaptureDeviceCreation
+              - SpeechDemo-Devices-PlaybackDeviceCreation
             tests:
               - DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersListThem
 
@@ -38,6 +47,11 @@ sections:
               A usable demo needs no configuration step. The selection handed back to the
               library must name a device the library's own probes reported, which only holds
               when the view model and the adapter work together.
+            children:
+              - SpeechDemo-Devices-DefaultSelection
+              - SpeechDemo-Devices-ServiceRequired
+              - SpeechDemo-Devices-FactoryRequired
+              - SpeechDemo-Devices-SelectionNotification
             tests:
               - DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection
 
@@ -50,6 +64,10 @@ sections:
               A machine with no audio hardware is an ordinary state. The explanation and the
               usable default selection must survive the full path from the library's probes to
               the picker, not only the view model in isolation.
+            children:
+              - SpeechDemo-Devices-EmptyStateExplanation
+              - SpeechDemo-Devices-EmptyStateAfterRefreshExplained
+              - SpeechDemo-Devices-EmptySelectionFallback
             tests:
               - DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
 
@@ -61,6 +79,9 @@ sections:
               A refresh that only re-reads cached lists would never reveal a hot-plugged
               device. Verifying it against the library's own environment proves the refresh
               action reaches the library rather than stopping at the demo's seam.
+            children:
+              - SpeechDemo-Devices-ConstructionWithoutRefresh
+              - SpeechDemo-Devices-ServiceRefreshDelegation
             tests:
               - DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
@@ -72,6 +93,9 @@ sections:
               Discarding a still-valid choice on every refresh would be visibly wrong, and the
               property must hold against the library's own re-scan, not only a substitute
               service.
+            children:
+              - SpeechDemo-Devices-NameBasedSelection
+              - SpeechDemo-Devices-Refresh
             tests:
               - DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
@@ -94,3 +118,15 @@ sections:
               A silent failure would leave the user believing the refresh worked.
             tests:
               - DeviceSelectionSubsystem_Composed_RefreshFails_ExplainsInStatus
+
+          - id: SpeechDemo-Devices-HonestEmptyState-DeviceSelectionSubsystem
+            title: >-
+              The DeviceSelectionSubsystem shall explain, rather than silently show nothing,
+              when the machine reports no audio devices.
+            justification: |
+              Subsystem-level grouping of the DeviceSelectionSubsystem unit requirements that
+              implement SpeechDemo-Devices-HonestEmptyState.
+            children:
+              - SpeechDemo-Devices-EmptyStateAfterRefresh
+            tests:
+              - DeviceSelectionViewModel_RefreshAsync_AllDevicesRemoved_ClearsSelectionAndExplains

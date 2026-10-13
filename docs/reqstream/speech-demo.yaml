@@ -20,17 +20,7 @@ sections:
           panel lets a user find the capability they want to try, and lets further capabilities
           be added without redesigning the application shell.
         children:
-          - SpeechDemo-Shell-PanelCatalog
-          - SpeechDemo-Shell-DefaultPanel
-          - SpeechDemo-Shell-PanelTitles
-          - SpeechDemo-Shell-PanelEntryTitles
-          - SpeechDemo-Shell-PanelHosting
-          - SpeechDemo-Shell-SelectionNotification
-          - SpeechDemo-Shell-WindowTitle
-          - SpeechDemo-Shell-PanelContent
-          - SpeechDemo-Shell-PanelTitleRequired
-          - SpeechDemo-Shell-PanelContentRequired
-          - SpeechDemo-Shell-SelectionNoNotificationWhenUnchanged
+          - SpeechDemo-Shell-CapabilityNavigation-ShellSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
 
@@ -45,7 +35,6 @@ sections:
           model would contradict the library's own "nothing throws at composition" guarantee,
           so the demo must survive every ordinary machine state.
         children:
-          - SpeechDemo-Shell-CompositionRoot
           - SpeechDemo-Shell-EmptyEnvironmentComposition
           - SpeechDemo-App-ShellComposition
           - SpeechDemo-App-AvaloniaApplication
@@ -126,27 +115,11 @@ sections:
           must do, and it is the demonstrable proof that the library's device enumeration and
           name-based selection contracts are usable from a host application.
         children:
-          - SpeechDemo-Devices-Enumeration
-          - SpeechDemo-Devices-DefaultSelection
-          - SpeechDemo-Devices-NameBasedSelection
-          - SpeechDemo-Devices-Refresh
-          - SpeechDemo-Devices-LibraryProbeDelegation
           - SpeechDemo-DeviceSelection-PanelListsLibraryDevices
           - SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
           - SpeechDemo-DeviceSelection-RefreshKeepsSelection
           - SpeechDemo-DeviceSelection-RefreshFailureExplained
-          - SpeechDemo-Devices-LibraryPlaybackProbeDelegation
           - SpeechDemo-DeviceSelection-RefreshReachesLibrary
-          - SpeechDemo-Devices-ServiceRequired
-          - SpeechDemo-Devices-FactoryRequired
-          - SpeechDemo-Devices-EnumerationCount
-          - SpeechDemo-Devices-ConstructionWithoutRefresh
-          - SpeechDemo-Devices-SelectionNotification
-          - SpeechDemo-Devices-EmptyProbeResult
-          - SpeechDemo-Devices-ProbeResultsNotCached
-          - SpeechDemo-Devices-ServiceRefreshDelegation
-          - SpeechDemo-Devices-CaptureDeviceCreation
-          - SpeechDemo-Devices-PlaybackDeviceCreation
         tests:
           - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
 
@@ -160,10 +133,7 @@ sections:
           initialize. An empty picker with no explanation reads to a user as a broken
           application, so the demo must say what happened and remain usable.
         children:
-          - SpeechDemo-Devices-EmptyStateExplanation
-          - SpeechDemo-Devices-EmptyStateAfterRefresh
-          - SpeechDemo-Devices-EmptyStateAfterRefreshExplained
-          - SpeechDemo-Devices-EmptySelectionFallback
+          - SpeechDemo-Devices-HonestEmptyState-DeviceSelectionSubsystem
           - SpeechDemo-DeviceSelection-EmptyPanelExplained
         tests:
           - SpeechDemo_SystemIntegration_UnavailableAudioBackend_DevicePanelExplainsAbsence
@@ -179,24 +149,9 @@ sections:
           a complete model-management page against the library's generic catalog contract
           alone, with no knowledge of any specific model.
         children:
-          - SpeechDemo-Models-Enumeration
           - SpeechDemo-ModelCatalog-PanelRefresh
-          - SpeechDemo-Models-InitialSelection
-          - SpeechDemo-Models-RefreshDropsUnknownModel
-          - SpeechDemo-Models-RowDescriptorRequired
-          - SpeechDemo-Models-StateChangeAnnouncement
-          - SpeechDemo-Models-StatePresentation
-          - SpeechDemo-Models-Refresh
-          - SpeechDemo-Models-RefreshBlockedDuringDownload
-          - SpeechDemo-Models-RefreshBlockedDuringPackInstall
-          - SpeechDemo-Models-RefreshFaultContained
-          - SpeechDemo-Models-RefreshSelectsFirstWithoutPrevious
           - SpeechDemo-ModelCatalog-PanelRefreshFaultContained
-          - SpeechDemo-Models-LibraryCatalogDelegation
           - SpeechDemo-ModelCatalog-PanelOperation
-          - SpeechDemo-Models-LibraryDownloadDelegation
-          - SpeechDemo-Models-CatalogSeamRequired
-          - SpeechDemo-Models-PanelSeamRequired
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
 
@@ -213,13 +168,7 @@ sections:
           multi-hundred-megabyte download, since automated tests must not depend on network
           access.
         children:
-          - SpeechDemo-Models-DownloadGuardInstalled
-          - SpeechDemo-Models-DownloadGuardInFlight
-          - SpeechDemo-Models-DownloadAvailability
-          - SpeechDemo-Models-InstallNotification
           - SpeechDemo-ModelCatalog-ModelDownload
-          - SpeechDemo-Models-DownloadInstalled
-          - SpeechDemo-Models-DownloadNoSelection
         tests:
           - SpeechDemo_SystemIntegration_DownloadListedModel_ShowsInstalledOutcome
 
@@ -232,9 +181,7 @@ sections:
           A model download can be hundreds of megabytes, so a user needs to see that it is
           running and how far it has progressed rather than an unchanging list.
         children:
-          - SpeechDemo-Models-DownloadProgress
-          - SpeechDemo-Models-DownloadInFlightState
-          - SpeechDemo-Models-ProgressVisibility
+          - SpeechDemo-Models-DownloadProgressReporting-ModelCatalogSubsystem
         tests:
           - SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgress
 
@@ -247,14 +194,7 @@ sections:
           The library treats a failed or checksum-mismatched download as an ordinary outcome
           rather than an exception, so the demo must surface honest failure in the list.
         children:
-          - SpeechDemo-Models-DownloadOutcomes
           - SpeechDemo-ModelCatalog-DownloadOutcomeOnRow
-          - SpeechDemo-Models-LibraryUnknownModelError
-          - SpeechDemo-Models-FailureMessageVisibility
-          - SpeechDemo-Models-NoInstallNotificationOnFailure
-          - SpeechDemo-Models-DownloadTransportFailure
-          - SpeechDemo-Models-DownloadFaultContained
-          - SpeechDemo-Models-DownloadCanceled
         tests:
           - SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReported
 
@@ -267,7 +207,7 @@ sections:
           A transient network failure should not leave a user stuck with a model they cannot
           obtain, nor with a stale error beside a model that is now installed.
         children:
-          - SpeechDemo-Models-DownloadRetry
+          - SpeechDemo-Models-FailedDownloadRetry-ModelCatalogSubsystem
         tests:
           - SpeechDemo_SystemIntegration_DownloadListedModel_FailedDownloadIsRetryable
 
@@ -294,7 +234,7 @@ sections:
           A caller-supplied catalog can genuinely have no models; an unexplained blank list
           reads to a user as a broken application.
         children:
-          - SpeechDemo-Models-EmptyCatalogExplanation
+          - SpeechDemo-Models-EmptyCatalogReporting-ModelCatalogSubsystem
         tests:
           - SpeechDemo_SystemIntegration_EmptyCatalog_ModelPanelExplainsEmptiness
 
@@ -309,6 +249,7 @@ sections:
           capability SpeechCli already offers via its own --mirror-* global options. A launch
           option covers a scripted/CI launch.
         children:
+          - SpeechDemo-Models-MirrorRedirection-ModelCatalogSubsystem
           - SpeechDemo-LaunchOptions-MirrorConfiguration
           - SpeechDemo-LaunchOptions-NoMirror
           - SpeechDemo-LaunchOptions-MirrorRejection
@@ -329,7 +270,6 @@ sections:
           - SpeechDemo-MirrorOptions-EmptyCredentialIsUnset
           - SpeechDemo-MirrorOptions-NonHttpSchemeRejected
           - SpeechDemo-MirrorOptions-BasicAndBearerRejected
-          - SpeechDemo-Models-MirrorSettingsPrePopulation
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch
 
@@ -363,25 +303,7 @@ sections:
           Interactive use needs the same mirror redirection as a scripted launch without
           requiring the application to be restarted.
         children:
-          - SpeechDemo-Models-MirrorRebuild
-          - SpeechDemo-Models-MirrorRequiresFactory
-          - SpeechDemo-Models-CatalogFactoryRequired
-          - SpeechDemo-Models-MirrorCatalogOwnership
-          - SpeechDemo-Models-MirrorSettingsUi
-          - SpeechDemo-Models-MirrorSettingsBasicCredentials
-          - SpeechDemo-Models-MirrorSettingsBlankCredentialsIgnored
-          - SpeechDemo-Models-MirrorSettingsCredentialsNotEchoed
-          - SpeechDemo-Models-MirrorSettingsBearerToken
-          - SpeechDemo-Models-MirrorSettingsReloadsRows
-          - SpeechDemo-Models-MirrorSettingsFaultContained
-          - SpeechDemo-Models-MirrorSettingsReloadFaultContained
-          - SpeechDemo-Models-MirrorBlockedDuringDownload
-          - SpeechDemo-Models-MirrorFailureKeepsPreviousCatalog
-          - SpeechDemo-Models-CompositionMembersRequired
-          - SpeechDemo-Models-CatalogDisposedWithService
-          - SpeechDemo-Models-ExternalCatalogNotDisposed
-          - SpeechDemo-Models-MirrorSettingsInvalidReported
-          - SpeechDemo-Models-MirrorSettingsRejectedReported
+          - SpeechDemo-Models-MirrorRuntimeRedirection-ModelCatalogSubsystem
           - SpeechDemo-ModelCatalog-MirrorRedirection
           - SpeechDemo-ModelCatalog-MirrorApplyConfirmation
           - SpeechDemo-ModelCatalog-MirrorBlockedDuringTransfer
@@ -397,7 +319,7 @@ sections:
           A user who no longer needs a mirror must be able to return to each model's own
           public download location without restarting the application.
         children:
-          - SpeechDemo-Models-MirrorSettingsBlankRevert
+          - SpeechDemo-Models-MirrorRevert-ModelCatalogSubsystem
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_ClearingMirrorRevertsToPublicUris
 
@@ -412,20 +334,6 @@ sections:
           removable from the same place models are managed. SpeechCli offers the same
           capability through its own voices commands.
         children:
-          - SpeechDemo-Voices-PackService
-          - SpeechDemo-Voices-UserVoicesFolder
-          - SpeechDemo-Voices-PackPanel
-          - SpeechDemo-Voices-PackUserFolderShown
-          - SpeechDemo-Voices-PackBlockedDuringDownload
-          - SpeechDemo-Voices-PackRemoveBlockedDuringDownload
-          - SpeechDemo-Voices-DownloadBlockedDuringPackInstall
-          - SpeechDemo-Voices-MirrorBlockedDuringPackInstall
-          - SpeechDemo-Voices-PackBlockedDuringPackInstall
-          - SpeechDemo-Voices-PackInitialEmotionLoadContained
-          - SpeechDemo-Voices-PackRowPresentation
-          - SpeechDemo-Voices-PackRowRequiresPack
-          - SpeechDemo-Voices-PackEmotionOption
-          - SpeechDemo-Voices-PackNoEmotionOption
           - SpeechDemo-ModelCatalog-VoicePackChangeRebuild
           - SpeechDemo-ModelCatalog-VoicePackChangeNotification
           - SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
@@ -433,62 +341,10 @@ sections:
           - SpeechDemo-ModelCatalog-MirrorChangedRebuild
           - SpeechDemo-ModelCatalog-MirrorChangedRowsShown
           - SpeechDemo-ModelCatalog-MirrorChangedNotification
-          - SpeechDemo-Voices-PackServiceCompositionRequired
-          - SpeechDemo-Voices-PackServiceNoLibrary
-          - SpeechDemo-Voices-PackServiceNoLibraryRefusal
-          - SpeechDemo-Voices-PackServiceNoLibraryEmotionsRefusal
-          - SpeechDemo-Voices-PackServiceNoLibraryUninstallRefusal
-          - SpeechDemo-Voices-PackUninstallRebuild
-          - SpeechDemo-Voices-PackUninstallAnnounce
-          - SpeechDemo-Voices-PackInstallRebuild
-          - SpeechDemo-Voices-PackInstallFailureAnnounce
-          - SpeechDemo-Voices-PackInstallCanceledRebuild
-          - SpeechDemo-Voices-PackInstallRebuildFailureKeepsCause
-          - SpeechDemo-Voices-PackInstallCanceledAnnounce
-          - SpeechDemo-Voices-PackMirrorRebuild
-          - SpeechDemo-Voices-PackMirrorAnnounce
-          - SpeechDemo-Voices-PackUninstallWaitsForInstall
-          - SpeechDemo-Voices-PackUninstallDefersRebuild
-          - SpeechDemo-Voices-PackSectionHidden
-          - SpeechDemo-Voices-PackInstalledEmotionsShown
-          - SpeechDemo-Voices-PackInstall
-          - SpeechDemo-Voices-PackInstallRowRefresh
-          - SpeechDemo-Voices-PackEmotionChoiceForwarded
-          - SpeechDemo-Voices-PackAddEmotionsIncluded
-          - SpeechDemo-Voices-PackInstallFailureReported
-          - SpeechDemo-Voices-PackInstallRollbackKeepsPack
-          - SpeechDemo-Voices-PackInstallStateReadFallback
-          - SpeechDemo-Voices-PackRemove
-          - SpeechDemo-Voices-PackRemoveRowRefresh
-          - SpeechDemo-Voices-PackRemoveBlockedDuringPackInstall
-          - SpeechDemo-Voices-PackInstallRollbackKeepsMessage
-          - SpeechDemo-Voices-PackInstallReloadFaultReported
-          - SpeechDemo-Voices-PackRemoveReloadFaultReported
-          - SpeechDemo-Voices-PackInstallSuccessRebuild
-          - SpeechDemo-Voices-PackInstallSuccessAnnounce
-          - SpeechDemo-Voices-PackInstallSuccessRebuildFailure
-          - SpeechDemo-Voices-PackUninstallFailureNoRebuild
-          - SpeechDemo-Voices-PackUninstallFailureNoAnnounce
-          - SpeechDemo-Voices-PackServiceDisposesLibrary
-          - SpeechDemo-Voices-PackServiceEmotionsQuery
-          - SpeechDemo-Voices-PackRowConsentNote
-          - SpeechDemo-Voices-PackRowRemoveAvailability
-          - SpeechDemo-Voices-PackRowProgress
-          - SpeechDemo-Voices-PackRowFailurePresence
           - SpeechDemo-ModelCatalog-VoicePackRollbackFailureExplained
           - SpeechDemo-ModelCatalog-VoicePackRemovalCanceledExplained
           - SpeechDemo-ModelCatalog-VoicePackRemovalFailureNoRebuild
           - SpeechDemo-ModelCatalog-VoicePackSectionHidden
-          - SpeechDemo-Voices-PackRemoveFaultReported
-          - SpeechDemo-Voices-PackRemoveStoreErrorReported
-          - SpeechDemo-Voices-PackRemoveCanceledReported
-          - SpeechDemo-Voices-PackRowStatus
-          - SpeechDemo-Voices-PackRowActionAvailability
-          - SpeechDemo-Voices-PackRowChangeAnnouncement
-          - SpeechDemo-Voices-PackRowFailureAnnouncement
-          - SpeechDemo-Voices-PackRowEmotionsAnnouncement
-          - SpeechDemo-Voices-PackEmotionSizeDisplay
-          - SpeechDemo-Voices-PackAddEmotions
           - SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
           - SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
           - SpeechDemo-ModelCatalog-VoicePackRemovalFailureExplained
@@ -505,11 +361,8 @@ sections:
           Without a voice the model has nothing to imitate, so installing or removing a pack
           must refresh the voice choice at once without discarding what the user selected.
         children:
-          - SpeechDemo-Voices-SynthesisRefresh
-          - SpeechDemo-Voices-SynthesisVoiceChoiceKept
-          - SpeechDemo-Voices-SynthesisRefreshAfterDispose
+          - SpeechDemo-Voices-VoiceChoice-ModelSettingsSubsystem
           - SpeechDemo-SynthesisPanel-ReferenceVoiceChangeHandling
-          - SpeechDemo-Settings-RestoreValues
         tests:
           - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstalledVoicesOfferedAndChoiceKept
 
@@ -538,7 +391,7 @@ sections:
           Cloning a real person's voice raises consent questions, so the note must be visible
           where a user chooses to install voices.
         children:
-          - SpeechDemo-Voices-PackConsentNoteShown
+          - SpeechDemo-Voices-ConsentNote-ModelCatalogSubsystem
         tests:
           - SpeechDemo_SystemIntegration_ReferenceVoicePack_CatalogPanelShowsConsentNote
 
@@ -551,8 +404,7 @@ sections:
           Consent must be stated where the voice is chosen and used, not only where it is
           installed.
         children:
-          - SpeechDemo-Voices-ConsentAndAttribution
-          - SpeechDemo-Voices-NoNoticeForOtherModels
+          - SpeechDemo-Voices-SynthesisConsentNote-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentNote
 
@@ -564,7 +416,7 @@ sections:
         justification: |
           The pack's license requires attribution where its voices are used.
         children:
-          - SpeechDemo-Voices-ConsentAndAttribution
+          - SpeechDemo-Voices-SynthesisAttribution-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsPackAttribution
 
@@ -583,24 +435,6 @@ sections:
         children:
           - SpeechDemo-Settings-GenericParameterRendering
           - SpeechDemo-Settings-ValueBag
-          - SpeechDemo-Settings-ParameterConstructionGuards
-          - SpeechDemo-Settings-NumericPresenter-DefaultInitialization
-          - SpeechDemo-Settings-NumericPresenter-Clamping
-          - SpeechDemo-Settings-NumericPresenter-IntegerRounding
-          - SpeechDemo-Settings-NumericPresenter-ControlSelection
-          - SpeechDemo-Settings-ChoicePresenter
-          - SpeechDemo-Settings-RestoreIgnoresWrongTypedValues
-          - SpeechDemo-Settings-ChoicePresenterDefaultSelection
-          - SpeechDemo-Settings-ChoicePresenterSelectionNotification
-          - SpeechDemo-Settings-BooleanPresenter
-          - SpeechDemo-Settings-ModelSwitch
-          - SpeechDemo-Settings-NumericPresenter-ContinuousPrecision
-          - SpeechDemo-Settings-ChoicePresenterSelection
-          - SpeechDemo-Settings-BooleanPresenterToggle
-          - SpeechDemo-Settings-UnrecognizedParameterSkipped
-          - SpeechDemo-Settings-ValueBagEmptyWithoutModel
-          - SpeechDemo-Settings-ValueBagDuplicateIds
-          - SpeechDemo-Settings-RestoreIgnoresStaleValues
           - SpeechDemo-Settings-CapturedValuesRestored
           - SpeechDemo-Settings-EmptyStateExplained
           - SpeechDemo-Settings-UnrecognizedParameterTolerated
@@ -617,9 +451,7 @@ sections:
           empty known-model registry, an unexplained blank settings panel reads to a user as a
           broken application rather than an expected state.
         children:
-          - SpeechDemo-Settings-HonestEmptyState
-          - SpeechDemo-Settings-EmptyStateAfterModelCleared
-          - SpeechDemo-Settings-EmptyStateNotifications
+          - SpeechDemo-Settings-EmptyStateExplanation-ModelSettingsSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
@@ -632,7 +464,7 @@ sections:
           A model with nothing to tune is an ordinary state; a blank settings panel beside it
           reads to a user as a broken application.
         children:
-          - SpeechDemo-Settings-NoParametersExplained
+          - SpeechDemo-Settings-NoParametersExplanation-ModelSettingsSubsystem
         tests:
           - SpeechDemo_SystemIntegration_ModelWithoutParameters_SettingsPanelExplainsNoParameters
 
@@ -646,20 +478,7 @@ sections:
           Text-to-speech is one of the two capabilities this demo exists to prove is usable from
           a real host application.
         children:
-          - SpeechDemo-Synthesis-ModelSelection
-          - SpeechDemo-Synthesis-PlayLifecycle
-          - SpeechDemo-Synthesis-SessionSeam
-          - SpeechDemo-Synthesis-EngineSessionReuse
-          - SpeechDemo-Synthesis-SessionReuse
-          - SpeechDemo-Synthesis-VoiceSelectionForwarding
-          - SpeechDemo-Synthesis-AutoRefreshOnInstall
-          - SpeechDemo-Synthesis-ResourceLifetime
-          - SpeechDemo-Synthesis-EngineLifetime
-          - SpeechDemo-Synthesis-ModelSwitchGuard
-          - SpeechDemo-Synthesis-DisposeIdempotent
-          - SpeechDemo-Synthesis-ModelSwitchAllowedAfterError
-          - SpeechDemo-Synthesis-IdleDeviceRefreshInert
-          - SpeechDemo-Synthesis-SessionSeamModelValidation
+          - SpeechDemo-Synthesis-TextToSpeech-SynthesisPanelSubsystem
           - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
           - SpeechDemo-SynthesisPanel-LifecycleThroughSeams
           - SpeechDemo-SynthesisPanel-ExternalChangeHandling
@@ -668,23 +487,6 @@ sections:
           - SpeechDemo-SynthesisPanel-ModelChangeGuard
           - SpeechDemo-SynthesisPanel-VoiceNotice
           - SpeechDemo-SynthesisPanel-EngineSessionReuse
-          - SpeechDemo-Synthesis-EngineReloadOnModelChange
-          - SpeechDemo-Synthesis-SetupFaultReported
-          - SpeechDemo-Synthesis-SetupCanceledReported
-          - SpeechDemo-Synthesis-SpeakFaultReleasesSession
-          - SpeechDemo-Synthesis-StaleSessionEventIgnored
-          - SpeechDemo-Synthesis-DependencyValidation
-          - SpeechDemo-Synthesis-SelectionPreservation
-          - SpeechDemo-Synthesis-PlayWhileBusyRefused
-          - SpeechDemo-Synthesis-EngineReloadOnChange
-          - SpeechDemo-Synthesis-SessionRecreateOnDeviceChange
-          - SpeechDemo-Synthesis-SessionSeamParameterBag
-          - SpeechDemo-Synthesis-SessionSeamArgumentValidation
-          - SpeechDemo-Synthesis-AutoRefreshRoleFilter
-          - SpeechDemo-Synthesis-DisposeStopsPlayback
-          - SpeechDemo-Synthesis-DisposeUnsubscribes
-          - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
-          - SpeechDemo-Synthesis-EmbeddedSettings
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_SpeaksEnteredText
 
@@ -697,8 +499,7 @@ sections:
           Reporting each lifecycle transition turns the library's synthesis contract into a
           usable demonstration rather than an opaque one-shot call.
         children:
-          - SpeechDemo-Synthesis-LifecycleReporting
-          - SpeechDemo-Synthesis-SessionStateMapping
+          - SpeechDemo-Synthesis-PlaybackStatus-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_ReportsLifecycleStatus
 
@@ -711,7 +512,6 @@ sections:
           A long or mistaken utterance must be interruptible, and the panel must confirm the
           interruption rather than silently going quiet.
         children:
-          - SpeechDemo-Synthesis-StopControl
           - SpeechDemo-SynthesisPanel-StopPlayback
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_StopEndsUtteranceWithExplanation
@@ -725,7 +525,7 @@ sections:
           The tag vocabulary is closed and published by the library; showing examples lets a
           user discover what can be written without reading documentation.
         children:
-          - SpeechDemo-Synthesis-AudioTagHints
+          - SpeechDemo-Synthesis-AudioTagExamples-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_ShowsExampleAudioTags
 
@@ -739,9 +539,7 @@ sections:
           model; the synthesis panel must say so plainly rather than fail silently or crash
           the application.
         children:
-          - SpeechDemo-Synthesis-HonestEmptyCatalogState
-          - SpeechDemo-Synthesis-RefreshWhilePlayingUndisturbed
-          - SpeechDemo-Synthesis-NoModelSelectedState
+          - SpeechDemo-Synthesis-UnavailableExplanation-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
@@ -754,7 +552,6 @@ sections:
           A developer evaluating the library frequently runs the demo before connecting a
           speaker; the synthesis panel must say so plainly rather than fail silently.
         children:
-          - SpeechDemo-Synthesis-NoPlaybackDeviceState
           - SpeechDemo-SynthesisPanel-UnavailableDeviceReporting
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_NoPlaybackDeviceIsExplained
@@ -768,12 +565,7 @@ sections:
           An installed model can still be unusable on a machine, for example when its runtime
           is missing; the panel must say so plainly rather than crash.
         children:
-          - SpeechDemo-Synthesis-HonestUnavailableStates
-          - SpeechDemo-Synthesis-UnavailableEngineReleased
-          - SpeechDemo-Synthesis-UnavailableSessionReleased
-          - SpeechDemo-Synthesis-EngineBusyState
-          - SpeechDemo-Synthesis-SessionFaultRecovery
-          - SpeechDemo-Synthesis-SessionFaultReported
+          - SpeechDemo-Synthesis-EngineFailureExplanation-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_UnavailableEngineIsExplained
 
@@ -786,33 +578,11 @@ sections:
           Speech-to-text is the other capability this demo exists to prove is usable from a real
           host application.
         children:
-          - SpeechDemo-Recognition-ModelSelection
+          - SpeechDemo-Recognition-SpeechToText-RecognitionPanelSubsystem
           - SpeechDemo-Recognition-StartStopLifecycle
-          - SpeechDemo-Recognition-ResourceLifetime
-          - SpeechDemo-Recognition-EngineLifetime
           - SpeechDemo-Recognition-SessionSeam
-          - SpeechDemo-Recognition-AutoRefreshOnInstall
-          - SpeechDemo-Recognition-ModelSwitchGuard
-          - SpeechDemo-Recognition-ModelSelectionFallback
-          - SpeechDemo-Recognition-FailedStartReleasesSession
-          - SpeechDemo-Recognition-DisposeIdempotent
-          - SpeechDemo-Recognition-ModelSwitchAllowedAfterError
-          - SpeechDemo-Recognition-SessionSeamModelValidation
           - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
           - SpeechDemo-Recognition-IdleDeviceRefreshInert
-          - SpeechDemo-Recognition-PanelDependenciesRequired
-          - SpeechDemo-Recognition-ModelSelectionPreserved
-          - SpeechDemo-Recognition-AutoRefreshIgnoresOtherRoles
-          - SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
-          - SpeechDemo-Recognition-EngineReuse
-          - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
-          - SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
-          - SpeechDemo-Recognition-DeviceChangeInvalidatesSession
-          - SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
-          - SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
-          - SpeechDemo-Recognition-FailedAttemptReleasesResources
-          - SpeechDemo-Recognition-SessionSeamWrongRole
-          - SpeechDemo-Recognition-SessionSeamArgumentValidation
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_StartsStreaming
 
@@ -825,7 +595,7 @@ sections:
           Rendering the progressive partial result is what proves the library's streaming
           recognition contract is genuinely usable from a UI thread.
         children:
-          - SpeechDemo-Recognition-TranscriptSequencing
+          - SpeechDemo-Recognition-PartialTranscript-RecognitionPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_ShowsPartialResult
 
@@ -838,9 +608,7 @@ sections:
           A committed final line is the durable outcome of recognition; it must stay visible
           once the provisional text it replaces is gone.
         children:
-          - SpeechDemo-Recognition-TranscriptFinalCommit
-          - SpeechDemo-Recognition-TranscriptText
-          - SpeechDemo-Recognition-TranscriptResetOnStart
+          - SpeechDemo-Recognition-FinalTranscript-RecognitionPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_CommitsFinalResult
 
@@ -852,10 +620,7 @@ sections:
         justification: |
           A user must be able to end listening, releasing the capture device for other uses.
         children:
-          - SpeechDemo-Recognition-StopSession
           - SpeechDemo-Recognition-StopLifecycle
-          - SpeechDemo-Recognition-StopIdleSafe
-          - SpeechDemo-Recognition-ConcurrentStopSafe
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_StopEndsSession
 
@@ -869,8 +634,7 @@ sections:
           model; the recognition panel must say so plainly rather than fail silently or crash
           the application.
         children:
-          - SpeechDemo-Recognition-HonestEmptyCatalogState
-          - SpeechDemo-Recognition-NoModelSelectedReported
+          - SpeechDemo-Recognition-UnavailableExplanation-RecognitionPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
@@ -883,7 +647,7 @@ sections:
           A developer evaluating the library frequently runs the demo before connecting a
           microphone; the recognition panel must say so plainly rather than fail silently.
         children:
-          - SpeechDemo-Recognition-NoCaptureDeviceReported
+          - SpeechDemo-Recognition-NoCaptureDeviceExplanation-RecognitionPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_NoCaptureDeviceIsExplained
 
@@ -896,12 +660,7 @@ sections:
           An installed model can still be unusable on a machine, for example when its runtime
           is missing; the panel must say so plainly rather than crash.
         children:
-          - SpeechDemo-Recognition-HonestUnavailableStates
           - SpeechDemo-Recognition-SessionSeamUnavailableEngine
-          - SpeechDemo-Recognition-SessionStartFailureReported
-          - SpeechDemo-Recognition-EngineBusyReported
-          - SpeechDemo-Recognition-SessionFaultedReported
-          - SpeechDemo-Recognition-ResultStreamFaultReported
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_UnavailableEngineIsExplained
 

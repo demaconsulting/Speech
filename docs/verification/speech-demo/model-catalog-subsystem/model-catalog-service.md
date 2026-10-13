@@ -263,6 +263,7 @@ have changed the pack's installed state.
 
 **Expected**: The uninstall waits for the install (no rebuild and no `ReferenceVoicesChanged` while it
 runs), then removes the pack and rebuilds and raises the event once more.
+
 #### Accepted Gaps
 
 - **Throwing disposal during a rebuild**: `Recompose` disposes the previous library even when

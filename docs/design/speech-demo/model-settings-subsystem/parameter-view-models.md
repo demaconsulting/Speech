@@ -33,8 +33,9 @@ abstract base is only observable through its concrete presenters.
   wider range than declared — for example, free-text entry — or a test setting the value directly
   can never push the parameter outside the range the model declared it could honor. When the
   underlying `NumericParameter.IsInteger` is `true` (for example a multi-speaker
-  model's `speaker` parameter, a discrete index with no fractional meaning), `Value` additionally rounds every write to the nearest whole number
-  (`MidpointRounding.AwayFromZero`) after clamping. A continuous parameter keeps fractional values.
+  model's `speaker` parameter, a discrete index with no fractional meaning), `Value` additionally
+  rounds every write to the nearest whole number (`MidpointRounding.AwayFromZero`) after clamping.
+  A continuous parameter keeps fractional values.
 - **Control selection**: `NumericParameterViewModel.IsInteger` mirrors the library descriptor's
   flag. `ModelSettingsView.axaml`'s `DataTemplate` renders Avalonia's built-in `NumericUpDown` —
   bound to `Value`/`Minimum`/`Maximum`/`Step` with `FormatString="0"` — for an integer parameter

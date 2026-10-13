@@ -25,6 +25,11 @@ sections:
               declared parameter set. Choosing the presenter by type check alone is the
               demonstrable proof that this generic rendering works for every parameter kind the
               library defines today.
+            children:
+              - SpeechDemo-Settings-ParameterConstructionGuards
+              - SpeechDemo-Settings-ChoicePresenter
+              - SpeechDemo-Settings-ChoicePresenterSelectionNotification
+              - SpeechDemo-Settings-ChoicePresenterSelection
             tests:
               - ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters
 
@@ -38,6 +43,16 @@ sections:
               forwards this bag to the synthesizer-engine load so a chosen voice changes what is
               synthesized. The recognition panel does not consume it because the recognition
               session contract accepts no per-call parameter bag.
+            children:
+              - SpeechDemo-Settings-NumericPresenter-DefaultInitialization
+              - SpeechDemo-Settings-NumericPresenter-Clamping
+              - SpeechDemo-Settings-NumericPresenter-IntegerRounding
+              - SpeechDemo-Settings-NumericPresenter-ControlSelection
+              - SpeechDemo-Settings-ChoicePresenterDefaultSelection
+              - SpeechDemo-Settings-BooleanPresenter
+              - SpeechDemo-Settings-NumericPresenter-ContinuousPrecision
+              - SpeechDemo-Settings-BooleanPresenterToggle
+              - SpeechDemo-Settings-ValueBagDuplicateIds
             tests:
               - ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
 
@@ -50,6 +65,9 @@ sections:
               A host that rebuilds the panel (for example after the voice list changes) must be
               able to put the user's tuning back without the restored bag overriding a parameter
               the new model does not declare or an option it no longer offers.
+            children:
+              - SpeechDemo-Settings-RestoreIgnoresWrongTypedValues
+              - SpeechDemo-Settings-RestoreIgnoresStaleValues
             tests:
               - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
               - ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
@@ -61,6 +79,8 @@ sections:
             justification: |
               A blank settings area is indistinguishable from a broken one; the user must be
               told which of the two situations applies.
+            children:
+              - SpeechDemo-Settings-ValueBagEmptyWithoutModel
             tests:
               - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
               - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState
@@ -72,5 +92,49 @@ sections:
             justification: |
               The library may add parameter kinds a host built against an older contract does
               not know; one unknown kind must not hide every other setting.
+            children:
+              - SpeechDemo-Settings-ModelSwitch
+              - SpeechDemo-Settings-UnrecognizedParameterSkipped
             tests:
               - ModelSettingsViewModel_Model_UnrecognizedParameterKind_SkipsItAndPresentsTheRest
+
+          - id: SpeechDemo-Voices-VoiceChoice-ModelSettingsSubsystem
+            title: >-
+              The ModelSettingsSubsystem shall offer the voices of a newly installed reference
+              voice pack for Chatterbox Turbo synthesis immediately, keeping the voice the user
+              already chose.
+            justification: |
+              Subsystem-level grouping of the ModelSettingsSubsystem unit requirements that
+              implement SpeechDemo-Voices-VoiceChoice.
+            children:
+              - SpeechDemo-Settings-RestoreValues
+            tests:
+              - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+
+          - id: SpeechDemo-Settings-EmptyStateExplanation-ModelSettingsSubsystem
+            title: >-
+              The ModelSettingsSubsystem shall explain, rather than silently show nothing, when
+              no model is selected.
+            justification: |
+              Subsystem-level grouping of the ModelSettingsSubsystem unit requirements that
+              implement SpeechDemo-Settings-EmptyStateExplanation.
+            children:
+              - SpeechDemo-Settings-HonestEmptyState
+              - SpeechDemo-Settings-EmptyStateAfterModelCleared
+              - SpeechDemo-Settings-EmptyStateNotifications
+            tests:
+              - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
+              - ModelSettingsViewModel_Model_ChangedToNull_ClearsPresentersAndReportsNoModelState
+              - ModelSettingsViewModel_Model_Changed_RaisesEmptyStateNotifications
+
+          - id: SpeechDemo-Settings-NoParametersExplanation-ModelSettingsSubsystem
+            title: >-
+              The ModelSettingsSubsystem shall explain, rather than silently show nothing, when
+              the selected model declares no tunable parameters.
+            justification: |
+              Subsystem-level grouping of the ModelSettingsSubsystem unit requirements that
+              implement SpeechDemo-Settings-NoParametersExplanation.
+            children:
+              - SpeechDemo-Settings-NoParametersExplained
+            tests:
+              - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState

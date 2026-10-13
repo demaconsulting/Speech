@@ -24,6 +24,13 @@ sections:
               assemblies can implement, so a demo-owned seam accepting the library's public model
               contract is what makes Start/Stop testable with no downloaded model and no native
               runtime.
+            children:
+              - SpeechDemo-Recognition-ModelSelection
+              - SpeechDemo-Recognition-EngineLifetime
+              - SpeechDemo-Recognition-FailedStartReleasesSession
+              - SpeechDemo-Recognition-EngineReuse
+              - SpeechDemo-Recognition-FailedAttemptReleasesResources
+              - SpeechDemo-Recognition-SessionSeamWrongRole
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
 
@@ -34,6 +41,12 @@ sections:
             justification: |
               An unavailable engine must be reported the same honest way the library itself
               reports an uninstalled model.
+            children:
+              - SpeechDemo-Recognition-HonestUnavailableStates
+              - SpeechDemo-Recognition-SessionStartFailureReported
+              - SpeechDemo-Recognition-EngineBusyReported
+              - SpeechDemo-Recognition-SessionFaultedReported
+              - SpeechDemo-Recognition-ResultStreamFaultReported
             tests:
               - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
 
@@ -46,6 +59,15 @@ sections:
               controls; starting is the demonstrable proof that a host can drive the library's
               async engine/session contract from a UI thread with ordinary property-changed
               notification alone.
+            children:
+              - SpeechDemo-Recognition-AutoRefreshOnInstall
+              - SpeechDemo-Recognition-ModelSelectionFallback
+              - SpeechDemo-Recognition-ModelSwitchAllowedAfterError
+              - SpeechDemo-Recognition-SessionSeamModelValidation
+              - SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
+              - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
+              - SpeechDemo-Recognition-DeviceChangeInvalidatesSession
+              - SpeechDemo-Recognition-SessionSeamArgumentValidation
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
 
@@ -55,6 +77,10 @@ sections:
               that it was stopped when Stop is invoked.
             justification: |
               A user must be able to end a streaming session at any time and see that it ended.
+            children:
+              - SpeechDemo-Recognition-StopSession
+              - SpeechDemo-Recognition-StopIdleSafe
+              - SpeechDemo-Recognition-ConcurrentStopSafe
             tests:
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
@@ -105,6 +131,12 @@ sections:
               the capture device is in use. Stopping the session first lets a shared refresh
               proceed deterministically instead of relying on the AudioDeviceInUseException
               fallback.
+            children:
+              - SpeechDemo-Recognition-ResourceLifetime
+              - SpeechDemo-Recognition-ModelSwitchGuard
+              - SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
+              - SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
+              - SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
             tests:
               - RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds
 
@@ -117,3 +149,76 @@ sections:
               created, nor change the panel's state.
             tests:
               - RecognitionPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds
+
+          - id: SpeechDemo-Recognition-SpeechToText-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall let a user start a live streaming
+              transcription session through the selected capture device using a chosen installed
+              recognition model.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-SpeechToText.
+            children:
+              - SpeechDemo-Recognition-DisposeIdempotent
+              - SpeechDemo-Recognition-PanelDependenciesRequired
+              - SpeechDemo-Recognition-ModelSelectionPreserved
+              - SpeechDemo-Recognition-AutoRefreshIgnoresOtherRoles
+            tests:
+              - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+              - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+              - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+              - RecognitionPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+
+          - id: SpeechDemo-Recognition-PartialTranscript-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall show each provisional transcript result as it
+              streams, replacing the previous provisional text.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-PartialTranscript.
+            children:
+              - SpeechDemo-Recognition-TranscriptSequencing
+            tests:
+              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+
+          - id: SpeechDemo-Recognition-FinalTranscript-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall commit each final transcript result as a
+              finished line and clear the provisional text.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-FinalTranscript.
+            children:
+              - SpeechDemo-Recognition-TranscriptFinalCommit
+              - SpeechDemo-Recognition-TranscriptText
+              - SpeechDemo-Recognition-TranscriptResetOnStart
+            tests:
+              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+              - RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder
+              - RecognitionPanelViewModel_Start_SecondRun_ClearsPreviousTranscriptAndStatus
+
+          - id: SpeechDemo-Recognition-UnavailableExplanation-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall report an honest, explanatory outcome, rather
+              than a crash, when no recognition model is installed.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-UnavailableExplanation.
+            children:
+              - SpeechDemo-Recognition-HonestEmptyCatalogState
+              - SpeechDemo-Recognition-NoModelSelectedReported
+            tests:
+              - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+              - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
+
+          - id: SpeechDemo-Recognition-NoCaptureDeviceExplanation-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall report an honest, explanatory outcome, rather
+              than a crash, when no capture device is available and the user starts listening.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-NoCaptureDeviceExplanation.
+            children:
+              - SpeechDemo-Recognition-NoCaptureDeviceReported
+            tests:
+              - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState

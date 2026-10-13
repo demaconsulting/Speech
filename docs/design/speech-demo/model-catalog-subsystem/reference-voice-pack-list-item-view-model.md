@@ -9,7 +9,7 @@ captions and enablement values the row displays.
 | Member | Type | Purpose |
 | --- | --- | --- |
 | `Id` / `DisplayName` | `string` | The pack identity (for example `voice-zero-1.0`) |
-| `SizeText` | `string` | The download size, for example "Download: 570 MiB" (the size comes from the pack descriptor, not from the view model) |
+| `SizeText` | `string` | The download size, for example "Download: 570 MiB" |
 | `HasEmotionVariants` | `bool` | Whether the pack ships emotion clips (`EmotionsBytes` is greater than zero) |
 | `VoicesBytes` / `EmotionsBytes` | `long` (private) | Voices-only and emotion-clip sizes copied from the pack |
 | `IncludeEmotions` | `bool` | The user's choice to install the emotion variants (default `true`) |

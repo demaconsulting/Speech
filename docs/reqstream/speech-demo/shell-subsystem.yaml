@@ -26,5 +26,39 @@ sections:
               audio backend and nothing installed. That must produce a working window that
               explains the situation, not a start-up failure. The behavior spans the shell and
               all four panels, so it is verified by composing them together.
+            children:
+              - SpeechDemo-Shell-CompositionRoot
             tests:
               - MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState
+
+          - id: SpeechDemo-Shell-CapabilityNavigation-ShellSubsystem
+            title: >-
+              The ShellSubsystem shall present each demonstrated library capability as a
+              separately selectable, titled panel.
+            justification: |
+              Subsystem-level grouping of the ShellSubsystem unit requirements that implement
+              SpeechDemo-Shell-CapabilityNavigation.
+            children:
+              - SpeechDemo-Shell-PanelCatalog
+              - SpeechDemo-Shell-DefaultPanel
+              - SpeechDemo-Shell-PanelTitles
+              - SpeechDemo-Shell-PanelEntryTitles
+              - SpeechDemo-Shell-PanelHosting
+              - SpeechDemo-Shell-SelectionNotification
+              - SpeechDemo-Shell-WindowTitle
+              - SpeechDemo-Shell-PanelContent
+              - SpeechDemo-Shell-PanelTitleRequired
+              - SpeechDemo-Shell-PanelContentRequired
+              - SpeechDemo-Shell-SelectionNoNotificationWhenUnchanged
+            tests:
+              - MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
+              - MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
+              - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
+              - MainWindowViewModel_Constructor_ValidPanels_EveryEntryHasNonBlankTitle
+              - MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances
+              - MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
+              - MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
+              - DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
+              - DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException
+              - DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException
+              - MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify
