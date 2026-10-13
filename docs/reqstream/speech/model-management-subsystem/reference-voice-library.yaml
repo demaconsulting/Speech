@@ -152,6 +152,7 @@ sections:
                   A first run before any download must simply offer no voices.
                 tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
+                  - ReferenceVoiceLibrary_EnumerateVoices_MalformedDirectory_IsSkippedWithoutThrowing
 
               - id: Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
                 title: >-
@@ -199,7 +200,7 @@ sections:
                   A later voices-only request must not discard downloaded emotion clips or trigger
                   another download.
                 tests:
-                  - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
+                  - ReferenceVoiceLibrary_InstallPack_VoicesOnlyOverEmotionInstall_NeverDowngrades
 
               - id: Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
                 title: >-

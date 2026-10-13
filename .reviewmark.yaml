@@ -573,6 +573,8 @@ reviews:
       - "docs/design/speech/model-management-subsystem/reference-voice-pack.md"
       - "docs/verification/speech/model-management-subsystem/reference-voice-pack.md"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePack.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceInfo.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceSource.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackTests.cs"
 
   # Speech-ModelManagementSubsystem-ReferenceVoiceLibrary Review (one per unit)
@@ -588,8 +590,6 @@ reviews:
       - "docs/design/speech/model-management-subsystem/reference-voice-library.md"
       - "docs/verification/speech/model-management-subsystem/reference-voice-library.md"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceLibrary.cs"
-      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceInfo.cs"
-      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceSource.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
 

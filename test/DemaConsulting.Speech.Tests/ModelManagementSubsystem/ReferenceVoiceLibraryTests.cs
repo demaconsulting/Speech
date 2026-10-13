@@ -246,6 +246,43 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that requesting base voices only over an install that has emotions never downgrades it and never
+    ///     downloads again.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_VoicesOnlyOverEmotionInstall_NeverDowngrades()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Act
+        var again = await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, again.Outcome);
+        Assert.Single(client.Requests);
+        Assert.True(await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
+        Assert.NotNull(library.EnumerateVoices().Single(voice => voice.Id == "alana_jordan").MoodClips);
+    }
+
+    /// <summary>
+    ///     Proves that a malformed caller-named directory is skipped with a warning instead of throwing.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceLibrary_EnumerateVoices_MalformedDirectory_IsSkippedWithoutThrowing()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(NewStore());
+
+        // Act
+        var voices = library.EnumerateVoices(["bad\0path"]);
+
+        // Assert
+        Assert.Empty(voices);
+    }
+
+    /// <summary>
     ///     Proves that a failed upgrade (checksum mismatch) keeps the previous voices-only install and leaves no backup.
     /// </summary>
     [Fact]

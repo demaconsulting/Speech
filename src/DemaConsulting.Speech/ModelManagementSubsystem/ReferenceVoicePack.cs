@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// </remarks>
 public sealed class ReferenceVoicePack
 {
-    /// <summary>The characters that make a pack id unusable as a single directory name segment on any platform (the drive colon is included).</summary>
+    /// <summary>The characters that make a name (pack id, archive file name or archive root folder) unusable as a single directory name segment on any platform (the drive colon is included).</summary>
     private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\', ':'];
 
     /// <summary>Gets the built-in voice-zero 1.0 pack (CC0, 154 speakers, 13 moods each; about 570 MiB to download, about 44 MiB installed as voices only and about 572 MiB with emotions).</summary>
@@ -147,7 +147,7 @@ public sealed class ReferenceVoicePack
     public long EmotionsBytes { get; }
 
     /// <summary>
-    ///     Gets the number of bytes the pack occupies once installed.
+    ///     Returns the number of bytes the pack occupies once installed.
     /// </summary>
     /// <param name="includeEmotions"><see langword="true"/> to include the emotion clips.</param>
     /// <returns><see cref="VoicesBytes"/>, plus <see cref="EmotionsBytes"/> when <paramref name="includeEmotions"/> is set.</returns>

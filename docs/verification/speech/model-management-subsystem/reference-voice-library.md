@@ -10,13 +10,15 @@ constructor to substitute the synthetic pack for the built-in one. No network ac
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
+- **File system**: a temporary directory under the system temp path, created per test and deleted afterward
 
 #### Acceptance Criteria
 
 Tests pass when the documented layout is produced and no folder is created until asked; install, repeat,
 failure and state reporting behave as specified (including a mirror URL and a checksum mismatch
-installing nothing); uninstall keeps the user folder, discards an upgrade backup and, without blocking,
-throws `SpeechModelStoreException` while an install of the pack is in flight; disposal is idempotent
+installing nothing); uninstall keeps the user folder, discards an upgrade backup and waits for an
+in-flight install of the pack before removing it (a token canceled while waiting cancels only the uninstall
+and leaves the install intact); disposal is idempotent
 and a disposed library refuses installs; emotion variants install by default, are optional, attach as
 `MoodClips` without adding voice ids, upgrade a voices-only install safely (a failed, canceled or
 abandoned upgrade keeps the previous install), serialize concurrent installs and report variants
@@ -76,6 +78,7 @@ are humanized, and the consent notice is exposed.
 
 **Tests**: `ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins`,
 `ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic`,
+`ReferenceVoiceLibrary_EnumerateVoices_MalformedDirectory_IsSkippedWithoutThrowing`,
 `ReferenceVoiceLibrary_Humanize_FormatsName`,
 `ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone`
 
@@ -94,6 +97,7 @@ voices only, and the progress overload includes emotions.
 abandoned backup, keep or restore the previous install.
 
 **Tests**: `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`,
+`ReferenceVoiceLibrary_InstallPack_VoicesOnlyOverEmotionInstall_NeverDowngrades`,
 `ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`,
 `ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall`,
 `ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`

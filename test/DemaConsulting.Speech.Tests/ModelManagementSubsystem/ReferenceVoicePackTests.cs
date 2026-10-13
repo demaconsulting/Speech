@@ -36,11 +36,14 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_VoiceZero10_HasPublishedMetadata()
     {
+        // Arrange
+        var expectedId = "voice-zero-1.0";
+
         // Act
         var pack = ReferenceVoicePack.VoiceZero10;
 
         // Assert
-        Assert.Equal("voice-zero-1.0", pack.Id);
+        Assert.Equal(expectedId, pack.Id);
         Assert.Equal(
             "https://github.com/OwenTyme/voice-zero/releases/download/1.0/voice-zero-1.0.zip",
             pack.Uri.ToString());
@@ -49,6 +52,7 @@ public sealed class ReferenceVoicePackTests
         Assert.Equal("CC0 1.0 Universal", pack.LicenseName);
         Assert.Equal("voice-zero", pack.ArchiveRootFolder);
         Assert.Equal("voice-zero-1.0.zip", pack.ArchiveFileName);
+        Assert.Equal("voice-zero by OwenTyme", pack.Attribution);
         Assert.Contains(pack, ReferenceVoicePack.All);
     }
 
@@ -146,13 +150,6 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
-    ///     Proves that a negative archive size is rejected.
-    /// </summary>
-    [Fact]
-    public void ReferenceVoicePack_Constructor_NegativeSize_Throws() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => Create(size: -1));
-
-    /// <summary>
     ///     Proves that the built-in pack carries the sizes measured from the real archive (voices plus license/readme
     ///     files, and the emotion clips) and that the installed-size arithmetic adds them only when emotions are included.
     /// </summary>
@@ -192,8 +189,17 @@ public sealed class ReferenceVoicePackTests
     ///     Proves that a non-HTTPS archive URI is rejected.
     /// </summary>
     [Fact]
-    public void ReferenceVoicePack_Constructor_NonHttpsUri_Throws() =>
-        Assert.Throws<ArgumentException>(() => Create(uri: new Uri("http://example.invalid/pack-1.zip")));
+    public void ReferenceVoicePack_Constructor_NonHttpsUri_Throws()
+    {
+        // Arrange
+        var uri = new Uri("http://example.invalid/pack-1.zip");
+
+        // Act
+        var act = () => Create(uri: uri);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+    }
 
     /// <summary>
     ///     Proves that a malformed checksum is rejected.
@@ -201,8 +207,17 @@ public sealed class ReferenceVoicePackTests
     [Theory]
     [InlineData("abc")]
     [InlineData("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")]
-    public void ReferenceVoicePack_Constructor_BadChecksum_Throws(string checksum) =>
-        Assert.Throws<ArgumentException>(() => Create(checksum: checksum));
+    public void ReferenceVoicePack_Constructor_BadChecksum_Throws(string checksum)
+    {
+        // Arrange
+        // (the checksum is the theory argument)
+
+        // Act
+        var act = () => Create(checksum: checksum);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+    }
 
     /// <summary>
     ///     Proves that an id, archive name or root folder that is not a single safe name is rejected.
@@ -216,8 +231,17 @@ public sealed class ReferenceVoicePackTests
     [InlineData("C:pack")]
     [InlineData("C:\\pack")]
     [InlineData("/pack")]
-    public void ReferenceVoicePack_Constructor_UnsafeId_Throws(string id) =>
-        Assert.ThrowsAny<ArgumentException>(() => Create(id: id));
+    public void ReferenceVoicePack_Constructor_UnsafeId_Throws(string id)
+    {
+        // Arrange
+        // (the id is the theory argument)
+
+        // Act
+        var act = () => Create(id: id);
+
+        // Assert
+        Assert.ThrowsAny<ArgumentException>(act);
+    }
 
     /// <summary>
     ///     Proves that a rooted or drive-qualified archive root folder is rejected on every platform.
@@ -226,22 +250,70 @@ public sealed class ReferenceVoicePackTests
     [InlineData("C:")]
     [InlineData("C:root")]
     [InlineData("/root")]
-    public void ReferenceVoicePack_Constructor_RootedRootFolder_Throws(string root) =>
-        Assert.Throws<ArgumentException>(() => Create(root: root));
+    public void ReferenceVoicePack_Constructor_RootedRootFolder_Throws(string root)
+    {
+        // Arrange
+        // (the root folder is the theory argument)
+
+        // Act
+        var act = () => Create(root: root);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+    }
 
     /// <summary>
     ///     Proves that an unsafe archive root folder is rejected.
     /// </summary>
     [Fact]
-    public void ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws() =>
-        Assert.Throws<ArgumentException>(() => Create(root: "a/b"));
+    public void ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws()
+    {
+        // Arrange
+        const string root = "a/b";
+
+        // Act
+        var act = () => Create(root: root);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+    }
 
     /// <summary>
-    ///     Proves that a non-positive size is rejected.
+    ///     Proves that a non-positive (zero or negative) size is rejected.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ReferenceVoicePack_Constructor_NonPositiveSize_Throws(long size)
+    {
+        // Arrange
+        // (the size is the theory argument)
+
+        // Act
+        var act = () => Create(size: size);
+
+        // Assert
+        Assert.Throws<ArgumentOutOfRangeException>(act);
+    }
+
+    /// <summary>
+    ///     Proves that the known mood list holds the 13 moods the pack provides, all lower-case and distinct.
     /// </summary>
     [Fact]
-    public void ReferenceVoicePack_Constructor_NonPositiveSize_Throws() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => Create(size: 0));
+    public void ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods()
+    {
+        // Arrange
+        var moods = ReferenceVoiceInfo.KnownMoods;
+
+        // Act
+        var distinct = moods.Distinct(StringComparer.Ordinal).Count();
+
+        // Assert
+        Assert.Equal(13, moods.Count);
+        Assert.Equal(13, distinct);
+        Assert.All(moods, mood => Assert.Equal(mood.ToLowerInvariant(), mood));
+        Assert.Contains("neutral", moods);
+    }
 
     /// <summary>
     ///     Proves that a voice's mood clip is found case-insensitively after trimming the requested name, and that

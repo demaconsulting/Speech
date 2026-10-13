@@ -7,12 +7,14 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 
 **Data Model**:
 
-- `ReferenceVoicePack` (sealed class): `Id`, `DisplayName`, `Uri` (HTTPS), `Sha256Checksum` (64 hex),
-  `SizeBytes`, `VoicesBytes`, `EmotionsBytes`, `ArchiveFileName`, `ArchiveRootFolder`, `LicenseName`, `LicenseUrl`, `Attribution`,
-  `SourceUrl`. `VoicesBytes`/`EmotionsBytes` (default 0) are the measured installed sizes of the base
-  voices (with the license and readme files) and of the emotion clips, and `InstalledSizeBytes(bool
-  includeEmotions)` sums the chosen variants. An internal `DownloadDescriptor` projects it onto a one-file
-  `SpeechModelDownloadDescriptor` whose relative install path is the archive file name.
+- `ReferenceVoicePack` (sealed class, reference identity; instances with equal values are not equal):
+  `Id`, `DisplayName`, `Uri` (HTTPS), `Sha256Checksum` (64 hex),
+  `SizeBytes`, `VoicesBytes`, `EmotionsBytes`, `ArchiveFileName`, `ArchiveRootFolder`, `LicenseName`,
+  `LicenseUrl`, `Attribution`, `SourceUrl`. `VoicesBytes`/`EmotionsBytes` (default 0) are the measured
+  installed sizes of the base voices (with the license and readme files) and of the emotion clips, and
+  `InstalledSizeBytes(bool includeEmotions)` sums the chosen variants. An internal `DownloadDescriptor`
+  projects it onto a one-file `SpeechModelDownloadDescriptor` whose relative install path is the archive
+  file name.
 - `ReferenceVoicePack.VoiceZero10`: the built-in voice-zero 1.0 pack by OwenTyme (CC0 1.0 Universal).
   Its archive URL, size, SHA-256, root folder and measured installed sizes are pinned only in
   `ReferenceVoicePack.cs` and verified by the unit tests (see the requirement
@@ -24,10 +26,10 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 - `ReferenceVoiceInfo` (sealed record): `Id`, `DisplayName`, `FilePath`, `Source`, `PackId`, `Speaker`,
   `Mood`, `LicenseName`, `Attribution`, `MoodClips`; the engine-neutral description of one clip on
   disk, populated by `ReferenceVoiceLibrary.EnumerateVoices` (which owns how each field is filled, see
-  the `ReferenceVoiceLibrary` design). `MoodClips` is an optional read-only map of lower-case mood name to the
-  absolute path of that
-  speaker's emotion clip, or `null` when the voice has none (user and directory voices, and packs
-  installed without emotions). `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack provides:
+  the `ReferenceVoiceLibrary` design). `MoodClips` is an optional read-only map of lower-case mood name to
+  the absolute path of that speaker's emotion clip, or `null` when the voice has none (user and directory
+  voices, and packs installed without emotions). `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack
+  provides:
   anger, calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired,
   worried. Moods are variants of a voice, not separate voices; `Mood` stays `null` for pack voices.
 
@@ -42,7 +44,8 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   case-insensitively after trimming; a null or blank name, an unknown mood or a voice without mood clips
   reports no match. Consumers use it instead of indexing `MoodClips` directly.
 
-**Error Handling**: The constructor throws `ArgumentException` for a non-HTTPS URL, a malformed
+**Error Handling**: The constructor throws `ArgumentNullException` for a null reference argument,
+`ArgumentException` for a blank text argument, a non-HTTPS URL, a malformed
 checksum, or an id, archive file name or archive root folder that is not a single safe path segment
 (no separators, drive colon, `.`/`..` or rooted names, on every platform), and
 `ArgumentOutOfRangeException` for a non-positive size or a

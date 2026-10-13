@@ -37,7 +37,7 @@ root folder and is listed in `All`, and when every invalid constructor argument 
 Drive-qualified (`C:`, `C:\x`) and leading-slash names for the id, archive file name and root folder are
 rejected on every platform, not only where the platform's invalid-character set happens to include them.
 
-**Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws`
+**Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws` (zero and negative sizes)
 
 ##### Size Metadata
 
@@ -49,7 +49,17 @@ rejected on every platform, not only where the platform's invalid-character set 
 
 **Tests**: `ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive`,
 `ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields`,
-`ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws`, `ReferenceVoicePack_Constructor_NegativeSize_Throws`
+`ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws`
+
+##### Reference Identity
+
+**Test**: `ReferenceVoicePack_Equals_SameValuesDifferentInstances_AreNotEqual`
+
+Verifies two descriptors built from equal values are distinct, unequal instances.
+
+##### Known Moods
+
+**Test**: `ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods`
 
 ##### Mood Clip Lookup
 

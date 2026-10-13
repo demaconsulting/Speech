@@ -421,11 +421,11 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     ///     Gets the variants an installed pack was extracted with, as recorded in its <c>pack.json</c>.
     /// </summary>
     /// <param name="packId">The pack id.</param>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
     /// <returns>
     ///     The variant names (<c>voices</c>, and <c>voices-emotion</c> when the emotion clips were extracted); empty
     ///     when the pack is not installed or its metadata is missing or unreadable. Never throws for a known id.
     /// </returns>
-    /// <param name="cancellationToken">A token that aborts the read.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     public async Task<IReadOnlyList<string>> GetPackInstalledVariantsAsync(string packId, CancellationToken cancellationToken = default)
@@ -458,8 +458,8 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     ///     Determines whether an installed pack was extracted with its emotion (mood) clips.
     /// </summary>
     /// <param name="packId">The pack id.</param>
-    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>. Never throws for a known id.</returns>
     /// <param name="cancellationToken">A token that aborts the read.</param>
+    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>. Never throws for a known id.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     public async Task<bool> PackHasEmotionsAsync(string packId, CancellationToken cancellationToken = default) =>
@@ -530,7 +530,18 @@ public sealed class ReferenceVoiceLibrary : IDisposable
 
         foreach (var directory in (extraDirectories ?? []).Where(directory => !string.IsNullOrWhiteSpace(directory)))
         {
-            AddVoicesFrom(Path.GetFullPath(directory), ReferenceVoiceSource.Directory, pack: null, voices, seen);
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(directory);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                _diagnostics.Report(SpeechDiagnosticLevel.Warning, DiagnosticsCategory, $"Reference voice folder '{directory}' is not a valid path: {ex.Message}");
+                continue;
+            }
+
+            AddVoicesFrom(fullPath, ReferenceVoiceSource.Directory, pack: null, voices, seen);
         }
 
         AddVoicesFrom(UserDirectory, ReferenceVoiceSource.User, pack: null, voices, seen);
@@ -581,6 +592,7 @@ public sealed class ReferenceVoiceLibrary : IDisposable
 
         return [TitleCase(word)];
     }
+
     /// <summary>Upper-cases the first character and lower-cases the rest.</summary>
     private static string TitleCase(string word) =>
         char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant();
@@ -604,7 +616,8 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>
-    ///     Finds the mood clips of one speaker under <c>{emotionsDirectory}\{speaker}\{mood}.flac</c>, keyed by lower-case
+    ///     Finds the mood clips of one speaker under <c>{emotionsDirectory}\{speaker}\{mood}.{ext}</c> (any extension in
+    ///     <see cref="AudioFileReader.SupportedExtensions"/>), keyed by lower-case
     ///     mood and sorted ordinally; <see langword="null"/> when there are none or the folder cannot be read.
     /// </summary>
     private SortedDictionary<string, string>? FindMoodClips(string emotionsDirectory, string speaker)
@@ -619,7 +632,8 @@ public sealed class ReferenceVoiceLibrary : IDisposable
 
             var clips = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (var file in Directory.EnumerateFiles(speakerDirectory)
-                .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)))
+                .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                .Order(StringComparer.Ordinal))
             {
                 var mood = Path.GetFileNameWithoutExtension(file).Trim().ToLowerInvariant();
                 if (mood.Length > 0)

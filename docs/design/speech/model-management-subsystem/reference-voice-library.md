@@ -82,14 +82,16 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
 **Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws
 `ObjectDisposedException` from `InstallPackAsync`; cancellation propagates. Install failures are
 returned as a classified `SpeechModelDownloadResult`, not thrown. Enumeration never creates folders
-and never throws for a missing directory, and returns an empty list when nothing is present. An
+and never throws for a missing, unreadable or malformed directory (a malformed path is treated as absent), and returns an empty list when nothing is present. An
 uninstall that cannot complete because files are in use throws `SpeechModelStoreException`.
 
 **Consent notice**: The public constant `ConsentNotice` is the shared wording hosts show when listing
 or choosing voices: cloning a real person's voice requires that person's consent.
 
-**Dependencies**: `SpeechModelStore`, `SpeechModelDownloader`, `ReferenceVoicePack`,
-`ReferenceVoicePackInstaller`, `AudioFileReader.SupportedExtensions` (accepted clip extensions),
+**Dependencies**: `SpeechModelStore`, `SpeechModelDownloader`, `IModelDownloadClient` (injected by tests),
+`SpeechModelDownloadResult` (returned from installs), `ReferenceVoicePack`,
+`ReferenceVoicePackInstaller`, `ReferenceVoiceInfo` and `ReferenceVoiceSource` (the voice values it returns;
+defined with `ReferenceVoicePack`), `AudioFileReader.SupportedExtensions` (accepted clip extensions),
 `ISpeechDiagnostics`.
 
 **Callers**: The `ChatterboxTurbo` model and catalog extension, and hosts (the CLI and demo) that

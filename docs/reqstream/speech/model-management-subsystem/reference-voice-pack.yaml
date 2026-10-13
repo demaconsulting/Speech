@@ -85,3 +85,21 @@ sections:
                   must resolve to the same clip.
                 tests:
                   - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
+
+              - id: Speech-Models-ReferenceVoicePack-KnownMoods
+                title: >-
+                  The ReferenceVoiceInfo record shall list the thirteen mood names that a pack's
+                  emotion clips use.
+                justification: |
+                  Hosts offer the moods without hard-coding them.
+                tests:
+                  - ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods
+
+              - id: Speech-Models-ReferenceVoicePack-DownloadDescriptor
+                title: >-
+                  The ReferenceVoicePack class shall describe its archive to the model downloader
+                  as exactly one file carrying the archive address, checksum and file name.
+                justification: |
+                  The pack is installed through the same verified download path as models.
+                tests:
+                  - ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive
