@@ -184,6 +184,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         await client.DidNotReceive().DownloadAsync(
             Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
         diagnostics.Received(1).Report(SpeechDiagnosticLevel.Info, "ModelManagementSubsystem", Arg.Any<string>());
+        Assert.False(Directory.Exists(Path.Join(store.GetModelDirectory("model-a"), ".tmp")));
     }
 
     /// <summary>
@@ -1146,6 +1147,36 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
         Assert.IsType<IOException>(result.Error);
         Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a failure to create the staging directory is classified as
+    ///     <see cref="SpeechModelDownloadOutcome.IoFailure"/> and reported as an Error diagnostic, rather than
+    ///     escaping as an exception, and that the download client is never invoked.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure()
+    {
+        // Arrange: a file occupying the model's .tmp path makes creating a staging directory fail
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetModelDirectory("model-a"));
+        await File.WriteAllTextAsync(Path.Join(store.GetModelDirectory("model-a"), ".tmp"), "not a directory", TestContext.Current.CancellationToken);
+        var client = Substitute.For<IModelDownloadClient>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var downloader = new SpeechModelDownloader(store, client, diagnostics);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.IsAssignableFrom<IOException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+        diagnostics.Received(1).Report(SpeechDiagnosticLevel.Error, "ModelManagementSubsystem", Arg.Any<string>());
+        await client.DidNotReceive().DownloadAsync(
+            Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>

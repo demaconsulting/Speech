@@ -129,6 +129,7 @@ sections:
               - Speech-Models-SpeechModelDownloader-InstallHookOverload
               - Speech-Models-SpeechModelDownloader-DisposedThrows
               - Speech-Models-SpeechModelDownloader-ArgumentValidation
+              - Speech-Models-SpeechModelDownloader-InvalidModelIdValidation
             tests:
               - SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException
               - SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException
@@ -175,6 +176,7 @@ sections:
               special-case which outcomes populate it.
             children:
               - Speech-Models-SpeechModelDownloader-ChecksumMismatch
+              - Speech-Models-SpeechModelDownloader-ChecksumMismatchInstallsNothing
               - Speech-Models-SpeechModelDownloader-CancellationDiscardsStaging
               - Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
               - Speech-Models-SpeechModelDownloader-InstallHookDelegateFailure
@@ -194,6 +196,7 @@ sections:
               model's perspective, not a risk of leaving it half-updated or removed.
             children:
               - Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
+              - Speech-Models-SpeechModelDownloader-AlreadyInstalledInfoDiagnostic
               - Speech-Models-SpeechModelDownloader-AlreadyInstalledLeftoverCleanup
               - Speech-Models-SpeechModelDownloader-AlreadyInstalledPreservesPriorInstall
               - Speech-Models-SpeechModelDownloader-InstallHookSkippedWhenAlreadyInstalled
@@ -217,6 +220,7 @@ sections:
               - Speech-Models-SpeechModelDownloadFile-InstallPathValidation
               - Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
               - Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
+              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPathNullArgument
               - Speech-Models-SpeechModelDownloadDescriptor-Validation
               - Speech-Models-SpeechModelDownloadDescriptor-FileListRejection
               - Speech-Models-SpeechModelDownloadDescriptor-DuplicatePathRejection
@@ -322,6 +326,8 @@ sections:
               - Speech-Models-SpeechModelDownloader-NetworkBlockedSocket
               - Speech-Models-SpeechModelDownloader-NetworkBlockedTimeout
               - Speech-Models-SpeechModelDownloader-IoFailureClassification
+              - Speech-Models-SpeechModelDownloader-UnauthorizedAccessClassification
+              - Speech-Models-SpeechModelDownloader-StagingCreationFailure
               - Speech-Models-SpeechModelDownloader-GenericFailureFallback
               - Speech-Models-SpeechModelDownloader-CallerCancellationPropagates
             tests:
@@ -430,7 +436,11 @@ sections:
               substituted. One shared validation guarantees both factories apply identical rules.
             children:
               - Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
-              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueInvalid
+              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueOutOfRange
+              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueWrongType
+              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueNonFinite
+              - Speech-Models-SpeechModelParameterDiagnostics-IntegerValueFractional
+              - Speech-Models-SpeechModelParameterDiagnostics-FirstInvalidValueReported
               - Speech-Models-SpeechModelParameterDiagnostics-NumericValueAccepted
               - Speech-Models-SpeechModelParameterDiagnostics-ChoiceValueInvalid
               - Speech-Models-SpeechModelParameterDiagnostics-BooleanValueInvalid
@@ -545,6 +555,7 @@ sections:
               - Speech-Models-ReferenceVoicePack-PublishedMetadata
               - Speech-Models-ReferenceVoicePack-KnownPacksListing
               - Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
               - Speech-Models-ReferenceVoicePack-SizeMetadata
               - Speech-Models-ReferenceVoicePack-InstalledSizeValidation
             tests:

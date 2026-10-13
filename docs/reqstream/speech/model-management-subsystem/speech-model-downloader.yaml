@@ -14,13 +14,21 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-ArgumentValidation
                 title: >-
                   The SpeechModelDownloader class shall reject a null descriptor or model with
-                  ArgumentNullException and a null, empty, or invalid model id with
-                  ArgumentException, before any download is attempted.
+                  ArgumentNullException before any download is attempted.
                 justification: |
                   Invalid arguments are caller programming errors; failing fast avoids touching the
                   network or disk and avoids misreporting them as download failures.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelDownloader-InvalidModelIdValidation
+                title: >-
+                  The SpeechModelDownloader class shall reject a null, empty, or invalid model id
+                  with ArgumentException before any download is attempted.
+                justification: |
+                  An invalid model id is a caller programming error and must not reach the file
+                  system or the network.
+                tests:
                   - SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloader-PerModelSerialization
@@ -58,7 +66,7 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-DisposeWhileInFlight
                 title: >-
                   The SpeechModelDownloader class shall let a download that is already running
-                  complete without a lock-release error when the downloader is disposed meanwhile.
+                  complete successfully when the downloader is disposed meanwhile.
                 justification: |
                   Disposal is not synchronized with in-flight downloads; releasing a disposed
                   per-model lock must not turn a successful install into an exception.
@@ -112,8 +120,8 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-ChecksumMismatch
                 title: >-
                   The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.ChecksumMismatch
-                  with Error populated with a descriptive exception, and install nothing, when a
-                  downloaded file's SHA-256 checksum does not match its declared value.
+                  with Error populated with a descriptive exception when a downloaded file's
+                  SHA-256 checksum does not match its declared value.
                 justification: |
                   A host must be able to trust that "installed" means "verified"; a checksum
                   mismatch must never silently install unverified or tampered content, and
@@ -121,6 +129,15 @@ sections:
                   outcome (matching the Failed outcome) rather than left null only for this one
                   outcome, so a host never has to special-case which non-Installed outcomes carry
                   a diagnosable exception.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+
+              - id: Speech-Models-SpeechModelDownloader-ChecksumMismatchInstallsNothing
+                title: >-
+                  The SpeechModelDownloader class shall install nothing when a downloaded file's
+                  SHA-256 checksum does not match its declared value.
+                justification: |
+                  Unverified or tampered content must never become installed content.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
 
@@ -138,15 +155,23 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
                 title: >-
                   The SpeechModelDownloader class shall return
-                  SpeechModelDownloadOutcome.Installed immediately, without any network fetch,
-                  and report an Info-level diagnostic when the requested model id is already
-                  installed.
+                  SpeechModelDownloadOutcome.Installed immediately, without any network fetch or
+                  staging directory, when the requested model id is already installed.
                 justification: |
                   A host calling DownloadAsync unconditionally on every launch (the documented
                   quickstart pattern) must not re-download and re-verify a model's full payload
                   every time merely to confirm it is already installed; the check must be made
                   inside the model id's own lock to stay race-safe against a concurrent
                   first-time install of the same model id.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
+
+              - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledInfoDiagnostic
+                title: >-
+                  The SpeechModelDownloader class shall report an Info-level diagnostic when the
+                  requested model id is already installed.
+                justification: |
+                  A host diagnosing startup behavior can see that the download was skipped.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
 
@@ -165,12 +190,11 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledPreservesPriorInstall
                 title: >-
                   The SpeechModelDownloader class shall leave a model's prior successful install
-                  completely untouched when a second DownloadAsync call is made for the same,
-                  already-installed model id - the already-installed fast path takes over
-                  regardless of what descriptor or model the second call supplies, so the prior
-                  install can never be regressed by a second call.
+                  unchanged when a second DownloadAsync call is made for the same,
+                  already-installed model id.
                 justification: |
-                  A second call for an already-installed model id must be a safe no-op from the
+                  The already-installed path takes over regardless of what descriptor or model the
+                  second call supplies. A second call for an already-installed model id must be a safe no-op from the
                   model's perspective; it must never regress an already-working model to a
                   half-updated or removed state, even when the second call's descriptor would
                   itself have failed checksum verification had it genuinely been re-attempted.
@@ -320,13 +344,32 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-IoFailureClassification
                 title: >-
                   The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.IoFailure
-                  for a download/install failure that is an IOException or UnauthorizedAccessException.
+                  for a download/install failure that is an IOException.
                 justification: |
                   A local disk or permission failure calls for different remediation than a network
                   problem.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
+
+              - id: Speech-Models-SpeechModelDownloader-UnauthorizedAccessClassification
+                title: >-
+                  The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.IoFailure
+                  for a download/install failure that is an UnauthorizedAccessException.
+                justification: |
+                  A permission failure on the local disk calls for different remediation than a
+                  network problem.
+                tests:
                   - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
+
+              - id: Speech-Models-SpeechModelDownloader-StagingCreationFailure
+                title: >-
+                  The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.IoFailure,
+                  without invoking the download client, when the staging directory cannot be created.
+                justification: |
+                  Download failures are reported as results rather than thrown, including local
+                  file-system failures that occur before any network work starts.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure
 
               - id: Speech-Models-SpeechModelDownloader-GenericFailureFallback
                 title: >-

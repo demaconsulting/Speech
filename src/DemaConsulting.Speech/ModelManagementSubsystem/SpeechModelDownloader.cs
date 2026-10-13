@@ -384,7 +384,23 @@ public sealed class SpeechModelDownloader : IDisposable
         // before starting a new one, per the store's non-blocking cleanup policy.
         await _store.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
 
-        var (operationId, stagingDirectory) = _store.BeginStaging(modelId);
+        string operationId;
+        string stagingDirectory;
+        try
+        {
+            (operationId, stagingDirectory) = _store.BeginStaging(modelId);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Creating the staging directory is a local file-system step, so a failure here is reported as an
+            // IoFailure result like every other disk failure rather than escaping as an exception
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                "ModelManagementSubsystem",
+                $"Failed to download model '{modelId}': {ex.Message}");
+            return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.IoFailure, ex);
+        }
+
         try
         {
             long totalSizeBytes = 0;
@@ -519,8 +535,7 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     <see cref="SpeechModelDownloadOutcome.Failed"/> as the final, generic fallback for any
     ///     unmatched exception type - this classification never throws, and an unmatched
     ///     exception still produces <see cref="SpeechModelDownloadOutcome.Failed"/> with the
-    ///     exception preserved in <see cref="SpeechModelDownloadResult.Error"/>, exactly as
-    ///     before this richer classification existed.
+    ///     exception preserved in <see cref="SpeechModelDownloadResult.Error"/>.
     /// </returns>
     private static SpeechModelDownloadOutcome ClassifyFailure(Exception ex) => ex switch
     {

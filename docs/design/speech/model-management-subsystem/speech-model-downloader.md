@@ -75,7 +75,12 @@ underlying exception, populated for every non-`Installed` outcome.
   call unconditionally on every launch; once a model is installed there is no way through this
   public API to force a re-verification/repair of it (a host that wants to force a fresh
   install must first uninstall the model). When the model is not yet installed, proceeds to
-  begin staging via `SpeechModelStore`, fetches each declared file in order (rewriting each
+  sweep leftovers (`CleanUpLeftoversAsync`, which never throws for ordinary storage conditions) and then begin
+  staging via `SpeechModelStore.BeginStaging`. A local file-system failure creating the staging directory
+  (`IOException` or `UnauthorizedAccessException`) is reported as an `IoFailure` result with an `Error`
+  diagnostic, like every other disk failure. The downloader then resolves each file's staged path through
+  `SpeechModelDownloadFile.ResolveStagedPath` (the same helper an install hook uses, so both agree on the path
+  regardless of the separator the declared `RelativeInstallPath` used), fetches each declared file in order (rewriting each
   file's progress reports with its true `FileIndex`/`FileCount` via an internal,
   order-preserving `RelayProgress` adapter), verifies its SHA-256 checksum, and - only once
   every file verifies - hands the staging
@@ -127,8 +132,8 @@ offending file's relative install path. Any other exception - raised either by t
 or by a model's own `InstallAsync` hook - is first checked by a guarded
 `catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)` clause that
 rethrows a genuine *caller* cancellation completely unchanged, never folding it into a result; only
-once that guard has ruled out caller cancellation is every other exception passed to a dedicated,
-directly unit-testable `ClassifyFailure(exception)` helper, which maps it to the most specific
+once that guard has ruled out caller cancellation is every other exception passed to a dedicated private
+`ClassifyFailure(exception)` helper (exercised through `DownloadAsync`), which maps it to the most specific
 outcome it recognizes: `HttpError` for an `HttpRequestException` with a non-null `StatusCode` (a
 real HTTP response was received, e.g. 404/403/5xx); `NetworkBlocked` for an `HttpRequestException`
 wrapping an `AuthenticationException` (a TLS/certificate failure - the shape produced by
@@ -137,8 +142,7 @@ unreachable), or for a private `HttpFetchTimeoutException` (an internal HTTP req
 see below); `IoFailure` for an `IOException` or `UnauthorizedAccessException` (disk full,
 permission denied, path too long); and `Failed` as the final generic fallback for anything else,
 with the original exception always attached. Classification itself never throws - an unrecognized
-exception type simply falls through to `Failed`, exactly as every exception did before this
-feature existed.
+exception type simply falls through to `Failed`.
 
 `FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync`
 call in a private `HttpFetchTimeoutException` only when all three guard conditions hold: the
