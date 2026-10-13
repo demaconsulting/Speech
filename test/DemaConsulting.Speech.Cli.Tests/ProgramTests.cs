@@ -98,6 +98,45 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Test that when several top-level actions are requested, version takes priority over help,
+    ///     and help takes priority over validation.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var versionWriter = new StringWriter();
+            Console.SetOut(versionWriter);
+            using (var context = Context.Create(["--validate", "--help", "--version"]))
+            {
+                await Program.RunAsync(context);
+            }
+
+            var versionOutput = versionWriter.ToString();
+            Assert.Contains(Program.Version, versionOutput);
+            Assert.DoesNotContain("Usage:", versionOutput);
+            Assert.DoesNotContain("Total Tests:", versionOutput);
+
+            using var helpWriter = new StringWriter();
+            Console.SetOut(helpWriter);
+            using (var context = Context.Create(["--validate", "--help"]))
+            {
+                await Program.RunAsync(context);
+            }
+
+            var helpOutput = helpWriter.ToString();
+            Assert.Contains("Usage:", helpOutput);
+            Assert.DoesNotContain("Total Tests:", helpOutput);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
     ///     Test that Run with validate flag runs validation.
     /// </summary>
     [Fact]

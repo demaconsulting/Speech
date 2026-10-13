@@ -794,6 +794,41 @@ public sealed class RecognizeCommandTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
     }
 
+    /// <summary>
+    ///     Test that mic mode, given an available capture device, binds the session to that device,
+    ///     starts it, streams the results to the console and ends on the silence timeout.
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice()
+    {
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = self => self.RaiseResult("hello mic", isFinal: true);
+        var probe = new FakeAudioCaptureDeviceProbe([new AudioDeviceDescription("Fake Mic", AudioDeviceDirection.Capture, 1, 16000)]);
+        var source = new Commands.ConversationCommandSubsystem.FakeCaptureDeviceSource(probe);
+        var originalOut = Console.Out;
+        using var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--mic", "--silence-timeout", "0.2", "--start-timeout", "0.2"]);
+
+            await RecognizeCommand.RunAsync(context, catalog, source, TestContext.Current.CancellationToken);
+
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal(1, session.StartCallCount);
+        Assert.NotNull(engine.LastDevice);
+        Assert.IsNotType<WavFileAudioCaptureDevice>(engine.LastDevice);
+        Assert.Contains("hello mic", writer.ToString());
+    }
+
     // --- Disposal ordering ---
 
     /// <summary>Test that both the engine and the session are disposed exactly once after a successful file-input run.</summary>

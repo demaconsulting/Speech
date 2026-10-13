@@ -20,6 +20,7 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 using DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
@@ -215,15 +216,39 @@ internal static class RecognizeCommand
     ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
-    internal static async Task RunAsync(
+    internal static Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         AudioDeviceFactory factory,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(factory);
+        return RunAsync(context, catalog, new AudioDeviceFactoryCaptureDeviceSource(factory), cancellationToken);
+    }
+
+    /// <summary>
+    ///     Runs the <c>recognize</c> subcommand against an injected catalog seam and capture-device
+    ///     source, so mic mode can be unit tested against a deterministic in-memory device.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
+    /// <param name="captureDeviceSource">The seam used to resolve a real capture device. Must not be null.</param>
+    /// <param name="cancellationToken">A token that, when canceled, stops the session cooperatively.</param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="captureDeviceSource"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">Thrown for any usage error (see the other overload).</exception>
+    /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
+    internal static async Task RunAsync(
+        Context context,
+        ICliModelCatalog catalog,
+        ICliCaptureDeviceSource captureDeviceSource,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(captureDeviceSource);
 
         var options = ParseArguments(context.CommandArgs);
 
@@ -237,7 +262,7 @@ internal static class RecognizeCommand
         var descriptor = ResolveModel(catalog, options.ModelId);
         var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, SttParamFlag);
 
-        var captureDevice = ResolveCaptureDevice(factory, options);
+        var captureDevice = ResolveCaptureDevice(captureDeviceSource, options);
 
         using var outputWriter = options.OutputPath is null
             ? null
@@ -502,21 +527,21 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Resolves the capture device for this session: a <see cref="WavFileAudioCaptureDevice"/>
     ///     over the given file when <c>--input</c> was given, otherwise a real device resolved
-    ///     from <paramref name="factory"/> (honoring <c>--capture-device</c>).
+    ///     from <paramref name="source"/> (honoring <c>--capture-device</c>).
     /// </summary>
     /// <exception cref="ArgumentException">Thrown when <c>--capture-device</c> names an unknown capture device.</exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
-    private static IAudioCaptureDevice ResolveCaptureDevice(AudioDeviceFactory factory, RecognizeOptions options)
+    private static IAudioCaptureDevice ResolveCaptureDevice(ICliCaptureDeviceSource source, RecognizeOptions options)
     {
         if (options.InputPath is not null)
         {
             return new WavFileAudioCaptureDevice(options.InputPath);
         }
 
-        var knownDevices = factory.CaptureProbe.Enumerate();
+        var knownDevices = source.CaptureProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.DeviceName, "capture");
 
-        var device = factory.CreateCaptureDevice(selection);
+        var device = source.CreateCaptureDevice(selection);
         if (!device.IsAvailable)
         {
             throw new InvalidOperationException(
