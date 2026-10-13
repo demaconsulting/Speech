@@ -19,17 +19,22 @@ catalog and `ReferenceVoiceLibrary` pairs built by a test factory.
 
 #### Acceptance Criteria
 
-The unit passes when: it forwards enumeration and download to the library without adding or
-hiding anything and never disposes a catalog it does not own; `ModelInstalled` fires exactly once
-with the correct model id and role for a genuine install and never for a failed, canceled or
-checksum-mismatched download; a factory-constructed instance rebuilds and takes ownership of its
-catalog when the mirror changes
-while one built without a factory rejects reconfiguration; and the reference-voice members report
-the library's packs, rebuild the catalog and library pair, and raise `ReferenceVoicesChanged`
-however an install ends (and an install's own exception is never replaced by a rebuild failure),
-while an instance without a voice library reports no packs and refuses
-pack operations, and an uninstall that finds an install in flight waits for it and then removes the
-pack, rebuilding and raising once.
+The unit passes when all of the following hold:
+
+- It forwards enumeration and download to the library without adding or hiding anything, and
+  never disposes a catalog it does not own.
+- `ModelInstalled` fires exactly once with the correct model id and role for a genuine install
+  and never for a failed, canceled or checksum-mismatched download.
+- A factory-constructed instance rebuilds and takes ownership of its catalog when the mirror
+  changes, keeps the previous catalog when the factory fails, and one built without a factory
+  rejects reconfiguration.
+- The reference-voice members report the library's packs, rebuild the catalog and library pair,
+  and raise `ReferenceVoicesChanged` however an install ends, and an install's own exception is
+  never replaced by a rebuild failure.
+- An instance without a voice library reports no packs and refuses pack operations.
+- An uninstall that finds an install in flight waits for it and then removes the pack, rebuilding
+  and raising once; a failed uninstall neither rebuilds nor raises.
+- Disposing a composed service disposes both the catalog and the voice library.
 
 #### Test Scenarios
 
@@ -175,6 +180,49 @@ attempt against it surfacing `ObjectDisposedException`.
 **Scenario**: A composed service is asked for its user voices folder.
 
 **Expected**: A folder inside the catalog's store root is reported.
+
+##### ModelCatalogService_ReferenceVoices_Composed_NotInstalledPackHasNoEmotions
+
+**Scenario**: A composed service is asked whether a pack that is not installed has emotion variants.
+
+**Expected**: `false`.
+
+##### ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
+
+**Scenario**: A pack install succeeds through a composed service.
+
+**Expected**: The pair is rebuilt and `ReferenceVoicesChanged` is raised.
+
+##### ModelCatalogService_InstallReferenceVoicePackAsync_SuccessThenRebuildFails_Propagates
+
+**Scenario**: A pack install succeeds and the composition factory then throws.
+
+**Expected**: The rebuild's exception propagates.
+
+##### ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise
+
+**Scenario**: The library's uninstall throws.
+
+**Expected**: The exception propagates unchanged, and there is no rebuild and no
+`ReferenceVoicesChanged`.
+
+##### ModelCatalogService_ApplyMirror_Composed_FactoryFails_KeepsPreviousPair
+
+**Scenario**: The composition factory throws during `ApplyMirror`.
+
+**Expected**: The exception propagates and the previous pair stays published and undisposed.
+
+##### ModelCatalogService_Dispose_Composed_DisposesCatalogAndVoiceLibrary
+
+**Scenario**: A composed service is disposed.
+
+**Expected**: Both the catalog and the voice library are disposed.
+
+##### ModelCatalogComposition_Constructor_NullMember_ThrowsArgumentNullException
+
+**Scenario**: A composition is constructed with a null catalog or a null library.
+
+**Expected**: `ArgumentNullException`.
 
 ##### ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 

@@ -23,19 +23,26 @@ download lifecycle is proven against controlled catalog data, never a real netwo
 
 #### Acceptance Criteria
 
-The unit passes when: it shows one row per reported model and rebuilds correctly on refresh, but
-refuses a refresh while a model download or pack install is in flight; every download outcome is
-reported as a row state with an honest explanation rather than as an
-application error; an installed model is never re-downloaded; an empty catalog is explained
-rather than shown blank; the mirror-settings fields apply a valid mirror (or revert to each
-model's public URI on a blank URL), re-read the catalog afterwards, and report any validation,
-reconfiguration or re-read failure as an explained panel state; and the reference voice pack
-section lists, installs and removes packs while refusing operations
-that would overlap a model download, a pack install or a mirror change; a fault reading an
-installed pack's emotion flag is contained; after any unsuccessful pack
-install or upgrade the row shows the state the seam reports (a pack still installed stays installed
-and removable) with its failure message, falling back to the attempt's outcome when the state cannot
-be read; and a removal the seam refuses is explained on the row.
+The unit passes when all of the following hold:
+
+- It shows one row per reported model and rebuilds correctly on refresh, keeping the previous
+  rows and reporting an error when the re-read faults.
+- It refuses a refresh while a model download or pack install is in flight.
+- Every download outcome is reported as a row state with an honest explanation rather than as an
+  application error, and an installed model is never re-downloaded.
+- An empty catalog is explained rather than shown blank.
+- The mirror-settings fields apply a valid mirror (or revert to each model's public URI on a
+  blank URL), treat blank credential fields as absent, never echo credentials, re-read the
+  catalog afterwards, and report any validation, reconfiguration or re-read failure as an
+  explained panel state.
+- The reference voice pack section lists, installs and removes packs while refusing operations
+  that would overlap a model download, a pack install or a mirror change.
+- A fault reading an installed pack's emotion flag, or re-reading the catalog after a pack
+  change, is contained.
+- After any unsuccessful pack install or upgrade the row shows the state the seam reports (a
+  pack still installed stays installed and removable) with its failure message, falling back to
+  the attempt's outcome when the state cannot be read.
+- A removal the seam refuses is explained on the row.
 
 #### Test Scenarios
 
@@ -179,12 +186,26 @@ guarantees a canceled download installs nothing.
 **Expected**: The mirror URL, user, password and bearer-token fields start pre-populated from
 those values, so the GUI and launch-time entry points stay consistent.
 
-##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
 
 **Scenario**: Valid mirror fields are applied.
 
-**Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
-and the panel reports success.
+**Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields.
+
+##### ModelCatalogViewModel_ApplyMirrorAsync_BlankCredentials_TreatedAsNotSupplied
+
+**Scenario**: A valid URL is applied while the user name, password and bearer token fields hold
+empty or whitespace text.
+
+**Expected**: The seam receives a mirror with no credentials (as if the fields were never filled),
+and the panel reports success rather than a credential-validation error.
+
+##### ModelCatalogViewModel_ApplyMirrorAsync_WithCredentials_MessageDoesNotEchoCredentials
+
+**Scenario**: A mirror with a user name, password and bearer token is applied, and separately
+fails.
+
+**Expected**: Neither the confirmation nor the failure message contains the typed credentials.
 
 ##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
@@ -333,12 +354,56 @@ removable, and nothing escapes.
 
 **Expected**: The row shows "Removal canceled." and the pack stays installed.
 
-##### ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
+##### ModelCatalogViewModel_RemoveVoicePackAsync_Installed_UninstallsAndRefreshesRows
 
-**Scenario**: A pack is removed, and the uninstall is made to throw.
+**Scenario**: An installed pack is removed.
 
-**Expected**: The service uninstalls the pack, the catalog is re-read so the rows refresh, and a
-fault is reported on the row.
+**Expected**: The service uninstalls the pack and the catalog is re-read so the rows refresh.
+
+##### ModelCatalogViewModel_RemoveVoicePackAsync_Fault_ReportsMessageInRow
+
+**Scenario**: The uninstall throws.
+
+**Expected**: The fault's message is shown on the row, the pack stays installed, and nothing
+escapes.
+
+##### ModelCatalogViewModel_RemoveVoicePackAsync_Command_UninstallsRequestedPack
+
+**Scenario**: The generated remove command is invoked with a pack row.
+
+**Expected**: The service is asked to uninstall that pack.
+
+##### ModelCatalogViewModel_InstallVoicePackAsync_Command_InstallsRequestedPackWithProgress
+
+**Scenario**: The generated install command is invoked with a pack row and the service reports
+progress.
+
+**Expected**: The service installs that pack and the progress reaches the row.
+
+##### ModelCatalogViewModel_InstallVoicePackAsync_ReloadFaults_ReportedAsReReadFailure
+
+**Scenario**: An install succeeds but the catalog re-read then throws.
+
+**Expected**: The row shows that the pack installed but the catalog could not be re-read.
+
+##### ModelCatalogViewModel_RemoveVoicePackAsync_ReloadFaults_ReportedAsReReadFailure
+
+**Scenario**: A removal succeeds but the catalog re-read then throws.
+
+**Expected**: The row shows that the pack was removed but the catalog could not be re-read.
+
+##### ModelCatalogViewModel_RefreshAsync_SeamFault_ReportedAndRowsKept
+
+**Scenario**: The refresh command runs while the seam's enumeration throws.
+
+**Expected**: The panel shows a refresh error message, the previous rows stay, and nothing
+escapes.
+
+##### ModelCatalogViewModel_RefreshAsync_NoPreviousSelection_SelectsFirstRow
+
+**Scenario**: A refresh runs with no row selected.
+
+**Expected**: The first row is selected.
 
 ##### ModelCatalogViewModel_RemoveVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
 

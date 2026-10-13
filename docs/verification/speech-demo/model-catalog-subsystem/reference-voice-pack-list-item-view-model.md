@@ -14,10 +14,15 @@ flags, captions and change announcements. The row touches neither the catalog se
 
 #### Acceptance Criteria
 
-The unit passes when: a missing pack is rejected; the pack's identity, size, license and consent
-note are projected readably; install, remove and status caption follow the install state; the
-installed-size caption follows the emotion option and the installed variant; "Add emotions" is
-offered only for a voices-only install; and a failure message update re-announces its flag.
+The unit passes when all of the following hold:
+
+- A missing pack is rejected.
+- The pack's identity, size, license and consent note are projected readably.
+- Install, remove and the status caption follow the install state.
+- The installed-size caption follows the emotion option and the installed variant.
+- "Add emotions" is offered only for a voices-only install of a pack that has emotion variants.
+- Progress is passed through and announced.
+- A failure message update re-announces its flag.
 
 #### Test Scenarios
 
@@ -111,6 +116,19 @@ caption, install enablement, the upgrade flag and the button text.
 
 **Expected**: The emotion option is hidden, emotions are never requested, no upgrade is offered, the
 installed-size caption is empty, and the installed status reads "Installed".
+
+##### ReferenceVoicePackListItemViewModel_PackWithoutEmotionVariants_IgnoresHasEmotions
+
+**Scenario**: A row for a pack that ships no emotion variants is built with `hasEmotions` true.
+
+**Expected**: The row behaves as a voices-only pack: no upgrade is offered and the status reads
+"Installed".
+
+##### ReferenceVoicePackListItemViewModel_ProgressFraction_Changed_IsAnnouncedAndPassedThrough
+
+**Scenario**: The progress fraction is set while a listener is attached.
+
+**Expected**: The value is stored unchanged and a change notification is raised.
 
 ##### ReferenceVoicePackListItemViewModel_UnknownState_StatusTextFallsBackToStateName
 

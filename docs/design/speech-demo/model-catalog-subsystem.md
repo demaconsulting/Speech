@@ -87,12 +87,20 @@ the previous voices-only install, so the row stays installed and removable, with
 message preserved. A refused removal is shown as a message on the row and the pack stays
 installed. Services built without a library report no packs and hide the section.
 
+### Error Handling
+
+Every failure in this subsystem is reported in place instead of thrown at the user: row
+failures on the model or pack row, mirror failures through the mirror status message, and a
+failed catalog re-read through the refresh error message (or the "could not be re-read" note on
+the mirror status or pack row that triggered it). The only exceptions are programming errors
+such as a null dependency, which throw `ArgumentNullException` from constructors.
+
 ### Thread Safety
 
-`ModelCatalogService.ApplyMirror` and `Dispose` are not safe to call concurrently with each
-other or with themselves: both read and then replace the same current-catalog field without
-synchronization, so two concurrent `ApplyMirror` calls (or a concurrent `ApplyMirror` and
-`Dispose`) could race on which catalog ends up current or disposed. This panel only ever invokes
-them serially from the UI thread, one command at a time, which is the only thread-safety
-guarantee this service currently provides; a host that calls either member from more than one
-thread must provide its own external synchronization.
+`ModelCatalogService.ApplyMirror`, `Dispose` and the pack install and uninstall rebuilds are not
+safe to call concurrently with each other or with themselves: each reads and then replaces the
+same current catalog and library without synchronization, so concurrent calls could race on
+which pair ends up current or disposed. This panel only ever invokes them serially from the UI
+thread, one command at a time, which is the only thread-safety guarantee this service currently
+provides; a host that calls any of these members from more than one thread must provide its own
+external synchronization.

@@ -27,6 +27,18 @@ captions and enablement values the row displays.
 | `StatusText` | `string` | "Not installed", "Installing", "Installed" (with or without emotions), "Failed or corrupt" |
 | `CanInstall` / `CanRemove` / `IsInstalling` / `HasFailureMessage` | `bool` | Derived enablement and visibility |
 
+The property-change announcements are:
+
+| Property set | Also announces |
+| --- | --- |
+| `State` | `StatusText`, `CanInstall`, `CanRemove`, `IsInstalling`, `CanUpgradeToEmotions`, and more (below) |
+| `IncludeEmotions` | `EffectiveIncludeEmotions` |
+| `HasEmotions` | `StatusText`, `CanUpgradeToEmotions`, `InstallButtonText`, `EffectiveIncludeEmotions` |
+| `FailureMessage` | `HasFailureMessage` |
+
+`State` additionally announces `ShowEmotionOption`, `InstallButtonText` and
+`EffectiveIncludeEmotions`.
+
 **Key Methods**: None beyond the constructor
 `ReferenceVoicePackListItemViewModel(ReferenceVoicePack pack, SpeechModelState state,
 bool hasEmotions = false)`, which copies the pack's identity, sizes and license and sets the initial
@@ -43,7 +55,8 @@ The panel-level "voice busy" message that explains a refused pack operation belo
 **Error Handling**: The constructor throws `ArgumentNullException` for a null pack; otherwise this
 unit never throws.
 
-**Dependencies**: The library's `ReferenceVoicePack` and `SpeechModelState`. Never touches the
+**Dependencies**: The library's `ReferenceVoicePack` and `SpeechModelState`, and the static
+`ReferenceVoiceLibrary.ConsentNotice` constant. Never touches the
 seam, the file system, the network, or Avalonia.
 
 **Callers**: `ModelCatalogViewModel` (owns the `VoicePacks` collection of these rows).

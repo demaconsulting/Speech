@@ -1367,7 +1367,7 @@ public class ModelCatalogViewModelTests
         {
             MirrorUrl = "https://mirror.example.com",
             MirrorUser = "alice",
-            MirrorPassword = "s3cret-pw",
+            MirrorPassword = "pw-value-123",
         };
 
         // Act
@@ -1375,7 +1375,7 @@ public class ModelCatalogViewModelTests
 
         // Assert
         Assert.True(viewModel.MirrorAppliedSuccessfully);
-        Assert.DoesNotContain("s3cret-pw", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("pw-value-123", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
         Assert.DoesNotContain("alice", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
     }
 

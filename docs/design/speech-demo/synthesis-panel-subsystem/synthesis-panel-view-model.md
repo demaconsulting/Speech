@@ -61,7 +61,8 @@ calls instead of recomposing them on every call.
 - **StopAsync()**: Calls `StopAsync()` on the active session, if any, and cancels `PlayCommand`'s
   token as defense-in-depth in case the session itself cannot be stopped. A safe no-op when
   nothing is playing.
-- **DisposeAsync()**: Unsubscribes from `IModelCatalogService.ModelInstalled` and the shared
+- **DisposeAsync()**: Unsubscribes from `IModelCatalogService.ModelInstalled`,
+  `IModelCatalogService.ReferenceVoicesChanged` and the shared
   `DeviceSelectionViewModel`'s pre-refresh hook; stops and awaits an in-flight Play, if any; then
   releases the cached session and disposes the cached engine. All actions are safe to repeat, so
   `DisposeAsync()` is idempotent.
@@ -80,7 +81,7 @@ model/parameter-value combination, and creates a session at most once per engine
 combination, reusing both across many Play calls instead of reloading the model and recreating
 the session on every click, because loading a model is the expensive step. PlayAsync detects a reason
 to reload lazily, on its next call, rather than
-proactively on a property change: the cached engine is reloaded only when the selected model or
+proactively on a property change: the cached engine is reloaded only when the selected model instance or
 `Settings.BuildValueBag()`'s built parameter values (compared by key/value, since a freshly built
 dictionary is never the same instance twice) differ from the ones it was last loaded with; the
 cached session is independently recreated whenever the engine was just reloaded or the selected
@@ -118,7 +119,8 @@ close before the shared device table is re-scanned, rather than relying on the
 maps to `Idle`), applied every time `ISynthesisSession.StateChanged` raises, marshaled onto the
 UI thread captured when the session was created (falling back to applying it synchronously when
 none was captured); a session reporting `Faulted` additionally sets `StatusMessage` to
-`SessionFaultedMessage`.
+`SessionFaultedMessage`. Events are applied only when their sender is the current session, so a
+late event from a session that was already released cannot overwrite the state.
 
 **Embedded settings.** Assigning `SelectedModel` also assigns the embedded `Settings.Model`, so
 the settings panel always presents the currently selected voice's declared parameters, reusing
@@ -150,26 +152,21 @@ audio is playing.
 state changes that may be raised on another thread are marshaled onto the UI context captured at
 construction (or session creation) before they touch presentation state.
 
-**Error Handling**: The expected failure modes resolve to `State`/`StatusMessage` rather than
+**Error Handling**: Failures resolve to `State`/`StatusMessage` rather than
 escaping: no model selected, no playback device, an unavailable engine or session, a busy engine
 reported by `SynthesisEngineBusyException` while creating the session, a
 `SpeechSynthesizerUnavailableException` or `SynthesisSessionFaultedException` raised while
 speaking, and a session reporting `Faulted` through `StateChanged` (which sets `StatusMessage` to
-`SessionFaultedMessage`). Cancellation of `SpeakAsync` is distinguished from a genuine failure via
-`OperationCanceledException`, and a terminal session fault releases the session (keeping the
-engine) rather than leaving a known-dead session cached for the next Play.
+`SessionFaultedMessage`). `PlayAsync` is a wrapper over `PlayCoreAsync` that also contains every
+other exception, including an invalid parameter value from `LoadAsync` or a session-creation
+failure: it sets `Error` with the exception's message and releases the session. Cancellation at any
+stage (load, session creation or speaking) sets `Idle` with `StoppedMessage`. A terminal session
+fault releases the session (keeping the engine) and sets `Error`, rather than leaving a
+known-dead session cached for the next Play. Stopping before a device refresh returns an
+interrupted state to `Idle` after the release.
 
-_Known limitations_ (the current behavior; not yet handled by the panel):
+_Known limitations_:
 
-- Any other exception from a seam call is not caught and surfaces through the asynchronous
-  command rather than through `State`/`StatusMessage`. This includes the `ArgumentException` the
-  library's engine composition throws from `LoadAsync` for an invalid recognized parameter value,
-  any exception other than `SynthesisEngineBusyException` from `CreateSessionAsync`, and any
-  exception other than the two named above from `SpeakAsync`. `State` is left at whatever the
-  last transition set.
-- `OperationCanceledException` is caught only around `SpeakAsync`. A cancellation that surfaces
-  from `LoadAsync` or `CreateSessionAsync` is not caught, leaves `StatusMessage` unchanged and
-  does not report `StoppedMessage`.
 - Stop requested while the engine is still loading (before any session exists) has no session
   to stop; it only cancels the command's token. The load observes that token only if the seam
   honors it, and a Stop that arrives before `SpeakAsync` starts takes effect when `SpeakAsync`

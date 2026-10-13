@@ -30,15 +30,19 @@ download lifecycle is proven against controlled catalog data, never a real netwo
 
 ### Acceptance Criteria
 
-A ModelCatalogSubsystem test run passes when: the panel shows, refreshes and downloads models
-purely through the catalog service seam and reports every outcome as row state rather than an
-application error; mirror changes reconfigure the catalog through the seam and are refused while a
-download or pack install is in flight; and a voice pack install, removal or mirror change rebuilds
-the catalog and reference voice library and raises the voices-changed notification so other panels
-can refresh, even when an install fails or is canceled; a voice pack that is still installed after a
-failed install or upgrade stays installed and removable with its failure message; and removing a
-pack while its install is in flight waits for the install, and a removal that cannot complete or is
-canceled is explained on the pack's row instead of failing.
+A ModelCatalogSubsystem test run passes when all of the following hold:
+
+- The panel shows, refreshes and downloads models purely through the catalog service seam and
+  reports every outcome as row state rather than an application error.
+- Mirror changes reconfigure the catalog through the seam and are refused while a download or
+  pack install is in flight.
+- A voice pack install, removal or mirror change rebuilds the catalog and reference voice library
+  and raises the voices-changed notification so other panels can refresh, even when an install
+  fails or is canceled.
+- A voice pack that is still installed after a failed install or upgrade stays installed and
+  removable with its failure message.
+- Removing a pack while its install is in flight waits for the install, and a removal that cannot
+  complete or is canceled is explained on the pack's row instead of failing.
 
 ### Test Scenarios
 
@@ -90,12 +94,11 @@ canceled is explained on the pack's row instead of failing.
 
 **Expected**: Rows are rebuilt from the seam and the selected model stays selected.
 
-#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
 
 **Scenario**: Valid mirror fields are applied.
 
-**Expected**: The seam's `ApplyMirror` receives the configured mirror and the panel reports success
-and refreshes.
+**Expected**: The seam's `ApplyMirror` receives the configured mirror.
 
 #### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
@@ -121,11 +124,17 @@ and refreshes.
 
 **Expected**: The catalog is re-read so the rows reflect the rebuilt catalog.
 
-#### ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Installed_UninstallsAndRefreshesRows
 
 **Scenario**: A pack is removed through the panel.
 
-**Expected**: The seam uninstalls it, the rows are re-read, and faults are reported on the row.
+**Expected**: The seam uninstalls it and the rows are re-read.
+
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Fault_ReportsMessageInRow
+
+**Scenario**: The seam's uninstall throws.
+
+**Expected**: The fault is reported on the row and the pack stays installed.
 
 #### SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 

@@ -23,13 +23,47 @@ real seam without a downloaded model.
 
 ### Acceptance Criteria
 
-A SynthesisPanelSubsystem test run passes when: Play speaks the entered text through the selected
-installed model and device; Stop interrupts an in-flight Play and reports it; an unavailable
-playback device produces an error state; the panel refreshes its models while keeping the chosen
-settings when the catalog or the reference voices change; and playback is stopped and awaited
-before a shared device refresh.
+A SynthesisPanelSubsystem test run passes when all of the following hold:
+
+- Play speaks the entered text through the selected installed model and device.
+- Stop interrupts an in-flight Play and reports it.
+- An unavailable playback device and a setup fault each produce an explained error state.
+- The panel refreshes its models while keeping the chosen settings when the catalog or the
+  reference voices change.
+- The model-switch guard and the Chatterbox voice notice behave as specified.
+- Playback is stopped and awaited before a shared device refresh.
 
 ### Test Scenarios
+
+#### SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
+
+**Scenario**: Play is invoked with entered text and a selected playback device.
+
+**Expected**: The exact text is spoken through a session bound to that device.
+
+#### SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
+
+**Scenario**: Engine load or session creation throws.
+
+**Expected**: An error state carrying the exception's message; nothing escapes.
+
+#### SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
+
+**Scenario**: A successful Play passes through its lifecycle.
+
+**Expected**: Changing the model is allowed only while idle or in error.
+
+#### SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
+
+**Scenario**: Chatterbox Turbo and another model are selected in turn.
+
+**Expected**: The notice appears only for Chatterbox.
+
+#### SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
+
+**Scenario**: Play is invoked twice with nothing changed.
+
+**Expected**: The engine and session are reused.
 
 #### SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
 

@@ -20,7 +20,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
-| `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Reports the library's models; retries once (see note) |
+| `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Reports the library's models; never throws |
 | `DownloadAsync(modelId, progress, cancellationToken)` | `Task<SpeechModelDownloadResult>` | Throws if id unknown |
 | `ModelInstalled` | `event EventHandler<ModelInstalledEventArgs>?` | Raised once a model installs |
 | `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
@@ -31,19 +31,25 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `UninstallReferenceVoicePackAsync(packId, ct)` | `Task` | Removes a pack and rebuilds; waits for an install |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 
-`Enumerate()` retries once if the catalog was just replaced.
+**Constructors**:
+
+| Constructor | Reconfigurable (`ApplyMirror`) | Voice packs | Disposes on `Dispose` |
+| --- | --- | --- | --- |
+| `(SpeechModelCatalog)` | No | No | Nothing (caller owns the catalog) |
+| `(SpeechModelCatalog, Func<options, SpeechModelCatalog>)` | Yes | No | Every catalog it holds |
+| `(ModelCatalogComposition, options, factory)` | Yes | Yes | Every catalog and library it holds |
 
 **Key Methods**:
 
-- **Enumerate()**: Forwards unchanged to the current `SpeechModelCatalog.Enumerate()`. If that
-  catalog was disposed by a concurrent `ApplyMirror` between the read and the call, it retries
-  once against the replacement (see Error Handling).
+- **Enumerate()**: Forwards unchanged to the current `SpeechModelCatalog.Enumerate()`, which never
+  throws, so no retry or fault handling is needed.
 - **DownloadAsync(modelId, progress?, cancellationToken)**: Forwards to the injected catalog's
   `DownloadAsync`. Its one piece of added behavior is raising `ModelInstalled` after a call whose
   result reports `SpeechModelDownloadOutcome.Installed`: it looks up the installed model's `Role`
   from the catalog's own `Enumerate()` and raises the event with `(modelId, role)`, so the STT
   and TTS panels (each already depending on this same seam) can refresh themselves automatically
   the moment a matching-role model finishes installing, without a manual click or app restart.
+  and the call raises no event when the installed model's role cannot be determined.
   The event is never raised for a failed, canceled, or checksum-mismatched download attempt.
 - **ApplyMirror(mirror)**: Supported only when this service was constructed with the
   two-argument constructor
@@ -71,8 +77,8 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   `UninstallReferenceVoicePackAsync` first awaits the
   library's asynchronous uninstall, which serializes with an in-flight install of that pack
   (waiting for it, honoring cancellation); if the uninstall throws or is canceled the exception
-  propagates unchanged and the recompose step and notification are skipped, because nothing changed. Services built
-  with the
+  propagates unchanged and the recompose step and notification are skipped, because nothing
+  changed. Services built with the
   single-catalog or catalog-factory constructors have no library:
   `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
   `ReferenceVoicePackHasEmotionsAsync`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
@@ -80,9 +86,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 
 **Error Handling**: `Enumerate()` never invents placeholder models when the library's registry is
 empty - presenting an honest empty catalog is a presentation concern, not a reason to fabricate
-data. `Enumerate()` does not otherwise handle failures, but when the catalog it read was disposed
-by a concurrent `ApplyMirror` (an `ObjectDisposedException`), it retries exactly once against the
-already-published replacement catalog; a second `ObjectDisposedException` propagates.
+data. `Enumerate()` does not handle failures because the library's enumeration never throws.
 `DownloadAsync` propagates the library's own `ArgumentException` for an unknown model id.
 `ApplyMirror` propagates `ArgumentException` from an invalid mirror configuration (surfaced by the
 shared `MirrorOptionsFactory` helper its caller uses to build the `DownloadMirror`) and throws
@@ -99,9 +103,11 @@ ends up current or disposed, and a rebuild disposes the previous pair, which abo
 thread, one command at a time, and its view model refuses overlapping transfers; any other caller
 must provide its own external synchronization. `Enumerate()` and `DownloadAsync` carry no such
 restriction beyond what the underlying `SpeechModelCatalog` itself documents.
+
 **Ownership**: A service built with a factory or composition factory owns every catalog and voice
-library it holds, disposing each replaced pair and the current pair on `Dispose`; otherwise it owns
-neither.
+library it holds, disposing each replaced pair and the current pair on `Dispose`; the catalog is
+disposed first and the library in a `finally`, so a throwing catalog disposal cannot leak the
+library. Otherwise the service owns neither.
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
 `SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,

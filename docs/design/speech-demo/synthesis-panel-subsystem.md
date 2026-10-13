@@ -17,20 +17,26 @@ units, each documented in its own file:
 
 ### Interfaces
 
-The subsystem exposes `ISynthesizerSessionFactory`, `SynthesizerSessionFactory`, and
-`SynthesisPanelViewModel` to the shell composition root. It consumes `IModelCatalogService` from
-the ModelCatalogSubsystem (for the installed-model list, auto-refresh-on-install through
-`ModelInstalled`, and the reference-voice packs and `ReferenceVoicesChanged` event),
-`IAudioDeviceService` and `DeviceSelectionViewModel` from the DeviceSelectionSubsystem (including
-its pre-refresh hook registration), and `ModelSettingsViewModel` from the ModelSettingsSubsystem
-for the embedded parameter panel. It consumes the library's `SpeechModelStore`,
-`SpeechSynthesizerFactory`, `ISpeechModel`, and `ISynthesisModel` only through
-`SynthesizerSessionFactory`; `SynthesisPanelViewModel` itself touches only the library's
-presentation-level types (`AudioTagCatalog`, and the Chatterbox Turbo model type and
-`ReferenceVoiceLibrary` consent note for the voice notice) and the engine, session and exception
-contracts it drives and handles (`ISpeechSynthesizerEngine`, `ISynthesisSession`,
-`SynthesisSessionState` and the synthesis exception types). It implements `IAsyncDisposable` so
-the composition root can release its subscriptions, cached session and cached engine at shutdown.
+The subsystem exposes the following to the shell composition root:
+
+- `ISynthesizerSessionFactory` / `SynthesizerSessionFactory`: the engine composition seam and its
+  implementation
+- `SynthesisPanelViewModel`: the panel presentation state; it is `IAsyncDisposable`, so the root
+  can release its subscriptions, cached session and cached engine at shutdown
+
+It consumes:
+
+- `IModelCatalogService` (ModelCatalogSubsystem): the installed-model list, `ModelInstalled`, the
+  reference-voice packs and `ReferenceVoicesChanged`
+- `IAudioDeviceService` and `DeviceSelectionViewModel` (DeviceSelectionSubsystem): the playback
+  device and pre-refresh hook registration
+- `ModelSettingsViewModel` (ModelSettingsSubsystem): the embedded parameter panel
+- `SpeechModelStore`, `SpeechSynthesizerFactory`, `ISpeechModel` and `ISynthesisModel` (library):
+  only through `SynthesizerSessionFactory`
+- `AudioTagCatalog`, the Chatterbox Turbo model type and the `ReferenceVoiceLibrary` consent note
+  (library): presentation in `SynthesisPanelViewModel`
+- `ISpeechSynthesizerEngine`, `ISynthesisSession`, `SynthesisSessionState` and the synthesis
+  exception types (library): the contracts it drives and handles
 
 ### Design
 

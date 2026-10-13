@@ -20,20 +20,28 @@ produced on demand with no downloaded model, no native runtime and no real speak
 
 #### Acceptance Criteria
 
-The unit passes when: a missing collaborator is rejected; only installed synthesis models are
-offered and the selection survives a refresh; the embedded settings panel reflects the selected
-model and its value bag reaches the session factory; a successful Play speaks the entered text
-through the selected device and passes through every lifecycle state, with session states mapped
-to playback states; a second Play is refused while one is in flight; Stop interrupts an in-flight
-Play; repeated Play with an unchanged selection reuses the cached engine and session, while a
-changed parameter reloads the engine and a changed device recreates only the session; every
-unavailable, busy and faulted state is reported honestly and a faulted session is replaced on the
-next Play; the model-switch guard is false while synthesizing or playing and true while idle or in
-error; matching-role installs and reference voice changes refresh the panel while keeping the
-chosen voice, and non-matching installs do not; the voice notice shows for Chatterbox only;
-`DisposeAsync` stops an in-flight Play, releases the session and engine once, is idempotent and
-unsubscribes from catalog events; and the pre-refresh hook stops an in-flight Play and awaits its
-completion before a shared device refresh.
+The unit passes when all of the following hold:
+
+- A missing collaborator is rejected.
+- Only installed synthesis models are offered and the selection survives a refresh.
+- The embedded settings panel reflects the selected model and its value bag reaches the session
+  factory.
+- A successful Play speaks the entered text through the selected device and passes through every
+  lifecycle state, with session states mapped to playback states.
+- A second Play is refused while one is in flight, and Stop interrupts an in-flight Play.
+- Repeated Play with an unchanged selection reuses the cached engine and session; a changed
+  parameter or model instance reloads the engine; a changed device recreates only the session.
+- Every unavailable, busy, faulted, setup-fault and unexpected-speak-fault state is reported
+  honestly, setup cancellation reports stopped, a faulted session is replaced on the next Play,
+  and events from a non-current session are ignored.
+- The model-switch guard is false while synthesizing or playing and true while idle or in error.
+- Matching-role installs and reference voice changes refresh the panel while keeping the chosen
+  voice, and non-matching installs do not.
+- The voice notice shows for Chatterbox only.
+- `DisposeAsync` stops an in-flight Play, releases the session and engine once, is idempotent and
+  unsubscribes from catalog events.
+- The pre-refresh hook stops an in-flight Play and awaits its completion before a shared device
+  refresh.
 
 #### Test Scenarios
 
@@ -109,8 +117,8 @@ asked to speak.
 
 **Scenario**: The first session faults while speaking; a second Play follows.
 
-**Expected**: `Error` state with `SessionFaultedMessage` (the panel's fixed fault text, not the
-session's own message) and the faulted session disposed; the second Play
+**Expected**: `Error` state with the fault's own message ("Session faulted.") and the faulted
+session disposed; the second Play
 creates a fresh session from the same engine and settles on `Idle`.
 
 ##### SynthesisPanelViewModel_Play_SpeakThrowsSynthesizerUnavailable_ReportsErrorStateWithMessage
@@ -219,6 +227,39 @@ cached session.
 
 **Expected**: The stale engine is disposed, a fresh one is loaded, and a fresh session is created.
 
+##### SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
+
+**Scenario**: Engine load, or session creation, throws an unexpected exception (Theory over both
+stages).
+
+**Expected**: Nothing escapes; the panel is in `Error` with the exception's message, and no session
+is left cached.
+
+##### SynthesisPanelViewModel_Play_SetupCanceled_ReportsStoppedAndReturnsToIdle
+
+**Scenario**: Engine load, or session creation, is canceled (Theory over both stages).
+
+**Expected**: The panel reports `StoppedMessage` and returns to `Idle`.
+
+##### SynthesisPanelViewModel_Play_SpeakThrowsUnexpected_ReportsErrorAndReleasesSession
+
+**Scenario**: `SpeakAsync` throws an exception that is neither cancellation, an unavailable
+synthesizer nor a session fault.
+
+**Expected**: The panel is in `Error` with the exception's message and the session is released.
+
+##### SynthesisPanelViewModel_SessionStateChanged_ForeignSender_IsIgnored
+
+**Scenario**: A state change is raised by a session other than the panel's current one.
+
+**Expected**: The panel's state is unchanged.
+
+##### SynthesisPanelViewModel_Play_ModelInstanceChanged_ReloadsEngine
+
+**Scenario**: The selected model is replaced by a different instance between two Play calls.
+
+**Expected**: The engine is reloaded.
+
 ##### SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine
 
 **Scenario**: The selected playback device changes between two Play calls.
@@ -287,9 +328,7 @@ reported installed.
 
 #### Accepted Gaps
 
-The behaviors listed as _Known limitations_ in the unit design - a cancellation surfacing from
-`LoadAsync` or `CreateSessionAsync`, an unexpected exception from a seam call (including the
-`ArgumentException` for an invalid parameter value), and Stop requested before any session exists -
-are intentionally not covered by tests, because they document behavior the panel does not yet
-handle; adding assertions would pin that unhandled behavior in place. They are tracked in the design
-document and should gain scenarios when the panel handles them.
+The behavior listed as a _Known limitation_ in the unit design - Stop requested before any session
+exists, which only cancels the command's token - is intentionally not covered by a dedicated
+test, because its effect depends on whether the seam honors the token. Setup faults, setup
+cancellation, unexpected speak faults and stale session events are now handled and tested above.
