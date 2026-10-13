@@ -42,6 +42,10 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
      library guarantees a canceled download installs nothing
   5. Treats an unexpected seam exception as `FailedOrCorrupt` carrying that exception's message,
      because a presentation layer must not crash the application on a seam fault
+- **Refresh()**: Rebuilds the rows from the catalog and re-reads the installed packs' emotion flags.
+  It does nothing while any model download or voice-pack install is in flight, so the row that
+  shows that transfer's progress and outcome is not discarded; the commands that have just finished
+  a transfer reload the rows directly.
 - **ApplyMirror()**: Asynchronous (it awaits `Refresh()`). While any row's `IsDownloading` is true, refuses outright -
   recording an
   explained `MirrorHasError`/`MirrorStatusMessage` and returning without calling
