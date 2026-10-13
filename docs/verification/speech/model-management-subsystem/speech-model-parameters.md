@@ -260,3 +260,23 @@ the list it was constructed from.
 ##### ValidateAndReport throws ArgumentNullException for a null mandatory argument
 
 **Test**: `ValidateAndReport_NullArguments_ThrowArgumentNullException`
+
+##### ChoiceParameterOption rejects a null value or label
+
+**Test**: `ChoiceParameterOption_Constructor_NullValueOrLabel_ThrowsArgumentNullException`
+
+##### BooleanParameter rejects a null Id or Description
+
+**Test**: `BooleanParameter_Constructor_NullIdOrDescription_Throws`
+
+##### ValidateAndReport throws for a numeric value below the Minimum
+
+**Test**: `ValidateAndReport_NumericParameterBelowMinimum_Throws`
+
+##### ValidateAndReport reports each unrecognized id
+
+**Test**: `ValidateAndReport_MultipleUnrecognizedParameterIds_ReportsInfoForEach`
+
+##### ValidateAndReport rejects a null declared-parameter element
+
+**Test**: `ValidateAndReport_NullDeclaredParameterElement_ThrowsArgumentException`

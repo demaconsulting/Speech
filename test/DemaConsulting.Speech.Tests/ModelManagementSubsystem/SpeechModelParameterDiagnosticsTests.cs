@@ -138,6 +138,7 @@ public sealed class SpeechModelParameterDiagnosticsTests
         Assert.Contains("volume", exception.Message, StringComparison.Ordinal);
         Assert.Contains("[0, 100]", exception.Message, StringComparison.Ordinal);
         Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
     }
 
     /// <summary>
@@ -292,6 +293,8 @@ public sealed class SpeechModelParameterDiagnosticsTests
 
         // Assert
         Assert.Contains("denoise", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
     }
 
     /// <summary>
@@ -338,6 +341,8 @@ public sealed class SpeechModelParameterDiagnosticsTests
 
         // Assert
         Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
         diagnostics.DidNotReceiveWithAnyArgs().Report(default, default!, default!);
     }
 
@@ -438,6 +443,7 @@ public sealed class SpeechModelParameterDiagnosticsTests
         // Assert
         Assert.Contains("custom", exception.Message, StringComparison.Ordinal);
         Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
     }
 
     /// <summary>
@@ -539,6 +545,8 @@ public sealed class SpeechModelParameterDiagnosticsTests
 
         // Assert
         Assert.Contains("'first'", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
     }
 
     /// <summary>
@@ -561,6 +569,69 @@ public sealed class SpeechModelParameterDiagnosticsTests
         // Assert
         Assert.Contains("System.Double", exception.Message, StringComparison.Ordinal);
         Assert.Equal("parameterValues", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a numeric value below the declared minimum throws <see cref="ArgumentException"/>
+    ///     naming the declared range, rather than being clamped.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_NumericParameterBelowMinimum_Throws()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter() };
+        var suppliedValues = new Dictionary<string, object> { ["tempo"] = 0.1 };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("[0.5, 2]", exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that every unrecognized key is reported as its own Info diagnostic and none throws.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_MultipleUnrecognizedParameterIds_ReportsInfoForEach()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter() };
+        var suppliedValues = new Dictionary<string, object> { ["unknown-a"] = 1.0, ["unknown-b"] = "x" };
+
+        // Act
+        SpeechModelParameterDiagnostics.ValidateAndReport(ModelId, parameters, suppliedValues, diagnostics, Category);
+
+        // Assert
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info, Category, "Parameter 'unknown-a' is not declared by this model and was ignored.");
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info, Category, "Parameter 'unknown-b' is not declared by this model and was ignored.");
+    }
+
+    /// <summary>
+    ///     Proves that a null element in the declared-parameter list is reported as an
+    ///     <see cref="ArgumentException"/> naming <c>declaredParameters</c>, not a <see cref="NullReferenceException"/>.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_NullDeclaredParameterElement_ThrowsArgumentException()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter(), null! };
+        var suppliedValues = new Dictionary<string, object> { ["tempo"] = 1.0 };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Equal("declaredParameters", exception.ParamName);
     }
 
     /// <summary>

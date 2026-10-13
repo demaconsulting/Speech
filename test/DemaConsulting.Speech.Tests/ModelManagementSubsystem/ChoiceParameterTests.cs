@@ -152,4 +152,15 @@ public class ChoiceParameterTests
         // Act & Assert
         Assert.Throws<ArgumentException>(() => new ChoiceParameterOption("", "Label"));
     }
+
+    /// <summary>
+    ///     Proves that a null option value or label is rejected with <see cref="ArgumentNullException"/>.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameterOption_Constructor_NullValueOrLabel_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new ChoiceParameterOption(null!, "Label"));
+        Assert.Throws<ArgumentNullException>(() => new ChoiceParameterOption("a", null!));
+    }
 }

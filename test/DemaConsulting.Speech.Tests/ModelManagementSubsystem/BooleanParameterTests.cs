@@ -44,4 +44,15 @@ public class BooleanParameterTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => new BooleanParameter("id", null!, "Description.", true));
     }
+
+    /// <summary>
+    ///     Proves that a null id or description is rejected.
+    /// </summary>
+    [Fact]
+    public void BooleanParameter_Constructor_NullIdOrDescription_Throws()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new BooleanParameter(null!, "Name", "Desc.", false));
+        Assert.Throws<ArgumentNullException>(() => new BooleanParameter("id", "Name", null!, false));
+    }
 }
