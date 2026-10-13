@@ -1061,6 +1061,42 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that a pre-canceled token passed to <see cref="ISynthesisSession.StopAsync"/>
+    ///     does not abort the teardown: while a gated native call is still in flight, the
+    ///     caller's wait is released by its own token, yet the operation is still canceled and
+    ///     only settles - ending in <see cref="SynthesisSessionState.Stopped"/> - once the call
+    ///     genuinely returns.
+    /// </summary>
+    [Fact(Timeout = 5000)]
+    public async Task SynthesisSession_StopAsync_CallerTokenPreCanceled_OperationStillCanceledAndAwaited()
+    {
+        // Arrange: a gated in-flight native call
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        using var preCanceled = new CancellationTokenSource();
+        await preCanceled.CancelAsync();
+
+        // Act: the caller's own wait is released by its own canceled token
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(preCanceled.Token));
+
+        // Assert: teardown was not abandoned - the operation is still pending on the gated call
+        Assert.False(speakTask.IsCompleted);
+        Assert.False(backend.GenerateReturned);
+
+        // Act: let the native call return
+        generateRelease.Release();
+
+        // Assert: the operation ends canceled and the session converges to Stopped
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
+        Assert.Equal(SynthesisSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
     ///     Waits until <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> equals
     ///     <paramref name="expected"/> by observing <see cref="ISynthesisSession.StateChanged"/>
     ///     (no polling), bounded by <paramref name="timeout"/>.
@@ -1364,6 +1400,75 @@ public class SynthesisSessionTests
         // Assert: boosted audio is clamped to full scale; reduced audio is scaled by 0.5
         Assert.All(Assert.Single(loud).Samples, sample => Assert.Equal(1.0f, sample));
         Assert.All(Assert.Single(soft).Samples, sample => Assert.Equal(0.25f, sample, 0.0001f));
+    }
+
+    /// <summary>
+    ///     Proves that a speed override from the capability profile reaches the backend as the
+    ///     ratio of the overridden value to the declared parameter's default, not the raw value.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_SpeedOverride_PassesRatioToDefaultToBackend()
+    {
+        // Arrange: tempo defaults to 2.0, so an override of 3.0 is a 1.5x speed ratio
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = CreateModelWithOverrides(
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 4.0, 0.05, 2.0), "x")],
+            new Dictionary<string, object> { ["tempo"] = 3.0 });
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        await session.SynthesizeAsync("Hello.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.GenerateCalls);
+        Assert.Equal(1.5f, call.Speed, 0.0001f);
+    }
+
+    /// <summary>
+    ///     Proves that a speed or volume override resolving to a non-positive ratio is ignored,
+    ///     leaving the backend speed at <c>1.0</c> and the samples unscaled.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_NonPositiveOverrideRatio_IsIgnored()
+    {
+        // Arrange: a negative tempo override and a zero volume override are not valid multipliers
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = CreateModelWithOverrides(
+            [
+                new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0), "x"),
+                new NumericParameter("volume", "Volume", "Output gain.", new NumericParameterBounds(0.5, 20.0, 0.1, 1.0), "x"),
+            ],
+            new Dictionary<string, object> { ["tempo"] = -1.0, ["volume"] = 0.0 });
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        var segments = await session.SynthesizeAsync("Hello.", TestContext.Current.CancellationToken);
+
+        // Assert: default speed, and the fake backend's unscaled 0.5 samples
+        var call = Assert.Single(backend.GenerateCalls);
+        Assert.Equal(1.0f, call.Speed);
+        Assert.All(Assert.Single(segments).Samples, sample => Assert.Equal(0.5f, sample, 0.0001f));
+    }
+
+    /// <summary>
+    ///     Creates a substitute synthesis model declaring <paramref name="parameters"/> whose
+    ///     capability profile renders every text as one segment carrying
+    ///     <paramref name="overrides"/>.
+    /// </summary>
+    private static ISynthesisModel CreateModelWithOverrides(
+        IReadOnlyList<ISpeechModelParameter> parameters,
+        IReadOnlyDictionary<string, object> overrides)
+    {
+        var profile = Substitute.For<IModelCapabilityProfile>();
+        profile.Render(Arg.Any<IReadOnlyList<TaggedTextSpan>>(), Arg.Any<ISpeechModel>())
+            .Returns(new SpeechPlan([new SpeechSegment("Hello.", 0, 0, overrides)]));
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(profile);
+        model.Parameters.Returns(parameters);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        return model;
     }
 
     /// <summary>

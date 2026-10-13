@@ -162,8 +162,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
-var options
-{
+var options = new ChatterboxTurboModelOptions
     ReferenceVoices =
     [
         ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),

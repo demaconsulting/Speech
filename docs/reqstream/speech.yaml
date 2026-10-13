@@ -189,6 +189,7 @@ sections:
           and a local disk failure, rather than seeing a single undifferentiated failure.
         children:
           - Speech-Models-HonestFailureStates
+          - Speech-Models-DownloadFailureDiagnostics
           - Speech-Models-RicherFailureClassification
         tests:
           - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing

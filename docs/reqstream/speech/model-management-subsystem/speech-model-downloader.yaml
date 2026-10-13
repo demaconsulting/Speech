@@ -175,6 +175,19 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
 
+              - id: Speech-Models-SpeechModelDownloader-FailureErrorDiagnostic
+                title: >-
+                  The SpeechModelDownloader class shall report an Error-level diagnostic naming the
+                  model id whenever a download fails for a reason other than caller cancellation.
+                justification: |
+                  A host diagnosing a failed download needs the structural facts (which model, and
+                  the failure message) in its diagnostics sink as well as in the returned result;
+                  raw model bytes are never included.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+                  - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+                  - SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure
+
               - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledLeftoverCleanup
                 title: >-
                   The SpeechModelDownloader class shall remove any leftover staging or replaced

@@ -217,10 +217,9 @@ sections:
 
           - id: Speech-Synthesis-EngineExclusivity
             title: >-
-              The SynthesisSubsystem shall allow an ISpeechSynthesizerEngine to host at most one
-              live ISynthesisSession at a time, failing a concurrent session request fast with a
-              documented exception rather than queuing it, sharing the engine, or silently
-              misbehaving.
+              The SynthesisSubsystem shall host at most one live ISynthesisSession per
+              ISpeechSynthesizerEngine, throwing SynthesisEngineBusyException synchronously for
+              a concurrent session request.
             justification: |
               A single loaded model (Layer 3 engine) owns one native inference context; two
               concurrently live sessions bound to two different playback devices would race
@@ -297,6 +296,8 @@ sections:
               for genuine machine-state unavailability.
             children:
               - Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
+              - Speech-Synthesis-SpeechSynthesizerFactory-InvalidChoiceParameterValueThrows
+              - Speech-Synthesis-SpeechSynthesizerFactory-InvalidBooleanParameterValueThrows
             tests:
               - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws
 
@@ -354,6 +355,7 @@ sections:
               - Speech-Synthesis-SentenceChunker-LeadingDecimalPointRetention
               - Speech-Synthesis-SentenceChunker-LetterPrecededPeriodSplits
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
+              - Speech-Synthesis-SentenceChunker-TrailingBoundaryRunNoDegenerateChunk
               - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata
               - Speech-Synthesis-SentenceChunker-ChunkTextProjection
@@ -392,6 +394,8 @@ sections:
               - Speech-Synthesis-SynthesisSession-SilenceWriting
               - Speech-Synthesis-SynthesisSession-LongSilenceChunked
               - Speech-Synthesis-SynthesisSession-VolumeScaling
+              - Speech-Synthesis-SynthesisSession-SpeedOverride
+              - Speech-Synthesis-SynthesisSession-NonPositiveOverrideRatioIgnored
               - Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-SynthesisSession-DrainWaitCancellation
               - Speech-Synthesis-PlaybackAudioResampler-RateConversion
@@ -456,9 +460,9 @@ sections:
 
           - id: Speech-Synthesis-FaultContainment
             title: >-
-              The SynthesisSubsystem shall contain and report faults raised while synthesizing or
-              playing speech, and shall not hang or crash the process when disposal or an
-              abandoned native call is involved.
+              The SynthesisSubsystem shall contain and report faults raised while synthesizing,
+              playing or disposing a speech session, without hanging the caller or crashing the
+              process.
             justification: |
               A model that fails mid-utterance or a dropped playback device is an ordinary event
               during a synthesis operation and must never leave the caller's task hanging or tear

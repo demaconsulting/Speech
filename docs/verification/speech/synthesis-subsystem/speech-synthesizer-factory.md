@@ -76,7 +76,8 @@ already-created backend is disposed.
 `SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws`,
 `SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws`,
 `SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws`,
-`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`
+`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws`
 
 Supplied values are forwarded unchanged, an unrecognized key only reports `Info`, and an invalid
-value for a declared parameter throws `ArgumentException`.
+value for a declared numeric, choice or boolean parameter throws `ArgumentException`.

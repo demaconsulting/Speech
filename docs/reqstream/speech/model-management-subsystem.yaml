@@ -328,6 +328,19 @@ sections:
               - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
               - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
               - HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest
+
+          - id: Speech-Models-DownloadFailureDiagnostics
+            title: >-
+              The ModelManagementSubsystem shall report a download failure other than caller
+              cancellation to the host's diagnostics sink at Error level, naming the model id.
+            justification: |
+              A host diagnosing a failed download needs the structural facts in its diagnostics
+              sink as well as in the returned result; raw model bytes are never reported.
+            children:
+              - Speech-Models-SpeechModelDownloader-FailureErrorDiagnostic
+            tests:
+              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+
           - id: Speech-Models-RicherFailureClassification
             title: >-
               The ModelManagementSubsystem shall classify each download/install failure into a

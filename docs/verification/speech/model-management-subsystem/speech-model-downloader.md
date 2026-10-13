@@ -269,7 +269,8 @@ installed, and the content it leaves behind is what gets installed.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError`
 
-**Scenario**: The client throws an `HttpRequestException` carrying a status code; the outcome is `HttpError`.
+**Scenario**: The client throws an `HttpRequestException` carrying a status code; the outcome is `HttpError`, and
+an `Error` diagnostic naming the model id is reported.
 
 ##### Download: HttpRequestException Wrapping AuthenticationException Reports NetworkBlocked
 

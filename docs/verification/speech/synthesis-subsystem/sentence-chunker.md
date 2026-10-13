@@ -54,9 +54,13 @@ whitespace budget applies only to pieces still too long.
 
 **Stimulus**: Times, thousands separators and decimals; runs of `.`, `!`, `?`.
 
-**Expected**: Numeral punctuation stays attached; each terminator run is one boundary.
+**Expected**: Numeral punctuation (including a leading decimal point) stays attached, while a
+letter-preceded period followed by a digit still splits; each terminator run is one boundary,
+including at the end of the text.
 
 **Tests**: `SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached`,
+`SentenceChunker_Chunk_LeadingDecimalPoint_StaysAttached`,
+`SentenceChunker_Chunk_LetterPrecededPeriodFollowedByDigit_Splits`,
 `SentenceChunker_Chunk_MidSentenceEllipsis_StaysAttachedAsSingleChunk`,
 `SentenceChunker_Chunk_MixedConsecutiveTerminators_StaysAttachedAsSingleChunk`,
 `SentenceChunker_Chunk_RepeatedExclamations_StaysAttachedAsSingleChunk`,

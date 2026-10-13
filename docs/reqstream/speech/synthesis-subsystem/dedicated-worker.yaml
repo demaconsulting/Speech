@@ -30,15 +30,16 @@ sections:
 
               - id: Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment
                 title: >-
-                  The DedicatedWorker class shall abandon a non-cooperative delegate - one that
-                  ignores its supplied cancellation token - once a configurable abandon timeout
-                  elapses, and shall still return control to its caller as canceled rather than
-                  hanging indefinitely.
+                  The DedicatedWorker class shall return control to its caller as canceled once a
+                  configurable abandon timeout elapses after cancellation without a
+                  non-cooperative delegate - one that ignores its supplied cancellation token -
+                  having returned.
                 justification: |
                   A native call is not guaranteed to honor .NET cancellation tokens at all; the
-                  worker must bound how long a caller can be blocked by such a call, trading an
-                  orphaned background thread for guaranteed forward progress of the caller, per
-                  this library's fault-containment requirements.
+                  worker must bound how long a caller can be blocked by such a call, abandoning
+                  the delegate (an orphaned background thread) for guaranteed forward progress of
+                  the caller rather than hanging indefinitely, per this library's
+                  fault-containment requirements.
                 tests:
                   - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 

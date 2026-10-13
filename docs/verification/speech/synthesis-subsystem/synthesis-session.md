@@ -23,7 +23,12 @@ asserted to be isolated: the exception is caught and reported through diagnostic
 propagated or allowed to destabilize the session. A handler that blocks while another thread reads
 `State` proves handlers are never invoked under the session lock
 (`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`).
-No test uses a `Task.Delay` window to assert that something has not yet happened. "Not yet
+No test uses a `Task.Delay` window to assert that something has not yet happened. The one
+timing-based aid is the sequential-synthesis test, whose fake backend sleeps 5 ms inside
+`Generate` only to widen the window in which an accidental concurrent call would be observable
+through `MaxConcurrentGenerateCalls`; it can therefore only fail on a real concurrency defect and
+never on a correct implementation, but it detects such a defect probabilistically rather than
+deterministically. "Not yet
 complete" assertions (for example that `StopAsync`, `DisposeAsync` or the lease release has not
 happened while the native call is blocked) are made against a backend gated by a `SemaphoreSlim`,
 so the asserted state is stable until the test releases the gate, and the "only after the native

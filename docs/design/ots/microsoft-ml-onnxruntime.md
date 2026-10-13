@@ -25,7 +25,9 @@ the CPU execution provider in the base package, so the model packages need no en
 `DemaConsulting.Speech.Onnx`, `DemaConsulting.Speech.Onnx.Kokoro`,
 `DemaConsulting.Speech.Onnx.NemotronStt`, and `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
 reference `Microsoft.ML.OnnxRuntime` directly from their project files, which are the single source
-of truth for the pinned version. The CLI and Demo applications reference the same version with
+of truth for the pinned version (currently 1.28.0). The libraries rely only on the ONNX operator
+sets and model format supported by that pinned release; the graphs they load are produced offline
+by their publishers. The CLI and Demo applications reference the same version with
 native assets excluded, so that sherpa-onnx's own native runtime is the one deployed. Model packages create
 sessions through `OnnxExecutionProviderSelector.Create`, which keeps provider fallback in one
 place; no ONNX Runtime type appears in any public API of the Speech library, which does not

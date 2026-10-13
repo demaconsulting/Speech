@@ -975,7 +975,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var store = NewStore();
         var client = new ThrowingModelDownloadClient(
             () => new HttpRequestException("Not Found", inner: null, System.Net.HttpStatusCode.NotFound));
-        var downloader = new SpeechModelDownloader(store, client);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var downloader = new SpeechModelDownloader(store, client, diagnostics);
 
         // Act
         var result = await downloader.DownloadAsync(
@@ -985,6 +986,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.HttpError, result.Outcome);
         Assert.IsType<HttpRequestException>(result.Error);
         Assert.False(store.IsInstalled("model-a"));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Error,
+            "ModelManagementSubsystem",
+            Arg.Is<string>(message => message.Contains("model-a", StringComparison.Ordinal)));
     }
 
     /// <summary>

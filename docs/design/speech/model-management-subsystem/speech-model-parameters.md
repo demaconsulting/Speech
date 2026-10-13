@@ -8,7 +8,12 @@ rules for what counts as a valid supplied value.
 
 **Data Model**:
 
-- `ISpeechModelParameter`: common contract - `Id`, `DisplayName`, `Description`.
+- `ISpeechModelParameter`: common contract - `Id`, `DisplayName`, `Description`. The "never
+  null/empty" guarantees are enforced only by the three library implementations' constructors; the
+  interface is public, so a custom subtype is not checked for them. `ValidateAndReport` rejects a
+  custom subtype with `ArgumentException` only when a supplied value targets its `Id`; a
+  custom subtype that violates the guarantees (for example a null `Id`) is the implementer's
+  responsibility and its behavior is not defined by this unit.
 - `NumericParameter`: `Minimum`, `Maximum`, `Step`, `Default`, optional `Unit`, `IsInteger`
   (defaults to `false`).
 - `NumericParameterBounds`: a small `readonly record struct` bundling `Minimum`, `Maximum`,

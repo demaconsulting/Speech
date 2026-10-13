@@ -80,7 +80,7 @@ sections:
                   the DegeneratePunctuationMerging requirement), silencing the "point" when the
                   number was spoken (".5" read as "five" instead of "point five").
                 tests:
-                  - SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached
+                  - SentenceChunker_Chunk_LeadingDecimalPoint_StaysAttached
 
               - id: Speech-Synthesis-SentenceChunker-LetterPrecededPeriodSplits
                 title: >-
@@ -90,27 +90,36 @@ sections:
                   Excluding a letter-preceded period from the numeral rules keeps a genuine
                   sentence-ending period, immediately followed by a digit, splitting normally.
                 tests:
-                  - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
+                  - SentenceChunker_Chunk_LetterPrecededPeriodFollowedByDigit_Splits
 
               - id: Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
                 title: >-
                   The SentenceChunker class shall treat a maximal run of consecutive primary
-                  sentence-ending characters (any combination of '.', '!', '?', such as an
-                  ellipsis or a mixed terminator like "?!" or "!!") as a single boundary, splitting
-                  only once after the last character of the run and keeping the whole run attached
-                  to the sentence that precedes it, both mid-text and at the end of the text.
+                  sentence-ending characters ('.', '!', '?') inside the text as a single
+                  boundary, keeping the whole run attached to the sentence that precedes it.
                 justification: |
                   Splitting after every individual character in a run of terminal punctuation
-                  produces degenerate chunks that are just a single punctuation character with no
-                  other content; synthesizing such a near-empty chunk produces audible glitches and
-                  artifacts regardless of which model performs the synthesis. Merging the run into
-                  one boundary also matches how a human naturally pauses once at an ellipsis rather
+                  (an ellipsis, or a mixed terminator such as "?!" or "!!") produces degenerate
+                  chunks that are just a single punctuation character with no other content;
+                  synthesizing such a near-empty chunk produces audible glitches and artifacts
+                  regardless of which model performs the synthesis. Merging the run into one
+                  boundary also matches how a human naturally pauses once at an ellipsis rather
                   than stopping once per character.
                 tests:
                   - SentenceChunker_Chunk_MidSentenceEllipsis_StaysAttachedAsSingleChunk
                   - SentenceChunker_Chunk_MixedConsecutiveTerminators_StaysAttachedAsSingleChunk
                   - SentenceChunker_Chunk_RepeatedExclamations_StaysAttachedAsSingleChunk
                   - SentenceChunker_Chunk_SingleTerminators_NoRegression
+
+              - id: Speech-Synthesis-SentenceChunker-TrailingBoundaryRunNoDegenerateChunk
+                title: >-
+                  The SentenceChunker class shall keep a run of consecutive primary
+                  sentence-ending characters at the end of the text attached to the final
+                  sentence, emitting no trailing punctuation-only chunk.
+                justification: |
+                  A trailing ellipsis or mixed terminator would otherwise yield a final chunk
+                  consisting only of punctuation, which synthesizes as a glitch.
+                tests:
                   - SentenceChunker_Chunk_TrailingEllipsis_NoDegenerateTrailingChunk
 
               - id: Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging

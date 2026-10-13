@@ -116,23 +116,41 @@ sections:
               - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
                   The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
-                  from LoadAsync() - before installed/role/backend checks run - when
-                  parameterValues supplies a value for a parameter the requested model does
-                  declare, but the value is invalid for that parameter (wrong CLR type, outside
-                  [Minimum, Maximum] or non-integral for a NumericParameter declared IsInteger,
-                  or not a declared ChoiceParameterOption.Value for a ChoiceParameter, or not a
-                  bool for a BooleanParameter), naming the parameter id, the model id, and the
-                  reason the value is invalid.
+                  from LoadAsync() when a supplied numeric parameter value is invalid for the
+                  declared NumericParameter.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
                   value invalid for it, is a caller bug rather than a legitimate cross-model
                   compatibility gap, and must be surfaced immediately and loudly - synchronously
-                  from LoadAsync() - rather than silently substituted the first time
-                  ResolveSpeakerId ran per segment. This validation happens once, up front, at
-                  LoadAsync(); it does not change ResolveSpeakerId's or ResolveOverrideRatios's
-                  own existing never-throw, per-segment runtime contract.
+                  from LoadAsync(), before installed/role/backend checks run - rather than
+                  silently substituted the first time ResolveSpeakerId ran per segment. A numeric
+                  value is invalid when it has the wrong CLR type, lies outside
+                  [Minimum, Maximum], or is non-integral for a parameter declared IsInteger. The
+                  exception names the parameter id, the model id, and the reason. This
+                  validation happens once, up front; it does not change ResolveSpeakerId's or
+                  ResolveOverrideRatios's own never-throw, per-segment runtime contract.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidChoiceParameterValueThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
+                  from LoadAsync() when a supplied choice parameter value is not a declared
+                  option.
+                justification: |
+                  A value outside the closed option set can never be honored and must be
+                  surfaced immediately and loudly, naming the parameter id and the model id.
+                tests:
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidBooleanParameterValueThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
+                  from LoadAsync() when a supplied boolean parameter value is not a bool.
+                justification: |
+                  A non-bool value cannot be interpreted as a flag and must be surfaced
+                  immediately and loudly, naming the parameter id and the model id.
+                tests:
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws

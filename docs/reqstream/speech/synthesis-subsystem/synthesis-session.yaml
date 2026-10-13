@@ -433,7 +433,7 @@ sections:
                   A caller that gives up waiting must not leave the operation running or abandon
                   the cancel-and-await work other callers (and DisposeAsync) depend on.
                 tests:
-                  - SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops
+                  - SynthesisSession_StopAsync_CallerTokenPreCanceled_OperationStillCanceledAndAwaited
 
               - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallReturnsPromptly
                 title: >-
@@ -523,3 +523,25 @@ sections:
                   input; clamping prevents a loud tag from producing out-of-range samples.
                 tests:
                   - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
+
+              - id: Speech-Synthesis-SynthesisSession-SpeedOverride
+                title: >-
+                  The SynthesisSession class shall pass a segment's speed override to the backend
+                  as the ratio of the overridden value to the declared parameter's default.
+                justification: |
+                  A speed tag is realized through the backend's speed input, which is a
+                  multiplier of the model's normal rate, so the model-specific parameter value
+                  must be converted to a ratio relative to that parameter's default.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_SpeedOverride_PassesRatioToDefaultToBackend
+
+              - id: Speech-Synthesis-SynthesisSession-NonPositiveOverrideRatioIgnored
+                title: >-
+                  The SynthesisSession class shall ignore a speed or volume override whose
+                  resolved ratio is not a positive finite number.
+                justification: |
+                  A zero, negative or non-finite multiplier is never a valid speed or gain;
+                  applying it would silence or corrupt the segment, so the segment is
+                  synthesized with the unmodified speed and volume instead.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_NonPositiveOverrideRatio_IsIgnored

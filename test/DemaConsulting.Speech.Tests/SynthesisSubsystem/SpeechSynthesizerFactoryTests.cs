@@ -349,6 +349,30 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a non-bool value for a declared <see cref="BooleanParameter"/> throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws()
+    {
+        // Arrange
+        var backendFactory = new FakeSynthesisEngineFactory();
+        const string parameterId = "emphasis";
+        var model = new FakeSynthesisModel(
+            parameters: [new BooleanParameter(parameterId, "Emphasis", "Emphasis flag.", false)]);
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
+        {
+            [parameterId] = "yes",
+        };
+
+        // Act / Assert
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
+        Assert.Contains(parameterId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, backendFactory.CreateCallCount);
+    }
+
+    /// <summary>
     ///     Proves that a model not yet installed in the store composes to the honest unavailable
     ///     engine, and that the backend is never loaded.
     /// </summary>
