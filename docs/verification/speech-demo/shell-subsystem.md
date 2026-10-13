@@ -23,17 +23,30 @@ Verification_).
 
 ### Acceptance Criteria
 
-A ShellSubsystem test run passes when the shell composes successfully over an environment that
-reports nothing at all - no audio devices and no known models - with every panel reporting its own
-honest empty state.
+A ShellSubsystem test run passes when: the shell composes successfully over an environment that
+reports nothing at all - no audio devices and no known models - with all four panels still
+present (each panel's own empty-state wording is verified by the owning subsystem); the navigation
+list offers exactly four panels in the order device selection, model catalog, text-to-speech,
+speech-to-text; every entry has a non-blank title and hosts the injected panel; the first panel is
+selected initially; a selection change is announced; and re-selecting the current panel is not
+announced.
+
+The shell has no failure path of its own: it performs no I/O and raises no errors of its own, so
+there is no error scenario to run here. Faults (a missing audio backend, a failed refresh, an
+unavailable model) are handled and reported by the panel that owns them, and are verified in the
+DeviceSelectionSubsystem, ModelCatalogSubsystem and session-owning panel verification documents.
+Invalid shell inputs (a blank title, a missing content object) are covered by the
+DemoPanelViewModel unit verification.
 
 ### Test Scenarios
 
-#### MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState
+#### MainWindowViewModel_Constructor_EmptyEnvironment_ComposesAllPanelsWithEmptyStates
 
-**Scenario**: The shell is composed over seams that report no devices and no models.
+**Scenario**: The shell is composed over seams that report no devices and no models (boundary:
+nothing available).
 
-**Expected**: Composition succeeds and each panel reports its own honest empty state.
+**Expected**: Composition succeeds, all four panels are present, and each panel reports an empty
+state.
 
 #### MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
 

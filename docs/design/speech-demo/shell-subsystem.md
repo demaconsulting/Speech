@@ -35,8 +35,8 @@ hardware. See each unit's own design document for its data model and error handl
 
 ### Composition Root
 
-`App.OnFrameworkInitializationCompleted` (see _SpeechDemo App Design_) is the single place the
-demo's object graph is built:
+`App.Compose`, called from `App.OnFrameworkInitializationCompleted` (see _SpeechDemo App
+Design_), is the single place the demo's object graph is built:
 
 1. Construct the library's `AudioDeviceFactory`
 2. Resolve the store and downloader options from `AppLaunchOptions` (when present)

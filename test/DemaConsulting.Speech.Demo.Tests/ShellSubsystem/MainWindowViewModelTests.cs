@@ -233,12 +233,13 @@ public class MainWindowViewModelTests
     ///     audio devices and a library with no known models.
     /// </summary>
     [Fact]
-    public void MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState()
+    public void MainWindowViewModel_Constructor_EmptyEnvironment_ComposesAllPanelsWithEmptyStates()
     {
         // Arrange & Act: compose the shell over a machine reporting nothing
         var viewModel = FullShell();
 
-        // Assert: every panel reports its honest empty state without faulting
+        // Assert: all four panels are still present and each reports its own empty state
+        Assert.Equal(4, viewModel.Panels.Count);
         Assert.False(viewModel.DeviceSelection.HasCaptureDevices);
         Assert.False(viewModel.DeviceSelection.HasPlaybackDevices);
         Assert.True(viewModel.ModelCatalog.IsCatalogEmpty);
