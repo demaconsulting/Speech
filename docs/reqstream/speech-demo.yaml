@@ -109,6 +109,7 @@ sections:
           - SpeechDemo-DeviceSelection-PanelListsLibraryDevices
           - SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
           - SpeechDemo-DeviceSelection-RefreshKeepsSelection
+          - SpeechDemo-DeviceSelection-RefreshFailureExplained
           - SpeechDemo-Devices-LibraryPlaybackProbeDelegation
           - SpeechDemo-DeviceSelection-RefreshReachesLibrary
           - SpeechDemo-Devices-ServiceRequired

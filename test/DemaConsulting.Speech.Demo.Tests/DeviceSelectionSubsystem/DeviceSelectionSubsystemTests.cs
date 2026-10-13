@@ -107,9 +107,37 @@ public class DeviceSelectionSubsystemTests
         // Act: refresh through the panel
         await viewModel.Refresh();
 
-        // Assert: the library re-scanned its device table
+        // Assert: the library re-scanned its device table and the lists are unchanged
         Assert.Equal(1, api.TerminateCallCount);
         Assert.Equal(2, api.InitializeCallCount);
+        Assert.Equal([micA], viewModel.CaptureDevices);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh the library cannot complete leaves the composed panel's lists and
+    ///     selections untouched and explains the failure in the status text.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndExplains()
+    {
+        // Arrange: an environment whose native teardown fails
+        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([micA]);
+        var api = new FakePortAudioApi { TerminateFailure = new InvalidOperationException("teardown failed") };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null, environment));
+        var viewModel = new DeviceSelectionViewModel(service);
+        var selectionBefore = viewModel.CaptureSelection;
+
+        // Act: refresh through the panel
+        await viewModel.Refresh();
+
+        // Assert: nothing was re-enumerated or reselected, and both statuses carry the message
+        Assert.Equal([micA], viewModel.CaptureDevices);
+        Assert.Equal(selectionBefore, viewModel.CaptureSelection);
+        Assert.Equal("teardown failed", viewModel.CaptureStatus);
+        Assert.Equal("teardown failed", viewModel.PlaybackStatus);
     }
 
     /// <summary>
@@ -147,6 +175,9 @@ public class DeviceSelectionSubsystemTests
         /// <summary>Gets the number of times <see cref="Terminate"/> has been called.</summary>
         internal int TerminateCallCount { get; private set; }
 
+        /// <summary>Gets or sets an exception that <see cref="Terminate"/> throws, when set.</summary>
+        internal Exception? TerminateFailure { get; set; }
+
         /// <inheritdoc/>
         public int HostApiCount => 0;
 
@@ -163,6 +194,10 @@ public class DeviceSelectionSubsystemTests
         public void Terminate()
         {
             TerminateCallCount++;
+            if (TerminateFailure is not null)
+            {
+                throw TerminateFailure;
+            }
         }
 
         /// <inheritdoc/>

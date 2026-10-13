@@ -18,7 +18,10 @@ verification activity on hardware-equipped machines.
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Isolation**: Every test constructs its own factory, adapter and view model
 - **Test doubles**: NSubstitute fakes of `IAudioCaptureDeviceProbe` and
-  `IAudioPlaybackDeviceProbe`, and a fake PortAudio API behind a `PortAudioEnvironment`
+  `IAudioPlaybackDeviceProbe`, and a fake PortAudio API behind a `PortAudioEnvironment`. Where a test
+  supplies only a capture probe, the playback probe is the library's default one over that fake
+  environment; the fake throws `NotSupportedException` for everything except initialize and
+  terminate, so that probe reports zero playback devices.
 
 ### Acceptance Criteria
 
@@ -26,7 +29,8 @@ A DeviceSelectionSubsystem test run passes when: the pickers list exactly what t
 probes report and preselect the first device of each direction; probes that report nothing yield
 empty pickers with an explanatory message and the library's system-default selections; and a
 refresh through the panel makes the library re-scan its device table while a still-reported
-selection is kept.
+selection is kept, and a refresh the library cannot complete leaves the lists and selections
+untouched with the failure explained.
 
 ### Test Scenarios
 
@@ -67,3 +71,13 @@ plus the re-scan).
 capture devices, with the second capture device selected.
 
 **Expected**: The second capture device stays selected.
+
+#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndExplains
+
+**Scenario**: The composed panel is refreshed over a fake PortAudio environment whose native
+teardown throws.
+
+**Expected**: The capture list and selection are unchanged, and both status texts carry the
+failure's message. The in-use refusal (`AudioDeviceInUseException`) takes the same path in the view
+model but needs an open stream, which cannot be created without hardware, so it is verified at unit
+level in the DeviceSelectionViewModel verification document.
