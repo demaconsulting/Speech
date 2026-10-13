@@ -165,7 +165,7 @@ _SentenceChunker_, and _DedicatedWorker_ respectively).
 | `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
 | `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
 | `SentenceChunker` | `synthesis-subsystem/sentence-chunker.md` |
-| `ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
+| `ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory` | `synthesis-backend.md` |
 | `DedicatedWorker` | `synthesis-subsystem/dedicated-worker.md` |
 | `PlaybackAudioResampler` | `synthesis-subsystem/playback-audio-resampler.md` |
 | `SpeechSynthesizerEngine` | `synthesis-subsystem/speech-synthesizer-engine.md` |

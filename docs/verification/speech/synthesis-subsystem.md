@@ -348,8 +348,8 @@ itself available; disposes its owned backend exactly once across repeated `Dispo
 and, when disposed while a session is still actively leased, disposes that session first (which
 also releases the lease) before disposing the backend. A `CreateSessionAsync` racing a concurrent
 `DisposeAsync` either yields a usable session or fails cleanly with `ObjectDisposedException` (or
-the lease-busy exception), and never any other exception indicating a half-disposed engine. The two lease/fault exceptions each expose the message
-and inner exception supplied to their constructors.
+the lease-busy exception), and never any other exception indicating a half-disposed engine. The two
+lease/fault exceptions each expose the message and inner exception supplied to their constructors.
 
 #### Engine: One-Shot Convenience Overloads
 
@@ -371,7 +371,8 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 
 Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
 `Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
-faulting operation raises `Created → Starting → Running → Faulted` directly (never passing through `Stopping`); that a subscriber's handler exception
+faulting operation raises `Created → Starting → Running → Faulted` directly (never passing through
+`Stopping`); that a subscriber's handler exception
 is caught and routed to diagnostics rather than propagated or destabilizing the session; that a
 handler blocking while another thread reads `State` does not deadlock (handlers never run under
 the session lock); and that
