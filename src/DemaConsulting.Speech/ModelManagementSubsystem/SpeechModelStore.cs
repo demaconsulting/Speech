@@ -248,7 +248,8 @@ public sealed class SpeechModelStore
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
     /// <exception cref="SpeechModelStoreException">
     ///     Thrown when <c>current/</c> cannot be removed, most commonly because another process
-    ///     (e.g. an in-use recognizer/synthesizer) still holds an open file handle into it.
+    ///     (e.g. an in-use recognizer/synthesizer) still holds an open file handle into it, or when
+    ///     the install manifest cannot be deleted.
     /// </exception>
     /// <remarks>
     ///     This is an explicit, user-invoked operation (never called during composition or

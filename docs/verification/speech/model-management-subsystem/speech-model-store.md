@@ -138,7 +138,24 @@ asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Win
 ##### Existing Install Stays Untouched During Staging; Replaced Directories Are Cleaned Up
 
 **Test**: `SpeechModelStore_BeginInstall_ExistingInstall_LeavesCurrentUntouchedDuringStaging`
+
 **Test**: `SpeechModelStore_CleanUpLeftovers_ReplacedDirectory_IsRemovedAndCurrentKept`
+
+The first scenario stages while a model is installed and asserts `current/` is untouched; the second
+leaves a `current.replaced-*` directory behind and asserts cleanup removes it while keeping `current/`.
+
+##### Empty .tmp Cleanup After Install
+
+**Test**: `SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot`
+
+**Test**: `SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot`
 
 These scenarios install a model and assert that the empty `.tmp` folder is gone, and that it is kept
 while another operation's staging directory is still present.
+
+##### CleanUpLeftoversAsync: Canceled Token Is Honored
+
+**Test**: `SpeechModelStore_CleanUpLeftoversAsync_CanceledToken_ThrowsWithoutDeleting`
+
+A canceled token throws `OperationCanceledException` before the cleanup starts and the leftover
+staging directory is left in place.

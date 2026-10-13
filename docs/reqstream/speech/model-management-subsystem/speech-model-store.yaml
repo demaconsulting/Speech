@@ -45,6 +45,7 @@ sections:
                 tests:
                   - SpeechModelStore_BeginStaging_ExistingCurrent_LeavesInstalledContentUntouched
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
+                  - SpeechModelStore_BeginInstall_ExistingInstall_LeavesCurrentUntouchedDuringStaging
 
               - id: Speech-Models-SpeechModelStore-InstallStateHonesty
                 title: >-
@@ -167,6 +168,8 @@ sections:
                 tests:
                   - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
                   - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
+                  - SpeechModelStore_CleanUpLeftovers_ReplacedDirectory_IsRemovedAndCurrentKept
+                  - SpeechModelStore_CleanUpLeftoversAsync_CanceledToken_ThrowsWithoutDeleting
 
               - id: Speech-Models-SpeechModelStore-EmptyTempCleanup
                 title: >-

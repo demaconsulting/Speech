@@ -24,17 +24,19 @@ staging space, never read as installed content). A nested `internal` `InstallMan
   accompanies it; a missing or unreadable manifest is treated as "not installed", never as an
   error.
 - **BeginStaging(modelId)** _(internal)_: Creates a fresh, empty `.tmp/{operationId}/` staging
-  directory, never touching `current/`. Called only by `SpeechModelDownloader`.
+  directory, never touching `current/`. A concurrent install's empty-`.tmp` cleanup can delete the
+  parent between its creation and the child's, so the creation is retried a bounded number of times
+  (5 attempts with a short back-off) on an I/O or access failure before the failure propagates.
+  Called only by `SpeechModelDownloader`.
 - **CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes)** _(internal)_:
   Atomically swaps a verified staging directory into place as the new `current/` via a directory
   rename (renaming any existing `current/` aside first), then writes the manifest. On a repair the
   old manifest is removed before the swap and restored (best-effort) if the swap fails, so a stale
-  manifest never describes different content. Best-effort
-  deletes the superseded directory afterward. The staging directory this promotes may already
-  have been modified in place by the model's own `ISpeechModel.InstallAsync` hook, invoked by
-  `SpeechModelDownloader` before this call; `SpeechModelStore` itself remains entirely
-  `ISpeechModel`-agnostic and unchanged in this regard - it promotes whatever is physically
-  present in the staging directory, whether or not something unpacked it first.
+  manifest never describes different content. Best-effort deletes the superseded directory
+  afterward. The staging directory this promotes may already have been modified in place by the
+  model's own `ISpeechModel.InstallAsync` hook, invoked by `SpeechModelDownloader` before this
+  call; `SpeechModelStore` itself remains entirely `ISpeechModel`-agnostic - it promotes whatever
+  is physically present in the staging directory, whether or not something unpacked it first.
 - **AbandonStaging(stagingDirectory)** _(internal, static)_: Deletes a failed/canceled operation's
   staging directory without touching `current/`.
 - **Uninstall(modelId)**: Removes `current/` and the manifest for an installed model; a no-op for
@@ -55,10 +57,11 @@ invalid-file-name, `.`, or `..` id. `Uninstall` throws `SpeechModelStoreExceptio
 or the manifest cannot be removed, most commonly because another process still holds an open file
 handle into it; after both are removed it deletes leftover `current.replaced-*` directories
 (best-effort) but not `.tmp/*`, so a concurrent installer's live staging directory is never
-removed. `CompleteInstall` propagates
-I/O failures; if the second directory rename fails after an existing `current/` was renamed
-aside, it renames the previous content back into place (best-effort) before rethrowing, so a
-previously installed model remains installed.
+removed. `CompleteInstall` propagates I/O failures; if the second directory rename fails after an
+existing `current/` was renamed aside, it renames the previous content back into place
+(best-effort) before rethrowing, so a previously installed model remains installed. If writing the
+new manifest fails after the swap succeeded, the exception propagates and the superseded
+`current.replaced-*` directory is left in place for `CleanUpLeftovers` to remove.
 
 **Root Path**: `RootPath` is documented as an absolute path; an override is used verbatim and is
 not validated or normalized, so a host is responsible for supplying an absolute path.

@@ -618,6 +618,23 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the asynchronous leftover cleanup honors a canceled token without deleting anything.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_CleanUpLeftoversAsync_CanceledToken_ThrowsWithoutDeleting()
+    {
+        // Arrange
+        var store = NewStore();
+        var (_, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "partial");
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.CleanUpLeftoversAsync("model-a", cts.Token));
+        Assert.True(Directory.Exists(stagingDirectory));
+    }
+
+    /// <summary>
     ///     Proves that the asynchronous leftover cleanup removes a leftover staging directory and rejects an invalid id.
     /// </summary>
     [Fact]
