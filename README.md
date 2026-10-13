@@ -50,8 +50,8 @@ sibling package supplying the four sherpa-onnx-backed models used by this README
 `DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
 `.AddKokoroModels()`, and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime
 streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. The optional
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via
-`.AddChatterboxTurboModels(options)`. A host that only needs the
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning
+TTS model via `.AddChatterboxTurboModels(options)`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -76,8 +76,8 @@ still composes safely but reports audio devices as unavailable.
 `DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
 Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
 and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
-with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references either
-package together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
+with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references any of these
+packages together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
 Microsoft's copy can
 overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
 reference so only sherpa's native runtime is used (the managed APIs run against it):
@@ -138,7 +138,8 @@ accelerated provider cannot run the model. The model is dual-licensed under the 
 the NVIDIA Open Model License, and both apply; review the NVIDIA license's terms before
 redistributing the model. To select the spoken
 language, pass the `language` parameter (`en-US` by default, or `en-GB`), for example
-`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB --input speech.wav`.
+`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB
+--input speech.wav`.
 When a download mirror is used, files are fetched from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`.
 The engine shortens any run of near-silence longer than 400 ms (leading silence or low-level
 noise would otherwise make the model emit nothing), calibrates its quiet threshold from the first
@@ -157,10 +158,11 @@ right to clone any voice you use. WAV and FLAC files are decoded by the core pac
 down-mixes and resamples it.
 
 ```csharp
-using DemaConsulting.Speech;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
-var options = new ChatterboxTurboModelOptions
+var options
 {
     ReferenceVoices =
     [
@@ -181,46 +183,14 @@ to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **C
 
 ```csharp
 using var voices = new ReferenceVoiceLibrary(catalog.Store);
-await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);   // ~570 MiB download, ~572 MiB installed with emotions
+// ~570 MiB download, ~572 MiB installed with emotions
+await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);
 // Base voices only (about 44 MiB installed): InstallPackAsync(id, includeEmotions: false)
 // Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
 ```
 
-The download is the whole upstream archive, verified against its published SHA-256 and fetched
-through the same mirror-aware downloader as models (with a mirror configured the path is
-`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`); only the voice clips, the license files and (by default) the
-emotion clips are kept: about
-44 MiB for the 154 base voices, plus about 528 MiB for the emotion variants (13 moods per voice: anger,
-calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired, worried).
-Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
-downloads the pack again while keeping the previous install aside (a failed or canceled re-download
-restores it). Each pack voice's `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that
-speaker's emotion clip (or is `null`); the moods are variants of the voice, not extra voices. Voices
-are stored under `<models root>/reference-voices/`: the pack in
-`voice-zero-1.0/current/voices/` and your own clips in `user/`. The voice list merges explicit
-`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user/`, then the pack, and the first voice
-with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
-read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
-requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
+See the [user guide][link-user-guide] for the pack contents, mood tags, model variants and generation limits.
 
-Chatterbox Turbo model files and rendering: by default the package downloads the fp16 language
-model with q4-quantized helper graphs (eight
-files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` select other precisions,
-each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,
-`[clear throat]` and `[gasp]` audio tags with its own native tokens, renders sighs and pauses as
-silence, and omits every other tag except the mood tags. Mood tags (`[happy]`, `[angry]`, `[calm]`,
-`[sad]`, `[excited]`, `[enthused]`, `[surprised]`, `[worried]`/`[panicked]`, `[confused]`,
-`[frustrated]`, `[neutral]`/`[serious]`, `[loud]`/`[shout]`, `[bored]`/`[tired]`) switch to the voice's
-matching emotion clip
-until the next mood tag, falling back to the base clip when the voice has none;
-`MoodJoinSilenceMilliseconds` (default 150) separates segments of different moods. Each segment pays
-its own prefill cost, prosody resets at joins, and tags work best at sentence boundaries.
-Because the model misbehaves when a native tag is the last thing
-in a sentence, `EndOfSentenceTagPolicy` controls whether such a tag is moved before the final word
-(the default), suffixed, or stripped. Generation is bounded by `MaxNewTokens` and
-`MaxAudioTokensPerTextToken`, so a failure to stop yields truncated audio rather than a hang.
-`MaxConsecutiveSpeechTokenRepeats` (default 12, 0 disables) stops the model from locking onto one
-speech token and producing a sustained tone.
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via
 `ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s
@@ -501,7 +471,8 @@ speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model stream
 
 ## Documentation
 
-Generated documentation includes:
+Generated documentation is published as release artifacts on the
+[GitHub Releases page][link-releases] and includes:
 
 - **API Reference**: Gradual-disclosure Markdown API docs (index → namespace → type), packed
   into the NuGet package's `api/` folder for downstream tools and agents to consume
@@ -546,8 +517,10 @@ By contributing to this project, you agree that your contributions will be licen
 [link-nuget]: https://www.nuget.org/packages/DemaConsulting.Speech
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
-[link-user-guide]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md
+[link-user-guide]: https://github.com/demaconsulting/Speech/tree/main/docs/user_guide
+[link-releases]: https://github.com/demaconsulting/Speech/releases
 [link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
 
 <!-- Image References -->
-[image-demo-audio-devices]: https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/demo-audio-devices.png
+[image-demo-audio-devices]:
+  https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/demo-audio-devices.png

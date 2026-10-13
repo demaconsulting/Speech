@@ -5,6 +5,18 @@ resource-path:
 input-files:
   - docs/user_guide/title.txt
   - docs/user_guide/introduction.md
+  - docs/user_guide/continuous-compliance.md
+  - docs/user_guide/installation.md
+  - docs/user_guide/usage.md
+  - docs/user_guide/recognizing-speech.md
+  - docs/user_guide/audio-tags.md
+  - docs/user_guide/synthesizing-speech.md
+  - docs/user_guide/hot-instance.md
+  - docs/user_guide/minimal-application.md
+  - docs/user_guide/demo-application.md
+  - docs/user_guide/speech-cli.md
+  - docs/user_guide/hardware-verification.md
+  - docs/user_guide/more-detail.md
 template: template.html
 table-of-contents: true
 number-sections: true
