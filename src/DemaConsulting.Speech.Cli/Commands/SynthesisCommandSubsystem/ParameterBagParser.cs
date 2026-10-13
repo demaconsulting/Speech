@@ -155,7 +155,8 @@ internal static class ParameterBagParser
     /// </param>
     private static object ResolveNumeric(NumericParameter numeric, string value, string flagName)
     {
-        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            || !double.IsFinite(parsed))
         {
             throw new ArgumentException(
                 $"{flagName} {numeric.Id}='{value}' is not a valid number.",

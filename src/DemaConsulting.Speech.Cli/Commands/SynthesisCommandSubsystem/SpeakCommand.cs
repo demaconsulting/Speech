@@ -359,13 +359,22 @@ internal static class SpeakCommand
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || KnownOptions.Contains(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     The option tokens <c>speak</c> recognizes; one of these in value position means the
+    ///     preceding flag's value is missing.
+    /// </summary>
+    private static readonly HashSet<string> KnownOptions = new(StringComparer.Ordinal)
+    {
+        "--tts-model", "--text", "--file", "--output-audio", "--playback-device", "--no-tags", TtsParamFlag
+    };
 
     /// <summary>The parsed <c>speak</c> flags.</summary>
     /// <param name="ModelId">The requested model id (required).</param>

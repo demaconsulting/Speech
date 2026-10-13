@@ -32,6 +32,8 @@ internal sealed class FakeSpeechRecognizerEngine : ISpeechRecognizerEngine
 {
     /// <summary>The session <see cref="CreateSessionAsync"/> returns.</summary>
     private readonly FakeRecognitionSession _session;
+
+    /// <summary>Completed the first time <see cref="DisposeAsync"/> is called.</summary>
     private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>

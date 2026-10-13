@@ -321,8 +321,17 @@ internal static class RecognizeCommand
             {
                 // File mode: StartAsync already blocked until the whole file was delivered (see
                 // this type's remarks); drain any buffered-but-not-yet-decoded audio now so every
-                // result is produced before the pump below settles.
-                await session.StopAsync(cancellationToken).ConfigureAwait(false);
+                // result is produced before the pump below settles. A cancellation observed here
+                // (Ctrl+C during the drain) must still end gracefully: fall back to an
+                // uncancelable stop so the session reaches a terminal state and the pump ends.
+                try
+                {
+                    await session.StopAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                }
             }
 
             await pumpTask.ConfigureAwait(false);
@@ -652,13 +661,23 @@ internal static class RecognizeCommand
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || KnownOptions.Contains(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     The option tokens <c>recognize</c> recognizes; one of these in value position means the
+    ///     preceding flag's value is missing.
+    /// </summary>
+    private static readonly HashSet<string> KnownOptions = new(StringComparer.Ordinal)
+    {
+        "--stt-model", "--input", "--mic", "--capture-device", "--silence-timeout", "--start-timeout",
+        SttParamFlag, "--interim", "--final-only", "--output-text"
+    };
 
     /// <summary>
     ///     Gets the value following a flag, parsed as a positive <see cref="double"/>, throwing a
@@ -668,6 +687,7 @@ internal static class RecognizeCommand
     {
         var value = RequireValue(args, ref index, flag);
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ||
+            !double.IsFinite(parsed) ||
             parsed <= 0.0)
         {
             throw new ArgumentException($"{flag} requires a positive number of seconds, not '{value}'.", nameof(args));
