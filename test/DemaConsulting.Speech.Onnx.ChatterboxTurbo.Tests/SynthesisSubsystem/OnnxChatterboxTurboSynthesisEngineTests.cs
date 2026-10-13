@@ -232,9 +232,9 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
 
     /// <summary>Proves disposing during a generation stops it at its next step, waits for it, and releases the networks once.</summary>
     [Fact]
-    public async Task OnnxChatterboxTurboSynthesisEngine_Dispose_DuringGeneration_StopsGenerationAndWaitsForIt()
+    public void OnnxChatterboxTurboSynthesisEngine_Dispose_DuringGeneration_StopsGenerationAndWaitsForIt()
     {
-        // Arrange: the first language-model step blocks until released
+        // Arrange: the first language-model step signals it is running, then blocks until released
         using var entered = new ManualResetEventSlim(false);
         using var release = new ManualResetEventSlim(false);
         var networks = new FakeNetworks([100], repeatLast: true)
@@ -246,19 +246,25 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
             },
         };
         var engine = Create(networks);
-        var cancellation = TestContext.Current.CancellationToken;
-        var generation = Task.Run(() => engine.Generate("Hello there.", 1.0f, 0), cancellation);
-        Assert.True(entered.Wait(TimeSpan.FromSeconds(30), cancellation));
+        Exception? generationFailure = null;
+        var generation = new Thread(() => generationFailure = Record.Exception(() => engine.Generate("Hello there.", 1.0f, 0)));
+        generation.Start();
+        entered.Wait(TestContext.Current.CancellationToken);
+        var disposal = new Thread(engine.Dispose);
 
-        // Act: dispose from another thread; it must wait for the in-flight generation rather than free the networks under it
-        var disposal = Task.Run(engine.Dispose, cancellation);
-        await Assert.ThrowsAsync<TimeoutException>(() => disposal.WaitAsync(TimeSpan.FromMilliseconds(300), cancellation));
-        Assert.Equal(0, networks.DisposeCount);
+        // Act: dispose from another thread, and wait until that thread is blocked on the engine's generation lock
+        disposal.Start();
+        SpinWait.SpinUntil(() => (disposal.ThreadState & ThreadState.WaitSleepJoin) != 0);
+        var disposeCountWhileBlocked = networks.DisposeCount;
+        var disposalAliveWhileBlocked = disposal.IsAlive;
         release.Set();
+        generation.Join();
+        disposal.Join();
 
-        // Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => generation);
-        await disposal;
+        // Assert: the blocked dispose had freed nothing; afterwards generation ended after one step and the networks were freed once
+        Assert.Equal(0, disposeCountWhileBlocked);
+        Assert.True(disposalAliveWhileBlocked);
+        Assert.IsType<ObjectDisposedException>(generationFailure);
         Assert.Equal(1, networks.DisposeCount);
         Assert.Single(networks.Steps);
     }
@@ -274,10 +280,11 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         // Act
         engine.Dispose();
         engine.Dispose();
+        var exception = Record.Exception(() => engine.Generate("Hello.", 1.0f, 0));
 
         // Assert
         Assert.Equal(1, networks.DisposeCount);
-        Assert.Throws<ObjectDisposedException>(() => engine.Generate("Hello.", 1.0f, 0));
+        Assert.IsType<ObjectDisposedException>(exception);
     }
 
     /// <summary>Proves invalid constructor arguments are rejected.</summary>
@@ -288,15 +295,24 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         var networks = new FakeNetworks([100]);
         var voices = new[] { Voice("a") };
 
+        // Act
+        var exceptions = new[]
+        {
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(null!, Tokenizer, voices, 10, 1, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, null!, voices, 10, 1, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, [], 10, 1, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 0, 1, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 0, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 1, -1)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.NaN, 12)),
+            Record.Exception(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.PositiveInfinity, 12)),
+        };
+
         // Assert
-        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(null!, Tokenizer, voices, 10, 1, 12));
-        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, null!, voices, 10, 1, 12));
-        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, [], 10, 1, 12));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 0, 1, 12));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 0, 12));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 1, -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.NaN, 12));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.PositiveInfinity, 12));
+        Assert.IsType<ArgumentNullException>(exceptions[0]);
+        Assert.IsType<ArgumentNullException>(exceptions[1]);
+        Assert.IsType<ArgumentException>(exceptions[2]);
+        Assert.All(exceptions[3..], exception => Assert.IsType<ArgumentOutOfRangeException>(exception));
     }
 
     /// <summary>Proves a very large (but finite) ratio is clamped to the absolute cap instead of overflowing.</summary>
@@ -323,8 +339,60 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         var networks = new FakeNetworks([100]);
         using var engine = Create(networks);
 
+        // Act
+        var exception = Record.Exception(() => engine.GenerateDetailed(null!, 0));
+
         // Assert
-        Assert.Throws<ArgumentNullException>(() => engine.GenerateDetailed(null!, 0));
+        Assert.IsType<ArgumentNullException>(exception);
+    }
+
+    /// <summary>Proves a mood marker with an out-of-range speaker id uses the first voice's mood clip.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarkerUnknownSpeaker_UsesFirstVoiceMoodClip()
+    {
+        // Arrange
+        var networks = new FakeNetworks([OnnxChatterboxTurboSynthesisEngine.StopSpeechToken], repeatLast: true);
+        using var engine = CreateWith(networks, MoodVoice("v0", "sad"), Voice("v1"));
+
+        // Act
+        engine.Generate(ChatterboxTurboCapabilityProfile.WithMoodMarker("sad", "Hello."), 1.0f, 42);
+
+        // Assert
+        Assert.Single(networks.EncodeInputs);
+        Assert.Equal(0.5f, networks.EncodeInputs[0][0]);
+    }
+
+    /// <summary>Proves the empty string yields empty audio without touching the networks.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_EmptyString_ReturnsEmptyAudioWithoutNetworkCalls()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100]);
+        using var engine = Create(networks);
+
+        // Act
+        var audio = engine.Generate(string.Empty, 1.0f, 0);
+
+        // Assert
+        Assert.Empty(audio.Samples);
+        Assert.Equal(0, networks.EncodeCount);
+        Assert.Empty(networks.EmbedCalls);
+    }
+
+    /// <summary>Proves a cap of one repeat is reached after the first speech token and the stop token still ends the run.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_CapOfOne_StopTokenIsNeverExcluded()
+    {
+        // Arrange: after token 100 the run length equals the cap, so 100 is blocked; stop must remain selectable
+        var networks = new FakeNetworks([100, OnnxChatterboxTurboSynthesisEngine.StopSpeechToken]);
+        using var engine = Create(networks, maxRepeats: 1);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+
+        // Assert
+        Assert.False(result.HitTokenLimit);
+        Assert.Equal(1, result.SpeechTokenCount);
     }
 
     /// <summary>Proves a marked segment encodes the voice's mood clip, never tokenizes the marker, and caches per mood.</summary>
@@ -419,7 +487,8 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         };
 
         // Act
-        var plan = profile.Render(spans, new OnnxChatterboxTurboEnglishSynthesisModel());
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
+        var plan = profile.Render(spans, model);
         foreach (var segment in plan.Segments)
         {
             engine.Generate(segment.Text, 1.0f, 0);

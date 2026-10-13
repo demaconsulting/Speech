@@ -17,7 +17,7 @@ internal interface IChatterboxTurboNetworks : IDisposable
     ChatterboxTurboConditioning Encode(float[] referenceAudio);
 
     /// <summary>Runs the token-embedding graph.</summary>
-    /// <param name="tokenIds">The token ids.</param>
+    /// <param name="tokenIds">The token ids; an empty array yields an empty result.</param>
     /// <returns>The flattened embeddings, one embedding-size row per token.</returns>
     float[] Embed(long[] tokenIds);
 
@@ -26,8 +26,9 @@ internal interface IChatterboxTurboNetworks : IDisposable
     IChatterboxTurboLanguageModelState BeginGeneration();
 
     /// <summary>Runs the conditional decoder (vocoder).</summary>
-    /// <param name="speechTokens">The full decoder token sequence (prompt, speech, trailing silence).</param>
+    /// <param name="speechTokens">The full decoder token sequence (prompt, speech, trailing silence); must not be empty.</param>
     /// <param name="conditioning">The voice conditioning supplying speaker embeddings and features.</param>
     /// <returns>The mono 24 kHz waveform.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="speechTokens"/> is empty.</exception>
     float[] Decode(long[] speechTokens, ChatterboxTurboConditioning conditioning);
 }

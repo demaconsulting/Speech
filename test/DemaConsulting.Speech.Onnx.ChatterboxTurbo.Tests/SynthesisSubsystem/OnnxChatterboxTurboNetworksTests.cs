@@ -61,15 +61,14 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Act
         var conditioning = networks.Encode(new float[24000]);
 
-        // Assert
+        // Assert: every field of the record carries the encoder output unchanged
         Assert.Equal(2, conditioning.ConditioningLength);
         Assert.Equal(2 * ChatterboxTurboGraphFixture.EmbeddingSize, conditioning.ConditioningEmbeddings.Length);
+        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
         Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens);
         Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
         Assert.Equal(3, conditioning.SpeakerFeatureFrames);
-        Assert.Equal(6, conditioning.SpeakerFeatures.Length);
         Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
-        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
     }
 
     /// <summary>Proves an encoder whose four outputs are not named as expected is bound positionally.</summary>
@@ -83,8 +82,13 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Act
         var conditioning = networks.Encode(new float[24000]);
 
-        // Assert
+        // Assert: positional binding puts each of the four outputs in its own field
+        Assert.Equal(2, conditioning.ConditioningLength);
+        Assert.All(conditioning.ConditioningEmbeddings, value => Assert.Equal(0.5f, value));
         Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens, conditioning.PromptTokens);
+        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
+        Assert.Equal(3, conditioning.SpeakerFeatureFrames);
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
     }
 
     /// <summary>Proves the embedding graph is run for the supplied token ids.</summary>
@@ -102,6 +106,21 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal(2 * ChatterboxTurboGraphFixture.EmbeddingSize, embeddings.Length);
         Assert.Equal(0.003f, embeddings[0], 6);
         Assert.Equal(0.007f, embeddings[ChatterboxTurboGraphFixture.EmbeddingSize], 6);
+    }
+
+    /// <summary>Proves an empty token array embeds to an empty result without running the graph.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Embed_EmptyTokenIds_ReturnsEmpty()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+
+        // Act
+        var embeddings = networks.Embed([]);
+
+        // Assert
+        Assert.Empty(embeddings);
     }
 
     /// <summary>
@@ -132,12 +151,12 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal(1.024f * 5, second[5], 3);
     }
 
-    /// <summary>Proves the decoder receives the speech tokens and returns the waveform.</summary>
+    /// <summary>Proves the decoder receives the speech tokens and the conditioning's speaker inputs and returns the waveform.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform()
     {
-        // Arrange
-        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        // Arrange: the waveform is each token plus the sum of the speaker embeddings (10) and of the features (21)
+        var paths = ChatterboxTurboGraphFixture.Write(_root, speakerSensitiveDecoder: true);
         using var networks = Create(paths);
         var conditioning = networks.Encode(new float[24000]);
 
@@ -145,7 +164,43 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         var waveform = networks.Decode([5, 6, 7], conditioning);
 
         // Assert
-        Assert.Equal([5f, 6f, 7f], waveform);
+        Assert.Equal([36f, 37f, 38f], waveform);
+    }
+
+    /// <summary>Proves the conditioning's speaker embeddings and features, not constants, reach the decoder.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Decode_ChangedConditioning_ChangesWaveform()
+    {
+        // Arrange: embeddings now sum to 100 and the three frames of features to 6
+        var paths = ChatterboxTurboGraphFixture.Write(_root, speakerSensitiveDecoder: true);
+        using var networks = Create(paths);
+        var conditioning = networks.Encode(new float[24000]) with
+        {
+            SpeakerEmbeddings = [100f, 0f, 0f, 0f],
+            SpeakerFeatures = [1f, 1f, 1f, 1f, 1f, 1f],
+        };
+
+        // Act
+        var waveform = networks.Decode([5, 6], conditioning);
+
+        // Assert
+        Assert.Equal([111f, 112f], waveform);
+    }
+
+    /// <summary>Proves an empty speech-token array is rejected before any native call.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Decode_EmptyTokens_ThrowsArgumentException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        var conditioning = networks.Encode(new float[24000]);
+
+        // Act
+        var exception = Record.Exception(() => networks.Decode([], conditioning));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     /// <summary>Proves a half-precision <c>inputs_embeds</c> input and half-precision logits are converted both ways.</summary>
@@ -175,8 +230,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var networks = Create(paths);
         using var state = networks.BeginGeneration();
 
-        // Act and Assert
-        Assert.Throws<ArgumentException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize - 1], 1, 1, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize - 1], 1, 1, 0));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     /// <summary>Proves an attention length shorter than the sequence length is rejected.</summary>
@@ -188,21 +246,30 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var networks = Create(paths);
         using var state = networks.BeginGeneration();
 
-        // Act and Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step(new float[2 * ChatterboxTurboGraphFixture.EmbeddingSize], 2, 1, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step(new float[2 * ChatterboxTurboGraphFixture.EmbeddingSize], 2, 1, 0));
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
     }
 
-    /// <summary>Proves a zero sequence length is rejected before any native call.</summary>
-    [Fact]
-    public void OnnxChatterboxTurboNetworks_Step_ZeroSequenceLength_ThrowsArgumentOutOfRangeException()
+    /// <summary>Proves a zero or negative sequence length is rejected before any native call.</summary>
+    /// <param name="sequenceLength">The invalid sequence length.</param>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void OnnxChatterboxTurboNetworks_Step_NonPositiveSequenceLength_ThrowsArgumentOutOfRangeException(int sequenceLength)
     {
         // Arrange
         var paths = ChatterboxTurboGraphFixture.Write(_root);
         using var networks = Create(paths);
         using var state = networks.BeginGeneration();
 
-        // Act and Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step([], 0, 0, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step([], sequenceLength, 1, 0));
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
     }
 
     /// <summary>Proves a negative first position is rejected before any native call.</summary>
@@ -214,8 +281,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var networks = Create(paths);
         using var state = networks.BeginGeneration();
 
-        // Act and Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, -1));
+        // Act
+        var exception = Record.Exception(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, -1));
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
     }
 
     /// <summary>Proves a null embeddings array is rejected by <c>Step</c>.</summary>
@@ -227,8 +297,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var networks = Create(paths);
         using var state = networks.BeginGeneration();
 
-        // Act and Assert
-        Assert.Throws<ArgumentNullException>(() => state.Step(null!, 1, 1, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step(null!, 1, 1, 0));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(exception);
     }
 
     /// <summary>Proves a disposed generation state rejects <c>Step</c> instead of restarting with an empty cache.</summary>
@@ -241,8 +314,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         var state = networks.BeginGeneration();
         state.Dispose();
 
-        // Act and Assert
-        Assert.Throws<ObjectDisposedException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+
+        // Assert
+        Assert.IsType<ObjectDisposedException>(exception);
     }
 
     /// <summary>Proves a generation state rejects <c>Step</c> once the owning networks were disposed.</summary>
@@ -255,8 +331,33 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var state = networks.BeginGeneration();
         networks.Dispose();
 
-        // Act and Assert
-        Assert.Throws<ObjectDisposedException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+        // Act
+        var exception = Record.Exception(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+
+        // Assert
+        Assert.IsType<ObjectDisposedException>(exception);
+    }
+
+    /// <summary>Proves a state that already ran a step can be disposed after its networks, and twice, without throwing.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_StateDispose_AfterNetworksDispose_IsSafe()
+    {
+        // Arrange: the state holds the cache of one completed step when the networks go away first
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        var networks = Create(paths);
+        var state = networks.BeginGeneration();
+        state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0);
+        networks.Dispose();
+
+        // Act
+        var exception = Record.Exception(() =>
+        {
+            state.Dispose();
+            state.Dispose();
+        });
+
+        // Assert
+        Assert.Null(exception);
     }
 
     /// <summary>Proves an encoder graph without the expected outputs is rejected.</summary>
@@ -274,13 +375,16 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
                 .Output("only", OnnxModelWriter.Float, "1", "1")
                 .Build());
 
-        // Act and Assert
-        Assert.Throws<InvalidOperationException>(() => Create(paths));
+        // Act
+        var exception = Record.Exception(() => Create(paths));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
-    /// <summary>Proves the intra-op thread count is applied and a non-positive count is rejected.</summary>
+    /// <summary>Proves the intra-op thread count is applied.</summary>
     [Fact]
-    public void OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsAppliedAndValidated()
+    public void OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsApplied()
     {
         // Arrange
         var paths = ChatterboxTurboGraphFixture.Write(_root);
@@ -290,7 +394,23 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
 
         // Assert
         Assert.Equal(2, networks.IntraOpThreads);
-        Assert.Throws<ArgumentOutOfRangeException>(() => Create(paths, threads: 0));
+    }
+
+    /// <summary>Proves a non-positive intra-op thread count is rejected.</summary>
+    /// <param name="threads">The invalid thread count.</param>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void OnnxChatterboxTurboNetworks_Constructor_NonPositiveThreadCount_ThrowsArgumentOutOfRangeException(int threads)
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+
+        // Act
+        var exception = Record.Exception(() => Create(paths, threads: threads));
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
     }
 
     /// <summary>Proves sessions created before a failing graph are disposed.</summary>
@@ -304,8 +424,11 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
         try
         {
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => Create(paths));
+            // Act
+            var exception = Record.Exception(() => Create(paths));
+
+            // Assert
+            Assert.IsType<InvalidOperationException>(exception);
             Assert.Equal(4, created.Count);
             Assert.All(created, session => Assert.True(IsDisposed(session)));
         }
@@ -325,13 +448,16 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
         try
         {
-            // Act & Assert
-            Assert.Throws<FileNotFoundException>(() => new OnnxChatterboxTurboNetworks(
+            // Act
+            var exception = Record.Exception(() => new OnnxChatterboxTurboNetworks(
                 paths.Encoder,
                 paths.Embedder,
                 Path.Combine(_root, "missing.onnx"),
                 paths.Decoder,
                 1));
+
+            // Assert
+            Assert.IsType<FileNotFoundException>(exception);
             Assert.Equal(2, created.Count);
             Assert.All(created, session => Assert.True(IsDisposed(session)));
         }
@@ -366,6 +492,60 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         }
     }
 
+    /// <summary>Proves a throwing dispose does not stop the later items from being disposed, and the failure surfaces.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_DisposeAll_FirstDisposeThrows_StillDisposesLaterItems()
+    {
+        // Arrange
+        var first = new RecordingDisposable(new InvalidOperationException("first"));
+        var second = new RecordingDisposable();
+        var third = new RecordingDisposable();
+
+        // Act
+        var exception = Record.Exception(() => OnnxChatterboxTurboNetworks.DisposeAll(first, second, third));
+
+        // Assert
+        Assert.Equal("first", Assert.IsType<InvalidOperationException>(exception).Message);
+        Assert.Equal(1, first.DisposeCount);
+        Assert.Equal(1, second.DisposeCount);
+        Assert.Equal(1, third.DisposeCount);
+    }
+
+    /// <summary>Proves several dispose failures are all reported, and every item is still disposed.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_DisposeAll_SeveralThrow_ReportsAllFailures()
+    {
+        // Arrange
+        var first = new RecordingDisposable(new InvalidOperationException("first"));
+        var second = new RecordingDisposable(new InvalidCastException("second"));
+        var third = new RecordingDisposable();
+
+        // Act
+        var exception = Record.Exception(() => OnnxChatterboxTurboNetworks.DisposeAll(first, second, third));
+
+        // Assert
+        var aggregate = Assert.IsType<AggregateException>(exception);
+        Assert.Equal(2, aggregate.InnerExceptions.Count);
+        Assert.Equal(1, third.DisposeCount);
+    }
+
+    /// <summary>Proves disposing items that do not throw completes silently.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_DisposeAll_NoFailures_DisposesEveryItem()
+    {
+        // Arrange
+        var first = new RecordingDisposable();
+        var second = new RecordingDisposable();
+
+        // Act
+        var exception = Record.Exception(() => OnnxChatterboxTurboNetworks.DisposeAll(first, second));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(1, first.DisposeCount);
+        Assert.Equal(1, second.DisposeCount);
+    }
+
     /// <summary>Proves float16 and float32 output tensors are both read back as floats.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16()
@@ -373,15 +553,18 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Arrange
         float[] single = [1.5f, -2f, 0.25f];
         using var halfValue = OnnxChatterboxTurboNetworks.CreateFloat16Tensor(single, [1, 3]);
-
         using var singleValue = OrtValue.CreateTensorValueFromMemory(single, [1, 3]);
 
-        // Act / Assert
-        Assert.Equal(single, OnnxChatterboxTurboNetworks.ReadFloats(halfValue));
-        Assert.Equal(single, OnnxChatterboxTurboNetworks.ReadFloats(singleValue));
+        // Act
+        var fromHalf = OnnxChatterboxTurboNetworks.ReadFloats(halfValue);
+        var fromSingle = OnnxChatterboxTurboNetworks.ReadFloats(singleValue);
+
+        // Assert
+        Assert.Equal(single, fromHalf);
+        Assert.Equal(single, fromSingle);
     }
 
-    /// <summary>Proves a disposed networks object rejects further use with <see cref="ObjectDisposedException"/>.</summary>
+    /// <summary>Proves a disposed networks object rejects each entry point with <see cref="ObjectDisposedException"/>.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse()
     {
@@ -391,12 +574,33 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         var conditioning = networks.Encode(new float[24000]);
         networks.Dispose();
 
-        // Act and Assert
-        Assert.Throws<ObjectDisposedException>(() => networks.Encode(new float[24000]));
-        Assert.Throws<ObjectDisposedException>(() => networks.Embed([1]));
-        Assert.Throws<ObjectDisposedException>(() => networks.Decode([1], conditioning));
-        Assert.Throws<ObjectDisposedException>(() => networks.BeginGeneration());
+        // Act
+        var exceptions = new[]
+        {
+            Record.Exception(() => networks.Encode(new float[24000])),
+            Record.Exception(() => networks.Embed([1])),
+            Record.Exception(() => networks.Decode([1], conditioning)),
+            Record.Exception(() => networks.BeginGeneration()),
+        };
+
+        // Assert
+        Assert.All(exceptions, exception => Assert.IsType<ObjectDisposedException>(exception));
+    }
+
+    /// <summary>Proves a second dispose of the networks is a no-op.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Dispose_Twice_IsNoOp()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        var networks = Create(paths);
         networks.Dispose();
+
+        // Act
+        var exception = Record.Exception(networks.Dispose);
+
+        // Assert
+        Assert.Null(exception);
     }
 
     /// <summary>Proves null arguments are rejected by the encoder, embedder and decoder entry points.</summary>
@@ -408,11 +612,17 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         using var networks = Create(paths);
         var conditioning = networks.Encode(new float[24000]);
 
-        // Act and Assert
-        Assert.Throws<ArgumentNullException>(() => networks.Encode(null!));
-        Assert.Throws<ArgumentNullException>(() => networks.Embed(null!));
-        Assert.Throws<ArgumentNullException>(() => networks.Decode(null!, conditioning));
-        Assert.Throws<ArgumentNullException>(() => networks.Decode([1], null!));
+        // Act
+        var exceptions = new[]
+        {
+            Record.Exception(() => networks.Encode(null!)),
+            Record.Exception(() => networks.Embed(null!)),
+            Record.Exception(() => networks.Decode(null!, conditioning)),
+            Record.Exception(() => networks.Decode([1], null!)),
+        };
+
+        // Assert
+        Assert.All(exceptions, exception => Assert.IsType<ArgumentNullException>(exception));
     }
 
     /// <summary>Proves float16 encoder, embedder and decoder outputs are read back as floats.</summary>
@@ -434,6 +644,25 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal(0.5f, conditioning.ConditioningEmbeddings[0]);
         Assert.Equal(0.004f, embeddings[0], 3);
         Assert.Equal([5f, 6f], waveform);
+    }
+
+    /// <summary>A disposable that counts disposals and optionally throws.</summary>
+    private sealed class RecordingDisposable(Exception? failure = null) : IDisposable
+    {
+        /// <summary>Gets the number of times <see cref="Dispose"/> ran.</summary>
+        public int DisposeCount { get; private set; }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            DisposeCount++;
+            if (failure != null)
+            {
+#pragma warning disable S3877 // The throwing Dispose is the behavior under test
+                throw failure;
+#pragma warning restore S3877
+            }
+        }
     }
 
     /// <summary>Creates networks over the fixture paths.</summary>

@@ -27,6 +27,10 @@ internal static class ChatterboxTurboGraphFixture
     /// <param name="halfEmbeddings">True for a float16 language model <c>inputs_embeds</c> input.</param>
     /// <param name="halfLogits">True for float16 language model logits.</param>
     /// <param name="halfAuxiliary">True for float16 encoder, embedder and decoder outputs.</param>
+    /// <param name="speakerSensitiveDecoder">
+    ///     True to make the decoder waveform depend on its speaker inputs: each sample is the speech token plus the
+    ///     sum of the speaker embeddings plus the sum of the speaker features.
+    /// </param>
     /// <returns>The speech encoder, embedder, language model and decoder paths.</returns>
     public static (string Encoder, string Embedder, string LanguageModel, string Decoder) Write(
         string directory,
@@ -36,7 +40,8 @@ internal static class ChatterboxTurboGraphFixture
         bool namedEncoderOutputs = true,
         bool halfEmbeddings = false,
         bool halfLogits = false,
-        bool halfAuxiliary = false)
+        bool halfAuxiliary = false,
+        bool speakerSensitiveDecoder = false)
     {
         Directory.CreateDirectory(directory);
         var encoder = Path.Combine(directory, "speech_encoder" + auxiliarySuffix + ".onnx");
@@ -47,7 +52,7 @@ internal static class ChatterboxTurboGraphFixture
         File.WriteAllBytes(encoder, Encoder(namedEncoderOutputs, halfAuxiliary));
         File.WriteAllBytes(embedder, Embedder(halfAuxiliary));
         File.WriteAllBytes(languageModel, LanguageModel(halfCache, withPastInputs: true, halfEmbeddings, halfLogits));
-        File.WriteAllBytes(decoder, Decoder(halfAuxiliary));
+        File.WriteAllBytes(decoder, Decoder(halfAuxiliary, speakerSensitiveDecoder));
         foreach (var path in new[] { encoder, embedder, languageModel, decoder })
         {
             File.WriteAllBytes(path + "_data", []);
@@ -197,15 +202,38 @@ internal static class ChatterboxTurboGraphFixture
         return writer.Build();
     }
 
-    /// <summary>Builds the decoder: the waveform is the speech tokens cast to float.</summary>
+    /// <summary>
+    ///     Builds the decoder: the waveform is the speech tokens cast to float, plus (when
+    ///     <paramref name="speakerSensitive"/> is set) the sum of the speaker embeddings and the sum of the speaker
+    ///     features, so the waveform proves the conditioning reached the decoder.
+    /// </summary>
     /// <param name="half">True to emit a float16 waveform.</param>
+    /// <param name="speakerSensitive">True to make the waveform depend on the speaker inputs.</param>
     /// <returns>The serialized graph.</returns>
-    public static byte[] Decoder(bool half = false) =>
-        new OnnxModelWriter("decoder")
+    public static byte[] Decoder(bool half = false, bool speakerSensitive = false)
+    {
+        var writer = new OnnxModelWriter("decoder")
             .Input("speech_tokens", OnnxModelWriter.Int64, "1", "n")
             .Input("speaker_embeddings", OnnxModelWriter.Float, "1", "4")
-            .Input("speaker_features", OnnxModelWriter.Float, "1", "f", "2")
-            .Node("Cast", ["speech_tokens"], ["waveform"], OnnxModelWriter.IntAttribute("to", half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float))
-            .Output("waveform", half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float, "1", "n")
+            .Input("speaker_features", OnnxModelWriter.Float, "1", "f", "2");
+        var floatType = half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float;
+        if (!speakerSensitive)
+        {
+            return writer
+                .Node("Cast", ["speech_tokens"], ["waveform"], OnnxModelWriter.IntAttribute("to", floatType))
+                .Output("waveform", floatType, "1", "n")
+                .Build();
+        }
+
+        // waveform = tokens + sum(speaker_embeddings) + sum(speaker_features); the sums reduce over every axis
+        return writer
+            .Node("Cast", ["speech_tokens"], ["token_values"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float))
+            .Node("ReduceSum", ["speaker_embeddings"], ["embedding_sum"], OnnxModelWriter.IntAttribute("keepdims", 0))
+            .Node("ReduceSum", ["speaker_features"], ["feature_sum"], OnnxModelWriter.IntAttribute("keepdims", 0))
+            .Node("Add", ["embedding_sum", "feature_sum"], ["speaker_sum"])
+            .Node("Add", ["token_values", "speaker_sum"], ["sum_values"])
+            .Node("Cast", ["sum_values"], ["waveform"], OnnxModelWriter.IntAttribute("to", floatType))
+            .Output("waveform", floatType, "1", "n")
             .Build();
+    }
 }

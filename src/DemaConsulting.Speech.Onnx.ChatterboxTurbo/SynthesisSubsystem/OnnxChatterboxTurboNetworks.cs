@@ -179,6 +179,12 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         ArgumentNullException.ThrowIfNull(tokenIds);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // No tokens means no embedding rows: answer directly instead of running the graph on an empty tensor
+        if (tokenIds.Length == 0)
+        {
+            return [];
+        }
+
         using var input = OrtValue.CreateTensorValueFromMemory(tokenIds, [1, tokenIds.Length]);
         using var outputs = _embedder.Run(
             _runOptions,
@@ -246,6 +252,10 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         ArgumentNullException.ThrowIfNull(speechTokens);
         ArgumentNullException.ThrowIfNull(conditioning);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (speechTokens.Length == 0)
+        {
+            throw new ArgumentException("At least one speech token is required.", nameof(speechTokens));
+        }
 
         var featureWidth = conditioning.SpeakerFeatures.Length / Math.Max(1, conditioning.SpeakerFeatureFrames);
         using var tokens = OrtValue.CreateTensorValueFromMemory(speechTokens, [1, speechTokens.Length]);
@@ -272,34 +282,38 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         }
 
         _disposed = true;
-        try
-        {
-            _encoder.Dispose();
-        }
-        finally
+        DisposeAll(_encoder, _embedder, _languageModel, _decoder, _runOptions);
+    }
+
+    /// <summary>
+    ///     Disposes every item in order even when an earlier dispose throws, then rethrows the failure (the only
+    ///     one as is, several as an <see cref="AggregateException"/>), so one failing dispose never leaks the rest.
+    ///     Internal so tests can prove the guarantee with disposables that throw.
+    /// </summary>
+    /// <param name="items">The items to dispose, in order.</param>
+    internal static void DisposeAll(params IDisposable[] items)
+    {
+        List<Exception>? failures = null;
+        foreach (var item in items)
         {
             try
             {
-                _embedder.Dispose();
+                item.Dispose();
             }
-            finally
+            catch (Exception ex)
             {
-                try
-                {
-                    _languageModel.Dispose();
-                }
-                finally
-                {
-                    try
-                    {
-                        _decoder.Dispose();
-                    }
-                    finally
-                    {
-                        _runOptions.Dispose();
-                    }
-                }
+                (failures ??= []).Add(ex);
             }
+        }
+
+        if (failures is { Count: 1 })
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        }
+
+        if (failures is { Count: > 1 })
+        {
+            throw new AggregateException(failures);
         }
     }
 

@@ -114,16 +114,48 @@ public sealed class ChatterboxTurboTokenSelectorTests
     [Fact]
     public void ChatterboxTurboTokenSelector_Select_EmptyLogits_ThrowsArgumentException()
     {
-        // Act and Assert
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboTokenSelector.Select([], new HashSet<long>()));
+        // Act
+        var exception = Record.Exception(() => ChatterboxTurboTokenSelector.Select([], new HashSet<long>()));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     /// <summary>Proves a null history is rejected.</summary>
     [Fact]
     public void ChatterboxTurboTokenSelector_Select_NullHistory_ThrowsArgumentNullException()
     {
-        // Act and Assert
-        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboTokenSelector.Select([1f], null!));
+        // Act
+        var exception = Record.Exception(() => ChatterboxTurboTokenSelector.Select([1f], null!));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(exception);
+    }
+
+    /// <summary>Proves selection is deterministic: identical inputs always choose the same token.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_SameInputs_ChooseSameTokenEveryTime()
+    {
+        // Arrange
+        float[] logits = [0.5f, 2f, 1.9f, -1f];
+        var history = new HashSet<long> { 1 };
+
+        // Act
+        var tokens = Enumerable.Range(0, 5).Select(_ => ChatterboxTurboTokenSelector.Select(logits, history)).ToArray();
+
+        // Assert
+        Assert.All(tokens, token => Assert.Equal(2, token));
+    }
+
+    /// <summary>Proves a generated token still wins when its penalized score stays ahead of the rivals.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_RepeatedTokenFarAhead_StillWins()
+    {
+        // Act: 5.0 / 1.2 = 4.17 > 1.0
+        var token = ChatterboxTurboTokenSelector.Select([1f, 5f], new HashSet<long> { 1 });
+
+        // Assert
+        Assert.Equal(1, token);
     }
 
     /// <summary>Proves all-NaN logits terminate and resolve to the lowest id.</summary>
@@ -162,12 +194,67 @@ public sealed class ChatterboxTurboTokenSelectorTests
         Assert.Equal(1, token);
     }
 
+    /// <summary>Proves a NaN logit of a generated id is still never chosen.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_NaNWithHistoryId_IsNeverChosen()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([float.NaN, -5f], new HashSet<long> { 0 });
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a positive-infinity logit is chosen over finite scores.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_PositiveInfinity_IsChosen()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([1f, float.PositiveInfinity, 100f], new HashSet<long>());
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a positive-infinity logit of a generated id stays infinite after the penalty and is still chosen.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_PositiveInfinityWithHistoryId_IsChosen()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([1f, float.PositiveInfinity, 100f], new HashSet<long> { 1 });
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a negative-infinity logit of a generated id never beats a finite score.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_NegativeInfinityWithHistoryId_IsNotChosen()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([float.NegativeInfinity, -50f], new HashSet<long> { 0 });
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
     /// <summary>Proves a blocked id that is also in the history is still skipped.</summary>
     [Fact]
     public void ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped()
     {
         // Act
         var token = ChatterboxTurboTokenSelector.Select([5f, 1f, 0.5f], new HashSet<long> { 0 }, 0);
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a negative blocked id other than -1 blocks nothing.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_NegativeBlockedIdOtherThanNone_BlocksNothing()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([0.1f, 2f, 1f], new HashSet<long>(), -5);
 
         // Assert
         Assert.Equal(1, token);
