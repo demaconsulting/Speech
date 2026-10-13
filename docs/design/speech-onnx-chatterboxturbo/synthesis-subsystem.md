@@ -11,6 +11,8 @@ units:
 - **OnnxChatterboxTurboSynthesisEngine**: prompt assembly and the bounded generation loop
 - **OnnxChatterboxTurboNetworks**: the four ONNX Runtime sessions behind an internal seam
 - **ChatterboxTurboTokenSelector**: repetition-penalized greedy token selection with blocked-token support
+- **ChatterboxTurboConditioning**: the reference-clip conditioning bundle (conditioning and
+  speaker embeddings plus prompt tokens) the engine computes once per voice and mood and reuses
 - **ChatterboxTurboCapabilityProfile**: the model's audio-tag and mood rendering policy
 
 ### Interfaces

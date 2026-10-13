@@ -1,7 +1,7 @@
 <!-- cspell:ignore ALSA portaudio -->
 # Introduction
 
-This document provides the detailed design for the Speech, a cross-platform .NET
+This document provides the detailed design for the Speech library, a cross-platform .NET
 library providing local, offline speech-to-text (STT) and text-to-speech (TTS) services for
 desktop applications.
 
@@ -181,7 +181,7 @@ any of them:
   `AddChatterboxTurboModels()` catalog extension, the synthesis model, the byte-level BPE
   tokenizer, and the reference-voice type
 - **SynthesisSubsystem (Subsystem of SpeechOnnxChatterboxTurbo)** — The synthesis engine, ONNX
-  networks, token selector, and capability profile
+  networks, token selector, reference-clip conditioning, and capability profile
 
 The following OTS items are also covered:
 
@@ -316,7 +316,8 @@ that `Speech` neither references nor knows about:
 - `SpeechOnnxChatterboxTurbo` (`DemaConsulting.Speech.Onnx.ChatterboxTurbo`) supplies a
   voice-cloning text-to-speech model and engine in two subsystems, `ModelManagementSubsystem`
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
-  (engine, networks, token selector, capability profile). It depends on `Speech` and `SpeechOnnx`.
+  (engine, networks, token selector, conditioning, capability profile). It depends on `Speech` and
+  `SpeechOnnx`.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -471,6 +472,18 @@ src/DemaConsulting.Speech/
     ├── PlaybackAudioResampler.cs                  — Rate conversion and upmix for playback audio
     └── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence
 ```
+
+Several small public types are declared in the file of the type they accompany rather than in a
+file of their own, and are documented with that owning unit:
+
+- `AudioDeviceDirection` is declared in `AudioDeviceDescription.cs`.
+- `AudioCaptureFrameEventArgs` is declared in `IAudioCaptureDevice.cs`.
+- `ChoiceParameterOption` is declared in `ChoiceParameter.cs`.
+- `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
+  `SpeechModelDownloader.cs`.
+
+Each subsystem folder also holds a `NamespaceDoc.cs` file that carries only the namespace's
+XML documentation summary; it declares no behavior and is not a software item.
 
 The SpeechDemo application's folder structure likewise mirrors its software structure:
 
