@@ -11,14 +11,21 @@ applications.
 This user guide covers:
 
 - Installation of the library
-- Using the current diagnostics and real audio-device abstractions
-- Managing per-user speech model storage and downloads
+- Managing per-user speech model storage and downloads, and the audio-device abstractions
 - Recognizing speech from an audio input device
 - Recognizing inline Natural Language Audio Tags in text intended for text-to-speech
 - Synthesizing speech, including the Chatterbox Turbo reference voices
 - Running the bundled demo application and the `speech-cli` command-line tool
 - Runtime-support limitations and fallback behavior
 - Where to find full API and design detail
+
+This user guide does not cover:
+
+- Cloud or network speech services (all recognition and synthesis is local and offline, apart from
+  model downloads)
+- Hardware-level audio verification, which is a manual activity (see "Hardware Verification Boundary")
+- Distribution of the demo application, which is built from source and not published as a package
+- Platforms or .NET versions other than the supported .NET 8, 9, and 10 desktop targets
 
 # Continuous Compliance
 
@@ -36,6 +43,10 @@ which ensures compliance evidence is generated automatically on every CI run.
 - **CodeQL and SonarCloud**: Security and quality analysis runs on every build
 
 # Installation
+
+Prerequisites: a .NET SDK that targets .NET 8, 9, or 10 (the packages multi-target all three), and
+for live audio a machine with a capture or playback device. Without a device or runtime, the
+library still composes and reports the affected capability as unavailable.
 
 Install the core library and the sherpa-onnx-backed models package using the .NET CLI:
 
@@ -96,7 +107,8 @@ accelerated provider (for example DirectML or CUDA), reference the matching
 
 ## Current Capabilities
 
-The library provides the `Diagnostics` subsystem and a real `AudioSubsystem` implementation:
+The library provides the following building blocks, starting with the `Diagnostics` and
+`AudioSubsystem` foundations (recognition and synthesis are covered in later sections):
 
 - **`ISpeechDiagnostics`** (`DemaConsulting.Speech.Diagnostics`): a contract for reporting
   structural diagnostic events to an optional host-supplied sink. `NullSpeechDiagnostics`
@@ -433,7 +445,7 @@ var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 
 The package bundles no voice audio, but the core package can download an optional **reference-voice
 pack** and keeps a folder for your own clips, and the model lists all of them as voices
-automatically when registered through `AddChatterboxTurboModels` (set `IncludeStoreVoices = false`
+automatically when registered through `AddChatterboxTurboModels(options)` (set `IncludeStoreVoices = false`
 to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
 [source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
 
@@ -458,9 +470,9 @@ canceled re-download restores it). Concurrent installs of the same pack run one 
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
 `null`; look a mood up with `TryGetMoodClip`, which ignores case and surrounding whitespace); the moods are variants
 of the voice, not extra voices. Voices are stored under
-`<models root>\reference-voices\`: the pack in
-`voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
-`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
+`<models root>/reference-voices/`: the pack in
+`voice-zero-1.0/current/voices/` and your own clips in `user/`. The voice list merges explicit
+`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user/`, then the pack, and the first voice
 with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
 read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
 requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
@@ -638,7 +650,8 @@ the selected model's own declared audio-tag support (`IModelCapabilityProfile`):
 the plain words are always spoken regardless, per the "never worse than plain narration" guarantee
 above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps
 `[laugh]`, `[clear throat]` and `[gasp]` to native tokens and handles the mood tags described under
-"Reference voices". `ParameterMapped` is fully implemented and exercised by tests, ready for a
+the "Mood tags" paragraph of the Chatterbox Turbo section. `ParameterMapped` is fully implemented
+and exercised by tests, ready for a
 future or host-supplied model to declare, but no shipped model currently uses it.
 
 For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
@@ -660,7 +673,7 @@ as timed silence, per the pause-handling rule above.
 Each shift is applied once, to the model's own declared default value for that parameter, clamped
 to the parameter's `Minimum`/`Maximum`. The override is not scoped to a single sentence: it applies
 to every `SpeechSegment` produced from the text accumulated since the previous flush point (a
-`[pause]`/`[long-pause]` tag, or the end of the input), including text already buffered before the
+`[short pause]`/`[long pause]` tag, or the end of the input), including text already buffered before the
 tag - and a later tag mapped to the same parameter before the next flush overwrites the earlier
 value rather than combining with it. A model with no `NumericParameter` matching one of these id
 conventions simply never receives the override for that tag, and the tag is silently stripped
@@ -712,7 +725,7 @@ through `AddKokoroModels()`: **`OnnxKokoroEnglishSynthesisModel`** (`kokoro-onnx
 Kokoro v1.0 running directly on ONNX Runtime, 24,000 Hz, licensed **Apache-2.0**). It declares a
 29-value English `voice` `ChoiceParameter` (default `af_heart`), declares no audio-tag support, and
 needs no sherpa-onnx. The fourth synthesis model, the Chatterbox Turbo voice-cloning model, is
-described in the Chatterbox Turbo section above and under "Reference voices (Chatterbox Turbo)".
+described in the Chatterbox Turbo section above and in the CLI subsection "Reference voices (Chatterbox Turbo)".
 
 ## Hot TTS/STT: Reusing an Instance Across Turns
 

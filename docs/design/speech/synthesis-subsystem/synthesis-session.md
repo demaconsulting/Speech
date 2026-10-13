@@ -128,4 +128,3 @@ same session throws `InvalidOperationException`.
 subsystem.
 
 **Callers**: `SpeechSynthesizerEngine.CreateSessionAsync(device, cancellationToken)`.
-

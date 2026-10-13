@@ -1,6 +1,6 @@
 # System Verification Design
 
-This document describes the system-level verification strategy for the Speech.
+This document describes the system-level verification strategy for the Speech library.
 
 ## Verification Approach
 
@@ -40,14 +40,14 @@ project.
   each model-storage/download/catalog test roots its `SpeechModelStore` in a fresh temporary
   directory so no test ever reads or writes a developer's real installed-model store
 
-## External Interface Simulation
+### External Interface Simulation
 
 The system simulates the PortAudio runtime through an internal fake `IPortAudioApi` exposed via
 `PortAudioEnvironment`. This allows system tests to exercise the public `AudioDeviceFactory`
 composition surface with controlled host-API and device catalogs while remaining deterministic
 on every CI runner.
 
-## System-Level Test Scenarios
+## Test Scenarios
 
 ### Integration: PortAudio Initialized Returns Real Devices
 

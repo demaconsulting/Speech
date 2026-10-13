@@ -96,4 +96,3 @@ warning rather than throwing at composition. Starting more than once, or consumi
 and `ISpeechDiagnostics` from the Diagnostics subsystem.
 
 **Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`.
-

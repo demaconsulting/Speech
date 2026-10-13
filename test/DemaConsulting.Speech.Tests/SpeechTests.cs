@@ -131,11 +131,9 @@ public class SpeechTests
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var device = factory.CreateCaptureDevice();
 
-        // Act & Assert: the factory's own default probe reports no capture devices, so it returns
-        // the honest unavailable fallback (consistent with AudioDeviceFactory_CreateCaptureDevice
-        // now consulting CaptureProbe before constructing a real device) rather than a real,
-        // resolved-but-unavailable PortAudioCaptureDevice - starting it still throws the same
-        // documented exception either way.
+        // Act & Assert: the factory consults its default capture probe, which reports no capture
+        // devices, so it returns the honest unavailable fallback. Starting that device throws the
+        // documented exception.
         Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
         Assert.False(device.IsAvailable);
         Assert.Throws<AudioDeviceUnavailableException>(device.Start);
@@ -364,16 +362,26 @@ public class SpeechTests
                 await session.SpeakAsync("hello world", cancellationToken);
             }
 
+            // The capture device is not IDisposable; Start() delivers the whole file synchronously
+            // before returning, so every frame is counted before the assertions run. Stop() in the
+            // finally releases any file handle before the scratch directory is deleted.
             var captureDevice = new WavFileAudioCaptureDevice(wavPath);
-            var capturedSampleCount = 0;
-            captureDevice.FrameCaptured += (_, args) => capturedSampleCount += args.Samples.Count;
-            captureDevice.Start();
+            try
+            {
+                var capturedSampleCount = 0;
+                captureDevice.FrameCaptured += (_, args) => capturedSampleCount += args.Samples.Count;
+                captureDevice.Start();
 
-            // Assert: the file holds the synthesized audio in the written format
-            Assert.True(File.Exists(wavPath));
-            Assert.True(capturedSampleCount > 0);
-            Assert.Equal(16000, captureDevice.SampleRate);
-            Assert.Equal(1, captureDevice.ChannelCount);
+                // Assert: the file holds the synthesized audio in the written format
+                Assert.True(File.Exists(wavPath));
+                Assert.True(capturedSampleCount > 0);
+                Assert.Equal(16000, captureDevice.SampleRate);
+                Assert.Equal(1, captureDevice.ChannelCount);
+            }
+            finally
+            {
+                captureDevice.Stop();
+            }
         }
         finally
         {

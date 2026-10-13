@@ -31,6 +31,10 @@ Compliance evidence is generated automatically on every CI run, following the
 
 ## Installation
 
+Prerequisites: a .NET SDK that targets .NET 8, 9, or 10 (the packages multi-target all three), and
+for live audio a machine with a capture or playback device. Without a device or a runtime, the
+library still composes and reports the affected capability as unavailable.
+
 Install the core library and the sherpa-onnx-backed models package using the .NET CLI:
 
 ```bash
@@ -103,15 +107,18 @@ composition still succeeds and the factory reports the engine as unavailable ins
 None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
 fetches each one on demand and verifies its SHA-256 checksum before installing it. It's safe to
 call on every launch: for an already-installed model it's a cheap no-op, returning an `Installed`
-result without touching the network. On first download it can instead return `Failed` (a
-transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
-`ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
+result without touching the network. On first download it can instead return `ChecksumMismatch`,
+`NetworkBlocked` (TLS interception, DNS or connection failure, or a timeout that was not caused by
+your own cancellation), `HttpError` (the server answered with a failure status code), `IoFailure`
+(a local file-system failure), or `Failed` (the generic fallback for any other failure), with the
+underlying exception in `SpeechModelDownloadResult.Error`; an unrecognized model id throws
+`ArgumentException`.
 
 This release ships seven models through four packages. `DemaConsulting.Speech.Sherpa`
 (`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
 (`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.NemotronStt`
 (`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model; and
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels()`) supplies the
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels(options)`) supplies the
 Chatterbox Turbo voice-cloning model:
 
 | Model | Role | License |
@@ -168,7 +175,7 @@ var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 
 The package bundles no voice audio, but the core package can download an optional **reference-voice
 pack** and keeps a folder for your own clips, and the model lists all of them as voices
-automatically when registered through `AddChatterboxTurboModels` (set `IncludeStoreVoices = false`
+automatically when registered through `AddChatterboxTurboModels(options)` (set `IncludeStoreVoices = false`
 to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
 [source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
 
@@ -188,14 +195,16 @@ calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surpr
 Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
 downloads the pack again while keeping the previous install aside (a failed or canceled re-download
 restores it). Each pack voice's `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that
-speaker's emotion clip (or is `null`); the moods are variants of the voice, not extra voices. Voices are stored under
-`<models root>\reference-voices\`: the pack in
-`voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
-`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
+speaker's emotion clip (or is `null`); the moods are variants of the voice, not extra voices. Voices
+are stored under `<models root>/reference-voices/`: the pack in
+`voice-zero-1.0/current/voices/` and your own clips in `user/`. The voice list merges explicit
+`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user/`, then the pack, and the first voice
 with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
 read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
 requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
-By default the package downloads the fp16 language model with q4-quantized helper graphs (eight
+
+Chatterbox Turbo model files and rendering: by default the package downloads the fp16 language
+model with q4-quantized helper graphs (eight
 files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` select other precisions,
 each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,
 `[clear throat]` and `[gasp]` audio tags with its own native tokens, renders sighs and pauses as

@@ -1,6 +1,6 @@
 # Introduction
 
-This document provides the verification design for the Speech, a cross-platform
+This document provides the verification design for the Speech library, a cross-platform
 .NET library providing local, offline speech-to-text and text-to-speech services for desktop
 applications.
 
@@ -8,7 +8,8 @@ applications.
 
 The purpose of this document is to serve as the verification design entry point and document how
 requirements will be tested across all software items in the Speech system. This documentation
-enables formal review by mapping every requirement to named test scenarios, supports compliance
+enables formal review by describing named test scenarios for each software item (the ReqStream
+trace matrix tracks which requirements each test covers), supports compliance
 auditing by providing clear traceability from requirements through verification design to tests,
 and ensures test completeness can be assessed without reading implementation code.
 
