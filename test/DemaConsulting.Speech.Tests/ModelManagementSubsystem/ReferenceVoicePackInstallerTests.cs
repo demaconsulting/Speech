@@ -138,7 +138,7 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that unsafe or unportable emotion entry names (traversal, backslash, colon, trailing dot or space, control
+    ///     Proves that unsafe or non-portable emotion entry names (traversal, backslash, colon, trailing dot or space, control
     ///     character) fail the install when emotions are requested, like any other entry.
     /// </summary>
     [Theory]

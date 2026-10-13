@@ -82,7 +82,8 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
 **Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws
 `ObjectDisposedException` from `InstallPackAsync`; cancellation propagates. Install failures are
 returned as a classified `SpeechModelDownloadResult`, not thrown. Enumeration never creates folders
-and never throws for a missing, unreadable or malformed directory (a malformed path is treated as absent), and returns an empty list when nothing is present. An
+and never throws for a missing, unreadable or malformed directory (a malformed path is treated as
+absent), and returns an empty list when nothing is present. An
 uninstall that cannot complete because files are in use throws `SpeechModelStoreException`.
 
 **Consent notice**: The public constant `ConsentNotice` is the shared wording hosts show when listing

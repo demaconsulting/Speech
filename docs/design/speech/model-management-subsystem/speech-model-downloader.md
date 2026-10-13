@@ -60,7 +60,8 @@ underlying exception, populated for every non-`Installed` outcome.
   `SpeechModelStore.IsInstalled(modelId)`: if the model is already installed, opportunistically
   calls `SpeechModelStore.CleanUpLeftoversAsync(modelId, cancellationToken)` (a cheap, best-effort directory
   enumeration/delete with no network or hashing involved, so it does not compromise the no-op
-  contract below; the sweep observes the caller's token before it starts), reports an `Info` diagnostic ("Model '{id}' is already installed; DownloadAsync
+  contract below; the sweep observes the caller's token before it starts), reports an `Info`
+  diagnostic ("Model '{id}' is already installed; DownloadAsync
   is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)`
   immediately, with no fetch, verification, or network work performed at all - the only
   staging-directory activity is the cheap opportunistic leftover sweep. This fast-path check

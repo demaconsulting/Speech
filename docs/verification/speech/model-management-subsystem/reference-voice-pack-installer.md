@@ -15,7 +15,7 @@ temporary directory. No network access and no real upstream archive are used.
 
 Tests pass when exactly the allow-listed entries are extracted with the root folder removed (and, when
 requested, the emotion clips), `pack.json` is written with the variants and clip counts, the archive is
-deleted, every unsafe, unportable, duplicate or malformed archive fails with `InvalidDataException` without
+deleted, every unsafe, non-portable, duplicate or malformed archive fails with `InvalidDataException` without
 writing outside the staging directory, content over the per-entry or total size cap fails while content
 exactly at the (inclusive) caps succeeds, and cancellation is honored.
 
