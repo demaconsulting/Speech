@@ -121,4 +121,87 @@ public sealed class MirrorOptionsFactoryTests
     {
         Assert.Throws<ArgumentException>(() => MirrorOptionsFactory.Create("http://mirror.example.com", null, null, "token-value"));
     }
+
+    /// <summary>Test that Basic credentials sent over plain HTTP to a non-loopback host are rejected without echoing them.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_BasicCredentialsOverPlainHttpToRemoteHost_ThrowsWithoutEchoingSecret()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => MirrorOptionsFactory.Create("http://mirror.example.com", "alice", "basic-secret", null));
+
+        Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test that a credential over plain HTTP to a loopback host is allowed.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_CredentialOverPlainHttpToLoopback_ReturnsMirror()
+    {
+        var mirror = MirrorOptionsFactory.Create("http://localhost:8080", null, null, "token-value");
+
+        Assert.NotNull(mirror);
+        Assert.Equal("token-value", mirror.BearerToken);
+    }
+
+    /// <summary>Test that Basic credentials together with a bearer token are rejected without echoing either.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => MirrorOptionsFactory.Create("https://mirror.example.com", "alice", "basic-secret", "token-secret"));
+
+        Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("token-secret", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test that a URL whose scheme is not HTTP(S) is rejected, and that the scheme text (which can be a pasted secret) is not echoed.</summary>
+    /// <param name="url">The URL under test.</param>
+    [Theory]
+    [InlineData("ftp://mirror.example.com")]
+    [InlineData("hunter2:token@mirror.example.com")]
+    public void MirrorOptionsFactory_Create_NonHttpScheme_ThrowsWithoutEchoingValue(string url)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => MirrorOptionsFactory.Create(url, null, null, null));
+
+        Assert.DoesNotContain("hunter2", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("ftp", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test that a relative or scheme-less URL is rejected as not absolute.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_RelativeUrl_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => MirrorOptionsFactory.Create("mirror.example.com/models", null, null, null));
+    }
+
+    /// <summary>Test that empty credential strings (a cleared panel field) count as no credential when the URL is also blank.</summary>
+    /// <param name="user">The user supplied, if any.</param>
+    /// <param name="password">The password supplied, if any.</param>
+    /// <param name="token">The bearer token supplied, if any.</param>
+    [Theory]
+    [InlineData("", "", "")]
+    [InlineData("", null, null)]
+    [InlineData(null, null, "")]
+    public void MirrorOptionsFactory_Create_BlankUrlWithEmptyCredentials_ReturnsNull(string? user, string? password, string? token)
+    {
+        Assert.Null(MirrorOptionsFactory.Create("", user, password, token));
+        Assert.Null(MirrorOptionsFactory.Create(null, user, password, token));
+    }
+
+    /// <summary>Test that empty credential strings with a URL build an unauthenticated mirror instead of an empty credential.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_UrlWithEmptyCredentials_ReturnsUnauthenticatedMirror()
+    {
+        var mirror = MirrorOptionsFactory.Create("https://mirror.example.com", "", "", "");
+
+        Assert.NotNull(mirror);
+        Assert.Null(mirror.Credentials);
+        Assert.Null(mirror.BearerToken);
+    }
+
+    /// <summary>Test that an empty user with a real password is still an incomplete pair.</summary>
+    [Fact]
+    public void MirrorOptionsFactory_Create_EmptyUserWithPassword_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => MirrorOptionsFactory.Create("https://mirror.example.com", "", "secret", null));
+    }
 }

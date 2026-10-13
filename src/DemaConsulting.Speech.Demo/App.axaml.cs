@@ -61,6 +61,11 @@ public sealed class App : Application
     private bool _shuttingDown;
 
     /// <summary>
+    ///     Set once the deferred shutdown's cleanup has settled (just before the lifetime's own
+    ///     <c>Shutdown</c> call), so only then is a further <c>ShutdownRequested</c> let through.
+    /// </summary>
+    private bool _cleanupCompleted;
+    /// <summary>
     ///     The in-flight deferred shutdown, retained so the task is observable rather than
     ///     discarded. It never faults: every teardown step's failure is contained.
     /// </summary>
@@ -90,40 +95,58 @@ public sealed class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var viewModel = Compose(LaunchOptions, out var catalogService);
-            _catalogService = catalogService;
 
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
-
-            // Release the catalog's download machinery and each panel ViewModel's own
-            // subscriptions/resources when the application exits. ShutdownRequested is a
-            // synchronous event with no async-aware overload, so this handler defers the
-            // shutdown Avalonia is about to perform (via ShutdownRequestedEventArgs.Cancel),
-            // synchronously, runs the async cleanup to genuine completion, and only then calls
-            // IClassicDesktopStyleApplicationLifetime.Shutdown() to let the real shutdown
-            // proceed - rather than an async void handler that would return control to Avalonia
-            // at its first incomplete await and let shutdown continue while cleanup (and any
-            // exception it throws) is still pending.
+            _catalogService = catalogService;
             desktop.ShutdownRequested += (object? _, ShutdownRequestedEventArgs e) =>
             {
-                if (_shuttingDown)
+                if (HandleShutdownRequested(() => desktop.Shutdown(), viewModel))
                 {
-                    // This is the second, genuine ShutdownRequested raised by this handler's own
-                    // call to Shutdown() below, once cleanup has already completed.
-                    return;
+                    e.Cancel = true;
                 }
-
-                // Set synchronously, before CompleteShutdownAsync starts, so a second
-                // ShutdownRequested that races in while cleanup is still pending (for example,
-                // the user closing the window again) already sees this guard set and cannot
-                // start a second concurrent cleanup against the same ViewModels and catalog.
-                _shuttingDown = true;
-
-                e.Cancel = true;
-                _shutdownTask = CompleteShutdownAsync(desktop, viewModel);
             };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    ///     Decides how to answer one <c>ShutdownRequested</c> event: defers the first request while
+    ///     asynchronous cleanup runs, keeps deferring repeats until cleanup has settled, and lets
+    ///     the genuine request raised by the lifetime's own shutdown through.
+    /// </summary>
+    /// <remarks>
+    ///     Releases the catalog's download machinery and each panel ViewModel's own
+    ///     subscriptions/resources when the application exits. <c>ShutdownRequested</c> is a
+    ///     synchronous event with no async-aware overload, so the first request is deferred
+    ///     (the caller cancels Avalonia's shutdown), the async cleanup runs to genuine
+    ///     completion, and only then is <paramref name="resumeShutdown"/> called to let the real
+    ///     shutdown proceed - rather than an async void handler that would return control to
+    ///     Avalonia at its first incomplete await and let shutdown continue while cleanup (and
+    ///     any exception it throws) is still pending. Kept separate from
+    ///     <see cref="OnFrameworkInitializationCompleted"/> because Avalonia's desktop lifetime
+    ///     cannot be implemented by a test fake.
+    /// </remarks>
+    /// <param name="resumeShutdown">Resumes the lifetime's shutdown once cleanup has settled.</param>
+    /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
+    /// <returns><see langword="true"/> when the shutdown must be canceled (deferred).</returns>
+    internal bool HandleShutdownRequested(Action resumeShutdown, MainWindowViewModel viewModel)
+    {
+        if (_shuttingDown)
+        {
+            // Cleanup is still pending: keep deferring, so a repeated request (for example the
+            // user closing the window again) cannot let the process exit mid-cleanup. Once
+            // cleanup has completed, this is the second, genuine ShutdownRequested raised by
+            // resumeShutdown, which is allowed to proceed.
+            return !_cleanupCompleted;
+        }
+
+        // Set synchronously, before CompleteShutdownAsync starts, so a second ShutdownRequested
+        // that races in while cleanup is still pending already sees this guard set and cannot
+        // start a second concurrent cleanup against the same ViewModels and catalog.
+        _shuttingDown = true;
+        _shutdownTask = CompleteShutdownAsync(resumeShutdown, viewModel);
+        return true;
     }
 
     /// <summary>
@@ -186,16 +209,25 @@ public sealed class App : Application
         catalogService = new ModelCatalogService(initialComposition, downloaderOptions, CatalogFactory);
         var deviceSelection = new DeviceSelectionViewModel(deviceService);
 
-        return new MainWindowViewModel(
-            deviceSelection,
-            new ModelCatalogViewModel(
-                catalogService,
-                launchOptions?.MirrorUrl,
-                launchOptions?.MirrorUser,
-                launchOptions?.MirrorPassword,
-                launchOptions?.MirrorBearerToken),
-            new SynthesisPanelViewModel(catalogService, deviceService, deviceSelection, new SynthesizerSessionFactory(modelStore)),
-            new RecognitionPanelViewModel(catalogService, deviceService, deviceSelection, new RecognizerSessionFactory(modelStore)));
+        try
+        {
+            return new MainWindowViewModel(
+                deviceSelection,
+                new ModelCatalogViewModel(
+                    catalogService,
+                    launchOptions?.MirrorUrl,
+                    launchOptions?.MirrorUser,
+                    launchOptions?.MirrorPassword,
+                    launchOptions?.MirrorBearerToken),
+                new SynthesisPanelViewModel(catalogService, deviceService, deviceSelection, new SynthesizerSessionFactory(modelStore)),
+                new RecognitionPanelViewModel(catalogService, deviceService, deviceSelection, new RecognizerSessionFactory(modelStore)));
+        }
+        catch
+        {
+            // The caller never receives the catalog service when composition fails, so release it here.
+            catalogService.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -230,9 +262,9 @@ public sealed class App : Application
     ///     before this method starts; this method's own <see langword="finally"/> only has to
     ///     resume shutdown once cleanup has settled, whether it succeeded or faulted.
     /// </remarks>
-    /// <param name="desktop">The desktop lifetime to resume shutdown on once cleanup has completed.</param>
+    /// <param name="resumeShutdown">Resumes the lifetime's shutdown once cleanup has completed.</param>
     /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
-    private async Task CompleteShutdownAsync(IClassicDesktopStyleApplicationLifetime desktop, MainWindowViewModel viewModel)
+    private async Task CompleteShutdownAsync(Action resumeShutdown, MainWindowViewModel viewModel)
     {
         try
         {
@@ -247,7 +279,8 @@ public sealed class App : Application
         }
         finally
         {
-            desktop.Shutdown();
+            _cleanupCompleted = true;
+            resumeShutdown();
         }
     }
 }

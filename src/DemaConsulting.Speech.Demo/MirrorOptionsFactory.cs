@@ -16,9 +16,9 @@ internal static class MirrorOptionsFactory
     ///     Builds a <see cref="DownloadMirror"/> from the given raw values.
     /// </summary>
     /// <param name="url">The mirror's base URL, or <see langword="null"/>/empty for no mirror.</param>
-    /// <param name="user">The HTTP Basic username, or <see langword="null"/>.</param>
-    /// <param name="password">The HTTP Basic password, or <see langword="null"/>.</param>
-    /// <param name="bearerToken">The bearer token, or <see langword="null"/>.</param>
+    /// <param name="user">The HTTP Basic username, or <see langword="null"/>/empty for none.</param>
+    /// <param name="password">The HTTP Basic password, or <see langword="null"/>/empty for none.</param>
+    /// <param name="bearerToken">The bearer token, or <see langword="null"/>/empty for none.</param>
     /// <returns>
     ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> is non-empty (a
     ///     whitespace-only value counts as supplied and is rejected as an invalid URL); otherwise
@@ -36,6 +36,11 @@ internal static class MirrorOptionsFactory
     /// </exception>
     public static DownloadMirror? Create(string? url, string? user, string? password, string? bearerToken)
     {
+        // An empty credential field (for example a cleared text box) is the same as no credential.
+        user = string.IsNullOrEmpty(user) ? null : user;
+        password = string.IsNullOrEmpty(password) ? null : password;
+        bearerToken = string.IsNullOrEmpty(bearerToken) ? null : bearerToken;
+
         if (string.IsNullOrEmpty(url))
         {
             if (user is not null || password is not null || bearerToken is not null)
@@ -55,7 +60,14 @@ internal static class MirrorOptionsFactory
             throw new ArgumentException("The mirror URL is not a valid absolute URL.");
         }
 
-        if (user is null != password is null)
+        // Checked here rather than left to DownloadMirror, whose message quotes the scheme: a
+        // pasted "user:password@host" parses with the user name as its scheme.
+        if (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new ArgumentException("The mirror URL must use the http or https scheme.");
+        }
+
+        if ((user is null) != (password is null))
         {
             throw new ArgumentException("Mirror user and mirror password must both be supplied together.");
         }

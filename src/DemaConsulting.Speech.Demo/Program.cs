@@ -73,6 +73,13 @@ internal static class Program
         {
             options = AppLaunchOptions.Parse(args, getEnvironmentVariable);
 
+            // A help request always succeeds, so it is answered before the mirror configuration is validated.
+            if (options.Help)
+            {
+                AppLaunchOptions.PrintHelp(output);
+                return 0;
+            }
+
             // Validate --mirror-* eagerly here (rather than letting App.OnFrameworkInitializationCompleted
             // discover a configuration error only after Avalonia has begun starting up), so a bad
             // mirror URL/credential combination fails fast with the same clear console message
@@ -84,12 +91,6 @@ internal static class Program
             error.WriteLine($"Error: {ex.Message}");
             AppLaunchOptions.PrintHelp(error);
             return 1;
-        }
-
-        if (options.Help)
-        {
-            AppLaunchOptions.PrintHelp(output);
-            return 0;
         }
 
         start(options);

@@ -65,10 +65,36 @@ public sealed class AppTests
         var viewModel = App.Compose(IsolatedLaunchOptions(), out var catalogService);
         using var disposable = catalogService;
 
-        // Assert: three recognition and four synthesis models
-        Assert.Equal(7, viewModel.ModelCatalog.Models.Count);
+        // Assert: the panel lists exactly what the shared service reports, and the demo registers models at all
+        var registered = catalogService.Enumerate().Count;
+        Assert.True(registered > 0);
+        Assert.Equal(registered, viewModel.ModelCatalog.Models.Count);
         Assert.False(viewModel.ModelCatalog.IsCatalogEmpty);
-        Assert.Equal(7, catalogService.Enumerate().Count);
+    }
+
+    /// <summary>
+    ///     Test that composing with mirror launch options pre-populates the catalog panel's
+    ///     mirror settings from them, so the launch-time and in-app configuration agree.
+    /// </summary>
+    [Fact]
+    public void App_Compose_MirrorLaunchOptions_PrePopulatesCatalogPanelMirrorSettings()
+    {
+        // Arrange
+        var options = AppLaunchOptions.Parse(
+            [
+                "--models-dir", Path.Join(AppContext.BaseDirectory, "AppTests", Guid.NewGuid().ToString("N")),
+                "--mirror-url", "https://mirror.example.com",
+                "--mirror-bearer-token", "token-value",
+            ],
+            _ => null);
+
+        // Act
+        var viewModel = App.Compose(options, out var catalogService);
+        using var disposable = catalogService;
+
+        // Assert
+        Assert.Equal("https://mirror.example.com", viewModel.ModelCatalog.MirrorUrl);
+        Assert.Equal("token-value", viewModel.ModelCatalog.MirrorBearerToken);
     }
 
     /// <summary>
@@ -87,6 +113,76 @@ public sealed class AppTests
 
         // Assert
         Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Test that the first shutdown request is deferred, cleanup runs to completion, and the
+    ///     lifetime's own shutdown is then called exactly once.
+    /// </summary>
+    [Fact]
+    public async Task App_HandleShutdownRequested_FirstRequest_DefersThenResumesShutdownOnce()
+    {
+        // Arrange
+        var viewModel = App.Compose(IsolatedLaunchOptions(), out var catalogService);
+        using var disposable = catalogService;
+        var app = new App();
+        var resumed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumeCalls = 0;
+
+        // Act
+        var deferred = app.HandleShutdownRequested(() => { resumeCalls++; resumed.TrySetResult(); }, viewModel);
+        await resumed.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(deferred);
+        Assert.NotNull(app.ShutdownTask);
+        await app.ShutdownTask;
+        Assert.Equal(1, resumeCalls);
+    }
+
+    /// <summary>
+    ///     Test that a repeated request is never answered by starting a second cleanup, is
+    ///     deferred while cleanup is pending, and is let through once cleanup has completed
+    ///     (the genuine second request raised by the lifetime's own shutdown).
+    /// </summary>
+    [Fact]
+    public async Task App_HandleShutdownRequested_RepeatedRequest_StartsNoSecondCleanup()
+    {
+        // Arrange
+        var viewModel = App.Compose(IsolatedLaunchOptions(), out var catalogService);
+        using var disposable = catalogService;
+        var app = new App();
+        var resumed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumeCalls = 0;
+        void Resume()
+        {
+            resumeCalls++;
+            resumed.TrySetResult();
+        }
+
+        // Act
+        app.HandleShutdownRequested(Resume, viewModel);
+        var firstTask = app.ShutdownTask!;
+        var whileMaybePending = app.HandleShutdownRequested(Resume, viewModel);
+        var completedWhenAsked = firstTask.IsCompleted;
+        await resumed.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await firstTask;
+        var afterCleanup = app.HandleShutdownRequested(Resume, viewModel);
+
+        // Assert: deferred whenever cleanup could still have been pending, then let through
+        Assert.True(whileMaybePending || completedWhenAsked);
+        Assert.False(afterCleanup);
+        Assert.Same(firstTask, app.ShutdownTask);
+        Assert.Equal(1, resumeCalls);
+    }
+
+    /// <summary>
+    ///     Test that the shutdown task is absent until a shutdown has been requested.
+    /// </summary>
+    [Fact]
+    public void App_ShutdownTask_BeforeAnyRequest_IsNull()
+    {
+        Assert.Null(new App().ShutdownTask);
     }
 
     /// <summary>

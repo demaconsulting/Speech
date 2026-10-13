@@ -75,8 +75,12 @@ public sealed class AppLaunchOptions
     ///     A <c>--mirror-*</c> option on the command line always takes precedence:
     ///     <see cref="MirrorUrlEnvironmentVariable"/> applies only when <c>--mirror-url</c> is absent, and
     ///     the credential variables apply only when none of <c>--mirror-user</c>,
-    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty variable is
-    ///     treated as unset. Variable values are never written to any output or error message.
+    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty option
+    ///     value or empty variable is treated as unset. A repeated option keeps its last value.
+    ///     Argument and variable values are never written to any output or error message: an
+    ///     unrecognized argument is reported by position only. The <c>--voices-dir</c> existence
+    ///     check runs once after the whole list is read (so it is a point-in-time check) and is
+    ///     skipped when a help flag is present. <c>--models-dir</c> is not checked for existence.
     /// </remarks>
     /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
     /// <param name="getEnvironmentVariable">Reads an environment variable by name; <see langword="null"/> when unset.</param>
@@ -139,15 +143,24 @@ public sealed class AppLaunchOptions
                     break;
 
                 default:
-                    throw new ArgumentException($"Unrecognized argument '{arg}'.", nameof(args));
+                    // The argument text is deliberately not echoed: a mistyped option such as
+                    // "--mirror-password=secret" would otherwise copy the secret into the error text.
+                    throw new ArgumentException($"Unrecognized argument at position {i}.", nameof(args));
             }
         }
 
-        // Fail fast on a mistyped folder rather than silently offering no extra voices.
-        if (voicesDir is not null && !Directory.Exists(voicesDir))
+        // Fail fast on a mistyped folder rather than silently offering no extra voices. A help
+        // request skips this check so that asking for usage always succeeds.
+        if (!help && voicesDir is not null && !Directory.Exists(voicesDir))
         {
             throw new ArgumentException($"--voices-dir '{voicesDir}' is not an existing directory.", nameof(args));
         }
+
+        // An empty mirror option counts as not supplied, exactly like an empty environment variable.
+        mirrorUrl = NullIfEmpty(mirrorUrl);
+        mirrorUser = NullIfEmpty(mirrorUser);
+        mirrorPassword = NullIfEmpty(mirrorPassword);
+        mirrorBearerToken = NullIfEmpty(mirrorBearerToken);
 
         // Explicit command-line options win; credentials come from one source only, never a mixture.
         var credentialsOnCommandLine = mirrorUser is not null || mirrorPassword is not null || mirrorBearerToken is not null;
@@ -190,11 +203,11 @@ public sealed class AppLaunchOptions
     }
 
     /// <summary>Reads an environment variable, treating an empty value as unset.</summary>
-    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name)
-    {
-        var value = getEnvironmentVariable(name);
-        return string.IsNullOrEmpty(value) ? null : value;
-    }
+    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name) =>
+        NullIfEmpty(getEnvironmentVariable(name));
+
+    /// <summary>Maps an empty value to <see langword="null"/>.</summary>
+    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     /// <summary>
     ///     Resolves <see cref="ModelsDir"/> into <see cref="SpeechModelStoreOptions"/> for

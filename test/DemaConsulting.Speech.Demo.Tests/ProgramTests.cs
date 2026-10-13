@@ -86,10 +86,49 @@ public sealed class ProgramTests
         Assert.Equal(1, exitCode);
         Assert.False(started);
         Assert.Contains("Error:", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Usage:", error.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("not a url", error.ToString(), StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     Test that valid options are handed to the start action.
+    ///     Test that an unrecognized argument is reported without echoing its text.
+    /// </summary>
+    [Fact]
+    public void Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument()
+    {
+        // Arrange
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        // Act
+        var exitCode = Program.Run(["--mirror-password=hunter2"], output, error, _ => null, _ => { });
+
+        // Assert
+        Assert.Equal(1, exitCode);
+        Assert.DoesNotContain("hunter2", error.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that a help request wins over an otherwise invalid mirror configuration.
+    /// </summary>
+    [Fact]
+    public void Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero()
+    {
+        // Arrange
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        // Act
+        var exitCode = Program.Run(["--help", "--mirror-url", "not a url"], output, error, _ => null, _ => { });
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    /// <summary>
+    ///     Test that valid options are handed to the start action exactly once.
     /// </summary>
     [Fact]
     public void Program_Run_ValidOptions_StartsWithParsedOptions()
@@ -98,12 +137,14 @@ public sealed class ProgramTests
         using var output = new StringWriter();
         using var error = new StringWriter();
         AppLaunchOptions? received = null;
+        var calls = 0;
 
         // Act
-        var exitCode = Program.Run(["--models-dir", "/tmp/models"], output, error, _ => null, o => received = o);
+        var exitCode = Program.Run(["--models-dir", "/tmp/models"], output, error, _ => null, o => { received = o; calls++; });
 
         // Assert
         Assert.Equal(0, exitCode);
+        Assert.Equal(1, calls);
         Assert.Equal("/tmp/models", received?.ModelsDir);
         Assert.Equal(string.Empty, output.ToString());
     }

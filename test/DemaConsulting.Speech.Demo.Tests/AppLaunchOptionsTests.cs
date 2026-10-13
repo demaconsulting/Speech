@@ -134,6 +134,145 @@ public sealed class AppLaunchOptionsTests
     }
 
     /// <summary>
+    ///     Test that the error for an unrecognized argument never echoes the argument itself,
+    ///     because a mistyped <c>--mirror-*=value</c> form would otherwise leak the secret.
+    /// </summary>
+    [Fact]
+    public void Parse_UnrecognizedArgument_ErrorDoesNotEchoArgument()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Parse("--models-dir", "/tmp/models", "--mirror-password=hunter2"));
+
+        Assert.DoesNotContain("hunter2", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--mirror-password", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("position 3", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that a help flag keeps the help request even when <c>--voices-dir</c> names a
+    ///     missing folder, so asking for usage always succeeds.
+    /// </summary>
+    [Fact]
+    public void Parse_HelpWithMissingVoicesDir_StillReportsHelp()
+    {
+        var missing = Path.Join(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"));
+
+        var options = Parse("--voices-dir", missing, "--help");
+
+        Assert.True(options.Help);
+    }
+
+    /// <summary>
+    ///     Test that a repeated option keeps its last value.
+    /// </summary>
+    [Fact]
+    public void Parse_RepeatedOption_LastValueWins()
+    {
+        var options = Parse("--models-dir", "/first", "--models-dir", "/second");
+
+        Assert.Equal("/second", options.ModelsDir);
+    }
+
+    /// <summary>
+    ///     Test that the one-argument overload parses the same way as the injected-environment overload.
+    /// </summary>
+    [Fact]
+    public void Parse_ArgumentsOnlyOverload_ParsesHelpFlag()
+    {
+        Assert.True(AppLaunchOptions.Parse(["--help"]).Help);
+    }
+
+    /// <summary>
+    ///     Test that an empty <c>--mirror-url</c> option is treated as unset, so the environment variable applies.
+    /// </summary>
+    [Fact]
+    public void Parse_EmptyMirrorUrlOption_FallsBackToEnvironment()
+    {
+        var options = AppLaunchOptions.Parse(
+            ["--mirror-url", ""],
+            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+
+        Assert.Equal("https://env.example.com", options.MirrorUrl);
+    }
+
+    /// <summary>
+    ///     Test that an empty credential option does not count as a credential on the command
+    ///     line, so the environment credentials still apply.
+    /// </summary>
+    [Fact]
+    public void Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials()
+    {
+        var options = AppLaunchOptions.Parse(
+            ["--mirror-user", ""],
+            FakeEnvironment(
+                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+
+        Assert.Null(options.MirrorUser);
+        Assert.Equal("env-token", options.MirrorBearerToken);
+    }
+
+    /// <summary>
+    ///     Test that a Basic username on the command line suppresses the environment password, so
+    ///     the two sources are never mixed and the incomplete pair is rejected.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_CommandLineUserWithEnvironmentPassword_IsRejectedNotMixed()
+    {
+        var options = AppLaunchOptions.Parse(
+            ["--mirror-url", "https://mirror.example.com", "--mirror-user", "alice"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+
+        Assert.Null(options.MirrorPassword);
+        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+    }
+
+    /// <summary>
+    ///     Test that an environment user without a password is rejected without echoing either value.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "env-user-name")));
+
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("env-user-name", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that supplying both Basic credentials and a bearer token is rejected without echoing a secret.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets()
+    {
+        var options = Parse(
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "basic-secret",
+            "--mirror-bearer-token", "token-secret");
+
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("token-secret", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that a Basic credential configured for a plain-HTTP remote mirror is rejected without echoing the password.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_BasicCredentialsOverPlainHttp_ThrowsWithoutEchoingPassword()
+    {
+        var options = Parse(
+            "--mirror-url", "http://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "basic-secret");
+
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Test that a value-taking option supplied as the last argument (with no value following
     ///     it) throws a clean <see cref="ArgumentException"/>.
     /// </summary>

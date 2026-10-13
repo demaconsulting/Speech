@@ -49,23 +49,12 @@ public class SpeechDemoTests
     [Fact]
     public void SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell()
     {
-        // Arrange: the real library entry points, exactly as the application's composition root
-        // constructs them
-        var options = IsolatedOptions();
-        using var catalog = new SpeechModelCatalog(options);
-        var store = new SpeechModelStore(options);
-        var deviceService = new AudioDeviceService(new AudioDeviceFactory());
-        var catalogService = new ModelCatalogService(catalog);
-        var deviceSelection = new DeviceSelectionViewModel(deviceService);
+        // Arrange: the application's own composition root, isolated to a private model store
+        var launchOptions = AppLaunchOptions.Parse(["--models-dir", IsolatedOptions().RootPathOverride!], _ => null);
 
-        // Act: compose the whole demo object graph
-        var viewModel = new MainWindowViewModel(
-            deviceSelection,
-            new ModelCatalogViewModel(catalogService),
-            new SynthesisPanelViewModel(
-                catalogService, deviceService, deviceSelection, new SynthesizerSessionFactory(store)),
-            new RecognitionPanelViewModel(
-                catalogService, deviceService, deviceSelection, new RecognizerSessionFactory(store)));
+        // Act: compose the whole demo object graph exactly as start-up does
+        var viewModel = App.Compose(launchOptions, out var catalogService);
+        using var disposable = catalogService;
 
         // Assert: the shell offers its four panels and opens on the first
         Assert.Equal(4, viewModel.Panels.Count);
@@ -125,32 +114,31 @@ public class SpeechDemoTests
     ///     them as an empty catalog.
     /// </summary>
     /// <remarks>
-    ///     The demo composes the registered models through the same extension methods the
-    ///     application's composition root (<c>App.Compose</c>) calls: Sherpa (two recognition, two
-    ///     synthesis), Kokoro (one synthesis), Nemotron STT (one recognition) and Chatterbox Turbo
-    ///     (one voice-cloning synthesis), so the panel surfaces all seven real models rather than
-    ///     the empty-catalog message. Core <c>DemaConsulting.Speech</c> itself ships no built-in
-    ///     models.
+    ///     The demo's composition root (<c>App.Compose</c>) registers the Sherpa, Kokoro,
+    ///     Nemotron STT and Chatterbox Turbo model families, so the panel must surface the real
+    ///     models rather than the empty-catalog message. The test composes through
+    ///     <c>App.Compose</c> itself and compares the panel with the shared service instead of
+    ///     hard-coding a model count that would break whenever a model is added. Core
+    ///     <c>DemaConsulting.Speech</c> itself ships no built-in models.
     /// </remarks>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels()
     {
-        // Arrange: the real library catalog over an isolated store root, seeded with the same
-        // model families the application's composition root registers
-        using var catalog = new SpeechModelCatalog(IsolatedOptions())
-            .AddSherpaModels()
-            .AddKokoroModels()
-            .AddNemotronSttModels()
-            .AddChatterboxTurboModels();
+        // Arrange: the application's own composition root over an isolated store root
+        var launchOptions = AppLaunchOptions.Parse(["--models-dir", IsolatedOptions().RootPathOverride!], _ => null);
 
-        // Act: build the model catalog panel over it
-        var viewModel = new ModelCatalogViewModel(new ModelCatalogService(catalog));
+        // Act: compose, which builds the model catalog panel over the real catalog
+        var shell = App.Compose(launchOptions, out var catalogService);
+        using var disposable = catalogService;
+        var registered = catalogService.Enumerate();
 
-        // Assert: the panel lists exactly the registered models (seven: three recognition, four
-        // synthesis), not an empty state and not only the four Sherpa models
-        Assert.Equal(7, catalog.Enumerate().Count);
-        Assert.Equal(catalog.Enumerate().Count, viewModel.Models.Count);
-        Assert.False(viewModel.IsCatalogEmpty);
+        // Assert: the panel lists exactly the registered models, covering both capabilities,
+        // not an empty state
+        Assert.NotEmpty(registered);
+        Assert.Equal(registered.Count, shell.ModelCatalog.Models.Count);
+        Assert.False(shell.ModelCatalog.IsCatalogEmpty);
+        Assert.Contains(registered, m => m.Role == SpeechModelRole.Synthesis);
+        Assert.Contains(registered, m => m.Role == SpeechModelRole.Recognition);
     }
 
     /// <summary>
@@ -525,9 +513,11 @@ public class SpeechDemoTests
     [Fact]
     public void SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation()
     {
-        // Act / Assert: an unrecognized option is rejected with a message naming it
+        // Act / Assert: an unrecognized option is rejected with a message locating it but not
+        // echoing it (a mistyped option may be a secret)
         var unknown = Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--not-an-option"]));
-        Assert.Contains("--not-an-option", unknown.Message, StringComparison.Ordinal);
+        Assert.Contains("position 1", unknown.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--not-an-option", unknown.Message, StringComparison.Ordinal);
 
         // Act / Assert: an option missing its value is rejected
         Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--models-dir"]));
