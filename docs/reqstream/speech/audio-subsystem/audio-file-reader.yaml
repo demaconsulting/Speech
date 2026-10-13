@@ -29,6 +29,7 @@ sections:
                 tests:
                   - AudioFileReader_Read_DetectsContainerByContent
                   - AudioFileReader_Read_NonSeekableStream_Decodes
+                  - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
 
               - id: Speech-Audio-AudioFileReader-ListsSupportedExtensions
                 title: >-
@@ -39,7 +40,7 @@ sections:
                 tests:
                   - AudioFileReader_SupportedExtensions_ListsWavAndFlac
 
-              - id: Speech-Audio-AudioFileReader-ReportsErrors
+              - id: Speech-Audio-AudioFileReader-ReportsMissingFile
                 title: >-
                   The AudioFileReader class shall report a missing file with FileNotFoundException.
                 justification: |
@@ -55,7 +56,7 @@ sections:
                   Callers must be able to tell a bad format from a missing file and to locate the offender.
                 tests:
                   - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
-                  - AudioFileReader_Read_Errors_AreReported
+                  - AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath
 
               - id: Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
                 title: >-
@@ -74,12 +75,12 @@ sections:
                   Caller mistakes must fail at the call site with a conventional exception type.
                 tests:
                   - AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions
+                  - AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter
+
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
                   The AudioFileReader class shall reject an input larger than the byte cap derived from
-                  the configured maximum sample count with InvalidDataException before decoding it - from
-                  the file length, from a seekable stream's length, or from a bounded read of a
-                  non-seekable stream - while still decoding a non-seekable stream within the cap.
+                  the configured maximum sample count with InvalidDataException before decoding it.
                 justification: |
                   Hostile or accidental oversized inputs must fail with a bounded memory and time cost
                   rather than exhausting the host.
@@ -87,8 +88,27 @@ sections:
                   - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
                   - AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws
                   - AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws
-                  - AudioFileReader_Read_NonSeekableStream_Decodes
                   - AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength
+
+              - id: Speech-Audio-AudioFileReader-MaxSamples
+                title: >-
+                  The AudioFileReader class shall reject a file that decodes to more samples than the
+                  configured maximum sample count with InvalidDataException.
+                justification: |
+                  The byte cap is only an estimate; the decoded sample count is the exact bound on
+                  memory use.
+                tests:
+                  - AudioFileReader_Read_MaxSamples_LimitsDecodedSamples
+
+              - id: Speech-Audio-AudioFileReader-VerifyChecksums
+                title: >-
+                  The AudioFileReader class shall verify FLAC checksums by default and skip the
+                  verification when the VerifyChecksums option is false.
+                justification: |
+                  Hosts choose between failing fast on damaged files and recovering as much audio as
+                  possible.
+                tests:
+                  - AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly
 
               - id: Speech-Audio-AudioFileReader-ReadMono
                 title: >-
@@ -98,6 +118,7 @@ sections:
                   Recognition and voice conditioning need mono audio and resample it themselves.
                 tests:
                   - AudioFileReader_ReadMono_Stereo_DownMixesAtNativeRate
+                  - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
 
               - id: Speech-Audio-AudioFileReader-FlacFixtures
                 title: >-

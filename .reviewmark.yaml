@@ -130,9 +130,7 @@ reviews:
 
   # Speech-AudioSubsystem-AudioClip Review (one per unit)
   - id: Speech-AudioSubsystem-AudioClip
-    title: >-
-      Review that Speech AudioSubsystem AudioClip Implementation is Correct (no dedicated
-      test file; exercised through other audio unit tests)
+    title: Review that Speech AudioSubsystem AudioClip Implementation is Correct
     context:
       - "docs/design/speech.md"
       - "docs/design/speech/audio-subsystem.md"
@@ -143,6 +141,7 @@ reviews:
       - "docs/design/speech/audio-subsystem/audio-clip.md"
       - "docs/verification/speech/audio-subsystem/audio-clip.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioClip.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioClipTests.cs"
 
   # Speech-AudioSubsystem-AudioFileReader Review (one per unit)
   - id: Speech-AudioSubsystem-AudioFileReader

@@ -1,4 +1,3 @@
-
 namespace DemaConsulting.Speech.AudioSubsystem;
 
 /// <summary>

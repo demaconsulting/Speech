@@ -2,7 +2,7 @@
 
 #### Verification Approach
 
-Verified by `AudioFileReaderTests.cs` (container detection, errors, byte cap, mono read) and by
+Verified by `AudioFileReaderTests.cs` (container detection, errors, options, byte cap, mono read) and by
 `FlacDecoderTests.cs`, whose fixture theory compares libFLAC-encoded files with lossless WAV files
 of the same samples. Both files live under `test/DemaConsulting.Speech.Tests/AudioSubsystem`.
 
@@ -15,7 +15,8 @@ of the same samples. Both files live under `test/DemaConsulting.Speech.Tests/Aud
 
 Containers are detected by content, errors map to the documented exceptions with the path in the
 message, an input over the byte cap is rejected before decoding (file, seekable stream and
-non-seekable stream), `ReadMono` returns native-rate mono, and every libFLAC fixture decodes
+non-seekable stream), `VerifyChecksums` and `MaxSamples` are honored, `ReadMono` returns native-rate
+mono, and every libFLAC fixture decodes
 bit-exactly to its WAV twin.
 
 #### Test Scenarios
@@ -43,17 +44,41 @@ hand-built one-sample WAV under a `.dat` extension decodes as WAV (8000 Hz, samp
 ##### Malformed input is reported
 
 **Tests**: `AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath`,
-`AudioFileReader_Read_Errors_AreReported`
+`AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath`
 
 **Expected**: A text file throws `InvalidDataException` whose message names the path; a
-three-byte stream throws `InvalidDataException`.
+three-byte stream throws `InvalidDataException` with the reader's "neither a RIFF/WAVE nor a FLAC"
+message and no path prefix.
 
 ##### Invalid arguments are rejected
 
-**Test**: `AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions`
+**Tests**: `AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions`,
+`AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter`
 
 **Expected**: A null stream throws `ArgumentNullException`; an empty path throws
-`ArgumentException`; a negative `MaxSamples` throws `ArgumentOutOfRangeException`.
+`ArgumentException`; a negative `MaxSamples` throws `ArgumentOutOfRangeException` whose parameter
+name is `options`, except that a missing path reports `FileNotFoundException` first.
+
+##### WAV stream and mono read errors
+
+**Test**: `AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors`
+
+**Expected**: A WAV fixture read from a stream decodes (44100 Hz, mono); `ReadMono` of a
+three-byte stream throws `InvalidDataException` and of a missing path `FileNotFoundException`.
+
+##### Checksum verification option
+
+**Test**: `AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly`
+
+**Expected**: A FLAC fixture whose final byte is corrupted throws `InvalidDataException` by default
+and with `VerifyChecksums = true`, and decodes with `VerifyChecksums = false`.
+
+##### Decoded sample limit
+
+**Test**: `AudioFileReader_Read_MaxSamples_LimitsDecodedSamples`
+
+**Expected**: With `MaxSamples = 100` the FLAC and WAV fixtures (well inside the byte cap) throw
+`InvalidDataException` because they decode to more samples.
 
 ##### Unsupported WAV names the path
 

@@ -15,15 +15,20 @@ only, so hosts and models can accept either format without a native decoder depe
   non-seekable stream is copied in chunks that stop as soon as the cap is exceeded, so an oversized
   input is never fully read. Then reads all bytes, detects the container from its magic
   (`RIFF`/`WAVE`, or `fLaC` optionally behind an ID3v2 tag), and delegates to `WavDecoder` or
-  `FlacDecoder`
-- **ReadMono(path | stream, options)**: `Read` followed by `AudioResampler.DownMix`, returning the
-  mono samples with the file's native sample rate
+  `FlacDecoder`. The decoders enforce `MaxSamples` on the decoded sample count, and
+  `VerifyChecksums` is passed to the FLAC decoder (it has no effect on WAV)
+- **ReadMono(path | stream, options)**: `Read` followed by `AudioClip.ToMono` (which uses
+  `AudioResampler.DownMix`), returning the mono samples with the file's native sample rate. It
+  repeats every error of `Read`, unchanged.
 
 **Error Handling**: `FileNotFoundException` for a missing file; `InvalidDataException` for data
 that is neither WAV nor FLAC or that is malformed; `NotSupportedException` for a WAV encoding that
 is not supported; `ArgumentNullException`/`ArgumentException` for a null stream or an empty path;
-`ArgumentOutOfRangeException` for a negative `MaxSamples`. Path-based reads prefix the path to the
-message of decoder failures.
+`ArgumentOutOfRangeException` for a negative `MaxSamples`. The negative `MaxSamples` exception
+reports `options` as its parameter name (the validation reads the options object), and a
+path-based read checks that the file exists first, so a negative `MaxSamples` with a missing path
+reports `FileNotFoundException`. Path-based reads prefix the path to the message of decoder
+failures and of byte-cap failures; stream reads have no path and so add no prefix.
 
 **Dependencies**: `WavDecoder`, `FlacDecoder`, `AudioClip`, `AudioResampler`.
 

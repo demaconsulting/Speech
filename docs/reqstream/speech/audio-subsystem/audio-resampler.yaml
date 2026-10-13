@@ -18,6 +18,14 @@ sections:
                 tests:
                   - AudioResampler_DownMix_AveragesChannels
 
+              - id: Speech-Audio-AudioResampler-DownMixPartialFrame
+                title: >-
+                  The AudioResampler class shall drop a trailing partial frame when down-mixing.
+                justification: |
+                  A ragged final frame cannot be averaged and must not read past the data.
+                tests:
+                  - AudioResampler_DownMix_PartialTrailingFrame_IsDropped
+
               - id: Speech-Audio-AudioResampler-DownMixChannelCountValidation
                 title: >-
                   The AudioResampler class shall reject a non-positive channel count when down-mixing.

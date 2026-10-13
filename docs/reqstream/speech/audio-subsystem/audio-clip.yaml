@@ -26,22 +26,29 @@ sections:
                   Mono-oriented consumers need a down-mixed view of decoded audio.
                 tests:
                   - AudioClip_ToMono_AveragesChannels
+                  - AudioClip_ToMono_MonoClip_ReturnsIndependentCopy
+                  - AudioClip_ToMono_NaNSample_PropagatesToFrame
                   - AudioClip_DerivedMembers_AreConsistent
 
               - id: Speech-Audio-AudioClip-ToPcm16
                 title: >-
-                  The AudioClip record shall convert to 16-bit PCM, clamping out-of-range samples.
+                  The AudioClip record shall convert to 16-bit PCM, scaling by 32768 with rounding and
+                  clamping out-of-range samples.
                 justification: |
                   Playback and file writers need 16-bit PCM and must not overflow on out-of-range samples.
                 tests:
                   - AudioClip_ToPcm16_ClampsOutOfRangeSamples
+                  - AudioClip_ToPcm16_ScalesWithRounding
                   - AudioClip_DerivedMembers_AreConsistent
+
               - id: Speech-Audio-AudioClip-ValidatesInput
                 title: >-
                   The AudioClip record shall reject null samples and a non-positive sample rate or channel
                   count, both at construction and in with-expressions.
                 justification: |
-                  A zero rate or channel count would divide by zero in Duration and the down-mix.
+                  A zero rate or channel count would divide by zero in Duration and the down-mix. The
+                  checks share one mechanism (the validating property initializers) and one purpose, so
+                  they form a single requirement.
                 tests:
                   - AudioClip_InvalidValues_Throw
                   - AudioClip_EmptySamples_HasZeroDuration

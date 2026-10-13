@@ -3,7 +3,7 @@ using DemaConsulting.Speech.AudioSubsystem;
 namespace DemaConsulting.Speech.Tests.AudioSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="AudioFileReader"/>, <see cref="AudioFileReadOptions"/> and <see cref="AudioClip"/>.
+///     Unit tests for <see cref="AudioFileReader"/> and <see cref="AudioFileReadOptions"/>.
 /// </summary>
 public sealed class AudioFileReaderTests
 {
@@ -67,30 +67,64 @@ public sealed class AudioFileReaderTests
         }
     }
 
-    /// <summary>Proves error cases: missing file, unknown format, bad options and path-qualified messages.</summary>
+    /// <summary>Proves a stream that is neither WAV nor FLAC is reported with <see cref="InvalidDataException"/> and no path prefix.</summary>
     [Fact]
-    public void AudioFileReader_Read_Errors_AreReported()
+    public void AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath()
+    {
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream([1, 2, 3])));
+
+        // Assert: the reader's own message, with no path prefix because a stream has no path
+        Assert.Contains("neither a RIFF/WAVE nor a FLAC", error.Message);
+        Assert.DoesNotContain("'", error.Message);
+    }
+
+    /// <summary>Proves a WAV image is decoded from a stream and the same errors apply to <c>ReadMono</c>.</summary>
+    [Fact]
+    public void AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors()
     {
         // Arrange
-        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
-        File.WriteAllBytes(path, "not audio at all, just text"u8.ToArray());
+        var wav = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.wav"));
 
-        try
-        {
-            // Act / Assert
-            Assert.Throws<FileNotFoundException>(() => AudioFileReader.Read(Path.Combine(FlacDirectory, "missing.flac")));
-            var error = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(path));
-            Assert.Contains(path, error.Message);
-            Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream([1, 2, 3])));
-            Assert.Throws<ArgumentNullException>(() => AudioFileReader.Read((Stream)null!));
-            Assert.Throws<ArgumentException>(() => AudioFileReader.Read(string.Empty));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                AudioFileReader.Read(new MemoryStream([1]), new AudioFileReadOptions { MaxSamples = -1 }));
-        }
-        finally
-        {
-            File.Delete(path);
-        }
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(wav));
+
+        // Assert
+        Assert.Equal(44100, clip.SampleRate);
+        Assert.Equal(1, clip.ChannelCount);
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.ReadMono(new MemoryStream([1, 2, 3])));
+        Assert.Throws<FileNotFoundException>(() => AudioFileReader.ReadMono(Path.Combine(FlacDirectory, "missing.flac")));
+    }
+
+    /// <summary>Proves the VerifyChecksums option is passed to the FLAC decoder: a damaged frame fails by default and decodes when disabled.</summary>
+    [Fact]
+    public void AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly()
+    {
+        // Arrange: the last byte belongs to the final frame's CRC-16 footer
+        var flac = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.flac"));
+        flac[^1] ^= 0xFF;
+
+        // Act
+        var lenient = AudioFileReader.Read(new MemoryStream(flac), new AudioFileReadOptions { VerifyChecksums = false });
+
+        // Assert
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(flac)));
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(flac), new AudioFileReadOptions { VerifyChecksums = true }));
+        Assert.Equal(44100, lenient.SampleRate);
+    }
+
+    /// <summary>Proves the MaxSamples limit applies to the decoded sample count, not only the byte cap.</summary>
+    [Fact]
+    public void AudioFileReader_Read_MaxSamples_LimitsDecodedSamples()
+    {
+        // Arrange: the fixture is far below the byte cap implied by MaxSamples = 100 (1 MiB of slack) but holds more than 100 samples
+        var flac = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.flac"));
+        var wav = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.wav"));
+        var options = new AudioFileReadOptions { MaxSamples = 100 };
+
+        // Act / Assert
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(flac), options));
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(wav), options));
     }
 
     /// <summary>Proves a missing file is reported with <see cref="FileNotFoundException"/>.</summary>
@@ -132,6 +166,23 @@ public sealed class AudioFileReaderTests
             AudioFileReader.Read(new MemoryStream([1]), new AudioFileReadOptions { MaxSamples = -1 }));
     }
 
+    /// <summary>Proves a negative MaxSamples is reported against the options parameter, and for a path only after the file is found.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter()
+    {
+        // Arrange
+        var negative = new AudioFileReadOptions { MaxSamples = -1 };
+        var missing = Path.Combine(FlacDirectory, "missing.flac");
+
+        // Act
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(new MemoryStream([1]), negative));
+
+        // Assert: the existence check comes first for path-based reads
+        Assert.Equal("options", error.ParamName);
+        Assert.Throws<FileNotFoundException>(() => AudioFileReader.Read(missing, negative));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(Path.Combine(FlacDirectory, "mono-16-44100.flac"), negative));
+    }
+
     /// <summary>Proves an unsupported WAV encoding is reported with the path.</summary>
     [Fact]
     public void AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath()
@@ -171,84 +222,6 @@ public sealed class AudioFileReaderTests
         Assert.Equal(rate, streamRate);
         Assert.Equal(clip.FrameCount, samples.Length);
         Assert.Equal(samples, streamSamples);
-    }
-
-    /// <summary>Proves the clip's derived members.</summary>
-    [Fact]
-    public void AudioClip_DerivedMembers_AreConsistent()
-    {
-        // Arrange
-        var clip = new AudioClip([1f, -1f, 0.5f, 0.5f, 2f, -2f, 0f, float.NaN], 4, 2, 16);
-
-        // Act
-        var mono = clip.ToMono();
-        var pcm = clip.ToPcm16();
-
-        // Assert
-        Assert.Equal(4, clip.FrameCount);
-        Assert.Equal(1.0, clip.Duration);
-        Assert.Equal([0f, 0.5f, 0f, float.NaN], mono);
-        Assert.Equal(8, pcm.Length);
-        Assert.Equal(32767, pcm[0]);
-        Assert.Equal(-32768, pcm[1]);
-        Assert.Equal(32767, pcm[4]);
-        Assert.Equal(-32768, pcm[5]);
-        Assert.Equal(0, pcm[7]);
-    }
-
-    /// <summary>Proves ToMono averages the channels of each frame.</summary>
-    [Fact]
-    public void AudioClip_ToMono_AveragesChannels()
-    {
-        // Arrange
-        var clip = new AudioClip([1f, 0f, 0.5f, 0.5f], 4, 2, 16);
-
-        // Act / Assert
-        Assert.Equal([0.5f, 0.5f], clip.ToMono());
-    }
-
-    /// <summary>Proves ToPcm16 clamps out-of-range samples to the 16-bit range.</summary>
-    [Fact]
-    public void AudioClip_ToPcm16_ClampsOutOfRangeSamples()
-    {
-        // Arrange
-        var clip = new AudioClip([2f, -2f, 0f], 8000, 1, 16);
-
-        // Act
-        var pcm = clip.ToPcm16();
-
-        // Assert
-        Assert.Equal([32767, -32768, 0], pcm.Select(v => (int)v));
-    }
-
-    /// <summary>Proves <see cref="AudioClip"/> rejects a null sample array and non-positive rates or channel counts, including through <c>with</c>.</summary>
-    [Fact]
-    public void AudioClip_InvalidValues_Throw()
-    {
-        // Arrange
-        var valid = new AudioClip([0f, 0f], 8000, 1, 16);
-
-        // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => new AudioClip(null!, 8000, 1, 16));
-        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 0, 1, 16)).ParamName);
-        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], -1, 1, 16)).ParamName);
-        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, 0, 16)).ParamName);
-        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, -2, 16)).ParamName);
-        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { SampleRate = 0 });
-        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { ChannelCount = 0 });
-        Assert.Equal(16000, (valid with { SampleRate = 16000 }).SampleRate);
-    }
-
-    /// <summary>Proves an empty sample array is a valid, zero-length clip.</summary>
-    [Fact]
-    public void AudioClip_EmptySamples_HasZeroDuration()
-    {
-        // Arrange / Act
-        var clip = new AudioClip([], 8000, 2, 16);
-
-        // Assert
-        Assert.Equal(0, clip.FrameCount);
-        Assert.Equal(0.0, clip.Duration);
     }
 
     /// <summary>Proves an oversized file is rejected from its length alone, naming the file.</summary>

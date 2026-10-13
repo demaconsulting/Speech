@@ -4,13 +4,22 @@
 
 **Data Model**: An immutable sealed record of interleaved `float` `Samples` in [-1, 1], the
 `SampleRate`, the `ChannelCount` and the source `BitsPerSample`. `FrameCount` and `Duration` are
-derived.
+derived. `BitsPerSample` is informational only: it is neither validated nor used by any member.
+The `Samples` array is shared, not copied, so callers must not modify it and thread safety depends
+on callers (the clip is safe to share while nobody writes to the array).
+
+The record declares explicit properties backed by private fields, initialized from the primary
+constructor parameters through validating helpers, with validating `init` accessors. A
+compiler-generated positional property would accept any value in a `with` expression; the explicit
+`init` accessors make a `with` expression run the same validation as the constructor.
 
 **Key Methods**:
 
-- **ToMono()**: down-mix by averaging channels through `AudioResampler.DownMix`
-- **ToPcm16()**: convert to signed 16-bit samples, clamping out-of-range values and mapping NaN
-  to zero
+- **ToMono()**: down-mix by averaging channels through `AudioResampler.DownMix`; a mono clip
+  yields a copy, and a NaN sample makes the mono frame that contains it NaN (incidental, not a
+  guaranteed contract)
+- **ToPcm16()**: convert to signed 16-bit samples by scaling by 32768 and rounding to nearest
+  (ties to even), clamping to [-32768, 32767] so +1.0 becomes 32767, and mapping NaN to zero
 
 **Error Handling**: The constructor and `with` expressions validate: `Samples` null throws
 `ArgumentNullException`; `SampleRate` or `ChannelCount` of zero or less throws

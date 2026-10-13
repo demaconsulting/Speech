@@ -47,7 +47,8 @@ expected length (within one sample) and matches the ideal tone within 0.02 in th
 
 **Test**: `AudioResampler_Resample_SameRateOrEmpty_AreTrivial`
 
-**Expected**: Equal rates return an equal but distinct copy; empty input returns empty.
+**Expected**: Equal rates return an equal but distinct copy; empty input returns empty. Rate
+validation is covered by the dedicated scenario below.
 
 ##### Invalid sample rates are rejected
 
@@ -74,3 +75,9 @@ non-empty output whose every sample, edges included, lies within 0.99 to 1.01.
 
 **Expected**: A null clip throws `ArgumentNullException` and a target rate of 0 throws
 `ArgumentOutOfRangeException`.
+
+##### Known gap: nearest-sample fallback
+
+The defensive nearest-sample fallback for a kernel weight sum of 0.05 or less is not exercised: the
+rate ratios the unit accepts never produce such a sum (the extreme down-sampling scenario checks the
+smallest edge kernels), so no test can reach it without changing the implementation.
