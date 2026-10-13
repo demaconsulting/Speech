@@ -14,7 +14,7 @@ sections:
             requirements:
               - id: SpeechDemo-Models-StatePresentation
                 title: >-
-                  The ModelCatalogSubsystem shall present each model's identity, role, and
+                  The ModelListItemViewModel shall present each model's identity, role, and
                   installation state in readable form.
                 justification: |
                   A user needs to know at a glance what a model is and whether it is missing,
@@ -25,7 +25,7 @@ sections:
 
               - id: SpeechDemo-Models-RowDescriptorRequired
                 title: >-
-                  The ModelCatalogSubsystem shall reject a model row created with no model
+                  The ModelListItemViewModel shall reject a model row created with no model
                   descriptor.
                 justification: |
                   Failing at creation makes an unidentified row an immediate, diagnosable
@@ -35,7 +35,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadAvailability
                 title: >-
-                  The ModelCatalogSubsystem shall offer a download for a model row only when
+                  The ModelListItemViewModel shall offer a download for a model row only when
                   the model is neither installed nor already downloading.
                 justification: |
                   Working installed content must not be disturbed, while a retry after failure
@@ -45,7 +45,7 @@ sections:
 
               - id: SpeechDemo-Models-ProgressVisibility
                 title: >-
-                  The ModelCatalogSubsystem shall show a model row's progress bar only while
+                  The ModelListItemViewModel shall show a model row's progress bar only while
                   the model is downloading.
                 justification: |
                   A progress bar on an idle row would misreport its state.
@@ -54,7 +54,7 @@ sections:
 
               - id: SpeechDemo-Models-FailureMessageVisibility
                 title: >-
-                  The ModelCatalogSubsystem shall report a model row's failure explanation as
+                  The ModelListItemViewModel shall report a model row's failure explanation as
                   present only when there is one to show.
                 justification: |
                   An empty message must never render as blank red text.
@@ -63,7 +63,7 @@ sections:
 
               - id: SpeechDemo-Models-StateChangeAnnouncement
                 title: >-
-                  The ModelCatalogSubsystem shall announce every derived display value of a
+                  The ModelListItemViewModel shall announce every derived display value of a
                   model row when its installation state changes.
                 justification: |
                   Announcing the derived caption, progress visibility, and button state together

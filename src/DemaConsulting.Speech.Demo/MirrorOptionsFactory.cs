@@ -20,7 +20,8 @@ internal static class MirrorOptionsFactory
     /// <param name="password">The HTTP Basic password, or <see langword="null"/>.</param>
     /// <param name="bearerToken">The bearer token, or <see langword="null"/>.</param>
     /// <returns>
-    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> was supplied; otherwise
+    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> is non-empty (a
+    ///     whitespace-only value counts as supplied and is rejected as an invalid URL); otherwise
     ///     <see langword="null"/> (every model downloads from its own declared public URI).
     /// </returns>
     /// <exception cref="ArgumentException">

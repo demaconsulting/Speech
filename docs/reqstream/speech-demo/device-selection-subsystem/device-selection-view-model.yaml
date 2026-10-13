@@ -283,8 +283,6 @@ sections:
                   that exception a rare defensive fallback rather than the primary way a
                   refresh succeeds.
                 children:
-                  - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
-                  - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
                   - SpeechDemo-Devices-PreRefreshHookOrder
                   - SpeechDemo-Devices-PreRefreshHookRemoval
                   - SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered

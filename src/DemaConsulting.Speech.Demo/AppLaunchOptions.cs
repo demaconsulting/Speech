@@ -40,7 +40,7 @@ public sealed class AppLaunchOptions
     /// <summary>Gets the bearer token supplied via <c>--mirror-bearer-token</c>, or <see langword="null"/>.</summary>
     public string? MirrorBearerToken { get; private init; }
 
-    /// <summary>Gets a value indicating whether <c>--help</c> or <c>-h</c> was supplied.</summary>
+    /// <summary>Gets a value indicating whether <c>--help</c>, <c>-h</c>, or <c>-?</c> was supplied.</summary>
     public bool Help { get; private init; }
 
     /// <summary>Name of the environment variable that supplies the mirror URL when <c>--mirror-url</c> is absent.</summary>
@@ -60,9 +60,10 @@ public sealed class AppLaunchOptions
     /// </summary>
     /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
     /// <returns>The parsed options.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="args"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when an option requiring a value is the last argument, or an unrecognized
-    ///     argument is supplied.
+    ///     Thrown when an option requiring a value is the last argument, an unrecognized
+    ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
     /// </exception>
     public static AppLaunchOptions Parse(string[] args) => Parse(args, Environment.GetEnvironmentVariable);
 
@@ -80,9 +81,13 @@ public sealed class AppLaunchOptions
     /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
     /// <param name="getEnvironmentVariable">Reads an environment variable by name; <see langword="null"/> when unset.</param>
     /// <returns>The parsed options.</returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="args"/> or <paramref name="getEnvironmentVariable"/> is
+    ///     <see langword="null"/>.
+    /// </exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when an option requiring a value is the last argument, or an unrecognized
-    ///     argument is supplied.
+    ///     Thrown when an option requiring a value is the last argument, an unrecognized
+    ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
     /// </exception>
     public static AppLaunchOptions Parse(string[] args, Func<string, string?> getEnvironmentVariable)
     {
@@ -228,21 +233,30 @@ public sealed class AppLaunchOptions
     ///     Prints this demo's launch-option usage to the console, mirroring the CLI's own
     ///     <c>--help</c> presentation for the same option names.
     /// </summary>
-    public static void PrintHelp()
+    public static void PrintHelp() => PrintHelp(Console.Out);
+
+    /// <summary>
+    ///     Writes this demo's launch-option usage to <paramref name="writer"/>.
+    /// </summary>
+    /// <param name="writer">The destination writer. Must not be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="writer"/> is <see langword="null"/>.</exception>
+    public static void PrintHelp(TextWriter writer)
     {
-        Console.WriteLine("Usage: DemaConsulting.Speech.Demo [options]");
-        Console.WriteLine();
-        Console.WriteLine("Options:");
-        Console.WriteLine("  -h, -?, --help             Display this help message and exit");
-        Console.WriteLine("  --models-dir <path>        Override the model store root directory");
-        Console.WriteLine("  --voices-dir <path>        Add reference voices (.wav/.flac) for voice-cloning models from this directory");
-        Console.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
-        Console.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
-        Console.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
-        Console.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
-        Console.WriteLine();
-        Console.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
-        Console.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
-        Console.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
+        ArgumentNullException.ThrowIfNull(writer);
+
+        writer.WriteLine("Usage: DemaConsulting.Speech.Demo [options]");
+        writer.WriteLine();
+        writer.WriteLine("Options:");
+        writer.WriteLine("  -h, -?, --help             Display this help message and exit");
+        writer.WriteLine("  --models-dir <path>        Override the model store root directory");
+        writer.WriteLine("  --voices-dir <path>        Add reference voices (.wav/.flac) for voice-cloning models from this directory");
+        writer.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
+        writer.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
+        writer.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
+        writer.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        writer.WriteLine();
+        writer.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
+        writer.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
+        writer.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
     }
 }

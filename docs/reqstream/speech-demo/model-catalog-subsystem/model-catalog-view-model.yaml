@@ -22,7 +22,7 @@ sections:
             requirements:
               - id: SpeechDemo-Models-PanelSeamRequired
                 title: >-
-                  The ModelCatalogSubsystem shall reject a catalog panel created with no catalog
+                  The ModelCatalogViewModel shall reject a catalog panel created with no catalog
                   service.
                 justification: |
                   The panel is driven entirely by its catalog service; failing at creation makes
@@ -32,7 +32,7 @@ sections:
 
               - id: SpeechDemo-Models-Enumeration
                 title: >-
-                  The ModelCatalogSubsystem shall show one row per model the library reports.
+                  The ModelCatalogViewModel shall show one row per model the library reports.
                 justification: |
                   The panel is a direct rendering of the library's catalog: one row per known
                   model, with nothing added and nothing hidden.
@@ -41,7 +41,7 @@ sections:
 
               - id: SpeechDemo-Models-InitialSelection
                 title: >-
-                  The ModelCatalogSubsystem shall preselect the first model row when the panel
+                  The ModelCatalogViewModel shall preselect the first model row when the panel
                   is created.
                 justification: |
                   Preselecting the first row makes the panel immediately usable without
@@ -51,7 +51,7 @@ sections:
 
               - id: SpeechDemo-Models-Refresh
                 title: >-
-                  The ModelCatalogSubsystem shall re-read the catalog on demand, keeping the
+                  The ModelCatalogViewModel shall re-read the catalog on demand, keeping the
                   current selection when that model is still reported.
                 justification: |
                   The library's catalog is the single source of truth for both membership and
@@ -63,7 +63,7 @@ sections:
 
               - id: SpeechDemo-Models-RefreshDropsUnknownModel
                 title: >-
-                  The ModelCatalogSubsystem shall drop the row of a model the catalog no longer
+                  The ModelCatalogViewModel shall drop the row of a model the catalog no longer
                   reports when the catalog is re-read.
                 justification: |
                   Keeping a row the library no longer reports would let the panel offer a model
@@ -73,7 +73,7 @@ sections:
 
               - id: SpeechDemo-Models-RefreshBlockedDuringTransfer
                 title: >-
-                  The ModelCatalogSubsystem shall refuse an on-demand catalog refresh while any
+                  The ModelCatalogViewModel shall refuse an on-demand catalog refresh while any
                   model download or voice pack install is in flight, leaving the rows untouched
                   and without re-reading the catalog.
                 justification: |
@@ -87,7 +87,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadProgress
                 title: >-
-                  The ModelCatalogSubsystem shall reflect the progress reported while a model
+                  The ModelCatalogViewModel shall reflect the progress reported while a model
                   downloads on that model's row.
                 justification: |
                   Model downloads are large enough that an application with no progress feedback
@@ -98,7 +98,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadInFlightState
                 title: >-
-                  The ModelCatalogSubsystem shall show a model as downloading while its
+                  The ModelCatalogViewModel shall show a model as downloading while its
                   download runs.
                 justification: |
                   The user must see from the row that a download is under way, and the row must
@@ -108,7 +108,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadInstalled
                 title: >-
-                  The ModelCatalogSubsystem shall mark a model installed on its row when its
+                  The ModelCatalogViewModel shall mark a model installed on its row when its
                   download succeeds.
                 justification: |
                   The user must see from the row that the model is ready and no longer
@@ -118,7 +118,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadOutcomes
                 title: >-
-                  The ModelCatalogSubsystem shall report a checksum mismatch on a model's row as
+                  The ModelCatalogViewModel shall report a checksum mismatch on a model's row as
                   an explained failure rather than as an application error.
                 justification: |
                   The library treats a failed download as an ordinary outcome that never
@@ -129,7 +129,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadTransportFailure
                 title: >-
-                  The ModelCatalogSubsystem shall report a transport failure on a model's row
+                  The ModelCatalogViewModel shall report a transport failure on a model's row
                   using the library's own error message.
                 justification: |
                   The user must see why a download failed rather than a generic message.
@@ -138,7 +138,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadFaultContained
                 title: >-
-                  The ModelCatalogSubsystem shall contain an unexpected fault from the catalog
+                  The ModelCatalogViewModel shall contain an unexpected fault from the catalog
                   service in the model's row rather than letting it escape.
                 justification: |
                   An unexpected exception must not crash the demo.
@@ -147,7 +147,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadCanceled
                 title: >-
-                  The ModelCatalogSubsystem shall report a canceled download as the model being
+                  The ModelCatalogViewModel shall report a canceled download as the model being
                   not downloaded.
                 justification: |
                   The library guarantees nothing was installed after a cancellation, so the
@@ -157,7 +157,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadRetry
                 title: >-
-                  The ModelCatalogSubsystem shall allow a failed download to be retried and shall
+                  The ModelCatalogViewModel shall allow a failed download to be retried and shall
                   clear the previous failure explanation when the retry starts.
                 justification: |
                   Most download failures are transient. Leaving a stale failure message beside a
@@ -167,7 +167,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadGuardInstalled
                 title: >-
-                  The ModelCatalogSubsystem shall not start a download for a model that is
+                  The ModelCatalogViewModel shall not start a download for a model that is
                   already installed.
                 justification: |
                   Re-downloading an installed model risks disturbing working content for no
@@ -177,7 +177,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadGuardInFlight
                 title: >-
-                  The ModelCatalogSubsystem shall not start a second download for a model that
+                  The ModelCatalogViewModel shall not start a second download for a model that
                   is already downloading.
                 justification: |
                   A second download of a running one would collide with it.
@@ -186,7 +186,7 @@ sections:
 
               - id: SpeechDemo-Models-DownloadNoSelection
                 title: >-
-                  The ModelCatalogSubsystem shall do nothing when a download is requested with
+                  The ModelCatalogViewModel shall do nothing when a download is requested with
                   no model selected.
                 justification: |
                   A download command invoked with no selection must do nothing rather than
@@ -196,7 +196,7 @@ sections:
 
               - id: SpeechDemo-Models-EmptyCatalogExplanation
                 title: >-
-                  The ModelCatalogSubsystem shall display a message explaining that the catalog
+                  The ModelCatalogViewModel shall display a message explaining that the catalog
                   currently reports no known models when the catalog reports none.
                 justification: |
                   An empty catalog remains a possible host composition state (for example a host
@@ -209,7 +209,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsUi
                 title: >-
-                  The ModelCatalogSubsystem shall apply the mirror base URL and optional HTTP
+                  The ModelCatalogViewModel shall apply the mirror base URL and optional HTTP
                   Basic credential a user has entered, so that every subsequent download is
                   redirected to that mirror.
                 justification: |
@@ -221,7 +221,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsBearerToken
                 title: >-
-                  The ModelCatalogSubsystem shall apply a bearer token a user has entered
+                  The ModelCatalogViewModel shall apply a bearer token a user has entered
                   together with the mirror base URL.
                 justification: |
                   Mirrors protected by a bearer token are as common as those protected by Basic
@@ -231,7 +231,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsReloadsRows
                 title: >-
-                  The ModelCatalogSubsystem shall re-read the catalog after a mirror change is
+                  The ModelCatalogViewModel shall re-read the catalog after a mirror change is
                   applied, so the rows show what the reconfigured catalog reports.
                 justification: |
                   The rebuilt catalog may report different install states, so leaving the old
@@ -241,7 +241,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsFaultContained
                 title: >-
-                  The ModelCatalogSubsystem shall report an unexpected fault while applying a
+                  The ModelCatalogViewModel shall report an unexpected fault while applying a
                   mirror, or while re-reading the catalog afterwards, as an explained panel
                   error rather than letting it escape.
                 justification: |
@@ -252,7 +252,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsPrePopulation
                 title: >-
-                  The ModelCatalogSubsystem shall pre-populate the mirror settings from any
+                  The ModelCatalogViewModel shall pre-populate the mirror settings from any
                   mirror arguments supplied at launch.
                 justification: |
                   Pre-populating from launch-time arguments keeps the two entry points
@@ -263,7 +263,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsBlankRevert
                 title: >-
-                  The ModelCatalogSubsystem shall revert every subsequent download to each
+                  The ModelCatalogViewModel shall revert every subsequent download to each
                   model's own public download URI when a blank mirror URL is applied.
                 justification: |
                   A user must be able to undo a mirror redirection without relaunching the
@@ -273,7 +273,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsInvalidReported
                 title: >-
-                  The ModelCatalogSubsystem shall report an invalid mirror configuration, such as
+                  The ModelCatalogViewModel shall report an invalid mirror configuration, such as
                   a malformed URL or credentials without a URL, as an explained panel state
                   without applying it.
                 justification: |
@@ -285,7 +285,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsRejectedReported
                 title: >-
-                  The ModelCatalogSubsystem shall report, as an explained panel state rather than
+                  The ModelCatalogViewModel shall report, as an explained panel state rather than
                   an error thrown at the user, a mirror change that the catalog service rejects.
                 justification: |
                   A catalog service built over a fixed catalog cannot be reconfigured; the user
@@ -295,7 +295,7 @@ sections:
 
               - id: SpeechDemo-Models-MirrorBlockedDuringDownload
                 title: >-
-                  The ModelCatalogSubsystem shall refuse to apply a mirror change while any row is
+                  The ModelCatalogViewModel shall refuse to apply a mirror change while any row is
                   downloading, reporting an explained panel error, without calling the catalog
                   service.
                 justification: |
@@ -307,7 +307,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackPanel
                 title: >-
-                  The ModelCatalogSubsystem shall list the reference voice packs.
+                  The ModelCatalogViewModel shall list the reference voice packs.
                 justification: |
                   Packs are managed where models are managed, so the user sees what a pack is
                   before installing it.
@@ -316,7 +316,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackUserFolderShown
                 title: >-
-                  The ModelCatalogSubsystem shall show the user voices folder alongside the
+                  The ModelCatalogViewModel shall show the user voices folder alongside the
                   reference voice packs.
                 justification: |
                   The user must see where their own voices go.
@@ -325,7 +325,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackConsentNoteShown
                 title: >-
-                  The ModelCatalogSubsystem shall show the voice-cloning consent note alongside
+                  The ModelCatalogViewModel shall show the voice-cloning consent note alongside
                   the reference voice packs.
                 justification: |
                   The user must see the consent note before installing a pack.
@@ -334,7 +334,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackSectionHidden
                 title: >-
-                  The ModelCatalogSubsystem shall hide the reference voices section when the
+                  The ModelCatalogViewModel shall hide the reference voices section when the
                   catalog service reports no voice packs.
                 justification: |
                   Hosts built without voice support must not show an empty, confusing section.
@@ -343,7 +343,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstalledEmotionsShown
                 title: >-
-                  The ModelCatalogSubsystem shall show, for each installed voice pack, whether
+                  The ModelCatalogViewModel shall show, for each installed voice pack, whether
                   the install includes its emotion variants, as reported by the catalog service
                   whenever the panel is refreshed.
                 justification: |
@@ -354,7 +354,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstall
                 title: >-
-                  The ModelCatalogSubsystem shall install a voice pack on command.
+                  The ModelCatalogViewModel shall install a voice pack on command.
                 justification: |
                   Installing a pack makes its voices available.
                 tests:
@@ -362,7 +362,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstallRowRefresh
                 title: >-
-                  The ModelCatalogSubsystem shall refresh the rows after a voice pack install so
+                  The ModelCatalogViewModel shall refresh the rows after a voice pack install so
                   the pack is shown as installed.
                 justification: |
                   The user must see from the row that the install worked and that the pack can
@@ -372,7 +372,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackEmotionChoiceForwarded
                 title: >-
-                  The ModelCatalogSubsystem shall install a voice pack with or without its
+                  The ModelCatalogViewModel shall install a voice pack with or without its
                   emotion variants according to the user's choice.
                 justification: |
                   The emotion clips are most of a pack's size, so the user's choice must decide
@@ -382,7 +382,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackAddEmotionsIncluded
                 title: >-
-                  The ModelCatalogSubsystem shall always include the emotion variants when
+                  The ModelCatalogViewModel shall always include the emotion variants when
                   adding emotions to a voices-only voice pack install.
                 justification: |
                   "Add emotions" must actually add them, whatever the emotion choice currently
@@ -392,7 +392,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstallFailureReported
                 title: >-
-                  The ModelCatalogSubsystem shall report a failed, canceled or faulted voice pack
+                  The ModelCatalogViewModel shall report a failed, canceled or faulted voice pack
                   install on the pack's row, with an explanation, rather than as an application
                   error.
                 justification: |
@@ -403,7 +403,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstallRollbackKeepsPack
                 title: >-
-                  The ModelCatalogSubsystem shall, after any unsuccessful voice pack install or
+                  The ModelCatalogViewModel shall, after any unsuccessful voice pack install or
                   upgrade, show the pack in the state the catalog service reports - remaining
                   installed and removable when it is still installed - while keeping the failure
                   message on the row.
@@ -417,7 +417,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstallStateReadFallback
                 title: >-
-                  The ModelCatalogSubsystem shall show the outcome of an unsuccessful voice pack
+                  The ModelCatalogViewModel shall show the outcome of an unsuccessful voice pack
                   install, with its failure message, when the catalog service cannot report the
                   pack's state.
                 justification: |
@@ -428,7 +428,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackRemove
                 title: >-
-                  The ModelCatalogSubsystem shall remove an installed voice pack on command and
+                  The ModelCatalogViewModel shall remove an installed voice pack on command and
                   refresh the rows so the pack's voices are no longer offered.
                 justification: |
                   The user must be able to reclaim disk space and withdraw voices they no
@@ -438,7 +438,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackRemoveFaultReported
                 title: >-
-                  The ModelCatalogSubsystem shall report a fault while removing a voice pack on
+                  The ModelCatalogViewModel shall report a fault while removing a voice pack on
                   the pack's row rather than as an application error.
                 justification: |
                   A file-system fault during removal must not crash the demo; the user is told on
@@ -448,7 +448,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackRemoveStoreErrorReported
                 title: >-
-                  The ModelCatalogSubsystem shall show the catalog service's explanation on the
+                  The ModelCatalogViewModel shall show the catalog service's explanation on the
                   pack's row, and keep the pack installed, when removing a voice pack fails
                   with a store error.
                 justification: |
@@ -458,7 +458,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackRemoveCanceledReported
                 title: >-
-                  The ModelCatalogSubsystem shall show a canceled-removal message on the pack's
+                  The ModelCatalogViewModel shall show a canceled-removal message on the pack's
                   row, and keep the pack installed, when removing a voice pack is canceled.
                 justification: |
                   A canceled removal must tell the user nothing was removed instead of failing
@@ -468,7 +468,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackBlockedDuringDownload
                 title: >-
-                  The ModelCatalogSubsystem shall refuse a pack install while any model is
+                  The ModelCatalogViewModel shall refuse a pack install while any model is
                   downloading, without calling the catalog service.
                 justification: |
                   Installing a pack rebuilds the catalog, and disposing the old catalog aborts
@@ -479,7 +479,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackRemoveBlockedDuringDownload
                 title: >-
-                  The ModelCatalogSubsystem shall refuse a pack removal while any model is
+                  The ModelCatalogViewModel shall refuse a pack removal while any model is
                   downloading, without calling the catalog service.
                 justification: |
                   Removing a pack rebuilds the catalog, which would abort a download in flight.
@@ -488,7 +488,7 @@ sections:
 
               - id: SpeechDemo-Voices-DownloadBlockedDuringPackInstall
                 title: >-
-                  The ModelCatalogSubsystem shall refuse a model download while a pack is
+                  The ModelCatalogViewModel shall refuse a model download while a pack is
                   installing, without calling the catalog service.
                 justification: |
                   The pack install's catalog rebuild would abort the download, so the panel
@@ -498,7 +498,7 @@ sections:
 
               - id: SpeechDemo-Voices-MirrorBlockedDuringPackInstall
                 title: >-
-                  The ModelCatalogSubsystem shall refuse a mirror change while a pack is
+                  The ModelCatalogViewModel shall refuse a mirror change while a pack is
                   installing, reporting an explained panel error, without calling the catalog
                   service.
                 justification: |
@@ -509,7 +509,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackBlockedDuringPackInstall
                 title: >-
-                  The ModelCatalogSubsystem shall refuse a pack install or removal while another
+                  The ModelCatalogViewModel shall refuse a pack install or removal while another
                   pack is installing, showing an explanation on the row, without calling the
                   catalog service.
                 justification: |
@@ -520,7 +520,7 @@ sections:
 
               - id: SpeechDemo-Voices-PackInitialEmotionLoadContained
                 title: >-
-                  The ModelCatalogSubsystem shall contain a fault while reading an installed
+                  The ModelCatalogViewModel shall contain a fault while reading an installed
                   pack's emotion flag, leaving the flag false and completing the initial load.
                 justification: |
                   The flags are read in the background from the construction path; a fault there

@@ -62,6 +62,27 @@ sections:
             tests:
               - Parse_NullArguments_ThrowsArgumentNullException
 
+          - id: SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
+            title: >-
+              The AppLaunchOptions unit shall reject a null environment reader with an
+              ArgumentNullException.
+            justification: |
+              A missing environment reader is a programming error in the caller and must surface
+              at the call rather than as a later null reference while reading a mirror variable.
+            tests:
+              - Parse_NullEnvironmentReader_ThrowsArgumentNullException
+
+          - id: SpeechDemo-LaunchOptions-HelpText
+            title: >-
+              The AppLaunchOptions unit shall write usage text naming every help flag and the
+              mirror bearer-token option to a supplied writer.
+            justification: |
+              Users discover each option, including the credential options, from the usage text,
+              and a testable writer keeps that text verifiable without capturing the console.
+            tests:
+              - PrintHelp_ListsHelpFlagsAndBearerTokenOption
+              - PrintHelp_NullWriter_ThrowsArgumentNullException
+
           - id: SpeechDemo-LaunchOptions-StoreFolder
             title: >-
               The AppLaunchOptions unit shall translate a supplied models directory into a
@@ -112,6 +133,9 @@ sections:
             tests:
               - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
 
           - id: SpeechDemo-LaunchOptions-MirrorUrlEnvironment
             title: >-
@@ -197,7 +221,7 @@ sections:
             tests:
               - PrintHelp_ListsMirrorEnvironmentVariables
 
-          - id: SpeechDemo-Voices-LaunchOption
+          - id: SpeechDemo-LaunchOptions-VoicesDir
             title: >-
               The AppLaunchOptions unit shall accept a --voices-dir launch option naming an
               existing folder of the user's own reference voices.
@@ -207,7 +231,7 @@ sections:
             tests:
               - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
 
-          - id: SpeechDemo-Voices-LaunchOptionHelp
+          - id: SpeechDemo-LaunchOptions-VoicesDirHelp
             title: >-
               The AppLaunchOptions unit shall list the --voices-dir option in its help text.
             justification: |
@@ -216,7 +240,7 @@ sections:
             tests:
               - PrintHelp_ListsVoicesDirOption
 
-          - id: SpeechDemo-Voices-LaunchOptionValueRequired
+          - id: SpeechDemo-LaunchOptions-VoicesDirValueRequired
             title: >-
               The AppLaunchOptions unit shall reject a --voices-dir option supplied without a
               value.
@@ -226,7 +250,7 @@ sections:
             tests:
               - Parse_VoicesDir_NoValue_ThrowsArgumentException
 
-          - id: SpeechDemo-Voices-LaunchOptionFolderMustExist
+          - id: SpeechDemo-LaunchOptions-VoicesDirMustExist
             title: >-
               The AppLaunchOptions unit shall reject a --voices-dir option naming a folder that
               does not exist.

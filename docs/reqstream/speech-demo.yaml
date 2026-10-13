@@ -51,6 +51,7 @@ sections:
           - SpeechDemo-App-AvaloniaApplication
           - SpeechDemo-App-ShutdownContainment
           - SpeechDemo-Program-AvaloniaApp
+          - SpeechDemo-Program-StartsApplication
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
 
@@ -80,6 +81,7 @@ sections:
           when it is not.
         children:
           - SpeechDemo-LaunchOptions-HelpRequest
+          - SpeechDemo-LaunchOptions-HelpText
           - SpeechDemo-LaunchOptions-RejectUnrecognized
           - SpeechDemo-LaunchOptions-RejectMissingValue
           - SpeechDemo-LaunchOptions-RejectNullArguments
@@ -159,7 +161,8 @@ sections:
           - SpeechDemo-Models-StateChangeAnnouncement
           - SpeechDemo-Models-StatePresentation
           - SpeechDemo-Models-Refresh
-          - SpeechDemo-Models-RefreshBlockedDuringTransfer          - SpeechDemo-Models-LibraryCatalogDelegation
+          - SpeechDemo-Models-RefreshBlockedDuringTransfer
+          - SpeechDemo-Models-LibraryCatalogDelegation
           - SpeechDemo-ModelCatalog-PanelOperation
           - SpeechDemo-Models-LibraryDownloadDelegation
           - SpeechDemo-Models-CatalogSeamRequired
@@ -289,6 +292,7 @@ sections:
           - SpeechDemo-MirrorOptions-BlankUrlNoMirror
           - SpeechDemo-MirrorOptions-CredentialWithoutUrl
           - SpeechDemo-MirrorOptions-HalfCredentialPair
+          - SpeechDemo-MirrorOptions-PasswordWithoutUser
           - SpeechDemo-MirrorOptions-InvalidUrl
           - SpeechDemo-MirrorOptions-InsecureCredentialRejected
           - SpeechDemo-Models-MirrorSettingsPrePopulation
@@ -365,8 +369,8 @@ sections:
           - SpeechDemo-ModelCatalog-VoicePackChangeNotification
           - SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
           - SpeechDemo-ModelCatalog-VoicePackRemovedNotification
-          - SpeechDemo-ModelCatalog-VoicePackMirrorChangedRebuild
-          - SpeechDemo-ModelCatalog-VoicePackMirrorChangedNotification
+          - SpeechDemo-ModelCatalog-MirrorChangedRebuild
+          - SpeechDemo-ModelCatalog-MirrorChangedNotification
           - SpeechDemo-Voices-PackServiceCompositionRequired
           - SpeechDemo-Voices-PackServiceNoLibrary
           - SpeechDemo-Voices-PackServiceNoLibraryRefusal
@@ -377,6 +381,7 @@ sections:
           - SpeechDemo-Voices-PackInstallRebuild
           - SpeechDemo-Voices-PackInstallFailureAnnounce
           - SpeechDemo-Voices-PackInstallCanceledRebuild
+          - SpeechDemo-Voices-PackInstallRebuildFailureKeepsCause
           - SpeechDemo-Voices-PackInstallCanceledAnnounce
           - SpeechDemo-Voices-PackMirrorRebuild
           - SpeechDemo-Voices-PackMirrorAnnounce

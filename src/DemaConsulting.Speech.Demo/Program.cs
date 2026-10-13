@@ -6,7 +6,8 @@ namespace DemaConsulting.Speech.Demo;
 ///     Process entry point for the demo application.
 /// </summary>
 /// <remarks>
-///     Kept to the Avalonia-prescribed minimum: no application logic lives here, because
+///     Kept to the Avalonia-prescribed minimum plus start-up argument handling (parsing,
+///     validation, and <c>--help</c>); all application logic lives elsewhere, because
 ///     <see cref="BuildAvaloniaApp"/> must remain callable by Avalonia's design-time tooling,
 ///     which invokes it without ever running <see cref="Main"/>.
 /// </remarks>
@@ -33,10 +34,44 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        var exitCode = Run(
+            args,
+            Console.Out,
+            Console.Error,
+            Environment.GetEnvironmentVariable,
+            options =>
+            {
+                App.LaunchOptions = options;
+                BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            });
+
+        if (exitCode != 0)
+        {
+            Environment.ExitCode = exitCode;
+        }
+    }
+
+    /// <summary>
+    ///     Parses and validates the command line, handles <c>--help</c>, and otherwise starts the
+    ///     application through <paramref name="start"/>.
+    /// </summary>
+    /// <param name="args">The command-line arguments.</param>
+    /// <param name="output">Receives the usage text for <c>--help</c>.</param>
+    /// <param name="error">Receives an error message and the usage text for an invalid command line.</param>
+    /// <param name="getEnvironmentVariable">Reads an environment variable by name.</param>
+    /// <param name="start">Starts the application with the validated options.</param>
+    /// <returns>0 on success or <c>--help</c>; 1 when the command line is invalid.</returns>
+    internal static int Run(
+        string[] args,
+        TextWriter output,
+        TextWriter error,
+        Func<string, string?> getEnvironmentVariable,
+        Action<AppLaunchOptions> start)
+    {
         AppLaunchOptions options;
         try
         {
-            options = AppLaunchOptions.Parse(args);
+            options = AppLaunchOptions.Parse(args, getEnvironmentVariable);
 
             // Validate --mirror-* eagerly here (rather than letting App.OnFrameworkInitializationCompleted
             // discover a configuration error only after Avalonia has begun starting up), so a bad
@@ -46,20 +81,19 @@ internal static class Program
         }
         catch (ArgumentException ex)
         {
-            Console.Error.WriteLine($"Error: {ex.Message}");
-            AppLaunchOptions.PrintHelp();
-            Environment.ExitCode = 1;
-            return;
+            error.WriteLine($"Error: {ex.Message}");
+            AppLaunchOptions.PrintHelp(error);
+            return 1;
         }
 
         if (options.Help)
         {
-            AppLaunchOptions.PrintHelp();
-            return;
+            AppLaunchOptions.PrintHelp(output);
+            return 0;
         }
 
-        App.LaunchOptions = options;
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        start(options);
+        return 0;
     }
 
     /// <summary>

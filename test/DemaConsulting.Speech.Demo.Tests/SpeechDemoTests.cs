@@ -125,45 +125,38 @@ public class SpeechDemoTests
     ///     them as an empty catalog.
     /// </summary>
     /// <remarks>
-    ///     Earlier versions documented an empty <c>SpeechModelCatalog.KnownModels</c> as the
-    ///     expected shipped state; core <c>DemaConsulting.Speech</c> still ships zero built-in
-    ///     models, but the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
-    ///     <c>AddSherpaModels()</c> registers four real models (two recognition, two synthesis)
-    ///     and the sibling <c>DemaConsulting.Speech.Onnx.Kokoro</c> package's
-    ///     <c>AddKokoroModels()</c> registers one further real synthesis model, and the sibling
-    ///     <c>DemaConsulting.Speech.Onnx.NemotronStt</c> package's <c>AddNemotronSttModels()</c> registers
-    ///     one further real recognition model, and the sibling <c>DemaConsulting.Speech.Onnx.ChatterboxTurbo</c>
-    ///     package's <c>AddChatterboxTurboModels()</c> registers one further voice-cloning synthesis model - the
-    ///     same four
-    ///     extension methods the demo's own composition root (<c>App.OnFrameworkInitializationCompleted</c>)
-    ///     calls in combination - into the catalog the demo composes, so this test now proves the
-    ///     panel surfaces all seven real models instead of the empty-catalog message or only the
-    ///     Sherpa subset.
+    ///     The demo composes the registered models through the same extension methods the
+    ///     application's composition root (<c>App.Compose</c>) calls: Sherpa (two recognition, two
+    ///     synthesis), Kokoro (one synthesis), Nemotron STT (one recognition) and Chatterbox Turbo
+    ///     (one voice-cloning synthesis), so the panel surfaces all seven real models rather than
+    ///     the empty-catalog message. Core <c>DemaConsulting.Speech</c> itself ships no built-in
+    ///     models.
     /// </remarks>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels()
     {
         // Arrange: the real library catalog over an isolated store root, seeded with the same
-        // models the application's own composition root registers (AddSherpaModels() followed
-        // by AddKokoroModels(), AddNemotronSttModels() and AddChatterboxTurboModels(), exactly as App.OnFrameworkInitializationCompleted composes them)
-        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels().AddNemotronSttModels().AddChatterboxTurboModels();
-        using var referenceCatalog =
-            new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels().AddNemotronSttModels().AddChatterboxTurboModels();
+        // model families the application's composition root registers
+        using var catalog = new SpeechModelCatalog(IsolatedOptions())
+            .AddSherpaModels()
+            .AddKokoroModels()
+            .AddNemotronSttModels()
+            .AddChatterboxTurboModels();
 
         // Act: build the model catalog panel over it
         var viewModel = new ModelCatalogViewModel(new ModelCatalogService(catalog));
 
         // Assert: the panel lists exactly the registered models (seven: three recognition, four
         // synthesis), not an empty state and not only the four Sherpa models
-        Assert.Equal(7, referenceCatalog.Enumerate().Count);
-        Assert.Equal(referenceCatalog.Enumerate().Count, viewModel.Models.Count);
+        Assert.Equal(7, catalog.Enumerate().Count);
+        Assert.Equal(catalog.Enumerate().Count, viewModel.Models.Count);
         Assert.False(viewModel.IsCatalogEmpty);
     }
 
     /// <summary>
     ///     Proves that the demo's synthesis and recognition panels, composed over the real
     ///     library catalog, honestly report that no models are installed yet - the expected
-    ///     expected state of a fresh install - rather than a silently empty or crashing panel.
+    ///     state of a fresh install - rather than a silently empty or crashing panel.
     /// </summary>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly()

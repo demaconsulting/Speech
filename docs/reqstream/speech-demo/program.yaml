@@ -3,9 +3,8 @@
 #
 # These requirements describe the design-level behavior of the Program unit - the process entry
 # point - decomposing the system-level library composition requirement in
-# docs/reqstream/speech-demo.yaml. Fail-fast handling and --help inside Main have no direct
-# automated test because Main starts a desktop lifetime; the verification document records that
-# as an accepted gap.
+# docs/reqstream/speech-demo.yaml. Fail-fast handling and --help are exercised through the
+# internal Run seam, which takes injected writers, environment reader and start action.
 
 sections:
   - title: SpeechDemo Requirements
@@ -15,9 +14,39 @@ sections:
           - id: SpeechDemo-Program-AvaloniaApp
             title: >-
               The Program unit shall configure the Avalonia application builder for the demo
-              application through a method callable without running the process entry point.
+              application.
             justification: |
               Avalonia's design-time tooling invokes the builder without running Main, so the
               builder must hold all application configuration and no application logic.
             tests:
               - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
+
+          - id: SpeechDemo-Program-FailFast
+            title: >-
+              The Program unit shall report an invalid launch option on the error stream, print
+              the usage text and exit with a non-zero code without starting the application.
+            justification: |
+              A mistyped or invalid option must be explained at the console before any window
+              opens, and a script must be able to detect the failure from the exit code.
+            tests:
+              - Program_Run_UnrecognizedOption_ReportsErrorAndDoesNotStart
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
+          - id: SpeechDemo-Program-HelpRequest
+            title: >-
+              The Program unit shall print the usage text and exit with code zero without
+              starting the application when a help flag is supplied.
+            justification: |
+              Asking for help is a successful request that must not open a window.
+            tests:
+              - Program_Run_HelpFlag_PrintsUsageAndDoesNotStart
+
+          - id: SpeechDemo-Program-StartsApplication
+            title: >-
+              The Program unit shall start the application with the parsed launch options when
+              the arguments are valid.
+            justification: |
+              The parsed options are the only channel by which launch arguments reach the
+              composition root.
+            tests:
+              - Program_Run_ValidOptions_StartsWithParsedOptions

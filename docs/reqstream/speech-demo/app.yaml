@@ -3,9 +3,9 @@
 #
 # These requirements describe the design-level behavior of the App unit - the Avalonia
 # application object and the demo's manual composition root - decomposing the system-level
-# library composition requirement in docs/reqstream/speech-demo.yaml. Deferred shutdown
-# sequencing has no automated test because it requires a running desktop lifetime; the
-# verification document records that as an accepted gap.
+# library composition requirement in docs/reqstream/speech-demo.yaml. Composition and the
+# per-step shutdown containment are exercised through the internal Compose and
+# RunTeardownAsync seams, so no running desktop lifetime is needed.
 
 sections:
   - title: SpeechDemo Requirements
@@ -22,8 +22,22 @@ sections:
               single explicit composition root keeps that wiring readable, and composing over
               the real entry points is the evidence that the library is consumable.
             tests:
+              - App_Compose_IsolatedLaunchOptions_ComposesShellWithAllPanels
+              - App_Compose_IsolatedLaunchOptions_CatalogListsEveryRegisteredModel
+              - App_Compose_NullLaunchOptions_ComposesShell
               - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
               - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+          - id: SpeechDemo-App-ShutdownContainment
+            title: >-
+              The App unit shall run each shutdown disposal step separately, so a failure in one
+              step neither prevents the remaining steps nor stops the application from exiting.
+            justification: |
+              Shutdown releases the synthesizer, recognizer and catalog. One faulting dispose
+              must not leak the others or leave the process hanging.
+            tests:
+              - App_RunTeardownAsync_AllStepsSucceed_RunsEveryStepInOrder
+              - App_RunTeardownAsync_StepsFail_ContainsEachFailureAndRunsRemainingSteps
 
           - id: SpeechDemo-App-AvaloniaApplication
             title: >-
