@@ -36,12 +36,12 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
             tests:
-              - Create_NoPreferredProviders_CreatesWorkingCpuSession
-              - Create_UnknownProviderName_FallsBackToCpuSession
-              - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
-              - Create_EmptyPreferredProviders_NeverInvokesProbe
-              - Create_NullModelPath_ThrowsArgumentNullException
-              - Create_EmptyModelPath_ThrowsArgumentException
+              - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
+              - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe
+              - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
+              - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException
 
           - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
             title: >-
@@ -58,6 +58,6 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
             tests:
-              - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
-              - Create_Success_ReturnedSessionRemainsUsableForInference
-              - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+              - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+              - OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows

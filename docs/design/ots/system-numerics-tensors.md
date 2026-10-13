@@ -11,8 +11,9 @@ run time, avoiding hand-written SIMD code and keeping the audio pipeline's inner
 
 - `TensorPrimitives.ConvertChecked` and `TensorPrimitives.Divide` to convert 16-bit PCM samples to
   normalized floats in `WavFileAudioCaptureDevice`
-- `TensorPrimitives.Dot` to apply the windowed-sinc kernel in `WindowedSincLowpassFilter`, which
-  `AudioResampler` uses for rate conversion
+- `TensorPrimitives.Dot` to apply the windowed-sinc kernel in `WindowedSincLowpassFilter`, the
+  anti-aliasing filter that `AudioFrameResampler` and `PlaybackAudioResampler` apply before
+  down-sampling (`AudioResampler` uses its own scalar convolution and does not use the package)
 - `TensorPrimitives.Multiply` and `TensorPrimitives.Clamp` to apply and bound the volume override
   in `SynthesisSession`
 

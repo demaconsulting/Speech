@@ -28,7 +28,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves the first call returns seven frames of 1024 values carrying the language id.</summary>
     [Fact]
-    public void Encode_FirstChunk_ReturnsFramesWithLanguage()
+    public void NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage()
     {
         using var encoder = new NemotronEncoder(new InferenceSession(NemotronEncoderFixture.Build()), Language);
 
@@ -41,7 +41,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves the cache outputs are fed back into the next call.</summary>
     [Fact]
-    public void Encode_SecondChunk_UsesPreviousCaches()
+    public void NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches()
     {
         using var encoder = new NemotronEncoder(new InferenceSession(NemotronEncoderFixture.Build()), Language);
 
@@ -56,7 +56,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves reset restores the zero caches.</summary>
     [Fact]
-    public void Reset_AfterEncoding_RestartsCaches()
+    public void NemotronEncoder_Reset_AfterEncoding_RestartsCaches()
     {
         using var encoder = new NemotronEncoder(new InferenceSession(NemotronEncoderFixture.Build()), Language);
         Encode(encoder, out _);
@@ -70,7 +70,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves the probe inference runs without taking ownership of the session.</summary>
     [Fact]
-    public void RunProbeInference_ValidSession_LeavesSessionUsable()
+    public void NemotronEncoder_RunProbeInference_ValidSession_LeavesSessionUsable()
     {
         using var session = new InferenceSession(NemotronEncoderFixture.Build());
 
@@ -82,7 +82,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves encoding after disposal is rejected.</summary>
     [Fact]
-    public void Encode_AfterDispose_Throws()
+    public void NemotronEncoder_Encode_AfterDispose_Throws()
     {
         var encoder = new NemotronEncoder(new InferenceSession(NemotronEncoderFixture.Build()), Language);
         encoder.Dispose();
@@ -93,7 +93,7 @@ public sealed class NemotronEncoderTests
 
     /// <summary>Proves a null session is rejected.</summary>
     [Fact]
-    public void Constructor_NullSession_Throws()
+    public void NemotronEncoder_Constructor_NullSession_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new NemotronEncoder(null!, Language));
     }

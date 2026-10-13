@@ -35,9 +35,9 @@ sections:
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
         tests:
-          - Create_NoPreferredProviders_CreatesWorkingCpuSession
-          - Create_UnknownProviderName_FallsBackToCpuSession
-          - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+          - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
+          - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
       - id: SpeechOnnx-Runtime-ResourceDisposal
         title: >-
@@ -52,5 +52,5 @@ sections:
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
         tests:
-          - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
-          - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+          - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows

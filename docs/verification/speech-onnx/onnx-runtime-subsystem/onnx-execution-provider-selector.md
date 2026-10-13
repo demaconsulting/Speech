@@ -47,44 +47,44 @@ returned; and that returned session is not disposed and remains usable for infer
 
 ##### A null model path throws ArgumentNullException
 
-**Test**: `Create_NullModelPath_ThrowsArgumentNullException`
+**Test**: `OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException`
 
 ##### An empty model path throws ArgumentException
 
-**Test**: `Create_EmptyModelPath_ThrowsArgumentException`
+**Test**: `OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException`
 
 ##### No preferred providers creates a working CPU session
 
-**Test**: `Create_NoPreferredProviders_CreatesWorkingCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession`
 
 ##### An unknown/unavailable provider name falls back to a working CPU session
 
-**Test**: `Create_UnknownProviderName_FallsBackToCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession`
 
 ##### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-**Test**: `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
 
 ##### A validateSession probe throwing a non-ORT exception propagates to the caller
 
-**Test**: `Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows`
 
 ##### Every candidate's SessionOptions instance is disposed, win or lose
 
-**Test**: `Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance`
+**Test**: `OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance`
 
 ##### The CPU fallback is never probed when no preferred providers are supplied
 
-**Test**: `Create_EmptyPreferredProviders_NeverInvokesProbe`
+**Test**: `OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe`
 
 ##### Candidates are tried in order and the first accepted candidate's session is returned
 
-**Test**: `Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession`
+**Test**: `OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession`
 
 ##### A candidate whose probe succeeds is the session returned to the caller
 
-**Test**: `Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession`
 
 ##### The returned session is not disposed and remains usable for inference
 
-**Test**: `Create_Success_ReturnedSessionRemainsUsableForInference`
+**Test**: `OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference`

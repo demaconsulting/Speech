@@ -181,7 +181,7 @@ sections:
                   real model is too large for CI, so a tiny synthetic ONNX model with the same
                   tensor contract verifies the wiring.
                 tests:
-                  - Encode_FirstChunk_ReturnsFramesWithLanguage
+                  - NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderCacheFeedback
                 title: >-
@@ -191,7 +191,7 @@ sections:
                   The cache-aware encoder depends on the previous chunks' context; without the
                   feedback each chunk would be encoded in isolation.
                 tests:
-                  - Encode_SecondChunk_UsesPreviousCaches
+                  - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderReset
                 title: >-
@@ -199,7 +199,7 @@ sections:
                 justification: |
                   A new utterance must not inherit the previous utterance's context.
                 tests:
-                  - Reset_AfterEncoding_RestartsCaches
+                  - NemotronEncoder_Reset_AfterEncoding_RestartsCaches
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderProbe
                 title: >-
@@ -209,7 +209,7 @@ sections:
                   A probe lets construction learn the encoder's tensor contract before first use
                   while the encoder remains usable.
                 tests:
-                  - RunProbeInference_ValidSession_LeavesSessionUsable
+                  - NemotronEncoder_RunProbeInference_ValidSession_LeavesSessionUsable
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderDispose
                 title: >-
@@ -218,7 +218,7 @@ sections:
                 justification: |
                   Use of a released native session must fail clearly rather than crash.
                 tests:
-                  - Encode_AfterDispose_Throws
+                  - NemotronEncoder_Encode_AfterDispose_Throws
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderArgumentValidation
                 title: >-
@@ -227,7 +227,7 @@ sections:
                 justification: |
                   A programming error should surface immediately with a clear exception.
                 tests:
-                  - Constructor_NullSession_Throws
+                  - NemotronEncoder_Constructor_NullSession_Throws
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Reset
                 title: >-

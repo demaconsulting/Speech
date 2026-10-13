@@ -33,21 +33,21 @@ on.
 
 ### Test Scenarios
 
-#### Create_NoPreferredProviders_CreatesWorkingCpuSession
+#### OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
 
 **Scenario**: `OnnxExecutionProviderSelector.Create` is called with no preferred providers.
 
 **Expected**: A usable CPU `InferenceSession` is returned, and running its single Identity node on a
 float tensor returns that tensor unchanged.
 
-#### Create_UnknownProviderName_FallsBackToCpuSession
+#### OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
 
 **Scenario**: A provider name ONNX Runtime does not recognize is requested.
 
 **Expected**: The selector falls back to a working CPU session. ONNX Runtime's exception is caught
 inside the selector, so the `OnnxRuntimeException` itself is evidenced indirectly by the fallback.
 
-#### Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+#### OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
 **Scenario**: The validation probe for a candidate provider throws `OnnxRuntimeException`.
 
@@ -75,7 +75,7 @@ key/value cache and once with a half-size cache (the test is a theory over both 
 **Expected**: The cache tensors from the first step feed the second and the last logits return,
 for both cache variants.
 
-#### Encode_SecondChunk_UsesPreviousCaches
+#### NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
 
 **Scenario**: The Nemotron encoder runs two chunks over a real session.
 

@@ -18,7 +18,7 @@ sections:
               provider selector.
             tags: [ots]
             tests:
-              - Create_NoPreferredProviders_CreatesWorkingCpuSession
+              - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
             title: >-
@@ -32,7 +32,7 @@ sections:
               caught inside the selector and is therefore evidenced indirectly.
             tags: [ots]
             tests:
-              - Create_UnknownProviderName_FallsBackToCpuSession
+              - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
             title: Microsoft.ML.OnnxRuntime shall report a failed probe inference through OnnxRuntimeException.
@@ -43,7 +43,7 @@ sections:
               wrong-typed input, which stands in for an accelerated-provider probe failure.
             tags: [ots]
             tests:
-              - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
             title: >-
@@ -56,5 +56,5 @@ sections:
             tests:
               - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
               - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
-              - Encode_SecondChunk_UsesPreviousCaches
+              - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
               - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally

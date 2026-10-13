@@ -58,12 +58,12 @@ sections:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderDispose
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderArgumentValidation
             tests:
-              - Encode_FirstChunk_ReturnsFramesWithLanguage
-              - Encode_SecondChunk_UsesPreviousCaches
-              - Reset_AfterEncoding_RestartsCaches
-              - RunProbeInference_ValidSession_LeavesSessionUsable
-              - Encode_AfterDispose_Throws
-              - Constructor_NullSession_Throws
+              - NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage
+              - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
+              - NemotronEncoder_Reset_AfterEncoding_RestartsCaches
+              - NemotronEncoder_RunProbeInference_ValidSession_LeavesSessionUsable
+              - NemotronEncoder_Encode_AfterDispose_Throws
+              - NemotronEncoder_Constructor_NullSession_Throws
 
           - id: SpeechOnnxNemotronStt-Recognition-ProvisionalResults
             title: >-

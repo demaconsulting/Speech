@@ -32,7 +32,7 @@ sections:
                   honor that order rather than picking an arbitrary available candidate, so a
                   caller's own prioritization is respected.
                 tests:
-                  - Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
+                  - OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
                 title: >-
@@ -45,8 +45,8 @@ sections:
                   first Run() because a graph operator is unsupported for the model's shapes - so
                   acceptance must account for a supplied probe, not construction alone.
                 tests:
-                  - Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
-                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
                 title: >-
@@ -62,9 +62,9 @@ sections:
                   inside the base Microsoft.ML.OnnxRuntime package this library references and is
                   therefore always available as a guaranteed-success final candidate.
                 tests:
-                  - Create_NoPreferredProviders_CreatesWorkingCpuSession
-                  - Create_UnknownProviderName_FallsBackToCpuSession
-                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
+                  - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
                 title: >-
@@ -74,8 +74,8 @@ sections:
                   Probing the CPU fallback would be redundant and would remove the one candidate
                   this unit's entire fallback design depends on always succeeding.
                 tests:
-                  - Create_EmptyPreferredProviders_NeverInvokesProbe
-                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
                 title: >-
@@ -87,7 +87,7 @@ sections:
                   does not take ownership of; failing to dispose it after a failed or successful
                   construction attempt leaks a native resource for every candidate tried.
                 tests:
-                  - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+                  - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
                 title: >-
@@ -97,7 +97,7 @@ sections:
                   The returned InferenceSession remains the caller's own responsibility to
                   dispose, since the caller - not this method - owns its lifetime.
                 tests:
-                  - Create_Success_ReturnedSessionRemainsUsableForInference
+                  - OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
                 title: >-
@@ -115,7 +115,7 @@ sections:
                   Disposing the session regardless of which exception type propagates prevents a
                   native handle leak on that less-common path too.
                 tests:
-                  - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
                 title: >-
@@ -127,5 +127,5 @@ sections:
                   a clear, cheap-to-diagnose exception rather than an opaque native-layer failure
                   from attempting to load a non-existent model.
                 tests:
-                  - Create_NullModelPath_ThrowsArgumentNullException
-                  - Create_EmptyModelPath_ThrowsArgumentException
+                  - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
+                  - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException

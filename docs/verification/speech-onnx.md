@@ -55,21 +55,21 @@ each candidate's own `SessionOptions` instance so the test can assert its public
 
 ### No preferred providers creates a working CPU session
 
-**Test**: `Create_NoPreferredProviders_CreatesWorkingCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession`
 
 Verifies that calling `Create` with no preferred providers returns a working CPU-backed session
 that can run the fixture model.
 
 ### An unknown/unavailable provider name falls back to a working CPU session
 
-**Test**: `Create_UnknownProviderName_FallsBackToCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession`
 
 Verifies that a candidate provider name that fails to construct does not throw, and `Create`
 falls back to a working CPU session instead.
 
 ### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-**Test**: `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
 
 Verifies the DirectML/`ConvTranspose`-style scenario this parameter was added for: a
 `validateSession` probe that throws `OnnxRuntimeException` for an accelerated candidate causes
@@ -78,7 +78,7 @@ and the CPU fallback itself to never be passed to `validateSession`.
 
 ### A validateSession probe throwing a non-ORT exception propagates to the caller
 
-**Test**: `Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows`
 
 Verifies that a probe throwing any exception type other than
 `OnnxRuntimeException`/`DllNotFoundException` propagates to the caller instead of being treated

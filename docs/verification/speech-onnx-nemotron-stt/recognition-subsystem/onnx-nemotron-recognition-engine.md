@@ -96,24 +96,24 @@ count, reset, the probe inference, and disposal without the real model files.
 
 ##### Encoder first chunk returns frames with the language
 
-**Test**: `Encode_FirstChunk_ReturnsFramesWithLanguage`
+**Test**: `NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage`
 
 ##### Encoder second chunk uses the previous caches
 
-**Test**: `Encode_SecondChunk_UsesPreviousCaches`
+**Test**: `NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches`
 
 ##### Encoder reset restarts the caches
 
-**Test**: `Reset_AfterEncoding_RestartsCaches`
+**Test**: `NemotronEncoder_Reset_AfterEncoding_RestartsCaches`
 
 ##### Encoder probe inference leaves the session usable
 
-**Test**: `RunProbeInference_ValidSession_LeavesSessionUsable`
+**Test**: `NemotronEncoder_RunProbeInference_ValidSession_LeavesSessionUsable`
 
 ##### Encoder rejects use after disposal
 
-**Test**: `Encode_AfterDispose_Throws`
+**Test**: `NemotronEncoder_Encode_AfterDispose_Throws`
 
 ##### Encoder null session throws
 
-**Test**: `Constructor_NullSession_Throws`
+**Test**: `NemotronEncoder_Constructor_NullSession_Throws`

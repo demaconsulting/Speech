@@ -48,10 +48,10 @@ sections:
           - id: Speech-OTS-SystemNumericsTensors-DotProduct
             title: System.Numerics.Tensors shall compute the float dot product of two sample spans.
             justification: |
-              Windowed-sinc resampling applies its filter kernel as one dot product per output
-              sample; the vectorized primitive keeps that convolution fast without hand-written
-              SIMD.
+              The anti-aliasing lowpass filter applied before down-sampling convolves its kernel
+              with the signal as one dot product per output sample; the vectorized primitive
+              keeps that convolution fast without hand-written SIMD.
             tags: [ots]
             tests:
-              - AudioResampler_Resample_ChangesRateKeepingTone
-              - AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel
+              - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+              - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated

@@ -33,7 +33,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     <see cref="ArgumentException"/>) before any execution provider is attempted.
     /// </summary>
     [Fact]
-    public void Create_NullModelPath_ThrowsArgumentNullException()
+    public void OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException()
     {
         // Arrange & Act & Assert
         Assert.Throws<ArgumentNullException>(() => OnnxExecutionProviderSelector.Create(null!));
@@ -44,7 +44,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     execution provider is attempted.
     /// </summary>
     [Fact]
-    public void Create_EmptyModelPath_ThrowsArgumentException()
+    public void OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException()
     {
         // Arrange & Act & Assert
         Assert.Throws<ArgumentException>(() => OnnxExecutionProviderSelector.Create(string.Empty));
@@ -56,7 +56,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     model, and that the returned session can actually run the model's single node.
     /// </summary>
     [Fact]
-    public void Create_NoPreferredProviders_CreatesWorkingCpuSession()
+    public void OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession()
     {
         // Arrange & Act
         using var session = OnnxExecutionProviderSelector.Create(ModelPath);
@@ -81,7 +81,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     working CPU session rather than throwing.
     /// </summary>
     [Fact]
-    public void Create_UnknownProviderName_FallsBackToCpuSession()
+    public void OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession()
     {
         // Arrange
         var preferredProviderNames = new[] { "NotARealExecutionProvider" };
@@ -103,7 +103,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     "accelerated" candidate name.
     /// </summary>
     [Fact]
-    public void Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback()
+    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback()
     {
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
@@ -139,7 +139,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     treated as "try the next candidate".
     /// </summary>
     [Fact]
-    public void Create_ValidateSessionProbeThrowsOtherException_Rethrows()
+    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows()
     {
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
@@ -163,7 +163,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     it.
     /// </summary>
     [Fact]
-    public void Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance()
+    public void OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance()
     {
         // Arrange
         var preferredProviderNames = new[] { "NotARealExecutionProvider", "CPUExecutionProvider" };
@@ -195,7 +195,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     caller-supplied candidate loop, never the final guaranteed-success fallback.
     /// </summary>
     [Fact]
-    public void Create_EmptyPreferredProviders_NeverInvokesProbe()
+    public void OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe()
     {
         // Arrange
         var probeInvocationCount = 0;
@@ -215,7 +215,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     session - not the first's - is the one returned.
     /// </summary>
     [Fact]
-    public void Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession()
+    public void OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession()
     {
         // Arrange: two candidates, with a probe that rejects only the first session it sees
         var preferredProviderNames = new[] { "CPUExecutionProvider", "CPUExecutionProvider" };
@@ -243,7 +243,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     returned to the caller, i.e. the very instance that was handed to the probe.
     /// </summary>
     [Fact]
-    public void Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession()
+    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession()
     {
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
@@ -264,7 +264,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     model's single identity node and read back the value it fed in.
     /// </summary>
     [Fact]
-    public void Create_Success_ReturnedSessionRemainsUsableForInference()
+    public void OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference()
     {
         // Arrange
         using var session = OnnxExecutionProviderSelector.Create(ModelPath);
