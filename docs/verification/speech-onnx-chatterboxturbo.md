@@ -87,8 +87,8 @@ The factory returns an available engine and a sentence yields one 24 kHz segment
 
 **Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount`
 
-A stereo 48 kHz in-memory clip and a stereo 44.1 kHz WAV file are normalized before conditioning, so both
-reach the encoder at the same level. FLAC decoding is verified at unit level, not at system level.
+A stereo 48 kHz in-memory clip, a stereo 44.1 kHz WAV file and a mono 16 kHz FLAC file are normalized before
+conditioning, so the first two reach the encoder at the same level and the FLAC clip at its own decoded peak.
 
 ### The selected voice's clip conditions the speech
 
@@ -104,6 +104,13 @@ clip (prompt 500).
 A clip in the catalog store's user voice folder is listed after the explicit voice with no host code and is
 spoken when selected.
 
+### Installed voice-pack voices are offered and spoken
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_InstalledPackVoicesOfferedAndSpoken`
+
+A clip in an installed voice pack's current voices directory is listed after the explicit voice and is
+spoken with its own level (prompt 750) when selected.
+
 ### A damaged store clip does not block the model or other voices
 
 **Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipDoesNotBlockOtherVoices`
@@ -111,12 +118,17 @@ spoken when selected.
 With a damaged clip in the user folder, registration and loading succeed, the damaged voice is listed and
 the explicit voice is spoken.
 
-### Mood tags select the mood clip with a base-clip fallback
+### Mood tags select the mood clip
 
-**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback`
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClip`
 
-Text after `[sad]` is conditioned on the voice's sad clip (prompt 500), plain text on the base clip (250),
-and a voice without a sad clip uses its base clip (250).
+Text after `[sad]` is conditioned on the voice's sad clip (prompt 500) and plain text on the base clip (250).
+
+### A voice without the mood clip falls back to its base clip
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_FallBackToBaseClip`
+
+Text after `[sad]` spoken with a voice that has no sad clip uses its base clip (250).
 
 ### Mood markers are never spoken
 
@@ -125,13 +137,24 @@ and a voice without a sad clip uses its base clip (250).
 Text consisting only of caller-supplied marker characters yields no audio, a marker before text produces
 the same audio as the text alone, and a mood tag adds no speech of its own.
 
-### Tag rendering: silence, inline sound or omission
+### A sigh is rendered as a fixed silence
 
-**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted`
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_SighIsFixedSilence`
 
-A sigh becomes a silent segment between two spoken segments, a native laugh stays inside one spoken
-segment, and a tag with no usable sound is omitted without splitting the sentence. The exact tokens
-rendered are verified at unit level.
+A sigh becomes a silent segment of exactly 300 ms between two spoken segments.
+
+### A native tag stays inside its sentence
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_LaughStaysInsideSentence`
+
+A native laugh stays inside one spoken segment.
+
+### An unsupported tag is omitted
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_UnsupportedTagIsOmitted`
+
+A tag with no usable sound is omitted without splitting the sentence. The exact tokens rendered are verified
+at unit level.
 
 ### A trailing tag is kept with speech
 
@@ -140,12 +163,38 @@ rendered are verified at unit level.
 Text that ends with a native tag (`That was really funny [laughs]`) yields a single spoken segment, so the tag
 is not left as a segment of its own with no speech after it.
 
+### The host's end-of-sentence tag policy keeps the tag with speech
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_HostChoiceKeepsTagWithSpeech`
+
+With the Suffix and Strip policies, text that ends with a native tag still yields a single spoken segment.
+
 ### Long text is split and every sentence is spoken
 
 **Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence`
 
-Ten sentences, well over the 200-character budget in total, yield several segments, each of the full synthetic
-length, so no sentence is dropped.
+Ten sentences, well over the 200-character budget in total, yield exactly ten segments, each of the full
+synthetic length, so no sentence is dropped.
+
+### An over-long sentence is split
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsOverLongSentence`
+
+A single sentence of 90 words, far over the budget, yields at least three segments.
+
+### The package runs on the CPU only
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_RunsOnCpuOnly`
+
+ONNX Runtime offers the CPU provider and no accelerator provider (the non-accelerator remote
+`AzureExecutionProvider` that ships in the CPU package is permitted), no accelerator provider library ships
+in the output directory, and synthesis succeeds. The evidence is provider- and library-based, not a
+hardware measurement.
+
+### Shared-test coverage
+
+The tagged-text scenarios reuse one synthetic install helper, so each scenario differs only in its text,
+options and assertion; no scenario's evidence depends on another's.
 
 ### Runaway generation is bounded
 

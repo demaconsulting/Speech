@@ -32,7 +32,14 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
           - SpeechOnnxChatterboxTurbo-Models-ModelOptions
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsLimits
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsThreads
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsTagPolicy
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsJoinSilence
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsVoiceSources
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsRangeValidation
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsNullVoiceList
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
 
@@ -48,9 +55,15 @@ sections:
           download size against fidelity.
         children:
           - SpeechOnnxChatterboxTurbo-Models-ModelDescription
+          - SpeechOnnxChatterboxTurbo-Models-ModelLicense
+          - SpeechOnnxChatterboxTurbo-Models-ModelOutputFormat
+          - SpeechOnnxChatterboxTurbo-Models-ModelCapabilities
           - SpeechOnnxChatterboxTurbo-Models-ModelDownload
           - SpeechOnnxChatterboxTurbo-Models-BackendCreation
           - SpeechOnnxChatterboxTurbo-Models-BackendCreationFailures
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreationPathFailures
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreationMissingFile
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreationInvalidGraph
           - SpeechOnnxChatterboxTurbo-Models-BackendCreationCleanup
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices
@@ -71,7 +84,8 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RealBackend
         title: >-
           The library shall synthesize audible speech from text through the Speech library's
-          synthesis pipeline, running the Chatterbox Turbo model locally on the CPU.
+          synthesis pipeline as 24 kHz mono audio, running the Chatterbox Turbo model locally on
+          the CPU.
         tags: [system]
         justification: |
           The Speech library's synthesis policy is verified against a fake backend; only a real
@@ -81,6 +95,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackendSampleRate
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_SynthesizesThroughSpeechPipeline
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_RunsOnCpuOnly
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceCloning
         title: >-
@@ -104,6 +119,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-VoiceCaching
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceConditioning_UsesSelectedVoiceClip
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioningSystem
         title: >-
@@ -132,6 +148,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceOptOutChoice
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_OfferedByDefaultAndSpoken
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_InstalledPackVoicesOfferedAndSpoken
 
       - id: SpeechOnnxChatterboxTurbo-Models-StoreVoicesResilience
         title: >-
@@ -160,8 +177,10 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodSeamSilence
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodConditioning
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoods
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoodLookup
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoodListing
         tests:
-          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClip
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodVoiceFallback
         title: >-
@@ -172,8 +191,9 @@ sections:
           A voice that lacks a mood must still be spoken rather than fail.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodFallback
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoodMissing
         tests:
-          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_FallBackToBaseClip
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHidden
         title: >-
@@ -185,6 +205,8 @@ sections:
           speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerCallerSupplied
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerOnlyText
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodMarkerHidden_NeverSpokenOrSynthesized
 
@@ -199,7 +221,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
         tests:
-          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_LaughStaysInsideSentence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-SilenceTagRendering
         title: >-
@@ -211,7 +233,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagSilence
         tests:
-          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_SighIsFixedSilence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-OmittedTagRendering
         title: >-
@@ -224,25 +246,41 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagOmission
           - SpeechOnnxChatterboxTurbo-Synthesis-TagInputSafety
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagNullArguments
         tests:
-          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_UnsupportedTagIsOmitted
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPlacement
         title: >-
-          The library shall not leave an audio tag without speech after it, by moving the tag
-          before the final word, appending it or dropping it according to the configured policy.
+          The library shall not leave an audio tag without speech after it; by default it moves
+          the tag before the final word of its sentence.
         tags: [system]
         justification: |
-          A tag with no speech after it makes the model misbehave, so the host chooses how the
-          tag is kept next to speech.
+          A tag with no speech after it makes the model misbehave, so by default the tag is kept
+          next to speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
-          - SpeechOnnxChatterboxTurbo-Synthesis-TagSuffixing
-          - SpeechOnnxChatterboxTurbo-Synthesis-TagStripping
           - SpeechOnnxChatterboxTurbo-Synthesis-TagBetweenSentences
           - SpeechOnnxChatterboxTurbo-Synthesis-TagOnlyChunk
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPlacementPolicy
+        title: >-
+          The library shall let the host choose, through the EndOfSentenceTagPolicy option
+          (default: move before the final word), whether an audio tag at the end of a sentence is
+          moved before the final word, appended to the speech or dropped, and shall reject an
+          undefined policy value.
+        tags: [system]
+        justification: |
+          Hosts differ in how a trailing tag should sound, so the placement is a documented
+          option rather than a fixed behavior.
+        children:
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagSuffixing
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagStripping
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagPolicyValidation
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_HostChoiceKeepsTagWithSpeech
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-LongTextSegmentation
         title: >-
@@ -256,13 +294,14 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-Segmentation
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsOverLongSentence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RunawayProtection
         title: >-
           The library shall bound every generation so a failure to emit the end-of-speech token
-          yields a truncated utterance after at most the configured maximum number of new speech
-          tokens (and a bound proportional to the text length) rather than an unbounded loop or
-          an exception.
+          yields a truncated utterance after at most the configured MaxNewTokens speech tokens
+          (default 1024) and a bound of MaxAudioTokensPerTextToken (default 25) speech tokens per
+          text token plus a fixed slack, rather than an unbounded loop or an exception.
         tags: [system]
         justification: |
           An autoregressive model can fail to stop on unusual inputs; an unbounded loop would
@@ -275,5 +314,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-GenerationNoException
           - SpeechOnnxChatterboxTurbo-Synthesis-GenerationSegmentGuards
           - SpeechOnnxChatterboxTurbo-Synthesis-RepetitionGuard
+          - SpeechOnnxChatterboxTurbo-Synthesis-RepetitionPenalty
+          - SpeechOnnxChatterboxTurbo-Synthesis-TokenSelection
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException

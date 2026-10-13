@@ -73,7 +73,10 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Same(catalog, result);
         var entry = Assert.Single(catalog.Enumerate());
         Assert.Equal("chatterbox-turbo-onnx-en", entry.Id);
-        Assert.IsAssignableFrom<ISynthesisModel>(entry.Model);
+        var model = Assert.IsAssignableFrom<ISynthesisModel>(entry.Model);
+
+        // The supplied reference voice is registered together with the model
+        Assert.Equal(["a"], VoiceChoice(model).Options.Select(option => option.Value));
     }
 
     /// <summary>Proves the registered model is a downloadable synthesis model with selectable precision variants and voices.</summary>
@@ -106,11 +109,11 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     {
         // Arrange
         InstallSynthetic();
-        var (engine, model) = await LoadAsync(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        var (loaded, model) = await LoadAsync(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        await using var engine = loaded;
 
         // Act
         var speech = await engine.SynthesizeAsync("Hello there, how are you today?", TestContext.Current.CancellationToken);
-        await engine.DisposeAsync();
 
         // Assert
         Assert.DoesNotContain(model.DownloadDescriptor.Files, file => file.RelativeInstallPath.Contains("tokenizer", StringComparison.OrdinalIgnoreCase));
@@ -124,11 +127,11 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     {
         // Arrange
         InstallSynthetic();
-        var (engine, _) = await LoadAsync(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        var (loaded, _) = await LoadAsync(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        await using var engine = loaded;
 
         // Act
         var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
-        await engine.DisposeAsync();
 
         // Assert
         Assert.True(engine.IsAvailable);
@@ -137,7 +140,45 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(SegmentSamples, segment.Samples.Count);
     }
 
-    /// <summary>Proves reference clips of other sample rates and channel counts, in memory or as a WAV file, become selectable voices.</summary>
+    /// <summary>
+    ///     Proves the package runs on the CPU only: the loaded runtime offers the CPU provider and no accelerator provider,
+    ///     no accelerator provider library ships with the package, and synthesis still succeeds.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_RunsOnCpuOnly()
+    {
+        // Arrange
+        InstallSynthetic();
+        var (loaded, _) = await LoadAsync(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        await using var engine = loaded;
+
+        // Act
+        var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
+        var providers = Microsoft.ML.OnnxRuntime.OrtEnv.Instance().GetAvailableProviders();
+        var acceleratorLibraries = Directory.EnumerateFiles(AppContext.BaseDirectory, "*", SearchOption.AllDirectories)
+            .Select(Path.GetFileName)
+            .Where(name => name is not null &&
+                (name.Contains("providers_cuda", StringComparison.OrdinalIgnoreCase) ||
+                 name.Contains("providers_tensorrt", StringComparison.OrdinalIgnoreCase) ||
+                 name.Contains("providers_openvino", StringComparison.OrdinalIgnoreCase) ||
+                 name.Contains("DirectML", StringComparison.OrdinalIgnoreCase) ||
+                 name.Contains("providers_coreml", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        // Assert: the CPU provider is present, no accelerator provider is offered or shipped, and synthesis succeeded
+        // cspell:ignore tensorrt coreml
+        Assert.Contains("CPUExecutionProvider", providers);
+        Assert.DoesNotContain(providers, provider =>
+            provider.Contains("Cuda", StringComparison.OrdinalIgnoreCase) ||
+            provider.Contains("Tensorrt", StringComparison.OrdinalIgnoreCase) ||
+            provider.Contains("Dml", StringComparison.OrdinalIgnoreCase) ||
+            provider.Contains("OpenVINO", StringComparison.OrdinalIgnoreCase) ||
+            provider.Contains("CoreML", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(acceleratorLibraries);
+        Assert.NotEmpty(Assert.Single(speech).Samples);
+    }
+
+    /// <summary>Proves reference clips of other sample rates and channel counts, in memory or as a WAV or FLAC file, become selectable voices.</summary>
     [Fact]
     public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount()
     {
@@ -145,17 +186,26 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         InstallSynthetic();
         var wavPath = Path.Join(_root, "clips", "stereo44.wav");
         WriteWav(wavPath, 0.25f, sampleRate: 44100, channels: 2);
+        var flacPath = Path.Join(_root, "clips", "mono16.flac");
+        Directory.CreateDirectory(Path.GetDirectoryName(flacPath)!);
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "voice-mono-16-16000.flac"), flacPath);
         var stereo48K = ChatterboxTurboReferenceVoice.FromSamples("memory", Enumerable.Repeat(0.25f, 2 * 48000).ToArray(), 48000, 2);
         var file = ChatterboxTurboReferenceVoice.FromFile("file", wavPath);
-        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [stereo48K, file], MaxNewTokens = MaxNewTokens };
+        var flac = ChatterboxTurboReferenceVoice.FromFile("flac", flacPath);
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [stereo48K, file, flac], MaxNewTokens = MaxNewTokens };
 
         // Act
         var memory = await SynthesizeAsync(options, "Hello there.", "memory");
         var fromFile = await SynthesizeAsync(options, "Hello there.", "file");
+        var fromFlac = await SynthesizeAsync(options, "Hello there.", "flac");
 
         // Assert: both clips were normalized to mono 24 kHz audio of the same level before conditioning
         Assert.InRange(Prompt(memory), 200, 320);
         Assert.InRange(Prompt(fromFile), 200, 320);
+
+        // The FLAC clip is conditioned on exactly the audio the voice decoded and normalized from that file
+        Assert.Equal((int)(flac.Samples.Span.ToArray().Max() * 1000f), Prompt(fromFlac));
+        Assert.True(Prompt(fromFlac) > 0);
     }
 
     /// <summary>Proves the engine speaks in the voice cloned from the selected reference clip.</summary>
@@ -194,13 +244,46 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
 
         // Act
-        var engine = await SpeechSynthesizerFactory.LoadAsync(model, _root, null, Values(model, "mine"), TestContext.Current.CancellationToken);
+        var (loaded, _) = await LoadAsync(model, Values(model, "mine"));
+        await using var engine = loaded;
         var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
-        await engine.DisposeAsync();
 
         // Assert: the explicit voice stays first and the folder voice follows it
         Assert.Equal(["a", "mine"], VoiceChoice(model).Options.Select(option => option.Value));
         Assert.Equal(500, Prompt(speech));
+    }
+
+    /// <summary>Proves voices of an installed voice pack are offered with no host code and are spoken when selected.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_InstalledPackVoicesOfferedAndSpoken()
+    {
+        // Arrange: a pack's current voices directory holds one clip
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+        using var catalog = NewCatalog();
+        using (var library = new ReferenceVoiceLibrary(catalog.Store))
+        {
+            var packVoices = Path.Join(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "current", "voices");
+            WriteWav(Path.Join(packVoices, "pack-voice.wav"), 0.75f);
+
+            // The pack counts as installed once its install manifest exists
+            await File.WriteAllTextAsync(
+                Path.Join(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "install-manifest.json"),
+                "{\"TotalSizeBytes\":1,\"InstalledAtUtc\":\"2026-01-01T00:00:00+00:00\"}",
+                TestContext.Current.CancellationToken);
+        }
+
+        catalog.AddChatterboxTurboModels(options);
+        var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
+
+        // Act
+        var (loaded, _) = await LoadAsync(model, Values(model, "pack-voice"));
+        await using var engine = loaded;
+        var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["a", "pack-voice"], VoiceChoice(model).Options.Select(option => option.Value));
+        Assert.Equal(750, Prompt(speech));
     }
 
     /// <summary>Proves a damaged store clip neither prevents the model from loading nor the other voices from being used.</summary>
@@ -220,34 +303,44 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
 
         // Act: the model still loads and speaks the explicit voice
-        var engine = await SpeechSynthesizerFactory.LoadAsync(model, _root, null, Values(model, "a"), TestContext.Current.CancellationToken);
+        var (loaded, _) = await LoadAsync(model, Values(model, "a"));
+        await using var engine = loaded;
         var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
-        await engine.DisposeAsync();
 
         // Assert
         Assert.Equal(["a", "damaged"], VoiceChoice(model).Options.Select(option => option.Value));
         Assert.Equal(250, Prompt(speech));
     }
 
-    /// <summary>Proves text after a mood tag is spoken with the voice's mood clip, and the base clip when the voice has none.</summary>
+    /// <summary>Proves text after a mood tag is spoken with the voice's mood clip.</summary>
     [Fact]
-    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback()
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClip()
     {
         // Arrange
         InstallSynthetic();
-        var sadPath = Path.Join(_root, "clips", "sad.wav");
-        WriteWav(sadPath, 0.5f);
-        var withSad = Voice("sadly", 0.25f).WithMoodFiles(new Dictionary<string, string> { ["sad"] = sadPath });
-        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [withSad, Voice("plain", 0.25f)], MaxNewTokens = MaxNewTokens };
+        var options = MoodOptions();
 
         // Act
         var plainText = await SynthesizeAsync(options, "Hello there.", "sadly");
         var moodText = await SynthesizeAsync(options, "[sad] Hello there.", "sadly");
-        var fallback = await SynthesizeAsync(options, "[sad] Hello there.", "plain");
 
         // Assert
         Assert.Equal(250, Prompt(plainText));
         Assert.Equal(500, Prompt(moodText));
+    }
+
+    /// <summary>Proves text after a mood tag is spoken with the voice's base clip when the voice has no clip for that mood.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_FallBackToBaseClip()
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = MoodOptions();
+
+        // Act
+        var fallback = await SynthesizeAsync(options, "[sad] Hello there.", "plain");
+
+        // Assert
         Assert.Equal(250, Prompt(fallback));
     }
 
@@ -271,9 +364,9 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(SegmentSamples, Assert.Single(moodTag).Samples.Count);
     }
 
-    /// <summary>Proves tags render as real silence, as inline native sounds, or by omission, and never fail.</summary>
+    /// <summary>Proves a sigh renders as a real silent segment of a fixed 300 ms between two spoken ones.</summary>
     [Fact]
-    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted()
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_SighIsFixedSilence()
     {
         // Arrange
         InstallSynthetic();
@@ -281,24 +374,46 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
 
         // Act
         var sigh = await SynthesizeAsync(options, "Oh well. [sighs] Fine, then.");
-        var laugh = await SynthesizeAsync(options, "That was [laughs] really funny today.");
-        var omitted = await SynthesizeAsync(options, "Hello [whispers] there my friend.");
 
-        // Assert: a sigh is a real silent segment between two spoken ones
+        // Assert
         Assert.Equal(3, sigh.Count);
         Assert.NotEmpty(sigh[0].Samples);
         Assert.Empty(sigh[1].Samples);
-        Assert.True(sigh[1].PreSilence + sigh[1].PostSilence > TimeSpan.Zero);
+        Assert.Equal(TimeSpan.FromMilliseconds(300), sigh[1].PreSilence + sigh[1].PostSilence);
         Assert.NotEmpty(sigh[2].Samples);
+    }
 
-        // A native laugh stays inside the sentence it interrupts
+    /// <summary>Proves a native laugh stays inside the sentence it interrupts, as the model's own sound.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_LaughStaysInsideSentence()
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var laugh = await SynthesizeAsync(options, "That was [laughs] really funny today.");
+
+        // Assert
         Assert.Equal(SegmentSamples, Assert.Single(laugh).Samples.Count);
+    }
 
-        // A tag with no usable sound is omitted: the text is spoken as one ordinary sentence
+    /// <summary>Proves a tag with no usable sound is omitted: the text is spoken as one ordinary sentence.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_UnsupportedTagIsOmitted()
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var omitted = await SynthesizeAsync(options, "Hello [whispers] there my friend.");
+
+        // Assert
         Assert.Equal(SegmentSamples, Assert.Single(omitted).Samples.Count);
     }
 
-    /// <summary>Proves a trailing tag is kept next to speech rather than left without speech after it.</summary>
+    /// <summary>Proves a trailing tag is kept next to speech by default rather than left without speech after it.</summary>
     [Fact]
     public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech()
     {
@@ -313,11 +428,33 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(SegmentSamples, Assert.Single(trailing).Samples.Count);
     }
 
-    /// <summary>Proves long text is split into several sentences, each synthesized, with no sentence left out.</summary>
+    /// <summary>Proves a host can choose to append or drop a trailing tag, and neither choice leaves a tag without speech.</summary>
+    [Theory]
+    [InlineData(ChatterboxTurboEndOfSentenceTagPolicy.Suffix)]
+    [InlineData(ChatterboxTurboEndOfSentenceTagPolicy.Strip)]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_HostChoiceKeepsTagWithSpeech(ChatterboxTurboEndOfSentenceTagPolicy policy)
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions
+        {
+            ReferenceVoices = [Voice("a", 0.25f)],
+            MaxNewTokens = MaxNewTokens,
+            EndOfSentenceTagPolicy = policy,
+        };
+
+        // Act
+        var trailing = await SynthesizeAsync(options, "That was really funny [laughs]");
+
+        // Assert
+        Assert.Equal(SegmentSamples, Assert.Single(trailing).Samples.Count);
+    }
+
+    /// <summary>Proves long text is split into ten sentences, each synthesized, with no sentence left out.</summary>
     [Fact]
     public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence()
     {
-        // Arrange: ten sentences of about 35 characters, well over the 200-character limit in total
+        // Arrange: ten sentences of 35 characters, 359 characters in total and so over the 200-character limit
         InstallSynthetic();
         var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
         var text = string.Join(' ', Enumerable.Repeat("This is a short test sentence here.", 10));
@@ -325,8 +462,25 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         // Act
         var speech = await SynthesizeAsync(options, text);
 
-        // Assert
-        Assert.True(speech.Count > 1);
+        // Assert: every sentence became its own spoken segment
+        Assert.Equal(10, speech.Count);
+        Assert.All(speech, segment => Assert.Equal(SegmentSamples, segment.Samples.Count));
+    }
+
+    /// <summary>Proves a single over-long sentence is split into several parts, none of them left unspoken.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsOverLongSentence()
+    {
+        // Arrange: one 450-character sentence with no sentence punctuation
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+        var text = string.Join(' ', Enumerable.Repeat("word", 90));
+
+        // Act
+        var speech = await SynthesizeAsync(options, text);
+
+        // Assert: at least ceil(449 / 200) parts, all spoken
+        Assert.True(speech.Count >= 3);
         Assert.All(speech, segment => Assert.Equal(SegmentSamples, segment.Samples.Count));
     }
 
@@ -362,11 +516,27 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     /// <summary>Registers the model, loads it through the Speech factory over the synthetic install and returns both.</summary>
     private async Task<(ISpeechSynthesizerEngine Engine, ISynthesisModel Model)> LoadAsync(ChatterboxTurboModelOptions options, string? voice = null)
     {
+        // The catalog is only needed to register and enumerate the model; the loaded engine does not depend on it afterwards
         using var catalog = NewCatalog();
         catalog.AddChatterboxTurboModels(options);
         var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
-        var engine = await SpeechSynthesizerFactory.LoadAsync(model, _root, null, voice is null ? null : Values(model, voice), TestContext.Current.CancellationToken);
+        return await LoadAsync(model, voice is null ? null : Values(model, voice));
+    }
+
+    /// <summary>Loads an already registered model through the Speech factory over the synthetic install.</summary>
+    private async Task<(ISpeechSynthesizerEngine Engine, ISynthesisModel Model)> LoadAsync(ISynthesisModel model, Dictionary<string, object>? values)
+    {
+        var engine = await SpeechSynthesizerFactory.LoadAsync(model, _root, null, values, TestContext.Current.CancellationToken);
         return (engine, model);
+    }
+
+    /// <summary>Builds options with one voice that has a distinct "sad" clip and one voice that has none.</summary>
+    private ChatterboxTurboModelOptions MoodOptions()
+    {
+        var sadPath = Path.Join(_root, "clips", "sad.wav");
+        WriteWav(sadPath, 0.5f);
+        var withSad = Voice("sadly", 0.25f).WithMoodFiles(new Dictionary<string, string> { ["sad"] = sadPath });
+        return new ChatterboxTurboModelOptions { ReferenceVoices = [withSad, Voice("plain", 0.25f)], MaxNewTokens = MaxNewTokens };
     }
 
     /// <summary>Loads the model for the options, synthesizes the text with an optional voice and disposes the engine.</summary>

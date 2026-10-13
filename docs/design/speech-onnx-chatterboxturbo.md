@@ -46,9 +46,10 @@ and the reference-voice type. It implements Speech's public `ISynthesisModel` an
 | --- | --- | --- | --- |
 | `AddChatterboxTurboModels()` | Inbound | Extension method | Throws for a null catalog |
 | `OnnxChatterboxTurboEnglishSynthesisModel` | Inbound | Public class | Holds options and voices |
+| `ChatterboxTurboModelOptions` | Inbound | Public class | Validates limits and enums on assignment |
 | `ChatterboxTurboReferenceVoice.FromSamples/FromFile` | Inbound | Static factory | WAV or FLAC file, or samples |
 | `ReferenceVoiceLibrary` | Outbound | Core library type | User folder and installed voice pack |
-| `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Throws when unusable |
+| `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Called by Speech; builds backend |
 | `ISynthesisBackend` | Inbound | Public interface | Calls serialized internally |
 | `SpeechModelCatalog.AddModels(...)` | Outbound | Method call/return | Builder-phase only |
 | Microsoft.ML.OnnxRuntime managed API | Outbound | Method call/return | CPU provider only |
@@ -74,8 +75,8 @@ the one model instance and returns the same catalog. The model lists explicit, d
 (user and pack) voices, decoded lazily.
 
 **Model install path:** Speech's downloader fetches and checksum-verifies the files of the selected
-precision variants (the file list is defined by the model's download descriptor) directly into the install
-directory; no extraction step is needed.
+precision variants into the install directory; the file list is defined by the model's download
+descriptor, and no extraction step is needed.
 
 **Backend construction path:** `CreateBackend` verifies the files exist, opens the four ONNX
 sessions, constructs the tokenizer and engine, and returns the engine; failures dispose any
