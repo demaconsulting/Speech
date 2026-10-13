@@ -11,7 +11,8 @@ their concrete type.
 - **Run(context)**: Creates the catalog through `CliModelCatalogFactory` and delegates to the overload below.
 - **Run(context, catalog)**: Requires exactly one positional argument, looks it up in `catalog.Enumerate()` by
   ordinal id comparison and writes the model. The output lists id, display name, role, state, license name
-  (with the URL when there is one) and audio-tag support, then each parameter: a `NumericParameter` prints its
+  (followed by the URL in parentheses only when there is one; a model without a license URL prints the name alone) and
+  audio-tag support, then each parameter: a `NumericParameter` prints its
   kind (integer or numeric), min, max, step, default and unit, formatted with the invariant culture so the
   decimal separator is a period on every machine; a `ChoiceParameter` prints its options and default; a
   `BooleanParameter` prints its default. A model with no parameters prints `Parameters: (none)`.

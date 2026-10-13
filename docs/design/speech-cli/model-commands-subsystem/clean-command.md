@@ -12,9 +12,9 @@ that an interrupted or failed download left behind for one model.
 - **RunAsync(context, catalog, cancellationToken)**: Requires exactly one argument and awaits
   `catalog.CleanUpLeftoversAsync`. The library's cleanup is fully best-effort and never throws for a failed
   deletion, so the command needs no exception handling beyond cancellation, and a model with nothing to clean
-  up is reported the same way as one whose leftovers were removed. The token is observed only before the
-  cleanup starts; a cancellation then is reported with `WriteError` (non-zero exit code) and the command
-  returns without propagating.
+  up is reported the same way as one whose leftovers were removed. An `OperationCanceledException` raised
+  before or during the cleanup, while the command's own token is canceled, is reported with `WriteError`
+  (`Cleaning up model '{id}' was canceled.`, non-zero exit code) and the command returns without propagating.
 
 **Error Handling**: A missing or extra argument is an `ArgumentException` with no parameter name. A `null`
 context or catalog is an `ArgumentNullException`.

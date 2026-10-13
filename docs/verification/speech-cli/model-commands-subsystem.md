@@ -54,13 +54,17 @@ and:
 - `list-models` lists and filters the catalog correctly in both table and JSON form
 - `model-info` prints a known model's full identity and parameter surface and cleanly rejects an
   unknown id, a missing id and an extra argument
-- `download` installs every requested model it can, isolates and reports any single model's failure
-  without abandoning the rest of the batch, honors `--force`'s uninstall-then-redownload semantics,
+- `download` installs every requested model it can, isolates and reports any single model's reportable
+  failure (invalid argument or operation) without abandoning the rest of the batch, lets unexpected
+  exceptions propagate, honors `--force`'s uninstall-then-redownload semantics,
   and stops the whole batch on a genuine cancellation
 - `uninstall` and `clean` both treat "nothing to do" as a successful no-op
 - `list-voices` lists voices (table and JSON) with the consent note, and `voices` lists, installs,
   and uninstalls voice packs, reporting failure or cancellation with a non-zero exit code
-- Voice-pack installs include emotion variants by default and omit them with `--no-emotions`
+- Voice-pack installs include emotion variants by default and omit them with `--no-emotions`; pack sizes
+  are labeled `MiB`
+- Separate invocations over one models folder report the same install state
+- Progress output is throttled per downloaded file, so each file shows its own progress
 - The real catalog composes the voice-cloning model with the voice library, enumerates
   `--voices-dir` voices, and does not fail when a `--voices-dir` file is undecodable
 - A configured download mirror is threaded through to model downloads and voice-pack installs

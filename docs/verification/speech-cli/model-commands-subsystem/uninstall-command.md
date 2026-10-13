@@ -42,7 +42,7 @@ a non-zero exit code, and invalid arguments are an `ArgumentException`.
 
 ##### UninstallCommand_Run_Canceled_ReportsErrorExitCode
 
-**Scenario**: The token is canceled.
+**Scenario**: The token is canceled before the removal; the catalog observes the token.
 
 **Expected**: An error is reported with exit code `1` and no exception escapes.
 

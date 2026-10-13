@@ -31,9 +31,22 @@ cancellation is reported with a non-zero exit code, and invalid arguments are an
 
 **Expected**: The exit code is `0`.
 
+##### CleanCommand_Run_RealStoreWithPartialArtifact_RemovesArtifactAndSucceeds
+
+**Scenario**: A real store holds an interrupted-operation staging directory and a stale replaced directory for
+a model, and `clean` runs through the production adapter.
+
+**Expected**: Both artifacts are removed and the exit code is zero.
+
+##### CleanCommand_Run_CanceledDuringCleanup_ReportsErrorExitCode
+
+**Scenario**: The catalog's cleanup blocks until the token is canceled while it is running.
+
+**Expected**: The cancellation is reported, the exit code is non-zero and no exception escapes.
+
 ##### CleanCommand_Run_Canceled_ReportsErrorExitCode
 
-**Scenario**: The token is canceled.
+**Scenario**: The token is canceled before the cleanup starts.
 
 **Expected**: An error is reported with exit code `1` and no exception escapes.
 

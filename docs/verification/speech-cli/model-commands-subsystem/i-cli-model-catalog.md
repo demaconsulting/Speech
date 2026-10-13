@@ -39,14 +39,15 @@ command subsystems, not here.
 
 **Scenario**: A recognition-role model is passed to `GetPreferredAudioFormat`.
 
-**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown. The test does not
-assert that the message contains the model id; see the report's suggested test change.
+**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown and its message contains the
+model id.
 
 ##### SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
 
 **Scenario**: A recognition-role model is passed to `CreateSynthesizerEngineAsync`.
 
-**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown.
+**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown and its message contains the
+model id.
 
 ##### SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
 
@@ -58,7 +59,16 @@ assert that the message contains the model id; see the report's suggested test c
 
 **Scenario**: A synthesis-role model is passed to `CreateRecognizerEngineAsync`.
 
-**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown.
+**Expected**: An `ArgumentException` with parameter name `descriptor` is thrown and its message contains the
+model id.
+
+##### Enumeration, download refusal, never-installed no-op, voice and pack queries
+
+These requirements (`SpeechCli-ModelCommands-ModelEnumeration`, `-DownloadUnknownModelRefused`,
+`-NeverInstalledModelNoOp`, `-VoiceEnumeration` and `-VoicePackStateQuery`) are verified by the
+adapter scenarios in `speech-model-catalog-adapter.md`: the compiled-in models enumerate, an unknown id
+is refused, a never-installed model or pack is a no-op, voices from both folders enumerate, and an
+unknown pack id is an `ArgumentException`.
 
 ##### SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
 

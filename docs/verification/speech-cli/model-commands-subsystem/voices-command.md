@@ -38,7 +38,7 @@ while a cancellation not driven by the token propagates, and invalid arguments a
 **Scenario**: Packs with known sizes and installed variants are listed.
 
 **Expected**: The download size, installed sizes without and with emotions, and the installed variant
-are shown.
+are shown, with sizes labeled `MiB` and never `MB`.
 
 ##### VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode
 
@@ -75,9 +75,10 @@ follows a successful install.
 
 ##### VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode
 
-**Scenario**: The install outcome is a failure, or the token is canceled during the install.
+**Scenario**: The install outcome is a failure (a checksum mismatch), or the token is canceled during the install.
 
-**Expected**: An error is reported with exit code `1`.
+**Expected**: An error with the reason is reported with exit code `1`; no success text or consent note is
+printed and the pack stays not installed.
 
 ##### VoicesCommand_RunAsync_InstallCanceledDuringPreCheck_ReportsErrorExitCode
 
@@ -120,7 +121,7 @@ follows a successful install.
 
 **Scenario**: `install` is given an unknown pack id.
 
-**Expected**: An `ArgumentException` is thrown before any output.
+**Expected**: An `ArgumentException` is thrown before any output, and no install is attempted.
 
 ##### VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
 

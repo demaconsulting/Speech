@@ -15,7 +15,8 @@ global option is read from `Context.NoEmotions`.
 - **packs**: Lists `catalog.VoicePacks` with each pack's state, read once per pack through `GetVoicePackState`.
   For an installed pack it also reports whether the pack was installed with emotions (a call to
   `VoicePackHasEmotionsAsync`). It shows the download size and the installed size without and with emotions in
-  MiB (from the pack's measured `VoicesBytes` and `EmotionsBytes`), the folder for the operator's own voices,
+  MiB, labeled `MiB` (from the pack's measured `VoicesBytes` and `EmotionsBytes`), the folder for the operator's own
+  voices,
   and the consent note.
 - **install `<packId>`**: Resolves the pack state first, so an unknown id gives the clean error before any
   output. Emotion variants are included by default and `--no-emotions` installs the base voices only; the

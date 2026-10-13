@@ -16,7 +16,8 @@ triggers a download, so no network access is needed. The engine and format membe
 
 The adapter is verified when the compiled-in models (including the voice-cloning model) are listed, the
 voice-cloning model and the voice commands see the same voices, a damaged voice file does not break
-listing, uninstall and cleanup of a never-installed model or pack are safe no-ops, an unknown model id
+listing or model use, separate adapters over one root report the same state, uninstall and cleanup of a never-installed
+model or pack are safe no-ops, an unknown model id
 is an `ArgumentException`, and a failed composition propagates its exception.
 
 #### Test Scenarios
@@ -58,6 +59,18 @@ model id prefix) are present and all are `NotDownloaded`.
 
 **Expected**: The adapter still composes and the voice listing still works.
 
+##### SpeechModelCatalogAdapter_DamagedVoicesDirFile_VoiceCloningModelStillOffersOtherVoices
+
+**Scenario**: The voices folder contains an undecodable file and a valid one.
+
+**Expected**: The voice-cloning model is still offered, and its voice choices include the valid voice.
+
+##### SpeechModelCatalogAdapter_Enumerate_SeparateInstancesSameRoot_ReportSameState
+
+**Scenario**: Two adapters are created in turn over the same store root.
+
+**Expected**: Both report the same non-empty list of model ids and states.
+
 ##### SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly
 
 **Scenario**: A pack that was never installed is uninstalled, and an unknown pack is requested, against a
@@ -71,6 +84,7 @@ This is the only test of a never-installed pack against a real store; the comman
 **Scenario**: A voices directory containing a NUL character makes composition fail after the catalog was
 built.
 
-**Expected**: The construction throws, and the store root is still usable afterwards (a second adapter
+**Expected**: The construction throws `DirectoryNotFoundException` naming the voices folder, and the store root is still
+usable afterwards (a second adapter
 over the same root enumerates models). The test cannot observe disposal of the abandoned catalog
 directly, so it verifies the failure path and the absence of a lock on the store root.

@@ -59,20 +59,26 @@ the invariant culture, and an unknown id, a missing id and an extra argument are
 **Expected**: An `ArgumentException` with no parameter name naming the id and suggesting `list-models`;
 out-of-process, a one-line error and a non-zero exit code with no stack trace.
 
+##### ModelInfoCommand_Run_NoLicenseUrl_PrintsLicenseNameWithoutUrl
+
+**Scenario**: A model with a license name and no license URL is described.
+
+**Expected**: The `License:` line shows the name alone, with no parentheses or URL.
+
 ##### ModelInfoCommand_Run_MissingModelIdArgument_ThrowsArgumentException
 
 ##### SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
 
 **Scenario**: No id is given, in-process and against the built tool.
 
-**Expected**: An `ArgumentException` with no parameter name; out-of-process, a clean error and a non-zero
-exit code.
+**Expected**: An `ArgumentException` with no parameter name and a message that states the model id is required;
+out-of-process, a clean error and a non-zero exit code.
 
 ##### ModelInfoCommand_Run_ExtraArgument_ThrowsArgumentException
 
 **Scenario**: A second positional argument is given.
 
-**Expected**: An `ArgumentException` is thrown.
+**Expected**: An `ArgumentException` with no parameter name whose message names the unsupported argument.
 
 ##### ModelInfoCommand_Run_NullContext_ThrowsArgumentNullException
 

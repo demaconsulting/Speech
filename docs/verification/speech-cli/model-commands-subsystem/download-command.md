@@ -15,8 +15,10 @@ the unknown-id and missing-argument paths against the built tool. No test perfor
 
 #### Acceptance Criteria
 
-The command is verified when models download sequentially in the given order, a single failure is
-reported without abandoning the batch, `--force` uninstalls only a downloaded model first, a
+The command is verified when models download sequentially in the given order, a single reportable failure (invalid
+argument or operation) is
+reported without abandoning the batch, an unexpected exception propagates, `--force` uninstalls only a downloaded model
+first, a
 cancellation stops the whole batch, failures give a non-zero exit code, and invalid arguments are an
 `ArgumentException`.
 
@@ -46,6 +48,18 @@ cancellation stops the whole batch, failures give a non-zero exit code, and inva
 
 **Expected**: The failure is reported for that model only, nothing is uninstalled for it, and the
 remaining models are still attempted.
+
+##### DownloadCommand_RunAsync_InvalidOperation_ReportsErrorAndContinues
+
+**Scenario**: The first model's download throws `InvalidOperationException`.
+
+**Expected**: The failure is reported for that model and the remaining models are still attempted.
+
+##### DownloadCommand_RunAsync_UnexpectedException_Propagates
+
+**Scenario**: The first model's download throws an `IOException`.
+
+**Expected**: The exception propagates to the caller and no further model is attempted.
 
 ##### SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
 
@@ -82,6 +96,13 @@ remaining models are still attempted.
 **Scenario**: The token is canceled after the first model's download has started and reported progress.
 
 **Expected**: The in-progress model's cancellation is reported and no further model is attempted.
+
+##### DownloadCommand_RunAsync_CancellationFromCatalog_ReportsCleanMessageAndStops
+
+**Scenario**: The catalog throws `OperationCanceledException` from the download while the command's token is canceled.
+
+**Expected**: The message `Download of '{id}' was canceled.` is written, the exit code is non-zero, no unhandled
+exception escapes and no further model is attempted.
 
 ##### ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
 

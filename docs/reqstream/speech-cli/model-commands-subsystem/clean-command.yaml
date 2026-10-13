@@ -23,6 +23,7 @@ sections:
                   store's internal layout.
                 tests:
                   - CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess
+                  - CleanCommand_Run_RealStoreWithPartialArtifact_RemovesArtifactAndSucceeds
 
               - id: SpeechCli-ModelCommands-CleanNothingToClean
                 title: >-
@@ -37,13 +38,14 @@ sections:
               - id: SpeechCli-ModelCommands-CleanCancellation
                 title: >-
                   The tool shall report a clean error with a non-zero exit code, rather than an
-                  unhandled exception, when the operator interrupts (`Ctrl+C`) a `clean` that is
-                  in progress.
+                  unhandled exception, when the operator interrupts (`Ctrl+C`) a `clean` before
+                  or during the cleanup, naming the model that was being cleaned.
                 justification: |
                   An interrupted cleanup is a deliberate operator action and must end predictably
                   for a calling script.
                 tests:
                   - CleanCommand_Run_Canceled_ReportsErrorExitCode
+                  - CleanCommand_Run_CanceledDuringCleanup_ReportsErrorExitCode
 
               - id: SpeechCli-ModelCommands-CleanArgumentValidation
                 title: >-

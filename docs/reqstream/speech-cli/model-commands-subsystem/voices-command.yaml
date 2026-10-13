@@ -61,7 +61,8 @@ sections:
               - id: SpeechCli-ModelCommands-VoiceEmotionsSizes
                 title: >-
                   The tool shall show, in `voices packs`, the download size, the installed size
-                  without and with emotions, and the installed variant of each pack.
+                  without and with emotions (each in MiB, labeled as such), and the installed
+                  variant of each pack.
                 justification: |
                   An operator must be able to see the sizes before choosing whether to include
                   emotions.
@@ -70,13 +71,23 @@ sections:
 
               - id: SpeechCli-ModelCommands-VoicePackInstall
                 title: >-
-                  The tool shall download, verify, and install a reference-voice pack when
-                  invoked with `voices install <packId>`.
+                  The tool shall download and install a reference-voice pack when invoked with
+                  `voices install <packId>`, and report that the pack is installed.
                 justification: |
                   The reference-voice pack is a large optional download that gives an operator
                   the voices the voice-cloning model needs.
                 tests:
                   - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallVerified
+                title: >-
+                  The tool shall reject a downloaded reference-voice pack that fails verification
+                  (for example a checksum mismatch), reporting the reason and leaving the pack not
+                  installed.
+                justification: |
+                  A corrupted or tampered pack must never be installed and presented as usable.
+                tests:
+                  - VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode
 
               - id: SpeechCli-ModelCommands-VoicePackInstallProgress
                 title: >-
@@ -178,7 +189,8 @@ sections:
               - id: SpeechCli-ModelCommands-VoicePackUnknownId
                 title: >-
                   The tool shall reject `voices install` invoked with an unknown pack id with a
-                  clear, non-zero-exit-code error rather than a stack trace.
+                  clear, non-zero-exit-code error rather than a stack trace, without downloading
+                  or printing anything else.
                 justification: |
                   A pack-id typo must fail predictably, before anything is downloaded.
                 tests:

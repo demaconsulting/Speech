@@ -29,6 +29,18 @@ unknown total prints kilobytes, and `null` arguments are rejected.
 
 **Expected**: Lines of the form `{label}: {n} KB` are printed, one per whole kilobyte.
 
+##### DownloadProgressReporter_Create_NextFileSamePercent_ReportsBothFiles
+
+**Scenario**: With a known total, file 1 reports 100% twice and file 2 then reports 100%.
+
+**Expected**: Two lines are printed (one per file); the repeat within file 1 is suppressed.
+
+##### DownloadProgressReporter_Create_NextFileSameKilobytes_ReportsBothFiles
+
+**Scenario**: With an unknown total, file 1 reports 2 KB twice and file 2 then reports 2 KB.
+
+**Expected**: Two lines are printed (one per file); the repeat within file 1 is suppressed.
+
 ##### DownloadProgressReporter_Create_NullArguments_ThrowArgumentNullException
 
 **Scenario**: `Create` is called with a `null` context or a `null` describe delegate.

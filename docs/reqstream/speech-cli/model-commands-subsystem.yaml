@@ -3,7 +3,8 @@
 #
 # These requirements describe the subsystem-level behavior shared by the seven model-management
 # and reference-voice subcommands (list-models, model-info, download, uninstall, clean,
-# list-voices, voices): that what the operator sees is exactly what the speech library reports.
+# list-voices, voices): that the operator sees each model's identity, install state, and
+# operation outcomes consistently across invocations.
 # The behavior of each unit is specified in its own file in the model-commands-subsystem/ folder:
 #   - model-commands-subsystem/i-cli-model-catalog.yaml
 #   - model-commands-subsystem/speech-model-catalog-adapter.yaml
@@ -27,20 +28,50 @@ sections:
         requirements:
           - id: SpeechCli-ModelCommands-LibraryDelegation
             title: >-
-              The tool shall report every model's identity, install state, and the outcome of
-              every download, install, uninstall, and cleanup exactly as the speech library
-              reports it, keeping no model state of its own between invocations.
+              The tool shall identify each model by the id and name the speech library gives it,
+              so that the same model is named the same way in every command.
             tags: [subsystem]
             justification: |
-              The subsystem exists to expose the library's own model-management behavior from
-              the command line, so what an operator sees must never diverge from what the
-              library reports. The evidence is exercised through the production catalog over an
-              isolated store: the known-model list, the never-installed uninstall and cleanup
-              behavior, the unknown-id refusal, and the `--models-dir` composition. The
-              `--models-dir` test asserts the user-voices folder and a non-empty catalog but not
-              the store root itself, so that part of the evidence is partial.
+              Operators and scripts address models by id; the id must be the library's own so
+              the commands, the library, and the documentation agree. The known-model list and
+              the unknown-id refusal are exercised through the production catalog over an
+              isolated store.
             tests:
               - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+              - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
+
+          - id: SpeechCli-ModelCommands-InstallStateShown
+            title: >-
+              The tool shall show each model's install state (not downloaded, downloaded, or
+              needing repair) as the speech library records it on disk.
+            tags: [subsystem]
+            justification: |
+              Operators decide whether to download, repair, or uninstall from the state shown,
+              so it must reflect the store, not a copy kept by the tool.
+            tests:
+              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+
+          - id: SpeechCli-ModelCommands-OperationOutcomesReported
+            title: >-
+              The tool shall report the outcome of each download, uninstall, and cleanup, and a
+              never-installed model shall be uninstalled and cleaned up without error.
+            tags: [subsystem]
+            justification: |
+              A script that removes a model it may not have installed must be able to rely on
+              the exit code. The never-installed behavior is exercised through the production
+              catalog over an isolated store.
+            tests:
               - SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow
               - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
-              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+
+          - id: SpeechCli-ModelCommands-StateConsistentAcrossInvocations
+            title: >-
+              The tool shall report the same model install state in separate invocations that
+              use the same models folder.
+            tags: [subsystem]
+            justification: |
+              The tool keeps no model state of its own between invocations; two runs over one
+              store must agree, otherwise automation built on `list-models` would be unreliable.
+            tests:
+              - SpeechModelCatalogAdapter_Enumerate_SeparateInstancesSameRoot_ReportSameState

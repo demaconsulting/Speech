@@ -15,13 +15,16 @@ keeping any model state of its own.
 **Key Methods**:
 
 - **Constructor(options, downloaderOptions, voicesDir)**: Builds the catalog from the storage options and the
-  downloader options (which carry the download mirror), and registers the model packages with
-  `AddSherpaModels().AddKokoroModels().AddNemotronSttModels()`, because core `DemaConsulting.Speech` ships no
-  built-in models. It then creates one `ReferenceVoiceLibrary` over the catalog's store and the same downloader
+  downloader options (which carry the download mirror), then, inside the guarded region, registers the model
+  packages with `AddSherpaModels().AddKokoroModels().AddNemotronSttModels()`, because core
+  `DemaConsulting.Speech` ships no built-in models. It then creates one `ReferenceVoiceLibrary` over the catalog's store
+  and the same downloader
   options, and registers the voice-cloning model with `AddChatterboxTurboModels`, passing that library and
   `voicesDir` as the reference-voice directory. The model and the voice commands therefore see identical
-  voices, the same store and the same mirror. If any of this fails part-way, the constructor disposes the
-  voice library and the catalog it had already created and rethrows, so a failed composition leaks nothing.
+  voices, the same store and the same mirror. If any registration or composition step fails part-way, the constructor
+  disposes the
+  voice library (when created) and the catalog it had already created and rethrows, so a failed composition leaks
+  nothing.
 - **Enumerate() / DownloadAsync(...)**: Forward to the catalog.
 - **UninstallAsync(...) / CleanUpLeftoversAsync(...)**: Forward to the catalog's `Store.UninstallAsync` and
   `Store.CleanUpLeftoversAsync`.

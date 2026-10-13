@@ -17,14 +17,24 @@ sections:
             requirements:
               - id: SpeechCli-ModelCommands-ModelInfo
                 title: >-
-                  The tool shall print a model's full identity (id, display name, role, install
-                  state, license name and URL, audio-tag support) when invoked with
-                  `model-info <modelId>`.
+                  The tool shall print a model's identity (id, display name, role, install state,
+                  license name, audio-tag support) when invoked with `model-info <modelId>`.
                 justification: |
                   An operator deciding whether a model is suitable (for example its license)
                   needs its full identity, not just its name.
                 tests:
                   - ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState
+
+              - id: SpeechCli-ModelCommands-ModelInfoLicenseUrl
+                title: >-
+                  The tool shall print a model's license URL after the license name when the model
+                  has one, and shall print the license name alone when it has none.
+                justification: |
+                  An operator checking a license needs the link when one exists, and must not see
+                  an empty or placeholder URL when it does not.
+                tests:
+                  - ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState
+                  - ModelInfoCommand_Run_NoLicenseUrl_PrintsLicenseNameWithoutUrl
 
               - id: SpeechCli-ModelCommands-ModelInfoParameters
                 title: >-
