@@ -316,35 +316,36 @@ internal static class DevicesTestCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="device">The available playback device to play the tone on. Must not be null.</param>
-    /// <param name="drainMargin">
-    ///     How long beyond the tone's own duration to wait for the device to drain before reporting a
-    ///     failure; <see langword="null"/> uses the built-in margin.
+    /// <param name="drainLimit">
+    ///     The total time to wait for the device to drain before reporting a failure;
+    ///     <see langword="null"/> uses the built-in limit (the tone duration plus
+    ///     <see cref="PlaybackDrainMarginSeconds"/> seconds).
     /// </param>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when the device still has queued samples after the tone duration plus the margin.
+    ///     Thrown when the device still has queued samples after the drain limit.
     /// </exception>
-    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainMargin = null)
+    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainLimit = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(device);
 
         var samples = GenerateToneSamples(device.SampleRate, device.ChannelCount, ToneDurationSeconds, ToneFrequencyHz);
 
-        device.Start();
         try
         {
+            device.Start();
             device.Write(samples);
 
             // Write is fire-and-forget: poll PendingSampleCount until the hardware has actually
             // consumed the queued tone, per IAudioPlaybackDevice's own documented contract. The wait
-            // is bounded (tone duration plus a fixed margin) so a stalled device is reported as a
-            // failure instead of hanging the command forever.
+            // is bounded (tone duration plus a fixed 5-second margin by default) so a stalled device
+            // is reported as a failure instead of hanging the command forever.
             var drainDeadline = Stopwatch.StartNew();
-            var drainLimit = TimeSpan.FromSeconds(ToneDurationSeconds) +
-                             (drainMargin ?? TimeSpan.FromSeconds(PlaybackDrainMarginSeconds));
+            var limit = drainLimit ??
+                        TimeSpan.FromSeconds(ToneDurationSeconds + PlaybackDrainMarginSeconds);
             while (device.PendingSampleCount > 0)
             {
-                if (drainDeadline.Elapsed > drainLimit)
+                if (drainDeadline.Elapsed > limit)
                 {
                     throw new InvalidOperationException(
                         "The playback device did not finish playing the test tone in time; " +

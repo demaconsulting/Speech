@@ -349,6 +349,7 @@ public sealed class RecognizeCommandTests
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
         Assert.Contains("model-1", exception.Message);
+        Assert.Contains("list-models --role stt", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded model throws an actionable "download" message.</summary>

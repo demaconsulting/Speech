@@ -184,6 +184,8 @@ public sealed class ListModelsCommandTests
             Assert.Contains("\"Id\": \"model-1\"", output);
             Assert.Contains("\"DisplayName\": \"Model One\"", output);
             Assert.Contains("\"LicenseName\": \"Apache-2.0\"", output);
+            Assert.Contains("\"Role\"", output);
+            Assert.Contains("\"State\"", output);
             Assert.Contains("[", output);
             Assert.Contains("]", output);
         }

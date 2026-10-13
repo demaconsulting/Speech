@@ -137,12 +137,9 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException()
     {
-        // Skip when stdin actually is redirected (e.g. under some CI/test-runner harnesses),
-        // since this test specifically covers the "no source available" branch.
-        if (Console.IsInputRedirected)
-        {
-            return;
-        }
+        // This test specifically covers the "no source available" branch, so it cannot run when
+        // stdin actually is redirected (e.g. under some CI/test-runner harnesses).
+        Assert.SkipWhen(Console.IsInputRedirected, "Standard input is redirected, so the no-text-source branch is unreachable.");
 
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
@@ -153,6 +150,20 @@ public sealed class SpeakCommandTests
     }
 
     // --- Model resolution error paths ---
+
+    /// <summary>Test that an unreadable --file is reported as a clean InvalidOperationException naming the file.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException()
+    {
+        var catalog = CreateCatalogWithModel();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt");
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--file", missing]);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+        Assert.Contains("missing.txt", exception.Message);
+    }
 
     /// <summary>Test that an unknown model id throws.</summary>
     [Fact]
@@ -178,6 +189,7 @@ public sealed class SpeakCommandTests
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
         Assert.Contains("model-1", exception.Message);
+        Assert.Contains("list-models --role tts", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded model throws an actionable "download" message.</summary>

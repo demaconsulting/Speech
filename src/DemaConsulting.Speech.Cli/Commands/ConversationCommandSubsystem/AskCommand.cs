@@ -814,7 +814,14 @@ internal static class AskCommand
 
         if (options.FilePath is not null)
         {
-            return File.ReadAllText(options.FilePath);
+            try
+            {
+                return File.ReadAllText(options.FilePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Cannot read the text file '{options.FilePath}': {ex.Message}", ex);
+            }
         }
 
         if (!Console.IsInputRedirected)

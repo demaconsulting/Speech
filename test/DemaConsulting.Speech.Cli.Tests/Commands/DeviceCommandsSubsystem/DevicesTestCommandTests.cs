@@ -307,12 +307,26 @@ public sealed class DevicesTestCommandTests
         var context = Context.Create(["devices", "test"]);
         var device = new RecordingPlaybackDevice { PendingSampleCount = 1 };
 
-        // The tone itself is two seconds long, so the margin only needs to be small, not the production value.
+        // The drain limit is injected, so the stalled-device path completes immediately.
         var exception = Assert.Throws<InvalidOperationException>(() =>
             DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(1)));
 
         Assert.True(device.Stopped);
         Assert.Contains("did not finish", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that the playback device is stopped even when writing the tone throws.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_WriteThrows_StillStopsDevice()
+    {
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice { WriteException = new InvalidOperationException("write failed") };
+
+        Assert.Throws<InvalidOperationException>(() => DevicesTestCommand.PlayTestTone(context, device));
+
+        Assert.True(device.Stopped);
     }
 
     /// <summary>
@@ -468,6 +482,9 @@ public sealed class DevicesTestCommandTests
         /// <inheritdoc/>
         public long PendingSampleCount { get; set; }
 
+        /// <summary>Gets or sets an exception thrown by <see cref="Write"/> when not <see langword="null"/>.</summary>
+        public Exception? WriteException { get; set; }
+
         /// <inheritdoc/>
         public void Start() => Started = true;
 
@@ -475,7 +492,15 @@ public sealed class DevicesTestCommandTests
         public void Stop() => Stopped = true;
 
         /// <inheritdoc/>
-        public void Write(IReadOnlyList<float> samples) => Written.AddRange(samples);
+        public void Write(IReadOnlyList<float> samples)
+        {
+            if (WriteException != null)
+            {
+                throw WriteException;
+            }
+
+            Written.AddRange(samples);
+        }
     }
 
     /// <summary>A capture device that raises one frame with the configured samples when started (none when empty).</summary>

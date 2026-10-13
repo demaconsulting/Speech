@@ -1165,9 +1165,9 @@ public class IntegrationTests
         var downloadedModelId = ExtractFirstDownloadedJsonId(listOutput);
         if (downloadedModelId is null)
         {
-            // No real, downloaded speech-to-text model is available in this environment; this
-            // scenario is a documented manual verification gap, not a fabricated pass.
-            return;
+            // No real, downloaded speech-to-text model is available in this environment; report the
+            // scenario as skipped (visible in the results) rather than as a silent pass.
+            Assert.Skip("No downloaded speech-to-text model is available in the per-user model store.");
         }
 
         var fixturePath = FindRepositoryTestFixturePath("crossing-the-bar-16k-mono.wav");

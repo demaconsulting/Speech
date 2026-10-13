@@ -32,6 +32,18 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 /// </summary>
 internal static class ListVoicesCommand
 {
+    /// <summary>The executable name used in usage hints.</summary>
+    private const string ToolName = "speech-cli";
+
+    /// <summary>Message written when no reference voice is available.</summary>
+    private const string NoVoicesMessage = "No reference voices are available.";
+
+    /// <summary>Explanation of the Moods column.</summary>
+    private const string MoodsNote =
+        "Moods is the number of emotion variants of the voice (installed with 'voices install', not with --no-emotions).";
+
+    /// <summary>Hint showing how to select a listed voice for synthesis.</summary>
+    private const string UsageHint = "Use a voice with: speak --tts-model <id> --tts-param voice=<Id> ...";
     /// <summary>
     ///     Runs the <c>list-voices</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/>.
@@ -116,8 +128,8 @@ internal static class ListVoicesCommand
     {
         if (voices.Count == 0)
         {
-            context.WriteLine("No reference voices are available.");
-            context.WriteLine($"Install the voice pack with 'speech-cli voices install {ReferenceVoicePack.VoiceZero10.Id}', or put .wav/.flac");
+            context.WriteLine(NoVoicesMessage);
+            context.WriteLine($"Install the voice pack with '{ToolName} voices install {ReferenceVoicePack.VoiceZero10.Id}', or put .wav/.flac");
             context.WriteLine($"files in '{catalog.UserVoicesDirectory}' (or pass --voices-dir <path>).");
             context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
             return;
@@ -136,8 +148,8 @@ internal static class ListVoicesCommand
         }
 
         context.WriteLine("");
-        context.WriteLine("Moods is the number of emotion variants of the voice (installed with 'voices install', not with --no-emotions).");
-        context.WriteLine("Use a voice with: speak --tts-model <id> --tts-param voice=<Id> ...");
+        context.WriteLine(MoodsNote);
+        context.WriteLine(UsageHint);
         context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
     }
 

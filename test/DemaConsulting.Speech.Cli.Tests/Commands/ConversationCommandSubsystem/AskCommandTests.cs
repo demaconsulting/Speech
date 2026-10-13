@@ -278,12 +278,9 @@ public sealed class AskCommandTests
     [Fact]
     public async Task AskCommand_Run_NoTextSource_ThrowsArgumentException()
     {
-        // Skip when stdin actually is redirected (e.g. under some CI/test-runner harnesses),
-        // since this test specifically covers the "no source available" branch.
-        if (Console.IsInputRedirected)
-        {
-            return;
-        }
+        // This test specifically covers the "no source available" branch, so it cannot run when
+        // stdin actually is redirected (e.g. under some CI/test-runner harnesses).
+        Assert.SkipWhen(Console.IsInputRedirected, "Standard input is redirected, so the no-text-source branch is unreachable.");
 
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
@@ -295,6 +292,20 @@ public sealed class AskCommandTests
     }
 
     // --- Model validation ---
+
+    /// <summary>Test that an unreadable --file is reported as a clean InvalidOperationException naming the file.</summary>
+    [Fact]
+    public async Task AskCommand_Run_MissingTextFile_ThrowsInvalidOperationException()
+    {
+        var catalog = CreateCatalogWithModels();
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt");
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--file", missing]);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        Assert.Contains("missing.txt", exception.Message);
+    }
 
     /// <summary>Test that an unknown --tts-model id throws before any --stt-model resolution.</summary>
     [Fact]
