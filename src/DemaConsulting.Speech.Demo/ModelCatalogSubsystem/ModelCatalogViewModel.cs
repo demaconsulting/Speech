@@ -23,7 +23,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     <para>
 ///     Not thread-safe: expected to be used from the UI thread. Download progress is marshalled
 ///     back through the same synchronization context the download was started on. While a model
-///     download or voice-pack install is in flight, <see cref="Refresh"/>, <see cref="ApplyMirror"/>
+///     download or voice-pack install is in flight, <see cref="RefreshAsync"/>, <see cref="ApplyMirrorAsync"/>
 ///     and the voice-pack commands are refused, because they would rebuild the catalog or the rows
 ///     the transfer depends on.
 ///     </para>
@@ -113,7 +113,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     public partial string? MirrorBearerToken { get; set; }
 
     /// <summary>
-    ///     Gets or sets the result message from the most recent <see cref="ApplyMirror"/>
+    ///     Gets or sets the result message from the most recent <see cref="ApplyMirrorAsync"/>
     ///     attempt, or <see langword="null"/> before one has been made.
     /// </summary>
     [ObservableProperty]
@@ -204,7 +204,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     </para>
     /// </remarks>
     [RelayCommand]
-    public async Task ApplyMirror()
+    public async Task ApplyMirrorAsync()
     {
         if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(pack => pack.IsInstalling))
         {
@@ -283,12 +283,12 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     <para>
     ///     Refused (leaving the rows untouched) while any model download or voice-pack install is in
     ///     flight, because rebuilding the rows would discard the row that is showing that transfer's
-    ///     progress and outcome. The same busy rule already guards <see cref="ApplyMirror"/> and the
+    ///     progress and outcome. The same busy rule already guards <see cref="ApplyMirrorAsync"/> and the
     ///     voice-pack commands.
     ///     </para>
     /// </remarks>
     [RelayCommand]
-    public async Task Refresh()
+    public async Task RefreshAsync()
     {
         if (IsTransferInFlight())
         {
@@ -575,7 +575,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     or download is running).
     /// </remarks>
     [RelayCommand]
-    public async Task RemoveVoicePack(ReferenceVoicePackListItemViewModel? pack, CancellationToken cancellationToken)
+    public async Task RemoveVoicePackAsync(ReferenceVoicePackListItemViewModel? pack, CancellationToken cancellationToken)
     {
         if (pack is null || !pack.CanRemove)
         {

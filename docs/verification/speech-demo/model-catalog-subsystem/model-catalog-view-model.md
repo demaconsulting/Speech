@@ -70,14 +70,14 @@ be read; and a removal the seam refuses is explained on the row.
 **Expected**: It states that no speech models are currently known to this catalog, without
 claiming the library itself ships no downloadable models.
 
-##### ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+##### ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
 
 **Scenario**: A model's install state changes and the panel is refreshed.
 
 **Expected**: Rows are rebuilt from the library's current view and the previously selected model
 stays selected.
 
-##### ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
+##### ModelCatalogViewModel_RefreshAsync_ModelNoLongerKnown_DropsRowAndFallsBack
 
 **Scenario**: The selected model is no longer reported and the panel is refreshed.
 
@@ -89,7 +89,7 @@ stays selected.
 
 **Expected**: The catalog is re-read through the seam.
 
-##### ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
+##### ModelCatalogViewModel_RefreshAsync_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
 
 **Scenario**: A model download is in flight (its seam call has not completed) and the panel is
 refreshed.
@@ -97,7 +97,7 @@ refreshed.
 **Expected**: The refresh is refused: the same downloading row stays in place and the catalog is
 not enumerated again, so the transfer's progress and outcome are not discarded.
 
-##### ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
+##### ModelCatalogViewModel_RefreshAsync_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
 
 **Scenario**: A voice pack row is installing and the panel is refreshed.
 
@@ -179,27 +179,27 @@ guarantees a canceled download installs nothing.
 **Expected**: The mirror URL, user, password and bearer-token fields start pre-populated from
 those values, so the GUI and launch-time entry points stay consistent.
 
-##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
 **Scenario**: Valid mirror fields are applied.
 
 **Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
 and the panel reports success.
 
-##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
+##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
 **Scenario**: A valid mirror URL is applied.
 
 **Expected**: The panel reports no error and shows a success confirmation naming the mirror.
 
-##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+##### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
 **Scenario**: A valid mirror is applied and the reconfigured catalog reports a different install
 state for a model.
 
 **Expected**: The catalog is enumerated again and the row shows the new state.
 
-##### ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel
+##### ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel
 
 **Scenario**: Either the seam's `ApplyMirror` throws an unexpected exception, or the catalog
 re-read after a successful reconfiguration throws.
@@ -207,33 +207,33 @@ re-read after a successful reconfiguration throws.
 **Expected**: Nothing escapes; the panel reports an error that names the cause and does not show
 the success confirmation.
 
-##### ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken
+##### ModelCatalogViewModel_ApplyMirrorAsync_BearerToken_ForwardsToken
 
 **Scenario**: A mirror URL and a bearer token are applied.
 
 **Expected**: The seam's `ApplyMirror` receives a `DownloadMirror` carrying that bearer token.
 
-##### ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
+##### ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror
 
 **Scenario**: The mirror URL field is blank when applied.
 
 **Expected**: The seam's `ApplyMirror` is called with `null`, reverting to each model's own public
 download URI.
 
-##### ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+##### ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService
 
 **Scenario**: The mirror URL field holds an invalid URI.
 
 **Expected**: The panel reports an explained error and never calls the seam.
 
-##### ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+##### ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
 **Scenario**: The bearer-token field holds a value but the mirror URL field is blank.
 
 **Expected**: `MirrorOptionsFactory.Create` rejects the stray credential and the panel reports an
 explained error without ever calling the seam.
 
-##### ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
+##### ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError
 
 **Scenario**: The seam throws `InvalidOperationException` because it was not built with a catalog
 factory.
@@ -241,7 +241,7 @@ factory.
 **Expected**: The panel reports the seam's explanation as an error rather than letting the
 exception escape.
 
-##### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+##### ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
 
 **Scenario**: One row is `Downloading` and the mirror URL field holds a valid URI.
 
@@ -312,7 +312,7 @@ message is kept on the row.
 
 **Expected**: The row shows the failed outcome with its failure message and the panel does not crash.
 
-##### ModelCatalogViewModel_Refresh_InstalledPack_ReadsHasEmotionsFromService
+##### ModelCatalogViewModel_RefreshAsync_InstalledPack_ReadsHasEmotionsFromService
 
 **Scenario**: The seam reports an installed pack with and without emotion variants and the panel is
 refreshed.
@@ -320,27 +320,27 @@ refreshed.
 **Expected**: The row's emotion flag matches the seam's report, and "Add emotions" is offered only
 for the voices-only install.
 
-##### ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
+##### ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
 
 **Scenario**: The seam throws a store exception when the pack is removed.
 
 **Expected**: The exception's message is shown on the pack's row, the pack stays installed and
 removable, and nothing escapes.
 
-##### ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+##### ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
 
 **Scenario**: The seam's uninstall is canceled.
 
 **Expected**: The row shows "Removal canceled." and the pack stays installed.
 
-##### ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+##### ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
 
 **Scenario**: A pack is removed, and the uninstall is made to throw.
 
 **Expected**: The service uninstalls the pack, the catalog is re-read so the rows refresh, and a
 fault is reported on the row.
 
-##### ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService
+##### ModelCatalogViewModel_RemoveVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
 
 **Scenario**: A pack removal is requested while a model is downloading.
 
@@ -358,7 +358,7 @@ fault is reported on the row.
 
 **Expected**: The request is refused with an explanation and the service is not called.
 
-##### ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused
+##### ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
 
 **Scenario**: The mirror is applied while a pack is installing.
 

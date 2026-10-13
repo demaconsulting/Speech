@@ -419,7 +419,7 @@ public class RecognitionPanelViewModelTests
         // device-selection panel (as the "Refresh devices" button would)
         await viewModel.StartCommand.ExecuteAsync(null);
         stillListening = true;
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: the session was stopped by the hook, the refresh completed without throwing,
         // and the panel returned to idle
@@ -438,7 +438,7 @@ public class RecognitionPanelViewModelTests
     public async Task RecognitionPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds()
     {
         // Arrange: a panel with no listening session ever started, sharing its own
-        // device-selection panel so Refresh() exercises the real registered hook
+        // device-selection panel so RefreshAsync() exercises the real registered hook
         var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
         var deviceService = Substitute.For<IAudioDeviceService>();
         var availableDevice = CaptureDevice();
@@ -449,7 +449,7 @@ public class RecognitionPanelViewModelTests
             Catalog(descriptor), deviceService, deviceSelection, SessionFactory(engine));
 
         // Act: refresh the shared device-selection panel while idle, with listening never started
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: the refresh completes without throwing, no session was ever created, and the
         // panel remains idle
@@ -540,7 +540,7 @@ public class RecognitionPanelViewModelTests
         var firstSession = engine.CreatedSessions.Single();
 
         // Act: refresh the shared device-selection panel while idle, then start again
-        await deviceSelection.Refresh();
+        await deviceSelection.RefreshAsync();
         await viewModel.StartCommand.ExecuteAsync(null);
 
         // Assert: the stale session was released by the refresh, a second session was created

@@ -45,7 +45,7 @@ sections:
               A refresh must adopt the catalog's current state so a user is never shown a
               stale list.
             tests:
-              - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+              - ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
 
           - id: SpeechDemo-ModelCatalog-ModelDownload
             title: >-
@@ -65,7 +65,7 @@ sections:
               A user whose network blocks a model's public download host must be able to
               redirect downloads from the running application.
             tests:
-              - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+              - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
           - id: SpeechDemo-ModelCatalog-MirrorApplyConfirmation
             title: >-
@@ -75,7 +75,7 @@ sections:
               Confirming the applied mirror tells the user the redirection took effect before
               they start a large download.
             tests:
-              - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
+              - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
           - id: SpeechDemo-ModelCatalog-VoicePackChangeRebuild
             title: >-
@@ -108,7 +108,7 @@ sections:
               A removed voice is only withdrawn once the catalog is rebuilt.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
-              - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+              - ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
             title: >-
@@ -129,7 +129,7 @@ sections:
               produces a freshly configured catalog and library.
             tests:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
-              - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+              - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
           - id: SpeechDemo-ModelCatalog-MirrorChangedNotification
             title: >-
@@ -172,5 +172,5 @@ sections:
               Reporting a failure on the row keeps the user informed and the application
               running.
             tests:
-              - ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
-              - ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+              - ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
+              - ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage

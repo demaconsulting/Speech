@@ -164,7 +164,7 @@ fresh single-use session is created from the same cached engine for each of the 
 ##### RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
 
 **Scenario**: A session is cached (idle) from a prior Start/Stop cycle, then the shared
-`DeviceSelectionViewModel.Refresh()` runs.
+`DeviceSelectionViewModel.RefreshAsync()` runs.
 
 **Expected**: The cached session is disposed, but the engine is never reloaded; a subsequent
 Start creates a fresh session bound to the post-refresh device table from the same cached engine.

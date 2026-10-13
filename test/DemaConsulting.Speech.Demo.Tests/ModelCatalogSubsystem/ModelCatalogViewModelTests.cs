@@ -75,7 +75,7 @@ public class ModelCatalogViewModelTests
     ///     <see cref="DownloadMirror"/> to the catalog service and reports success.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess()
     {
         // Arrange
         var service = Service();
@@ -104,7 +104,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that applying a valid mirror reports the applied mirror in the panel's confirmation message.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess()
     {
         // Arrange
         var viewModel = new ModelCatalogViewModel(Service()) { MirrorUrl = "https://mirror.example.com" };
@@ -124,7 +124,7 @@ public class ModelCatalogViewModelTests
     ///     reconfigured catalog reports.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog()
     {
         // Arrange: the reconfigured catalog reports a different state on its next enumeration
         var service = SequencedService(
@@ -151,7 +151,7 @@ public class ModelCatalogViewModelTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel(bool failOnReload)
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel(bool failOnReload)
     {
         // Arrange
         var service = Service();
@@ -182,7 +182,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that a typed bearer token is forwarded to the catalog service with the mirror.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_BearerToken_ForwardsToken()
     {
         // Arrange
         var service = Service();
@@ -205,7 +205,7 @@ public class ModelCatalogViewModelTests
     ///     rather than requiring a separate "clear" action.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror()
     {
         // Arrange
         var service = Service();
@@ -225,7 +225,7 @@ public class ModelCatalogViewModelTests
     ///     user, consistent with every other seam failure this panel reports in place.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService()
     {
         // Arrange
         var service = Service();
@@ -250,7 +250,7 @@ public class ModelCatalogViewModelTests
     ///     credentials supplied without a URL.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService()
     {
         // Arrange
         var service = Service();
@@ -273,7 +273,7 @@ public class ModelCatalogViewModelTests
     ///     <see cref="InvalidOperationException"/> in the panel rather than crashing the demo.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError()
     {
         // Arrange
         var service = Service();
@@ -296,7 +296,7 @@ public class ModelCatalogViewModelTests
     ///     in flight depends on, which would otherwise abort that download.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError()
     {
         // Arrange: one row already in the Downloading state
         var service = Service(FakeSpeechModel.Descriptor("model-a", SpeechModelState.Downloading));
@@ -391,7 +391,7 @@ public class ModelCatalogViewModelTests
     ///     the user's selected model selected.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection()
+    public async Task ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection()
     {
         // Arrange: a catalog reporting one model as not downloaded, then as installed
         var service = SequencedService(
@@ -404,7 +404,7 @@ public class ModelCatalogViewModelTests
         viewModel.SelectedModel = viewModel.Models[1];
 
         // Act: re-read the catalog after the second model was installed
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: the row reflects the new state and the same model stays selected
         Assert.Equal(SpeechModelState.Downloaded, viewModel.Models[1].State);
@@ -416,7 +416,7 @@ public class ModelCatalogViewModelTests
     ///     stale row alive across a refresh.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack()
+    public async Task ModelCatalogViewModel_RefreshAsync_ModelNoLongerKnown_DropsRowAndFallsBack()
     {
         // Arrange: a catalog reporting two models, then only the first
         var service = SequencedService(
@@ -426,7 +426,7 @@ public class ModelCatalogViewModelTests
         viewModel.SelectedModel = viewModel.Models[1];
 
         // Act: re-read the catalog after the second model disappeared
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: the stale row is gone and the selection falls back to a real row
         Assert.Single(viewModel.Models);
@@ -622,7 +622,7 @@ public class ModelCatalogViewModelTests
     ///     re-read the catalog, so the transfer's progress and outcome are not discarded.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog()
+    public async Task ModelCatalogViewModel_RefreshAsync_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog()
     {
         // Arrange: a catalog whose download stays pending until released
         var release = new TaskCompletionSource<SpeechModelDownloadResult>();
@@ -636,7 +636,7 @@ public class ModelCatalogViewModelTests
         service.ClearReceivedCalls();
 
         // Act: refresh while the download is running
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: the same row is still downloading and the catalog was not enumerated again
         Assert.Same(row, viewModel.Models[0]);
@@ -825,7 +825,7 @@ public class ModelCatalogViewModelTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task ModelCatalogViewModel_Refresh_InstalledPack_ReadsHasEmotionsFromService(bool hasEmotions)
+    public async Task ModelCatalogViewModel_RefreshAsync_InstalledPack_ReadsHasEmotionsFromService(bool hasEmotions)
     {
         // Arrange: a pack the service reports as installed, with or without emotion variants
         var service = VoiceService(SpeechModelState.Downloaded);
@@ -834,7 +834,7 @@ public class ModelCatalogViewModelTests
         // Act
         var viewModel = new ModelCatalogViewModel(service);
         await viewModel.InitialLoadTask;
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert
         var row = Assert.Single(viewModel.VoicePacks);
@@ -1007,7 +1007,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that applying a mirror is refused while a pack install is in flight.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused()
+    public async Task ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.NotDownloaded);
@@ -1026,7 +1026,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that refreshing is refused while a pack install is in flight, leaving the installing row in place.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog()
+    public async Task ModelCatalogViewModel_RefreshAsync_PackInstalling_KeepsRowsAndDoesNotRereadCatalog()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.NotDownloaded);
@@ -1036,7 +1036,7 @@ public class ModelCatalogViewModelTests
         service.ClearReceivedCalls();
 
         // Act
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert
         Assert.Same(row, viewModel.VoicePacks[0]);
@@ -1058,7 +1058,7 @@ public class ModelCatalogViewModelTests
 
         // Act
         await viewModel.InstallVoicePackAsync(installable, TestContext.Current.CancellationToken);
-        await viewModel.RemoveVoicePack(removable, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(removable, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, installable.FailureMessage);
@@ -1091,7 +1091,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that removing a voice pack is refused while a model download is in flight.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService()
+    public async Task ModelCatalogViewModel_RemoveVoicePackAsync_ModelDownloading_RefusedWithoutCallingService()
     {
         // Arrange
         var service = VoiceService(
@@ -1101,7 +1101,7 @@ public class ModelCatalogViewModelTests
         var row = viewModel.VoicePacks[0];
 
         // Act
-        await viewModel.RemoveVoicePack(row, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(row, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, row.FailureMessage);
@@ -1114,7 +1114,7 @@ public class ModelCatalogViewModelTests
     ///     the rows, that a non-installed row is ignored, and that a fault is shown in the row.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults()
+    public async Task ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.Downloaded);
@@ -1128,7 +1128,7 @@ public class ModelCatalogViewModelTests
                 service.GetReferenceVoicePackState("voice-zero-1.0").Returns(SpeechModelState.NotDownloaded);
                 return Task.CompletedTask;
             });
-        await viewModel.RemoveVoicePack(row, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(row, TestContext.Current.CancellationToken);
 
         // Assert
         await service.Received(1).UninstallReferenceVoicePackAsync("voice-zero-1.0", Arg.Any<CancellationToken>());
@@ -1136,8 +1136,8 @@ public class ModelCatalogViewModelTests
         Assert.Equal(SpeechModelState.NotDownloaded, viewModel.VoicePacks[0].State);
 
         // Act & Assert: ignored when not installed, or null
-        await viewModel.RemoveVoicePack(viewModel.VoicePacks[0], TestContext.Current.CancellationToken);
-        await viewModel.RemoveVoicePack(null, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(viewModel.VoicePacks[0], TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(null, TestContext.Current.CancellationToken);
         await service.Received(1).UninstallReferenceVoicePackAsync("voice-zero-1.0", Arg.Any<CancellationToken>());
 
         // Act & Assert: a service fault is reported in the row
@@ -1145,7 +1145,7 @@ public class ModelCatalogViewModelTests
         faulty.UninstallReferenceVoicePackAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromException(new IOException("locked")));
         var faultyViewModel = new ModelCatalogViewModel(faulty);
-        await faultyViewModel.RemoveVoicePack(faultyViewModel.VoicePacks[0], TestContext.Current.CancellationToken);
+        await faultyViewModel.RemoveVoicePackAsync(faultyViewModel.VoicePacks[0], TestContext.Current.CancellationToken);
         Assert.Equal("locked", faultyViewModel.VoicePacks[0].FailureMessage);
     }
 
@@ -1229,7 +1229,7 @@ public class ModelCatalogViewModelTests
     ///     the row and leaves the pack installed instead of crashing the panel.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack()
+    public async Task ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.Downloaded);
@@ -1240,7 +1240,7 @@ public class ModelCatalogViewModelTests
         var row = viewModel.VoicePacks[0];
 
         // Act
-        await viewModel.RemoveVoicePack(row, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(row, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Same(row, viewModel.VoicePacks[0]);
@@ -1253,7 +1253,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that a canceled removal reports "Removal canceled." in the row and keeps the pack installed.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage()
+    public async Task ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.Downloaded);
@@ -1263,7 +1263,7 @@ public class ModelCatalogViewModelTests
         var row = viewModel.VoicePacks[0];
 
         // Act
-        await viewModel.RemoveVoicePack(row, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePackAsync(row, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal("Removal canceled.", row.FailureMessage);

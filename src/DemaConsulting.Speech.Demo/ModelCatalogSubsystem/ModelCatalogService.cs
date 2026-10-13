@@ -298,7 +298,7 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     catalog (its underlying HTTP operations observe a disposed object and fail). Callers
     ///     must therefore never invoke this method while one of their own downloads is in
     ///     progress; see <see cref="IModelCatalogService.ApplyMirror"/>'s remarks. This demo's
-    ///     own <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces that by refusing to call
+    ///     own <see cref="ModelCatalogViewModel.ApplyMirrorAsync"/> enforces that by refusing to call
     ///     through while any row is downloading.
     ///     <para>
     ///     Not safe to call concurrently with another <see cref="ApplyMirror"/> or

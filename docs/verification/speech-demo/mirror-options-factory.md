@@ -4,7 +4,7 @@
 
 `MirrorOptionsFactory` is verified directly by `MirrorOptionsFactoryTests`, which call `Create` with
 raw strings and assert on the returned `DownloadMirror?` or the thrown `ArgumentException`. The
-`AppLaunchOptions.CreateDownloaderOptions_*` and `ModelCatalogViewModel_ApplyMirror_*` tests
+`AppLaunchOptions.CreateDownloaderOptions_*` and `ModelCatalogViewModel_ApplyMirrorAsync_*` tests
 additionally verify that each caller presents the factory's rules, and the panel tests are linked as
 supporting evidence for the URL and credential rejection requirements.
 
@@ -78,13 +78,13 @@ invalid URL value.
 
 **Expected**: `ArgumentException`.
 
-#### ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+#### ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService
 
 **Scenario**: The panel applies an invalid URL.
 
 **Expected**: An explained error is shown and the service is not called.
 
-#### ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+#### ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
 **Scenario**: The panel applies a credential with a blank URL.
 

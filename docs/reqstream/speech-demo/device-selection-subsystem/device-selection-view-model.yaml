@@ -98,7 +98,7 @@ sections:
                   A device unplugged while the demo runs must not leave a stale selection on
                   screen.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
+                  - DeviceSelectionViewModel_RefreshAsync_AllDevicesRemoved_ClearsSelectionAndExplains
 
               - id: SpeechDemo-Devices-EmptyStateAfterRefreshExplained
                 title: >-
@@ -107,7 +107,7 @@ sections:
                 justification: |
                   The panel returns to the same explained empty state it shows at start-up.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
+                  - DeviceSelectionViewModel_RefreshAsync_AllDevicesRemoved_ClearsSelectionAndExplains
 
               - id: SpeechDemo-Devices-NameBasedSelection
                 title: >-
@@ -172,7 +172,7 @@ sections:
                   never reveal a newly attached or removed device between refreshes, defeating
                   the purpose of a manual refresh action.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
+                  - DeviceSelectionViewModel_RefreshAsync_CallsRefreshDevicesBeforeEnumerating
 
               - id: SpeechDemo-Devices-RefreshKeepsSelection
                 title: >-
@@ -184,8 +184,8 @@ sections:
                   Name is the library's only stable device identity, so a device re-reported
                   with a different format is still the same device.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
-                  - DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
+                  - DeviceSelectionViewModel_RefreshAsync_DeviceAdded_KeepsExistingSelection
+                  - DeviceSelectionViewModel_RefreshAsync_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
 
               - id: SpeechDemo-Devices-RefreshSelectionFallback
                 title: >-
@@ -196,8 +196,8 @@ sections:
                   stale device name, and leaving the picker blank while devices exist would
                   make the demo look broken.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable
-                  - DeviceSelectionViewModel_Refresh_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
+                  - DeviceSelectionViewModel_RefreshAsync_SelectedDeviceRemoved_FallsBackToFirstAvailable
+                  - DeviceSelectionViewModel_RefreshAsync_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
 
               - id: SpeechDemo-Devices-RefreshAvailabilityNotification
                 title: >-
@@ -207,7 +207,7 @@ sections:
                   The picker enables or disables itself from these flags, so a refresh that
                   gains or loses devices must announce them.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_DevicesAppear_NotifiesAvailabilityFlags
+                  - DeviceSelectionViewModel_RefreshAsync_DevicesAppear_NotifiesAvailabilityFlags
 
               - id: SpeechDemo-Devices-RefreshInUseHandling
                 title: >-
@@ -219,8 +219,8 @@ sections:
                   recoverable condition, not a crash; explaining why is the honest, crash-free
                   choice.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
-                  - DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+                  - DeviceSelectionViewModel_RefreshAsync_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+                  - DeviceSelectionViewModel_RefreshAsync_HookCannotStopInUseDevice_FallsBackToStatusMessage
 
               - id: SpeechDemo-Devices-RefreshInUseKeepsState
                 title: >-
@@ -231,8 +231,8 @@ sections:
                   to re-scan), so leaving both lists and selections untouched is the honest
                   choice.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
-                  - DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+                  - DeviceSelectionViewModel_RefreshAsync_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+                  - DeviceSelectionViewModel_RefreshAsync_HookCannotStopInUseDevice_FallsBackToStatusMessage
 
               - id: SpeechDemo-Devices-RefreshGeneralFaultHandling
                 title: >-
@@ -246,7 +246,7 @@ sections:
                   explanation honest regardless of which failure mode the native runtime
                   reports.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+                  - DeviceSelectionViewModel_RefreshAsync_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 
               - id: SpeechDemo-Devices-RefreshGeneralFaultKeepsState
                 title: >-
@@ -256,7 +256,7 @@ sections:
                   A faulted refresh found nothing trustworthy, so keeping the previous lists
                   and selections is safer than clearing them.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+                  - DeviceSelectionViewModel_RefreshAsync_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 
               - id: SpeechDemo-Devices-RefreshRecovery
                 title: >-
@@ -267,7 +267,7 @@ sections:
                   A refusal is transient: once the blocking stream stops, the next refresh must
                   restore the picker rather than leave the stale refusal message on screen.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
+                  - DeviceSelectionViewModel_RefreshAsync_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
 
               - id: SpeechDemo-Devices-RefreshPreHooks
                 title: >-
@@ -289,7 +289,7 @@ sections:
                   - SpeechDemo-Devices-PreRefreshHookRequired
                   - SpeechDemo-Devices-PreRefreshHookUnregisterRequired
                 tests:
-                  - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+                  - DeviceSelectionViewModel_RefreshAsync_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
 
               - id: SpeechDemo-Devices-PreRefreshHookOrder
                 title: >-
@@ -299,7 +299,7 @@ sections:
                   Hooks may depend on each other's effects, so a refresh must run them in a
                   predictable order rather than concurrently or in arbitrary order.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder
+                  - DeviceSelectionViewModel_RefreshAsync_MultipleHooks_InvokedInRegistrationOrder
 
               - id: SpeechDemo-Devices-PreRefreshHookRemoval
                 title: >-
@@ -309,7 +309,7 @@ sections:
                   A panel that is disposed or no longer streaming must be able to withdraw its
                   hook so a later refresh does not call into it.
                 tests:
-                  - DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
+                  - DeviceSelectionViewModel_RefreshAsync_UnregisteredHook_NotInvoked
 
               - id: SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered
                 title: >-

@@ -107,7 +107,7 @@ device's own stop happens as part of the already-in-flight `PlayAsync` task sett
 first checks `PlayCommand.IsRunning`; when `true`, it calls `StopAsync()` and then awaits
 `PlayCommand.ExecutionTask` (from `IAsyncRelayCommand`), swallowing the expected
 `OperationCanceledException` that cancellation causes, before releasing the cached session (never
-the cached engine). This is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the
+the cached engine). This is what lets the `DeviceSelectionViewModel.RefreshAsync()` clicked from the
 "Refresh devices" button stop an in-flight Play and wait for the playback device to genuinely
 close before the shared device table is re-scanned, rather than relying on the
 `AudioDeviceInUseException` fallback. `DisposeAsync()` unregisters this hook.

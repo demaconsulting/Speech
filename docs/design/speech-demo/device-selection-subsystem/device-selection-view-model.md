@@ -23,7 +23,7 @@ it opens rather than an empty list the user must manually refresh.
 - **RegisterPreRefreshHook(Func&lt;Task&gt;) / UnregisterPreRefreshHook(Func&lt;Task&gt;)**
   (both `internal`): let another panel sharing this device-selection state - currently
   `RecognitionPanelViewModel` and `SynthesisPanelViewModel`, both wired onto the same underlying
-  `AudioDeviceService`/`AudioDeviceFactory` - register an asynchronous callback that `Refresh()`
+  `AudioDeviceService`/`AudioDeviceFactory` - register an asynchronous callback that `RefreshAsync()`
   invokes and awaits, in registration order, before it ever calls
   `IAudioDeviceService.RefreshDevices()`. This is what lets a panel with an active session stop
   it deterministically, and confirm the underlying device is actually closed, before a shared
@@ -33,7 +33,7 @@ it opens rather than an empty list the user must manually refresh.
   meaningfully awaited (invoking it only returns the last subscriber's return value, discarding
   every other subscriber's task); each registered hook is expected to be a fast no-op when it has
   nothing active. Unregistering a hook that was never registered is a no-op.
-- **Refresh()**: the `[RelayCommand]`-generated, `async Task`-returning method bound to
+- **RefreshAsync()**: the `[RelayCommand]`-generated, `async Task`-returning method bound to
   `RefreshCommand`. It awaits every registered pre-refresh hook in turn, then calls the
   synchronous `RefreshCore()`, which first calls `IAudioDeviceService.RefreshDevices()` to force
   the backend to re-scan its device table. If that call throws `AudioDeviceInUseException`
@@ -50,7 +50,7 @@ it opens rather than an empty list the user must manually refresh.
   2. Otherwise select the first remaining device
   3. Otherwise leave the selection empty
 
-  It is also called directly from the constructor (not through `RefreshCore()`/`Refresh()`), so
+  It is also called directly from the constructor (not through `RefreshCore()`/`RefreshAsync()`), so
   both device lists are populated synchronously at construction time with no awaited step and
   without forcing a native PortAudio terminate/reinitialize cycle. Forcing a refresh at
   construction would throw `AudioDeviceInUseException` if any other device created from the
@@ -78,7 +78,7 @@ corresponding chosen device changes.
 **Error Handling**: The constructor throws `ArgumentNullException` for a null device service, and
 the hook registration members throw `ArgumentNullException` for a null hook. A machine with no
 audio device is an ordinary state reported through status text, not an exception, and every fault
-raised by a refresh is surfaced through the status text as described under `Refresh()`.
+raised by a refresh is surfaced through the status text as described under `RefreshAsync()`.
 
 **Dependencies**: Only the `IAudioDeviceService` seam and the library's `AudioDeviceDescription`
 and `AudioDeviceSelection` value types (plus `AudioDeviceInUseException` for the refusal case).

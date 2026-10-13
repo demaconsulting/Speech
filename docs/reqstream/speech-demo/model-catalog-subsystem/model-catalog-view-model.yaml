@@ -58,7 +58,7 @@ sections:
                   state, so a refresh must adopt it wholesale without disturbing the user's
                   selection.
                 tests:
-                  - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+                  - ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
                   - ModelCatalogViewModel_RefreshCommand_Executed_ReReadsCatalog
 
               - id: SpeechDemo-Models-RefreshDropsUnknownModel
@@ -69,7 +69,7 @@ sections:
                   Keeping a row the library no longer reports would let the panel offer a model
                   that cannot be downloaded.
                 tests:
-                  - ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
+                  - ModelCatalogViewModel_RefreshAsync_ModelNoLongerKnown_DropsRowAndFallsBack
 
               - id: SpeechDemo-Models-RefreshBlockedDuringTransfer
                 title: >-
@@ -82,8 +82,8 @@ sections:
                   user's in-flight transfer visible; the commands that finish a transfer reload
                   the rows themselves.
                 tests:
-                  - ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
-                  - ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
+                  - ModelCatalogViewModel_RefreshAsync_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
+                  - ModelCatalogViewModel_RefreshAsync_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
 
               - id: SpeechDemo-Models-DownloadProgress
                 title: >-
@@ -217,7 +217,7 @@ sections:
                   downloads to an internal mirror from the running application, not only via a
                   launch-time argument that requires relaunching the demo.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
               - id: SpeechDemo-Models-MirrorSettingsBearerToken
                 title: >-
@@ -227,7 +227,7 @@ sections:
                   Mirrors protected by a bearer token are as common as those protected by Basic
                   credentials, and the token must reach the download configuration unchanged.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken
+                  - ModelCatalogViewModel_ApplyMirrorAsync_BearerToken_ForwardsToken
 
               - id: SpeechDemo-Models-MirrorSettingsReloadsRows
                 title: >-
@@ -237,7 +237,7 @@ sections:
                   The rebuilt catalog may report different install states, so leaving the old
                   rows on display would show stale information.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
               - id: SpeechDemo-Models-MirrorSettingsFaultContained
                 title: >-
@@ -248,7 +248,7 @@ sections:
                   The mirror command is a fault-isolation boundary like every other command in
                   the panel; an unexpected seam fault must not crash the demo.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel
+                  - ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel
 
               - id: SpeechDemo-Models-MirrorSettingsPrePopulation
                 title: >-
@@ -269,7 +269,7 @@ sections:
                   A user must be able to undo a mirror redirection without relaunching the
                   application.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
+                  - ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror
 
               - id: SpeechDemo-Models-MirrorSettingsInvalidReported
                 title: >-
@@ -280,8 +280,8 @@ sections:
                   Reporting a typing mistake in place matches how every other failure in this
                   panel is handled and avoids reconfiguring downloads with a bad mirror.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
-                  - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
               - id: SpeechDemo-Models-MirrorSettingsRejectedReported
                 title: >-
@@ -291,7 +291,7 @@ sections:
                   A catalog service built over a fixed catalog cannot be reconfigured; the user
                   must be told so in the panel rather than meeting a crash.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError
 
               - id: SpeechDemo-Models-MirrorBlockedDuringDownload
                 title: >-
@@ -303,7 +303,7 @@ sections:
                   flight against it. Refusing in the panel before the service is ever called
                   keeps a user's own download from being aborted by their own action.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+                  - ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
 
               - id: SpeechDemo-Voices-PackPanel
                 title: >-
@@ -350,7 +350,7 @@ sections:
                   The user must be able to tell a voices-only install from a full one, and to
                   upgrade the former, after every refresh and not only right after an install.
                 tests:
-                  - ModelCatalogViewModel_Refresh_InstalledPack_ReadsHasEmotionsFromService
+                  - ModelCatalogViewModel_RefreshAsync_InstalledPack_ReadsHasEmotionsFromService
 
               - id: SpeechDemo-Voices-PackInstall
                 title: >-
@@ -434,7 +434,7 @@ sections:
                   The user must be able to reclaim disk space and withdraw voices they no
                   longer want.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
 
               - id: SpeechDemo-Voices-PackRemoveFaultReported
                 title: >-
@@ -444,7 +444,7 @@ sections:
                   A file-system fault during removal must not crash the demo; the user is told on
                   the row and the pack stays listed.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
 
               - id: SpeechDemo-Voices-PackRemoveStoreErrorReported
                 title: >-
@@ -454,7 +454,7 @@ sections:
                 justification: |
                   A removal fault must reach the user as an explanation, not a crash.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
 
               - id: SpeechDemo-Voices-PackRemoveCanceledReported
                 title: >-
@@ -464,7 +464,7 @@ sections:
                   A canceled removal must tell the user nothing was removed instead of failing
                   silently.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
 
               - id: SpeechDemo-Voices-PackBlockedDuringDownload
                 title: >-
@@ -484,7 +484,7 @@ sections:
                 justification: |
                   Removing a pack rebuilds the catalog, which would abort a download in flight.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
 
               - id: SpeechDemo-Voices-DownloadBlockedDuringPackInstall
                 title: >-
@@ -505,7 +505,7 @@ sections:
                   Re-mirroring rebuilds the catalog, which would abort the pack install in
                   flight.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused
+                  - ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
 
               - id: SpeechDemo-Voices-PackBlockedDuringPackInstall
                 title: >-

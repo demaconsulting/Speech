@@ -41,7 +41,7 @@ sections:
               URL, so it is rejected rather than silently ignored.
             tests:
               - MirrorOptionsFactory_Create_CredentialWithoutUrl_ThrowsWithoutEchoingSecret
-              - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+              - ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
           - id: SpeechDemo-MirrorOptions-HalfCredentialPair
             title: >-
@@ -82,4 +82,4 @@ sections:
               a malformed URL is reported before any download is attempted.
             tests:
               - MirrorOptionsFactory_Create_InvalidUrl_ThrowsWithoutEchoingValue
-              - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+              - ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService

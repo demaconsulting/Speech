@@ -39,7 +39,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     ///     A list of delegates is used instead of a plain multicast event because
-    ///     <see cref="Refresh"/> must genuinely <c>await</c> each hook to completion, in order,
+    ///     <see cref="RefreshAsync"/> must genuinely <c>await</c> each hook to completion, in order,
     ///     before calling <see cref="IAudioDeviceService.RefreshDevices"/>; a standard C# event
     ///     cannot be meaningfully awaited (invoking a multicast delegate only returns the last
     ///     subscriber's return value, discarding the others), so an explicit, awaitable
@@ -133,7 +133,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
 
         _deviceService = deviceService;
 
-        // Calls EnumerateCore() directly (not RefreshCore()/the async Refresh() command) so
+        // Calls EnumerateCore() directly (not RefreshCore()/the async RefreshAsync() command) so
         // construction-time population only reads the already-initialized device table instead
         // of forcing a native PortAudio terminate/reinitialize cycle. Forcing a refresh here
         // would throw AudioDeviceInUseException if any other device created from the shared
@@ -147,7 +147,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     }
 
     /// <summary>
-    ///     Registers a hook to be invoked and awaited by <see cref="Refresh"/> before it forces
+    ///     Registers a hook to be invoked and awaited by <see cref="RefreshAsync"/> before it forces
     ///     the backend to re-scan its device table.
     /// </summary>
     /// <param name="hook">
@@ -200,7 +200,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     could not stop.
     /// </remarks>
     [RelayCommand]
-    public async Task Refresh()
+    public async Task RefreshAsync()
     {
         foreach (var hook in _preRefreshHooks.ToArray())
         {
@@ -214,7 +214,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     Forces the backend to re-scan its device table and re-enumerates both device lists.
     /// </summary>
     /// <remarks>
-    ///     Used by <see cref="Refresh"/>, which is the only caller that should force a native
+    ///     Used by <see cref="RefreshAsync"/>, which is the only caller that should force a native
     ///     PortAudio teardown/reinitialization; construction instead uses
     ///     <see cref="EnumerateCore"/> to read the already-initialized table without forcing a
     ///     re-scan. First forces the backend to re-scan its device table via

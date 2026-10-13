@@ -97,7 +97,7 @@ public interface IModelCatalogService
     ///     The catalog instance this call replaces is disposed as part of this call (see
     ///     <see cref="ModelCatalogService"/>'s remarks), which aborts any <see cref="DownloadAsync"/>
     ///     call still in flight against it. A caller must not invoke this method while one of its
-    ///     own downloads is in progress; <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces
+    ///     own downloads is in progress; <see cref="ModelCatalogViewModel.ApplyMirrorAsync"/> enforces
     ///     this by refusing to call through while any row is downloading.
     /// </remarks>
     void ApplyMirror(DownloadMirror? mirror);

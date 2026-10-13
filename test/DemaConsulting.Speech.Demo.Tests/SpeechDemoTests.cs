@@ -600,7 +600,7 @@ public class SpeechDemoTests
         // Act: remove the pack
         setDescriptors(1);
         service.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.NotDownloaded);
-        await shell.ModelCatalog.RemoveVoicePack(shell.ModelCatalog.VoicePacks[0], TestContext.Current.CancellationToken);
+        await shell.ModelCatalog.RemoveVoicePackAsync(shell.ModelCatalog.VoicePacks[0], TestContext.Current.CancellationToken);
 
         // Assert: the service was asked to uninstall and the pack can be installed again
         await service.Received(1).UninstallReferenceVoicePackAsync(ReferenceVoicePack.VoiceZero10.Id, Arg.Any<CancellationToken>());

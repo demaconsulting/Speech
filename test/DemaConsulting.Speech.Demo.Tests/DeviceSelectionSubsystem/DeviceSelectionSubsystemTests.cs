@@ -105,7 +105,7 @@ public class DeviceSelectionSubsystemTests
         var viewModel = new DeviceSelectionViewModel(service);
 
         // Act: refresh through the panel
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: the library re-scanned its device table and the lists are unchanged
         Assert.Equal(1, api.TerminateCallCount);
@@ -131,7 +131,7 @@ public class DeviceSelectionSubsystemTests
         var selectionBefore = viewModel.CaptureSelection;
 
         // Act: refresh through the panel
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: nothing was re-enumerated or reselected, and both statuses carry the message
         Assert.Equal([micA], viewModel.CaptureDevices);
@@ -158,7 +158,7 @@ public class DeviceSelectionSubsystemTests
         viewModel.SelectedCaptureDevice = micB;
 
         // Act: refresh through the panel
-        await viewModel.Refresh();
+        await viewModel.RefreshAsync();
 
         // Assert: the chosen device stayed chosen
         Assert.Same(micB, viewModel.SelectedCaptureDevice);

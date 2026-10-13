@@ -483,7 +483,7 @@ public class SynthesisPanelViewModelTests
     {
         // Arrange: a session whose SpeakAsync only completes when its token is canceled,
         // simulating an in-flight, indefinitely long utterance, sharing the panel's own
-        // device-selection panel so Refresh() exercises the real registered hook
+        // device-selection panel so RefreshAsync() exercises the real registered hook
         var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
         var deviceService = Substitute.For<IAudioDeviceService>();
         var availableDevice = PlaybackDevice();
@@ -500,7 +500,7 @@ public class SynthesisPanelViewModelTests
         // Act: start playback without awaiting it, then refresh the shared device-selection
         // panel (as the "Refresh devices" button would)
         var playTask = viewModel.PlayCommand.ExecuteAsync(null);
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: Stop was requested on the session, the device refresh completed without
         // throwing (proving the hook genuinely awaited PlayAsync's own completion rather than
@@ -525,7 +525,7 @@ public class SynthesisPanelViewModelTests
     public async Task SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds()
     {
         // Arrange: a panel with no Play session ever started, sharing its own device-selection
-        // panel so Refresh() exercises the real registered hook
+        // panel so RefreshAsync() exercises the real registered hook
         var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
         var deviceService = Substitute.For<IAudioDeviceService>();
         var availableDevice = PlaybackDevice();
@@ -536,7 +536,7 @@ public class SynthesisPanelViewModelTests
             Catalog(descriptor), deviceService, deviceSelection, SessionFactory(engine));
 
         // Act: refresh the shared device-selection panel while idle, with no Play ever started
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: the refresh completes without throwing, no session was ever created, and the
         // panel remains idle

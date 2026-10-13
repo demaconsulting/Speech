@@ -72,32 +72,32 @@ canceled is explained on the pack's row instead of failing.
 
 **Expected**: The row returns to not downloaded without an error.
 
-#### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+#### ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
 
 **Scenario**: A mirror is applied while a model download is in flight.
 
 **Expected**: The seam is not asked to reconfigure and the panel explains the refusal.
 
-#### ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused
+#### ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
 
 **Scenario**: A mirror is applied while a voice pack install is in flight.
 
 **Expected**: The change is refused and explained, and the seam is not called.
 
-#### ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+#### ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
 
 **Scenario**: A model's install state changes and the panel is refreshed.
 
 **Expected**: Rows are rebuilt from the seam and the selected model stays selected.
 
-#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
 **Scenario**: Valid mirror fields are applied.
 
 **Expected**: The seam's `ApplyMirror` receives the configured mirror and the panel reports success
 and refreshes.
 
-#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
 **Scenario**: A valid mirror URL is applied.
 
@@ -115,13 +115,13 @@ and refreshes.
 
 **Expected**: The pair is rebuilt and `ReferenceVoicesChanged` raised.
 
-#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
 **Scenario**: A valid mirror is applied through the panel.
 
 **Expected**: The catalog is re-read so the rows reflect the rebuilt catalog.
 
-#### ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+#### ModelCatalogViewModel_RemoveVoicePackAsync_UninstallsRefreshesAndReportsFaults
 
 **Scenario**: A pack is removed through the panel.
 
@@ -155,14 +155,14 @@ library rolled the upgrade back.
 **Expected**: The row stays installed with removal enabled and "Add emotions" still offered, and the
 failure message is shown on the row.
 
-#### ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
+#### ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
 
 **Scenario**: The service rejects the uninstall of a pack with a store exception.
 
 **Expected**: The exception's message is shown on the pack's row, the pack stays installed, and nothing
 is thrown at the user.
 
-#### ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
 
 **Scenario**: The seam's uninstall is canceled.
 

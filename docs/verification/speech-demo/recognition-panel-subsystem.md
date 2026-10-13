@@ -58,7 +58,7 @@ disposed.
 **Scenario**: The panel is actively listening, sharing a `DeviceSelectionViewModel` whose device
 service refuses `RefreshDevices()` with `AudioDeviceInUseException` only while a "still
 listening" flag is true; the session's `StopAsync()` flips that flag false. The shared
-`DeviceSelectionViewModel.Refresh()` is then invoked, as the "Refresh devices" button would.
+`DeviceSelectionViewModel.RefreshAsync()` is then invoked, as the "Refresh devices" button would.
 
 **Expected**: The panel's registered pre-refresh hook calls `StopAsync()` on the session before
 the device refresh is attempted, so the refresh completes without throwing; the panel returns to

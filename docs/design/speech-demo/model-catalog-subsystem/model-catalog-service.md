@@ -55,7 +55,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   replaced immediately. An in-flight `DownloadAsync` call still running against the replaced
   catalog is therefore aborted rather than left to run to completion - its underlying HTTP
   operations observe a disposed object and fail. Callers must never invoke `ApplyMirror` while
-  one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirror` (see its own
+  one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirrorAsync` (see its own
   design doc) is this demo's sole production caller and enforces that by refusing to call
   through - reporting an explained panel error instead - while any row is downloading.
 - **Reference voice packs**: Supported when the service was constructed with the composition

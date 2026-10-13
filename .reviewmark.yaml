@@ -2009,7 +2009,9 @@ reviews:
       - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"            # self-validation
       - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"          # path-traversal-safe combine
       - "test/DemaConsulting.Speech.Cli.Tests/AssemblyInfo.cs"            # test assembly attributes
-      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # in-process tests
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # Program in-process tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs"        # Context tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs"  # CommandDispatch tests
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
       - "test/DemaConsulting.Speech.Cli.Tests/Cli/ConsoleCancellationTests.cs"  # ConsoleCancellation tests

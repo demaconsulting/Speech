@@ -68,7 +68,7 @@ configuration.
 **Expected**: Both directions report no devices available and carry an explanatory message naming
 the possible cause.
 
-##### DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
+##### DeviceSelectionViewModel_RefreshAsync_AllDevicesRemoved_ClearsSelectionAndExplains
 
 **Scenario**: The last device is removed and the panel is refreshed.
 
@@ -102,20 +102,20 @@ has to special-case the no-device machine.
 
 **Expected**: Both directions are re-enumerated through the service.
 
-##### DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
+##### DeviceSelectionViewModel_RefreshAsync_CallsRefreshDevicesBeforeEnumerating
 
 **Scenario**: `Refresh()` is invoked.
 
 **Expected**: `IAudioDeviceService.RefreshDevices()` is called exactly once, before either direction
 is re-enumerated.
 
-##### DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
+##### DeviceSelectionViewModel_RefreshAsync_DeviceAdded_KeepsExistingSelection
 
 **Scenario**: A device is hot-plugged and the panel is refreshed.
 
 **Expected**: The chosen device stays selected.
 
-##### DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
+##### DeviceSelectionViewModel_RefreshAsync_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
 
 **Scenario**: The selected device is re-reported as a new description carrying a different
 sample rate.
@@ -123,27 +123,27 @@ sample rate.
 **Expected**: It is reselected by name, proving identity is name-based rather than
 instance-based.
 
-##### DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable
+##### DeviceSelectionViewModel_RefreshAsync_SelectedDeviceRemoved_FallsBackToFirstAvailable
 
 **Scenario**: The selected capture device is unplugged and the panel is refreshed.
 
 **Expected**: The first remaining device is selected, so the picker is never left blank while
 devices exist.
 
-##### DeviceSelectionViewModel_Refresh_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
+##### DeviceSelectionViewModel_RefreshAsync_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
 
 **Scenario**: The selected playback device is unplugged and the panel is refreshed.
 
 **Expected**: The first remaining playback device is selected and the capture selection is
 unchanged.
 
-##### DeviceSelectionViewModel_Refresh_DevicesAppear_NotifiesAvailabilityFlags
+##### DeviceSelectionViewModel_RefreshAsync_DevicesAppear_NotifiesAvailabilityFlags
 
 **Scenario**: A panel with no devices is refreshed and the service now reports devices.
 
 **Expected**: Change notifications are raised for both availability flags and both read true.
 
-##### DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+##### DeviceSelectionViewModel_RefreshAsync_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
 
 **Scenario**: `IAudioDeviceService.RefreshDevices()` throws `AudioDeviceInUseException` because a
 device is currently streaming.
@@ -151,7 +151,7 @@ device is currently streaming.
 **Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
 neither list nor either selection is touched.
 
-##### DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+##### DeviceSelectionViewModel_RefreshAsync_HookCannotStopInUseDevice_FallsBackToStatusMessage
 
 **Scenario**: A registered no-op hook cannot help, and `IAudioDeviceService.RefreshDevices()`
 unconditionally refuses with `AudioDeviceInUseException`.
@@ -159,7 +159,7 @@ unconditionally refuses with `AudioDeviceInUseException`.
 **Expected**: The status-message fallback still fires, proving the hook mechanism does not weaken
 the safety net.
 
-##### DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+##### DeviceSelectionViewModel_RefreshAsync_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 
 **Scenario**: `IAudioDeviceService.RefreshDevices()` throws a general exception (for example,
 `InvalidOperationException` simulating a native `Terminate()` failure).
@@ -167,7 +167,7 @@ the safety net.
 **Expected**: Both status texts are set to the exception's message, and neither list nor either
 selection is touched.
 
-##### DeviceSelectionViewModel_Refresh_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
+##### DeviceSelectionViewModel_RefreshAsync_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
 
 **Scenario**: The first refresh is refused with `AudioDeviceInUseException` and the second
 succeeds.
@@ -175,7 +175,7 @@ succeeds.
 **Expected**: The first shows the refusal message; the second re-enumerates and reports the normal
 count status.
 
-##### DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+##### DeviceSelectionViewModel_RefreshAsync_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
 
 **Scenario**: A pre-refresh hook backed by a `TaskCompletionSource` is registered, then `Refresh()`
 is called.
@@ -184,13 +184,13 @@ is called.
 completes, `Refresh()` proceeds and calls `RefreshDevices()` exactly once, proving the hook is
 awaited to completion rather than fired without waiting.
 
-##### DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder
+##### DeviceSelectionViewModel_RefreshAsync_MultipleHooks_InvokedInRegistrationOrder
 
 **Scenario**: Two hooks are registered and `Refresh()` is called.
 
 **Expected**: The hooks run in registration order.
 
-##### DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
+##### DeviceSelectionViewModel_RefreshAsync_UnregisteredHook_NotInvoked
 
 **Scenario**: A hook is registered, then unregistered before `Refresh()` is called.
 

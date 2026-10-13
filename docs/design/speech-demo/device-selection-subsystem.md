@@ -23,7 +23,7 @@ the synthesis and recognition panels, which read its `CaptureSelection`/`Playbac
 register pre-refresh hooks) and `IAudioDeviceService` (consumed by the panels to create
 capture and playback devices). It consumes the library's `AudioDeviceFactory`,
 `AudioDeviceDescription` and `AudioDeviceSelection`. `DeviceSelectionViewModel` also exposes the
-`Refresh` command and `RegisterPreRefreshHook`/`UnregisterPreRefreshHook`, through which a panel
+`RefreshAsync` command and `RegisterPreRefreshHook`/`UnregisterPreRefreshHook`, through which a panel
 that holds a device open stops its session before a refresh; their contracts are in the
 _DeviceSelectionViewModel Design_.
 

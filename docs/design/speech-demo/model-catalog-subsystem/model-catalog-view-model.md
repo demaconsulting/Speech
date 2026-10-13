@@ -19,20 +19,20 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 | `ApplyMirrorCommand` | generated command | Applies the typed mirror settings |
 | `VoicePacks` / `HasVoicePacks` | `ObservableCollection<...>` / `bool` | The pack rows; whether to show the section |
 | `UserVoicesDirectory` / `VoiceConsentNotice` | `string?` / `string` | The user folder and the consent note |
-| `InstallVoicePackAsync` / `RemoveVoicePack` | generated async commands | Install or remove the given pack |
+| `InstallVoicePackAsync` / `RemoveVoicePackAsync` | generated async commands | Install or remove the given pack |
 | `InitialLoadTask` | `Task` | Background load of installed packs' emotion flags; never faults |
 | `VoiceBusyMessage` | `const string` | The explanation shown when a pack action is refused during a transfer |
 
 **Key Methods**:
 
-- **Refresh()**: Asynchronous, guarded. Does nothing while any model download or voice-pack
+- **RefreshAsync()**: Asynchronous, guarded. Does nothing while any model download or voice-pack
   install is in flight (`IsTransferInFlight()`), so the row that shows that transfer's progress and
   outcome is not discarded. Otherwise it delegates to `ReloadAsync()`. This is the only entry point
   bound to the user's Refresh button.
 - **ReloadAsync()** (private): The unguarded reload. Calls `RefreshCore()` and then
   `LoadPackEmotionsAsync()`. It is used by the commands that have just finished, or deliberately
-  completed, a transfer themselves - `ApplyMirror`, a successful `InstallVoicePackAsync` and a
-  successful `RemoveVoicePack` - and so must not be blocked by the busy guard.
+  completed, a transfer themselves - `ApplyMirrorAsync`, a successful `InstallVoicePackAsync` and a
+  successful `RemoveVoicePackAsync` - and so must not be blocked by the busy guard.
 - **RefreshCore()** (private, synchronous): Captures the selected row's model id, clears the rows,
   rebuilds one row per reported descriptor, and then restores the captured id if it is still
   reported, or the first row otherwise. It also rebuilds the pack rows with `HasEmotions` false.
@@ -56,7 +56,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
      library guarantees a canceled download installs nothing
   5. Treats an unexpected seam exception as `FailedOrCorrupt` carrying that exception's message,
      because a presentation layer must not crash the application on a seam fault
-- **ApplyMirror()**: Asynchronous. While any model row is downloading or any pack row is
+- **ApplyMirrorAsync()**: Asynchronous. While any model row is downloading or any pack row is
   installing, refuses outright - recording an explained `MirrorHasError`/`MirrorStatusMessage` and
   returning without calling `IModelCatalogService.ApplyMirror` at all - because that service call
   disposes the catalog instance any in-flight transfer depends on, which would otherwise abort it.
@@ -66,7 +66,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
   `AppLaunchOptions.CreateDownloaderOptions()` already apply: the URL must be a valid absolute
   URI, a lone user or password is rejected, and a blank URL means "no mirror"), then calls
   `IModelCatalogService.ApplyMirror(mirror)`. On success, records a confirmation message and then
-  awaits the unguarded `ReloadAsync()` (not the guarded `Refresh()`, because the transfer check has
+  awaits the unguarded `ReloadAsync()` (not the guarded `RefreshAsync()`, because the transfer check has
   already passed) so the row list reflects whatever the newly reconfigured catalog reports. Any
   exception thrown by the mirror construction or by the service's `ApplyMirror` - an
   `ArgumentException` for invalid typed input, an `InvalidOperationException` because the service
@@ -93,7 +93,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
     or `NotDownloaded` for a cancellation). The failure or cancellation message is preserved in
     every case. If the service cannot report the state (the re-read throws), the row falls back
     to the outcome's state.
-- **RemoveVoicePack(pack, cancellationToken)**: Ignores a null row or one that cannot be removed
+- **RemoveVoicePackAsync(pack, cancellationToken)**: Ignores a null row or one that cannot be removed
   and refuses with `VoiceBusyMessage` under the same busy rule as the install. It does not mark
   the row `Downloading` and does not use `ApplyPackOutcomeAsync`. It awaits the service's
   asynchronous uninstall (which waits for any in-flight install of that pack) and then awaits
@@ -104,10 +104,10 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 **Error Handling**: Never lets a seam fault, checksum mismatch, transport failure, or
 cancellation escape as an unhandled exception; every outcome resolves to a row state and,
 where applicable, a human-readable failure message. When the catalog reports nothing,
-`IsCatalogEmpty` is true and the panel shows `EmptyCatalogMessage`. `ApplyMirror()` similarly
+`IsCatalogEmpty` is true and the panel shows `EmptyCatalogMessage`. `ApplyMirrorAsync()` similarly
 never lets a validation failure, an in-progress download or pack install, an unsupported
 reconfiguration, an unexpected seam fault or a failed catalog re-read escape; each resolves to
-`MirrorHasError` plus an explanatory `MirrorStatusMessage`. `Refresh()` refused during a transfer
+`MirrorHasError` plus an explanatory `MirrorStatusMessage`. `RefreshAsync()` refused during a transfer
 is silent by design: it changes nothing and reports nothing.
 Voice-pack operations are fault-contained the same way: an install outcome or exception is
 reported on the pack's row (see `ApplyPackOutcomeAsync` above), a removal fault is shown as the row's
