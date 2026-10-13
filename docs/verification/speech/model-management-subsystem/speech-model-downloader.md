@@ -152,9 +152,30 @@ the model is not installed, and no staging files remain under the store root.
 **Scenario**: The downloader is disposed while a download is held open in the client; once released, the
 download still reports `Installed` (the lock release swallows the `ObjectDisposedException`).
 
+##### Download: Null Descriptor or Model Throws ArgumentNullException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException`
+
+**Requirement**: `Speech-Models-SpeechModelDownloader-ArgumentValidation`
+
+**Scenario**: Each of the string, delegate-hook and `ISpeechModel` overloads is called with a null descriptor
+or model and throws `ArgumentNullException`; nothing is installed.
+
+##### Download: Invalid Model Id Throws ArgumentException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException`
+
+**Requirement**: `Speech-Models-SpeechModelDownloader-ArgumentValidation`
+
+**Scenario**: Each overload is called with a null, empty or dot-segment model id and throws `ArgumentException`
+before any download is attempted.
+
 ##### Download: Install-Hook Delegate Overload Runs the Hook Before the Swap
 
 **Test**: `SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput`
+
+**Scenario**: A caller-supplied install hook runs on the verified staging directory before the model is
+installed, and the content it leaves behind is what gets installed.
 
 ##### Download: Throwing Install-Hook Delegate Reports Failure and Installs Nothing
 
@@ -249,9 +270,19 @@ the downloader inherits this validation through `SpeechModelStore.BeginStaging`)
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
 
+**Requirement**: `Speech-Models-SpeechModelDownloader-NetworkBlockedAuthentication`
+
+**Scenario**: The client throws an `HttpRequestException` wrapping an `AuthenticationException`; the outcome is
+`NetworkBlocked` and nothing is installed.
+
 ##### Download: HttpRequestException Wrapping SocketException Reports NetworkBlocked
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked`
+
+**Requirement**: `Speech-Models-SpeechModelDownloader-NetworkBlockedSocket`
+
+**Scenario**: The client throws an `HttpRequestException` wrapping a `SocketException`; the outcome is
+`NetworkBlocked` and nothing is installed.
 
 ##### Download: TaskCanceledException From Injected Client Reports Failed
 
@@ -260,6 +291,11 @@ the downloader inherits this validation through `SpeechModelStore.BeginStaging`)
 ##### Download: HttpModelDownloadClient Internal Timeout Reports NetworkBlocked
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`
+
+**Requirement**: `Speech-Models-SpeechModelDownloader-NetworkBlockedTimeout`
+
+**Scenario**: The concrete `HttpModelDownloadClient` hits its own internal request timeout while the caller's
+token is not canceled; the outcome is `NetworkBlocked` and nothing is installed.
 
 ##### Download: HttpModelDownloadClient Non-Timeout Cancellation Reports Failed
 

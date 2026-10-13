@@ -117,7 +117,10 @@ sections:
               - Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
               - Speech-Models-SpeechModelDownloader-InstallHookOverload
               - Speech-Models-SpeechModelDownloader-DisposedThrows
+              - Speech-Models-SpeechModelDownloader-ArgumentValidation
             tests:
+              - SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException
+              - SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException
               - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
               - SpeechModelDownloader_DownloadAsync_WithModel_InvokesInstallAsyncBeforeCompleteInstall
               - SpeechModelDownloader_DownloadAsync_WithZipArchiveModel_CurrentContainsExtractedFilesNotTheArchive
@@ -305,7 +308,9 @@ sections:
               risk a genuine caller cancellation being misreported as a failure outcome.
             children:
               - Speech-Models-SpeechModelDownloader-RicherFailureClassification
-              - Speech-Models-SpeechModelDownloader-NetworkBlockedClassification
+              - Speech-Models-SpeechModelDownloader-NetworkBlockedAuthentication
+              - Speech-Models-SpeechModelDownloader-NetworkBlockedSocket
+              - Speech-Models-SpeechModelDownloader-NetworkBlockedTimeout
               - Speech-Models-SpeechModelDownloader-IoFailureClassification
               - Speech-Models-SpeechModelDownloader-GenericFailureFallback
               - Speech-Models-SpeechModelDownloader-CallerCancellationPropagates

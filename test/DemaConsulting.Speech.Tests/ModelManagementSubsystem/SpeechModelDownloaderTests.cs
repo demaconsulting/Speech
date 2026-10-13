@@ -457,6 +457,52 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a null descriptor or null model is rejected with <see cref="ArgumentNullException"/>
+    ///     before any download is attempted.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync("model-a", null!, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync("model-a", null!, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync((ISpeechModel)null!, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a null, empty or invalid model id is rejected with <see cref="ArgumentException"/>
+    ///     before any download is attempted.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptorFor("payload-a"u8.ToArray(), "a.bin");
+        using var downloader = new SpeechModelDownloader(NewStore(), new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act / Assert
+        await Assert.ThrowsAnyAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(null!, descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(string.Empty, descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync("..", descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync("..", descriptor, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(
+                new RecordingInstallHookModel("..", descriptor), cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     ///     Proves that the <see cref="ISpeechModel"/>-aware overload invokes the model's own
     ///     <see cref="ISpeechModel.InstallAsync"/> hook after checksum verification but before
     ///     <c>current/</c> exists, passing it the staging directory containing the verified file.

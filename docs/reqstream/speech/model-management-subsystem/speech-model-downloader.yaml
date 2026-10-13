@@ -11,6 +11,18 @@ sections:
         sections:
           - title: SpeechModelDownloader Requirements
             requirements:
+              - id: Speech-Models-SpeechModelDownloader-ArgumentValidation
+                title: >-
+                  The SpeechModelDownloader class shall reject a null descriptor or model with
+                  ArgumentNullException and a null, empty, or invalid model id with
+                  ArgumentException, before any download is attempted.
+                justification: |
+                  Invalid arguments are caller programming errors; failing fast avoids touching the
+                  network or disk and avoids misreporting them as download failures.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException
+                  - SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException
+
               - id: Speech-Models-SpeechModelDownloader-PerModelSerialization
                 title: >-
                   The SpeechModelDownloader class shall serialize two concurrent DownloadAsync
@@ -270,18 +282,39 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
 
-              - id: Speech-Models-SpeechModelDownloader-NetworkBlockedClassification
+              - id: Speech-Models-SpeechModelDownloader-NetworkBlockedAuthentication
                 title: >-
                   The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.NetworkBlocked
-                  for an HttpRequestException wrapping an AuthenticationException or SocketException,
-                  and for a TaskCanceledException not caused by the caller's own CancellationToken that
-                  originates from the concrete HttpModelDownloadClient's own internal HTTP request timeout.
+                  for a download failure that is an HttpRequestException wrapping an
+                  AuthenticationException.
                 justification: |
-                  A blocked or intercepted network path is something a host might resolve by
-                  configuring a DownloadMirror, so it must be distinguishable from other failures.
+                  A TLS or certificate failure is the shape produced by an intercepting network
+                  device, which a host might resolve by configuring a DownloadMirror, so it must be
+                  distinguishable from other failures.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
+
+              - id: Speech-Models-SpeechModelDownloader-NetworkBlockedSocket
+                title: >-
+                  The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.NetworkBlocked
+                  for a download failure that is an HttpRequestException wrapping a SocketException.
+                justification: |
+                  A DNS failure, refused connection, or unreachable host is a blocked network path
+                  a host might resolve by configuring a DownloadMirror, so it must be
+                  distinguishable from other failures.
+                tests:
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
+
+              - id: Speech-Models-SpeechModelDownloader-NetworkBlockedTimeout
+                title: >-
+                  The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.NetworkBlocked
+                  for a TaskCanceledException not caused by the caller's own CancellationToken that
+                  originates from the concrete HttpModelDownloadClient's own internal HTTP request timeout.
+                justification: |
+                  A request that times out against an unresponsive network path is something a host
+                  might resolve by configuring a DownloadMirror, so it must be distinguishable from
+                  other failures.
+                tests:
                   - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked
 
               - id: Speech-Models-SpeechModelDownloader-IoFailureClassification
@@ -322,9 +355,9 @@ sections:
 
               - id: Speech-Models-SpeechModelDownloader-InstallHookOverload
                 title: >-
-                  The SpeechModelDownloader class shall offer an internal overload that runs a
-                  caller-supplied install hook on the verified staging directory before the atomic
-                  swap and installs whatever the hook leaves behind.
+                  The SpeechModelDownloader class shall, when given a caller-supplied install hook,
+                  run that hook on the verified staging directory before the model is installed and
+                  install whatever the hook leaves behind.
                 justification: |
                   Model-agnostic payloads such as a reference-voice pack need the same verified,
                   mirror-aware, atomic download as models without implementing ISpeechModel; a
