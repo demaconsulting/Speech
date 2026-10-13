@@ -3,6 +3,9 @@
 #
 # Groups requirements for on-demand PortAudio device-table refresh - spanning
 # PortAudioEnvironment.Refresh() and AudioDeviceFactory.RefreshDevices() - into a single file.
+# The capability is recorded in the SysML2 model as the AudioDeviceRefreshSeam item
+# (docs/sysml2/model/speech/audio-subsystem/audio-device-refresh-seam.sysml), whose design and
+# verification are documented in the AudioDeviceFactory and PortAudioEnvironment unit documents.
 # AudioDeviceInUseException has its own unit requirements file
 # (audio-device-in-use-exception.yaml). This is a deliberate, narrower exception to
 # per-unit requirement ownership, not a literal application of sysml2-modeling.md's "Units
