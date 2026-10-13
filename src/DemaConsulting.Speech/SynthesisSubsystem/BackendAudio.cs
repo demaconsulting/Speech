@@ -14,4 +14,4 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     since a third-party <see cref="ISynthesisBackend"/> implementation must be able to return
 ///     one.
 /// </remarks>
-public sealed record EngineAudio(float[] Samples, int SampleRate);
+public sealed record BackendAudio(float[] Samples, int SampleRate);

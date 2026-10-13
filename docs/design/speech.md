@@ -126,7 +126,7 @@ The system exposes the following public API to external consumers:
 - **NaturalLanguageAudioTag** / **NaturalLanguageAudioTagKind** / **AudioTagDescriptor** /
   **AudioTagCatalog** / **TaggedTextSpanKind** / **TaggedTextSpan** / **AudioTagParser**: the
   closed, fixed inline audio-tag vocabulary and the model-independent parser that recognizes it
-- **ISynthesisBackend** / **EngineAudio**: the engine-neutral synthesis backend seam that model
+- **ISynthesisBackend** / **BackendAudio**: the engine-neutral synthesis backend seam that model
   extensions implement and the plain-data audio result its `Generate` call returns
 - **ISpeechSynthesizerEngine** / **ISynthesisSession** / **SynthesizedSpeech**: the loaded-model
   engine and per-device session halves of the streaming synthesis-and-playback contract, their

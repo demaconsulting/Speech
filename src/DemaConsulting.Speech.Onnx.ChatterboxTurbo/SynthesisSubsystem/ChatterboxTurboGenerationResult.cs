@@ -8,4 +8,4 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 /// <param name="Audio">The synthesized audio.</param>
 /// <param name="HitTokenLimit">True when generation stopped on a guard bound instead of the model's stop token.</param>
 /// <param name="SpeechTokenCount">The number of speech tokens that were decoded.</param>
-internal sealed record ChatterboxTurboGenerationResult(EngineAudio Audio, bool HitTokenLimit, int SpeechTokenCount);
+internal sealed record ChatterboxTurboGenerationResult(BackendAudio Audio, bool HitTokenLimit, int SpeechTokenCount);

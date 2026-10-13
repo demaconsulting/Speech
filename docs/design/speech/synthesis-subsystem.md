@@ -61,7 +61,7 @@ word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
 
 The subsystem exposes `NaturalLanguageAudioTag`, `NaturalLanguageAudioTagKind`,
 `AudioTagDescriptor`, `AudioTagCatalog`, `TaggedTextSpanKind`, `TaggedTextSpan`, `AudioTagParser`,
-`ISpeechSynthesizerEngine`, `ISynthesisSession`, `ISynthesisBackend`, `EngineAudio`,
+`ISpeechSynthesizerEngine`, `ISynthesisSession`, `ISynthesisBackend`, `BackendAudio`,
 `IModelCapabilityProfile`, `SpeechPlan`, `SpeechSegment`, `SynthesizedSpeech`,
 `SynthesisSessionState`, `SessionStateChangedEventArgs`, `SpeechSynthesizerFactory`,
 `UnavailableSpeechSynthesizerEngine`, `UnavailableSynthesisSession`,

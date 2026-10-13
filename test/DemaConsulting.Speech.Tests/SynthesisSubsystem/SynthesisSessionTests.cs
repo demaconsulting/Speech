@@ -1497,14 +1497,14 @@ public class SynthesisSessionTests
             }
         }
 
-        public EngineAudio Generate(string text, float speed, int speakerId)
+        public BackendAudio Generate(string text, float speed, int speakerId)
         {
             lock (_observed)
             {
                 _observed.Add(readObservedCount());
             }
 
-            return new EngineAudio(new float[text.Length * 4], SampleRate);
+            return new BackendAudio(new float[text.Length * 4], SampleRate);
         }
 
         public void Dispose()
@@ -1552,7 +1552,7 @@ public class SynthesisSessionTests
         /// <summary>Backing store for <see cref="GenerateReturned"/>; volatile because it is read from other threads.</summary>
         private volatile bool _generateReturned;
 
-        public EngineAudio Generate(string text, float speed, int speakerId)
+        public BackendAudio Generate(string text, float speed, int speakerId)
         {
             generateStarted.Release();
 
@@ -1564,7 +1564,7 @@ public class SynthesisSessionTests
             generateRelease.Wait(testCancellationToken);
 
             _generateReturned = true;
-            return new EngineAudio([], SampleRate);
+            return new BackendAudio([], SampleRate);
         }
 
         public void Dispose()

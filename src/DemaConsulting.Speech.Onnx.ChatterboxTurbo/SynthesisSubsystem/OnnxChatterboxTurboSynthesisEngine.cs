@@ -133,7 +133,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
 
     /// <inheritdoc/>
     /// <remarks>The <paramref name="speed"/> argument is ignored: the model exposes no speed control.</remarks>
-    public EngineAudio Generate(string text, float speed, int speakerId) => GenerateDetailed(text, speakerId).Audio;
+    public BackendAudio Generate(string text, float speed, int speakerId) => GenerateDetailed(text, speakerId).Audio;
 
     /// <summary>
     ///     Generates speech and reports guard diagnostics.
@@ -154,7 +154,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
         // Nothing to say: avoid touching the networks at all
         if (string.IsNullOrWhiteSpace(spoken))
         {
-            return new ChatterboxTurboGenerationResult(new EngineAudio([], OutputSampleRate), false, 0);
+            return new ChatterboxTurboGenerationResult(new BackendAudio([], OutputSampleRate), false, 0);
         }
 
         lock (_gate)
@@ -222,7 +222,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             Array.Fill(decoderTokens, SilenceToken, conditioning.PromptTokens.Length + speech.Length, TrailingSilenceTokenCount);
 
             var waveform = _networks.Decode(decoderTokens, conditioning);
-            return new ChatterboxTurboGenerationResult(new EngineAudio(waveform, OutputSampleRate), !stopped, speech.Length);
+            return new ChatterboxTurboGenerationResult(new BackendAudio(waveform, OutputSampleRate), !stopped, speech.Length);
         }
     }
 

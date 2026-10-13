@@ -92,7 +92,7 @@ already-opened sessions before rethrowing.
 3. The language model is stepped autoregressively with a repetition-penalized greedy selector until
    the stop token or a bound proportional to the text length
 4. The conditional decoder converts the prompt and speech tokens into a 24 kHz waveform, which is
-   returned to Speech as `EngineAudio`
+   returned to Speech as `BackendAudio`
 
 ## Design Constraints
 

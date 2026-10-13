@@ -133,7 +133,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
 
     /// <summary>
     ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> short-circuits to an empty
-    ///     <see cref="EngineAudio"/>, never running the ONNX graph at all, when every word of
+    ///     <see cref="BackendAudio"/>, never running the ONNX graph at all, when every word of
     ///     <paramref name="text"/> is absent from the embedded lexicon and so produces zero
     ///     phoneme tokens.
     /// </summary>

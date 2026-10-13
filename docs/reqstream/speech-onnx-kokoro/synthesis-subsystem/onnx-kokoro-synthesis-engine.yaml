@@ -93,7 +93,7 @@ sections:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall return an empty
-                  EngineAudio without running the ONNX graph when phonemization produces zero
+                  BackendAudio without running the ONNX graph when phonemization produces zero
                   tokens.
                 justification: |
                   Running the ONNX graph on a content-free, all-padding input would waste

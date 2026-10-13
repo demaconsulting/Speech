@@ -120,7 +120,7 @@ playback device throws promptly rather than hanging. Calling an operational memb
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
 same session throws `InvalidOperationException`.
 
-**Dependencies**: `ISynthesisBackend` (whose `Generate` returns the plain-data `EngineAudio`
+**Dependencies**: `ISynthesisBackend` (whose `Generate` returns the plain-data `BackendAudio`
 record: mono samples plus sample rate), `ISynthesisModel` (`NormalizeText`, `CapabilityProfile`,
 `ResolveSpeakerId`), `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
 `PlaybackAudioResampler`, `SynthesizedSpeech`, `SynthesisSessionState`,

@@ -115,7 +115,7 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     public bool IsDisposed => _isDisposed;
 
     /// <inheritdoc/>
-    public EngineAudio Generate(string text, float speed, int speakerId)
+    public BackendAudio Generate(string text, float speed, int speakerId)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
@@ -151,7 +151,7 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
                 samples[i] = 0.5f;
             }
 
-            return new EngineAudio(samples, SampleRate);
+            return new BackendAudio(samples, SampleRate);
         }
         finally
         {

@@ -46,7 +46,7 @@ locally, per `requirements-principles.md`'s "Tests MAY exist without a requireme
 The constructor throws `ArgumentNullException` for each individually-null required parameter
 (session, vocabulary, phonemizer, voice-styles dictionary) and `ArgumentException` for an empty
 voice-styles dictionary; `SampleRate` always reports 24000 Hz; `Generate` returns an empty
-`EngineAudio` at 24000 Hz without running the ONNX graph for text that phonemizes to zero tokens
+`BackendAudio` at 24000 Hz without running the ONNX graph for text that phonemizes to zero tokens
 (empty text, or text composed entirely of out-of-vocabulary words); `Generate` throws
 `ArgumentNullException` for null text and `ObjectDisposedException` once the engine has been
 disposed; a second `Dispose` call is a harmless no-op; `RunProbeInference` runs its representative

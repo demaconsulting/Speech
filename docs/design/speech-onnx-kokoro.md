@@ -130,7 +130,7 @@ safety role.
    and `speed` tensors - the same three tensor names (shared as internal constants between
    `Generate` and the engine's `RunProbeInference` probe, so the two call sites can never drift
    apart)
-6. **Output**: the raw waveform tensor is returned to Speech as `EngineAudio` at the model's fixed
+6. **Output**: the raw waveform tensor is returned to Speech as `BackendAudio` at the model's fixed
    24000 Hz sample rate, which Speech resamples to the playback device's format when needed
 
 ## Design Constraints

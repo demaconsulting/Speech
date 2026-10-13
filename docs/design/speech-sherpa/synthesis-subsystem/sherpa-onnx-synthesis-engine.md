@@ -21,7 +21,7 @@ by constructing this engine directly.
 - **SampleRate**: The fixed rate the loaded model produces audio at; authoritative over the
   model's best-effort `PreferredAudioFormat` hint.
 - **Generate(text, speed, speakerId)**: Calls the underlying `OfflineTts.Generate(text, speed,
-  speakerId)` and wraps its output samples and rate in an `EngineAudio`.
+  speakerId)` and wraps its output samples and rate in an `BackendAudio`.
 - **Dispose()**: Releases the loaded `OfflineTts`. Safe to call more than once.
 
 **Error Handling**: Construction loads the model into native memory and therefore throws when the
@@ -32,7 +32,7 @@ unavailable fallback. `Generate` throws `ArgumentNullException` for null text, a
 members throw `ObjectDisposedException` after disposal.
 
 **Dependencies**: The sherpa-onnx managed API (see _SherpaOnnx Design_); the core library's
-`ISynthesisBackend` and `EngineAudio` from the _Speech SynthesisSubsystem Design_.
+`ISynthesisBackend` and `BackendAudio` from the _Speech SynthesisSubsystem Design_.
 
 **Callers**: `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and
 `SherpaOnnxKokoroEnglishSynthesisModel` construct the engine from their `CreateBackend`

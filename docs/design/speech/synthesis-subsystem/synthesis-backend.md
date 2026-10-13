@@ -19,7 +19,7 @@ and has no fields.
 - **ISynthesisBackend.SampleRate**: The fixed rate this backend's `Generate(...)` output is
   produced at.
 - **ISynthesisBackend.Generate(text, speed, speakerId)**: Synthesizes one chunk of text at the
-  given speed multiplier and speaker id, returning an `EngineAudio` (samples plus the rate they
+  given speed multiplier and speaker id, returning an `BackendAudio` (samples plus the rate they
   were produced at).
 - **ISynthesisBackendFactory.Create(ISynthesisModel, string installedModelDirectory)**: Loads a
   backend for the model.
@@ -36,7 +36,7 @@ a null model and `ArgumentException` for a null or empty directory; any exceptio
 `CreateBackend` raises - for example a missing native runtime or unusable model files - propagates
 unchanged.
 
-**Dependencies**: `EngineAudio`; `ISynthesisModel` from the ModelManagementSubsystem.
+**Dependencies**: `BackendAudio`; `ISynthesisModel` from the ModelManagementSubsystem.
 
 **Callers**: `SynthesisSession` (backend) and `SpeechSynthesizerFactory`/`SpeechSynthesizerEngine`
 (factory; the public `LoadAsync(...)` overloads reach `DefaultSynthesisBackendFactory`).

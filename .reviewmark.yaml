@@ -1205,7 +1205,7 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/synthesis-session.md"
       - "docs/verification/speech/synthesis-subsystem/synthesis-session.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSession.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/EngineAudio.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/BackendAudio.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngineFactory.cs"

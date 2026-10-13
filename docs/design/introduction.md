@@ -453,7 +453,7 @@ src/DemaConsulting.Speech/
     ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract (public)
     ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
     ├── SentenceChunker.cs                        — Sentence/clause-sized chunking
-    ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate (public)
+    ├── BackendAudio.cs                             — Raw engine output: samples plus produced rate (public)
     ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
     ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
     ├── SynthesisSessionState.cs                   — Session state machine enum
