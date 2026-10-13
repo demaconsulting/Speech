@@ -391,8 +391,11 @@ public sealed class SpeechModelStoreTests : IDisposable
 
         using var handle = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-        // Act & Assert
+        // Act
         Assert.Throws<SpeechModelStoreException>(() => store.Uninstall("model-a"));
+
+        // Assert: the half-failed uninstall must not read as installed
+        Assert.False(store.IsInstalled("model-a"));
     }
 
     /// <summary>
@@ -538,18 +541,15 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that uninstalling removes superseded <c>current.replaced-*</c> directories but leaves another
-    ///     operation's live <c>.tmp</c> staging directory alone.
+    ///     Proves that uninstalling leaves another operation's live <c>.tmp</c> staging directory alone.
     /// </summary>
     [Fact]
-    public void SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories()
+    public void SpeechModelStore_Uninstall_LiveStagingDirectory_IsLeftAlone()
     {
         // Arrange
         var store = NewStore();
         var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
         store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
-        var replaced = Path.Join(store.GetModelDirectory("model-a"), "current.replaced-old");
-        Directory.CreateDirectory(replaced);
         var (_, liveStaging) = BeginStagingWithFile(store, "model-a", "other.bin", "x");
 
         // Act
@@ -557,10 +557,234 @@ public sealed class SpeechModelStoreTests : IDisposable
 
         // Assert
         Assert.False(store.IsInstalled("model-a"));
-        Assert.False(Directory.Exists(replaced));
         Assert.True(Directory.Exists(liveStaging));
     }
 
+    /// <summary>
+    ///     Proves that uninstalling removes superseded <c>current.replaced-*</c> directories.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Uninstall_ReplacedDirectories_AreRemoved()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var replaced = Path.Join(store.GetModelDirectory("model-a"), "current.replaced-old");
+        Directory.CreateDirectory(replaced);
+
+        // Act
+        store.Uninstall("model-a");
+
+        // Assert
+        Assert.False(store.IsInstalled("model-a"));
+        Assert.False(Directory.Exists(replaced));
+    }
+
+    /// <summary>
+    ///     Proves that a failed manifest delete during uninstall leaves the model fully installed (nothing is half
+    ///     removed), because the manifest is removed before <c>current/</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Uninstall_ManifestDeleteFails_LeavesModelInstalled()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Read-only-file delete blocking semantics are only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
+        File.SetAttributes(manifestPath, FileAttributes.ReadOnly);
+
+        try
+        {
+            // Act
+            Assert.Throws<SpeechModelStoreException>(() => store.Uninstall("model-a"));
+
+            // Assert
+            Assert.True(store.IsInstalled("model-a"));
+            Assert.True(File.Exists(Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin")));
+        }
+        finally
+        {
+            File.SetAttributes(manifestPath, FileAttributes.Normal);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that a failed asynchronous uninstall reports its failure through the task and leaves the model
+    ///     reading as not installed.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_UninstallAsync_OpenFileHandleInCurrent_FaultsWithSpeechModelStoreException()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Exclusive-delete blocking semantics are only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+        var lockedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
+        using var handle = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        // Act
+        var task = store.UninstallAsync("model-a", TestContext.Current.CancellationToken);
+
+        // Assert
+        await Assert.ThrowsAsync<SpeechModelStoreException>(() => task);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a leftover staging directory that cannot be removed does not make cleanup throw.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CleanUpLeftovers_LockedLeftoverDirectory_DoesNotThrow()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Exclusive-delete blocking semantics are only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        var store = NewStore();
+        var (_, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "partial");
+        using var handle = new FileStream(
+            Path.Join(stagingDirectory, "payload.bin"), FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        // Act
+        var exception = Record.Exception(() => store.CleanUpLeftovers("model-a"));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.True(Directory.Exists(stagingDirectory));
+    }
+
+    /// <summary>
+    ///     Proves that a manifest that cannot be written after the swap makes the install throw and leaves the model
+    ///     reading as not installed, which shows the manifest is written only after the directory rename.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_ManifestWriteFails_ThrowsAndReadsAsNotInstalled()
+    {
+        // Arrange: a directory occupying the manifest path makes the manifest write fail
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        Directory.CreateDirectory(Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json"));
+
+        // Act
+        var exception = Record.Exception(() => store.CompleteInstall("model-a", operationId, stagingDirectory, 5));
+
+        // Assert
+        Assert.NotNull(exception);
+        Assert.True(Directory.Exists(store.GetCurrentDirectory("model-a")));
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an invalid-file-name-character model id is rejected before anything is created on disk.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_GetModelDirectory_InvalidCharacterModelId_ThrowsAndCreatesNothing()
+    {
+        // Arrange
+        var store = NewStore();
+        var modelId = "a" + '\0' + "b";
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => store.GetModelDirectory(modelId));
+        Assert.Throws<ArgumentException>(() => store.BeginStaging(modelId));
+        Assert.Throws<ArgumentException>(() => store.Uninstall(modelId));
+        Assert.Empty(Directory.GetFileSystemEntries(_testRoot));
+    }
+
+    /// <summary>
+    ///     Proves that an unsafe operation id or a staging directory outside the model's <c>.tmp</c> area is
+    ///     rejected without touching installed content.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-2");
+        var foreign = Path.Join(_testRoot, "elsewhere");
+        Directory.CreateDirectory(foreign);
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", "..", stagingDirectory, 1));
+        Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", "a/b", stagingDirectory, 1));
+        Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", operationId, foreign, 1));
+        Assert.Equal("version-1", File.ReadAllText(Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin")));
+        Assert.True(Directory.Exists(foreign));
+    }
+
+    /// <summary>
+    ///     Proves that beginning staging creates a fresh, empty, unique staging directory inside the model's
+    ///     <c>.tmp</c> area, including when several operations begin concurrently.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_BeginStaging_ConcurrentCalls_CreateUniqueEmptyDirectories()
+    {
+        // Arrange
+        var store = NewStore();
+
+        // Act
+        var results = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(
+            () => store.BeginStaging("model-a"),
+            TestContext.Current.CancellationToken)));
+
+        // Assert
+        Assert.Equal(16, results.Select(r => r.StagingDirectory).Distinct().Count());
+        Assert.All(results, r =>
+        {
+            Assert.True(Directory.Exists(r.StagingDirectory));
+            Assert.Empty(Directory.GetFileSystemEntries(r.StagingDirectory));
+            Assert.StartsWith(Path.Join(store.GetModelDirectory("model-a"), ".tmp") + Path.DirectorySeparatorChar, r.StagingDirectory);
+        });
+    }
+
+    /// <summary>
+    ///     Proves that abandoning a staging directory deletes it and leaves installed content untouched.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_AbandonStaging_StagingDirectory_IsDeletedAndCurrentKept()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var (_, staging) = BeginStagingWithFile(store, "model-a", "partial.bin", "x");
+
+        // Act
+        SpeechModelStore.AbandonStaging(staging);
+
+        // Assert
+        Assert.False(Directory.Exists(staging));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a whitespace-only root path override falls back to the default root.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot()
+    {
+        // Arrange & Act
+        var store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = "   " });
+
+        // Assert
+        Assert.Equal(new SpeechModelStore().RootPath, store.RootPath);
+    }
     /// <summary>
     ///     Proves that an invalid model id is rejected by <see cref="SpeechModelStore.Uninstall"/>.
     /// </summary>

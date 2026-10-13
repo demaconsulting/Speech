@@ -35,6 +35,10 @@ sections:
               - Speech-Models-SpeechModelStore-AtomicSwapReplacesExisting
               - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
               - Speech-Models-SpeechModelStore-InstallRollback
+              - Speech-Models-SpeechModelStore-ManifestWrittenAfterSwap
+              - Speech-Models-SpeechModelStore-StagingCreation
+              - Speech-Models-SpeechModelStore-AbandonStaging
+              - Speech-Models-SpeechModelStore-InstallArgumentGuards
             tests:
               - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
               - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
@@ -50,6 +54,7 @@ sections:
               install sequence is always safe.
             children:
               - Speech-Models-SpeechModelStore-InstallStateHonesty
+              - Speech-Models-SpeechModelStore-InstallStateQueryNeverThrows
             tests:
               - SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse
               - SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse
@@ -86,12 +91,18 @@ sections:
             children:
               - Speech-Models-SpeechModelStore-Uninstall
               - Speech-Models-SpeechModelStore-UninstallNotInstalledNoOp
+              - Speech-Models-SpeechModelStore-UninstallAsync
               - Speech-Models-SpeechModelStore-UninstallAsyncRejection
-              - Speech-Models-SpeechModelStore-UninstallStagingHandling
-              - Speech-Models-SpeechModelStore-CleanUpLeftovers
+              - Speech-Models-SpeechModelStore-UninstallLeavesLiveStaging
+              - Speech-Models-SpeechModelStore-UninstallRemovesReplaced
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversStaging
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversReplaced
+              - Speech-Models-SpeechModelStore-CleanUpLeftoversNeverThrows
               - Speech-Models-SpeechModelStore-EmptyTempCleanup
               - Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
-              - Speech-Models-SpeechModelStore-UninstallFailureReporting
+              - Speech-Models-SpeechModelStore-UninstallCurrentFailureReporting
+              - Speech-Models-SpeechModelStore-UninstallManifestFailureReporting
+              - Speech-Models-SpeechModelStore-UninstallAsyncFailureReporting
               - Speech-Models-SpeechModelStoreException-UninstallFailureSignal
               - Speech-Models-SpeechModelStoreException-StandardConstructors
             tests:
@@ -294,13 +305,12 @@ sections:
 
           - id: Speech-Models-RicherFailureClassification
             title: >-
-              The ModelManagementSubsystem shall classify a download/install failure into
-              NetworkBlocked, HttpError, or IoFailure when it recognizes the specific exception
-              shape, falling back to the existing generic Failed outcome for anything unmatched,
-              so a host can distinguish a blocked/intercepted network path from a real HTTP error
-              response or a local disk/permission failure without inspecting Error's exception
-              type itself.
+              The ModelManagementSubsystem shall classify each download/install failure into a
+              distinct outcome category.
             justification: |
+              The categories are NetworkBlocked, HttpError, and IoFailure, with the generic
+              Failed outcome as the fallback for any unrecognized exception shape, so a host
+              need not inspect Error's exception type itself.
               Collapsing every failure into one generic Failed outcome leaves a host unable to
               tell a blocked/intercepted network path (which it might resolve by configuring a
               mirror) apart from a real HTTP error response or a local disk/permission failure -
@@ -327,13 +337,13 @@ sections:
 
           - id: Speech-Models-ContractDeclaration
             title: >-
-              The ModelManagementSubsystem shall describe each model through a common contract
-              (identity, role, declared parameters, declared audio-tag support, download
-              descriptor, an install hook defaulting to a no-op, a text-normalization hook
-              defaulting to identity, and a declared license name/URL defaulting to "Unknown"/
-              null), with role-specific recognition/synthesis marker interfaces so a catalog can
-              report and filter models by role ahead of any engine-specific construction logic.
+              The ModelManagementSubsystem shall describe every model through a common contract
+              that is independent of engine-specific construction.
             justification: |
+              The contract covers identity, role, declared parameters, declared audio-tag
+              support, download descriptor, an install hook, a text-normalization hook, and a
+              declared license, with role-specific recognition/synthesis marker interfaces so a
+              catalog can report and filter models by role.
               The design keeps engine-specific construction behind IRecognitionModel/ISynthesisModel,
               so SpeechModelCatalog can report and filter by role through the common contract
               without knowing any engine-specific member.
@@ -394,6 +404,7 @@ sections:
               - Speech-Models-SpeechModelParameters-NumericIntegerFlag
               - Speech-Models-SpeechModelParameters-NumericIntegerValidation
               - Speech-Models-SpeechModelParameters-ChoiceValidation
+              - Speech-Models-SpeechModelParameters-ChoiceValuesExposed
               - Speech-Models-SpeechModelParameters-ChoiceDuplicateValidation
               - Speech-Models-SpeechModelParameters-ChoiceDefaultValidation
               - Speech-Models-SpeechModelParameters-ChoiceOptionValueValidation
@@ -409,23 +420,15 @@ sections:
 
           - id: Speech-Models-TunableParameterValueValidation
             title: >-
-              The ModelManagementSubsystem shall provide a shared helper that validates a
-              caller-supplied parameterValues bag against a model's declared tunable-parameter
-              descriptor set: silently ignoring (with only an Info diagnostic) a supplied key
-              naming a parameter the model does not declare, but throwing ArgumentException for
-              a value supplied for a parameter the model does declare when that value is invalid
-              for it.
+              The ModelManagementSubsystem shall throw ArgumentException for an invalid value
+              supplied for a parameter the model declares.
             justification: |
               This is a deliberate, user-approved breaking change from this library's earlier
-              silent-default behavior for a recognized parameter's invalid value: an unrecognized
-              parameter id is a legitimate cross-model compatibility gap (a host reusing one
-              settings bag across different models) and must remain a silent no-op, while an
-              invalid value for a parameter the caller explicitly targeted on this specific model
-              is a caller bug that must be surfaced immediately and loudly rather than silently
-              substituted. Sharing one helper between SpeechRecognizerFactory and
-              SpeechSynthesizerFactory guarantees both compose with identical validation rules.
+              silent-default behavior for a recognized parameter's invalid value: an invalid
+              value for a parameter the caller explicitly targeted on this specific model is a
+              caller bug that must be surfaced immediately and loudly rather than silently
+              substituted. One shared validation guarantees both factories apply identical rules.
             children:
-              - Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
               - Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
               - Speech-Models-SpeechModelParameterDiagnostics-NumericValueInvalid
               - Speech-Models-SpeechModelParameterDiagnostics-NumericValueAccepted
@@ -435,13 +438,24 @@ sections:
               - Speech-Models-SpeechModelParameterDiagnostics-NullValueThrows
               - Speech-Models-SpeechModelParameterDiagnostics-UnsupportedDescriptorThrows
               - Speech-Models-SpeechModelParameterDiagnostics-ParamName
-              - Speech-Models-SpeechModelParameterDiagnostics-NoOpForNullOrEmptyBag
               - Speech-Models-SpeechModelParameterDiagnostics-NullArguments
             tests:
-              - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
               - ValidateAndReport_NumericParameterOutOfRange_Throws
               - ValidateAndReport_ChoiceParameterInvalidOption_Throws
               - ValidateAndReport_BooleanParameterWrongType_Throws
+
+          - id: Speech-Models-TunableParameterUnrecognizedIdTolerance
+            title: >-
+              The ModelManagementSubsystem shall ignore a supplied parameter id the model does not
+              declare, reporting only an informational diagnostic.
+            justification: |
+              An unrecognized parameter id is a legitimate cross-model compatibility gap (a host
+              reusing one settings bag across different models) and must remain a silent no-op.
+            children:
+              - Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
+              - Speech-Models-SpeechModelParameterDiagnostics-NoOpForNullOrEmptyBag
+            tests:
+              - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
 
           - id: Speech-Models-CatalogEnumeration
             title: >-
@@ -630,6 +644,7 @@ sections:
             children:
               - Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
               - Speech-Models-ReferenceVoicePack-MoodClipLookup
+              - Speech-Models-ReferenceVoicePack-MoodClipNoMatch
             tests:
               - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
               - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed

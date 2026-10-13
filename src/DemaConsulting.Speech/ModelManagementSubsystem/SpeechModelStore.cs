@@ -18,6 +18,9 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     an in-use recognizer/synthesizer continues reading unaffected content until the swap
 ///     completes; the residual risk around in-use file handles during old-directory cleanup is
 ///     deferred rather than assumed away, by making that cleanup best-effort and non-blocking.
+///     The store holds no locks: it assumes a single writer (install or uninstall) per model id at a
+///     time. <see cref="SpeechModelDownloader"/> provides that serialization per model id; a host that
+///     calls <see cref="Uninstall"/> directly must not run it concurrently with an install of the same model.
 /// </remarks>
 public sealed class SpeechModelStore
 {
@@ -38,12 +41,13 @@ public sealed class SpeechModelStore
     /// </summary>
     /// <param name="options">
     ///     Optional host-configured storage options, or <see langword="null"/> to use the default
-    ///     per-user <see cref="Environment.SpecialFolder.LocalApplicationData"/> root.
+    ///     per-user <see cref="Environment.SpecialFolder.LocalApplicationData"/> root. A null,
+    ///     empty, or whitespace-only <see cref="SpeechModelStoreOptions.RootPathOverride"/> also selects the default.
     /// </param>
     /// <remarks>Never throws; the root directory is created lazily on first write.</remarks>
     public SpeechModelStore(SpeechModelStoreOptions? options = null)
     {
-        RootPath = !string.IsNullOrEmpty(options?.RootPathOverride)
+        RootPath = !string.IsNullOrWhiteSpace(options?.RootPathOverride)
             ? options.RootPathOverride
             : Path.Join(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -153,10 +157,26 @@ public sealed class SpeechModelStore
     ///     is then deleted best-effort; a failure (e.g. an open file handle held by an in-use
     ///     model) is swallowed and left for <see cref="CleanUpLeftovers"/> to retry later.
     /// </remarks>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="modelId"/> is invalid, when <paramref name="operationId"/> is not a single
+    ///     valid directory-name segment, or when <paramref name="stagingDirectory"/> is not inside the model's
+    ///     <c>.tmp</c> directory; nothing is touched in any of these cases.
+    /// </exception>
     internal void CompleteInstall(string modelId, string operationId, string stagingDirectory, long totalSizeBytes)
     {
         var modelDirectory = GetModelDirectory(modelId);
         var currentDirectory = GetCurrentDirectory(modelId);
+
+        // The operation id becomes part of a path and the staging directory is renamed into current/, so guard both
+        ValidatePathSegment(operationId, nameof(operationId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
+        var stagingRoot = Path.GetFullPath(Path.Join(modelDirectory, StagingRootName)) + Path.DirectorySeparatorChar;
+        if (!Path.GetFullPath(stagingDirectory).StartsWith(stagingRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"Staging directory '{stagingDirectory}' is not inside the staging area of model '{modelId}'.",
+                nameof(stagingDirectory));
+        }
 
         // Rename any existing installed content aside first - a plain directory rename does not
         // require exclusive access to the files inside it, so an in-use model keeps working.
@@ -242,7 +262,7 @@ public sealed class SpeechModelStore
     internal static void AbandonStaging(string stagingDirectory) => TryDeleteDirectoryRecursively(stagingDirectory);
 
     /// <summary>
-    ///     Removes a model's installed content, manifest, and any superseded <c>current.replaced-*</c> directories.
+    ///     Removes a model's install manifest, installed content, and any superseded <c>current.replaced-*</c> directories.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
@@ -260,21 +280,9 @@ public sealed class SpeechModelStore
     public void Uninstall(string modelId)
     {
         var currentDirectory = GetCurrentDirectory(modelId);
-        if (Directory.Exists(currentDirectory))
-        {
-            try
-            {
-                Directory.Delete(currentDirectory, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                throw new SpeechModelStoreException(
-                    $"Failed to uninstall model '{modelId}': its installed directory could not be removed, " +
-                    "most likely because another process still has an open file handle into it.",
-                    ex);
-            }
-        }
 
+        // Remove the manifest first: a recursive directory delete is not atomic, so if it fails partway the model
+        // must already read as not installed rather than as installed with damaged content
         var manifestPath = GetManifestPath(modelId);
         if (File.Exists(manifestPath))
         {
@@ -291,6 +299,21 @@ public sealed class SpeechModelStore
             }
         }
 
+        if (Directory.Exists(currentDirectory))
+        {
+            try
+            {
+                Directory.Delete(currentDirectory, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new SpeechModelStoreException(
+                    $"Failed to uninstall model '{modelId}': its installed directory could not be removed, " +
+                    "most likely because another process still has an open file handle into it. " +
+                    "The model now reads as not installed; repeat the uninstall to finish removing it.",
+                    ex);
+            }
+        }
         // Only superseded current.replaced-* directories are removed here; .tmp/* may be a concurrent installer's
         // live staging directory, so it is left for CleanUpLeftovers
         var modelDirectory = GetModelDirectory(modelId);
@@ -471,6 +494,25 @@ public sealed class SpeechModelStore
             throw new ArgumentException(
                 $"Model id '{modelId}' must not be a relative-path segment ('.' or '..').",
                 nameof(modelId));
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a value is a single, safe file-name segment (used for the operation id).
+    /// </summary>
+    /// <param name="value">The value to validate.</param>
+    /// <param name="paramName">The parameter name reported in the exception.</param>
+    /// <exception cref="ArgumentException">Thrown when the value is null, blank, contains an invalid file-name character, or is "." or "..".</exception>
+    private static void ValidatePathSegment(string value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("The value must not be null, empty, or whitespace.", paramName);
+        }
+
+        if (value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || value is "." or "..")
+        {
+            throw new ArgumentException($"'{value}' is not a valid single directory-name segment.", paramName);
         }
     }
 

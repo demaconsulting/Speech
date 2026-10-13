@@ -25,7 +25,7 @@ public sealed class SpeechModelStoreOptions
     ///     default per-user <see cref="Environment.SpecialFolder.LocalApplicationData"/> location.
     /// </summary>
     /// <remarks>
-    ///     When <see langword="null"/> (the default), <see cref="SpeechModelStore"/> resolves its
+    ///     When <see langword="null"/>, empty, or whitespace-only (the default is <see langword="null"/>), <see cref="SpeechModelStore"/> resolves its
     ///     root to a "DemaConsulting.Speech/Models" folder under
     ///     <see cref="Environment.SpecialFolder.LocalApplicationData"/>. The override, when
     ///     supplied, is used verbatim as the store root - it is the caller's responsibility to

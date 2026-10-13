@@ -6,8 +6,10 @@ Verified through direct unit tests in `SpeechModelStoreTests.cs` using a unique 
 directory per test. These tests prove root resolution, the atomic `current/` swap on both first
 install and repair/re-download (including rollback when the swap fails), install-state honesty
 (including manifest-missing, malformed, field-less, and unreadable manifests), leftover cleanup,
-uninstall success/no-op/failure paths, and model-id validation, entirely on the local file
-system with no real network access.
+uninstall success/no-op/failure paths, and model-id validation. Nothing is mocked: every test
+uses the real file system under a scratch directory, with no network access. Failure paths that
+depend on Windows file-locking or ACL semantics run only on Windows and are linked in the
+requirements with the `windows@` source filter.
 
 #### Test Environment
 
@@ -19,9 +21,11 @@ system with no real network access.
 #### Acceptance Criteria
 
 Tests pass when root resolution honors both the default and the override, `IsInstalled` never
-throws and is honest about manifest/`current/` state, the atomic swap rename replaces prior
-content without leaving stale content readable, leftover `.tmp/*` directories are cleaned up, and
-uninstall removes an installed model while being a no-op for one that was never installed.
+throws and is honest about manifest/`current/` state (including after a failed uninstall), the atomic
+swap rename replaces prior content without leaving stale content readable and rolls back on failure, the
+operation id and staging directory are validated, leftover `.tmp/*` directories are cleaned up, model
+ids are validated before the file system is touched, and uninstall removes an installed model while being a
+no-op for one that was never installed. Windows-only scenarios are skipped, not passed, on other platforms.
 
 #### Test Scenarios
 
@@ -71,14 +75,11 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 **Test**: `SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow`
 
-##### Uninstall: Live Staging Is Kept, Replaced Directories Are Removed
-
-**Test**: `SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories`
-
 ##### Uninstall: Open File Handle Throws SpeechModelStoreException (Windows only)
 
 **Test**: `SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException`
 
+After the exception the model must read as not installed (the manifest is removed before `current/`).
 This scenario opens a file handle inside `current/` with `FileShare.Read` (which omits
 `FileShare.Delete`), so that deleting the directory fails, and asserts the documented exception.
 It is Windows-specific (POSIX allows deleting an open file) and calls `Assert.Skip(...)` when not
@@ -91,6 +92,25 @@ on other platforms records the scenario as skipped rather than failing.
 
 This scenario marks the install manifest read-only so deleting it fails, and asserts the documented
 exception; it is skipped on non-Windows platforms.
+
+##### Uninstall: Manifest Delete Failure Leaves the Model Installed (Windows only)
+
+**Test**: `SpeechModelStore_Uninstall_ManifestDeleteFails_LeavesModelInstalled`
+
+A read-only manifest makes the delete fail before anything is removed; `IsInstalled` stays `true` and
+the content in `current/` is intact.
+
+##### UninstallAsync: Failure Is Reported Through the Task (Windows only)
+
+**Test**: `SpeechModelStore_UninstallAsync_OpenFileHandleInCurrent_FaultsWithSpeechModelStoreException`
+
+##### Uninstall: Live Staging Is Left Alone
+
+**Test**: `SpeechModelStore_Uninstall_LiveStagingDirectory_IsLeftAlone`
+
+##### Uninstall: Replaced Directories Are Removed
+
+**Test**: `SpeechModelStore_Uninstall_ReplacedDirectories_AreRemoved`
 
 ##### Uninstall: Invalid Model Id Throws ArgumentException
 
@@ -128,6 +148,43 @@ asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Win
 **Test**: `SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException`
 
 **Test**: `SpeechModelStore_GetModelDirectory_NullModelId_ThrowsArgumentNullException`
+
+##### Model Id Validation: Invalid Character Is Rejected Without Touching the File System
+
+**Test**: `SpeechModelStore_GetModelDirectory_InvalidCharacterModelId_ThrowsAndCreatesNothing`
+
+A model id containing a NUL character is rejected by `GetModelDirectory`, `BeginStaging` and `Uninstall`,
+and the scratch root stays empty.
+
+##### Atomic Swap: Manifest Is Written Only After the Rename
+
+**Test**: `SpeechModelStore_CompleteInstall_ManifestWriteFails_ThrowsAndReadsAsNotInstalled`
+
+A directory occupying the manifest path makes the manifest write fail after the rename; the install throws,
+`current/` exists, and `IsInstalled` is `false`.
+
+##### Atomic Swap: Unsafe Operation Id or Foreign Staging Directory Is Rejected
+
+**Test**: `SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException`
+
+##### Staging: Concurrent Begin Creates Unique Empty Directories
+
+**Test**: `SpeechModelStore_BeginStaging_ConcurrentCalls_CreateUniqueEmptyDirectories`
+
+Sixteen parallel calls each create a distinct, empty staging directory under `.tmp`. The bounded retry for a
+racing empty-`.tmp` cleanup is exercised by this contention but cannot be forced deterministically.
+
+##### Staging: Abandon Deletes Staging and Keeps Current
+
+**Test**: `SpeechModelStore_AbandonStaging_StagingDirectory_IsDeletedAndCurrentKept`
+
+##### Cleanup: Locked Leftover Does Not Throw (Windows only)
+
+**Test**: `SpeechModelStore_CleanUpLeftovers_LockedLeftoverDirectory_DoesNotThrow`
+
+##### Construction: Whitespace Root Override Uses the Default
+
+**Test**: `SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot`
 
 ##### Empty .tmp Cleanup After Install
 
