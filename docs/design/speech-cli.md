@@ -205,7 +205,8 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 1. **Input**: `--validate` is given, optionally with `--results <file>` and `--depth <#>`
 2. **Checks**: version display, help display, and whether the dispatch table is well formed are
    checked in-process (the version and help checks build their inner `Context` with an empty
-   environment reader, so ambient `DEMASPEECH_MIRROR_*` variables cannot affect them); an `AudioDeviceFactory` is composed and both device probes are enumerated
+   environment reader, so ambient `DEMASPEECH_MIRROR_*` variables cannot affect them); an `AudioDeviceFactory` is
+   composed and both device probes are enumerated
    to prove the audio backend composition path never throws; a `SpeechModelStore` is resolved
    (honoring `--models-dir` when given) and a small marker file is written to and deleted from its
    root to prove the model-store location is writable

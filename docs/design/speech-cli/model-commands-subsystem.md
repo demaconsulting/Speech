@@ -66,8 +66,8 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | --- | --- | --- |
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(id, progress, token)` | `Task<SpeechModelDownloadResult>` | Throws for unknown id; no-op if installed |
-| `UninstallAsync(id, token)` | `Task` | `ArgumentException` for an invalid id; safe no-op if nothing is installed; `SpeechModelStoreException` for a genuine store failure |
-| `CleanUpLeftoversAsync(id, token)` | `Task` | `ArgumentException` for an invalid id; otherwise best-effort and never throws |
+| `UninstallAsync(id, token)` | `Task` | `ArgumentException` for bad id; no-op if absent; `SpeechModelStoreException` on failure |
+| `CleanUpLeftoversAsync(id, token)` | `Task` | `ArgumentException` for bad id; else best-effort, never throws |
 
 These four model-management members are the original seam; the format/engine members (see _Seam
 Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem_ below) and the
@@ -179,7 +179,8 @@ cancellation then is reported with `WriteError` and a non-zero exit code rather 
 
 Awaits `catalog.CleanUpLeftoversAsync(modelId, ct)` and reports success. `SpeechModelStore.CleanUpLeftovers`
 is documented as fully best-effort and never throwing for a failed deletion, so this handler needs no exception
-handling of its own beyond cancellation (reported like `uninstall`'s, with `Ctrl+C` wired the same way); a model with nothing to clean up is reported the same way as one with
+handling of its own beyond cancellation (reported like `uninstall`'s, with `Ctrl+C` wired the same way); a model
+with nothing to clean up is reported the same way as one with
 leftovers actually removed. A missing `<modelId>` or an extra argument is an `ArgumentException`.
 
 ### ListVoicesCommand
@@ -255,8 +256,8 @@ seam instead of being repeated across every caller:
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizerEngineAsync(descriptor, parameterValues, ct)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
-| `CreateRecognizerEngineAsync(descriptor, parameterValues, ct)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
+| `CreateSynthesizerEngineAsync(descriptor, values, ct)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis throws |
+| `CreateRecognizerEngineAsync(descriptor, values, ct)` | `Task<ISpeechRecognizerEngine>` | Non-recognition throws |
 
 `SpeechModelCatalogAdapter` implements all three through private `RequireSynthesisModel`/
 `RequireRecognitionModel` helpers that perform the respective `is ISynthesisModel`/

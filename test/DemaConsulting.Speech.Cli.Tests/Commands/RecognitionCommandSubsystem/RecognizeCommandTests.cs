@@ -438,7 +438,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
-            ["--stt-model", "model-1", "--mic", "--stt-param", "noseparator"]));
+            ["--stt-model", "model-1", "--mic", "--stt-param", "missing-equals-sign"]));
     }
 
     /// <summary>

@@ -727,9 +727,9 @@ public sealed class AskCommandTests
     public void AskCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
-            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--tts-param", "noseparator"]));
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--tts-param", "missing-equals-sign"]));
         Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
-            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--stt-param", "noseparator"]));
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--stt-param", "missing-equals-sign"]));
     }
 
     /// <summary>Test that a non-positive --start-timeout throws.</summary>
