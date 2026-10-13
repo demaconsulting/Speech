@@ -14,18 +14,39 @@ sections:
         sections:
           - title: OnnxChatterboxTurboNetworks Requirements
             requirements:
-              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Inference
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Encode
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall encode a reference clip into the
-                  conditioning data, embed token ids into embedding rows, run a language-model
-                  step that continues from the previous steps and returns the last position's
-                  logits, and decode speech tokens into a waveform.
+                  conditioning data.
                 justification: |
-                  This unit is the only place the graphs' tensor contracts are known.
+                  This unit is the only place the speech encoder's tensor contract is known.
                 tests:
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Embed
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall embed token ids into embedding rows.
+                justification: |
+                  This unit is the only place the embedding graph's tensor contract is known.
+                tests:
                   - OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Step
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall run a language-model step that
+                  continues from the previous steps and returns the last position's logits.
+                justification: |
+                  Incremental generation needs each step to reuse the earlier steps.
+                tests:
                   - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Decode
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall decode speech tokens into a
+                  waveform.
+                justification: |
+                  The generated speech tokens must become audible audio.
+                tests:
                   - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputs
@@ -65,8 +86,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall expose a configured intra-op thread
-                  count and reject invalid counts.
+                  The OnnxChatterboxTurboNetworks class shall use the configured number of CPU
+                  threads and reject a count that is not positive.
                 justification: |
                   Hosts must be able to bound CPU use.
                 tests:

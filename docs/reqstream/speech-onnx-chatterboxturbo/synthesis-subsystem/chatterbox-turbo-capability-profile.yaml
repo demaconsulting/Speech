@@ -28,8 +28,9 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall render sighs and pauses as
-                  silence segments.
+                  The ChatterboxTurboCapabilityProfile class shall render a sigh as 300 ms of
+                  silence, a short pause as 300 ms of silence and a long pause as 900 ms of
+                  silence.
                 justification: |
                   The model has no usable token for these, so real silence is the faithful
                   rendering.
@@ -40,8 +41,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall omit every tag it has no
-                  rendering for and never emit bracketed text the model could speak aloud, and
-                  shall give every tag kind a treatment that uses no emotion tokens.
+                  rendering for, so that no bracketed text the model could speak aloud is emitted.
                 justification: |
                   The model mispronounces unknown brackets, so tags it cannot render must become
                   nothing.
@@ -64,30 +64,43 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagBetweenSentences
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall attach a tag between sentences
-                  to the following sentence, and join a chunk holding only a trailing tag to the
-                  previous unit.
+                  to the following sentence.
                 justification: |
                   A tag that stands alone has no speech to attach to.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagOnlyChunk
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall join a chunk holding only a
+                  trailing tag to the previous unit.
+                justification: |
+                  A chunk of only a tag has no speech to carry it.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall split text into sentences with
-                  a short pause after ellipsis endings, without splitting at a full stop flanked
-                  by digits.
+                  The ChatterboxTurboCapabilityProfile class shall split text into sentences and
+                  add a 500 ms pause after an ellipsis ending.
                 justification: |
-                  The model is reliable only on moderate-length sentences, and a decimal number
-                  is not a sentence boundary.
+                  The model is reliable only on moderate-length sentences.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-DigitFlankedStop
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall not treat a full stop flanked
+                  by digits as a sentence boundary.
+                justification: |
+                  A decimal number must be spoken as one unit.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_DigitFlankedStop_IsNotASentenceBoundary
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
-                  the reliable length into parts, keeping every word.
+                  200 characters into parts, keeping every word.
                 justification: |
                   The model degrades on long inputs, and splitting must never lose speech.
                 tests:
@@ -129,12 +142,10 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall carry the mood of each spoken
-                  segment to the synthesis engine within the segment text, without changing the
-                  public plan types, in a form that can be read back losslessly.
+                  The ChatterboxTurboCapabilityProfile class shall mark each spoken segment with
+                  its mood so the synthesis engine can read the mood back unchanged.
                 justification: |
-                  The engine needs the mood choice per segment; carrying it in the text keeps the
-                  public plan types unchanged.
+                  The engine needs the mood choice per segment.
                 tests:
                   - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated
 
@@ -161,16 +172,40 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilence
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall add the configured join silence
-                  only where the mood changes, never doubling an existing pause, with zero
-                  disabling it and a longer ellipsis pause winning, and shall validate the
-                  configured boundaries and end-of-sentence policy.
+                  (150 ms by default) only where the mood changes.
                 justification: |
                   A change of reference clip is audible, so a short silence at the change hides
                   the seam.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceDisabled
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add no join silence when the
+                  configured join silence is zero.
+                justification: |
+                  A host can opt out of the seam-hiding silence.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceOverlap
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall not double a pause that already
+                  exists at a mood change, and an ellipsis pause longer than the join silence
+                  shall win.
+                justification: |
+                  Stacked silences would make an audible gap.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins
                   - ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceValidation
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall accept a join silence from 0 to
+                  1000 ms and reject an undefined end-of-sentence policy.
+                justification: |
+                  Out-of-range configuration must fail early instead of producing odd audio.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy

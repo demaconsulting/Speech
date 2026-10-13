@@ -31,21 +31,24 @@ sections:
           other model package.
         children:
           - SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptions
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
 
       - id: SpeechOnnxChatterboxTurbo-Models-SynthesisModel
         title: >-
-          The library shall provide a real, downloadable, ONNX-Runtime-backed English synthesis
-          model implementing the Speech library's ISynthesisModel contract, with selectable
-          precision variants and selectable voices.
+          The library shall provide a real, downloadable English synthesis model implementing
+          the Speech library's ISynthesisModel contract, available in selectable precision
+          variants.
         tags: [system]
         justification: |
           A host needs a real, checksum-verified, installable synthesis model to perform offline
           text-to-speech with this model family, and precision variants let a host trade
           download size against fidelity.
         children:
-          - SpeechOnnxChatterboxTurbo-Models-RealSynthesisModel
+          - SpeechOnnxChatterboxTurbo-Models-ModelDescription
+          - SpeechOnnxChatterboxTurbo-Models-ModelDownload
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreation
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices
 
@@ -64,13 +67,12 @@ sections:
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RealBackend
         title: >-
-          The library shall synthesize audio from text through the Speech library's synthesis
-          pipeline using ONNX Runtime inference over the Chatterbox Turbo graphs on the CPU.
+          The library shall synthesize audible speech from text through the Speech library's
+          synthesis pipeline, running the Chatterbox Turbo model locally on the CPU.
         tags: [system]
         justification: |
-          The Speech library's synthesis policy is verified against a fake backend; only a real,
-          ONNX-Runtime-backed backend turns rendered text into audible speech for this package's
-          synthesis model.
+          The Speech library's synthesis policy is verified against a fake backend; only a real
+          backend turns rendered text into audible speech for this package's synthesis model.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
         tests:
@@ -79,7 +81,8 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceCloning
         title: >-
           The library shall accept a caller-supplied reference clip of any sample rate and
-          channel count, as in-memory audio or a WAV or FLAC file, as the source of a voice.
+          channel count, as in-memory audio or a WAV or FLAC file, as the source of a voice that
+          the host can select by id.
         tags: [system]
         justification: |
           Chatterbox Turbo has no built-in voices, so a host must be able to supply clips in the
@@ -87,6 +90,10 @@ sections:
           package.
         children:
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceLength
+          - SpeechOnnxChatterboxTurbo-Models-VoiceChoice
+          - SpeechOnnxChatterboxTurbo-Synthesis-VoiceCaching
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount
 
@@ -132,45 +139,103 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodVoices
         title: >-
           The library shall speak text that follows a mood audio tag using the selected voice's
-          clip for that mood, falling back to the voice's base clip when it has none.
+          clip for that mood.
         tags: [system]
         justification: |
           The model has no emotion tokens; switching the reference clip is how a mood is
-          expressed, and a voice that lacks a mood must still be spoken rather than fail.
+          expressed.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
-          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodConditioning
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodTags
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodConditioning
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoods
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodVoiceFallback
+        title: >-
+          The library shall speak text that follows a mood audio tag using the selected voice's
+          base clip when the voice has no clip for that mood.
+        tags: [system]
+        justification: |
+          A voice that lacks a mood must still be spoken rather than fail.
+        children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodFallback
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHidden
         title: >-
-          The library shall never speak or tokenize any mood marker, whether supplied by the
-          caller or produced while preparing the text.
+          The library shall never speak any internal mood-carrying character, whether it is
+          supplied in the caller's text or added while the text is prepared.
         tags: [system]
         justification: |
-          A mood is realized by switching clips, so any marker must never reach the speech.
+          A mood is realized by switching clips, so any internal carrier must never reach the
+          speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
+          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
           - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodMarkerHidden_NeverSpokenOrSynthesized
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-NativeTagRendering
         title: >-
-          The library shall render the library's audio tags for this model as the model's own
-          paralinguistic sounds where they are reliable, as real silence where the model has no
-          usable sound, and by omission otherwise.
+          The library shall render the laugh, throat-clear and gasp audio tags as the model's
+          own paralinguistic sounds.
         tags: [system]
         justification: |
-          The model produces laughs, throat clears and gasps from bracketed tokens but ignores
-          or mishandles other tags and misbehaves when a tag has no speech after it; a tailored
-          rendering policy is needed so tagged text sounds right and never fails.
+          The model produces laughs, throat clears and gasps from bracketed tokens, so they are
+          rendered as real sounds rather than words.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-SilenceTagRendering
+        title: >-
+          The library shall render the sigh and pause audio tags as real silence of a fixed
+          duration.
+        tags: [system]
+        justification: |
+          The model has no usable sound for these tags, so silence is the faithful rendering.
+        children:
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-OmittedTagRendering
+        title: >-
+          The library shall omit every audio tag the model cannot reproduce, so no tag is ever
+          spoken as words.
+        tags: [system]
+        justification: |
+          The model ignores or mispronounces other tags, so a tailored policy omits them and
+          tagged text never fails or sounds wrong.
+        children:
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPlacement
+        title: >-
+          The library shall not leave an audio tag without speech after it, by moving the tag
+          before the final word, appending it or dropping it according to the configured policy.
+        tags: [system]
+        justification: |
+          A tag with no speech after it makes the model misbehave, so the host chooses how the
+          tag is kept next to speech.
+        children:
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
+
+      - id: SpeechOnnxChatterboxTurbo-Synthesis-LongTextSegmentation
+        title: >-
+          The library shall speak text of any length by splitting it into sentences of at most
+          200 characters, keeping every word.
+        tags: [system]
+        justification: |
+          The model degrades on long inputs, and splitting must never lose speech.
+        children:
+          - SpeechOnnxChatterboxTurbo-Synthesis-Segmentation
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RunawayProtection
         title: >-
@@ -182,6 +247,7 @@ sections:
           An autoregressive model can fail to stop on unusual inputs; an unbounded loop would
           hang a host application and exhaust memory.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationGuards
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationBounds
+          - SpeechOnnxChatterboxTurbo-Synthesis-RepetitionGuard
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException

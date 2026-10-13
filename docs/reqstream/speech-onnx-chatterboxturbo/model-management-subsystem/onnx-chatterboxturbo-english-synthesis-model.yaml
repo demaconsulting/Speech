@@ -79,11 +79,20 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall expose the supplied
-                  voices as a voice choice and map a voice id to its index, selecting the first
-                  voice by default.
+                  voices as a voice choice.
                 justification: |
                   The model has no built-in voices, so the host's own clips define the voice
                   list a user can choose from.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceSelection
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall map a voice id to the
+                  index of that voice, selecting the first voice by default.
+                justification: |
+                  The synthesis engine selects a voice by index, and an unspecified voice must
+                  still speak.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
                   - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
@@ -91,13 +100,19 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectory
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall load every WAV or FLAC
-                  file of a supplied voice directory as a voice, without failing construction for
-                  a damaged file.
+                  file of a supplied voice directory as a voice.
                 justification: |
-                  A user can drop clips in a folder, and one damaged clip must not remove the
-                  rest.
+                  A user can drop clips in a folder and have them offered as voices.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryResilience
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall not fail construction
+                  because a file of the supplied voice directory is damaged.
+                justification: |
+                  One damaged clip must not remove the rest of the voices.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
@@ -155,13 +170,22 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall append the voices of a
-                  core ReferenceVoiceLibrary (user folder and installed packs) after explicit and
-                  directory voices, skipping a library voice whose id is already present and
-                  reporting it at Info level.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall append the voices of
+                  the Speech reference-voice library (user folder and installed packs) after the
+                  explicit and directory voices.
                 justification: |
                   The downloaded voice pack and the user's own clips must appear in the voice list
                   without any host code, while explicit voices keep working unchanged.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDuplicates
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall skip a library voice
+                  whose id is already present and report the skip at Info level.
+                justification: |
+                  An earlier voice wins, so a duplicate id never makes a voice unreachable, and
+                  the host can see why a library voice is missing.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic

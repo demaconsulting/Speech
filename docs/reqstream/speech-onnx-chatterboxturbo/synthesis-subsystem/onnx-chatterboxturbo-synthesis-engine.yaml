@@ -16,9 +16,9 @@ sections:
             requirements:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Generate
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall assemble the language-model
-                  prompt from the voice conditioning and embedded text, generate speech tokens,
-                  and decode them with the prompt tokens and trailing silence into audio.
+                  The OnnxChatterboxTurboSynthesisEngine class shall turn text into audio by
+                  generating speech tokens from the selected voice and the embedded text, and
+                  decoding them, with trailing silence, into a waveform.
                 justification: |
                   This is the Chatterbox Turbo inference procedure; deviations change the audio.
                 tests:
@@ -45,15 +45,23 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall bound generation by both an
-                  absolute maximum and a limit proportional to the text length, never allowing a
-                  very large ratio to exceed the absolute maximum.
+                  The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at most
+                  1024 speech tokens by default, and never after more than the configured
+                  maximum even when the proportional limit is larger.
                 justification: |
                   A missing end-of-speech token must not hang the host application.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
-                  - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
                   - OnnxChatterboxTurboSynthesisEngine_Generate_HugeRatio_ClampsToMaxNewTokens
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at
+                  most 25 speech tokens per text token plus 32 tokens by default.
+                justification: |
+                  A runaway generation on short text must end long before the absolute maximum.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Truncation
                 title: >-
@@ -69,8 +77,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall limit identical consecutive
-                  speech tokens to the configured maximum by excluding the repeated token from the
-                  next selection.
+                  speech tokens to 12 by default, still allowing the speech to end.
                 justification: |
                   The model can lock onto one speech token and produce a sustained tone; breaking
                   the run restores progress without affecting normal speech.
@@ -98,10 +105,18 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall encode each voice once and
-                  use the voice selected by speaker id.
+                  The OnnxChatterboxTurboSynthesisEngine class shall use the voice selected by
+                  speaker id.
                 justification: |
-                  Voice encoding is expensive and the speaker id comes from host configuration.
+                  The speaker id comes from host configuration.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-VoiceCaching
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall encode each voice only once.
+                justification: |
+                  Voice encoding is expensive and deterministic.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
 
@@ -118,24 +133,40 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodConditioning
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall condition a mood segment on
-                  the selected voice's clip for that mood, encoding it once per voice and mood.
+                  the selected voice's clip for that mood.
                 justification: |
-                  Per-mood encoding is expensive and deterministic.
+                  Moods are realized by switching the reference clip per segment.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
                   - OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens
 
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodClipCaching
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall encode each mood clip only
+                  once per voice and mood.
+                justification: |
+                  Per-mood encoding is expensive and deterministic.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
+
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall never pass a mood marker to
-                  the tokenizer or speak it, and shall return empty audio for text that holds
-                  only a marker.
+                  The OnnxChatterboxTurboSynthesisEngine class shall never speak the internal
+                  mood-carrying character of a segment.
                 justification: |
                   The marker is an internal carrier and must never reach the speech.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
-                  - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
                   - OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall return empty audio for text
+                  that holds only a mood marker.
+                justification: |
+                  A marker with no speech has nothing to synthesize and must not fail.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodFallback
                 title: >-
