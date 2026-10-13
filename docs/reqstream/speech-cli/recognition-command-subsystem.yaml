@@ -37,6 +37,7 @@ sections:
               files, without writing any code.
             tests:
               - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
+              - RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice
 
           - id: SpeechCli-RecognitionCommands-ModelValidation
             title: >-
@@ -173,9 +174,7 @@ sections:
               A file-input recognition session is inherently finite and must terminate on its
               own once the file is exhausted, without an operator needing to interrupt it or the
               command needing an arbitrary settle delay that would be either too short
-              (truncating results) or too long (wasting time) for an unknown file duration. The
-              draining and stop mechanism is described in the RecognitionCommandSubsystem design
-              document.
+              (truncating results) or too long (wasting time) for an unknown file duration.
             tests:
               - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain
               - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession
@@ -185,14 +184,12 @@ sections:
               The tool shall, in `--mic` mode, end the recognition session automatically, after
               delivering every result already produced, once no recognition result (partial or
               final) has arrived for the number of seconds given by `--silence-timeout
-              <seconds>` since the previous result. The wait before the first result is governed
-              by `--start-timeout`.
+              <seconds>` since the previous result.
             tags: [subsystem]
             justification: |
               An unattended microphone session with no natural end-of-file signal needs an
               automatic, configurable way to end itself when the speaker has stopped talking,
-              rather than requiring an operator to remain present to press `Ctrl+C`. The timer
-              mechanism is described in the RecognitionCommandSubsystem design document.
+              rather than requiring an operator to remain present to press `Ctrl+C`.
             tests:
               - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
               - SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException
@@ -338,14 +335,25 @@ sections:
           - id: SpeechCli-RecognitionCommands-OutputText
             title: >-
               The tool shall, given `--output-text <text-path>`, write only final results to the
-              file, one per line, overwriting any prior file content, regardless of the console
-              verbosity flags' effect on console output.
+              file, one per line, regardless of the console verbosity flags' effect on console
+              output.
             tags: [subsystem]
             justification: |
-              A scripted consumer of `--output-text` needs a stable, append-free record of only
-              the settled, final transcript, independent of how verbose the console output is.
+              A scripted consumer of `--output-text` needs a record of only the settled, final
+              transcript, independent of how verbose the console output is.
             tests:
               - RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath
+              - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+          - id: SpeechCli-RecognitionCommands-OutputTextOverwrite
+            title: >-
+              The tool shall overwrite, rather than append to, any prior content of the
+              `--output-text` file.
+            tags: [subsystem]
+            justification: |
+              A scripted consumer needs a stable, append-free file whose content always reflects
+              only the latest run.
+            tests:
               - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
 
           - id: SpeechCli-RecognitionCommands-DeviceDispatch

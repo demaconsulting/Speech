@@ -50,18 +50,16 @@ sections:
 
       - id: SpeechCli-Cli-GlobalOptions
         title: >-
-          The tool shall recognize its global options - `--models-dir`, `--voices-dir`, `--mirror-url`,
-          `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`, `--no-emotions`,
-          `--verbose`/`--diagnostics`, `--silent`, `--log <file>`, `--results <file>`,
-          `--depth <#>` - regardless of whether they appear before
-          or after the subcommand name on the command line.
+          The tool shall recognize its path, mirror and depth global options - `--models-dir`,
+          `--voices-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`,
+          `--mirror-bearer-token`, `--no-emotions`, `--results <file>`, `--depth <#>` - regardless
+          of whether they appear before or after the subcommand name on the command line.
         tags: [system]
         justification: |
           Every subcommand needs the same cross-cutting configuration (where models are stored,
-          how verbose to be, whether to write a log). Requiring a fixed option order relative to
-          the subcommand name would be a usability trap; recognizing global options anywhere
-          keeps every subcommand's own invocation syntax uncluttered by an artificial ordering
-          rule.
+          which mirror to use). Requiring a fixed option order relative to the subcommand name
+          would be a usability trap; recognizing global options anywhere keeps every
+          subcommand's own invocation syntax uncluttered by an artificial ordering rule.
         tests:
           - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
           - Context_Create_WithExistingVoicesDir_ParsesOntoContext
@@ -69,11 +67,38 @@ sections:
           - Context_Create_DepthWithinRange_ParsesOntoContext
           - Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException
           - Context_Create_DepthWithoutValue_ThrowsArgumentException
-          - Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics
-          - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
           - Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption
           - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
+
+      - id: SpeechCli-Cli-VerboseOption
+        title: >-
+          The tool shall recognize the `--verbose`/`--diagnostics` global option before or after
+          the subcommand name and enable diagnostic output.
+        tags: [system]
+        justification: |
+          Operators need the same diagnostics switch wherever they type it.
+        tests:
+          - Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics
+          - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
+
+      - id: SpeechCli-Cli-SilentOption
+        title: >-
+          The tool shall suppress console output, but not the exit code, when the `--silent`
+          global option is given.
+        tags: [system]
+        justification: |
+          Scripts that only inspect the exit code need quiet runs.
+        tests:
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
+
+      - id: SpeechCli-Cli-LogOption
+        title: >-
+          The tool shall also write all output to the file named by the `--log <file>` global
+          option.
+        tags: [system]
+        justification: |
+          Operators need a persistent record of a run without redirecting the console.
+        tests:
           - SpeechCli_LogFlag_Provided_WritesOutputToFile
 
       - id: SpeechCli-Cli-VoicesDir
@@ -168,17 +193,33 @@ sections:
 
       - id: SpeechCli-Cli-DownloadMirrorCredentialValidation
         title: >-
-          The tool shall reject an incomplete or conflicting mirror credential combination (a
-          user without a password, a Basic credential pair together with a bearer token, or an
-          empty or whitespace-only bearer token) with a clear error message and a non-zero exit
-          code.
+          The tool shall reject a mirror user supplied without a mirror password with a clear
+          error message and a non-zero exit code.
         tags: [system]
         justification: |
-          An incomplete or ambiguous credential combination must fail eagerly rather than send
-          a half-formed request.
+          An incomplete credential pair must fail eagerly rather than send a half-formed request.
         tests:
           - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-DownloadMirrorCredentialConflict
+        title: >-
+          The tool shall reject a Basic credential pair supplied together with a bearer token
+          with a clear error message and a non-zero exit code.
+        tags: [system]
+        justification: |
+          An ambiguous credential combination must fail eagerly rather than send a request whose
+          authentication scheme is a guess.
+        tests:
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-DownloadMirrorBearerTokenValidation
+        title: >-
+          The tool shall reject an empty or whitespace-only mirror bearer token with a clear
+          error message and a non-zero exit code.
+        tags: [system]
+        justification: |
+          A blank token would send an unauthenticated request while appearing to be configured.
+        tests:
           - Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException
 
       - id: SpeechCli-Cli-DownloadMirrorCredentialRequiresUrl
@@ -328,6 +369,18 @@ sections:
           - Program_Run_WithVersionFlag_DisplaysVersionOnly
           - Program_Run_WithShortVersionFlag_DisplaysVersion
           - SpeechCli_VersionFlag_Provided_OutputsVersion
+
+      - id: SpeechCli-Cli-TopLevelActionPriority
+        title: >-
+          The tool shall, when more than one of `--version`, `--help` and `--validate` is given,
+          perform only the highest-priority action in the order version, then help, then
+          validation.
+        tags: [system]
+        justification: |
+          A deterministic precedence keeps scripted invocations predictable when flags are
+          combined.
+        tests:
+          - Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
       - id: SpeechCli-Cli-HelpDisplay
         title: >-
@@ -485,7 +538,9 @@ sections:
           - SpeechCli-ModelCommands-Clean
           - SpeechCli-ModelCommands-CleanNothingToClean
           - SpeechCli-ModelCommands-IdArgumentValidation
-          - SpeechCli-ModelCommands-RemovalCancellation
+          - SpeechCli-ModelCommands-UninstallCancellation
+          - SpeechCli-ModelCommands-CleanCancellation
+          - SpeechCli-ModelCommands-VoicePackUninstallCancellation
         tests:
           - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
@@ -619,6 +674,7 @@ sections:
           - SpeechCli-DeviceCommands-DevicesTestDeviceValidation
           - SpeechCli-DeviceCommands-DevicesTestArgumentValidation
           - SpeechCli-DeviceCommands-ToneGeneration
+          - SpeechCli-DeviceCommands-ToneSampleRateValidation
           - SpeechCli-DeviceCommands-ToneAmplitudeRange
           - SpeechCli-DeviceCommands-ToneChannelIdentity
         tests:
@@ -664,6 +720,8 @@ sections:
           - SpeechCli-SynthesisCommands-ArgumentValidation
           - SpeechCli-SynthesisCommands-ParamValidation
           - SpeechCli-SynthesisCommands-ParamRejection
+          - SpeechCli-SynthesisCommands-ParamValueRejection
+          - SpeechCli-SynthesisCommands-ParamUnknownKey
           - SpeechCli-SynthesisCommands-NoTags
           - SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
           - SpeechCli-SynthesisCommands-PlaybackDeviceUnavailable
@@ -713,6 +771,7 @@ sections:
           - SpeechCli-RecognitionCommands-FinalOnly
           - SpeechCli-RecognitionCommands-VerbosityConflict
           - SpeechCli-RecognitionCommands-OutputText
+          - SpeechCli-RecognitionCommands-OutputTextOverwrite
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -762,10 +821,12 @@ sections:
           - SpeechCli-ConversationCommands-AskTextSource
           - SpeechCli-ConversationCommands-AskTextSourceMissing
           - SpeechCli-ConversationCommands-AskUnsupportedOptions
+          - SpeechCli-ConversationCommands-AskFlagMissingValue
           - SpeechCli-ConversationCommands-ParamForwarding
           - SpeechCli-ConversationCommands-ParamRejection
           - SpeechCli-ConversationCommands-ListenTermination
-          - SpeechCli-ConversationCommands-ListenTimeouts
+          - SpeechCli-ConversationCommands-ListenStartTimeout
+          - SpeechCli-ConversationCommands-ListenSilenceTimeout
           - SpeechCli-ConversationCommands-ListenTimeoutDefaults
           - SpeechCli-ConversationCommands-ListenTimeoutValidation
           - SpeechCli-ConversationCommands-OutputStdout
@@ -775,6 +836,7 @@ sections:
           - SpeechCli-ConversationCommands-CaptureDeviceUnavailable
           - SpeechCli-ConversationCommands-SpeakCancellation
           - SpeechCli-ConversationCommands-ListenCancellation
+          - SpeechCli-ConversationCommands-ListenTimeoutIsNotCancellation
           - SpeechCli-ConversationCommands-Disposal
           - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-PrewarmFailureReporting

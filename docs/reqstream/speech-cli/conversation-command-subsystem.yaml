@@ -117,8 +117,8 @@ sections:
           - id: SpeechCli-ConversationCommands-AskUnsupportedOptions
             title: >-
               The tool shall reject `ask` invoked with `--interim`, `--final-only`, `--no-tags`,
-              `--input`, `--output-audio`, any other unsupported argument, or a flag missing its
-              value, with a clean, non-zero-exit-code error rather than a stack trace.
+              `--input`, `--output-audio`, or any other unsupported argument with a clean,
+              non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
             justification: |
               Rejecting flags `ask` does not support (rather than silently ignoring them) avoids
@@ -130,6 +130,16 @@ sections:
               - AskCommand_ParseArguments_Input_ThrowsArgumentException
               - AskCommand_ParseArguments_OutputAudio_ThrowsArgumentException
               - AskCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+
+          - id: SpeechCli-ConversationCommands-AskFlagMissingValue
+            title: >-
+              The tool shall reject `ask` invoked with a flag that is missing its value with a
+              clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A flag with no value is an incomplete invocation that must fail predictably rather
+              than consume the next token or be ignored.
+            tests:
               - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
 
           - id: SpeechCli-ConversationCommands-ParamForwarding
@@ -171,18 +181,27 @@ sections:
             tests:
               - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
 
-          - id: SpeechCli-ConversationCommands-ListenTimeouts
+          - id: SpeechCli-ConversationCommands-ListenStartTimeout
             title: >-
-              The tool shall end the listen phase, as a safety net, when no reply result arrives
-              within the optional `--start-timeout <seconds>` or the gap after a result exceeds
-              the optional `--silence-timeout <seconds>`, with the same meaning these flags have
-              for `recognize --mic`.
+              The tool shall end the listen phase when no reply result arrives within the
+              optional `--start-timeout <seconds>`, with the same meaning the flag has for
+              `recognize --mic`.
             tags: [subsystem]
             justification: |
-              A caller that opts into a timeout needs `ask` to give up on a reply that never
-              starts or never finishes, with exactly the idle-window semantics
-              `--start-timeout`/`--silence-timeout` already have for `recognize --mic`, so the
-              two commands behave consistently.
+              A caller that opts into a start timeout needs `ask` to give up on a reply that never
+              starts, consistently with `recognize --mic`.
+            tests:
+              - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
+
+          - id: SpeechCli-ConversationCommands-ListenSilenceTimeout
+            title: >-
+              The tool shall end the listen phase when the gap after a result exceeds the
+              optional `--silence-timeout <seconds>`, with the same meaning the flag has for
+              `recognize --mic`.
+            tags: [subsystem]
+            justification: |
+              A caller that opts into a silence timeout needs `ask` to give up on a reply that
+              never finishes, consistently with `recognize --mic`.
             tests:
               - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
               - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
@@ -317,17 +336,25 @@ sections:
             title: >-
               The tool shall report a clean cancellation, print no recognized text and write no
               output file, when `Ctrl+C` is pressed at any point from the start of the listen
-              phase until the reply has been delivered, and shall not report a cancellation when
-              a silence timeout ends the turn.
+              phase until the reply has been delivered.
             tags: [subsystem]
             justification: |
-              A half-finished reply must never be delivered as if it were complete, while a
-              timeout is a normal way for a turn to end.
+              A half-finished reply must never be delivered as if it were complete.
             tests:
               - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile
+
+          - id: SpeechCli-ConversationCommands-ListenTimeoutIsNotCancellation
+            title: >-
+              The tool shall not report a cancellation when a silence timeout ends the `ask`
+              turn.
+            tags: [subsystem]
+            justification: |
+              A timeout is a normal way for a turn to end and must not be reported as an
+              interruption.
+            tests:
               - AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled
 
           - id: SpeechCli-ConversationCommands-Disposal

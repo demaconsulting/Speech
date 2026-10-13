@@ -276,18 +276,40 @@ sections:
               - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
               - CleanCommand_Run_ExtraArgument_ThrowsArgumentException
 
-          - id: SpeechCli-ModelCommands-RemovalCancellation
+          - id: SpeechCli-ModelCommands-UninstallCancellation
             title: >-
               The tool shall report a clean error with a non-zero exit code, rather than an
-              unhandled exception, when the operator interrupts (`Ctrl+C`) an `uninstall`,
-              `clean`, or `voices uninstall` that is in progress.
+              unhandled exception, when the operator interrupts (`Ctrl+C`) an `uninstall` that is
+              in progress.
             tags: [subsystem]
             justification: |
               An interrupted removal is a deliberate operator action and must end predictably
               for a calling script.
             tests:
               - UninstallCommand_Run_Canceled_ReportsErrorExitCode
+
+          - id: SpeechCli-ModelCommands-CleanCancellation
+            title: >-
+              The tool shall report a clean error with a non-zero exit code, rather than an
+              unhandled exception, when the operator interrupts (`Ctrl+C`) a `clean` that is in
+              progress.
+            tags: [subsystem]
+            justification: |
+              An interrupted cleanup is a deliberate operator action and must end predictably
+              for a calling script.
+            tests:
               - CleanCommand_Run_Canceled_ReportsErrorExitCode
+
+          - id: SpeechCli-ModelCommands-VoicePackUninstallCancellation
+            title: >-
+              The tool shall report a clean error with a non-zero exit code, rather than an
+              unhandled exception, when the operator interrupts (`Ctrl+C`) a `voices uninstall`
+              that is in progress.
+            tags: [subsystem]
+            justification: |
+              An interrupted voice-pack removal is a deliberate operator action and must end
+              predictably for a calling script.
+            tests:
               - VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode
 
           - id: SpeechCli-ModelCommands-CleanNothingToClean

@@ -149,6 +149,21 @@ and produces a non-zero exit code; an unsupported extra argument throws `Argumen
 full run against a real, isolated, writable `--models-dir` reports `HEALTHY` end to end against
 the built tool.
 
+#### Device Availability, Capture Cleanup and Doctor Resilience
+
+**Tests**: `DevicesTestCommand_RequireAvailable_UnavailablePlaybackDevice_ThrowsInvalidOperationException`,
+`DevicesTestCommand_RequireAvailable_UnavailableCaptureDevice_ThrowsInvalidOperationException`,
+`DevicesTestCommand_RequireAvailable_AvailableDevices_ReturnsSameDevice`,
+`DevicesTestCommand_RecordTestClip_StartThrows_StopsDevice`,
+`DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy`,
+`DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy`
+
+**Scenario/Expected**: `RequireAvailable` throws a clean `InvalidOperationException` for an unavailable playback or
+capture device and returns the same device for an available one. When `Start` throws during a capture test, the device is
+stopped and the frame subscription removed (the cleanup runs in a `finally`). When the audio probes or the model
+catalog throw during enumeration, `doctor` reports "(could not be determined)" for that count and still completes
+healthy rather than propagating the exception.
+
 #### Null Guards and Delegation
 
 **Tests**: `ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException`,

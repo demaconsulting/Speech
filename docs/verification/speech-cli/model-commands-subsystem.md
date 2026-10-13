@@ -214,6 +214,20 @@ no pack is downloaded.
 upgrade; `packs` shows the download size, installed sizes and variant; `list-voices` shows a Moods
 column and a `moods` JSON array. Tests use the fake catalog, so nothing is downloaded.
 
+#### Voice Pack Cancellation, Adapter Mirror and Composition Failure
+
+**Tests**: `VoicesCommand_RunAsync_InstallCanceledDuringPreCheck_ReportsErrorExitCode`,
+`VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode`,
+`VoicesCommand_RunAsync_InstallCanceledWithoutToken_Propagates`,
+`CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToVoicePackInstall`,
+`SpeechModelCatalogAdapter_CompositionFails_PropagatesAndReleasesPartialCatalog`
+
+**Scenario/Expected**: A cancellation raised while listing packs or during the emotions pre-check of `install` is
+reported as "canceled" with a non-zero exit code; an `OperationCanceledException` that was not caused by the Ctrl+C
+token still propagates. The real adapter passes `--mirror-url` to voice-pack installs. A composition failure
+propagates (the constructor releases anything it had already created); this test asserts the failure path and that the
+store root remains usable, but cannot directly observe disposal of the internal partial catalog.
+
 #### Chatterbox Composition and Voices Folder Enumeration
 
 **Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,

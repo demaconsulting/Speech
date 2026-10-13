@@ -76,11 +76,16 @@ without needing a real device to be created. The resolved device is then checked
 `IsAvailable`; an unavailable device is reported as a clean `InvalidOperationException` rather
 than a stack trace, consistent with the library's own honest-failure convention for
 `UnavailableAudioPlaybackDevice`/`UnavailableAudioCaptureDevice`. A short (2-second, 440 Hz) sine
-wave is generated in-CLI by `GenerateToneSamples` - no TTS model is invoked for this command - and
-written to the device, polling `PendingSampleCount` until playback finishes. The poll is bounded: if the device
+wave is generated in-CLI by `GenerateToneSamples` - no TTS model is invoked for this command. The tone is a
+sine at an amplitude of 0.2 (well below full scale, so it is audible but not painful), and on a
+multi-channel device every channel carries the same tone (a mono or stereo device plays an identical signal on each
+channel). The tone is written to the device, polling `PendingSampleCount` until playback finishes. The poll is bounded: if the device
 still has queued samples after the tone duration plus a fixed margin (5 seconds), `PlayTestTone` stops the device and
 throws an `InvalidOperationException` (clean message, non-zero exit code) instead of hanging on a stalled device.
 Durations in the report are formatted with the invariant culture so the text is identical on every machine.
+`RequireAvailable` (an internal overload per device type) performs the availability check so tests can exercise the
+unavailable-device error without a real device. Every command rejects a null `Context` with
+`ArgumentNullException`.
 Once a device is resolved and
 available, `PlayTestTone` (which takes the device directly) does the playing and reporting, so tests can drive it
 with a fake `IAudioPlaybackDevice`.
@@ -111,7 +116,11 @@ Runs a broader environment/health check than `--validate`'s CI-safe self-tests, 
 
 Each check is printed as a `[ OK ]`/`[INFO]`/`[FAIL]` line, followed by an overall
 `HEALTHY`/`UNHEALTHY` summary. `[FAIL]` lines and the `UNHEALTHY` summary are written to stderr (via
-`WriteError`); every other line goes to stdout.
+`WriteError`); every other line goes to stdout. `doctor` accepts no arguments (an extra argument is an
+`ArgumentException`). It creates the model-store root directory if it does not exist, so that writability can be
+probed. A device or model enumeration that throws is reported as "(could not be determined)" for that count rather
+than aborting the report. The `list-devices` Direction column prints the library enum names (`Capture`/`Playback`),
+whereas the `--direction` flag takes `input`/`output`.
 
 #### SherpaOnnx Resolvability Scope
 

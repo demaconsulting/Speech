@@ -86,6 +86,13 @@ Verifies that `-h`/`-?`/`--help`, and running with no arguments at all, print th
 text listing every one of the thirteen recognized subcommands (including `list-voices` and `voices`),
 the `--voices-dir` option, and the reference-voice consent note, and exit `0`.
 
+### Top-Level Action Priority
+
+**Tests**: `Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder`
+
+Verifies that `--validate --help --version` prints only the version, and `--validate --help` prints only the usage
+text without running the self-validation.
+
 ### Subcommand Dispatch
 
 **Tests**: `Program_Run_WithListModelsCommand_ListsModelsAndSucceeds`,
@@ -212,7 +219,41 @@ file for a `.xml` path, that `--depth` sets the report's markdown heading level,
 error message and a non-zero exit code (the failure path is driven through `Program.Main` without
 any production test seam).
 
+### ConsoleCancellation
+
+**Tests**: `ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination`,
+`ConsoleCancellation_Register_NoCallback_CancelsSource`,
+`ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination`,
+`ConsoleCancellation_Dispose_CalledTwice_DoesNotThrow`,
+`ConsoleCancellation_Register_NullSource_ThrowsArgumentNullException`,
+`ConsoleCancellation_Observe_NullCallback_ThrowsArgumentNullException`
+
+Verifies that `Register` cancels the source, runs the optional callback and suppresses process termination when the
+cancel event is raised; that `Observe` runs its callback without suppressing termination; that disposal is idempotent;
+and that null arguments are rejected.
+
+### PathHelpers
+
+**Tests**: `PathHelpers_SafePathCombine_RelativeBasePath_ReturnsAbsolutePath`,
+`PathHelpers_SafePathCombine_AbsoluteBasePath_ReturnsAbsolutePath`,
+`PathHelpers_SafePathCombine_EscapingRelativePath_ThrowsArgumentException`,
+`PathHelpers_SafePathCombine_RootedRelativePath_ThrowsArgumentException`,
+`PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException`
+
+Verifies that `SafePathCombine` returns an absolute path for relative or absolute bases and rejects a relative path
+that escapes its base, a rooted relative path, and null arguments.
+
+### Program Version Property
+
+**Test**: `Program_Version_ReturnsNonEmptyString`
+
+Verifies `Program.Version` returns a non-empty string.
+
 ### Argument Errors
+
+Context argument-error messages carry no "(Parameter 'x')" suffix (`Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix`,
+`Context_Create_OptionMissingValue_MessageHasNoParameterSuffix`), and `WriteError` restores the console foreground color even
+when the error writer throws (`Context_WriteError_ErrorWriterThrows_RestoresForegroundColor`).
 
 **Tests**: `Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode`,
 `Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput`,

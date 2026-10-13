@@ -14,7 +14,7 @@ small seam over real playback-device resolution:
   [--playback-device <name>] [--tts-param key=value ...] [--no-tags]`
 - **`ParameterBagParser`**: parses and validates repeatable `--tts-param key=value` tokens against a
   resolved model's declared parameters
-- **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`**: the two new seam
+- **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`**: the two seam
   members (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
   `SpeechModelCatalogAdapter`
 - **`ICliPlaybackDeviceSource`**/**`AudioDeviceFactoryPlaybackDeviceSource`**: a small CLI-owned
@@ -60,8 +60,8 @@ a hand-written `FakeSpeechModel` test double, because confining the narrowing to
 common `ISpeechModel` contract, not on which role-specific interface a given model happens to
 implement.
 
-Rather than have `SpeakCommand` perform the `is ISynthesisModel` cast itself, two further methods
-are added to `ICliModelCatalog`:
+Rather than have `SpeakCommand` perform the `is ISynthesisModel` cast itself, two
+engine-related members of `ICliModelCatalog` perform it:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
@@ -192,7 +192,7 @@ explicitly asks for tags to be stripped is asking for literal narration text onl
 own tag-support level should not silently override an explicit operator request.
 
 **Device dispatch**: when `--output-audio <path>` is given, the model's `PreferredAudioFormat` is
-resolved via the new `GetPreferredAudioFormat` seam member and used to size a
+resolved via the `GetPreferredAudioFormat` seam member and used to size a
 `WavFileAudioPlaybackDevice` at that path; `--playback-device` is documented, and enforced by construction,
 to be ignored in this case, since an explicit file destination unambiguously wins and no error is
 raised for supplying both. Otherwise, a real playback device is resolved from the injected
@@ -236,4 +236,4 @@ rather than duplicating device resolution logic. `ParameterBagParser` depends on
 library's public `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter`
 types. None of this subsystem touches `ISynthesisModel` or any other internal library type
 directly - that access is confined entirely to `SpeechModelCatalogAdapter`, exactly as
-`ModelCommandsSubsystem`'s original seam already established.
+`ModelCommandsSubsystem`'s seam establishes.

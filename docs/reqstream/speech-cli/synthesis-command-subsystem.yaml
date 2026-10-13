@@ -134,28 +134,45 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-ParamRejection
             title: >-
-              The tool shall reject a `--tts-param` with a malformed token, a numeric value
-              outside the declared range or not a whole number where the model requires one, a
-              choice value the model does not offer, a boolean value other than `true`/`false`,
-              or a key the model does not declare, with a clean, non-zero-exit-code error rather
-              than a stack trace.
+              The tool shall reject a `--tts-param` with a malformed token with a clean,
+              non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
             justification: |
-              Validating `--tts-param` against the declared set catches an operator typo or
-              out-of-range value immediately, rather than having it silently ignored or fail
-              deep inside synthesis minutes into a run. An unrecognized key is deliberately
-              rejected even though the library itself ignores one, since an unrecognized
-              command-line value is almost always an operator mistake that should fail loudly.
+              A token that is not `key=value` is an operator typo that must fail immediately.
             tests:
               - ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException
               - ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException
+
+          - id: SpeechCli-SynthesisCommands-ParamValueRejection
+            title: >-
+              The tool shall reject a `--tts-param` with a numeric value outside the declared
+              range or not a whole number where the model requires one, a choice value the model
+              does not offer, or a boolean value other than `true`/`false`, with a clean,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating each value against the declared parameter catches an out-of-range value
+              immediately, rather than having it silently ignored or fail deep inside synthesis
+              minutes into a run.
+            tests:
               - ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException
               - ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
               - ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException
               - ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException
               - ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException
-              - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
               - SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException
+
+          - id: SpeechCli-SynthesisCommands-ParamUnknownKey
+            title: >-
+              The tool shall reject a `--tts-param` whose key the model does not declare with a
+              clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An unrecognized key is deliberately rejected even though the library itself ignores
+              one, since an unrecognized command-line value is almost always an operator mistake
+              that should fail loudly.
+            tests:
+              - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
 
           - id: SpeechCli-SynthesisCommands-NoTags
             title: >-

@@ -41,9 +41,6 @@ The `ICliModelCatalog` members fall into four groups:
 | Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
 | Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
 | Reference voices: manage (3) | `VoicePackHasEmotionsAsync`, `InstallVoicePackAsync`, `UninstallVoicePackAsync` |
-| Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
-| Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
-| Reference voices: manage (3) | `VoicePackHasEmotionsAsync`, `InstallVoicePackAsync`, `UninstallVoicePackAsync` |
 
 ### Design
 
@@ -69,16 +66,17 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | `UninstallAsync(id, token)` | `Task` | `ArgumentException` for bad id; no-op if absent; `SpeechModelStoreException` |
 | `CleanUpLeftoversAsync(id, token)` | `Task` | `ArgumentException` for bad id; else best-effort, never throws |
 
-These four model-management members are the original seam; the format/engine members (see _Seam
+These four model-management members form the first group of the seam; the format/engine members (see _Seam
 Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem_ below) and the
-reference-voice members (see _Chatterbox and Voice Seam Members_) extend it.
+reference-voice members (see _Chatterbox and Voice Seam Members_) make up the rest.
 
 `SpeechModelCatalogAdapter` is the only production implementation. It owns (and disposes) a real
-`SpeechModelCatalog`, constructed as `new SpeechModelCatalog(options).AddSherpaModels()` -
-populating the catalog via the sibling `DemaConsulting.Speech.Sherpa` package's extension method,
-since core `DemaConsulting.Speech` ships zero built-in models - and delegating
-`UninstallAsync`/`CleanUpLeftoversAsync` to the library store's own `Uninstall`/`CleanUpLeftovers`
-methods through the catalog's `Store`.
+`SpeechModelCatalog` and a `ReferenceVoiceLibrary`, populated through the model-package extension
+methods (see _Chatterbox and Voice Seam Members_) since core `DemaConsulting.Speech` ships zero
+built-in models, and delegates `UninstallAsync`/`CleanUpLeftoversAsync` to the library store's
+`UninstallAsync`/`CleanUpLeftoversAsync` through the catalog's `Store`. If composition fails part-way,
+the constructor disposes whatever it had already created before rethrowing, so a failed composition
+leaks no catalog or voice library.
 `CliModelCatalogFactory.Create(context)` composes one adapter per command invocation, passing
 `context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given and
 `context.VoicesDir` as the explicit reference-voice directory, so `--models-dir` and `--voices-dir`
@@ -210,8 +208,10 @@ Dispatches on the first argument:
 - **`uninstall <packId>`** awaits `UninstallVoicePackAsync`, a safe no-op when nothing is installed; a
   `SpeechModelStoreException` is re-thrown as `InvalidOperationException`, and a `Ctrl+C` cancellation
   before the removal starts is reported with `WriteError` and a non-zero exit code
-- **`packs`** reads each pack's `GetVoicePackState` once per invocation (the value is reused for the
-  installed-with-emotions annotation)
+
+`packs` reads each pack's `GetVoicePackState` once per invocation (the value is reused for the
+installed-with-emotions annotation). `Ctrl+C` during `packs` or during the `install` emotions pre-check
+is reported as "canceled" with a non-zero exit code; it is not an unhandled cancellation.
 
 An unknown pack id, a missing or extra argument, or an unknown action is an `ArgumentException`.
 Because the catalog is built from the same `--models-dir` and `--mirror-*` options, pack downloads
@@ -225,7 +225,7 @@ catalog (and the Chatterbox model) is constructed.
 creates one `ReferenceVoiceLibrary` over the catalog's store and the mirror-aware downloader
 options, and then calls `AddChatterboxTurboModels` with `ReferenceVoiceDirectory = --voices-dir`
 and that same library, so the model and the voice commands see identical voices. `ICliModelCatalog`
-gains `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackState`,
+provides `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackState`,
 `InstallVoicePackAsync(packId, includeEmotions, progress, ct)`, `VoicePackHasEmotionsAsync`, and
 `UninstallVoicePackAsync`. Voice choice itself uses the model's existing
 generic `voice` choice parameter (`speak --tts-param voice=<id>`). Voices from an explicit

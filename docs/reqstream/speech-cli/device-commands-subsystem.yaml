@@ -179,8 +179,7 @@ sections:
             title: >-
               The tool shall generate the `devices test` output tone with exactly the number of
               samples implied by the playback device's sample rate and channel count and the
-              tone duration, without requiring a downloaded model, and shall reject a
-              non-positive sample rate.
+              tone duration, without requiring a downloaded model.
             tags: [subsystem]
             justification: |
               Sanity-checking playback hardware must not depend on a downloaded synthesis model
@@ -189,6 +188,16 @@ sections:
               with no real hardware.
             tests:
               - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
+
+          - id: SpeechCli-DeviceCommands-ToneSampleRateValidation
+            title: >-
+              The tool shall reject a non-positive sample rate when generating the `devices test`
+              output tone.
+            tags: [subsystem]
+            justification: |
+              A zero or negative sample rate cannot describe a tone and must fail predictably
+              rather than produce an empty or corrupt signal.
+            tests:
               - DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
 
           - id: SpeechCli-DeviceCommands-ToneAmplitudeRange

@@ -190,7 +190,16 @@ of the console verbosity flags in effect.
 
 **Scenario/Expected**: Requesting an unrecognized `--capture-device` name in `--mic` mode throws
 `ArgumentException` before any device is created; an unavailable resolved real capture device
-throws `InvalidOperationException` suggesting `--input` as an alternative.
+`throws`InvalidOperationException` suggesting `--input` as an alternative.
+
+#### Microphone Run
+
+**Tests**: `RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice`
+
+**Scenario/Expected**: `RecognizeCommand.RunAsync` is driven through the `ICliCaptureDeviceSource` seam with a fake
+available capture device and a fake recognition session that raises one final result. The session is bound to the
+capture device (not a WAV file device), started once, the result is printed to the console, the run ends on the short
+silence timeout and the exit code is `0`.
 
 #### ICliModelCatalog Seam Extension (Real Catalog)
 

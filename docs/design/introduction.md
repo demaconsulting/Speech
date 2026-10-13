@@ -121,7 +121,8 @@ The following software items of the SpeechCli system are also covered:
   CLI-owned seam wrapper
 - **SynthesisCommandSubsystem (Subsystem)** — The one text-to-speech subcommand (`speak`),
   extending `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with synthesis-side members
-  rather than introducing a second, competing seam
+  rather than introducing a second, competing seam, and adding one CLI-owned playback-device
+  seam (`ICliPlaybackDeviceSource`)
 - **RecognitionCommandSubsystem (Subsystem)** — The one speech-to-text subcommand
   (`recognize`) plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, extending
   `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with recognition-side members symmetric to
@@ -130,6 +131,19 @@ The following software items of the SpeechCli system are also covered:
   running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
   and `RecognitionCommandSubsystem`'s existing `ICliModelCatalog` seam members (no new catalog
   member) and adding one CLI-owned capture-device seam (`ICliCaptureDeviceSource`)
+- **Program, CommandDispatch, Context, ConsoleCancellation, Validation, PathHelpers (Units)** — The
+  units that belong directly to SpeechCli rather than to a command subsystem: the process entry
+  point (`Program`, including `--version`/`--help`/`--validate` priority handling), the fixed
+  subcommand dispatch table, global-option parsing and per-invocation state, Ctrl+C handling, the
+  CI-safe `--validate` self-check, and shared path helpers
+- **Documentation granularity (SpeechCli)** — The SpeechCli units above and the individual command classes,
+  seams and helpers inside each command subsystem (for example `ListModelsCommand`, `ICliModelCatalog`,
+  `ParameterBagParser`, `DownloadProgressReporter`, `SilenceTimeoutRecognizerSession`) are deliberately
+  documented, required and verified within their parent system or subsystem design, requirements and
+  verification documents rather than in per-unit files. They are small, tightly coupled glue classes with no
+  behavior that is meaningful outside their parent, and each parent document has one section per class and one
+  review-set covering all of them. The SysML model records this on each unit with an explicit "no dedicated unit
+  doc" reference.
 
 The following software items of the SpeechSherpa system are also covered:
 
@@ -483,6 +497,11 @@ file of their own, and are documented with that owning unit:
 - `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
   `SpeechModelDownloader.cs`.
 
+Several small internal helper types are likewise documented inside the unit that owns them rather
+than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
+FlacDecoder designs), `FlacFrameDecoder`, `FlacBitReader`, and `FlacCrc` (in the FlacDecoder
+design), and `NumericParameterBounds` (in the SpeechModelParameters design).
+
 Each subsystem folder also holds a `NamespaceDoc.cs` file that carries only the namespace's
 XML documentation summary; it declares no behavior and is not a software item.
 
@@ -546,6 +565,7 @@ src/DemaConsulting.Speech.Cli/
 ├── Program.cs                                 — Process entry point, banner, help, dispatch
 ├── Cli/
 │   ├── Context.cs                             — Global-option parsing and per-invocation state
+│   ├── ConsoleCancellation.cs                 — Shared Ctrl+C (`Console.CancelKeyPress`) wiring
 │   └── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
 ├── SelfTest/
 │   └── Validation.cs                          — CI-safe `--validate` self-check implementation
@@ -561,6 +581,7 @@ src/DemaConsulting.Speech.Cli/
 │   │   ├── DownloadCommand.cs                 — `download` implementation
 │   │   ├── UninstallCommand.cs                — `uninstall` implementation
 │   │   ├── CleanCommand.cs                    — `clean` implementation
+│   │   ├── DownloadProgressReporter.cs        — Shared throttled download-progress reporter
 │   │   ├── ListVoicesCommand.cs               — `list-voices` implementation
 │   │   └── VoicesCommand.cs                   — `voices` (reference-voice pack) implementation
 │   ├── DeviceCommandsSubsystem/
@@ -626,7 +647,7 @@ src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/
     ├── ChatterboxTurboGenerationResult.cs                 — Generation loop result
     ├── ChatterboxTurboTokenSelector.cs                    — Repetition-penalized selection
     ├── ChatterboxTurboTagKind.cs                          — Tag kind enum
-    ├── ChatterboxTurboTagTreatment.cs                     — Tag treatment enum
+    ├── ChatterboxTurboTagTreatment.cs                     — Tag treatment table entry (record)
     └── ChatterboxTurboCapabilityProfile.cs                — Audio-tag rendering policy
 ```
 
@@ -701,6 +722,31 @@ SpeechSherpa's artifacts live under `docs/reqstream/speech-sherpa/`, `docs/desig
 `docs/verification/speech-sherpa/`, `src/DemaConsulting.Speech.Sherpa/`, and
 `test/DemaConsulting.Speech.Sherpa.Tests/`. SpeechSherpa's subsystems share their names with the
 Speech subsystems they extend, so each subsystem is always identified together with its system.
+
+## Modeling Scope and Exclusions
+
+The SysML2 model intentionally follows these rules; they are not omissions:
+
+- **System-to-system dependencies are prose-only.** The dependencies between sibling systems
+  (for example SpeechSherpa, the ONNX model packages, SpeechCli and SpeechDemo all building on
+  Speech, or the ONNX model packages building on SpeechOnnx) are documented in each system's
+  design document and are enforced by the project files; the model's `part` ownership expresses
+  only decomposition (system, subsystem, unit), not inter-system dependency.
+- **OTS parts are modeled only where integration code uses the item.** SpeechCli and SpeechDemo
+  reference `Microsoft.ML.OnnxRuntime` in their project files only to exclude its native assets
+  (`ExcludeAssets="native"`) so the sherpa-onnx native runtime is used; they contain no code that
+  calls it, so they carry no OnnxRuntime OTS part usage. The OTS item itself is modeled and
+  verified under SpeechOnnx. Build-tool OTS items are repository-level tooling (see the note in
+  `ots.sysml`).
+- **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only
+  namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
+  behavior and are covered by the view-model or panel unit they accompany.
+- **Small enums and value types** (for example `TaggedTextSpanKind` and the
+  ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
+  of the unit that owns or consumes them rather than modeled as separate units.
+- **View names** are prefixed with the system name for sibling systems; the core Speech
+  system's views are unprefixed, and `DiagnosticsView`/`PortAudioView` name child subsystems
+  that follow their own short names, as explained in `design-views.sysml`.
 
 ## References
 

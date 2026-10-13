@@ -17,7 +17,7 @@ existing catalog seam with one further member:
   timeout (a start-timeout grace period before the first recognition result, a silence-timeout
   window resetting on every result thereafter) against each `MoveNextAsync`, stopping the wrapped
   session when the currently-active window elapses with no result
-- **`ICliModelCatalog.CreateRecognizerEngineAsync`**: the new seam member
+- **`ICliModelCatalog.CreateRecognizerEngineAsync`**: the seam member
   (see _Design_ below), implemented by
   `SpeechModelCatalogAdapter`
 
@@ -134,7 +134,8 @@ synchronous, fire-and-forget `Console.CancelKeyPress` handler that calls `sessio
 pump naturally, with `cancellationToken` forwarded into `GetResultsAsync` as a belt-and-suspenders
 safety net for the documented edge case where `StopAsync` called while the session never started
 does not itself complete that stream. `--capture-device` resolves a real capture device from the
-injected `AudioDeviceFactory`, reusing `DevicesTestCommand.ResolveDeviceSelectionOrThrow`
+injected `AudioDeviceFactory` (wrapped in the conversation subsystem's `ICliCaptureDeviceSource`
+seam so tests can substitute a fake device), reusing `DevicesTestCommand.ResolveDeviceSelectionOrThrow`
 (internal, same assembly, different namespace) to validate any requested `--capture-device` name
 before a device is actually created, exactly mirroring `devices test`'s and `speak`'s own
 validate-before-create pattern; an unavailable resolved device throws `InvalidOperationException`
@@ -203,9 +204,8 @@ can exercise the full idle/reset/timeout sequence deterministically with a fake 
 (`FakeTimeProvider`, driving its own `FakeTimer`) and no real wall-clock delay. Because this type
 is now a pure, stateless async-enumerable decorator with cleanup delegated entirely to the inner
 enumerator's own `await using` disposal, it needs **no locks, no wait-handles, and no
-`IDisposable`/`Dispose()` of its own** - the prior timer/event-based design's `_gate`/
-`_idleCallbackDone` concurrency guards no longer exist because there is no longer a
-background-thread timer callback racing a concurrent caller-driven disposal.
+`IDisposable`/`Dispose()` of its own** - there is no background-thread timer callback that could race
+a concurrent caller-driven disposal, so no concurrency guards are needed.
 
 ### Interactions with Other Units
 
@@ -219,5 +219,5 @@ background-thread timer callback racing a concurrent caller-driven disposal.
 depends only on the library's public `IRecognitionSession`/`SpeechRecognitionEvent` types and the
 BCL `System.TimeProvider` abstraction. None of this subsystem touches `IRecognitionModel` or any
 other internal library type directly - that access is confined entirely to
-`SpeechModelCatalogAdapter`, exactly as `ModelCommandsSubsystem`'s original seam already
-established.
+`SpeechModelCatalogAdapter`, exactly as `ModelCommandsSubsystem`'s seam
+establishes.

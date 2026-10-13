@@ -116,8 +116,8 @@ private `PrewarmRecognizerAsync` method - which resolves Phase 2's capture devic
 `catalog.CreateRecognizerEngineAsync(...)`, then `engine.CreateSessionAsync(captureDevice, ...)`,
 bundling both into a `PrewarmedRecognizer(Engine, Session)` record struct - on a background
 `Task.Run` immediately after both phases' parameters are resolved, so this work overlaps with the
-`await SpeakPromptAsync(...)` call that follows it. Capture-device resolution moved into this
-pre-warm step alongside engine/session construction because `ISpeechRecognizerEngine.CreateSessionAsync`
+`await SpeakPromptAsync(...)` call that follows it. Capture-device resolution is part of this
+pre-warm step, alongside engine/session construction because `ISpeechRecognizerEngine.CreateSessionAsync`
 requires an already-constructed `IAudioCaptureDevice` as an argument - it cannot be deferred
 independently of the engine itself. If session creation fails after the engine has already loaded,
 `PrewarmRecognizerAsync` disposes the orphaned engine before rethrowing, so a session-creation
@@ -145,10 +145,10 @@ fire-and-forget so a slow in-flight model load never delays `Ctrl+C`/fast-failur
   an unknown/unavailable `--capture-device`, an invalid `--stt-param` value, etc. - at the start
   of Phase 2, exactly as a synchronous call to the same logic would have. `RunAsync` adopts the
   engine via `await using`, then calls `Listen` with the already-constructed session; `Listen`
-  itself still checks `stopSignal.IsSet` first (now also covering the case where `Ctrl+C` landed
+  itself still checks `stopSignal.IsSet` first (which also covers the case where `Ctrl+C` landed
   during the concurrent pre-warm itself) before ever calling `StartAsync`, and still calls
-  `onRecognizerCreated`/disposes the session in its own `finally` block exactly as before, so the
-  disposal-ordering/callback-timing contract several unit tests depend on is unchanged.
+  `onRecognizerCreated`/disposes the session in its own `finally` block, so the
+  disposal-ordering/callback-timing contract several unit tests depend on holds.
 
 This is a design note for future `ICliModelCatalog` implementers: `SpeechModelCatalogAdapter`
 (the only production implementation) wraps a read-mostly `SpeechModelCatalog` with no documented
@@ -158,7 +158,7 @@ with Phase 1's `CreateSynthesizerEngineAsync`-backed playback safe today; a futu
 implementation with non-thread-safe side effects shared across both calls would need to account
 for this concurrency.
 
-### Capture-Device Resolution Through `ICliCaptureDeviceSource` (New Seam)
+### Capture-Device Resolution Through `ICliCaptureDeviceSource`
 
 Unlike `RecognizeCommand`, which resolves its capture device directly from an injected
 `AudioDeviceFactory`, Phase 2 resolves its capture device through `ICliCaptureDeviceSource` - a
@@ -173,11 +173,10 @@ substitute a fully in-memory fake (`FakeCaptureDeviceSource`, returning a fake, 
 `IAudioCaptureDevice`) that never touches real PortAudio state at all, so `ask`'s mic-mode
 happy-path tests are deterministic everywhere. `AudioDeviceFactoryCaptureDeviceSource` is the
 production implementation, forwarding every call unchanged to a real `AudioDeviceFactory` - Phase
-2's real capture-device resolution is exactly what it was before this seam was introduced.
-`RecognizeCommand` itself is unchanged and still resolves its capture device directly from an
-injected `AudioDeviceFactory`; it has the same latent limitation this seam works around for `ask`,
-but this is a known, pre-existing, out-of-scope limitation, since none of `RecognizeCommand`'s own
-unit tests currently exercise a happy path that resolves a real capture device.
+2's real capture-device resolution therefore uses the real device factory.
+`RecognizeCommand` also resolves its capture device through this seam: its production entry point wraps
+the injected `AudioDeviceFactory` in `AudioDeviceFactoryCaptureDeviceSource`, and an internal overload
+accepts any `ICliCaptureDeviceSource`, so its microphone happy path is unit-testable with a fake.
 
 **Listen-termination rule (first final result ends the turn).** Unlike `recognize --mic`, which
 listens indefinitely until `--silence-timeout`/`Ctrl+C` alone, `ask`'s Phase 2 additionally stops

@@ -35,7 +35,9 @@ command line relative to the subcommand name, because every subcommand needs the
 cross-cutting configuration. The first token that is not a recognized global option resolves the
 subcommand name (`Context.Command`) against the fixed dispatch table described below; every
 following token that is not itself a recognized global option is collected, unparsed, into
-`Context.CommandArgs` for that subcommand's own handler to interpret.
+`Context.CommandArgs` for that subcommand's own handler to interpret. Because global options are recognized
+anywhere, a subcommand value that equals a global flag (for example `speak --text -v`) is absorbed as that global
+option rather than passed to the subcommand; values that must look like a global flag cannot be supplied.
 Supplying a token that resolves to neither a global option nor a known subcommand name throws
 `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code error - the same
 convention the template already uses for its own unsupported-argument case.
@@ -144,6 +146,7 @@ consumes.
 | --- | --- | --- | --- |
 | Command-line arguments | Inbound | Process arguments | Global options recognized anywhere |
 | Console output / exit code | Outbound | stdout/stderr, exit code | `0` success, `1` reported error |
+| `Console.CancelKeyPress` (Ctrl+C) | Inbound | Process signal | Subscribed only through `ConsoleCancellation` |
 | `--validate` report | Outbound | Console text, optional `.trx`/`.xml` | CI-safe; no download/hardware required |
 | `AudioDeviceFactory` (self-test) | Outbound | Constructor/method call | Consumed; never throws |
 | `SpeechModelStore`/`Options` (self-test) | Outbound | Constructor/property | Resolves the model-store root |
@@ -158,9 +161,10 @@ consumes.
 
 ## Dependencies
 
-SpeechCli has two project dependencies - the Speech library, and the SpeechSherpa library whose
-`AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
-the CLI composes (see _SpeechSherpa Design_) - and the following NuGet dependencies:
+SpeechCli has these project dependencies - the Speech library, and the model-package libraries whose
+registration extension methods (`AddSherpaModels()`, `AddKokoroModels()`, `AddNemotronSttModels()`,
+`AddChatterboxTurboModels()`) populate the catalog the CLI composes (see _SpeechSherpa Design_ and the
+other model-package designs) - and the following NuGet dependencies:
 
 - **`DemaConsulting.TestResults`** supplies the `.trx`/JUnit `.xml` self-validation result
   serialization used by `--validate --results <file>`, mirroring the reference
