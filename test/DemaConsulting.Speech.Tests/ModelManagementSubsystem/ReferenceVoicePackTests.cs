@@ -140,6 +140,13 @@ public sealed class ReferenceVoicePackTests
     [InlineData("C:\\evil.zip")]
     [InlineData("/evil.zip")]
     [InlineData("a:b.zip")]
+    [InlineData("evil.zip.")]
+    [InlineData(" evil.zip")]
+    [InlineData("evil.zip ")]
+    [InlineData("CON")]
+    [InlineData("nul.zip")]
+    [InlineData("com1.txt")]
+    [InlineData("a\0b.zip")]
     public void ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws(string name)
     {
         // Act
@@ -231,6 +238,11 @@ public sealed class ReferenceVoicePackTests
     [InlineData("C:pack")]
     [InlineData("C:\\pack")]
     [InlineData("/pack")]
+    [InlineData(".")]
+    [InlineData("pack.")]
+    [InlineData(" pack")]
+    [InlineData("LPT1")]
+    [InlineData("a\0b")]
     public void ReferenceVoicePack_Constructor_UnsafeId_Throws(string id)
     {
         // Arrange
@@ -311,6 +323,9 @@ public sealed class ReferenceVoicePackTests
         // Assert
         Assert.Equal(13, moods.Count);
         Assert.Equal(13, distinct);
+        Assert.Equal(
+            ["anger", "calm", "confused", "enthused", "excited", "frustrated", "happy", "neutral", "sad", "shout", "surprised", "tired", "worried"],
+            moods);
         Assert.All(moods, mood => Assert.Equal(mood.ToLowerInvariant(), mood));
         Assert.Contains("neutral", moods);
     }
@@ -341,5 +356,83 @@ public sealed class ReferenceVoicePackTests
         }
 
         Assert.False(plain.TryGetMoodClip("sad", out _));
+    }
+
+    /// <summary>
+    ///     Proves that a blank text argument or a null URI/checksum is rejected with the documented exception type.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw()
+    {
+        // Arrange
+        var uri = new Uri("https://example.invalid/pack-1.zip");
+        var other = new Uri("https://example.invalid/other");
+
+        // Act and Assert
+        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", null!, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, null!, 10, "p.zip", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, string.Empty, 10, "p.zip", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", null!, "A", other));
+        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", null!));
+        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack(null!, "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", " ", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, " ", "root", "CC0", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "", "CC0", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "", other, "A", other));
+        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, " ", other));
+    }
+
+    /// <summary>
+    ///     Proves that a pack constructed with valid arguments keeps the exact instances it was given.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_ValidArguments_KeepsSuppliedUriInstances()
+    {
+        // Arrange
+        var uri = new Uri("https://example.invalid/pack-1.zip");
+        var license = new Uri("https://example.invalid/license");
+        var source = new Uri("https://example.invalid/source");
+
+        // Act
+        var pack = new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", license, "A", source);
+
+        // Assert
+        Assert.Same(uri, pack.Uri);
+        Assert.Same(license, pack.LicenseUrl);
+        Assert.Same(source, pack.SourceUrl);
+    }
+
+    /// <summary>
+    ///     Proves that the voice source enumeration has exactly the Directory, User and Pack members.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceSource_Values_AreDirectoryUserAndPack()
+    {
+        // Act
+        var names = Enum.GetNames<ReferenceVoiceSource>();
+
+        // Assert
+        Assert.Equal(["Directory", "User", "Pack"], names);
+    }
+
+    /// <summary>
+    ///     Proves that a voice keeps its own read-only, ordinally ordered copy of the mood clips, so neither the
+    ///     caller changing the supplied dictionary nor casting the exposed dictionary can alter it.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceInfo_MoodClips_AreAnImmutableOrderedCopy()
+    {
+        // Arrange
+        var clips = new Dictionary<string, string> { ["sad"] = "/m/sad.flac", ["anger"] = "/m/anger.flac" };
+        var voice = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.Pack, "p", "v", MoodClips: clips);
+
+        // Act
+        clips["happy"] = "/m/happy.flac";
+        clips["sad"] = "/changed.flac";
+
+        // Assert
+        Assert.Equal(["anger", "sad"], voice.MoodClips!.Keys);
+        Assert.Equal("/m/sad.flac", voice.MoodClips["sad"]);
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)voice.MoodClips)["x"] = "/x.flac");
     }
 }

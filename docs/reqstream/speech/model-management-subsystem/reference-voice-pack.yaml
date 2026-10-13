@@ -34,18 +34,45 @@ sections:
                 tests:
                   - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
 
-              - id: Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - id: Speech-Models-ReferenceVoicePack-HttpsUriRequired
                 title: >-
-                  The ReferenceVoicePack constructor shall reject a descriptor that describes an
-                  insecure or malformed archive transfer.
+                  The ReferenceVoicePack constructor shall reject an archive URL that is not HTTPS.
                 justification: |
                   The archive is fetched over the network, so a descriptor must be unable to
-                  describe an insecure transfer. This covers a non-HTTPS archive URL, a malformed
-                  SHA-256 checksum, and a non-positive size.
+                  describe an insecure transfer.
                 tests:
                   - ReferenceVoicePack_Constructor_NonHttpsUri_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-ChecksumShapeValidation
+                title: >-
+                  The ReferenceVoicePack constructor shall reject a SHA-256 checksum that is not 64
+                  hexadecimal characters.
+                justification: |
+                  The archive is verified against the checksum, so a malformed value could never
+                  verify any download.
+                tests:
                   - ReferenceVoicePack_Constructor_BadChecksum_Throws
+                  - ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw
+
+              - id: Speech-Models-ReferenceVoicePack-PositiveSizeRequired
+                title: >-
+                  The ReferenceVoicePack constructor shall reject an archive size that is zero or
+                  negative.
+                justification: |
+                  The size drives progress and warnings, so a non-positive value is never
+                  meaningful.
+                tests:
                   - ReferenceVoicePack_Constructor_NonPositiveSize_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-NullOrBlankArguments
+                title: >-
+                  The ReferenceVoicePack constructor shall reject a null reference argument and a
+                  blank text argument.
+                justification: |
+                  Every descriptor field is required to download, show and attribute the voices, so
+                  a missing value must fail at construction rather than later.
+                tests:
+                  - ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw
 
               - id: Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
                 title: >-
@@ -54,7 +81,8 @@ sections:
                 justification: |
                   The id and archive names become directory and file names, so a descriptor must
                   be unable to describe a path that escapes the store. Unsafe segments include
-                  separators, a drive colon, a rooted path, "." or "..", on every platform.
+                  separators, a drive colon, a rooted path, "." or "..", leading or trailing
+                  whitespace, a trailing dot and a Windows reserved device name, on every platform.
                 tests:
                   - ReferenceVoicePack_Constructor_UnsafeId_Throws
                   - ReferenceVoicePack_Constructor_RootedRootFolder_Throws
@@ -70,6 +98,15 @@ sections:
                   Hosts show the download and installed sizes before the user commits to a large
                   download, so the sizes must be the real measured values of the built-in pack
                   (pinned in `ReferenceVoicePack.VoiceZero10` and checked by the linked test).
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
+
+              - id: Speech-Models-ReferenceVoicePack-InstalledSizeSelection
+                title: >-
+                  The ReferenceVoicePack class shall report as installed size the base voices size,
+                  plus the emotion size only when emotions are included.
+                justification: |
+                  A host shows the disk size of whichever install variant the user chooses.
                 tests:
                   - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
 
@@ -111,6 +148,36 @@ sections:
                   Hosts offer the moods without hard-coding them.
                 tests:
                   - ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipsImmutable
+                title: >-
+                  The ReferenceVoiceInfo record shall expose its mood clips as a read-only copy,
+                  in ordinal order of mood name, that later changes to the supplied dictionary do
+                  not alter.
+                justification: |
+                  Voice descriptions are shared between consumers, so one consumer must not be
+                  able to change another's clips.
+                tests:
+                  - ReferenceVoiceInfo_MoodClips_AreAnImmutableOrderedCopy
+
+              - id: Speech-Models-ReferenceVoicePack-ReferenceIdentity
+                title: >-
+                  The ReferenceVoicePack class shall compare by reference, so two descriptors
+                  built from equal values are distinct.
+                justification: |
+                  A pack is a singleton description; value equality would let a look-alike
+                  descriptor stand in for a built-in one.
+                tests:
+                  - ReferenceVoicePack_Equals_SameValuesDifferentInstances_AreNotEqual
+
+              - id: Speech-Models-ReferenceVoicePack-VoiceSources
+                title: >-
+                  The ReferenceVoiceSource enumeration shall distinguish voices from a named
+                  directory, the user folder and an installed pack.
+                justification: |
+                  Hosts show and filter voices by where they came from.
+                tests:
+                  - ReferenceVoiceSource_Values_AreDirectoryUserAndPack
 
               - id: Speech-Models-ReferenceVoicePack-DownloadDescriptor
                 title: >-

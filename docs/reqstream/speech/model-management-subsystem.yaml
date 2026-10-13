@@ -554,10 +554,17 @@ sections:
             children:
               - Speech-Models-ReferenceVoicePack-PublishedMetadata
               - Speech-Models-ReferenceVoicePack-KnownPacksListing
-              - Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - Speech-Models-ReferenceVoicePack-HttpsUriRequired
+              - Speech-Models-ReferenceVoicePack-ChecksumShapeValidation
+              - Speech-Models-ReferenceVoicePack-PositiveSizeRequired
+              - Speech-Models-ReferenceVoicePack-NullOrBlankArguments
               - Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
               - Speech-Models-ReferenceVoicePack-SizeMetadata
               - Speech-Models-ReferenceVoicePack-InstalledSizeValidation
+              - Speech-Models-ReferenceVoicePack-InstalledSizeSelection
+              - Speech-Models-ReferenceVoicePack-ReferenceIdentity
+              - Speech-Models-ReferenceVoicePack-VoiceSources
+              - Speech-Models-ReferenceVoicePack-MoodClipsImmutable
             tests:
               - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
               - ReferenceVoicePack_Constructor_NonHttpsUri_Throws

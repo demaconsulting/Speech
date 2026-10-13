@@ -16,6 +16,14 @@ public sealed class ReferenceVoicePack
     /// <summary>The characters that make a name (pack id, archive file name or archive root folder) unusable as a single directory name segment on any platform (the drive colon is included).</summary>
     private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\', ':'];
 
+    /// <summary>The Windows reserved device names, which cannot be used as a file or directory name (with or without an extension).</summary>
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
     /// <summary>Gets the built-in voice-zero 1.0 pack (CC0, 154 speakers, 13 moods each; about 570 MiB to download, about 44 MiB installed as voices only and about 572 MiB with emotions).</summary>
 #pragma warning disable S1075 // Download URLs are intentionally compiled-in, reviewed literals.
     public static ReferenceVoicePack VoiceZero10 { get; } = new(
@@ -53,7 +61,14 @@ public sealed class ReferenceVoicePack
     /// <param name="sourceUrl">The upstream project page.</param>
     /// <param name="voicesBytes">The extracted size in bytes of the base <c>voices/</c> clips plus license/readme files; zero when unknown; must not be negative.</param>
     /// <param name="emotionsBytes">The extracted size in bytes of the optional <c>voices-emotion/</c> clips; zero when the pack has none or it is unknown; must not be negative.</param>
-    /// <exception cref="ArgumentException">Thrown when a text argument is blank, the id/file name/root folder is not a safe name, the URI is not HTTPS, or the checksum is malformed.</exception>
+    /// <remarks>
+    ///     Validation order: blank or null text and null URI arguments, then the size ranges, then the safe-name checks
+    ///     (the id, archive file name and archive root folder must each be a single directory name: no path or drive
+    ///     separators or other characters invalid in a file name, no leading or trailing whitespace, no trailing dot, not
+    ///     <c>.</c>/<c>..</c>, not a Windows reserved device name), then the HTTPS scheme and checksum shape, which are
+    ///     enforced by the <see cref="SpeechModelDownloadFile"/> the descriptor delegates to.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Thrown when a text argument is blank, the id/file name/root folder is not a safe name (see remarks), the URI is not HTTPS, or the checksum is malformed.</exception>
     /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="sizeBytes"/> is not positive or an installed size is negative.</exception>
     public ReferenceVoicePack(
@@ -156,10 +171,19 @@ public sealed class ReferenceVoicePack
     /// <summary>Gets the download descriptor for the archive (one file at <see cref="ArchiveFileName"/>).</summary>
     internal SpeechModelDownloadDescriptor DownloadDescriptor { get; }
 
-    /// <summary>Rejects a name that is not a single, safe path segment (separators, drive colons, rooted paths, <c>.</c> and <c>..</c>).</summary>
+    /// <summary>
+    ///     Rejects a name that is not a single, safe path segment: separators, drive colons, rooted paths, <c>.</c> and
+    ///     <c>..</c>, leading or trailing whitespace, a trailing dot, and the Windows reserved device names.
+    /// </summary>
     private static void RequireSafeName(string value, string parameterName)
     {
-        if (value.IndexOfAny(InvalidIdCharacters) >= 0 || value is "." or ".." || Path.IsPathRooted(value))
+        var stem = value.Split('.')[0].TrimEnd();
+        if (value.IndexOfAny(InvalidIdCharacters) >= 0 ||
+            value is "." or ".." ||
+            value.Trim() != value ||
+            value.EndsWith('.') ||
+            ReservedDeviceNames.Contains(stem) ||
+            Path.IsPathRooted(value))
         {
             throw new ArgumentException($"'{value}' is not a valid single file or directory name.", parameterName);
         }

@@ -8,6 +8,7 @@ built-in voice-zero 1.0 metadata against the published values. No network access
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
+- **Isolation**: descriptors are built in memory; there is no file system, network or mocking involved.
 
 #### Acceptance Criteria
 
@@ -39,6 +40,14 @@ rejected on every platform, not only where the platform's invalid-character set 
 
 **Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws` (zero and negative sizes)
 
+**Test**: `ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw`
+
+Verifies a null URI or checksum, an empty checksum and a blank id, display name, archive file name, root folder,
+license name or attribution are rejected with the documented exception types.
+
+The unsafe-name theories also cover a trailing dot, leading or trailing whitespace, Windows reserved device names
+and NUL for the id and the archive file name.
+
 ##### Size Metadata
 
 **Test**: `ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues`
@@ -55,11 +64,23 @@ rejected on every platform, not only where the platform's invalid-character set 
 
 **Test**: `ReferenceVoicePack_Equals_SameValuesDifferentInstances_AreNotEqual`
 
+**Test**: `ReferenceVoicePack_Constructor_ValidArguments_KeepsSuppliedUriInstances`
+
 Verifies two descriptors built from equal values are distinct, unequal instances.
 
 ##### Known Moods
 
 **Test**: `ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods`
+
+Also asserts the exact ordinal list of the 13 mood names.
+
+##### Mood Clips Immutability
+
+**Test**: `ReferenceVoiceInfo_MoodClips_AreAnImmutableOrderedCopy`
+
+##### Voice Sources
+
+**Test**: `ReferenceVoiceSource_Values_AreDirectoryUserAndPack`
 
 ##### Mood Clip Lookup
 

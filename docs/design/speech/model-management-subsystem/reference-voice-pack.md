@@ -28,7 +28,9 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   disk, populated by `ReferenceVoiceLibrary.EnumerateVoices` (which owns how each field is filled, see
   the `ReferenceVoiceLibrary` design). `MoodClips` is an optional read-only map of lower-case mood name to
   the absolute path of that speaker's emotion clip, or `null` when the voice has none (user and directory
-  voices, and packs installed without emotions). `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack
+  voices, and packs installed without emotions). `MoodClips` is
+  copied at construction into a read-only dictionary enumerated in ordinal mood order, so later changes
+  to the supplied dictionary never show through. `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack
   provides:
   anger, calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired,
   worried. Moods are variants of a voice, not separate voices; `Mood` stays `null` for pack voices.
@@ -46,10 +48,17 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 
 **Error Handling**: The constructor throws `ArgumentNullException` for a null reference argument,
 `ArgumentException` for a blank text argument, a non-HTTPS URL, a malformed
-checksum, or an id, archive file name or archive root folder that is not a single safe path segment
-(no separators, drive colon, `.`/`..` or rooted names, on every platform), and
-`ArgumentOutOfRangeException` for a non-positive size or a
-negative `VoicesBytes` / `EmotionsBytes`.
+checksum (an empty string is a malformed checksum, a null one an `ArgumentNullException`), or an id,
+archive file name or archive root folder that is not a single safe path segment, and
+`ArgumentOutOfRangeException` for a non-positive size or a negative `VoicesBytes` / `EmotionsBytes`.
+A safe segment contains none of the characters invalid in a file name on any platform (including the
+path separators, the drive colon and NUL), is not rooted, is not `.` or `..`, has no leading or trailing
+whitespace and no trailing dot, and is not a Windows reserved device name (`CON`, `PRN`, `AUX`, `NUL`,
+`COM1`-`COM9`, `LPT1`-`LPT9`, with or without an extension).
+
+Arguments are checked in this order: blank or null text and null URIs, the size ranges, the safe
+names, then the HTTPS scheme and checksum shape, which the constructor delegates to the
+`SpeechModelDownloadFile` it builds for the download descriptor.
 
 **Dependencies**: `SpeechModelDownloadDescriptor` / `SpeechModelDownloadFile`.
 

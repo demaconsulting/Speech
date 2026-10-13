@@ -15,7 +15,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <param name="Attribution">The attribution line of a pack voice; otherwise <see langword="null"/>.</param>
 /// <param name="MoodClips">
 ///     The emotion variants of this voice as mood name (lower case, for example <c>sad</c>, see
-///     <see cref="ReferenceVoiceInfo.KnownMoods"/>) to absolute audio file path, sorted by mood name; <see langword="null"/>
+///     <see cref="ReferenceVoiceInfo.KnownMoods"/>) to absolute audio file path. The record keeps its own read-only copy,
+///     enumerated in ordinal order of the mood name, so later changes to the supplied dictionary never show through; <see langword="null"/>
 ///     when the voice has no mood clips (every user and directory voice, and a pack installed without emotions). The
 ///     moods are variants of the same speaker, not separate voices, so they never appear as voices of their own.
 /// </param>
@@ -31,6 +32,12 @@ public sealed record ReferenceVoiceInfo(
     string? Attribution = null,
     IReadOnlyDictionary<string, string>? MoodClips = null)
 {
+    /// <summary>Gets the read-only copy of the mood clips supplied at construction, or <see langword="null"/> when none.</summary>
+    public IReadOnlyDictionary<string, string>? MoodClips { get; init; } = MoodClips is null
+        ? null
+        : new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+            new SortedDictionary<string, string>(MoodClips.ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.Ordinal));
+
     /// <summary>
     ///     Finds the clip of a mood in <see cref="MoodClips"/>, matching the mood name case-insensitively after
     ///     trimming it.
