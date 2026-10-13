@@ -124,11 +124,40 @@ includes:
   - docs/reqstream/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.yaml
   - docs/reqstream/speech-demo/recognition-panel-subsystem/recognizer-session-factory.yaml
   - docs/reqstream/speech-cli.yaml
+  - docs/reqstream/speech-cli/program.yaml
+  - docs/reqstream/speech-cli/context.yaml
+  - docs/reqstream/speech-cli/command-dispatch.yaml
+  - docs/reqstream/speech-cli/console-cancellation.yaml
+  - docs/reqstream/speech-cli/validation.yaml
+  - docs/reqstream/speech-cli/path-helpers.yaml
   - docs/reqstream/speech-cli/model-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/clean-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/cli-model-catalog-factory.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/download-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/download-progress-reporter.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/i-cli-model-catalog.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/list-models-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/list-voices-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/model-info-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/uninstall-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/voices-command.yaml
   - docs/reqstream/speech-cli/device-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/devices-test-command.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/doctor-command.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/list-devices-command.yaml
   - docs/reqstream/speech-cli/synthesis-command-subsystem.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/parameter-bag-parser.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/speak-command.yaml
   - docs/reqstream/speech-cli/recognition-command-subsystem.yaml
+  - docs/reqstream/speech-cli/recognition-command-subsystem/recognize-command.yaml
+  - docs/reqstream/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.yaml
   - docs/reqstream/speech-cli/conversation-command-subsystem.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/ask-command.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.yaml
   - docs/reqstream/speech-sherpa.yaml
   - docs/reqstream/speech-sherpa/model-management-subsystem.yaml
   - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.yaml

@@ -1993,20 +1993,9 @@ reviews:
       - "docs/reqstream/speech-cli.yaml"                                    # system requirements
       - "docs/design/speech-cli.md"                                        # system design
       - "docs/verification/speech-cli.md"                                  # system verification
-      - "src/DemaConsulting.Speech.Cli/Program.cs"                        # process entry point
-      - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"                    # global-option/subcommand parser
-      - "src/DemaConsulting.Speech.Cli/Cli/ConsoleCancellation.cs"        # shared Ctrl+C wiring
-      - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"            # subcommand dispatch table
-      - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"            # self-validation
-      - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"          # path-traversal-safe combine
       - "test/DemaConsulting.Speech.Cli.Tests/AssemblyInfo.cs"            # test assembly attributes
-      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # Program in-process tests
-      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs"        # Context tests
-      - "test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs"  # CommandDispatch tests
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
-      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ConsoleCancellationTests.cs"  # ConsoleCancellation tests
-      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"  # PathHelpers tests
 
   # SpeechCli-Design Review (one per system)
   - id: SpeechCli-Design
@@ -2036,8 +2025,7 @@ reviews:
       - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/model-commands-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/model-commands-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-DeviceCommandsSubsystem Review (one per subsystem)
   - id: SpeechCli-DeviceCommandsSubsystem
@@ -2049,8 +2037,7 @@ reviews:
       - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/device-commands-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/device-commands-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-SynthesisCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-SynthesisCommandSubsystem
@@ -2064,9 +2051,7 @@ reviews:
       - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/synthesis-command-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/synthesis-command-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/**/*.cs"         # subsystem source
-      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ParameterBagParser.cs"  # parsing utility
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-RecognitionCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-RecognitionCommandSubsystem
@@ -2082,8 +2067,7 @@ reviews:
       - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/recognition-command-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/recognition-command-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-ConversationCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-ConversationCommandSubsystem
@@ -2100,7 +2084,430 @@ reviews:
       - "docs/design/speech-cli/conversation-command-subsystem.md"                          # subsystem design
       - "docs/verification/speech-cli/conversation-command-subsystem.md"                    # subsystem verification
       - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/**/*.cs"        # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/Fake*.cs"  # shared test doubles
+
+  # SpeechCli-Program Review (one per unit)
+  - id: SpeechCli-Program
+    title: Review that SpeechCli Program Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/program.yaml"
+      - "docs/design/speech-cli/program.md"
+      - "docs/verification/speech-cli/program.md"
+      - "src/DemaConsulting.Speech.Cli/Program.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"
+
+  # SpeechCli-Context Review (one per unit)
+  - id: SpeechCli-Context
+    title: Review that SpeechCli Context Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/context.yaml"
+      - "docs/design/speech-cli/context.md"
+      - "docs/verification/speech-cli/context.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs"
+
+  # SpeechCli-CommandDispatch Review (one per unit)
+  - id: SpeechCli-CommandDispatch
+    title: Review that SpeechCli CommandDispatch Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/command-dispatch.yaml"
+      - "docs/design/speech-cli/command-dispatch.md"
+      - "docs/verification/speech-cli/command-dispatch.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs"
+
+  # SpeechCli-ConsoleCancellation Review (one per unit)
+  - id: SpeechCli-ConsoleCancellation
+    title: Review that SpeechCli ConsoleCancellation Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/console-cancellation.yaml"
+      - "docs/design/speech-cli/console-cancellation.md"
+      - "docs/verification/speech-cli/console-cancellation.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/ConsoleCancellation.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ConsoleCancellationTests.cs"
+
+  # SpeechCli-Validation Review (one per unit)
+  - id: SpeechCli-Validation
+    title: Review that SpeechCli Validation Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/validation.yaml"
+      - "docs/design/speech-cli/validation.md"
+      - "docs/verification/speech-cli/validation.md"
+      - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"
+
+  # SpeechCli-PathHelpers Review (one per unit)
+  - id: SpeechCli-PathHelpers
+    title: Review that SpeechCli PathHelpers Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/path-helpers.yaml"
+      - "docs/design/speech-cli/path-helpers.md"
+      - "docs/verification/speech-cli/path-helpers.md"
+      - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-CleanCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-CleanCommand
+    title: Review that SpeechCli CleanCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/clean-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/clean-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/clean-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CleanCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/CleanCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-CliModelCatalogFactory Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-CliModelCatalogFactory
+    title: Review that SpeechCli CliModelCatalogFactory Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/cli-model-catalog-factory.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CliModelCatalogFactory.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-DownloadCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-DownloadCommand
+    title: Review that SpeechCli DownloadCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/download-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/download-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/download-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/DownloadCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/DownloadCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-DownloadProgressReporter Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-DownloadProgressReporter
+    title: Review that SpeechCli DownloadProgressReporter Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/download-progress-reporter.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/download-progress-reporter.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/download-progress-reporter.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/DownloadProgressReporter.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/DownloadProgressReporterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ICliModelCatalog Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ICliModelCatalog
+    title: Review that SpeechCli ICliModelCatalog Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/i-cli-model-catalog.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/i-cli-model-catalog.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/i-cli-model-catalog.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ICliModelCatalog.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/FakeCliModelCatalog.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ListModelsCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ListModelsCommand
+    title: Review that SpeechCli ListModelsCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/list-models-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/list-models-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/list-models-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListModelsCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListModelsCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ListVoicesCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ListVoicesCommand
+    title: Review that SpeechCli ListVoicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/list-voices-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/list-voices-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/list-voices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListVoicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListVoicesCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ModelInfoCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ModelInfoCommand
+    title: Review that SpeechCli ModelInfoCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/model-info-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/model-info-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/model-info-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ModelInfoCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ModelInfoCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-SpeechModelCatalogAdapter Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-SpeechModelCatalogAdapter
+    title: Review that SpeechCli SpeechModelCatalogAdapter Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapter.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-UninstallCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-UninstallCommand
+    title: Review that SpeechCli UninstallCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/uninstall-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/uninstall-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/uninstall-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/UninstallCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/UninstallCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-VoicesCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-VoicesCommand
+    title: Review that SpeechCli VoicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/voices-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/voices-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/voices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/VoicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/VoicesCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-DevicesTestCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-DevicesTestCommand
+    title: Review that SpeechCli DevicesTestCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/devices-test-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/devices-test-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/devices-test-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/DevicesTestCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/DevicesTestCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-DoctorCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-DoctorCommand
+    title: Review that SpeechCli DoctorCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/doctor-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/doctor-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/doctor-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/DoctorCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/DoctorCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-ListDevicesCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-ListDevicesCommand
+    title: Review that SpeechCli ListDevicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/list-devices-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/list-devices-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/list-devices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/ListDevicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/ListDevicesCommandTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-AudioDeviceFactoryPlaybackDeviceSource Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-AudioDeviceFactoryPlaybackDeviceSource
+    title: Review that SpeechCli AudioDeviceFactoryPlaybackDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/AudioDeviceFactoryPlaybackDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/AudioDeviceFactoryPlaybackDeviceSourceTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-ICliPlaybackDeviceSource Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-ICliPlaybackDeviceSource
+    title: Review that SpeechCli ICliPlaybackDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ICliPlaybackDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/FakePlaybackDeviceSource.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-ParameterBagParser Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-ParameterBagParser
+    title: Review that SpeechCli ParameterBagParser Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/parameter-bag-parser.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ParameterBagParser.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/ParameterBagParserTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-SpeakCommand Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-SpeakCommand
+    title: Review that SpeechCli SpeakCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/speak-command.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/speak-command.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/speak-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/SpeakCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/SpeakCommandTests.cs"
+
+  # SpeechCli-RecognitionCommandSubsystem-RecognizeCommand Review (one per unit)
+  - id: SpeechCli-RecognitionCommandSubsystem-RecognizeCommand
+    title: Review that SpeechCli RecognizeCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem.md"
+      - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/recognition-command-subsystem/recognize-command.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem/recognize-command.md"
+      - "docs/verification/speech-cli/recognition-command-subsystem/recognize-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/RecognizeCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/RecognizeCommandTests.cs"
+
+  # SpeechCli-RecognitionCommandSubsystem-SilenceTimeoutRecognizerSession Review (one per unit)
+  - id: SpeechCli-RecognitionCommandSubsystem-SilenceTimeoutRecognizerSession
+    title: Review that SpeechCli SilenceTimeoutRecognizerSession Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem.md"
+      - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md"
+      - "docs/verification/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSession.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSessionTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-AskCommand Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-AskCommand
+    title: Review that SpeechCli AskCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/ask-command.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/ask-command.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/ask-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AskCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AskCommandTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-AudioDeviceFactoryCaptureDeviceSource Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-AudioDeviceFactoryCaptureDeviceSource
+    title: Review that SpeechCli AudioDeviceFactoryCaptureDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AudioDeviceFactoryCaptureDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AudioDeviceFactoryCaptureDeviceSourceTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-ICliCaptureDeviceSource Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-ICliCaptureDeviceSource
+    title: Review that SpeechCli ICliCaptureDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/ICliCaptureDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/FakeCaptureDeviceSource.cs"
 
   # SpeechOnnx-Architecture Review (one per system)
   - id: SpeechOnnx-Architecture
