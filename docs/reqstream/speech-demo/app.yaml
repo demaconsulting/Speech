@@ -76,6 +76,17 @@ sections:
               disposal steps twice.
             tests:
               - App_HandleShutdownRequested_RepeatedRequest_StartsNoSecondCleanup
+
+          - id: SpeechDemo-App-CompositionFailureReleasesCatalog
+            title: >-
+              The App unit shall release the model catalog service it created when composing the
+              panels fails, rather than leaking it.
+            justification: |
+              The caller only receives the catalog service after a successful composition, so a
+              failure part-way through would otherwise leave its download machinery undisposed.
+            tests:
+              - App_BuildOrDispose_BuildThrows_DisposesOwnerAndRethrows
+              - App_BuildOrDispose_BuildSucceeds_ReturnsResultAndLeavesOwnerOpen
           - id: SpeechDemo-App-AvaloniaApplication
             title: >-
               The App unit shall be a valid Avalonia application.

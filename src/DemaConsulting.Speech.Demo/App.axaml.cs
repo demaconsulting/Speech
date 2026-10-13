@@ -183,17 +183,28 @@ public sealed class App : Application
         // so both use the same store root and mirror - the same arrangement the CLI uses.
         ModelCatalogComposition CatalogFactory(SpeechModelDownloaderOptions? options)
         {
-            var catalog = new SpeechModelCatalog(storeOptions, options, diagnostics: null)
-                .AddSherpaModels()
-                .AddKokoroModels()
-                .AddNemotronSttModels();
-            var voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, options);
-            catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions
+            var catalog = new SpeechModelCatalog(storeOptions, options, diagnostics: null);
+            ReferenceVoiceLibrary? voiceLibrary = null;
+            try
             {
-                ReferenceVoiceDirectory = launchOptions?.VoicesDir,
-                ReferenceVoiceLibrary = voiceLibrary,
-            });
-            return new ModelCatalogComposition(catalog, voiceLibrary);
+                catalog.AddSherpaModels()
+                    .AddKokoroModels()
+                    .AddNemotronSttModels();
+                voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, options);
+                catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions
+                {
+                    ReferenceVoiceDirectory = launchOptions?.VoicesDir,
+                    ReferenceVoiceLibrary = voiceLibrary,
+                });
+                return new ModelCatalogComposition(catalog, voiceLibrary);
+            }
+            catch
+            {
+                // The composition is never handed to the caller, so release the half-built pair.
+                voiceLibrary?.Dispose();
+                catalog.Dispose();
+                throw;
+            }
         }
 
         var initialComposition = CatalogFactory(downloaderOptions);
@@ -209,23 +220,39 @@ public sealed class App : Application
         catalogService = new ModelCatalogService(initialComposition, downloaderOptions, CatalogFactory);
         var deviceSelection = new DeviceSelectionViewModel(deviceService);
 
-        try
-        {
-            return new MainWindowViewModel(
+        var service = catalogService;
+        return BuildOrDispose(
+            service,
+            () => new MainWindowViewModel(
                 deviceSelection,
                 new ModelCatalogViewModel(
-                    catalogService,
+                    service,
                     launchOptions?.MirrorUrl,
                     launchOptions?.MirrorUser,
                     launchOptions?.MirrorPassword,
                     launchOptions?.MirrorBearerToken),
-                new SynthesisPanelViewModel(catalogService, deviceService, deviceSelection, new SynthesizerSessionFactory(modelStore)),
-                new RecognitionPanelViewModel(catalogService, deviceService, deviceSelection, new RecognizerSessionFactory(modelStore)));
+                new SynthesisPanelViewModel(service, deviceService, deviceSelection, new SynthesizerSessionFactory(modelStore)),
+                new RecognitionPanelViewModel(service, deviceService, deviceSelection, new RecognizerSessionFactory(modelStore))));
+    }
+
+    /// <summary>
+    ///     Runs <paramref name="build"/>, releasing <paramref name="owner"/> when it throws so a
+    ///     resource the caller will never receive is not leaked.
+    /// </summary>
+    /// <typeparam name="T">The type of the built object.</typeparam>
+    /// <param name="owner">The disposable resource the caller only receives after a successful build.</param>
+    /// <param name="build">Builds the object that depends on <paramref name="owner"/>.</param>
+    /// <returns>The built object; <paramref name="owner"/> remains open.</returns>
+    internal static T BuildOrDispose<T>(IDisposable owner, Func<T> build)
+    {
+        try
+        {
+            return build();
         }
         catch
         {
-            // The caller never receives the catalog service when composition fails, so release it here.
-            catalogService.Dispose();
+            // The caller never receives the owner when the build fails, so release it here.
+            owner.Dispose();
             throw;
         }
     }

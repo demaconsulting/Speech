@@ -22,13 +22,18 @@ namespace DemaConsulting.Speech.Demo.Tests;
 ///     System-level integration tests for the SpeechDemo system.
 /// </summary>
 /// <remarks>
-///     These tests compose the demo exactly as its application entry point does - the real
-///     library factories and catalog, the real service adapters, and the real ViewModels - so
-///     they prove the demo's composition root genuinely works on a machine with no audio backend
-///     and no installed model. Only the Avalonia window itself is left out, because starting a UI
-///     toolkit is not something CI can rely on and adds no evidence the ViewModels do not already
-///     provide.
+///     Tests that prove composition (<c>RealLibraryEntryPoints_ComposesWorkingShell</c>,
+///     <c>RealModelCatalog_ReportsKnownModels</c>) call the application's own composition root,
+///     <c>App.Compose</c>, over the real library factories and catalog, so they prove it works on
+///     a machine with no audio backend and no installed model. Tests of panel behavior instead
+///     mirror that wiring by hand over controlled fakes, so a download, a synthesis or a
+///     recognition session can be driven deterministically without network, models or hardware.
+///     Only the Avalonia window itself is left out, because starting a UI toolkit is not
+///     something CI can rely on and adds no evidence the ViewModels do not already provide.
+///     The class joins the non-parallel process-wide-state collection because the recognition
+///     scenarios start the capture-debug recorder, which reads a process-wide environment variable.
 /// </remarks>
+[Collection(ProcessWideStateCollection.Name)]
 public class SpeechDemoTests
 {
     /// <summary>
@@ -253,6 +258,7 @@ public class SpeechDemoTests
     /// <param name="mirror">The launch-time mirror values the catalog panel starts with.</param>
     /// <param name="playbackAvailable">Whether the faked playback device reports itself available.</param>
     /// <param name="captureAvailable">Whether the faked capture device reports itself available.</param>
+    /// <param name="captureDevice">A test-controlled capture device, or <see langword="null"/> for a plain fake.</param>
     /// <returns>The composed shell.</returns>
     private static MainWindowViewModel ComposeShell(
         IModelCatalogService catalogService,
@@ -260,7 +266,8 @@ public class SpeechDemoTests
         IRecognizerSessionFactory? recognizerFactory = null,
         string? mirror = null,
         bool playbackAvailable = true,
-        bool captureAvailable = true)
+        bool captureAvailable = true,
+        IAudioCaptureDevice? captureDevice = null)
     {
         var deviceService = Substitute.For<IAudioDeviceService>();
         var speaker = new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 44100);
@@ -270,9 +277,13 @@ public class SpeechDemoTests
         var playbackDevice = Substitute.For<IAudioPlaybackDevice>();
         playbackDevice.IsAvailable.Returns(playbackAvailable);
         deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(playbackDevice);
-        var captureDevice = Substitute.For<IAudioCaptureDevice>();
-        captureDevice.IsAvailable.Returns(captureAvailable);
-        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(captureDevice);
+        var capture = captureDevice ?? Substitute.For<IAudioCaptureDevice>();
+        if (captureDevice is null)
+        {
+            capture.IsAvailable.Returns(captureAvailable);
+        }
+
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(capture);
 
         var deviceSelection = new DeviceSelectionViewModel(deviceService);
         return new MainWindowViewModel(
@@ -423,7 +434,7 @@ public class SpeechDemoTests
     {
         // Arrange: launch arguments naming a mirror, turned into the downloader options the
         // application's composition root hands the library
-        var launch = AppLaunchOptions.Parse(["--mirror-url", "https://mirror.example.com"]);
+        var launch = AppLaunchOptions.Parse(["--mirror-url", "https://mirror.example.com"], _ => null);
 
         // Act
         var downloaderOptions = launch.CreateDownloaderOptions();
@@ -482,7 +493,7 @@ public class SpeechDemoTests
     public void SpeechDemo_SystemIntegration_LaunchOptions_RelocateModelStore()
     {
         // Act
-        var options = AppLaunchOptions.Parse(["--models-dir", "models-root"]);
+        var options = AppLaunchOptions.Parse(["--models-dir", "models-root"], _ => null);
 
         // Assert: the store is relocated
         Assert.Equal("models-root", options.CreateStoreOptions()?.RootPathOverride);
@@ -500,27 +511,154 @@ public class SpeechDemoTests
             AppContext.BaseDirectory, "SpeechDemoTests", Guid.NewGuid().ToString("N")));
 
         // Act
-        var options = AppLaunchOptions.Parse(["--voices-dir", voices.FullName]);
+        var options = AppLaunchOptions.Parse(["--voices-dir", voices.FullName], _ => null);
 
         // Assert: the voices folder is recorded
         Assert.Equal(voices.FullName, options.VoicesDir);
     }
 
     /// <summary>
-    ///     Proves that an unrecognized or incomplete launch option is rejected with an
-    ///     explanation.
+    ///     Proves that an unrecognized or incomplete launch option is rejected by the demo's entry
+    ///     point with an explanation, a non-zero exit code and the usage text, and never starts
+    ///     the application.
     /// </summary>
     [Fact]
     public void SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation()
     {
-        // Act / Assert: an unrecognized option is rejected with a message locating it but not
-        // echoing it (a mistyped option may be a secret)
-        var unknown = Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--not-an-option"]));
-        Assert.Contains("position 1", unknown.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("--not-an-option", unknown.Message, StringComparison.Ordinal);
+        // Act: an unrecognized option, which may be a mistyped secret
+        var unknown = RunEntryPoint(["--not-an-option"]);
 
-        // Act / Assert: an option missing its value is rejected
-        Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--models-dir"]));
+        // Assert: it is rejected at its position without being echoed, the usage is shown, and
+        // the application was not started
+        Assert.Equal(1, unknown.ExitCode);
+        Assert.Contains("Error:", unknown.Error, StringComparison.Ordinal);
+        Assert.Contains("position 1", unknown.Error, StringComparison.Ordinal);
+        Assert.DoesNotContain("--not-an-option", unknown.Error, StringComparison.Ordinal);
+        Assert.Contains("Usage:", unknown.Error, StringComparison.Ordinal);
+        Assert.Equal(0, unknown.StartCount);
+
+        // Act: an option missing its value
+        var incomplete = RunEntryPoint(["--models-dir"]);
+
+        // Assert: it is rejected with an explanation naming the option
+        Assert.Equal(1, incomplete.ExitCode);
+        Assert.Contains("--models-dir requires a value", incomplete.Error, StringComparison.Ordinal);
+        Assert.Equal(0, incomplete.StartCount);
+    }
+
+    /// <summary>
+    ///     Proves that a help request prints the usage text, succeeds, and never starts the
+    ///     application, even alongside an otherwise invalid mirror configuration.
+    /// </summary>
+    [Fact]
+    public void SpeechDemo_SystemIntegration_LaunchOptions_HelpPrintsUsageAndExits()
+    {
+        // Act
+        var help = RunEntryPoint(["--help", "--mirror-url", "not a url"]);
+
+        // Assert: usage on standard output, success, no error text, application not started
+        Assert.Equal(0, help.ExitCode);
+        Assert.Contains("Usage:", help.Output, StringComparison.Ordinal);
+        Assert.Contains("--models-dir <path>", help.Output, StringComparison.Ordinal);
+        Assert.Empty(help.Error);
+        Assert.Equal(0, help.StartCount);
+    }
+
+    /// <summary>
+    ///     Proves that mirror settings supplied through the <c>DEMASPEECH_MIRROR_*</c> environment
+    ///     variables, rather than command-line options, redirect downloads at launch and
+    ///     pre-populate the catalog panel.
+    /// </summary>
+    [Fact]
+    public void SpeechDemo_SystemIntegration_LaunchOptions_MirrorEnvironmentAppliesAtLaunch()
+    {
+        // Arrange: no command-line mirror, but the environment names one with a bearer token
+        var launch = AppLaunchOptions.Parse(
+            ["--models-dir", IsolatedOptions().RootPathOverride!],
+            name => name switch
+            {
+                AppLaunchOptions.MirrorUrlEnvironmentVariable => "https://env-mirror.example.com",
+                AppLaunchOptions.MirrorBearerTokenEnvironmentVariable => "env-token",
+                _ => null,
+            });
+
+        // Act: compose through the application's own composition root
+        var shell = App.Compose(launch, out var catalogService);
+        using var disposable = catalogService;
+
+        // Assert: the environment mirror reaches the library options and the panel
+        Assert.Equal(new Uri("https://env-mirror.example.com"), launch.CreateDownloaderOptions()?.Mirror?.BaseUri);
+        Assert.Equal("https://env-mirror.example.com", shell.ModelCatalog.MirrorUrl);
+    }
+
+    /// <summary>
+    ///     The observable outcome of running the demo's entry-point logic with captured writers.
+    /// </summary>
+    /// <param name="ExitCode">The process exit code the entry point returned.</param>
+    /// <param name="Output">The text written to standard output.</param>
+    /// <param name="Error">The text written to standard error.</param>
+    /// <param name="StartCount">How many times the application would have been started.</param>
+    private sealed record EntryPointOutcome(int ExitCode, string Output, string Error, int StartCount);
+
+    /// <summary>
+    ///     Runs the demo's entry-point logic over <paramref name="args"/> with an empty environment
+    ///     and captured writers, without starting Avalonia.
+    /// </summary>
+    /// <param name="args">The command-line arguments.</param>
+    /// <returns>The captured outcome.</returns>
+    private static EntryPointOutcome RunEntryPoint(string[] args)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var starts = 0;
+        var exitCode = Program.Run(args, output, error, _ => null, _ => starts++);
+        return new EntryPointOutcome(exitCode, output.ToString(), error.ToString(), starts);
+    }
+
+    /// <summary>
+    ///     Proves that, with <c>DEMASPEECH_CAPTURE_DEBUG_DIR</c> naming a directory, a listening
+    ///     session records the captured audio to a finalized <c>.wav</c> file there, and that
+    ///     without the variable nothing is recorded.
+    /// </summary>
+    [Fact]
+    public async Task SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled()
+    {
+        var variable = CaptureDebugRecorder.EnvironmentVariableName;
+        var prior = Environment.GetEnvironmentVariable(variable);
+        var directory = Path.Join(AppContext.BaseDirectory, "SpeechDemoTests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            // Arrange: an enabled recording directory and a listening shell with a 16 kHz microphone
+            Environment.SetEnvironmentVariable(variable, directory);
+            var capture = Substitute.For<IAudioCaptureDevice>();
+            capture.IsAvailable.Returns(true);
+            capture.SampleRate.Returns(16000);
+            capture.ChannelCount.Returns(1);
+            var shell = ComposeListeningShell(out _, captureDevice: capture);
+
+            // Act: listen, deliver one captured frame, and stop
+            await shell.Recognition.StartCommand.ExecuteAsync(null);
+            capture.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
+                capture, new AudioCaptureFrameEventArgs([0.1f, -0.1f]));
+            await shell.Recognition.StopCommand.ExecuteAsync(null);
+
+            // Assert: one finalized WAV file holding the frame (44-byte header + 2 16-bit samples)
+            var file = Assert.Single(Directory.GetFiles(directory, "*.wav"));
+            Assert.Equal(44 + (2 * 2), new FileInfo(file).Length);
+
+            // Arrange / Act: the same session with the variable cleared
+            Environment.SetEnvironmentVariable(variable, null);
+            var disabledShell = ComposeListeningShell(out _, captureDevice: capture);
+            await disabledShell.Recognition.StartCommand.ExecuteAsync(null);
+            await disabledShell.Recognition.StopCommand.ExecuteAsync(null);
+
+            // Assert: nothing further was recorded
+            Assert.Single(Directory.GetFiles(directory, "*.wav"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, prior);
+        }
     }
 
     /// <summary>
@@ -765,13 +903,15 @@ public class SpeechDemoTests
     ///     controls, so each listening scenario can drive the real view models end to end.
     /// </summary>
     /// <param name="session">The test-controlled recognition session the engine hands out.</param>
-    /// <param name="captureAvailable">Whether the capture device reports itself available.</param>
+    /// <param name="captureAvailable">Whether the plain fake capture device reports itself available.</param>
     /// <param name="engineAvailable">Whether the loaded recognizer engine reports itself available.</param>
+    /// <param name="captureDevice">A test-controlled capture device, or <see langword="null"/> for a plain fake.</param>
     /// <returns>The composed shell.</returns>
     private static MainWindowViewModel ComposeListeningShell(
         out FakeRecognitionSession session,
         bool captureAvailable = true,
-        bool engineAvailable = true)
+        bool engineAvailable = true,
+        IAudioCaptureDevice? captureDevice = null)
     {
         var service = FakeCatalog(FakeSpeechModel.Descriptor(
             "stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition));
@@ -781,7 +921,7 @@ public class SpeechDemoTests
         var factory = Substitute.For<IRecognizerSessionFactory>();
         factory.LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ISpeechRecognizerEngine>(engine));
-        return ComposeShell(service, recognizerFactory: factory, captureAvailable: captureAvailable);
+        return ComposeShell(service, recognizerFactory: factory, captureAvailable: captureAvailable, captureDevice: captureDevice);
     }
 
     /// <summary>

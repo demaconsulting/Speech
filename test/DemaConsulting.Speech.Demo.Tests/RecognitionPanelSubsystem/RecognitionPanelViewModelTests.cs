@@ -12,6 +12,7 @@ namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="RecognitionPanelViewModel"/>.
 /// </summary>
+[Collection(ProcessWideStateCollection.Name)]
 public class RecognitionPanelViewModelTests
 {
     /// <summary>

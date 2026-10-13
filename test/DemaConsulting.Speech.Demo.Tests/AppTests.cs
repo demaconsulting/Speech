@@ -224,4 +224,53 @@ public sealed class AppTests
         Assert.Null(exception);
         Assert.Equal([1, 2, 3], order);
     }
+
+    /// <summary>
+    ///     Test that a build that throws releases the owner it was given and rethrows, so a
+    ///     composition failure cannot leak the catalog service the caller never receives.
+    /// </summary>
+    [Fact]
+    public void App_BuildOrDispose_BuildThrows_DisposesOwnerAndRethrows()
+    {
+        // Arrange
+        var owner = new CountingDisposable();
+
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => App.BuildOrDispose<object>(owner, () => throw new InvalidOperationException("build")));
+
+        // Assert
+        Assert.Equal("build", exception.Message);
+        Assert.Equal(1, owner.DisposeCount);
+    }
+
+    /// <summary>
+    ///     Test that a successful build returns its result and leaves the owner open.
+    /// </summary>
+    [Fact]
+    public void App_BuildOrDispose_BuildSucceeds_ReturnsResultAndLeavesOwnerOpen()
+    {
+        // Arrange
+        var owner = new CountingDisposable();
+        var built = new object();
+
+        // Act
+        var result = App.BuildOrDispose(owner, () => built);
+
+        // Assert
+        Assert.Same(built, result);
+        Assert.Equal(0, owner.DisposeCount);
+    }
+
+    /// <summary>
+    ///     A disposable that counts how many times it was disposed.
+    /// </summary>
+    private sealed class CountingDisposable : IDisposable
+    {
+        /// <summary>Gets the number of times <see cref="Dispose"/> was called.</summary>
+        public int DisposeCount { get; private set; }
+
+        /// <inheritdoc />
+        public void Dispose() => DisposeCount++;
+    }
 }

@@ -18,6 +18,7 @@ namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 ///     specific timing window would require either a multi-second sleep per test run or reducing
 ///     the class's own (intentionally private, non-configurable) timeout constant.
 /// </remarks>
+[Collection(ProcessWideStateCollection.Name)]
 public class CaptureDebugRecorderTests
 {
     /// <summary>

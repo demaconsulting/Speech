@@ -28,6 +28,9 @@ desktop lifetime.
   the audio device service, the model catalog composition and service, and the synthesis and
   recognition panels, and returns the `MainWindowViewModel`. It reads the supplied options rather
   than the static property, so tests compose with isolated options.
+- `BuildOrDispose<T>(IDisposable, Func<T>)` runs the panel composition and disposes the supplied
+  owner (the catalog service) before rethrowing when it fails; it is a seam so the guard is
+  testable directly.
 - `CatalogFactory` is a composition-root local function that maps the supplied
   `SpeechModelDownloaderOptions?` to a `ModelCatalogComposition`. It creates a `SpeechModelCatalog`
   from the launch store options and those downloader options, registers the Sherpa, Kokoro and
@@ -46,10 +49,10 @@ desktop lifetime.
 
 **Error Handling**: Each disposal failure is contained separately and does not block the remaining
 steps or application exit. A repeated shutdown request while cleanup is pending is cancelled and
-starts no second cleanup. If constructing the shell view model fails, `Compose` disposes the catalog
-service before rethrowing so nothing leaks. `CatalogFactory` builds a catalog before the service
-takes ownership; a failure inside the factory itself is not guarded because it runs only through
-the service's own rebuild path, which handles its own errors.
+starts no second cleanup. If constructing the shell view model fails, `BuildOrDispose` (the seam
+`Compose` builds the panels through) disposes the catalog service before rethrowing so nothing
+leaks. `CatalogFactory` disposes the half-built catalog and voice library before rethrowing when
+its own registration fails, so a failed composition or rebuild never leaves them undisposed.
 
 **Dependencies**: `AppLaunchOptions`, `MirrorOptionsFactory` (indirectly, through the options),
 the ShellSubsystem view models, the ModelCatalogSubsystem (`ModelCatalogComposition` and

@@ -90,6 +90,18 @@ recognition and synthesis, and is not empty.
 
 **Expected**: The request is cancelled while cleanup is pending, and no second cleanup starts.
 
+#### App_BuildOrDispose_BuildThrows_DisposesOwnerAndRethrows
+
+**Scenario**: The composition step that follows catalog-service creation throws.
+
+**Expected**: The owner (the catalog service) is disposed exactly once and the exception propagates.
+
+#### App_BuildOrDispose_BuildSucceeds_ReturnsResultAndLeavesOwnerOpen
+
+**Scenario**: The composition step succeeds.
+
+**Expected**: The built shell is returned and the owner is not disposed.
+
 #### App_ShutdownTask_BeforeAnyRequest_IsNull
 
 **Scenario**: No shutdown has been requested.

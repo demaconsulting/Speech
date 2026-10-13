@@ -28,6 +28,7 @@ namespace DemaConsulting.Speech.Demo.Tests;
 ///     variables), so no test depends on, or is broken by, a developer's ambient
 ///     <c>DEMASPEECH_MIRROR_*</c> variables.
 /// </remarks>
+[Collection(ProcessWideStateCollection.Name)]
 public sealed class AppLaunchOptionsTests
 {
     /// <summary>
@@ -523,6 +524,38 @@ public sealed class AppLaunchOptionsTests
         Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.PrintHelp(null!));
     }
 
+    /// <summary>
+    ///     Test that the parameterless <c>PrintHelp()</c> overload writes the same usage text to
+    ///     the console's standard output.
+    /// </summary>
+    /// <remarks>
+    ///     Redirects the process-wide console, so this class runs in the non-parallel
+    ///     <see cref="ProcessWideStateCollection"/>; the console is restored even on failure.
+    /// </remarks>
+    [Fact]
+    public void PrintHelp_NoWriter_WritesUsageToConsoleOutput()
+    {
+        // Arrange: capture the console's standard output
+        var original = Console.Out;
+        using var captured = new StringWriter();
+        Console.SetOut(captured);
+
+        try
+        {
+            // Act
+            AppLaunchOptions.PrintHelp();
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+
+        // Assert: the console received exactly the text the writer overload produces
+        using var expected = new StringWriter();
+        AppLaunchOptions.PrintHelp(expected);
+        Assert.Equal(expected.ToString(), captured.ToString());
+    }
+
     /// <summary>Test that the mirror URL environment variable applies when <c>--mirror-url</c> is absent.</summary>
     [Fact]
     public void Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent()
@@ -627,4 +660,17 @@ public sealed class AppLaunchOptionsTests
         Assert.Contains("DEMASPEECH_MIRROR_PASSWORD", output, StringComparison.Ordinal);
         Assert.Contains("DEMASPEECH_MIRROR_BEARER_TOKEN", output, StringComparison.Ordinal);
     }
+}
+
+/// <summary>
+///     Collection definition for test classes that read or change process-wide state (the console
+///     writer or <c>DEMASPEECH_CAPTURE_DEBUG_DIR</c>). Disabling parallelization keeps those
+///     classes serial and apart from every other test, so one test's redirection or environment
+///     change can never be observed by another.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public static class ProcessWideStateCollection
+{
+    /// <summary>The collection name test classes join with <c>[Collection]</c>.</summary>
+    public const string Name = "ProcessWideState";
 }
