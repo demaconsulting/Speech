@@ -34,8 +34,6 @@ the results the library derives from it are numerically correct.
 
 **Expected**: The expected total number of converted samples is delivered.
 
-**Requirement coverage**: `Speech-OTS-SystemNumericsTensors-VectorizedAudioMath`.
-
 #### WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
 
 **Scenario**: A WAV file holding the PCM values 0, 32767, -32767, and 16384 is streamed through
@@ -43,20 +41,14 @@ the results the library derives from it are numerically correct.
 
 **Expected**: Each delivered sample equals the PCM value divided by 32767.
 
-**Requirement coverage**: `Speech-OTS-SystemNumericsTensors-VectorizedAudioMath`.
-
 #### AudioResampler_Resample_ChangesRateKeepingTone
 
 **Scenario**: A tone is resampled between several rate pairs.
 
 **Expected**: The output rate changes and the tone's frequency is preserved.
 
-**Requirement coverage**: `Speech-OTS-SystemNumericsTensors-VectorizedAudioMath`.
-
 #### SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
 
 **Scenario**: A volume override above unity is applied to synthesized samples.
 
 **Expected**: Samples are scaled and clamped to the valid range.
-
-**Requirement coverage**: `Speech-OTS-SystemNumericsTensors-VectorizedAudioMath`.

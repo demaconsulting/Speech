@@ -26,8 +26,6 @@ unbound user interface.
 
 **Expected**: The value is stored and the corresponding change notification is raised.
 
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification`.
-
 #### CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod
 
 **Scenario**: A generated synchronous command (`RecognitionPanelViewModel.RefreshCommand`, over a
@@ -35,8 +33,6 @@ unbound user interface.
 
 **Expected**: The command is not an async command, reports itself executable, and the annotated
 method runs to completion (the model list is re-read).
-
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
 
 #### CommunityToolkitMvvm_RelayCommand_TestLocalPartialClass_GeneratesSynchronousCommand
 
@@ -46,16 +42,12 @@ method annotated with `[RelayCommand]`.
 **Expected**: The generator emits a synchronous command that runs the annotated method once,
 demonstrating the generator prerequisites independently of any demo view model.
 
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
-
 #### CommunityToolkitMvvm_AsyncRelayCommand_Executed_AwaitsAnnotatedMethod
 
 **Scenario**: A generated asynchronous command is executed and awaited.
 
 **Expected**: The command is an awaitable async command, and the awaited method completes and
 updates the bound state.
-
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
 
 #### CommunityToolkitMvvm_AsyncRelayCommand_Canceled_SignalsTokenToAnnotatedMethod
 
@@ -65,16 +57,12 @@ updates the bound state.
 **Expected**: The command reports it can be canceled, the annotated method observes the
 cancellation through its token, and the row returns to not-downloaded with a cancellation message.
 
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-Commands`.
-
 #### CommunityToolkitMvvm_NotifyPropertyChangedFor_StateAssigned_RaisesDependentPropertyChanged
 
 **Scenario**: The generated `State` property of a model row is assigned.
 
 **Expected**: Change notification is raised for the dependent computed properties
 (`StatusText`, `CanDownload`) as well as for `State`.
-
-**Requirement coverage**: `SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification`.
 
 ### Test Location
 

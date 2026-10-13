@@ -33,8 +33,6 @@ complete test coverage.
 
 **Expected**: Correctly loads and parses all requirements.
 
-**Requirement coverage**: `Speech-OTS-ReqStream`.
-
 #### ReqStream_TraceMatrix
 
 **Scenario**: ReqStream self-validation generates a trace matrix from requirements and TRX test
@@ -42,23 +40,17 @@ results.
 
 **Expected**: Produces a correctly linked trace matrix.
 
-**Requirement coverage**: `Speech-OTS-ReqStream`.
-
 #### ReqStream_ReportExport
 
 **Scenario**: ReqStream self-validation exports a requirements report to a markdown file.
 
 **Expected**: Produces a correctly formatted requirements report.
 
-**Requirement coverage**: `Speech-OTS-ReqStream`.
-
 #### ReqStream_TagsFiltering
 
 **Scenario**: ReqStream self-validation filters requirements by tags.
 
 **Expected**: Returns only requirements matching the specified tags.
-
-**Requirement coverage**: `Speech-OTS-ReqStream`.
 
 #### ReqStream_EnforcementMode
 
@@ -67,19 +59,9 @@ coverage.
 
 **Expected**: Exits 0; would exit non-zero if any requirement lacked coverage.
 
-**Requirement coverage**: `Speech-OTS-ReqStream`.
-
 #### ReqStream_Lint
 
 **Scenario**: ReqStream self-validation exercises lint mode against a requirements file with
 deliberate issues.
 
 **Expected**: Correctly identifies and reports the issues.
-
-**Requirement coverage**: `Speech-OTS-ReqStream-Lint`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-ReqStream`**: ReqStream_RequirementsProcessing, ReqStream_TraceMatrix,
-  ReqStream_ReportExport, ReqStream_TagsFiltering, ReqStream_EnforcementMode
-- **`Speech-OTS-ReqStream-Lint`**: ReqStream_Lint

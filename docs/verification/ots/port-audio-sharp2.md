@@ -33,8 +33,6 @@ with supported audio hardware.
 **Expected**: Both reads return the same object, proving the repository can load and reuse the
 managed adapter instance.
 
-**Requirement coverage**: `Speech-OTS-PortAudioSharp2-ManagedBinding`.
-
 #### PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
 
 **Scenario**: The shared production PortAudio environment is read twice.
@@ -42,15 +40,11 @@ managed adapter instance.
 **Expected**: Both reads return the same object, proving the repository can load and reuse the
 managed PortAudio environment.
 
-**Requirement coverage**: `Speech-OTS-PortAudioSharp2-ManagedBinding`.
-
 #### AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes
 
 **Scenario**: The factory composes against a successful PortAudio environment.
 
 **Expected**: The default capture and playback probes are the PortAudio-backed implementations.
-
-**Requirement coverage**: `Speech-OTS-PortAudioSharp2-HostApiSelection`.
 
 #### AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice
 
@@ -58,23 +52,8 @@ managed PortAudio environment.
 
 **Expected**: The returned device is the real PortAudio-backed capture-device implementation.
 
-**Requirement coverage**: `Speech-OTS-PortAudioSharp2-StreamInterop`.
-
 #### AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice
 
 **Scenario**: The factory creates a playback device against a successful PortAudio environment.
 
 **Expected**: The returned device is the real PortAudio-backed playback-device implementation.
-
-**Requirement coverage**: `Speech-OTS-PortAudioSharp2-StreamInterop`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-PortAudioSharp2-ManagedBinding`**:
-  `PortAudioApi_Instance_ReadTwice_ReturnsSameInstance`,
-  `PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance`
-- **`Speech-OTS-PortAudioSharp2-HostApiSelection`**:
-  `AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes`
-- **`Speech-OTS-PortAudioSharp2-StreamInterop`**:
-  `AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice`,
-  `AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice`

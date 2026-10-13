@@ -32,15 +32,11 @@ not retrieve and render quality data correctly.
 
 **Expected**: Exits 0 and retrieves quality-gate data.
 
-**Requirement coverage**: `Speech-OTS-SonarMark`.
-
 #### SonarMark_IssuesRetrieval
 
 **Scenario**: SonarMark queries the SonarCloud API for issues.
 
 **Expected**: Exits 0 and retrieves issues data.
-
-**Requirement coverage**: `Speech-OTS-SonarMark`.
 
 #### SonarMark_HotSpotsRetrieval
 
@@ -48,17 +44,8 @@ not retrieve and render quality data correctly.
 
 **Expected**: Exits 0 and retrieves hot-spots data.
 
-**Requirement coverage**: `Speech-OTS-SonarMark`.
-
 #### SonarMark_MarkdownReportGeneration
 
 **Scenario**: SonarMark renders quality-gate, issues, and hot-spots data as a markdown report.
 
 **Expected**: Exits 0 and produces a non-empty markdown quality report.
-
-**Requirement coverage**: `Speech-OTS-SonarMark`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-SonarMark`**: SonarMark_QualityGateRetrieval, SonarMark_IssuesRetrieval,
-  SonarMark_HotSpotsRetrieval, SonarMark_MarkdownReportGeneration

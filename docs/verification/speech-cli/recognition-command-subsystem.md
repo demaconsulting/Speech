@@ -82,8 +82,6 @@ error path is proven both in-process and, cleanly and non-zero-exit, against the
 real, downloaded recognition model recognizing a real WAV fixture produces non-empty text;
 `recognize` no longer throws `NotImplementedException` when dispatched.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-Recognize`, `-RecognizeMicrophone`.
-
 #### `--stt-param` Validation Reuse
 
 **Tests**: `RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder`,
@@ -97,8 +95,6 @@ engine is loaded. Full `ParameterBagParser` scenario coverage (numeric range/int
 choice matching, boolean parsing, unrecognized-key rejection) already lives in
 `SpeechCli-SynthesisCommands-ParamValidation`'s own tests and is not duplicated here.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-ParamValidation`.
-
 #### File-Input Explicit-Drain Flow
 
 **Tests**: `RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain`,
@@ -111,8 +107,6 @@ documented file-mode contract), followed by `RecognizeCommand`'s own explicit dr
 `StopAsync` call, results in `StartAsync`/`StopAsync`/`DisposeAsync` each being called exactly
 once, with no `SilenceTimeoutRecognizerSession` wrapper and no added wait by the command in file
 mode.
-
-**Requirement coverage**: `SpeechCli-RecognitionCommands-FileInputEofDrivenStop`.
 
 #### Silence Timeout (`SilenceTimeoutRecognizerSession`)
 
@@ -134,8 +128,6 @@ timeout; the idle timeout elapsing after a result has already been yielded calls
 `_session.StopAsync` exactly once and raises `TimedOut` exactly once; a canceled
 `CancellationToken` passed to `GetResultsAsync` propagates `OperationCanceledException` rather
 than being silently swallowed.
-
-**Requirement coverage**: `SpeechCli-RecognitionCommands-SilenceTimeout`.
 
 #### Start Timeout (Two-Phase Idle Window)
 
@@ -159,8 +151,6 @@ final) re-arms subsequent races with `idleTimeout`, not `startTimeout`; the idle
 before any result has been yielded calls `_session.StopAsync` and raises `TimedOut`, proving
 `startTimeout` genuinely governs the pre-first-result window rather than only being recorded.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-StartTimeout`.
-
 #### Timeouts Ignored for File Input
 
 **Tests**: `RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds`
@@ -169,8 +159,6 @@ before any result has been yielded calls `_session.StopAsync` and raises `TimedO
 (deliberately tiny values that would end a mic session at once) is accepted; the recognizer is started and then
 drained exactly once, as it is without the flags, and the run exits with code 0. This proves the flags are ignored
 in file mode rather than rejected or applied.
-
-**Requirement coverage**: `SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput`.
 
 #### `--interim`/`--final-only`/`--output-text` Filtering and Writing
 
@@ -192,8 +180,6 @@ prior write before repositioning the cursor; `--output-text <path>` writes only 
 one per line, to the file - never interim results - overwriting any prior file content, regardless
 of the console verbosity flags in effect.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-VerbosityAndOutput`.
-
 #### Capture Device Dispatch
 
 **Tests**: `RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException`,
@@ -202,8 +188,6 @@ of the console verbosity flags in effect.
 **Scenario/Expected**: Requesting an unrecognized `--capture-device` name in `--mic` mode throws
 `ArgumentException` before any device is created; an unavailable resolved real capture device
 throws `InvalidOperationException` suggesting `--input` as an alternative.
-
-**Requirement coverage**: `SpeechCli-RecognitionCommands-DeviceDispatch`, `-DeviceUnavailable`.
 
 #### ICliModelCatalog Seam Extension (Real Catalog)
 
@@ -217,9 +201,6 @@ IRecognitionModel` cast genuinely rejects a non-recognition model rather than on
 through a fake; a `null` descriptor is rejected with `ArgumentNullException` before the cast is
 even attempted.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-RecognitionSeamExtension` (see the
-ModelCommandsSubsystem verification document).
-
 #### Null Guards
 
 **Tests**: `RecognizeCommand_Run_NullContext_ThrowsArgumentNullException`,
@@ -230,37 +211,6 @@ ModelCommandsSubsystem verification document).
 **Scenario/Expected**: Every entry point rejects a `null` context, catalog, factory, or argument
 list immediately with `ArgumentNullException`, proving no command silently proceeds with a
 missing dependency.
-
-**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
-`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
-requirement is defined for them.
-
-### Requirements Coverage
-
-- **`SpeechCli-RecognitionCommands-Recognize`**, **`-RecognizeMicrophone`**, **`-ModelValidation`**,
-  **`-ModelUnknown`**, **`-ModelWrongRole`**, **`-ModelNotDownloaded`**,
-  **`-InputSourceValidation`**, **`-InputSourceMissing`**, **`-ArgumentValidation`**: see
-  _RecognizeCommand — Input Source, Model Resolution, and Argument Parsing_ above
-- **`SpeechCli-RecognitionCommands-ParamValidation`**, **`-ParamRejection`**: see _`--stt-param`
-  Validation Reuse_ above
-- **`SpeechCli-RecognitionCommands-FileInputEofDrivenStop`**: see _File-Input Explicit-Drain
-  Flow_ above
-- **`SpeechCli-RecognitionCommands-SilenceTimeout`**, **`-SilenceTimeoutDefault`**,
-  **`-SilenceTimeoutValidation`**: see _Silence Timeout
-  (`SilenceTimeoutRecognizerSession`)_ above
-- **`SpeechCli-RecognitionCommands-StartTimeout`**, **`-StartTimeoutDefault`**,
-  **`-StartTimeoutValidation`**: see _Start Timeout (Two-Phase Idle Window)_
-  above
-- **`SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput`**: see _Timeouts Ignored for File Input_ above
-- **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**, **`-InterimOverwrite`**,
-  **`-InterimOnly`**, **`-FinalOnly`**,
-  **`-VerbosityConflict`**, **`-OutputText`**: see _`--interim`/`--final-only`/
-  `--output-text` Filtering and Writing_ above
-- **`SpeechCli-RecognitionCommands-InputFileValidation`**: verified by
-  `RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile` and
-  `RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono`
-- **`SpeechCli-RecognitionCommands-DeviceDispatch`**, **`-DeviceUnavailable`**: see _Capture
-  Device Dispatch_ above
 
 ### Acceptance Criteria
 

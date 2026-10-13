@@ -26,8 +26,6 @@ confirming the documented singleton contract.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
 #### NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow
 
 **Scenario**: xUnit discovers and runs this test; the test verifies that
@@ -36,8 +34,6 @@ never throws.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
 #### NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow
 
 **Scenario**: xUnit discovers and runs this test; the test verifies that
@@ -45,8 +41,6 @@ never throws.
 confirming the sink cannot become the reason a caller's real operation fails.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
 
 #### NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow
 
@@ -57,16 +51,12 @@ discards events regardless of severity without throwing.
 **Expected**: xUnit executes the test for each inline data case, all cases pass, and the results
 appear in the TRX output.
 
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
 #### AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
 
 **Scenario**: xUnit discovers and runs this test; the test verifies that resolving a selection
 whose name matches an enumerated device returns that matching device.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
 
 #### AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull
 
@@ -76,8 +66,6 @@ rather than throwing.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
 #### AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull
 
 **Scenario**: xUnit discovers and runs this test; the test verifies that
@@ -86,16 +74,12 @@ enumerated.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
 #### AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull
 
 **Scenario**: xUnit discovers and runs this test; the test verifies that resolving against an
 empty device list never throws and falls back to `null`.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
 
 #### AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException
 
@@ -104,26 +88,3 @@ empty device list never throws and falls back to `null`.
 distinguishing "not asked" from "no devices".
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Speech-OTS-xUnit-Execute`, `Speech-OTS-xUnit-Report`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-xUnit-Execute`**: NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance,
-  NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow,
-  NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow,
-  NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow,
-  AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice,
-  AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull,
-  AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull,
-  AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull,
-  AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException
-- **`Speech-OTS-xUnit-Report`**: NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance,
-  NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow,
-  NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow,
-  NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow,
-  AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice,
-  AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull,
-  AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull,
-  AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull,
-  AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException

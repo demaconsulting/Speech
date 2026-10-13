@@ -93,10 +93,6 @@ successful run awaits `CreateSynthesizerEngineAsync`/`CreateSessionAsync`/`Speak
 resolved TTS model, then `CreateRecognizerEngineAsync`/`CreateSessionAsync`/`StartAsync`/
 `GetResultsAsync` through the resolved STT model, then prints the final recognized text.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-Ask`, `-AskListenAfterPrompt`,
-`-AskModelValidation`, `-AskModelUnknown`, `-AskModelWrongRole`, `-AskModelNotDownloaded`,
-`-AskTextSource`, `-AskTextSourceMissing`, `-AskUnsupportedOptions`.
-
 #### `--tts-param`/`--stt-param` Validation Reuse
 
 **Tests**: `AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently`,
@@ -109,8 +105,6 @@ in the order given, and are forwarded, fully resolved via the shared `ParameterB
 respectively; an invalid value for a declared TTS parameter is rejected before any engine is
 loaded. Full `ParameterBagParser` scenario coverage already lives in
 `SpeechCli-SynthesisCommands-ParamValidation`'s own tests and is not duplicated here.
-
-**Requirement coverage**: `SpeechCli-ConversationCommands-ParamValidation`.
 
 #### Listen-Phase Termination
 
@@ -127,9 +121,6 @@ result ever arrives, a `--silence-timeout` firing (via the reused, unmodified
 blocking forever; omitting both `--start-timeout` and `--silence-timeout` still ends the turn via
 the built-in default silence timeout rather than listening indefinitely.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-ListenTermination`, `-ListenTimeouts`,
-`-ListenTimeoutDefaults`, `-ListenTimeoutValidation`.
-
 #### Output Dispatch
 
 **Tests**: `AskCommand_ParseArguments_OutputTextFlag_ParsesPath`,
@@ -138,11 +129,6 @@ the built-in default silence timeout rather than listening indefinitely.
 **Scenario/Expected**: `--output-text <path>` parses correctly and, when given, writes the final
 recognized text to the named file (overwriting any prior content) instead of printing it to
 stdout.
-
-**Requirement coverage**: `SpeechCli-ConversationCommands-OutputDispatch`, `-OutputText`,
-`-OutputTextOverwrite` (`AskCommand_Run_OutputTextExistingFile_OverwritesPriorContent` replaces a
-longer pre-existing file with the shorter reply), `-OutputTextEmpty` (the silence-timeout test
-above leaves a completely empty file).
 
 #### Playback and Capture Device Dispatch
 
@@ -154,9 +140,6 @@ above leaves a completely empty file).
 **Scenario/Expected**: Requesting an unrecognized `--playback-device`/`--capture-device` name
 throws `ArgumentException` before any engine is loaded; an unavailable resolved real playback or
 capture device throws `InvalidOperationException`.
-
-**Requirement coverage**: `SpeechCli-ConversationCommands-DeviceDispatch`, `-DeviceUnavailable`,
-`-CaptureDeviceDispatch`, `-CaptureDeviceUnavailable`.
 
 #### Cancellation and Disposal
 
@@ -197,9 +180,6 @@ thrown from Phase 1's `SpeakAsync`
 `FakeAudioPlaybackDevice.DisposeCallCount` - proving playback-device disposal is not only correct
 on the ordinary path but also never skipped when playback is canceled or faults.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-SpeakCancellation`,
-`-ListenCancellation`, `-Disposal`.
-
 #### Recognizer Pre-Warming
 
 **Tests**: `AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes`,
@@ -223,8 +203,6 @@ concurrently pre-warmed engine/session rather than leaking it, and a pre-warm fa
 device available) surfaces only *after* Phase 1 has already spoken the prompt - proving Phase 1 is
 never skipped or reordered even when Phase 2's setup fails.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-PrewarmRecognizer`.
-
 #### Null Guards
 
 **Tests**: `AskCommand_Run_NullContext_ThrowsArgumentNullException`,
@@ -245,31 +223,6 @@ never silently proceeds with a missing dependency; the internal `RunAsync` overl
 rejects a `null` `stopSignal` or `onRecognizerCreated` callback. `ParseArguments` itself
 independently rejects a `null` argument list with `ArgumentNullException`, proving the guard holds
 even when `ParseArguments` is invoked directly rather than only through `Run`/`RunAsync`.
-
-**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
-`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
-requirement is defined for them.
-
-### Requirements Coverage
-
-- **`SpeechCli-ConversationCommands-Ask`**, **`-AskListenAfterPrompt`**, **`-AskModelValidation`**,
-  **`-AskModelUnknown`**, **`-AskModelWrongRole`**, **`-AskModelNotDownloaded`**,
-  **`-AskTextSource`**, **`-AskTextSourceMissing`**, **`-AskUnsupportedOptions`**: see
-  *AskCommand — Argument Parsing, Text Source, and Model Resolution* above
-- **`SpeechCli-ConversationCommands-ParamValidation`**, **`-ParamRejection`**: see
-  *`--tts-param`/`--stt-param` Validation Reuse* above
-- **`SpeechCli-ConversationCommands-ListenTermination`**, **`-ListenTimeouts`**,
-  **`-ListenTimeoutDefaults`**, **`-ListenTimeoutValidation`**: see *Listen-Phase Termination*
-  above
-- **`SpeechCli-ConversationCommands-OutputDispatch`**, **`-OutputText`**, **`-OutputTextOverwrite`**,
-  **`-OutputTextEmpty`**: see *Output Dispatch* above
-- **`SpeechCli-ConversationCommands-DeviceDispatch`**, **`-DeviceUnavailable`**,
-  **`-CaptureDeviceDispatch`**, **`-CaptureDeviceUnavailable`**: see
-  *Playback and Capture Device Dispatch* above
-- **`SpeechCli-ConversationCommands-SpeakCancellation`**, **`-ListenCancellation`**,
-  **`-Disposal`**: see *Cancellation and Disposal* above
-- **`SpeechCli-ConversationCommands-PrewarmRecognizer`**, **`-PrewarmFailureReporting`**,
-  **`-PrewarmCancellationRelease`**: see *Recognizer Pre-Warming* above
 
 ### Acceptance Criteria
 

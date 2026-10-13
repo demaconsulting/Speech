@@ -83,8 +83,6 @@ fake engine and session exactly once each, in declaration order (session, then e
 playback-device lease); every error path is proven both in-process and, cleanly and non-zero-exit,
 against the built tool; `speak` no longer throws `NotImplementedException` when dispatched.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-Speak`.
-
 #### ParameterBagParser and `--tts-param` Validation
 
 **Tests**: `ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue`,
@@ -117,8 +115,6 @@ boxed `bool` and rejects any other value; a key not declared by the resolved mod
 fully resolved, to `CreateSynthesizerEngineAsync`'s `parameterValues` argument; an invalid value
 for any declared parameter kind is rejected before an engine is loaded.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-ParamValidation`.
-
 #### `--no-tags` Stripping
 
 **Tests**: `SpeakCommand_ParseArguments_NoTagsFlag_ParsesTrue`,
@@ -132,8 +128,6 @@ inter-tag whitespace, which `AudioTagParser.Parse` preserves as its own plain-te
 verbatim (`Hello  there`); without `--no-tags`, the original text is passed to `SpeakAsync`
 completely unchanged, regardless of the resolved (fake) model's own declared audio-tag support
 level.
-
-**Requirement coverage**: `SpeechCli-SynthesisCommands-NoTags`.
 
 #### `--output-audio` Versus Real Device Dispatch
 
@@ -150,9 +144,6 @@ an alternative. Every scenario here is exercised against `FakePlaybackDeviceSour
 `AudioDeviceFactory`, so results do not depend on whether real playback hardware happens to be
 present on the machine running the test.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`,
-`-PlaybackDeviceDispatch`, `-PlaybackDeviceUnavailable`.
-
 #### AudioDeviceFactoryPlaybackDeviceSource (Real AudioDeviceFactory Forwarding)
 
 **Tests**: `AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory`,
@@ -167,8 +158,6 @@ that does not alter `AudioDeviceFactory`'s own hardware-detection behavior in an
 asserting on whether real playback hardware happens to be present on the machine running the
 test; a `null` factory is rejected with `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-PlaybackDeviceSelection`.
-
 #### Cancellation and Disposal Ordering
 
 **Tests**: `SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly`,
@@ -179,8 +168,6 @@ from `SpeakAsync` results in a clean, one-line cancellation message rather than 
 exception propagating out of `RunAsync`; a successful run disposes the session, then the engine,
 then the playback-device lease, proving the session-before-engine-before-device disposal ordering
 never double-disposes or skips disposal.
-
-**Requirement coverage**: `SpeechCli-SynthesisCommands-CancellationAndDisposal`.
 
 #### ICliModelCatalog Seam Extension (Real Catalog)
 
@@ -197,9 +184,6 @@ cast genuinely rejects a non-synthesis model rather than only being exercised th
 automated test exercises a real, downloaded synthesis-role model against these two members - see
 _Manual / Build-Time Verification_ below.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-SynthesisSeamExtension` (see the
-ModelCommandsSubsystem verification document).
-
 #### Null Guards
 
 **Tests**: `SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException`,
@@ -212,26 +196,6 @@ ModelCommandsSubsystem verification document).
 **Scenario/Expected**: Every entry point rejects a `null` context, catalog, factory, or argument
 list immediately with `ArgumentNullException`, proving no command silently proceeds with a
 missing dependency.
-
-**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
-`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
-requirement is defined for them.
-
-### Requirements Coverage
-
-- **`SpeechCli-SynthesisCommands-Speak`**, **`-ModelValidation`**, **`-ModelUnknown`**,
-  **`-ModelWrongRole`**, **`-ModelNotDownloaded`**, **`-TextSourceValidation`**,
-  **`-TextSourceMissing`**, **`-ArgumentValidation`**: see _SpeakCommand — Text Source, Model
-  Resolution, and Argument Parsing_ above
-- **`SpeechCli-SynthesisCommands-ParamValidation`**, **`-ParamRejection`**: see
-  _ParameterBagParser and `--tts-param` Validation_ above
-- **`SpeechCli-SynthesisCommands-NoTags`**: see _`--no-tags` Stripping_ above
-- **`SpeechCli-SynthesisCommands-OutputDispatch`**, **`-PlaybackDeviceDispatch`**,
-  **`-PlaybackDeviceUnavailable`**, **`-PlaybackDeviceSelection`**: see
-  _`--output-audio` Versus Real Device Dispatch_ and
-  _AudioDeviceFactoryPlaybackDeviceSource_ above
-- **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**, **`-Disposal`**: see
-  _Cancellation and Disposal Ordering_ above
 
 ### Acceptance Criteria
 

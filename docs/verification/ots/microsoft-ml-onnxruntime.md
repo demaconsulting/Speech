@@ -38,15 +38,11 @@ on.
 
 **Expected**: A usable CPU `InferenceSession` is returned.
 
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference`.
-
 #### Create_UnknownProviderName_FallsBackToCpuSession
 
 **Scenario**: A provider name ONNX Runtime does not recognize is requested.
 
 **Expected**: The selector falls back to a working CPU session.
-
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback`.
 
 #### Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
@@ -54,15 +50,11 @@ on.
 
 **Expected**: The candidate session is disposed and the selector falls back to CPU.
 
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback`.
-
 #### OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
 
 **Scenario**: The Chatterbox Turbo network wrapper runs an in-memory graph with named outputs.
 
 **Expected**: The tensor outputs are bound by name into the conditioning result.
-
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`.
 
 #### OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
 
@@ -72,12 +64,8 @@ key/value cache and once with a half-size cache (the test is a theory over both 
 **Expected**: The cache tensors from the first step feed the second and the last logits return,
 for both cache variants.
 
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`.
-
 #### Encode_SecondChunk_UsesPreviousCaches
 
 **Scenario**: The Nemotron encoder runs two chunks over a real session.
 
 **Expected**: The second chunk consumes the caches produced by the first.
-
-**Requirement coverage**: `Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding`.

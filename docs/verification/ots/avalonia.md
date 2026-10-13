@@ -37,13 +37,9 @@ access to the demo's `Program` and `App` types, which a separate project would n
 **Expected**: Avalonia returns a builder bound to the demo's own application type, proving the
 Avalonia packages are present and the host configuration is valid.
 
-**Requirement coverage**: `SpeechDemo-OTS-Avalonia-DesktopApplicationHost`.
-
 #### Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication
 
 **Scenario**: The demo's application object is created without starting any lifetime.
 
 **Expected**: It is an Avalonia application, which is what lets Avalonia own the demo's styling,
 resources, and desktop lifetime.
-
-**Requirement coverage**: `SpeechDemo-OTS-Avalonia-DesktopApplicationHost`.

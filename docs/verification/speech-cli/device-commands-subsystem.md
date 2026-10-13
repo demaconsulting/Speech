@@ -58,8 +58,6 @@ all rejected with `ArgumentException`; both the healthy and invalid-direction pa
 proven against the built tool, which always exits cleanly regardless of whether this machine has
 real audio hardware.
 
-**Requirement coverage**: `SpeechCli-DeviceCommands-ListDevices`.
-
 #### DevicesTestCommand
 
 **Tests**: `DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection`,
@@ -89,8 +87,6 @@ requested direction is rejected with `ArgumentException` naming the device and s
 `AudioDeviceFactory` composed over fake probes) and, cleanly and non-zero-exit, against the built
 tool.
 
-**Requirement coverage**: `SpeechCli-DeviceCommands-DevicesTest`.
-
 #### Tone Playback and Capture Recording
 
 **Tests**: `DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt`,
@@ -102,9 +98,6 @@ two-second tone (`sampleRate * 2 * channelCount` samples), stops the device and 
 sample rate. Driven through a fake `IAudioCaptureDevice` that raises one frame, the input test reports the exact sample
 count and the peak amplitude of the delivered samples. When the fake delivers no frames, the input test stops the device
 and throws `InvalidOperationException` rather than reporting a successful run with zero samples.
-
-**Requirement coverage**: `SpeechCli-DeviceCommands-DevicesTestOutput`, `SpeechCli-DeviceCommands-DevicesTestInput`,
-`SpeechCli-DeviceCommands-DevicesTestInputNoSamples`.
 
 #### Tone Generation
 
@@ -118,8 +111,6 @@ channelCount` entries; every sample falls within `[-1.0, 1.0]`; every channel wi
 carries an identical value; a non-positive sample rate (or, by the same guard, channel count,
 duration, or frequency) throws `ArgumentOutOfRangeException`. This proves the sine-wave math
 underlying the output-direction test tone entirely in-process, with no audio hardware.
-
-**Requirement coverage**: `SpeechCli-DeviceCommands-ToneGeneration`.
 
 #### DoctorCommand
 
@@ -152,8 +143,6 @@ and produces a non-zero exit code; an unsupported extra argument throws `Argumen
 full run against a real, isolated, writable `--models-dir` reports `HEALTHY` end to end against
 the built tool.
 
-**Requirement coverage**: `SpeechCli-DeviceCommands-Doctor`.
-
 #### Null Guards and Delegation
 
 **Tests**: `ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException`,
@@ -170,23 +159,6 @@ the built tool.
 immediately with `ArgumentNullException`, and `DoctorCommand` additionally rejects a `null` or
 empty model store root path with `ArgumentException`, proving no command silently proceeds with a
 missing dependency.
-
-**Requirement coverage**: none. These are defensive tests, which need no requirement.
-
-### Requirements Coverage
-
-- **`SpeechCli-DeviceCommands-ListDevices`**, **`-ListDevicesDirectionFilter`**,
-  **`-ListDevicesNoDevices`**, **`-ListDevicesArgumentValidation`**: see _ListDevicesCommand_ above
-- **`SpeechCli-DeviceCommands-DevicesTest`**, **`-DevicesTestOutput`**, **`-DevicesTestInput`**,
-  **`-DevicesTestInputNoSamples`**, **`-DevicesTestDeviceValidation`**,
-  **`-DevicesTestArgumentValidation`**: see _DevicesTestCommand_ and _Tone Playback and Capture Recording_
-  above
-- **`SpeechCli-DeviceCommands-ToneGeneration`**, **`-ToneAmplitudeRange`**,
-  **`-ToneChannelIdentity`**: see _Tone Generation_ above
-- **`SpeechCli-DeviceCommands-Doctor`**, **`-DoctorDiskSpace`**, **`-DoctorNativeRuntimes`**,
-  **`-DoctorPortAudioRuntime`**, **`-DoctorAudioDevices`**, **`-DoctorModelCounts`**,
-  **`-DoctorExitCode`**: see _DoctorCommand_ above
-- **`SpeechCli-DeviceCommands-LibraryDelegation`**: see _ListDevicesCommand_ and _DoctorCommand_ above
 
 ### Acceptance Criteria
 

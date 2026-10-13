@@ -38,15 +38,11 @@ directory.
 **Expected**: The entry's content is written under the archive's own top-level folder, and the
 archive file itself is deleted afterward.
 
-**Requirement coverage**: `Speech-OTS-SharpCompress-TarBz2Extraction`.
-
 #### TarBz2ArchiveExtractor_ExtractAndDeleteAsync_MultiEntryArchive_ExtractsEveryEntry
 
 **Scenario**: A synthetic archive containing multiple files across nested folders is extracted.
 
 **Expected**: Every entry is written to its own relative path under the destination directory.
-
-**Requirement coverage**: `Speech-OTS-SharpCompress-TarBz2Extraction`.
 
 #### TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyArchivePath_ThrowsArgumentException
 
@@ -54,21 +50,8 @@ archive file itself is deleted afterward.
 
 **Expected**: `ArgumentException` is thrown before SharpCompress is invoked.
 
-**Requirement coverage**: `Speech-OTS-SharpCompress-ArgumentValidation`.
-
 #### TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyDestinationDirectory_ThrowsArgumentException
 
 **Scenario**: `ExtractAndDeleteAsync` is called with an empty destination directory.
 
 **Expected**: `ArgumentException` is thrown before SharpCompress is invoked.
-
-**Requirement coverage**: `Speech-OTS-SharpCompress-ArgumentValidation`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-SharpCompress-TarBz2Extraction`**:
-  `TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive`,
-  `TarBz2ArchiveExtractor_ExtractAndDeleteAsync_MultiEntryArchive_ExtractsEveryEntry`
-- **`Speech-OTS-SharpCompress-ArgumentValidation`**:
-  `TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyArchivePath_ThrowsArgumentException`,
-  `TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyDestinationDirectory_ThrowsArgumentException`

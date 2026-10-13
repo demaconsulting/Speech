@@ -33,16 +33,12 @@ results containing both passing and failing outcomes.
 
 **Expected**: Writes a TRX results file with correctly classified pass and fail entries.
 
-**Requirement coverage**: `Speech-OTS-FileAssert`.
-
 #### FileAssert_File
 
 **Scenario**: FileAssert self-validation exercises a test configuration using a glob pattern to
 assert file existence.
 
 **Expected**: Passes when the specified file is present.
-
-**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 #### FileAssert_Text
 
@@ -51,8 +47,6 @@ assertion to verify plain-text file content.
 
 **Expected**: Passes when the specified content is present.
 
-**Requirement coverage**: `Speech-OTS-FileAssert`.
-
 #### FileAssert_Html
 
 **Scenario**: FileAssert self-validation exercises a test configuration using a `contains`
@@ -60,18 +54,9 @@ assertion to verify generated HTML file content.
 
 **Expected**: Passes when the specified content is present in the HTML document.
 
-**Requirement coverage**: `Speech-OTS-FileAssert`.
-
 #### FileAssert_Pdf
 
 **Scenario**: FileAssert self-validation exercises a test configuration using a `contains`
 assertion to verify generated PDF file content.
 
 **Expected**: Passes when the specified content is present in the PDF document.
-
-**Requirement coverage**: `Speech-OTS-FileAssert`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-FileAssert`**: FileAssert_Results, FileAssert_File, FileAssert_Text,
-  FileAssert_Html, FileAssert_Pdf
