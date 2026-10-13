@@ -20,7 +20,7 @@
 
 using DemaConsulting.Speech.Cli.Cli;
 
-namespace DemaConsulting.Speech.Cli.Tests;
+namespace DemaConsulting.Speech.Cli.Tests.Cli;
 
 /// <summary>
 ///     Unit tests for <see cref="ConsoleCancellation"/>. The console signal itself cannot be raised

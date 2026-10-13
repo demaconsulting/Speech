@@ -5,7 +5,7 @@ package SpeechCli {
              * the program's output writers and exit code. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Cli/Context.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs */
         comment designRef /* Design: docs/design/speech-cli.md (documented as a supporting type) */
     }
 }

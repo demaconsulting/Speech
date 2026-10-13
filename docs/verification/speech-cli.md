@@ -24,7 +24,9 @@ Speech library itself guarantees never to throw during composition, and are prov
 against whatever audio backend and model-store root the CI runner happens to have, not against a
 specific expected device list or a real installed model.
 
-System tests reside in `ProgramTests.cs` (in-process) and `IntegrationTests.cs` (out-of-process,
+System tests reside in `ProgramTests.cs` (in-process; Program entry point, dispatch priority, exit codes),
+`Cli/ContextTests.cs` (Context parsing, mirror and environment handling), `Cli/CommandDispatchTests.cs`
+(dispatch table) and `IntegrationTests.cs` (out-of-process,
 child-process) within the `DemaConsulting.Speech.Cli.Tests` project.
 
 ## Test Environment

@@ -177,7 +177,7 @@ exit code 1; the nothing-to-clean-up path exits `0` against the built tool.
 how to choose a voice; an empty list explains how to add voices; JSON is a parseable array; an
 unknown format or extra argument is rejected with `ArgumentException`; null arguments are rejected.
 (Registration of the voice commands in the dispatch table is verified by
-`CommandDispatch_Find_VoiceCommands_AreRegistered` in the CLI-level ProgramTests, outside this
+`CommandDispatch_Find_VoiceCommands_AreRegistered` in the CLI-level CommandDispatchTests, outside this
 subsystem's scope.)
 
 #### VoicesCommand

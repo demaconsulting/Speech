@@ -16,7 +16,7 @@ package SpeechCli {
     part def SpeechCliSystem {
         doc /* The SpeechCli application as a whole. */
 
-        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs, test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs, test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs, test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs, test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs */
         comment designRef /* Design: docs/design/speech-cli.md */
         comment verificationRef /* Verification: docs/verification/speech-cli.md */
         comment reqRef /* Requirements: docs/reqstream/speech-cli.yaml */
