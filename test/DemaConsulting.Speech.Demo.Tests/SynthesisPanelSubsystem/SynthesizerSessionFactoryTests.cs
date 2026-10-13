@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -9,13 +10,8 @@ namespace DemaConsulting.Speech.Demo.Tests.SynthesisPanelSubsystem;
 ///     Unit tests for <see cref="SynthesizerSessionFactory"/>.
 /// </summary>
 /// <remarks>
-///     The "correct role composes a working engine" path delegates to the library's own
-///     <see cref="SpeechSynthesizerFactory"/>, which requires an <see cref="ISynthesisModel"/> -
-///     an interface only the library's own assemblies can implement (see the type's remarks).
-///     That path is therefore outside this test project's reach and remains covered by the
-///     library's own synthesis-subsystem tests; these tests cover every path this project can
-///     reach: argument validation and the honest "wrong role" outcome. The library's invalid-parameter
-///     <see cref="ArgumentException"/> likewise comes from that unreachable path.
+///     The correct-role path uses a deterministic public <see cref="ISynthesisModel"/> test
+///     double and a fake backend, so no downloaded model or native runtime is needed.
 /// </remarks>
 public class SynthesizerSessionFactoryTests
 {
@@ -92,5 +88,96 @@ public class SynthesizerSessionFactoryTests
         // Assert
         Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
         Assert.False(engine.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that LoadAsync returns a real synthesizer, built from the installed model files,
+    ///     for a model that implements the synthesis role.
+    /// </summary>
+    [Fact]
+    public async Task SynthesizerSessionFactory_LoadAsync_SynthesisModel_ReturnsEngineForThatModel()
+    {
+        // Arrange
+        var store = IsolatedStore();
+        var model = new SynthesisModelDouble();
+        var installed = store.GetCurrentDirectory(model.Id);
+        Directory.CreateDirectory(installed);
+        var factory = new SynthesizerSessionFactory(store);
+        IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["gain"] = 0.5 };
+
+        // Act
+        var engine = await factory.LoadAsync(model, values, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotSame(UnavailableSpeechSynthesizerEngine.Instance, engine);
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(installed, model.BackendDirectory);
+        await engine.DisposeAsync();
+    }
+
+    /// <summary>
+    ///     Proves that LoadAsync rejects an invalid value for a declared parameter.
+    /// </summary>
+    [Fact]
+    public async Task SynthesizerSessionFactory_LoadAsync_InvalidParameters_PropagatesArgumentException()
+    {
+        // Arrange
+        var store = IsolatedStore();
+        var model = new SynthesisModelDouble();
+        Directory.CreateDirectory(store.GetCurrentDirectory(model.Id));
+        var factory = new SynthesizerSessionFactory(store);
+        IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["gain"] = 99.0 };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => factory.LoadAsync(model, values, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Deterministic public synthesis-role model double declaring one numeric parameter.
+    /// </summary>
+    private sealed class SynthesisModelDouble : ISynthesisModel
+    {
+        private readonly FakeSpeechModel _inner = new("synthesis-double", "Synthesis Double");
+
+        /// <summary>Gets the directory the backend was created for.</summary>
+        public string? BackendDirectory { get; private set; }
+
+        public string Id => _inner.Id;
+
+        public string DisplayName => _inner.DisplayName;
+
+        public SpeechModelRole Role => SpeechModelRole.Synthesis;
+
+        public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
+        [
+            new NumericParameter("gain", "Gain", "Output gain.", new NumericParameterBounds(0.0, 1.0, 0.1, 0.5))
+        ];
+
+        public SpeechModelAudioTagSupport AudioTagSupport => _inner.AudioTagSupport;
+
+        public SpeechModelDownloadDescriptor DownloadDescriptor => _inner.DownloadDescriptor;
+
+        public AudioFormat PreferredAudioFormat => AudioFormat.Mono(22050);
+
+        public ISynthesisBackend CreateBackend(string installedModelDirectory)
+        {
+            BackendDirectory = installedModelDirectory;
+            return new BackendDouble();
+        }
+    }
+
+    /// <summary>
+    ///     Backend producing silence.
+    /// </summary>
+    private sealed class BackendDouble : ISynthesisBackend
+    {
+        public int SampleRate => 22050;
+
+        public BackendAudio Generate(string text, float speed, int speakerId) => new([0f], SampleRate);
+
+        public void Dispose()
+        {
+        }
     }
 }

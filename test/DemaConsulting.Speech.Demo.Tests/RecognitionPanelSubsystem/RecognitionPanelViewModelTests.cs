@@ -107,6 +107,32 @@ public class RecognitionPanelViewModelTests
         Assert.Empty(viewModel.AvailableModels);
         Assert.Null(viewModel.SelectedModel);
         Assert.False(viewModel.CanStart);
+        Assert.Equal(RecognitionPanelViewModel.NoModelsMessage, viewModel.StatusMessage);
+        Assert.True(viewModel.HasStatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves that the empty-catalog message is cleared once a recognition model becomes available.
+    /// </summary>
+    [Fact]
+    public void RecognitionPanelViewModel_Refresh_ModelAppearsAfterEmpty_ClearsNoModelsMessage()
+    {
+        // Arrange
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = Array.Empty<SpeechModelDescriptor>();
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new RecognitionPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<IRecognizerSessionFactory>());
+        Assert.Equal(RecognitionPanelViewModel.NoModelsMessage, viewModel.StatusMessage);
+
+        // Act
+        descriptors = [FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition)];
+        viewModel.Refresh();
+
+        // Assert
+        Assert.Null(viewModel.StatusMessage);
+        Assert.True(viewModel.CanStart);
     }
 
     /// <summary>
@@ -580,16 +606,13 @@ public class RecognitionPanelViewModelTests
     }
 
     /// <summary>
-    ///     Proves that changing the selected recognition model while a session is actively
-    ///     listening stops that session and invalidates the cached engine, rather than disposing
-    ///     it without stopping first - which would leave <c>State</c> stuck at <c>Listening</c>
-    ///     forever, since a later Stop would see no cached session and no-op.
-    ///     <c>SelectedModel</c> has a public setter and is not guarded against this at the
-    ///     property level (only the view disables the model picker while listening), so the
-    ///     change can arrive mid-session.
+    ///     Proves that assigning a different recognition model while a session is actively
+    ///     listening is ignored: the selection is unchanged and the session keeps running, so the
+    ///     model can never be switched mid-session even when the view's disabled picker is
+    ///     bypassed.
     /// </summary>
     [Fact]
-    public async Task RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine()
+    public async Task RecognitionPanelViewModel_SelectedModelChanged_WhileListening_IsIgnored()
     {
         // Arrange: a panel with two installed models and an actively listening session for the
         // first
@@ -608,11 +631,84 @@ public class RecognitionPanelViewModelTests
         viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
         await Task.Yield();
 
-        // Assert: the active session was stopped and the engine was disposed, and the panel is
-        // not stuck in Listening
-        Assert.Equal(1, session.StopCallCount);
-        Assert.Equal(1, engine.DisposeCallCount);
-        Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
+        // Assert: the selection is unchanged and the session was neither stopped nor released
+        Assert.Equal("stt-a", viewModel.SelectedModel?.Id);
+        Assert.Equal(0, session.StopCallCount);
+        Assert.Equal(0, engine.DisposeCallCount);
+        Assert.Equal(RecognitionStreamingState.Listening, viewModel.State);
+    }
+
+    /// <summary>
+    ///     Regression test: a Stop in flight and a capture-device change arriving at the same time
+    ///     are serialized, so the session is never stopped by two operations concurrently and is
+    ///     not disposed while a stop is still running.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_StopAndDeviceChange_Concurrent_AreSerialized()
+    {
+        // Arrange
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 48_000);
+        var deviceB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 1, 48_000);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.EnumerateCaptureDevices().Returns([deviceA, deviceB]);
+        deviceService.EnumeratePlaybackDevices().Returns([]);
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var concurrentStops = 0;
+        var maxConcurrentStops = 0;
+        var disposedWhileStopping = false;
+        var session = Substitute.For<IRecognitionSession>();
+        session.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        session.GetResultsAsync(Arg.Any<CancellationToken>()).Returns(EmptyResults());
+        session.StopAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            var now = Interlocked.Increment(ref concurrentStops);
+            maxConcurrentStops = Math.Max(maxConcurrentStops, now);
+            entered.TrySetResult();
+            await release.Task;
+            Interlocked.Decrement(ref concurrentStops);
+        });
+        session.DisposeAsync().Returns(_ =>
+        {
+            disposedWhileStopping |= Volatile.Read(ref concurrentStops) > 0;
+            return ValueTask.CompletedTask;
+        });
+        var engine = Substitute.For<ISpeechRecognizerEngine>();
+        engine.IsAvailable.Returns(true);
+        engine.CreateSessionAsync(Arg.Any<IAudioCaptureDevice>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(session));
+        var factory = Substitute.For<IRecognizerSessionFactory>();
+        factory.LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(engine));
+        var deviceSelection = new DeviceSelectionViewModel(deviceService);
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, deviceSelection, factory);
+        await viewModel.StartCommand.ExecuteAsync(null);
+
+        // Act
+        var stop = viewModel.StopCommand.ExecuteAsync(null);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        deviceSelection.SelectedCaptureDevice = deviceB;
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        release.SetResult();
+        await stop.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await viewModel.DisposeAsync();
+
+        // Assert
+        Assert.Equal(1, maxConcurrentStops);
+        Assert.False(disposedWhileStopping);
+    }
+
+    /// <summary>
+    ///     Builds an asynchronous sequence that ends immediately, standing in for a result stream with no results.
+    /// </summary>
+    /// <returns>An empty asynchronous sequence of recognition events.</returns>
+    private static async IAsyncEnumerable<SpeechRecognitionEvent> EmptyResults()
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 
     /// <summary>
@@ -699,12 +795,13 @@ public class RecognitionPanelViewModelTests
             Substitute.For<IRecognizerSessionFactory>());
 
         // Act: stop with nothing running
+        var statusBefore = viewModel.StatusMessage;
         var exception = await Record.ExceptionAsync(() => viewModel.StopCommand.ExecuteAsync(null));
 
-        // Assert: no fault, and the panel remains idle with no status to report
+        // Assert: no fault, and the panel remains idle with its status unchanged
         Assert.Null(exception);
         Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
-        Assert.Null(viewModel.StatusMessage);
+        Assert.Equal(statusBefore, viewModel.StatusMessage);
     }
 
     /// <summary>

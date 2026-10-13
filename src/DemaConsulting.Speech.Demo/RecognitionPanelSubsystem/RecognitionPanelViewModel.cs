@@ -155,14 +155,41 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </summary>
     public ObservableCollection<ISpeechModel> AvailableModels { get; } = [];
 
+    /// <summary>The backing field for <see cref="SelectedModel"/>.</summary>
+    private ISpeechModel? _selectedModel;
+
+    /// <summary>
+    ///     Serializes every start, stop and invalidation so a device change, model change, Stop or
+    ///     disposal arriving while another is in flight waits for it instead of racing it over the
+    ///     cached session, result pump and engine.
+    /// </summary>
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+
     /// <summary>
     ///     Gets or sets the model chosen to listen with, or <see langword="null"/> when none is
-    ///     installed or none has been chosen.
+    ///     installed or none has been chosen. A change is ignored (the previous selection is kept)
+    ///     while a session is <see cref="RecognitionStreamingState.Listening"/>, so the model can
+    ///     never be switched mid-session whether or not the view disables the picker (see
+    ///     <see cref="CanChangeModel"/>).
     /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanStart))]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
-    public partial ISpeechModel? SelectedModel { get; set; }
+    public ISpeechModel? SelectedModel
+    {
+        get => _selectedModel;
+        set
+        {
+            if (State == RecognitionStreamingState.Listening)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedModel, value))
+            {
+                OnPropertyChanged(nameof(CanStart));
+                StartCommand.NotifyCanExecuteChanged();
+                _ = HandleSelectedModelChangedAsync();
+            }
+        }
+    }
 
     /// <summary>
     ///     Gets or sets the current streaming lifecycle state.
@@ -292,45 +319,45 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </summary>
     private async Task HandleCaptureDeviceChangedAsync()
     {
-        if (CanStop)
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        try
         {
-            await StopAsync().ConfigureAwait(true);
+            if (CanStop)
+            {
+                await StopCoreAsync().ConfigureAwait(true);
+            }
+
+            await InvalidateSessionAsync().ConfigureAwait(true);
         }
-
-        await InvalidateSessionAsync().ConfigureAwait(true);
+        finally
+        {
+            _lifecycleGate.Release();
+        }
     }
 
     /// <summary>
-    ///     Stops an actively listening session, if any, and invalidates the cached engine (and its
-    ///     session) when the user picks a different recognition model - it was loaded for the
-    ///     previously selected model and must not be reused against a new one. The model picker is
-    ///     disabled in the view while listening (see <see cref="CanChangeModel"/>), but
-    ///     <see cref="SelectedModel"/> has a public setter and can still be set directly (for
-    ///     example, programmatically or via <see cref="Refresh"/> repopulating the catalog), so
-    ///     this must not assume Stop has already run.
+    ///     Invalidates the cached engine (and its session) after the user picks a different
+    ///     recognition model - it was loaded for the previously selected model and must not be
+    ///     reused against a new one. <see cref="SelectedModel"/> ignores changes while listening,
+    ///     so no session is active here.
     /// </summary>
-    /// <param name="value">The newly selected model.</param>
     /// <remarks>
-    ///     This source-generated partial method's signature is fixed to <see langword="void"/>, so
-    ///     it fires the async work without awaiting it - the same accepted fire-and-forget pattern
-    ///     used throughout this class for handlers that must perform async cleanup.
+    ///     The property setter cannot await, so this fires the async work without awaiting it -
+    ///     the same accepted fire-and-forget pattern used throughout this class for handlers that
+    ///     must perform async cleanup. It takes the lifecycle gate, so it cannot interleave with
+    ///     a Start or Stop in flight.
     /// </remarks>
-    partial void OnSelectedModelChanged(ISpeechModel? value)
-    {
-        _ = HandleSelectedModelChangedAsync();
-    }
-
-    /// <summary>
-    ///     Performs the async stop-then-invalidate-engine work for <see cref="OnSelectedModelChanged(ISpeechModel?)"/>.
-    /// </summary>
     private async Task HandleSelectedModelChangedAsync()
     {
-        if (CanStop)
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        try
         {
-            await StopAsync().ConfigureAwait(true);
+            await InvalidateEngineAsync().ConfigureAwait(true);
         }
-
-        await InvalidateEngineAsync().ConfigureAwait(true);
+        finally
+        {
+            _lifecycleGate.Release();
+        }
     }
 
     /// <summary>
@@ -467,6 +494,15 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
               ?? AvailableModels.FirstOrDefault();
 
         OnPropertyChanged(nameof(HasModels));
+
+        if (AvailableModels.Count == 0)
+        {
+            StatusMessage = NoModelsMessage;
+        }
+        else if (string.Equals(StatusMessage, NoModelsMessage, StringComparison.Ordinal))
+        {
+            StatusMessage = null;
+        }
     }
 
     /// <summary>
@@ -477,6 +513,20 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
+    {
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        try
+        {
+            await StartCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    /// <summary>The body of <see cref="StartAsync"/>; runs with <see cref="_lifecycleGate"/> held.</summary>
+    private async Task StartCoreAsync()
     {
         var selectedModel = SelectedModel;
         if (selectedModel is null)
@@ -574,6 +624,20 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStop), AllowConcurrentExecutions = true)]
     private async Task StopAsync()
+    {
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        try
+        {
+            await StopCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    /// <summary>The body of <see cref="StopAsync"/>; runs with <see cref="_lifecycleGate"/> held.</summary>
+    private async Task StopCoreAsync()
     {
         var session = _session;
         if (session is null)
@@ -729,14 +793,22 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         _deviceSelection.PropertyChanged -= OnDeviceSelectionChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
-        if (CanStop)
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        try
         {
-            await StopAsync().ConfigureAwait(true);
+            if (CanStop)
+            {
+                await StopCoreAsync().ConfigureAwait(true);
+            }
+
+            _captureDebugRecorder?.Dispose();
+            _captureDebugRecorder = null;
+
+            await InvalidateEngineAsync().ConfigureAwait(true);
         }
-
-        _captureDebugRecorder?.Dispose();
-        _captureDebugRecorder = null;
-
-        await InvalidateEngineAsync().ConfigureAwait(true);
+        finally
+        {
+            _lifecycleGate.Release();
+        }
     }
 }
