@@ -32,22 +32,22 @@ public sealed class ChatterboxTurboReferenceVoice
     public const double MaximumDurationSeconds = 30.0;
 
     /// <summary>The normalized mono 24 kHz samples, produced eagerly or on first access.</summary>
-    private readonly Lazy<float[]> _samples;
+    private readonly LazyClip _samples;
 
     /// <summary>The lazily normalized mood clips by lower-case mood name; empty when the voice has none.</summary>
-    private readonly IReadOnlyDictionary<string, Lazy<float[]>> _moodSamples;
+    private readonly IReadOnlyDictionary<string, LazyClip> _moodSamples;
 
     /// <summary>Initializes a new instance of the <see cref="ChatterboxTurboReferenceVoice"/> class.</summary>
     private ChatterboxTurboReferenceVoice(
         string id,
         string displayName,
-        Lazy<float[]> samples,
-        IReadOnlyDictionary<string, Lazy<float[]>>? moodSamples = null)
+        LazyClip samples,
+        IReadOnlyDictionary<string, LazyClip>? moodSamples = null)
     {
         Id = id;
         DisplayName = displayName;
         _samples = samples;
-        _moodSamples = moodSamples ?? new Dictionary<string, Lazy<float[]>>();
+        _moodSamples = moodSamples ?? new Dictionary<string, LazyClip>();
     }
 
     /// <summary>Gets the stable identifier used as the voice choice value.</summary>
@@ -73,13 +73,13 @@ public sealed class ChatterboxTurboReferenceVoice
     /// <exception cref="ArgumentException">Thrown when a mood name or path is blank.</exception>
     public ChatterboxTurboReferenceVoice WithMoodFiles(IReadOnlyDictionary<string, string>? moodFiles)
     {
-        var moods = new Dictionary<string, Lazy<float[]>>(_moodSamples, StringComparer.Ordinal);
+        var moods = new Dictionary<string, LazyClip>(_moodSamples, StringComparer.Ordinal);
         foreach (var (mood, path) in moodFiles ?? new Dictionary<string, string>())
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(mood);
             ArgumentException.ThrowIfNullOrWhiteSpace(path);
             var name = mood.Trim().ToLowerInvariant();
-            moods[name] = new Lazy<float[]>(() => LoadNormalized($"{Id}/{name}", path), LazyThreadSafetyMode.PublicationOnly);
+            moods[name] = new LazyClip(() => LoadNormalized($"{Id}/{name}", path));
         }
 
         return new ChatterboxTurboReferenceVoice(Id, DisplayName, _samples, moods);
@@ -88,9 +88,10 @@ public sealed class ChatterboxTurboReferenceVoice
     /// <summary>Returns a copy of this voice with one already-decoded mood clip (used by tests).</summary>
     internal ChatterboxTurboReferenceVoice WithMoodSamples(string mood, ReadOnlySpan<float> samples, int sampleRate, int channelCount = 1)
     {
-        var moods = new Dictionary<string, Lazy<float[]>>(_moodSamples, StringComparer.Ordinal)
+        ArgumentException.ThrowIfNullOrWhiteSpace(mood);
+        var moods = new Dictionary<string, LazyClip>(_moodSamples, StringComparer.Ordinal)
         {
-            [mood.Trim().ToLowerInvariant()] = new Lazy<float[]>(Normalize(samples, sampleRate, channelCount)),
+            [mood.Trim().ToLowerInvariant()] = new LazyClip(Normalize(samples, sampleRate, channelCount)),
         };
         return new ChatterboxTurboReferenceVoice(Id, DisplayName, _samples, moods);
     }
@@ -140,7 +141,7 @@ public sealed class ChatterboxTurboReferenceVoice
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         var normalized = Normalize(samples, sampleRate, channelCount);
-        return new ChatterboxTurboReferenceVoice(id, displayName ?? id, new Lazy<float[]>(normalized));
+        return new ChatterboxTurboReferenceVoice(id, displayName ?? id, new LazyClip(normalized));
     }
 
     /// <summary>Down-mixes, resamples, validates and trims a clip to the stored mono 24 kHz form.</summary>
@@ -210,10 +211,18 @@ public sealed class ChatterboxTurboReferenceVoice
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        // PublicationOnly does not cache a failure, so replacing a bad file takes effect without a restart
-        var samples = new Lazy<float[]>(() => LoadNormalized(id, path), LazyThreadSafetyMode.PublicationOnly);
+        // LazyClip decodes once per success but does not cache a failure, so replacing a bad file takes effect without a restart
+        var samples = new LazyClip(() => LoadNormalized(id, path));
         var voice = new ChatterboxTurboReferenceVoice(id, displayName ?? id, samples);
         return moodClips is { Count: > 0 } ? voice.WithMoodFiles(moodClips) : voice;
+    }
+
+    /// <summary>Creates a voice whose samples come from <paramref name="load"/> on first use (used by tests to count decodes).</summary>
+    internal static ChatterboxTurboReferenceVoice FromLoader(string id, Func<float[]> load, string? displayName = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(load);
+        return new ChatterboxTurboReferenceVoice(id, displayName ?? id, new LazyClip(load));
     }
 
     /// <summary>Reads and normalizes a file, naming it in any failure.</summary>
@@ -227,6 +236,47 @@ public sealed class ChatterboxTurboReferenceVoice
         catch (Exception ex) when (ex is ArgumentException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
         {
             throw new InvalidDataException($"Reference voice '{id}' ('{path}') could not be loaded: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    ///     A clip that is produced at most once successfully: concurrent first users wait for the single decode and
+    ///     share its result, while a failure is not cached so a repaired file can be read on the next use.
+    /// </summary>
+    private sealed class LazyClip
+    {
+        /// <summary>Serializes the first decode.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The producer, cleared once a value exists.</summary>
+        private Func<float[]>? _factory;
+
+        /// <summary>The decoded clip; null until the first successful decode.</summary>
+        private volatile float[]? _value;
+
+        /// <summary>Initializes a clip that is decoded on first use.</summary>
+        public LazyClip(Func<float[]> factory) => _factory = factory;
+
+        /// <summary>Initializes an already-decoded clip.</summary>
+        public LazyClip(float[] value) => _value = value;
+
+        /// <summary>Gets the clip, decoding it on the first call.</summary>
+        public float[] Value
+        {
+            get
+            {
+                if (_value is { } ready)
+                {
+                    return ready;
+                }
+
+                lock (_gate)
+                {
+                    _value ??= _factory!();
+                    _factory = null;
+                    return _value;
+                }
+            }
         }
     }
 }

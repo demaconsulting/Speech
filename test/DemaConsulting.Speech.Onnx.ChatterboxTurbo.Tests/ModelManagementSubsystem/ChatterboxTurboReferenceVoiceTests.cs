@@ -49,6 +49,7 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal("tone", voice.Id);
         Assert.Equal("tone", voice.DisplayName);
         Assert.Equal(24000, voice.Samples.Length);
+        Assert.True(samples.AsSpan().SequenceEqual(voice.Samples.Span));
     }
 
     /// <summary>Proves stereo 48 kHz audio is down-mixed and resampled to mono 24 kHz.</summary>
@@ -66,6 +67,19 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal("Stereo", voice.DisplayName);
         Assert.InRange(voice.Samples.Length, 47990, 48010);
         Assert.InRange(voice.Samples.Span.ToArray().Max(Math.Abs), 0.5f, 1.01f);
+
+        // The 440 Hz tone keeps its frequency: two seconds hold about 880 rising zero crossings
+        var span = voice.Samples.Span;
+        var risingCrossings = 0;
+        for (var i = 1; i < span.Length; i++)
+        {
+            if (span[i - 1] < 0 && span[i] >= 0)
+            {
+                risingCrossings++;
+            }
+        }
+
+        Assert.InRange(risingCrossings, 870, 890);
     }
 
     /// <summary>Proves a clip shorter than the minimum is rejected.</summary>
@@ -91,7 +105,10 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw()
     {
-        // Assert
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromSamples(null!, new float[48000], 24000));
+        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromFile("x", null!));
+        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromFile(null!, "x.wav"));
         Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromSamples(" ", new float[48000], 24000));
         Assert.Throws<ArgumentOutOfRangeException>(() => ChatterboxTurboReferenceVoice.FromSamples("x", new float[48000], 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => ChatterboxTurboReferenceVoice.FromSamples("x", new float[48000], 24000, 0));
@@ -128,7 +145,7 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(24000, voice.Samples.Length);
     }
 
-    /// <summary>Proves a float32 WAV file is read now that the core reader supports it.</summary>
+    /// <summary>Proves a float32 WAV file is read.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromFile_Float32Wav_LoadsVoice()
     {
@@ -209,23 +226,81 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.True(first.Span == voice.Samples.Span);
     }
 
+    /// <summary>Proves a lazy voice does not decode until first use and then decodes exactly once.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromLoader_DecodesOnlyOnFirstUseAndOnlyOnce()
+    {
+        // Arrange
+        var decodes = 0;
+        var voice = ChatterboxTurboReferenceVoice.FromLoader("v", () =>
+        {
+            Interlocked.Increment(ref decodes);
+            return new float[24000];
+        });
+        var beforeUse = decodes;
+
+        // Act
+        _ = voice.Samples;
+        _ = voice.Samples;
+
+        // Assert
+        Assert.Equal(0, beforeUse);
+        Assert.Equal(1, decodes);
+    }
+
+    /// <summary>Proves a failed decode is not cached, so the next use retries.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromLoader_FailureIsNotCached()
+    {
+        // Arrange
+        var attempts = 0;
+        var voice = ChatterboxTurboReferenceVoice.FromLoader("v", () =>
+            Interlocked.Increment(ref attempts) == 1 ? throw new InvalidDataException("bad") : new float[24000]);
+
+        // Act & Assert
+        Assert.Throws<InvalidDataException>(() => voice.Samples);
+        Assert.Equal(24000, voice.Samples.Length);
+        Assert.Equal(2, attempts);
+    }
+
+    /// <summary>Proves a blank or null mood name is rejected by the test-only mood helper.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodSamples_BlankMood_Throws()
+    {
+        // Arrange
+        var voice = ChatterboxTurboReferenceVoice.FromSamples("v", new float[24000], 24000);
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => voice.WithMoodSamples(null!, new float[24000], 24000));
+        Assert.Throws<ArgumentException>(() => voice.WithMoodSamples(" ", new float[24000], 24000));
+    }
+
     /// <summary>Proves concurrent first use of a lazy file voice yields one shared, fully decoded clip for every caller.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip()
     {
         // Arrange
-        var path = Path.Combine(_root, "shared.wav");
-        File.WriteAllBytes(path, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
-        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("shared", path, "Shared");
+        var decodes = 0;
+        var voice = ChatterboxTurboReferenceVoice.FromLoader("shared", () =>
+        {
+            Interlocked.Increment(ref decodes);
+            SpinWait.SpinUntil(() => false, 50);
+            return Tone(24000, 24000, 300);
+        });
+        using var gate = new Barrier(8);
 
         // Act
-        var clips = Enumerable.Range(0, 8)
-            .AsParallel()
-            .WithDegreeOfParallelism(8)
-            .Select(_ => voice.Samples)
+        var tasks = Enumerable.Range(0, 8)
+            .Select(_ => Task.Run(() =>
+            {
+                gate.SignalAndWait();
+                return voice.Samples;
+            }))
             .ToArray();
+        var clips = tasks.Select(t => t.GetAwaiter().GetResult()).ToArray();
 
-        // Assert
+        // Assert: one decode, one shared clip
+        Assert.Equal(1, decodes);
         Assert.All(clips, clip => Assert.Equal(24000, clip.Length));
         Assert.All(clips, clip => Assert.True(clip.Span == clips[0].Span));
     }

@@ -65,7 +65,10 @@ documented exceptions.
 
 **Tests**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`,
 `ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse` and
-`ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip`
+`ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip` (eight threads released
+together by a barrier decode through a counting loader: exactly one decode, one shared clip),
+`ChatterboxTurboReferenceVoice_FromLoader_DecodesOnlyOnFirstUseAndOnlyOnce` and
+`ChatterboxTurboReferenceVoice_FromLoader_FailureIsNotCached` (a failed decode is retried on the next use)
 
 ##### Mood clips load lazily and a missing mood is reported
 

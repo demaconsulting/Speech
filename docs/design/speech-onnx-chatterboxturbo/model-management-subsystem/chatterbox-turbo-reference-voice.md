@@ -17,7 +17,8 @@ mono, 24 kHz, bounded in length. Chatterbox Turbo has no built-in voices, so thi
 - **FromFile(id, path, displayName = null)**: decode a WAV or FLAC file of any channel count with the core
   `AudioFileReader`, then delegate to `FromSamples`
 - **FromFileLazy(id, path, displayName, moodClips)** (internal): a file-backed voice whose samples are decoded and
-  normalized on first use only (thread-safe; a failed load is not cached). A decoding failure is
+  normalized on first use only (thread-safe: concurrent first users wait for one decode and share its clip,
+  so the file is decoded once; a failed load is not cached and the next use retries). A decoding failure is
   rethrown as an `InvalidDataException` naming the file, so one damaged clip among a hundred fails only
   when chosen. Used for voices that come from the reference-voice library. It also accepts the
   library voice's `MoodClips` (mood name to file path).
