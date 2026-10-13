@@ -520,6 +520,9 @@ sections:
           - SpeechDemo-Settings-ValueBagEmptyWithoutModel
           - SpeechDemo-Settings-ValueBagDuplicateIds
           - SpeechDemo-Settings-RestoreIgnoresStaleValues
+          - SpeechDemo-Settings-CapturedValuesRestored
+          - SpeechDemo-Settings-EmptyStateExplained
+          - SpeechDemo-Settings-UnrecognizedParameterTolerated
         tests:
           - SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis
 

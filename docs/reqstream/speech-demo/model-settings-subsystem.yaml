@@ -17,8 +17,8 @@ sections:
           - id: SpeechDemo-Settings-GenericParameterRendering
             title: >-
               The ModelSettingsSubsystem shall render one presenter per parameter the selected
-              model declares, choosing the presenter kind from the parameter's concrete type
-              alone.
+              model declares, in declaration order, choosing the presenter kind from the
+              parameter's concrete type alone.
             justification: |
               This library's typed, self-describing parameter design lets a host build a
               completely generic settings UI with no prior knowledge of a specific model's
@@ -40,3 +40,37 @@ sections:
               session contract accepts no per-call parameter bag.
             tests:
               - ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
+
+          - id: SpeechDemo-Settings-CapturedValuesRestored
+            title: >-
+              The ModelSettingsSubsystem shall restore previously captured parameter values into
+              the presenters of the model, keeping each presenter's default for a value that is
+              missing or no longer applies.
+            justification: |
+              A host that rebuilds the panel (for example after the voice list changes) must be
+              able to put the user's tuning back without the restored bag overriding a parameter
+              the new model does not declare or an option it no longer offers.
+            tests:
+              - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+              - ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
+
+          - id: SpeechDemo-Settings-EmptyStateExplained
+            title: >-
+              The ModelSettingsSubsystem shall explain an empty panel, distinguishing no model
+              being selected from a model that declares no parameters.
+            justification: |
+              A blank settings area is indistinguishable from a broken one; the user must be
+              told which of the two situations applies.
+            tests:
+              - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
+              - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState
+
+          - id: SpeechDemo-Settings-UnrecognizedParameterTolerated
+            title: >-
+              The ModelSettingsSubsystem shall skip a parameter of a kind it does not recognize
+              and still present the model's other parameters.
+            justification: |
+              The library may add parameter kinds a host built against an older contract does
+              not know; one unknown kind must not hide every other setting.
+            tests:
+              - ModelSettingsViewModel_Model_UnrecognizedParameterKind_SkipsItAndPresentsTheRest
