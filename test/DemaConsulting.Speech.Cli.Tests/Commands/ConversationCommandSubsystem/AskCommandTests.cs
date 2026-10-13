@@ -683,6 +683,67 @@ public sealed class AskCommandTests
             () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
+    /// <summary>Test that an invalid --stt-param value throws before any engine is loaded.</summary>
+    [Fact]
+    public async Task AskCommand_Run_InvalidSttParam_ThrowsArgumentException()
+    {
+        var beamParameter = new NumericParameter(
+            "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
+        var catalog = CreateCatalogWithModels(sttParameters: [beamParameter]);
+        using var context = Context.Create(
+            [
+                "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                "--stt-param", "beam=100"
+            ]);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+    }
+
+    /// <summary>Test that a key the respective model does not declare is rejected for each of --tts-param and --stt-param.</summary>
+    [Fact]
+    public async Task AskCommand_Run_UnknownParamKey_ThrowsArgumentException()
+    {
+        var catalog = CreateCatalogWithModels();
+        using var ttsContext = Context.Create(
+            [
+                "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                "--tts-param", "nope=1"
+            ]);
+        using var sttContext = Context.Create(
+            [
+                "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                "--stt-param", "nope=1"
+            ]);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(ttsContext, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(sttContext, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+    }
+
+    /// <summary>Test that a malformed (no key=value separator) token is rejected for each of --tts-param and --stt-param.</summary>
+    [Fact]
+    public void AskCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--tts-param", "noseparator"]));
+        Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--stt-param", "noseparator"]));
+    }
+
+    /// <summary>Test that a non-positive --start-timeout throws.</summary>
+    [Fact]
+    public void AskCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--start-timeout", "0"]));
+        Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--start-timeout", "-3"]));
+        Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(
+            ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi", "--start-timeout", "abc"]));
+    }
+
     /// <summary>
     ///     Test that --silence-timeout ends the listen phase with an empty recognized text when
     ///     no final result ever arrives, using a real (small) wall-clock idle window so the

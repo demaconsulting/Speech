@@ -60,6 +60,25 @@ public sealed class CleanCommandTests
     }
 
     /// <summary>
+    ///     Test that a canceled cleanup is reported as an error rather than propagating the cancellation.
+    /// </summary>
+    [Fact]
+    public async Task CleanCommand_Run_Canceled_ReportsErrorExitCode()
+    {
+        // Arrange
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var catalog = new FakeCliModelCatalog { CleanUpException = new OperationCanceledException(cancellation.Token) };
+        using var context = Context.Create(["clean", "model-1"]);
+
+        // Act
+        await CleanCommand.RunAsync(context, catalog, cancellation.Token);
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+    }
+
+    /// <summary>
     ///     Test that omitting the required <c>&lt;modelId&gt;</c> argument throws.
     /// </summary>
     [Fact]

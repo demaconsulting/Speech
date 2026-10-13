@@ -137,9 +137,10 @@ internal static class Validation
                 "--version"
             };
 
-            // Run the program
+            // Run the program (ambient DEMASPEECH_MIRROR_* variables are hidden so they cannot
+            // make this CI-safe self-test fail)
             int exitCode;
-            using (var testContext = Context.Create([.. args]))
+            using (var testContext = Context.Create([.. args], static _ => null))
             {
                 await Program.RunAsync(testContext).ConfigureAwait(false);
                 exitCode = testContext.ExitCode;
@@ -210,9 +211,10 @@ internal static class Validation
                 "--help"
             };
 
-            // Run the program
+            // Run the program (ambient DEMASPEECH_MIRROR_* variables are hidden so they cannot
+            // make this CI-safe self-test fail)
             int exitCode;
-            using (var testContext = Context.Create([.. args]))
+            using (var testContext = Context.Create([.. args], static _ => null))
             {
                 await Program.RunAsync(testContext).ConfigureAwait(false);
                 exitCode = testContext.ExitCode;

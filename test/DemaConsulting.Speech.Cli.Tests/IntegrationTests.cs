@@ -27,7 +27,8 @@ namespace DemaConsulting.Speech.Cli.Tests;
 ///     Covers dispatch, help/version/self-test, a clean error for an unrecognized subcommand, and the
 ///     model-management subcommands (<c>list-models</c>, <c>model-info</c>, <c>download</c>,
 ///     <c>uninstall</c>, <c>clean</c>), the device-related subcommands (<c>list-devices</c>,
-///     <c>devices</c>, <c>doctor</c>), <c>speak</c>, and <c>recognize</c>,
+///     <c>devices</c>, <c>doctor</c>), the voice commands (<c>list-voices</c>, <c>voices</c>),
+///     <c>speak</c>, <c>recognize</c>, and <c>ask</c>,
 ///     each exercised against an isolated, empty <c>--models-dir</c> so no test ever touches the
 ///     real per-user model store or performs a real network access. <c>speak</c>'s and
 ///     <c>recognize</c>'s error paths (missing model, unknown/wrong-role/not-downloaded model id,
@@ -92,17 +93,15 @@ public class IntegrationTests
         Assert.Contains("Commands:", output);
         Assert.Contains("--version", output);
         Assert.Contains("--help", output);
-        Assert.Contains("list-models", output);
-        Assert.Contains("model-info", output);
-        Assert.Contains("download", output);
-        Assert.Contains("uninstall", output);
-        Assert.Contains("clean", output);
-        Assert.Contains("list-devices", output);
-        Assert.Contains("devices", output);
-        Assert.Contains("doctor", output);
-        Assert.Contains("speak", output);
-        Assert.Contains("recognize", output);
-        Assert.Contains("ask", output);
+        foreach (var name in new[]
+                 {
+                     "list-models", "model-info", "download", "uninstall", "clean", "list-voices", "voices",
+                     "list-devices", "devices", "doctor", "speak", "recognize", "ask"
+                 })
+        {
+            // Anchored to the start of a Commands entry so "devices" cannot be satisfied by "list-devices"
+            Assert.Matches($@"(?m)^  {System.Text.RegularExpressions.Regex.Escape(name)}(\s|$)", output);
+        }
     }
 
     /// <summary>

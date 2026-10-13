@@ -25,8 +25,11 @@ namespace DemaConsulting.Speech.Cli.Tests;
 /// <summary>
 ///     Unit tests for <see cref="ConsoleCancellation"/>. The console signal itself cannot be raised
 ///     from a test (<see cref="ConsoleCancelEventArgs"/> has no public constructor), so the tests
-///     drive the registration's cancellation work through its internal <c>Raise</c> seam.
+///     drive the registration's cancellation work through its internal <c>Raise</c> seam. The tests
+///     are sequential because registrations subscribe the process-global
+///     <see cref="Console.CancelKeyPress"/> event.
 /// </summary>
+[Collection("Sequential")]
 public sealed class ConsoleCancellationTests
 {
     /// <summary>Test that Register cancels the source, runs the callback, and suppresses termination.</summary>

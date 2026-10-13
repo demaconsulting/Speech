@@ -29,7 +29,7 @@ its own flag set. `Context.Create(args)` resolves a fixed set of global options 
 `--voices-dir <path>` (an existing folder of extra `.wav`/`.flac` reference voices; a missing
 folder is rejected with `ArgumentException` in `Context.Create`),
 `--no-emotions` (voice-pack installs omit emotion variants), `--verbose`/`--diagnostics`, `--silent`,
-`--log <file>`, `--results <file>`, `--depth <#>`,
+`--log <file>`, `--results <file>` (alias `--result`), `--depth <#>`,
 `-v`/`--version`, `-h`/`-?`/`--help`, `--validate` - regardless of where they appear on the
 command line relative to the subcommand name, because every subcommand needs the same
 cross-cutting configuration. The first token that is not a recognized global option resolves the
@@ -204,7 +204,8 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 
 1. **Input**: `--validate` is given, optionally with `--results <file>` and `--depth <#>`
 2. **Checks**: version display, help display, and whether the dispatch table is well formed are
-   checked in-process; an `AudioDeviceFactory` is composed and both device probes are enumerated
+   checked in-process (the version and help checks build their inner `Context` with an empty
+   environment reader, so ambient `DEMASPEECH_MIRROR_*` variables cannot affect them); an `AudioDeviceFactory` is composed and both device probes are enumerated
    to prove the audio backend composition path never throws; a `SpeechModelStore` is resolved
    (honoring `--models-dir` when given) and a small marker file is written to and deleted from its
    root to prove the model-store location is writable

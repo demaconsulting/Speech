@@ -33,11 +33,14 @@ implementation. Errors for operator mistakes are `ArgumentException` or
 `AddNemotronSttModels`/`AddChatterboxTurboModels` registration extensions; and `Context` for
 global options (`--models-dir`, `--voices-dir`, `--mirror-*`, `--no-emotions`).
 
-The `ICliModelCatalog` members fall into three groups:
+The `ICliModelCatalog` members fall into four groups:
 
 | Group | Members |
 | --- | --- |
-| Model management (4) | `Enumerate`, `DownloadAsync`, `Uninstall`, `CleanUpLeftovers` |
+| Model management (4) | `Enumerate`, `DownloadAsync`, `UninstallAsync`, `CleanUpLeftoversAsync` |
+| Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
+| Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
+| Reference voices: manage (3) | `VoicePackHasEmotionsAsync`, `InstallVoicePackAsync`, `UninstallVoicePackAsync` |
 | Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
 | Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
 | Reference voices: manage (3) | `VoicePackHasEmotionsAsync`, `InstallVoicePackAsync`, `UninstallVoicePackAsync` |
@@ -63,8 +66,8 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | --- | --- | --- |
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(id, progress, token)` | `Task<SpeechModelDownloadResult>` | Throws for unknown id; no-op if installed |
-| `UninstallAsync(id, token)` | `Task` | Safe no-op if nothing is installed |
-| `CleanUpLeftoversAsync(id, token)` | `Task` | Never throws |
+| `UninstallAsync(id, token)` | `Task` | `ArgumentException` for an invalid id; safe no-op if nothing is installed; `SpeechModelStoreException` for a genuine store failure |
+| `CleanUpLeftoversAsync(id, token)` | `Task` | `ArgumentException` for an invalid id; otherwise best-effort and never throws |
 
 These four model-management members are the original seam; the format/engine members (see _Seam
 Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem_ below) and the
@@ -74,10 +77,12 @@ reference-voice members (see _Chatterbox and Voice Seam Members_) extend it.
 `SpeechModelCatalog`, constructed as `new SpeechModelCatalog(options).AddSherpaModels()` -
 populating the catalog via the sibling `DemaConsulting.Speech.Sherpa` package's extension method,
 since core `DemaConsulting.Speech` ships zero built-in models - and delegating
-`Uninstall`/`CleanUpLeftovers` through the catalog's `Store`.
+`UninstallAsync`/`CleanUpLeftoversAsync` to the library store's own `Uninstall`/`CleanUpLeftovers`
+methods through the catalog's `Store`.
 `CliModelCatalogFactory.Create(context)` composes one adapter per command invocation, passing
-`context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given, so `--models-dir`
-is honored uniformly by every command without each command handler needing to know how the
+`context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given and
+`context.VoicesDir` as the explicit reference-voice directory, so `--models-dir` and `--voices-dir`
+are honored uniformly by every command without each command handler needing to know how the
 override is threaded through. `context.CreateMirror()` is wrapped in a
 `SpeechModelDownloaderOptions` the same way, so `--mirror-url`/`--mirror-user`/`--mirror-password`/
 `--mirror-bearer-token` redirect `DownloadCommand`'s downloads to an internal mirror without any
@@ -90,9 +95,11 @@ requiring `https://`, in `Context`'s own source).
 Parses `--role tts`/`stt` (mapping to `SpeechModelRole.Synthesis`/`Recognition`) and
 `--state downloaded`/`missing` (mapping to `State == Downloaded`/`State != Downloaded`, the
 latter covering `NotDownloaded`, `Downloading`, and `FailedOrCorrupt` alike, since only two state
-groups are exposed at the CLI). Filters `catalog.Enumerate()` by whichever flags were given, then
+groups are exposed at the CLI; two contradictory `--state` values are an `ArgumentException`
+rather than a silently empty result). Filters `catalog.Enumerate()` by whichever flags were given, then
 prints either an aligned table (columns: Id, Display Name, Role, State, License) or, with
-`--format json`, an indented JSON array via `System.Text.Json`. An empty result (whether because
+`--format json`, an indented JSON array via `System.Text.Json`. An unknown flag, an invalid
+`--role`/`--state`/`--format` value, or a flag missing its value is an `ArgumentException`. An empty result (whether because
 the catalog has no known models, or because a filter excluded everything) prints an explanatory
 "no models" message rather than an empty table with only headers.
 
@@ -113,7 +120,7 @@ each requested model **sequentially** (never in parallel, so progress output fro
 models is never interleaved). For each model:
 
 1. If `--force` was given and the model's current state (per `Enumerate()`) is `Downloaded`,
-   `Uninstall` is called first — this is necessary because `SpeechModelCatalog.DownloadAsync` is
+   `UninstallAsync` is called first — this is necessary because `SpeechModelCatalog.DownloadAsync` is
    itself documented as a no-op for an already-installed model, so there is no separate
    "force" parameter on the library's own download API to pass through
 2. `DownloadAsync` is called with an `IProgress<SpeechModelDownloadProgress>` that prints a
@@ -155,29 +162,32 @@ their internal `RunAsync` bodies. The public `RunAsync(Context)` entry of each o
 
 ### UninstallCommand
 
-Awaits `catalog.UninstallAsync(modelId, ct)` (the seam is internal, so the earlier synchronous member was replaced) and
+Awaits `catalog.UninstallAsync(modelId, ct)` and
 reports success. `SpeechModelStore.Uninstall` is documented
 as a safe no-op for a model with nothing installed, so this command follows that same contract —
 "nothing to remove" is a successful outcome, not an error, since an idempotent cleanup script
-should not fail merely because it ran twice. A genuine store failure
+should not fail merely because it ran twice. A missing `<modelId>` or an extra argument is an
+`ArgumentException`. A genuine store failure
 (`SpeechModelStoreException`, e.g. an open file handle preventing deletion) is caught and
 re-thrown as `InvalidOperationException`, so `Program.Main`'s clean-error convention (a one-line
 message, non-zero exit) applies instead of a stack trace, matching how the rest of the CLI
-reports operator-facing failures.
+reports operator-facing failures. `Ctrl+C` is wired to a `CancellationTokenSource` through
+`ConsoleCancellation.Register`; the token is observed only before the removal starts, and a
+cancellation then is reported with `WriteError` and a non-zero exit code rather than propagating.
 
 ### CleanCommand
 
 Awaits `catalog.CleanUpLeftoversAsync(modelId, ct)` and reports success. `SpeechModelStore.CleanUpLeftovers`
-is documented as fully best-effort and never throwing, so this handler needs no exception
-handling of its own; a model with nothing to clean up is reported the same way as one with
-leftovers actually removed.
+is documented as fully best-effort and never throwing for a failed deletion, so this handler needs no exception
+handling of its own beyond cancellation (reported like `uninstall`'s, with `Ctrl+C` wired the same way); a model with nothing to clean up is reported the same way as one with
+leftovers actually removed. A missing `<modelId>` or an extra argument is an `ArgumentException`.
 
 ### ListVoicesCommand
 
 Parses the optional `--format table|json` flag (anything else is an `ArgumentException`) and prints
 `catalog.EnumerateVoices()` as an aligned table (Id, Source, Moods, Display Name) or an indented JSON
 array. Moods is the number of emotion variants (`MoodClips`) the voice has, or `-`; each JSON row also
-carries a `moods` array of the mood names. When there are no voices it explains how to obtain some (`voices install voice-zero-1.0`,
+carries a `moods` array of the mood names. When there are no voices it explains how to obtain some (`voices install <packId>`,
 the per-user folder `catalog.UserVoicesDirectory`, or `--voices-dir`). The table form also shows
 how to choose a voice (`speak --tts-param voice=<id>`) and the reference-voice consent note
 (`ReferenceVoiceLibrary.ConsentNotice`: only clone voices you have permission to use).
@@ -197,11 +207,14 @@ Dispatches on the first argument:
   and downloaded again. A failed or canceled install is reported with `WriteError` and a non-zero exit code. `Ctrl+C` is
   wired to a `CancellationTokenSource` the same way as `DownloadCommand`
 - **`uninstall <packId>`** awaits `UninstallVoicePackAsync`, a safe no-op when nothing is installed; a
-  `SpeechModelStoreException` is re-thrown as `InvalidOperationException`
+  `SpeechModelStoreException` is re-thrown as `InvalidOperationException`, and a `Ctrl+C` cancellation
+  before the removal starts is reported with `WriteError` and a non-zero exit code
+- **`packs`** reads each pack's `GetVoicePackState` once per invocation (the value is reused for the
+  installed-with-emotions annotation)
 
 An unknown pack id, a missing or extra argument, or an unknown action is an `ArgumentException`.
 Because the catalog is built from the same `--models-dir` and `--mirror-*` options, pack downloads
-honor a mirror (`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`) without any command-specific logic.
+honor a mirror (`{mirror}/<packId>/<packId>.zip`) without any command-specific logic.
 Installed pack voices appear on the next invocation, since the voice list is fixed when the
 catalog (and the Chatterbox model) is constructed.
 
@@ -225,8 +238,7 @@ Every command depends only on `ICliModelCatalog` and on the library's descriptor
 parameter, progress, and result value types — none touches `SpeechModelCatalog` or
 `SpeechModelStore` directly. This is what allows the full argument-parsing, filtering, error, and
 progress-reporting behavior of all seven commands to be verified deterministically with no network
-access and no real model download, using a fake `ICliModelCatalog` (see each command's own test
-file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/`).
+access and no real model download, using a fake `ICliModelCatalog`.
 
 ### Seam Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem
 
@@ -235,7 +247,7 @@ file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem
 public `ISynthesisModel`/`IRecognitionModel` interface - both interfaces are implementable (and
 their `is`/`as` casts compilable) from any assembly, including `DemaConsulting.Speech.Cli.Tests`.
 Rather than introduce competing seam interfaces for each subsystem, `ICliModelCatalog` is extended
-with four further members that keep the same shape as the four model-management members - narrow,
+with three further members that keep the same shape as the four model-management members - narrow,
 purpose-specific operations, never throwing for a genuinely absent capability where the library
 itself would return a graceful fallback - so the role-specific narrowing stays confined to one
 seam instead of being repeated across every caller:
@@ -243,16 +255,17 @@ seam instead of being repeated across every caller:
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizerEngineAsync(...)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
-| `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
+| `CreateSynthesizerEngineAsync(descriptor, parameterValues, ct)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
+| `CreateRecognizerEngineAsync(descriptor, parameterValues, ct)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
-`SpeechModelCatalogAdapter` implements all four through private `RequireSynthesisModel`/
+`SpeechModelCatalogAdapter` implements all three through private `RequireSynthesisModel`/
 `RequireRecognitionModel` helpers that perform the respective `is ISynthesisModel`/
 `is IRecognitionModel` cast once, throwing a clean, model-id-naming `ArgumentException` when it
-fails. `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync` forward unchanged to the
+fails. `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync` forward the descriptor, the optional
+resolved `parameterValues` bag, and the token unchanged to the
 library's `SpeechSynthesizerFactory.LoadAsync`/`SpeechRecognizerFactory.LoadAsync` static methods,
 each returning an engine with no device bound yet; the caller (`SpeakCommand`/`RecognizeCommand`/
 `AskCommand`) binds the resolved playback/capture device afterward via
 `engine.CreateSessionAsync(device, cancellationToken)`. See _SpeechCli SynthesisCommandSubsystem
-Design_ and _SpeechCli RecognitionCommandSubsystem Design_ for how each command consumes its two
+Design_ and _SpeechCli RecognitionCommandSubsystem Design_ for how each command consumes its
 members.

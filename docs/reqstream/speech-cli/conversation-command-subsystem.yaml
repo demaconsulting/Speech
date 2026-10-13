@@ -132,7 +132,7 @@ sections:
               - AskCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
               - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
 
-          - id: SpeechCli-ConversationCommands-ParamValidation
+          - id: SpeechCli-ConversationCommands-ParamForwarding
             title: >-
               The tool shall accept repeatable `--tts-param key=value` and `--stt-param
               key=value` flags and apply each to the model it names.
@@ -156,6 +156,9 @@ sections:
               any audio is produced catches an operator typo immediately.
             tests:
               - AskCommand_Run_InvalidTtsParam_ThrowsArgumentException
+              - AskCommand_Run_InvalidSttParam_ThrowsArgumentException
+              - AskCommand_Run_UnknownParamKey_ThrowsArgumentException
+              - AskCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException
 
           - id: SpeechCli-ConversationCommands-ListenTermination
             title: >-
@@ -176,9 +179,10 @@ sections:
               for `recognize --mic`.
             tags: [subsystem]
             justification: |
-              Reusing `recognize --mic`'s own idle-timeout session unmodified, rather than
-              reimplementing similar logic, keeps a single source of truth for the two-phase
-              idle-window semantics `--start-timeout`/`--silence-timeout` already established.
+              A caller that opts into a timeout needs `ask` to give up on a reply that never
+              starts or never finishes, with exactly the idle-window semantics
+              `--start-timeout`/`--silence-timeout` already have for `recognize --mic`, so the
+              two commands behave consistently.
             tests:
               - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
               - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
@@ -196,16 +200,17 @@ sections:
 
           - id: SpeechCli-ConversationCommands-ListenTimeoutValidation
             title: >-
-              The tool shall reject a non-positive `--silence-timeout` given to `ask` with a
-              clean, non-zero-exit-code error.
+              The tool shall reject a non-positive or non-numeric `--silence-timeout` or
+              `--start-timeout` given to `ask` with a clean, non-zero-exit-code error.
             tags: [subsystem]
             justification: |
               A zero or negative timeout would end the turn immediately, so it must fail
               predictably.
             tests:
               - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+              - AskCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
 
-          - id: SpeechCli-ConversationCommands-OutputDispatch
+          - id: SpeechCli-ConversationCommands-OutputStdout
             title: >-
               The tool shall print the final recognized reply text to stdout by default.
             tags: [subsystem]
@@ -248,7 +253,7 @@ sections:
             tests:
               - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
 
-          - id: SpeechCli-ConversationCommands-DeviceDispatch
+          - id: SpeechCli-ConversationCommands-PlaybackDeviceUnknown
             title: >-
               The tool shall reject `ask` invoked with a `--playback-device` name that matches
               no playback device with a clean, non-zero-exit-code error rather than a stack

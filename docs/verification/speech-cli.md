@@ -141,8 +141,10 @@ the results file path.
 `Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException`,
 `Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException`,
 `Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException`,
-`Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException`
-
+`Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException`,
+`Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException`,
+`Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException`,
+`Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback`
 Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
 `DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
 token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
@@ -156,7 +158,10 @@ non-loopback-`http`-with-credentials rule) - see _Speech ModelManagementSubsyste
 `DownloadMirror`'s own full validation rules. The without-mirror-url tests confirm that
 `--mirror-user`/`--mirror-password` and `--mirror-bearer-token` are each rejected outright when
 supplied with no `--mirror-url`, rather than being silently ignored - a credential with nowhere to
-apply almost always indicates a missing or misspelled `--mirror-url`.
+apply almost always indicates a missing or misspelled `--mirror-url`. A mirror URL of an unsupported
+shape (scheme, query, fragment, or embedded user-info), a whitespace-only bearer token, and Basic or
+bearer credentials sent over cleartext `http` to a non-loopback host are each rejected with
+`ArgumentException`; a loopback `http` mirror is accepted.
 
 ### Mirror Environment Variables
 
@@ -186,7 +191,9 @@ variables but never prints their values.
 Verifies that `--validate` runs all five self-test checks (version display, help display,
 the dispatch table being well formed, audio-backend probe composition, the model-store root being
 writable) to completion without throwing regardless of the host machine's audio hardware or
-installed models, and reports a pass/fail summary.
+installed models, and reports a pass/fail summary. The version and help checks run their inner
+invocation with the process environment hidden, so an ambient `DEMASPEECH_MIRROR_*` variable cannot
+change the self-test outcome.
 
 ### Self-Validation Results File
 

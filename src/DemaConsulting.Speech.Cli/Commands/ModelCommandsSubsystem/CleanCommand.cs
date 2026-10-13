@@ -81,7 +81,17 @@ internal static class CleanCommand
         }
 
         var modelId = args[0];
-        await catalog.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await catalog.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ctrl+C before the cleanup started: report it cleanly instead of crashing
+            context.WriteError($"Cleaning up model '{modelId}' was canceled.");
+            return;
+        }
+
         context.WriteLine($"Cleaned up leftover files for model '{modelId}' (if any were present).");
     }
 }

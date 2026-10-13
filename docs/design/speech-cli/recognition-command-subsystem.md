@@ -6,7 +6,7 @@
 
 The RecognitionCommandSubsystem implements the one speech-to-text subcommand dispatched to by
 `CommandDispatch`: `recognize`. It contains two types and extends `ModelCommandsSubsystem`'s
-existing catalog seam with two further members:
+existing catalog seam with one further member:
 
 - **`RecognizeCommand`**: implements
   `recognize --stt-model <id> (--input <wav-path> | --mic) [--capture-device <name>]
@@ -18,7 +18,7 @@ existing catalog seam with two further members:
   window resetting on every result thereafter) against each `MoveNextAsync`, stopping the wrapped
   session when the currently-active window elapses with no result
 - **`ICliModelCatalog.CreateRecognizerEngineAsync`**: the new seam member
-  (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
+  (see _Design_ below), implemented by
   `SpeechModelCatalogAdapter`
 
 ### Interfaces
@@ -45,18 +45,18 @@ session after the start-timeout or silence-timeout window elapses; the default s
 the library's recognition-capable model interface, exposing `AudioFormat`. `IRecognitionModel` is a
 public interface, but exactly as for `ISynthesisModel` in `SpeakCommand`, the cast is performed
 inside `SpeechModelCatalogAdapter` rather than by the command or a hand-written `FakeSpeechModel`
-test double, so the role-specific narrowing stays confined to one seam. Two further members,
-symmetric to the synthesis pair, are exposed on `ICliModelCatalog`:
+test double, so the role-specific narrowing stays confined to one seam. One further member,
+symmetric to the synthesis pair's engine member, is exposed on `ICliModelCatalog`:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
-`SpeechModelCatalogAdapter` implements both via a private `RequireRecognitionModel` helper,
+`SpeechModelCatalogAdapter` implements it via a private `RequireRecognitionModel` helper,
 mirroring `RequireSynthesisModel` exactly: it performs the cast once and throws a clean
 `ArgumentException` naming the offending model id when it fails. In production this branch is
 unreachable through the CLI's own dispatch - `RecognizeCommand` already validates
-`descriptor.Role == SpeechModelRole.Recognition` itself before calling either new member - but is
+`descriptor.Role == SpeechModelRole.Recognition` itself before calling the new member - but is
 retained for the same defensive reason documented for `SpeakCommand`.
 `CreateRecognizerEngineAsync`'s production implementation forwards unchanged to
 `SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelCatalog, ISpeechDiagnostics?,
@@ -66,7 +66,7 @@ with no device bound; `RecognizeCommand` later binds the resolved capture device
 
 This keeps `RecognizeCommand`'s own logic - argument parsing, input-source resolution, `--stt-param`
 validation, verbosity filtering, capture device dispatch, disposal ordering, cancellation - fully
-unit-testable against `FakeCliModelCatalog`'s delegate overrides for the two new members, with no
+unit-testable against `FakeCliModelCatalog`'s delegate override for the new member, with no
 dependency on `IRecognitionModel` anywhere in the test project.
 
 ### RecognizeCommand
@@ -94,7 +94,7 @@ role but not yet downloaded (suggesting `download <modelId>` by name). Once reso
 values are validated against the resolved model's own declared parameters, reusing
 `ParameterBagParser.Resolve` unmodified.
 
-**Async composition flow.** `Run` resolves the capture device, then awaits `catalog
+**Async composition flow.** `RunAsync` resolves the capture device, then awaits `catalog
 .CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)` followed by
 `engine.CreateSessionAsync(captureDevice, cancellationToken)`, both bound with `await using` so
 they are disposed (session first, then engine, reflecting declaration order reversed) on every
@@ -158,8 +158,8 @@ immediately - interim results are a live-console-only concept and are never writ
 regardless of `--interim`/`--final-only`'s effect on console output. The file is opened once with
 overwrite (not append) semantics, consistent with `speak --output-audio`'s WAV semantics. `--capture-device` is
 not rejected when given alongside `--input`: it is simply inert in that case (file mode never
-consults it), mirroring `speak`'s own documented precedent that `--capture-device` is silently ignored,
-not an error, when a file destination is also given.
+consults it), mirroring `speak`'s own documented precedent that `--playback-device` is silently ignored,
+not an error, when `--output-audio` names a file destination.
 
 **Disposal.** Neither `IAudioCaptureDevice`, `WavFileAudioCaptureDevice`, nor the real
 PortAudio-backed capture device implement `IDisposable` (confirmed directly from all three source
@@ -209,8 +209,8 @@ background-thread timer callback racing a concurrent caller-driven disposal.
 
 ### Interactions with Other Units
 
-`RecognizeCommand` depends on the `ICliModelCatalog` seam (the four model-management members, the
-two synthesis members it does not use, and the two recognition members), the library's public
+`RecognizeCommand` depends on the `ICliModelCatalog` seam (only `Enumerate` and
+`CreateRecognizerEngineAsync`), the library's public
 `AudioFormat`/`ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionEvent`/
 `SpeechRecognitionResult` types, `AudioDeviceFactory` from the library's audio subsystem,
 `WavFileAudioCaptureDevice`, and reuses `DeviceCommandsSubsystem`'s `DevicesTestCommand

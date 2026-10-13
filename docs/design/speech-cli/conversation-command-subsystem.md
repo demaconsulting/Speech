@@ -185,9 +185,9 @@ as soon as the first final recognition result arrives: `ask` models one bounded 
 turn ("listen for the reply"), not open-ended transcription, so exactly one final result is always
 enough to end the turn and return control to the caller. `--silence-timeout`/`--start-timeout`
 retain their exact `recognize --mic` meaning and defaulting as a safety net for a reply that never
-finishes (or never starts) - both are entirely optional; omitting both leaves `Ctrl+C` as the only
-way to end a turn with no reply at all, mirroring `recognize --mic`'s own behavior when
-`--silence-timeout` is omitted.
+finishes (or never starts) - both are optional; when omitted, the listen phase uses the same
+defaults as `recognize --mic` (a 5-second silence timeout and an 8-second start timeout), so a turn
+with no reply at all ends on its own and `Ctrl+C` is never the only way to end it.
 
 **Output.** The final recognized text (or an empty string, if the session ended via
 `--silence-timeout`/`--start-timeout`/`Ctrl+C` with no final result yet received) is printed to

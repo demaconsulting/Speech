@@ -203,7 +203,7 @@ devices before a device is actually created, exactly mirroring `devices test`'s 
 validate-before-create pattern; an unavailable resolved device throws `InvalidOperationException`
 suggesting `--output-audio` as an alternative.
 
-**Async composition flow and disposal ordering.** `Run` resolves the playback device, then awaits
+**Async composition flow and disposal ordering.** `RunAsync` resolves the playback device, then awaits
 `catalog.CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` followed by
 `engine.CreateSessionAsync(playbackDevice, cancellationToken)`, both bound with `await using`
 immediately after the playback device's own conditional `using var playbackDeviceLease =
@@ -217,16 +217,17 @@ playback - but `WavFileAudioPlaybackDevice` (used for `--output-audio`) addition
 `IDisposable` to finalize its RIFF header, and the lease must dispose it unconditionally when
 present while remaining a safe no-op for every other device kind.
 
-**Cancellation.** `Ctrl+C` is wired to a `CancellationTokenSource` via `Console.CancelKeyPress`,
-mirroring `DownloadCommand.Run`'s exact subscribe/unsubscribe-in-try/finally pattern (see
+**Cancellation.** `Ctrl+C` is wired to a `CancellationTokenSource` through the shared
+`ConsoleCancellation.Register` helper (which owns the subscribe/unsubscribe lifetime),
+exactly as `DownloadCommand.RunAsync` does (see
 _SpeechCli ModelCommandsSubsystem Design_). A cancellation during `SpeakAsync` is caught and
 reported as a clean, one-line message rather than an unhandled `OperationCanceledException`
 propagating as a stack trace.
 
 ### Interactions with Other Units
 
-`SpeakCommand` depends on the `ICliModelCatalog` seam (the four model-management members and the
-two synthesis members), the library's public `AudioFormat`/`ISpeechSynthesizerEngine`/
+`SpeakCommand` depends on the `ICliModelCatalog` seam (`Enumerate`, `GetPreferredAudioFormat`, and
+`CreateSynthesizerEngineAsync`), the library's public `AudioFormat`/`ISpeechSynthesizerEngine`/
 `ISynthesisSession`/`AudioTagParser`/`TaggedTextSpan` types, its own `ICliPlaybackDeviceSource`
 seam (composed over `AudioDeviceFactory` from the library's audio subsystem in production, via
 `AudioDeviceFactoryPlaybackDeviceSource`), `WavFileAudioPlaybackDevice`, and reuses

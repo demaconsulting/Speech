@@ -214,7 +214,7 @@ internal static class Program
         context.WriteLine("  --silent                   Suppress console output");
         context.WriteLine("  --no-emotions              With 'voices install': skip the pack's emotion (mood) clips");
         context.WriteLine("  --validate                 Run self-validation");
-        context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
+        context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml; alias: --result)");
         context.WriteLine("  --depth <#>                Set heading depth for markdown output (default: 1)");
         context.WriteLine("  --log <file>               Write output to log file");
         context.WriteLine("  --models-dir <path>        Override the model store root directory");

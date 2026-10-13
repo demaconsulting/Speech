@@ -97,24 +97,29 @@ resolved TTS model, then `CreateRecognizerEngineAsync`/`CreateSessionAsync`/`Sta
 
 **Tests**: `AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently`,
 `AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls`,
-`AskCommand_Run_InvalidTtsParam_ThrowsArgumentException`
+`AskCommand_Run_InvalidTtsParam_ThrowsArgumentException`,
+`AskCommand_Run_InvalidSttParam_ThrowsArgumentException`,
+`AskCommand_Run_UnknownParamKey_ThrowsArgumentException`,
+`AskCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException`
 
 **Scenario/Expected**: Repeated `--tts-param`/`--stt-param` flags each accumulate independently,
 in the order given, and are forwarded, fully resolved via the shared `ParameterBagParser`, to
 `CreateSynthesizerEngineAsync`'s and `CreateRecognizerEngineAsync`'s own `parameterValues` argument
-respectively; an invalid value for a declared TTS parameter is rejected before any engine is
-loaded. Full `ParameterBagParser` scenario coverage already lives in
+respectively; an out-of-range value for a declared TTS or STT parameter, an undeclared key, or a
+token without a `key=value` separator is rejected with an `ArgumentException` before any engine is
+loaded (surfaced as a non-zero exit code). Full `ParameterBagParser` scenario coverage already lives in
 `SpeechCli-SynthesisCommands-ParamValidation`'s own tests and is not duplicated here.
 
 #### Listen-Phase Termination
 
 **Tests**: `AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles`,
 `AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException`,
+`AskCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException`,
 `AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText`,
 `AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout`
 
 **Scenario/Expected**: `--start-timeout`/`--silence-timeout` each parse a positive number of
-seconds, rejecting a non-positive value; the listen phase ends as soon as the first final
+seconds, rejecting a zero, negative, or non-numeric value; the listen phase ends as soon as the first final
 recognition result arrives (verified as part of the success-path scenario above); when no final
 result ever arrives, a `--silence-timeout` firing (via the reused, unmodified
 `SilenceTimeoutRecognizerSession`) ends the turn with an empty recognized-text result rather than

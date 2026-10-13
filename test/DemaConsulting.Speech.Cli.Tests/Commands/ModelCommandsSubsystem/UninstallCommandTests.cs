@@ -100,6 +100,25 @@ public sealed class UninstallCommandTests
     }
 
     /// <summary>
+    ///     Test that a canceled uninstall is reported as an error rather than propagating the cancellation.
+    /// </summary>
+    [Fact]
+    public async Task UninstallCommand_Run_Canceled_ReportsErrorExitCode()
+    {
+        // Arrange
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var catalog = new FakeCliModelCatalog { UninstallException = new OperationCanceledException(cancellation.Token) };
+        using var context = Context.Create(["uninstall", "model-1"]);
+
+        // Act
+        await UninstallCommand.RunAsync(context, catalog, cancellation.Token);
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+    }
+
+    /// <summary>
     ///     Test that omitting the required <c>&lt;modelId&gt;</c> argument throws.
     /// </summary>
     [Fact]

@@ -119,14 +119,15 @@ internal static class VoicesCommand
     {
         var packs = catalog.VoicePacks;
         var idWidth = Math.Max("Id".Length, packs.Max(p => p.Id.Length));
-        var states = packs.Select(p => catalog.GetVoicePackState(p.Id).ToString()).ToList();
+        var rawStates = packs.Select(p => catalog.GetVoicePackState(p.Id)).ToList();
+        var states = rawStates.Select(s => s.ToString()).ToList();
         var stateWidth = Math.Max("State".Length, states.Max(s => s.Length));
 
         context.WriteLine($"{"Id".PadRight(idWidth)}  {"State".PadRight(stateWidth)}  Download  Voices  +Emotions  License");
         for (var i = 0; i < packs.Count; i++)
         {
             var state = states[i];
-            if (catalog.GetVoicePackState(packs[i].Id) == SpeechModelState.Downloaded)
+            if (rawStates[i] == SpeechModelState.Downloaded)
             {
                 state += await catalog.VoicePackHasEmotionsAsync(packs[i].Id, cancellationToken).ConfigureAwait(false) ? " (with emotions)" : " (voices only)";
             }
@@ -195,6 +196,12 @@ internal static class VoicesCommand
         try
         {
             await catalog.UninstallVoicePackAsync(packId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ctrl+C before the removal started: report it cleanly instead of crashing
+            context.WriteError($"Uninstalling voice pack '{packId}' was canceled.");
+            return;
         }
         catch (SpeechModelStoreException ex)
         {

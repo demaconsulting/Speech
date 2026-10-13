@@ -128,7 +128,8 @@ The following software items of the SpeechCli system are also covered:
   the synthesis pair
 - **ConversationCommandSubsystem (Subsystem)** — The one voice-conversation subcommand (`ask`),
   running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
-  and `RecognitionCommandSubsystem`'s existing seam members rather than introducing a new one
+  and `RecognitionCommandSubsystem`'s existing `ICliModelCatalog` seam members (no new catalog
+  member) and adding one CLI-owned capture-device seam (`ICliCaptureDeviceSource`)
 
 The following software items of the SpeechSherpa system are also covered:
 
@@ -281,7 +282,7 @@ members and adding a CLI-owned playback-device seam), `RecognitionCommandSubsyst
 silence-timeout
 utility, extending the same seam with recognition members), and `ConversationCommandSubsystem`
 (the `ask` subcommand, a speak-then-listen conversation turn reusing the synthesis and
-recognition subsystems' existing seam members rather than introducing a new one). As with
+recognition subsystems' existing catalog-seam members, and adding only a CLI-owned capture-device seam). As with
 `SpeechDemo`, the dependency runs one way only: `SpeechCli` references `Speech`, and `Speech`
 neither references nor knows
 about `SpeechCli`.
@@ -545,8 +546,7 @@ src/DemaConsulting.Speech.Cli/
 ├── Program.cs                                 — Process entry point, banner, help, dispatch
 ├── Cli/
 │   ├── Context.cs                             — Global-option parsing and per-invocation state
-│   ├── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
-│   └── ParameterBagParser.cs                  — Shared `--tts-param`/`--stt-param key=value` parsing/validation
+│   └── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
 ├── SelfTest/
 │   └── Validation.cs                          — CI-safe `--validate` self-check implementation
 ├── Utilities/
@@ -569,6 +569,7 @@ src/DemaConsulting.Speech.Cli/
 │   │   └── DoctorCommand.cs                   — `doctor` implementation
 │   ├── SynthesisCommandSubsystem/
 │   │   ├── SpeakCommand.cs                    — `speak` implementation
+│   │   ├── ParameterBagParser.cs              — Shared `--tts-param`/`--stt-param key=value` parsing/validation
 │   │   ├── ICliPlaybackDeviceSource.cs        — CLI-owned playback-device seam contract
 │   │   └── AudioDeviceFactoryPlaybackDeviceSource.cs — Real seam over AudioDeviceFactory
 │   ├── RecognitionCommandSubsystem/

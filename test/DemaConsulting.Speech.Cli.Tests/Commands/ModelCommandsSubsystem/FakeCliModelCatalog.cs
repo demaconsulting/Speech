@@ -61,6 +61,9 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets or sets an exception to throw from <see cref="UninstallAsync"/>, or <see langword="null"/> for none.</summary>
     public Exception? UninstallException { get; set; }
 
+    /// <summary>Gets or sets an exception <see cref="CleanUpLeftoversAsync"/> faults with, or null.</summary>
+    public Exception? CleanUpException { get; set; }
+
     /// <summary>Gets or sets an exception to throw from <see cref="DownloadAsync"/> before any result is produced.</summary>
     public Exception? DownloadException { get; set; }
 
@@ -135,7 +138,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken)
     {
         CleanUpLeftoversCalls.Add(modelId);
-        return Task.CompletedTask;
+        return CleanUpException is not null ? Task.FromException(CleanUpException) : Task.CompletedTask;
     }
 
     /// <summary>

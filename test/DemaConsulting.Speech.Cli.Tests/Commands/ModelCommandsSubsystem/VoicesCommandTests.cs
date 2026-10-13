@@ -233,6 +233,25 @@ public sealed class VoicesCommandTests
     }
 
     /// <summary>
+    ///     Test that a canceled uninstall is reported as an error rather than propagating the cancellation.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode()
+    {
+        // Arrange
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var catalog = new FakeCliModelCatalog { UninstallPackException = new OperationCanceledException(cancellation.Token) };
+        using var context = Context.Create(["voices", "uninstall", PackId]);
+
+        // Act
+        await VoicesCommand.RunAsync(context, catalog, cancellation.Token);
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+    }
+
+    /// <summary>
     ///     Test that an unknown pack id is a clean <see cref="ArgumentException"/> for install.
     /// </summary>
     [Fact]

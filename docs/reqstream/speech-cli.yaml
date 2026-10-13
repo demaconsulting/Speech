@@ -756,14 +756,14 @@ sections:
           - SpeechCli-ConversationCommands-AskTextSource
           - SpeechCli-ConversationCommands-AskTextSourceMissing
           - SpeechCli-ConversationCommands-AskUnsupportedOptions
-          - SpeechCli-ConversationCommands-ParamValidation
+          - SpeechCli-ConversationCommands-ParamForwarding
           - SpeechCli-ConversationCommands-ParamRejection
           - SpeechCli-ConversationCommands-ListenTermination
           - SpeechCli-ConversationCommands-ListenTimeouts
           - SpeechCli-ConversationCommands-ListenTimeoutDefaults
           - SpeechCli-ConversationCommands-ListenTimeoutValidation
-          - SpeechCli-ConversationCommands-OutputDispatch
-          - SpeechCli-ConversationCommands-DeviceDispatch
+          - SpeechCli-ConversationCommands-OutputStdout
+          - SpeechCli-ConversationCommands-PlaybackDeviceUnknown
           - SpeechCli-ConversationCommands-DeviceUnavailable
           - SpeechCli-ConversationCommands-CaptureDeviceDispatch
           - SpeechCli-ConversationCommands-CaptureDeviceUnavailable

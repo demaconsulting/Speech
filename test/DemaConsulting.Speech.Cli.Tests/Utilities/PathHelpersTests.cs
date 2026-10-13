@@ -82,4 +82,30 @@ public sealed class PathHelpersTests
         // Act / Assert: the escape attempt is rejected
         Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, relativePath));
     }
+
+    /// <summary>
+    ///     Validates that a rooted relative path is rejected, because it would replace the base
+    ///     directory entirely.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_RootedRelativePath_ThrowsArgumentException()
+    {
+        // Arrange: a base path and a rooted "relative" path outside it
+        var basePath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "safe-path-combine-tests"));
+        var rootedPath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "elsewhere", "outside.txt"));
+
+        // Act / Assert: the rooted path is rejected
+        Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, rootedPath));
+    }
+
+    /// <summary>
+    ///     Validates that null arguments are rejected.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException()
+    {
+        // Act / Assert: each null argument is rejected
+        Assert.Throws<ArgumentNullException>(() => PathHelpers.SafePathCombine(null!, "child.txt"));
+        Assert.Throws<ArgumentNullException>(() => PathHelpers.SafePathCombine("base", null!));
+    }
 }

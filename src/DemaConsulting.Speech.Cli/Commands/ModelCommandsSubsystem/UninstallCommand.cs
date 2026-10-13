@@ -92,6 +92,12 @@ internal static class UninstallCommand
         {
             await catalog.UninstallAsync(modelId, cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ctrl+C before the removal started: report it cleanly instead of crashing
+            context.WriteError($"Uninstalling model '{modelId}' was canceled.");
+            return;
+        }
         catch (SpeechModelStoreException ex)
         {
             // Re-thrown as InvalidOperationException so Program.Main's clean-error convention
