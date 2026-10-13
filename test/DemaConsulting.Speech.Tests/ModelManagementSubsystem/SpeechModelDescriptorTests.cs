@@ -65,6 +65,33 @@ public class SpeechModelDescriptorTests
     }
 
     /// <summary>
+    ///     Proves that the identity passthrough properties mirror a model with non-default values and are read live
+    ///     from the wrapped model on every access (no caching).
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_Passthrough_NonDefaultIdentity_MirrorsModelLive()
+    {
+        // Arrange
+        var model = Substitute.For<ISpeechModel>();
+        model.Id.Returns("first-id");
+        model.DisplayName.Returns("First Name");
+        model.Role.Returns(SpeechModelRole.Synthesis);
+        var descriptor = new SpeechModelDescriptor(model, SpeechModelState.NotDownloaded);
+
+        // Act
+        var before = (descriptor.Id, descriptor.DisplayName, descriptor.Role);
+        model.Id.Returns("second-id");
+        model.DisplayName.Returns("Second Name");
+        model.Role.Returns(SpeechModelRole.Recognition);
+
+        // Assert
+        Assert.Equal(("first-id", "First Name", SpeechModelRole.Synthesis), before);
+        Assert.Equal("second-id", descriptor.Id);
+        Assert.Equal("Second Name", descriptor.DisplayName);
+        Assert.Equal(SpeechModelRole.Recognition, descriptor.Role);
+    }
+
+    /// <summary>
     ///     Proves that two descriptors built with the same model instance and state are equal (reference equality on
     ///     <c>Model</c>, value equality on <c>State</c>).
     /// </summary>

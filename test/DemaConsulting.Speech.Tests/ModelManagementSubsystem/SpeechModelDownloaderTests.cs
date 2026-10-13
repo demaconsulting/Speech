@@ -38,7 +38,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
                 Directory.Delete(_testRoot, recursive: true);
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best-effort cleanup only; a leftover temp directory does not fail the test.
         }

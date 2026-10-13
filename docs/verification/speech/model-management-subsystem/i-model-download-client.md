@@ -20,33 +20,46 @@ server.
 #### Acceptance Criteria
 
 Tests pass when a fake implementation of this seam lets `SpeechModelDownloader`'s
-queueing/verification/atomic-swap logic be exercised deterministically with no real network
-access, and when `SpeechModelDownloader` resolves and forwards the correct request URI to
-`DownloadAsync` - the original, model-declared URI unchanged when no mirror is configured, or the
-mirror-resolved effective URI when one is configured - with no per-call mirror-authentication
-parameter ever passed, since this interface's `DownloadAsync` signature carries none.
+fetch/verify/install logic be exercised deterministically with no real network
+access, and when the real implementation applies mirror authentication only from its construction-time
+configuration (no per-call parameter exists), throws on a non-success response, and surfaces
+cancellation. How `SpeechModelDownloader` resolves the request URI is verified with that unit.
 
 #### Test Scenarios
 
 ##### Download: Valid Payload Installs Model and Reports Progress (via fake seam)
 
+**Scenario**: A fake client writes a valid payload through the seam.
+
+**Expected**: The downloader installs the model and reports progress.
+
 **Test**: `SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress`
 
 ##### Download: Two Concurrent Requests for the Same Model Are Serialized (via fake seam)
+
+**Scenario**: Two downloads of one model id run at once against a concurrency-tracking fake.
+
+**Expected**: The fake never sees two overlapping calls for that id.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
 
 ##### Download: Real HttpModelDownloadClient Downloads Exact Bytes from a Stubbed Server
 
+**Scenario**: The real client downloads from a WireMock-stubbed server.
+
+**Expected**: The destination receives exactly the served bytes and progress is reported.
+
 **Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
 
-##### Download: No Mirror Configured Forwards Original URI Unchanged (via fake seam)
+##### Mirror Authentication Is Fixed at Construction (real implementation)
 
-**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged`
+**Scenario**: The real client is built with no, bearer-token or credential mirror authentication and
+downloads from the stubbed server.
 
-##### Download: Mirror Configured Forwards Effective URI (via fake seam)
+**Expected**: The Authorization header is absent, bearer or basic respectively, with no per-call input.
 
-**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
+**Tests**: `HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader`,
+`HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader`
 
 ##### Error path: Non-Success Response Throws (real implementation)
 

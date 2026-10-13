@@ -291,7 +291,8 @@ sections:
               - Speech-Models-SpeechModelDownloader-MirrorUriComposition
               - Speech-Models-SpeechModelDownloader-MirrorUriEscaping
               - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
-              - Speech-Models-IModelDownloadClient-EffectiveUriOnly
+              - Speech-Models-IModelDownloadClient-ThrowsOnFailure
+              - Speech-Models-IModelDownloadClient-CancellationSurfaces
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
               - Speech-Models-HttpModelDownloadClient-BasicAuthApplication
               - Speech-Models-HttpModelDownloadClient-NoAuthorizationWithoutMirror
@@ -490,6 +491,7 @@ sections:
               - Speech-Models-SpeechModelCatalog-DownloadFailureState
               - Speech-Models-SpeechModelCatalog-UnknownModelDownloadThrows
               - Speech-Models-SpeechModelDescriptor-Snapshot
+              - Speech-Models-SpeechModelDescriptor-NullModelRejection
               - Speech-Models-SpeechModelDescriptor-PassthroughProperties
             tests:
               - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList

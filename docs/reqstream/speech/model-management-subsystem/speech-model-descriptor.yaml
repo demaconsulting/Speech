@@ -14,16 +14,23 @@ sections:
               - id: Speech-Models-SpeechModelDescriptor-Snapshot
                 title: >-
                   The SpeechModelDescriptor record shall pair one model with its install state as
-                  an immutable snapshot, and reject a null model at construction.
+                  an immutable snapshot that compares equal when both are the same.
                 justification: |
                   SpeechModelCatalog.Enumerate() must return a value a host can safely bind to a
                   UI list without holding a live reference back to the catalog; an immutable
                   snapshot pairing a model with the state observed at build time achieves this.
                 tests:
                   - SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties
-                  - SpeechModelDescriptor_Constructor_NullModel_ThrowsArgumentNullException
                   - SpeechModelDescriptor_StateTransition_DifferentState_ProducesUnequalDescriptor
                   - SpeechModelDescriptor_SameModelAndState_AreEqual
+
+              - id: Speech-Models-SpeechModelDescriptor-NullModelRejection
+                title: >-
+                  The SpeechModelDescriptor record shall reject a null model at construction.
+                justification: |
+                  A descriptor with no underlying model would have nothing to describe.
+                tests:
+                  - SpeechModelDescriptor_Constructor_NullModel_ThrowsArgumentNullException
 
               - id: Speech-Models-SpeechModelDescriptor-PassthroughProperties
                 title: >-
@@ -36,3 +43,4 @@ sections:
                 tests:
                   - SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties
                   - SpeechModelDescriptor_Passthrough_NonDefaultLicense_MirrorsModel
+                  - SpeechModelDescriptor_Passthrough_NonDefaultIdentity_MirrorsModelLive

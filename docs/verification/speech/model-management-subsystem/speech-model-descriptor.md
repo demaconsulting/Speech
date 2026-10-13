@@ -3,7 +3,8 @@
 #### Verification Approach
 
 `SpeechModelDescriptor` is verified through deterministic unit tests constructing it with a fake
-`ISpeechModel`, proving its passthrough properties mirror the wrapped model, that a null model
+`ISpeechModel` (hand-written fakes and NSubstitute substitutes where a test must change the model's values
+after construction), proving its passthrough properties mirror the wrapped model, that a null model
 is rejected, and that two descriptors for the same model in different states are unequal
 (since it is a record, `State` participates in structural equality).
 
@@ -11,7 +12,7 @@ is rejected, and that two descriptors for the same model in different states are
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
-- **Fakes**: `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/`
+- **Test doubles**: NSubstitute substitutes of `ISpeechModel`, and the hand-written fakes in `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/`
 
 #### Acceptance Criteria
 
@@ -26,6 +27,14 @@ name and URL (including a model that declares a non-default license); a null `mo
 ##### A valid model produces a descriptor exposing the model and its passthrough properties
 
 **Test**: `SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties`
+
+##### Passthrough mirrors a non-default identity, live
+
+**Scenario**: A substituted model reports a non-default id, name and role, which then change.
+
+**Expected**: The descriptor returns the first values, then the changed values (no caching).
+
+**Test**: `SpeechModelDescriptor_Passthrough_NonDefaultIdentity_MirrorsModelLive`
 
 ##### Passthrough mirrors a non-default license
 

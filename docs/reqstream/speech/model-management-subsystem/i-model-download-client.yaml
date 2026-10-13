@@ -19,7 +19,7 @@ sections:
                 justification: |
                   This library's "own interfaces over direct OTS types" decision requires a
                   library-owned abstraction so that SpeechModelDownloader's
-                  queueing/verification/atomic-swap orchestration can be unit tested with a fake
+                  fetch/verify/install orchestration can be unit tested with a fake
                   implementation and no real network access, while the production path still uses
                   a real HTTP implementation.
                 tests:
@@ -40,24 +40,27 @@ sections:
                   per-call mirrorAuth parameter would break every existing host implementation of
                   this interface on upgrade; configuring mirror authentication once at
                   construction (see HttpModelDownloadClient's constructor) achieves the same
-                  behavior without widening this seam's signature. SpeechModelDownloader only
-                  ever needs to resolve the effective request URI per call - see
-                  Speech-Models-IModelDownloadClient-EffectiveUriOnly below.
+                  behavior without widening this seam's signature.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
-                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
+                  - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
+                  - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
 
-              - id: Speech-Models-IModelDownloadClient-EffectiveUriOnly
+              - id: Speech-Models-IModelDownloadClient-ThrowsOnFailure
                 title: >-
-                  SpeechModelDownloader shall forward only the mirror-resolved effective request
-                  URI (never any per-call auth information) to IModelDownloadClient.DownloadAsync,
-                  whether or not a DownloadMirror is configured.
+                  The IModelDownloadClient interface's DownloadAsync member shall throw, rather
+                  than silently truncate, on a non-success response or transport failure.
                 justification: |
-                  Since DownloadAsync carries no mirror-authentication parameter (see
-                  Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth), the downloader's only
-                  remaining responsibility toward mirror support is resolving each model's
-                  declared download URI to its mirror-relative equivalent (or leaving it
-                  unchanged when no mirror is configured) before issuing the call.
+                  A caller can only tell a complete download from a partial one if every failure
+                  surfaces as an exception.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
-                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
+                  - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException
+
+              - id: Speech-Models-IModelDownloadClient-CancellationSurfaces
+                title: >-
+                  The IModelDownloadClient interface's DownloadAsync member shall surface
+                  cancellation of its token as an OperationCanceledException.
+                justification: |
+                  The downloader relies on cancellation propagating so it can discard the staging
+                  directory and install nothing.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
