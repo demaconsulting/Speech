@@ -71,7 +71,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DecodeEmpty
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject an empty speech-token array
-                  with an ArgumentException.
+                  with an invalid-argument failure.
                 justification: |
                   A decode of nothing is a caller error and must not reach native code.
                 tests:
@@ -98,8 +98,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputsUnrecognized
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall fail construction with an
-                  InvalidOperationException for speech-encoder outputs it cannot recognize.
+                  The OnnxChatterboxTurboNetworks class shall fail construction, reporting an
+                  invalid model, for speech-encoder outputs it cannot recognize.
                 justification: |
                   An unrecognized export must be reported rather than mis-wired.
                 tests:
@@ -119,7 +119,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-InvalidArguments
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject null arguments, including a
-                  null step embedding, with an ArgumentNullException.
+                  null step embedding.
                 justification: |
                   Misuse of a tensor contract must fail loudly rather than corrupt the cache.
                 tests:
@@ -129,7 +129,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EmbeddingLength
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject a step whose embedding array
-                  does not match the sequence length with an ArgumentException.
+                  does not match the sequence length.
                 justification: |
                   A mis-sized tensor must not be fed to the language model.
                 tests:
@@ -138,8 +138,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-SequenceLength
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject a step with a zero or negative
-                  sequence length, or a negative first position, with an
-                  ArgumentOutOfRangeException.
+                  sequence length, or a negative first position.
                 justification: |
                   A non-positive length or negative position cannot describe a step.
                 tests:
@@ -149,7 +148,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-AttentionLength
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject a step whose attention length
-                  is shorter than its sequence length with an ArgumentOutOfRangeException.
+                  is shorter than its sequence length.
                 justification: |
                   The attention mask must cover every new position.
                 tests:
@@ -157,19 +156,20 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall expose the configured number of CPU
-                  threads through its IntraOpThreads property, which is the value it applies to
-                  every session.
+                  The OnnxChatterboxTurboNetworks class shall report the configured number of CPU
+                  threads through its IntraOpThreads property.
                 justification: |
-                  Hosts must be able to bound CPU use. ONNX Runtime offers no read-back of the
-                  applied option, so the property is the observable evidence.
+                  Hosts must be able to bound CPU use and read back the bound. ONNX Runtime offers
+                  no read-back of the applied session option, so the actual per-session thread use
+                  is not asserted by a unit test; it is covered by the manual verification of the
+                  verification document.
                 tests:
                   - OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsApplied
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConfigurationValidation
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject a CPU thread count that is not
-                  positive with an ArgumentOutOfRangeException.
+                  positive.
                 justification: |
                   A zero or negative thread count is a configuration error.
                 tests:
@@ -177,8 +177,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidation
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall fail construction with a
-                  FileNotFoundException for a missing graph file.
+                  The OnnxChatterboxTurboNetworks class shall fail construction, reporting the
+                  missing file, for a missing graph file.
                 justification: |
                   A broken install must be reported precisely at load time.
                 tests:
@@ -186,8 +186,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidationLanguageModel
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall fail construction with an
-                  InvalidOperationException for a language-model graph without the expected cache
+                  The OnnxChatterboxTurboNetworks class shall fail construction, reporting an
+                  invalid model, for a language-model graph without the expected cache
                   inputs.
                 justification: |
                   A language model that cannot carry its cache cannot generate.
@@ -217,7 +217,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-UseAfterDispose
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject Encode, Embed, Decode and
-                  BeginGeneration after dispose with an ObjectDisposedException.
+                  BeginGeneration after dispose.
                 justification: |
                   A call on a released session must not reach native code.
                 tests:
@@ -226,15 +226,21 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-StateDispose
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall reject a language-model step on a
-                  state that was disposed or whose networks were disposed with an
-                  ObjectDisposedException, and shall let a state be disposed safely after its
-                  networks.
+                  state that was disposed, and on a state whose networks were disposed.
                 justification: |
                   States are owned by the caller and may outlive the networks; a step must not
                   reach released sessions.
                 tests:
                   - OnnxChatterboxTurboNetworks_Step_AfterStateDispose_ThrowsObjectDisposedException
                   - OnnxChatterboxTurboNetworks_Step_AfterNetworksDispose_ThrowsObjectDisposedException
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-StateDisposeSafe
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall let a state be disposed safely after
+                  its networks were disposed.
+                justification: |
+                  Callers dispose states and networks in either order, and neither order may fail.
+                tests:
                   - OnnxChatterboxTurboNetworks_StateDispose_AfterNetworksDispose_IsSafe
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DisposeAll

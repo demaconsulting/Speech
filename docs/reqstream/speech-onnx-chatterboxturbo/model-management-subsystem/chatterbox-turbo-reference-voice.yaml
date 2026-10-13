@@ -37,8 +37,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-DownMix
                 title: >-
-                  The ChatterboxTurboReferenceVoice class shall down-mix multi-channel audio to
-                  mono by averaging the channels.
+                  The ChatterboxTurboReferenceVoice class shall turn multi-channel audio into mono
+                  audio of equal duration.
                 justification: |
                   Hosts hold clips in whatever channel layout they were recorded in.
                 tests:
@@ -76,12 +76,15 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileErrors
                 title: >-
-                  The ChatterboxTurboReferenceVoice class shall report an unreadable, unsupported
-                  or malformed file with a distinct exception for each case.
+                  The ChatterboxTurboReferenceVoice class shall report a missing file, an
+                  unsupported audio encoding and a non-audio file as three different failures.
                 justification: |
-                  A caller needs to tell a missing file from an unsupported format.
+                  A caller needs to tell a missing file from an unsupported format and from a
+                  damaged file.
                 tests:
-                  - ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions
+                  - ChatterboxTurboReferenceVoice_FromFile_MissingFile_ThrowsFileNotFound
+                  - ChatterboxTurboReferenceVoice_FromFile_UnsupportedEncoding_ThrowsNotSupported
+                  - ChatterboxTurboReferenceVoice_FromFile_NonAudioFile_ThrowsInvalidData
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
                 title: >-
@@ -95,20 +98,29 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
                 title: >-
-                  The ChatterboxTurboReferenceVoice class shall throw an ArgumentException for a
-                  null, blank or otherwise invalid id, sample, channel or rate argument.
+                  The ChatterboxTurboReferenceVoice class shall reject a null or blank id and a
+                  null sample or file path argument.
                 justification: |
-                  Programming errors must surface with a clear exception.
+                  Programming errors must surface with a clear failure.
                 tests:
-                  - ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw
+                  - ChatterboxTurboReferenceVoice_FromSamples_NullOrBlankArguments_Throw
                   - ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidAudioFormat
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject a sample rate or channel
+                  count that is not positive.
+                justification: |
+                  Audio without a valid rate or channel layout cannot be interpreted.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_NonPositiveRateOrChannels_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidMoodArguments
                 title: >-
-                  The ChatterboxTurboReferenceVoice class shall throw an ArgumentException for a
-                  blank mood name or mood path.
+                  The ChatterboxTurboReferenceVoice class shall reject a blank mood name or mood
+                  path.
                 justification: |
-                  Programming errors must surface with a clear exception.
+                  Programming errors must surface with a clear failure.
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored
 

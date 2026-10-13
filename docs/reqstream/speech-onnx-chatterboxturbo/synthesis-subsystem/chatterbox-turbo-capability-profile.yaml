@@ -202,13 +202,12 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceBudget
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall measure the 200-character
-                  budget on text in which each native tag counts as one character, before the tag
-                  is expanded to its model token.
+                  The ChatterboxTurboCapabilityProfile class shall keep each rendered unit within
+                  the 200-character budget measured on the text as the caller wrote it, so a unit
+                  holding native tags may exceed 200 characters only by the tags' own expansion.
                 justification: |
-                  The budget protects the model from long inputs; counting the tag as one
-                  character keeps a tagged sentence in one unit, so a part may exceed 200
-                  characters by the tags' expansion.
+                  The budget protects the model from long inputs, while a tagged sentence must stay
+                  in one unit. How the tags are counted is described in the design document.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_TagExpansion_MayExceedBudgetByTheExpansionOnly
 
@@ -302,10 +301,12 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall mark each spoken segment with
-                  its mood so the synthesis engine can read the mood back unchanged.
+                  The ChatterboxTurboCapabilityProfile class shall make the mood selected by the
+                  text observable in the rendered plan, so each spoken segment reports the mood
+                  that applies to it and a segment with no mood reports none.
                 justification: |
-                  The engine needs the mood choice per segment.
+                  The engine needs the mood choice per segment. The marker mechanism that carries
+                  it is described in the design document.
                 tests:
                   - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsEveryKnownMood
                   - ChatterboxTurboCapabilityProfile_ReadMoodMarker_TextWithoutMarker_ReturnsTextAndNoMood
@@ -397,8 +398,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceRange
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall throw an
-                  ArgumentOutOfRangeException for a join silence below 0 or above 1000 ms.
+                  The ChatterboxTurboCapabilityProfile class shall reject a join silence below 0 or
+                  above 1000 ms.
                 justification: |
                   Out-of-range configuration must fail early instead of producing odd audio.
                 tests:
@@ -407,7 +408,7 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PolicyValidation
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall reject an undefined
-                  end-of-sentence policy with an ArgumentOutOfRangeException.
+                  end-of-sentence policy.
                 justification: |
                   An undefined policy must fail early instead of producing odd audio.
                 tests:

@@ -35,8 +35,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
                 title: >-
-                  The SpeechModelCatalogChatterboxTurboExtensions class shall throw
-                  ArgumentNullException when the catalog is null.
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall reject a null
+                  catalog.
                 justification: |
                   A null catalog is a caller bug that must fail fast and visibly.
                 tests:
@@ -45,20 +45,38 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-DefaultStoreVoices
                 title: >-
                   The SpeechModelCatalogChatterboxTurboExtensions class shall, when the options name
-                  no reference-voice library, offer the voices of the catalog store's library
-                  without modifying the caller's options object.
+                  no reference-voice library, offer the voices of the catalog store's library.
                 justification: |
-                  Hosts get the user folder and installed voice pack with no wiring, and a shared
-                  options object must not be mutated by registering it against one catalog.
+                  Hosts get the user folder and installed voice pack with no wiring.
                 tests:
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-OptionsNotMutated
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall leave the caller's
+                  options object unchanged when registering it.
+                justification: |
+                  A shared options object must not be mutated by registering it against one
+                  catalog.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_OptionsObject_IsNotMutated
 
               - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
                 title: >-
                   The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
-                  with the precision variants and the voices named by the supplied options.
+                  with the precision variants named by the supplied options.
                 justification: |
-                  A host selects variants and voices through the options and expects the
-                  registered model to reflect both.
+                  A host selects variants through the options and expects the registered model to
+                  reflect them.
                 tests:
-                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
+                  with the explicit voices named by the supplied options.
+                justification: |
+                  A host supplies voices through the options and expects the registered model to
+                  offer them.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_ExplicitVoices_AreComposed

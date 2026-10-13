@@ -140,8 +140,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryMissing
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall throw a
-                  DirectoryNotFoundException when the supplied voice directory does not exist.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall report a supplied
+                  voice directory that does not exist as a missing-directory failure.
                 justification: |
                   A misspelled path must be reported rather than silently offering no voices.
                 tests:
@@ -158,14 +158,44 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall reject duplicate voice
-                  ids among the explicit and directory voices with an ArgumentException.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall reject two explicit
+                  voices that share an id.
                 justification: |
                   An id that selects two voices would make the second unreachable.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateDirectoryVoices
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall reject a directory voice
+                  whose id equals an explicit voice id or another directory voice's id, including a
+                  WAV and a FLAC file with the same name.
+                justification: |
+                  An id that selects two voices would make the second unreachable.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceLabelUniqueness
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall give every offered voice
+                  a distinct display name, adding a numbered source suffix to repeated names.
+                justification: |
+                  A user choosing a voice by name must be able to tell apart voices whose names
+                  would otherwise be identical.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_RepeatedLabelClashes_AssignsUniqueLabels
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceFailure
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall, when a damaged store
+                  voice is spoken, fail with an error naming the damaged file and keep the other
+                  voices usable.
+                justification: |
+                  The user needs to know which file to repair, and one damaged clip must not
+                  disable the others.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Generate_CorruptStoreVoice_FailsAtFirstUseNamingFileAndOtherVoiceWorks
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
                 title: >-
@@ -178,8 +208,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with an InvalidOperationException when no voice is supplied.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  reporting a configuration error, when no voice is supplied.
                 justification: |
                   A backend with no voice cannot speak, so the misconfiguration must be reported
                   precisely.
@@ -188,8 +218,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendEmptyPath
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with an ArgumentException for an empty model directory.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  reporting an invalid argument, for an empty model directory.
                 justification: |
                   An empty path is a programming error that must be reported precisely.
                 tests:
@@ -197,8 +227,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNullPath
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with an ArgumentNullException for a null model directory.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  reporting a missing argument, for a null model directory.
                 justification: |
                   A null path is a programming error that must be reported precisely.
                 tests:
@@ -206,8 +236,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendMissingFile
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with a FileNotFoundException when a model file is missing.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  reporting the missing file, when a model file is missing.
                 justification: |
                   An incomplete install must be reported precisely, before any session is created.
                 tests:
@@ -215,8 +245,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendInvalidGraph
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with an InvalidOperationException when a graph is invalid.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  reporting an invalid-model error, when a graph is invalid.
                 justification: |
                   A corrupt or mismatched graph must be reported precisely.
                 tests:

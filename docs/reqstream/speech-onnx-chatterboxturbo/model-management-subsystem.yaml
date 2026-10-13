@@ -30,6 +30,8 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ReturnsCatalog
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-OptionsNotMutated
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDescription
             title: >-
@@ -102,6 +104,9 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryMissing
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryResilience
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateDirectoryVoices
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceLabelUniqueness
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceFailure
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreation
             title: >-
@@ -114,8 +119,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationFailures
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation
-              with an InvalidOperationException when no voice is supplied.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation,
+              reporting a configuration error, when no voice is supplied.
             justification: |
               A backend with no voice cannot speak, so the misconfiguration must be reported
               precisely.
@@ -124,9 +129,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationPathFailures
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation
-              with an ArgumentNullException for a null model directory and an ArgumentException
-              for an empty one.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation,
+              reporting an invalid argument, for a null or an empty model directory.
             justification: |
               A null or empty path is a programming error that must be reported precisely.
             children:
@@ -135,8 +139,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationMissingFile
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation
-              with a FileNotFoundException when a model file is missing.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation,
+              reporting the missing file, when a model file is missing.
             justification: |
               An incomplete install must be reported precisely.
             children:
@@ -144,8 +148,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationInvalidGraph
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation
-              with an InvalidOperationException when a graph is invalid.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation,
+              reporting an invalid model, when a graph is invalid.
             justification: |
               A corrupt or mismatched graph must be reported precisely.
             children:
@@ -254,11 +258,11 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-TextTokenization
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall tokenize text into
-              exactly the ids the reference tokenizer produces, without any separate tokenizer
-              download.
+              exactly the ids the reference tokenizer produces, from a tokenizer carried by the
+              package itself.
             justification: |
               The language model is only correct for the exact ids its training tokenizer
-              produced, and avoiding a second download keeps installation to one model.
+              produced, and carrying the tokenizer keeps installation to one model.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
@@ -298,7 +302,7 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceFileErrors
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall report a reference
-              voice file it cannot use with an exception that identifies the problem.
+              voice file it cannot use with a failure that identifies the problem.
             justification: |
               A clip that cannot be used must be reported clearly.
             children:
@@ -312,6 +316,7 @@ sections:
               Programming errors must surface with a clear exception.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidAudioFormat
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidMoodArguments
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
@@ -396,9 +401,11 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall list store voices
-              without decoding their clips, and decode a clip only when its voice is first used.
+              before any clip is read, and report a damaged clip only when its voice is first
+              used.
             justification: |
-              A hundred clips must not be decoded at startup.
+              A hundred clips must not delay startup, and a damaged one must not stop the model
+              from loading. The lazy-decoding mechanism is described in the design document.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
@@ -415,6 +422,7 @@ sections:
               One damaged clip must not make the model unusable, and its message must identify
               it.
             children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceFailure
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
             tests:
               - ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile

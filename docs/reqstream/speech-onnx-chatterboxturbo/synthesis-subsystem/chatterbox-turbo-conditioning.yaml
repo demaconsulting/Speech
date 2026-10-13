@@ -2,11 +2,13 @@
 # Software Unit Requirements for ChatterboxTurboConditioning
 #
 # Unit-level behavior of the ChatterboxTurboConditioning unit, decomposing the parent
-# SpeechOnnxChatterboxTurbo SynthesisSubsystem requirements. The unit is a data record with no
-# tests of its own; it is verified through the tests of the units that produce and consume it.
+# SpeechOnnxChatterboxTurbo SynthesisSubsystem requirements. The unit is a read-only data
+# holder verified through its own tests and through the tests of the units that produce and
+# consume it.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
-# OnnxChatterboxTurboNetworksTests.cs and OnnxChatterboxTurboSynthesisEngineTests.cs.
+# ChatterboxTurboConditioningTests.cs, OnnxChatterboxTurboNetworksTests.cs and
+# OnnxChatterboxTurboSynthesisEngineTests.cs.
 
 sections:
   - title: SpeechOnnxChatterboxTurbo Requirements
@@ -17,24 +19,29 @@ sections:
             requirements:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-EncoderOutputs
                 title: >-
-                  The ChatterboxTurboConditioning record shall carry the speech encoder's
-                  conditioning embeddings and length, prompt tokens, speaker embeddings and
-                  speaker feature frames of one reference clip unchanged.
+                  The ChatterboxTurboConditioning unit shall preserve the speech encoder's
+                  conditioning embeddings and length, prompt tokens, speaker embeddings, speaker
+                  features and speaker feature frame count of one reference clip exactly as
+                  supplied.
                 justification: |
                   The language model and the decoder are only correct for the exact encoder
                   outputs of the clip being spoken.
                 tests:
+                  - ChatterboxTurboConditioning_Constructor_Values_ArePreserved
+                  - ChatterboxTurboConditioning_Properties_AreReadOnlyViewsOfUnchangedData
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
                   - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
                   - OnnxChatterboxTurboNetworks_Decode_ChangedConditioning_ChangesWaveform
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-Reuse
                 title: >-
-                  The ChatterboxTurboConditioning record shall be safely shareable across
-                  utterances, because it is treated as read-only.
+                  The ChatterboxTurboConditioning unit shall expose its data read-only and
+                  unaffected by later changes to the arrays it was created from, so one instance
+                  can be shared across utterances.
                 justification: |
                   One conditioning serves every later utterance, so it must not change after
                   creation. The engine unit owns the caching behavior itself.
                 tests:
+                  - ChatterboxTurboConditioning_Constructor_SourceArraysMutatedAfterwards_ConditioningUnchanged
                   - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker

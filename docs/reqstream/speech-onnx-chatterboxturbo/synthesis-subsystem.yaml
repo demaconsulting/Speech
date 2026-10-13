@@ -19,16 +19,19 @@ sections:
         requirements:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall implement the Speech
-              library's ISynthesisBackend seam for the Chatterbox Turbo model on the CPU.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall synthesize 24 kHz audio from
+              text for the Chatterbox Turbo model on the CPU through the Speech library's
+              ISynthesisBackend seam.
             justification: |
               A real implementation of the backend seam is what turns the Speech library's
-              synthesis policy into audible speech for this package's model.
+              synthesis policy into audio for this package's model.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Generate
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-EmptyText
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SpeedIgnored
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-InvalidArguments
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-NullText
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-VoiceListSnapshot
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Lifecycle
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-DisposeDuringGeneration
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Encode
@@ -54,8 +57,10 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-UseAfterDispose
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-StateDispose
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-StateDisposeSafe
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DisposeAll
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-EncoderOutputs
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-Reuse
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
               - OnnxChatterboxTurboSynthesisEngine_Generate_ScriptedTokens_AssemblesPromptAndDecoderInput
@@ -125,12 +130,12 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall never let the internal
-              mood-carrying character written by the capability profile reach the tokenizer or
-              the speech.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall never speak any control
+              character that stands for a mood, whether written by the capability profile or
+              present in the text handed to the tokenizer.
             justification: |
-              A mood is realized by switching clips, so the internal carrier must never be
-              spoken.
+              A mood is realized by switching clips, so no control character standing for a
+              mood may be spoken.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
             tests:
@@ -138,11 +143,12 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerCallerSupplied
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall remove the internal
-              mood-carrying character, and the profile's placeholder characters, from the
-              caller's text so a caller cannot forge a mood.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall ignore any mood control
+              character and any tag placeholder character present in the caller's text, so a
+              caller cannot forge a mood or a native tag.
             justification: |
-              A forged carrier would let caller text select a reference clip or leak into speech.
+              A forged control character would let caller text select a reference clip or leak
+              into speech.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PlaceholderSafety
@@ -152,9 +158,9 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerOnlyText
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall return empty audio for text
-              that holds only mood-carrying characters.
+              that holds only mood tags.
             justification: |
-              A marker with no speech has nothing to synthesize and must not fail.
+              A mood with no speech has nothing to synthesize and must not fail.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
             tests:
@@ -162,9 +168,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
-              profile that renders the laugh, throat-clear and gasp audio tags as the model's
-              native tokens.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall render the laugh,
+              throat-clear and gasp audio tags as the model's own sounds inside the sentence.
             justification: |
               The model's tag behavior is model-specific, so the policy belongs with the
               package rather than the generic Speech library renderer.
@@ -178,8 +183,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagSilence
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
-              profile that renders the sigh and pause audio tags as silence.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall render the sigh and pause
+              audio tags as silence.
             justification: |
               The model has no usable token for these tags, so real silence is the faithful
               rendering.
@@ -194,8 +199,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagOmission
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
-              profile that omits every audio tag the model cannot reproduce.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall omit every audio tag the
+              model cannot reproduce.
             justification: |
               The model mispronounces unknown brackets, so tags it cannot render must become
               nothing.
@@ -207,9 +212,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagInputSafety
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall let its capability profile
-              render empty, whitespace-only or otherwise invalid text as an empty plan without
-              failing.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall render empty, whitespace-only
+              or otherwise invalid text as an empty plan without failing.
             justification: |
               Rendering must never fail a synthesis call on degenerate input.
             children:
@@ -220,8 +224,8 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagNullArguments
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall let its capability profile
-              reject null arguments with an ArgumentNullException.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall reject null arguments when
+              rendering text.
             justification: |
               A null argument is a programming error and must surface clearly.
             children:
@@ -269,7 +273,7 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPolicyValidation
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall reject an undefined
-              EndOfSentenceTagPolicy value with an ArgumentOutOfRangeException.
+              EndOfSentenceTagPolicy value.
             justification: |
               An undefined policy must fail early instead of producing odd audio.
             children:
@@ -320,7 +324,7 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodTags
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall turn the fifteen mood audio
-              tags into per-segment moods that map to the named reference-clip moods.
+              tags into per-segment moods that select the matching reference-clip mood.
             justification: |
               The model has no emotion tokens, so moods are realized by switching the reference
               clip per segment.
@@ -460,8 +464,8 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TokenSelection
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall choose speech tokens
-              deterministically, resolving ties to the lowest id and surviving non-finite logits
-              and invalid arguments as specified by its token selector.
+              deterministically, resolving ties to the lowest id, never choosing a token whose
+              score is not a number, and rejecting empty scores and a missing history.
             justification: |
               Reproducible, crash-free selection is the base of the generation loop.
             children:

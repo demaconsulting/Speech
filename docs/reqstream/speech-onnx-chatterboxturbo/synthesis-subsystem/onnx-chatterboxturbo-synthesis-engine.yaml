@@ -16,11 +16,11 @@ sections:
             requirements:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Generate
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall turn text into audio by
-                  generating speech tokens from the selected voice and the embedded text, and
-                  decoding them, with trailing silence, into a waveform.
+                  The OnnxChatterboxTurboSynthesisEngine class shall turn text into a 24 kHz
+                  waveform in the selected voice, ending with trailing silence.
                 justification: |
-                  This is the Chatterbox Turbo inference procedure; deviations change the audio.
+                  This is the unit's purpose; the generation procedure is described in the design
+                  document.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_ScriptedTokens_AssemblesPromptAndDecoderInput
 
@@ -55,7 +55,7 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at most
+                  The OnnxChatterboxTurboSynthesisEngine class shall produce audio from at most
                   the configured maximum number of speech tokens (the model options own the
                   default), even when the proportional limit is larger.
                 justification: |
@@ -66,8 +66,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at
-                  most the configured number of speech tokens per text token plus a fixed slack of 32
+                  The OnnxChatterboxTurboSynthesisEngine class shall produce audio from at most
+                  the configured number of speech tokens per text token plus a fixed slack of 32
                   tokens.
                 justification: |
                   A runaway generation on short text must end long before the absolute maximum.
@@ -96,9 +96,9 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall limit identical consecutive
-                  speech tokens to the configured maximum run length (the model options own the
-                  default), still allowing the speech to end.
+                  The OnnxChatterboxTurboSynthesisEngine class shall limit a run of identical
+                  consecutive speech tokens to the configured maximum run length (the model
+                  options own the default).
                 justification: |
                   The model can lock onto one speech token and produce a sustained tone; breaking
                   the run restores progress without affecting normal speech.
@@ -117,8 +117,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-StopToken
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall never exclude the stop token
-                  from selection, so a capped run can still end speech.
+                  The OnnxChatterboxTurboSynthesisEngine class shall let the model end speech
+                  after a capped run of identical tokens.
                 justification: |
                   Breaking a token loop must never prevent the model from ending speech.
                 tests:
@@ -173,10 +173,11 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
                 title: >-
-                  The OnnxChatterboxTurboSynthesisEngine class shall never speak the internal
-                  mood-carrying character of a segment.
+                  The OnnxChatterboxTurboSynthesisEngine class shall never speak the control
+                  character that stands for a mood.
                 justification: |
-                  The marker is an internal carrier and must never reach the speech.
+                  A mood is realized by switching clips; its control character must never reach
+                  the speech.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
                   - OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens
@@ -184,9 +185,9 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall return empty audio for text
-                  that holds only a mood marker.
+                  that holds only a mood tag.
                 justification: |
-                  A marker with no speech has nothing to synthesize and must not fail.
+                  A mood with no speech has nothing to synthesize and must not fail.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
 
@@ -220,12 +221,29 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-InvalidArguments
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall reject invalid constructor
-                  arguments and null text.
+                  arguments.
                 justification: |
                   Misuse must be loud.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-NullText
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall reject null text.
+                justification: |
+                  Misuse must be loud.
+                tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-VoiceListSnapshot
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall keep using the voices it was
+                  created with when the caller later changes the list it passed in.
+                justification: |
+                  Speaker ids index into the voice list, so a list the host mutates later must not
+                  silently change which voice is spoken.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_VoiceListMutatedAfterConstruction_UsesSnapshot
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Lifecycle
                 title: >-

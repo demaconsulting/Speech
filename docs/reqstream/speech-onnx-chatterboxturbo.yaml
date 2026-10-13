@@ -70,12 +70,12 @@ sections:
 
       - id: SpeechOnnxChatterboxTurbo-Models-EmbeddedTokenizer
         title: >-
-          The library shall turn text into the token ids the model was trained on without
-          requiring any separate tokenizer download.
+          The library shall synthesize speech on an installation that contains only the
+          model's graph files, without requiring any separate tokenizer download.
         tags: [system]
         justification: |
-          The graphs do not tokenize text themselves, and the language model is only correct for
-          the exact ids its training tokenizer produced.
+          A host must be able to install the model once and use it offline; the tokenizer is
+          carried by the library itself.
         children:
           - SpeechOnnxChatterboxTurbo-Models-TextTokenization
         tests:
@@ -83,13 +83,15 @@ sections:
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RealBackend
         title: >-
-          The library shall synthesize audible speech from text through the Speech library's
-          synthesis pipeline as 24 kHz mono audio, running the Chatterbox Turbo model locally on
-          the CPU.
+          The library shall synthesize speech from text through the Speech library's
+          synthesis pipeline as non-empty 24 kHz mono audio with finite samples, running the
+          Chatterbox Turbo model locally on the CPU.
         tags: [system]
         justification: |
           The Speech library's synthesis policy is verified against a fake backend; only a real
-          backend turns rendered text into audible speech for this package's synthesis model.
+          backend turns rendered text into audio for this package's synthesis model. Whether
+          the audio from the production model is audible speech is checked manually (see the
+          verification document).
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackendSampleRate
@@ -152,17 +154,19 @@ sections:
 
       - id: SpeechOnnxChatterboxTurbo-Models-StoreVoicesResilience
         title: >-
-          The library shall decode a store voice only when it is used, so a damaged clip never
-          prevents the model from loading or the other voices from being used.
+          The library shall load the model and let every undamaged voice be used even when a
+          store voice clip is damaged, and shall name the damaged file in the error raised when
+          that voice is used.
         tags: [system]
         justification: |
-          A hundred clips must not be decoded at startup, and one damaged clip must not make the
-          model unusable.
+          One damaged clip must not make the model unusable, and the failure must tell the
+          user which file to repair.
         children:
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceDamagedClip
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipDoesNotBlockOtherVoices
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipFailsAtFirstUseNamingFile
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodVoices
         title: >-
@@ -197,12 +201,12 @@ sections:
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHidden
         title: >-
-          The library shall never speak any internal mood-carrying character, whether it is
-          supplied in the caller's text or added while the text is prepared.
+          The library shall never speak any control character that stands for a mood,
+          whether it is supplied in the caller's text or arises from a mood audio tag.
         tags: [system]
         justification: |
-          A mood is realized by switching clips, so any internal carrier must never reach the
-          speech.
+          A mood is realized by switching clips, so no control character standing for a
+          mood may ever be spoken.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerCallerSupplied
@@ -222,6 +226,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_LaughStaysInsideSentence
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_ThroatClearAndGaspStayInsideSentence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-SilenceTagRendering
         title: >-
@@ -234,6 +239,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagSilence
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_SighIsFixedSilence
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_PauseIsFixedSilence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-OmittedTagRendering
         title: >-
@@ -249,6 +255,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagNullArguments
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_UnsupportedTagIsOmitted
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_EveryUnsupportedTagIsOmitted
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPlacement
         title: >-
@@ -281,12 +288,13 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagPolicyValidation
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_HostChoiceKeepsTagWithSpeech
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_SuffixAndStripRenderDistinctly
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_UndefinedValue_IsRejected
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-LongTextSegmentation
         title: >-
           The library shall speak text of any length by splitting it into sentences of at most
-          200 characters of source text (each audio tag counting as one character, so the
-          spoken form of a tagged sentence may be slightly longer), keeping every word.
+          200 characters of source text, keeping every word.
         tags: [system]
         justification: |
           The model degrades on long inputs, and splitting must never lose speech.
@@ -318,3 +326,4 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-TokenSelection
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_ConfiguredBoundSetsGeneratedTokenCount
