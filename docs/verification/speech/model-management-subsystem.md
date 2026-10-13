@@ -3,7 +3,7 @@
 ### Verification Approach
 
 The ModelManagementSubsystem is verified through deterministic unit tests against a fake
-`IModelDownloadClient` for `SpeechModelStore`'s atomic-swap/install-state logic and
+`IModelDownloadClient` for `SpeechModelStore`'s replace/install-state logic and
 `SpeechModelDownloader`'s fetch/verification/failure-state orchestration, plus a real
 end-to-end test of `HttpModelDownloadClient` against an in-process `WireMock.Net`-stubbed HTTP
 server. This proves both the pure orchestration logic (fast,
@@ -40,7 +40,7 @@ exercise the units together through the fake download client (no network).
 
 **Stimulus**: `SpeechModelDownloader.DownloadAsync` for a descriptor served by the fake client.
 
-**Expected**: Content is staged, verified and swapped into `current/`; a checksum mismatch
+**Expected**: Content is staged, verified and switched into `current/`; a checksum mismatch
 installs nothing; a canceled download installs nothing.
 
 **Tests**: `SpeechModelDownloaderTests.cs` -
@@ -91,6 +91,17 @@ client); different-id calls run concurrently with no pool limit.
 **Expected**: The install is removed, replaced directories are cleaned and live staging survives.
 
 **Test**: `SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories`
+
+#### Failed replacement preserves the prior install
+
+**Stimulus**: `SpeechModelStore.CompleteInstall` over an existing install where switching the staged
+content into place fails.
+
+**Expected**: The prior install is restored and still reads as installed; a momentary not-installed
+state during the switch is permitted but never persists after a failure.
+
+**Tests**: `SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory`,
+`SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall`
 
 #### Reference voice pack install, upgrade and uninstall
 
@@ -149,8 +160,11 @@ against a model's declared parameters.
 **Expected**: An invalid value throws `ArgumentException`; an unknown key is reported through an
 `Info` diagnostic and otherwise ignored.
 
-**Tests**: `ValidateAndReport_NumericParameterOutOfRange_Throws`,
-`ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow`
+**Tests**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterOutOfRange_Throws`,
+`SpeechModelParameterDiagnostics_ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow`,
+and, for null arguments, the four
+`SpeechModelParameterDiagnostics_ValidateAndReport_Null{ModelId,DeclaredParameters,Diagnostics,Category}_ThrowsArgumentNullException`
+tests (`Speech-Models-TunableParameterArgumentValidation`)
 
 #### Catalog registration
 
@@ -179,10 +193,12 @@ malformed, empty or unreadable manifest.
 
 **Stimulus**: Construct a store with no options, and with a root path override.
 
-**Expected**: The default root is under `LocalApplicationData`; an override is used verbatim.
+**Expected**: The default root is under `LocalApplicationData`; an override is used verbatim; a null,
+empty or whitespace-only override means "no override" and the default root is used.
 
 **Tests**: `SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData`,
-`SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim`
+`SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim`,
+`SpeechModelStore_Constructor_NullOrEmptyRootPathOverride_UsesDefaultRoot`
 
 #### Failed uninstall is signaled and never reads as installed
 
@@ -243,8 +259,9 @@ redirected request.
 
 **Stimulus**: A catalog download that succeeds, one that fails its checksum, and a read of `Store`.
 
-**Expected**: `Downloaded` after success; `FailedOrCorrupt` after a failure; `Store` is the catalog's own store;
-a mirror passed to the catalog constructor is used.
+**Expected**: `Downloaded` after success; `FailedOrCorrupt` after a failure; `Store` is the catalog's own store,
+so a host resolves an installed model's directory and composes a recognizer or synthesizer through the same
+catalog instance (`Speech-Models-CatalogStoreComposition`); a mirror passed to the catalog constructor is used.
 
 **Tests**: `SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion`,
 `SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt`,
@@ -264,12 +281,39 @@ a mirror passed to the catalog constructor is used.
 `ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory`,
 `ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged`
 
+### Requirement Coverage Summary
+
+Each subsystem requirement is verified at its own level by the tests named in
+`docs/reqstream/speech/model-management-subsystem.yaml`; the list maps requirement groups to the
+scenarios above, and every unit requirement is covered by the unit verification documents.
+
+- `Speech-Models-AtomicInstall`, `-InstallStateQuery`, `-Uninstall`, `-LeftoverCleanup`: Download, verify and install;
+  Failed replacement preserves the prior install; Store reports installed only with `current/` and a valid manifest;
+  Failed uninstall is signaled; Uninstall leaves live staging alone
+- `Speech-Models-ConfigurableRoot`: Storage root is configurable
+- `Speech-Models-DownloadOrchestration`, `-PerModelDownloadSerialization`, `-CrossModelDownloadConcurrency`,
+  `-HonestFailureStates`, `-PriorInstallProtected`: Download, verify and install; Repeat install is a fast path;
+  Downloads are serialized per model id and concurrent across models
+- `Speech-Models-RicherFailureClassification`, `-FailureErrorPopulated`, `-CallerCancellationNotAFailure`,
+  `-DownloadFailureDiagnostics`: Failure classification; Timeouts are classified as network-blocked
+- `Speech-Models-DownloadDescriptors`, `-DownloadProgress`, `-MockableHttpSeam`: Download descriptors validate
+  themselves; Progress is reported; Real HTTP download
+- `Speech-Models-MirrorRedirect`, `-MirrorAuthentication`, `-MirrorAuthenticationRedirectStripping`,
+  `-MirrorAuthenticationTransportPolicy`: Mirror redirection; Mirror authentication is sent only to the mirror
+- `Speech-Models-ContractDeclaration`, `-ContractParameterDeclaration`, `-ContractAudioTagAndDownloadDeclaration`,
+  `-ContractLicenseDeclaration`, `-ContractHooks`, `-ContractRoleMembers`: Model contract declarations and hooks
+- `Speech-Models-TunableParameters`, `-TunableParameterDescriptorValidation`, `-TunableParameterValueValidation`,
+  `-TunableParameterArgumentValidation`, `-TunableParameterUnrecognizedIdTolerance`: Parameter diagnostics
+- `Speech-Models-CatalogEnumeration`, `-CatalogStateReporting`, `-CatalogStoreComposition`: Catalog registration;
+  Catalog tracks download state; Catalog states and store exposure
+- `Speech-Models-ReferenceVoice*`: Reference voice pack install, upgrade and uninstall; Reference voice merge
+
 ### Acceptance Criteria
 
 A ModelManagementSubsystem test run passes when all of the following hold:
 
 - `SpeechModelStore` never reports a model installed unless both `current/` and a valid manifest are
-  present.
+  present, and a failed replacement leaves the prior install usable.
 - A second `DownloadAsync` call for an already-installed model id returns `Installed` immediately
   without any network or staging activity, leaving a prior successful install completely untouched
   regardless of what the second call supplies.
