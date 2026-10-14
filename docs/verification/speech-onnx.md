@@ -69,16 +69,45 @@ falls back to a working CPU session instead.
 
 ### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+**Test**: `OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu`
 
 Verifies the DirectML/`ConvTranspose`-style scenario this parameter was added for: a
 `validateSession` probe that throws `OnnxRuntimeException` for an accelerated candidate causes
 that candidate's session to be disposed and discarded, the next candidate (or CPU) to be tried,
 and the CPU fallback itself to never be passed to `validateSession`.
 
+### Candidates are tried in the caller-supplied order
+
+**Test**: `OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession`
+
+Verifies that when the probe rejects the first candidate's session, the second candidate is built
+and probed next and its session, not the first's, is returned.
+
+### A successful validateSession probe is accepted
+
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession`
+
+Verifies that a candidate whose probe succeeds is the session returned to the caller: the very
+instance that was handed to the probe.
+
+### Every unsuccessful candidate attempt releases its native resources
+
+**Test**: `OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance`
+
+Verifies that both a failed candidate's and the winning candidate's `SessionOptions` are disposed
+by the time `Create` returns, observed through the test-only hook described above.
+
+### The returned session stays usable and owned by the caller
+
+**Test**: `OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference`
+
+Verifies that the session returned on success is not disposed by `Create`: the caller can run the
+fixture's identity node and read back the value it fed in.
+
 ### A validateSession probe throwing a non-ORT exception propagates to the caller
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
+**Test**:
+`OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
 
 Verifies that a probe throwing any exception type other than
 `OnnxRuntimeException`/`DllNotFoundException` propagates to the caller instead of being treated

@@ -125,7 +125,7 @@ public sealed class OnnxExecutionProviderSelectorTests
     ///     "accelerated" candidate name.
     /// </summary>
     [Fact]
-    public void OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback()
+    public void OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu()
     {
         // Arrange
         var preferredProviderNames = new[] { "CPUExecutionProvider" };
@@ -135,6 +135,7 @@ public sealed class OnnxExecutionProviderSelectorTests
         {
             Interlocked.Increment(ref probeInvocationCount);
             rejectedCandidate = probedSession;
+            RunWithValidInput(probedSession);
             RunWithMismatchedInput(probedSession);
         }
 
@@ -150,6 +151,43 @@ public sealed class OnnxExecutionProviderSelectorTests
         Assert.NotNull(rejectedCandidate);
         Assert.NotSame(rejectedCandidate, session);
         AssertSessionIsDisposed(rejectedCandidate);
+    }
+
+    /// <summary>
+    ///     Proves directly against ONNX Runtime (no selector involved) that requesting an
+    ///     unrecognized execution provider is reported as <see cref="OnnxRuntimeException"/>
+    ///     rather than a crash or a silently broken session; this is the exception the selector's
+    ///     fallback relies on.
+    /// </summary>
+    [Fact]
+    public void MicrosoftMlOnnxRuntime_AppendExecutionProvider_UnknownProviderName_ThrowsOnnxRuntimeException()
+    {
+        // Arrange
+        using var options = new SessionOptions();
+
+        // Act
+        var exception = Record.Exception(() => options.AppendExecutionProvider("NotARealExecutionProvider"));
+
+        // Assert
+        Assert.IsType<OnnxRuntimeException>(exception);
+    }
+
+    /// <summary>
+    ///     Proves directly against ONNX Runtime (no selector involved) that a failed inference
+    ///     (a wrong-typed input) is reported as <see cref="OnnxRuntimeException"/>; this is the
+    ///     exception the selector's probe-failure fallback relies on.
+    /// </summary>
+    [Fact]
+    public void MicrosoftMlOnnxRuntime_Run_WrongTypedInput_ThrowsOnnxRuntimeException()
+    {
+        // Arrange
+        using var session = new InferenceSession(ModelPath);
+
+        // Act
+        var exception = Record.Exception(() => RunWithMismatchedInput(session));
+
+        // Assert
+        Assert.IsType<OnnxRuntimeException>(exception);
     }
 
     /// <summary>
@@ -191,6 +229,7 @@ public sealed class OnnxExecutionProviderSelectorTests
         {
             Interlocked.Increment(ref probeInvocationCount);
             probedCandidate = probedSession;
+            RunWithValidInput(probedSession);
             throw unexpected;
         }
 
@@ -411,13 +450,22 @@ public sealed class OnnxExecutionProviderSelectorTests
     private static void AssertSessionIsDisposed(InferenceSession? session)
     {
         Assert.NotNull(session);
+        // A live session runs a valid input successfully (proved by RunWithValidInput in each
+        // probe before the failure); this ONNX Runtime version reports a disposed session as a
+        // NullReferenceException (its native handle is gone), which is pinned here so a change in
+        // that behavior is noticed rather than masked by a broad assertion.
+        Assert.Throws<NullReferenceException>(() => RunWithValidInput(session));
+    }
+
+    /// <summary>Runs a valid float input through the identity graph, succeeding on a live session.</summary>
+    /// <param name="session">The session to run.</param>
+    private static void RunWithValidInput(InferenceSession session)
+    {
         var validInput = new List<NamedOnnxValue>
         {
             NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 1.0f }, [1])),
         };
-        // A live session runs this valid input successfully, so any failure proves the native
-        // session handle was released (ONNX Runtime surfaces a disposed session as an
-        // ObjectDisposedException or NullReferenceException depending on its version).
-        Assert.ThrowsAny<SystemException>(() => session.Run(validInput));
+        using var results = session.Run(validInput);
+        Assert.Equal(1.0f, results[0].AsTensor<float>()[0]);
     }
 }

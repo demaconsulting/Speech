@@ -22,39 +22,52 @@ sections:
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
             title: >-
-              Microsoft.ML.OnnxRuntime shall report an unrecognized execution provider through
-              OnnxRuntimeException.
+              Microsoft.ML.OnnxRuntime shall refuse a request to use an unrecognized execution
+              provider by reporting an error.
             justification: |
-              Accelerated providers are optional and machine-dependent; the selector's layered
-              fallback relies on an unrecognized provider name surfacing as an
-              OnnxRuntimeException rather than as a crash or a silently broken session. The test
-              observes the resulting fallback to a working CPU session; the exception itself is
-              caught inside the selector and is therefore evidenced indirectly.
+              Accelerated providers are optional and machine-dependent; the shared provider
+              selector's layered fallback relies on an unrecognized provider name surfacing as a
+              reported error rather than as a crash or a silently broken session. The first test
+              observes the error directly from ONNX Runtime; the second observes the resulting
+              fallback to a working CPU session.
             tags: [ots]
             tests:
+              - MicrosoftMlOnnxRuntime_AppendExecutionProvider_UnknownProviderName_ThrowsOnnxRuntimeException
               - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
-            title: Microsoft.ML.OnnxRuntime shall report a failed probe inference through OnnxRuntimeException.
+            title: Microsoft.ML.OnnxRuntime shall report an error when an inference run fails.
             justification: |
               A candidate execution provider can construct a session that then fails at inference
-              time; the selector's fallback relies on that failure surfacing as an
-              OnnxRuntimeException. The test provokes a genuine OnnxRuntimeException with a
-              wrong-typed input, which stands in for an accelerated-provider probe failure.
+              time; the selector's fallback relies on that failure surfacing as a reported error.
+              The first test provokes a genuine failure with a wrong-typed input, which stands in
+              for an accelerated-provider probe failure, and observes the error directly; the
+              second observes the selector's resulting fallback to CPU.
             tags: [ots]
             tests:
-              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - MicrosoftMlOnnxRuntime_Run_WrongTypedInput_ThrowsOnnxRuntimeException
+              - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
             title: >-
-              Microsoft.ML.OnnxRuntime shall bind typed tensor inputs and outputs, including
-              cache tensors carried between steps, for the model packages' network wrappers.
+              Microsoft.ML.OnnxRuntime shall bind typed tensor inputs and outputs of a loaded
+              model by name or by position.
             justification: |
-              The Chatterbox Turbo and Nemotron engines run autoregressive and streaming graphs
-              whose caches are fed back on every step, so correct tensor binding is essential.
+              The Chatterbox Turbo and Nemotron engines exchange tensors with their graphs on
+              every run, so correct tensor binding is essential.
             tags: [ots]
             tests:
               - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
+              - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
+            title: >-
+              Microsoft.ML.OnnxRuntime shall accept the cache tensors produced by one run as the
+              inputs of the next run of the same session.
+            justification: |
+              The Chatterbox Turbo and Nemotron engines run autoregressive and streaming graphs
+              whose caches are fed back on every step.
+            tags: [ots]
+            tests:
               - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
               - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
-              - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally

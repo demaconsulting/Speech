@@ -71,7 +71,7 @@ returned; and that returned session is not disposed and remains usable for infer
 
 ##### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+**Test**: `OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu`
 
 ##### A validateSession probe throwing a non-ORT exception propagates to the caller and the candidate is disposed
 

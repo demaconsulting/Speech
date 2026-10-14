@@ -18,6 +18,8 @@ scenario runs without model downloads, a GPU, or network access:
 
 - The execution-provider selector creates a working CPU session when no provider is requested and
   when a requested provider is unknown or fails its validation probe
+- ONNX Runtime itself reports an unrecognized execution provider and a failed inference (a
+  wrong-typed input) as `OnnxRuntimeException`, asserted directly without the selector
 - The Chatterbox Turbo network wrapper binds named and positional tensor outputs and reuses a
   key/value cache across steps over real `InferenceSession` instances
 - The Nemotron streaming encoder runs consecutive chunks over a real session and feeds the caches
@@ -44,15 +46,32 @@ float tensor returns that tensor unchanged.
 
 **Scenario**: A provider name ONNX Runtime does not recognize is requested.
 
-**Expected**: The selector falls back to a working CPU session. ONNX Runtime's exception is caught
-inside the selector, so the `OnnxRuntimeException` itself is evidenced indirectly by the fallback.
+**Expected**: The selector falls back to a working CPU session. The error ONNX Runtime reports for
+the unrecognized provider is asserted directly in the scenario below.
 
-#### OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+#### MicrosoftMlOnnxRuntime_AppendExecutionProvider_UnknownProviderName_ThrowsOnnxRuntimeException
+
+**Scenario**: An unrecognized execution provider name is appended to `SessionOptions` directly,
+without the selector.
+
+**Expected**: ONNX Runtime throws `OnnxRuntimeException` rather than crashing.
+
+#### MicrosoftMlOnnxRuntime_Run_WrongTypedInput_ThrowsOnnxRuntimeException
+
+**Scenario**: A session over the fixture graph is run directly with a wrong-typed input, without
+the selector.
+
+**Expected**: ONNX Runtime throws `OnnxRuntimeException`; the same failure stands in for an
+accelerated-provider probe failure.
+
+#### OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
 **Scenario**: The validation probe for a candidate provider throws `OnnxRuntimeException`.
 
-**Expected**: The candidate session is disposed and the selector falls back to CPU. The exception is
-provoked with a wrong-typed input, standing in for a real accelerated-provider probe failure.
+**Expected**: The candidate session, which first ran a valid input successfully, is then disposed
+(a further run fails with `NullReferenceException` from the released native handle) and the selector
+falls back to CPU without probing the fallback. The exception is provoked with a wrong-typed input,
+standing in for a real accelerated-provider probe failure.
 
 #### OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
 

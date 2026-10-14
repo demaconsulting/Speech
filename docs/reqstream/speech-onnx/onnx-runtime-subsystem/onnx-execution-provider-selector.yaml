@@ -44,7 +44,7 @@ sections:
                   first run because a graph operator is unsupported for the model's shapes - so
                   acceptance must account for a supplied verification, not construction alone.
                 tests:
-                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbeAcceptedCandidateReturned
                 title: >-
@@ -78,7 +78,7 @@ sections:
                   condition, not a failure.
                 tests:
                   - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
-                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-MissingProviderLibraryFallsBack
                 title: >-
@@ -101,7 +101,7 @@ sections:
                   candidate the fallback design depends on always succeeding.
                 tests:
                   - OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe
-                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
                 title: >-
@@ -131,7 +131,7 @@ sections:
                   Leaving an abandoned candidate's session unreleased leaks a native handle, on
                   the unexpected-failure path as much as on the expected fallback path.
                 tests:
-                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
                   - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnexpectedVerificationFailurePropagates

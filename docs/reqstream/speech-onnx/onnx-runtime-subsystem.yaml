@@ -44,7 +44,7 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbeAcceptedCandidateReturned
             tests:
-              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
               - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
 
           - id: SpeechOnnx-OnnxRuntimeSubsystem-CpuFallback
@@ -78,7 +78,7 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
             tests:
               - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
-              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
               - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
 
           - id: SpeechOnnx-OnnxRuntimeSubsystem-SessionOwnership
