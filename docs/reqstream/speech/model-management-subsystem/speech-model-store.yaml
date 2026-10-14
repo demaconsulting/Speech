@@ -95,13 +95,25 @@ sections:
                 title: >-
                   The SpeechModelStore class shall reject an install request, without touching
                   installed content, whose operation identifier is not safe to use as a single
-                  path segment or whose scratch location does not belong to the named model.
+                  path segment.
                 justification: |
-                  The operation identifier becomes part of a path and the scratch location is
-                  promoted to installed content, so unvalidated values could move or overwrite
-                  unrelated directories.
+                  The operation identifier becomes part of a path, so an unvalidated value could
+                  move or overwrite unrelated directories.
                 tests:
                   - SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelStore-InstallScratchLocationGuard
+                title: >-
+                  The SpeechModelStore class shall reject an install request, without touching
+                  installed content or any scratch location, whose scratch location is not the one
+                  created for the same operation of the named model.
+                justification: |
+                  The scratch location is promoted to installed content, so accepting another
+                  operation's scratch location (or a directory nested inside it) would install
+                  content that the caller never verified.
+                tests:
+                  - SpeechModelStore_CompleteInstall_OtherOperationStaging_ThrowsArgumentExceptionAndTouchesNothing
+                  - SpeechModelStore_CompleteInstall_NestedStagingDescendant_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelStore-InstallStateHonesty
                 title: >-

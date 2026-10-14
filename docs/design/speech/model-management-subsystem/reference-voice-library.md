@@ -35,7 +35,8 @@ and the mood-to-path representation of `MoodClips` are design decisions recorded
   and `ReferenceVoicePackInstaller.InstallAsync` as the hook, so the whole archive is fetched through
   the hash-verified, mirror-aware path (with a mirror the URL is
   `{mirror}/voice-zero-1.0/voice-zero-1.0.zip`), only a verified archive is extracted, and the result is
-  replaced through the store's rollback-protected install. A second call for an installed pack is a no-op returning `Installed`.
+  replaced through the store's rollback-protected install. A second call for an installed pack is a no-op
+  returning `Installed`.
 - `includeEmotions` (default `true`) also extracts the emotion clips (see `ReferenceVoicePackInstaller`).
   **Upgrade**: when emotions are requested and the installed pack lacks them, the library renames
   `current` to a sibling `current.upgrade-backup-{guid}` folder (the downloader treats an installed id
@@ -59,7 +60,8 @@ and the mood-to-path representation of `MoodClips` are design decisions recorded
   install (or another uninstall) of that pack is in flight waits for it to finish and then runs; the two never
   interleave and nothing is thrown for the overlap. Canceling while waiting throws
   `OperationCanceledException` and leaves the install and the pack untouched; once the removal starts it runs to
-  completion. The directory deletions run on the thread pool through `SpeechModelStore.UninstallAsync`
+  completion (the removal is started with no cancellation token). The directory deletions run on the thread
+  pool through `SpeechModelStore.UninstallAsync`
   (there is no asynchronous directory-delete API). After the store uninstall it also deletes every
   `current.upgrade-backup-*` folder left in the pack
   directory so a leftover backup cannot resurrect the pack, and clears the pack's failed flag.
@@ -89,7 +91,9 @@ caller-named folder that is not a valid path, or a folder that cannot be read (I
 skipped with a `Warning` diagnostic naming it (and a mood folder that cannot be read yields no mood clips,
 also with a `Warning`). It returns an empty list when nothing is present. An uninstall, or an emotion
 upgrade whose installed folder cannot be moved aside, that fails because files are in use throws
-`SpeechModelStoreException`; the previous install is kept.
+`SpeechModelStoreException`; the previous install is kept. Scanning the pack folder for leftover upgrade backups
+(recovery at the start of an install, and the cleanup after an uninstall) is best-effort: an I/O or access failure
+is reported as a `Warning` diagnostic and the scan is skipped (the next install retries it).
 
 **Disposal**: `Dispose` is idempotent and does not wait for in-flight installs. Each install registers as a
 user of the downloader under the library lock before it starts, so the downloader is disposed by `Dispose`

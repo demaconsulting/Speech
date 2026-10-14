@@ -162,8 +162,8 @@ public sealed class SpeechModelStore
     /// </remarks>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="modelId"/> is invalid, when <paramref name="operationId"/> is not a single
-    ///     valid directory-name segment, or when <paramref name="stagingDirectory"/> is not inside the model's
-    ///     <c>.tmp</c> directory; nothing is touched in any of these cases.
+    ///     valid directory-name segment, or when <paramref name="stagingDirectory"/> is not exactly the staging
+    ///     directory (<c>.tmp/{operationId}</c>) of that operation; nothing is touched in any of these cases.
     /// </exception>
     internal void CompleteInstall(string modelId, string operationId, string stagingDirectory, long totalSizeBytes)
     {
@@ -173,11 +173,13 @@ public sealed class SpeechModelStore
         // The operation id becomes part of a path and the staging directory is renamed into current/, so guard both
         ValidatePathSegment(operationId, nameof(operationId));
         ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
-        var stagingRoot = Path.GetFullPath(Path.Join(modelDirectory, StagingRootName)) + Path.DirectorySeparatorChar;
-        if (!Path.GetFullPath(stagingDirectory).StartsWith(stagingRoot, StringComparison.OrdinalIgnoreCase))
+        var expectedStaging = Path.GetFullPath(Path.Join(modelDirectory, StagingRootName, operationId));
+        var actualStaging = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingDirectory));
+        if (!string.Equals(actualStaging, expectedStaging, StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException(
-                $"Staging directory '{stagingDirectory}' is not inside the staging area of model '{modelId}'.",
+                $"Staging directory '{stagingDirectory}' is not the staging directory of operation '{operationId}' " +
+                $"for model '{modelId}'.",
                 nameof(stagingDirectory));
         }
 
@@ -323,9 +325,16 @@ public sealed class SpeechModelStore
         var modelDirectory = GetModelDirectory(modelId);
         if (Directory.Exists(modelDirectory))
         {
-            foreach (var directory in Directory.EnumerateDirectories(modelDirectory, ReplacedDirectoryPrefix + "*"))
+            try
             {
-                TryDeleteDirectoryRecursively(directory);
+                foreach (var directory in Directory.EnumerateDirectories(modelDirectory, ReplacedDirectoryPrefix + "*"))
+                {
+                    TryDeleteDirectoryRecursively(directory);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Best-effort: superseded directories that cannot be listed are left for CleanUpLeftovers
             }
         }
     }
@@ -398,18 +407,25 @@ public sealed class SpeechModelStore
             return;
         }
 
-        foreach (var directory in Directory.EnumerateDirectories(modelDirectory, ReplacedDirectoryPrefix + "*"))
+        try
         {
-            TryDeleteDirectoryRecursively(directory);
-        }
-
-        var stagingRoot = Path.Join(modelDirectory, StagingRootName);
-        if (Directory.Exists(stagingRoot))
-        {
-            foreach (var directory in Directory.EnumerateDirectories(stagingRoot))
+            foreach (var directory in Directory.EnumerateDirectories(modelDirectory, ReplacedDirectoryPrefix + "*"))
             {
                 TryDeleteDirectoryRecursively(directory);
             }
+
+            var stagingRoot = Path.Join(modelDirectory, StagingRootName);
+            if (Directory.Exists(stagingRoot))
+            {
+                foreach (var directory in Directory.EnumerateDirectories(stagingRoot))
+                {
+                    TryDeleteDirectoryRecursively(directory);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: a directory that cannot even be listed is left for a future call to retry
         }
     }
 

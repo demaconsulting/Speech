@@ -64,6 +64,10 @@ removes it (a token canceled while waiting cancels only the uninstall), and disc
 `ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves`,
 `ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact`,
 `ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock`,
+`ReferenceVoiceLibrary_UninstallPackAsync_CanceledAfterLockAcquired_StillRemoves` (a seam cancels the caller's
+token right after the lock is acquired; the removal still completes),
+`ReferenceVoiceLibrary_InstallAndUninstall_UnlistableModelDirectory_WarnsAndDoesNotThrowFileSystemError`
+(Windows only; ACL deny on the pack folder makes the backup scan fail, which is reported as a Warning),
 `ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup`
 
 ##### Disposal

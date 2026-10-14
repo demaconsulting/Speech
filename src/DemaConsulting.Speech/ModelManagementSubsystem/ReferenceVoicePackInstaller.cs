@@ -154,9 +154,12 @@ internal static class ReferenceVoicePackInstaller
                 $"The '{pack.Id}' archive contains no '{pack.ArchiveRootFolder}/{VoicesDirectoryName}/*{VoiceExtension}' voice clips.");
         }
 
+        // Write the metadata first and delete the archive only once the whole extraction succeeded, so any failure or
+        // cancellation up to this point keeps the verified archive for a retry
+        await WriteMetadataAsync(pack, stagingRoot, voiceCount, includeEmotions, emotionCount, cancellationToken).ConfigureAwait(false);
+
         // The archive was only an input; remove it so it does not stay in the store
         File.Delete(archivePath);
-        await WriteMetadataAsync(pack, stagingRoot, voiceCount, includeEmotions, emotionCount, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

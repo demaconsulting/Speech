@@ -485,7 +485,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         var store = NewStore();
         var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
         store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
-        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "does-not-exist");
+        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "op-2");
 
         // Act: a staging directory that does not exist makes the second Directory.Move fail
         Assert.ThrowsAny<IOException>(() =>
@@ -511,7 +511,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
         var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
         var manifestBefore = File.ReadAllText(manifestPath);
-        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "does-not-exist");
+        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "op-2");
 
         // Act
         Assert.ThrowsAny<IOException>(() => store.CompleteInstall("model-a", "op-2", missingStaging, 123));
@@ -725,7 +725,53 @@ public sealed class SpeechModelStoreTests : IDisposable
         Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", "a/b", stagingDirectory, 1));
         Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", operationId, foreign, 1));
         Assert.Equal("version-1", File.ReadAllText(Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin")));
-        Assert.True(Directory.Exists(foreign));
+    }
+
+    /// <summary>
+    ///     Proves that completing one operation with the staging directory of a different operation of the same model
+    ///     is rejected before any filesystem change, leaving both staging directories and installed content intact.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_OtherOperationStaging_ThrowsArgumentExceptionAndTouchesNothing()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var (operationA, stagingA) = BeginStagingWithFile(store, "model-a", "payload.bin", "operation-a");
+        var (_, stagingB) = BeginStagingWithFile(store, "model-a", "payload.bin", "operation-b");
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", operationA, stagingB, 1));
+
+        // Assert
+        Assert.Equal("stagingDirectory", exception.ParamName);
+        Assert.Equal("version-1", File.ReadAllText(Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin")));
+        Assert.Equal("operation-a", File.ReadAllText(Path.Join(stagingA, "payload.bin")));
+        Assert.Equal("operation-b", File.ReadAllText(Path.Join(stagingB, "payload.bin")));
+    }
+
+    /// <summary>
+    ///     Proves that a directory nested inside the operation's staging directory is not accepted as its staging
+    ///     directory, and that nothing is changed.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_NestedStagingDescendant_ThrowsArgumentException()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, staging) = BeginStagingWithFile(store, "model-a", "payload.bin", "operation");
+        var nested = Path.Join(staging, "nested");
+        Directory.CreateDirectory(nested);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => store.CompleteInstall("model-a", operationId, nested, 1));
+
+        // Assert
+        Assert.Equal("stagingDirectory", exception.ParamName);
+        Assert.False(store.IsInstalled("model-a"));
+        Assert.True(Directory.Exists(nested));
+        Assert.Equal("operation", File.ReadAllText(Path.Join(staging, "payload.bin")));
     }
 
     /// <summary>

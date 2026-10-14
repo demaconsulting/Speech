@@ -155,6 +155,26 @@ sections:
                   - ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact
                   - ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock
 
+              - id: Speech-Models-ReferenceVoiceLibrary-UninstallCompletesOnceStarted
+                title: >-
+                  The ReferenceVoiceLibrary class shall complete an uninstall that has started even when
+                  the caller cancels afterwards.
+                justification: |
+                  Cancellation may only abort the wait for the pack; a half-removed pack would read as
+                  neither installed nor removed.
+                tests:
+                  - ReferenceVoiceLibrary_UninstallPackAsync_CanceledAfterLockAcquired_StillRemoves
+
+              - id: Speech-Models-ReferenceVoiceLibrary-BackupScanFailureTolerated
+                title: >-
+                  The ReferenceVoiceLibrary class shall report, rather than throw, a file-system failure
+                  to look for leftover upgrade backups while installing or uninstalling a pack.
+                justification: |
+                  Backup recovery and cleanup are best-effort and are retried by the next install, so
+                  they must not fail an otherwise healthy operation.
+                tests:
+                  - ReferenceVoiceLibrary_InstallAndUninstall_UnlistableModelDirectory_WarnsAndDoesNotThrowFileSystemError
+
               - id: Speech-Models-ReferenceVoiceLibrary-Disposal
                 title: >-
                   The ReferenceVoiceLibrary class shall tolerate repeated disposal.

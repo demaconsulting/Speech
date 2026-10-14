@@ -64,6 +64,11 @@ trailing dot or space and a control character in an emotion speaker folder)
 
 **Test**: `ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive`
 
+**Test**: `ReferenceVoicePackInstaller_Install_MetadataWriteFails_KeepsArchive` (a directory occupying the
+`pack.json` path makes the metadata write fail after extraction; the archive is still present)
+
+**Test**: `ReferenceVoicePackInstaller_Install_CanceledToken_KeepsArchive`
+
 **Test**: `ReferenceVoicePackInstaller_Install_MissingArchive_ThrowsIOException`
 
 **Test**: `ReferenceVoicePackInstaller_Install_NullPackOrEmptyStaging_Throws`

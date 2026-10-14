@@ -574,6 +574,78 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that once the uninstall owns the per-pack lock, canceling the caller's token no longer aborts it: the
+    ///     removal runs to completion.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_CanceledAfterLockAcquired_StillRemoves()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        using var cts = new CancellationTokenSource();
+        library.UninstallLockAcquired = () => cts.Cancel();
+
+        // Act
+        await library.UninstallPackAsync("voice-zero-1.0", cts.Token);
+
+        // Assert
+        Assert.True(cts.IsCancellationRequested);
+        Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
+        Assert.False(Directory.Exists(library.GetPackDirectory("voice-zero-1.0")));
+    }
+
+    /// <summary>
+    ///     Proves that a backup folder that cannot be listed during an install is reported as a Warning and does not
+    ///     make the install throw a raw file-system exception; an uninstall behaves the same way.
+    /// </summary>
+    /// <remarks>Denying list access through an ACL deny rule is only reliably reproducible on Windows.</remarks>
+    [Fact]
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public async Task ReferenceVoiceLibrary_InstallAndUninstall_UnlistableModelDirectory_WarnsAndDoesNotThrowFileSystemError()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("ACL-based list-access denial is only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var pack = ReferenceVoiceTestPacks.PackFor(ReferenceVoiceTestPacks.BuildTypicalZip());
+        var client = new FakeClient(ReferenceVoiceTestPacks.BuildTypicalZip());
+        using var library = new ReferenceVoiceLibrary(NewStore(), null, diagnostics, client, [pack]);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var modelDirectory = new DirectoryInfo(new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = library.RootPath })
+            .GetModelDirectory("voice-zero-1.0"));
+        var acl = modelDirectory.GetAccessControl();
+        var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+        var denyRule = new System.Security.AccessControl.FileSystemAccessRule(
+            user, System.Security.AccessControl.FileSystemRights.ListDirectory, System.Security.AccessControl.AccessControlType.Deny);
+        acl.AddAccessRule(denyRule);
+        modelDirectory.SetAccessControl(acl);
+        try
+        {
+            // Act
+            var installException = await Record.ExceptionAsync(() => library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken));
+            var uninstallException = await Record.ExceptionAsync(() => library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
+
+            // Assert
+            Assert.False(installException is IOException or UnauthorizedAccessException, installException?.ToString());
+            Assert.False(uninstallException is UnauthorizedAccessException, uninstallException?.ToString());
+            diagnostics.Received().Report(
+                SpeechDiagnosticLevel.Warning,
+                "ModelManagementSubsystem",
+                Arg.Is<string>(message => message.Contains("upgrade backups")));
+        }
+        finally
+        {
+            var restoreAcl = modelDirectory.GetAccessControl();
+            restoreAcl.RemoveAccessRule(denyRule);
+            modelDirectory.SetAccessControl(restoreAcl);
+        }
+    }
+
+    /// <summary>
     ///     Proves that uninstalling discards an upgrade backup folder left by an interrupted upgrade so it cannot
     ///     resurrect the pack.
     /// </summary>

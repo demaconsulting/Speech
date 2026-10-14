@@ -32,9 +32,9 @@ exists so tests can exercise the caps with small limits:
    header declares, which a test with a forged header confirms).
 4. Fails when no voice clip was extracted (cancellation is checked again first, so an archive with no entries
    still reports cancellation). Emotion clips alone never satisfy this step.
-5. Deletes the archive and writes `pack.json` (id, name, license, license URL, attribution, source URL,
+5. Writes `pack.json` (id, name, license, license URL, attribution, source URL,
    archive URL and SHA-256, voice count, emotion clip count, variants: `["voices"]` or
-   `["voices","voices-emotion"]`).
+   `["voices","voices-emotion"]`) and only then deletes the archive, so a metadata failure or cancellation keeps it.
 
 **Error Handling**: A null pack throws `ArgumentNullException` and a null or empty staging directory throws
 `ArgumentException`. All archive problems are `InvalidDataException` (which the downloader classifies as
@@ -50,7 +50,8 @@ collide),
 an entry or total size over its cap, or no voices.
 A missing or unreadable staged archive is not converted: it surfaces as the `IOException` (for example
 `FileNotFoundException`) or `UnauthorizedAccessException` the file system reports. The staged archive is left
-in place when the install fails; only a successful extraction deletes it. Cancellation propagates as
+in place when the install fails or is canceled; only a fully successful install (extraction and metadata) deletes
+it. Cancellation propagates as
 `OperationCanceledException`. Because the archive is checksum-verified the
 caps are a second line of protection rather than the first.
 

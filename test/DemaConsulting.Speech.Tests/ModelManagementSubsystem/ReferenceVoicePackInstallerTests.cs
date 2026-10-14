@@ -559,8 +559,56 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
         var staging = Path.Join(_root, "staging");
         var archivePath = ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidDataException>(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, TestContext.Current.CancellationToken));
+        // Act
+        var exception = await Record.ExceptionAsync(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
+        Assert.True(File.Exists(archivePath));
+    }
+
+    /// <summary>
+    ///     Proves that a failure while writing the pack metadata keeps the staged archive (the archive is deleted only
+    ///     after the metadata was written).
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_MetadataWriteFails_KeepsArchive()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        var archivePath = ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+        Directory.CreateDirectory(Path.Join(staging, "pack.json"));
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotNull(exception);
+        Assert.IsNotType<OperationCanceledException>(exception);
+        Assert.True(File.Exists(archivePath));
+    }
+
+    /// <summary>
+    ///     Proves that a canceled install keeps the staged archive.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_CanceledToken_KeepsArchive()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        var archivePath = ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, cancellation.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
         Assert.True(File.Exists(archivePath));
     }
 

@@ -50,8 +50,9 @@ to `current.replaced-{operationId}` and best-effort deleted after the replacemen
   model's own `ISpeechModel.InstallAsync` hook, invoked by `SpeechModelDownloader` before this
   call; `SpeechModelStore` itself remains entirely `ISpeechModel`-agnostic - it promotes whatever
   is physically present in the staging directory, whether or not something unpacked it first.
-  The operation id must be a single valid directory-name segment and the staging directory must lie inside the
-  model's `.tmp` directory; otherwise `ArgumentException` is thrown before anything is touched.
+  The operation id must be a single valid directory-name segment and the staging directory must be exactly the
+  directory created for that operation (`.tmp/{operationId}` of the model); otherwise `ArgumentException` is thrown
+  before anything is touched, so one operation can never promote another operation's staging directory.
   After the swap it best-effort removes the now-empty `.tmp` root (a non-recursive delete, so another
   operation's staging directory keeps it alive and a failure is ignored). The manifest is written with a plain,
   non-atomic file write; that is safe because a partially written manifest is malformed and so reads as not installed.

@@ -175,6 +175,19 @@ A directory occupying the manifest path makes the manifest write fail after the 
 
 **Test**: `SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException`
 
+Path-traversal operation ids and a staging directory outside the store are rejected with `ArgumentException`
+and the installed content is unchanged.
+
+##### Install: Another Operation's Staging Directory Is Rejected
+
+**Test**: `SpeechModelStore_CompleteInstall_OtherOperationStaging_ThrowsArgumentExceptionAndTouchesNothing`
+
+**Test**: `SpeechModelStore_CompleteInstall_NestedStagingDescendant_ThrowsArgumentException`
+
+With two operations in progress for the same model, completing operation A with operation B's staging directory
+(or with a directory nested inside A's own staging directory) throws `ArgumentException` for `stagingDirectory`;
+both staging directories and the installed content are unchanged.
+
 ##### Staging: Concurrent Begin Creates Unique Empty Directories
 
 **Test**: `SpeechModelStore_BeginStaging_ConcurrentCalls_CreateUniqueEmptyDirectories`

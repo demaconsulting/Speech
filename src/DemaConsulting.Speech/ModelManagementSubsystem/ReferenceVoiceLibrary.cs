@@ -124,6 +124,12 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>Gets the absolute path of the <c>reference-voices</c> folder that holds packs and the user folder.</summary>
     public string RootPath { get; }
 
+    /// <summary>
+    ///     Gets or sets an optional callback invoked right after <see cref="UninstallPackAsync"/> acquires the per-pack
+    ///     lock (a test seam used to cancel the caller's token at that exact moment); <see langword="null"/> in production.
+    /// </summary>
+    internal Action? UninstallLockAcquired { get; set; }
+
     /// <summary>Gets the absolute path of the user folder (it may not exist yet; see <see cref="EnsureUserDirectory"/>).</summary>
     public string UserDirectory => Path.Join(RootPath, UserDirectoryName);
 
@@ -394,7 +400,22 @@ public sealed class ReferenceVoiceLibrary : IDisposable
             return;
         }
 
-        foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+        IEnumerable<string> backups;
+        try
+        {
+            backups = Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*").ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Recovery is best-effort: the next install retries it
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"Could not look for abandoned upgrade backups of reference voice pack '{packId}': {ex.Message}");
+            return;
+        }
+
+        foreach (var backup in backups)
         {
             if (Directory.Exists(_packStore.GetCurrentDirectory(packId)))
             {
@@ -499,7 +520,10 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _packStore.UninstallAsync(pack.Id, cancellationToken).ConfigureAwait(false);
+            UninstallLockAcquired?.Invoke();
+
+            // Cancellation only applies to the lock wait above; once the removal starts it runs to completion
+            await _packStore.UninstallAsync(pack.Id, CancellationToken.None).ConfigureAwait(false);
             _failed.TryRemove(pack.Id, out _);
 
             // An uninstall also discards any upgrade backup so it cannot resurrect the pack
@@ -515,12 +539,28 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     private void DeleteUpgradeBackups(string packId)
     {
         var modelDirectory = _packStore.GetModelDirectory(packId);
-        if (Directory.Exists(modelDirectory))
+        if (!Directory.Exists(modelDirectory))
         {
-            foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
-            {
-                TryDeleteDirectory(backup);
-            }
+            return;
+        }
+
+        List<string> backups;
+        try
+        {
+            backups = [.. Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*")];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"Could not look for upgrade backups of reference voice pack '{packId}': {ex.Message}");
+            return;
+        }
+
+        foreach (var backup in backups)
+        {
+            TryDeleteDirectory(backup);
         }
     }
 

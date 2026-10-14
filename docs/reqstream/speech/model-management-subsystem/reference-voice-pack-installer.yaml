@@ -101,11 +101,15 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-FailureKeepsArchive
                 title: >-
                   The ReferenceVoicePackInstaller shall leave the staged archive in place when the
-                  install fails.
+                  install fails or is canceled, including when the failure occurs after the clips
+                  were extracted.
                 justification: |
-                  Only a successful extraction makes the archive redundant.
+                  Only a fully successful install makes the archive redundant, so every failure or
+                  cancellation must leave it available for a retry.
                 tests:
                   - ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive
+                  - ReferenceVoicePackInstaller_Install_MetadataWriteFails_KeepsArchive
+                  - ReferenceVoicePackInstaller_Install_CanceledToken_KeepsArchive
 
               - id: Speech-Models-ReferenceVoicePackInstaller-MissingArchive
                 title: >-
