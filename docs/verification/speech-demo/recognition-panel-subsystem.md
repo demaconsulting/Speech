@@ -121,6 +121,14 @@ recorder has been disposed.
 **Expected**: The failure is contained and logged, no exception escapes, no further frames are
 written, and the file is finalized exactly once.
 
+#### CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking
+
+**Scenario** (error/backpressure): The writer blocks on its first frame while more frames arrive
+than the bounded queue can hold; the writer is released by a signal afterwards.
+
+**Expected**: Every capture callback returns without waiting, exactly the overflow frames are
+counted as dropped, and the frames that fit are written once the writer resumes.
+
 #### CaptureDebugRecorder_Dispose_WriterFinalizationThrows_IsContained
 
 **Scenario** (error): Finalizing the WAV output throws during disposal.

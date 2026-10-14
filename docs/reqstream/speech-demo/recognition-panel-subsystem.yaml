@@ -69,6 +69,10 @@ sections:
               - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
               - SpeechDemo-Recognition-DeviceChangeInvalidatesSession
               - SpeechDemo-Recognition-SessionSeamArgumentValidation
+              - SpeechDemo-Recognition-StaleStateAfterReplaceIgnored
+              - SpeechDemo-Recognition-StaleStateAfterDisposeIgnored
+              - SpeechDemo-Recognition-QueuedRefreshAfterDisposeIgnored
+              - SpeechDemo-Recognition-ModelSwitchDuringStartIgnored
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
 
@@ -83,6 +87,7 @@ sections:
               - SpeechDemo-Recognition-StopIdleSafe
               - SpeechDemo-Recognition-ConcurrentStopSafe
               - SpeechDemo-Recognition-LifecycleSerialized
+              - SpeechDemo-Recognition-StaleStateAfterStopIgnored
             tests:
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
@@ -137,6 +142,27 @@ sections:
               audio capture path must never receive an error from the diagnostic.
             tests:
               - CaptureDebugRecorder_FrameCallback_AfterDispose_IsDiscardedWithoutThrowing
+
+          - id: SpeechDemo-Recognition-CaptureDebugBoundedMemory
+            title: >-
+              The RecognitionPanelSubsystem shall keep the memory used for pending capture-debug
+              audio bounded, dropping the newest audio, when writing is slower than the audio
+              arrives.
+            justification: |
+              A stalled or slow disk must not let the diagnostic consume memory without limit;
+              the recording simply has a gap.
+            tests:
+              - CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking
+
+          - id: SpeechDemo-Recognition-CaptureDebugNeverDelaysCapture
+            title: >-
+              The RecognitionPanelSubsystem shall deliver captured audio to the recognizer
+              without waiting for the capture-debug recording to be written.
+            justification: |
+              A stalled or slow disk must never delay the audio capture path that live
+              recognition depends on.
+            tests:
+              - CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking
 
           - id: SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
             title: >-

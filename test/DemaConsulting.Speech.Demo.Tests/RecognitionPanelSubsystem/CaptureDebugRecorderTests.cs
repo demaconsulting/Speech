@@ -243,4 +243,58 @@ public class CaptureDebugRecorderTests
         Assert.Equal(1, writes);
         Assert.Equal(1, closeCalls);
     }
+
+    /// <summary>
+    ///     Regression test: when the writer stalls, the capture callback never waits, memory stays
+    ///     bounded by dropping the newest frames, and every dropped frame is counted.
+    /// </summary>
+    [Fact]
+    public async Task CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking()
+    {
+        // Arrange: a writer that blocks on its first frame, and a recorder with room for 3 queued frames
+        var device = FakeDevice();
+        var writerEntered = new ManualResetEventSlim(false);
+        var releaseWriter = new ManualResetEventSlim(false);
+        var written = 0;
+        var recorder = new CaptureDebugRecorder(
+            device,
+            _ =>
+            {
+                Interlocked.Increment(ref written);
+                writerEntered.Set();
+                releaseWriter.Wait(TimeSpan.FromSeconds(30));
+            },
+            () => { },
+            queueCapacity: 3,
+            drainTimeout: TimeSpan.FromSeconds(30));
+        void RaiseFrame() => device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
+            device, new AudioCaptureFrameEventArgs([0.1f]));
+        try
+        {
+            RaiseFrame();
+            Assert.True(writerEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+            // Act: capture 3 frames that fit and 4 more that do not, while the writer is stalled
+            var raiseAll = Task.Run(() =>
+            {
+                for (var index = 0; index < 7; index++)
+                {
+                    RaiseFrame();
+                }
+            }, TestContext.Current.CancellationToken);
+            var completedPromptly = await Task.WhenAny(raiseAll, Task.Delay(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)) == raiseAll;
+
+            // Assert: the callbacks returned without waiting, and exactly the overflow was dropped
+            Assert.True(completedPromptly);
+            Assert.Equal(4, recorder.DroppedFrameCount);
+        }
+        finally
+        {
+            releaseWriter.Set();
+            recorder.Dispose();
+        }
+
+        // Assert: the stalled frame and the 3 queued frames were written once the writer resumed
+        Assert.Equal(4, written);
+    }
 }

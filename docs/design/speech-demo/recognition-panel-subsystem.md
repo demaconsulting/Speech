@@ -68,7 +68,11 @@ event the real recognizer subscribes to, writing every captured frame - in the c
 own native sample rate and channel count, before any resampling the recognizer applies - to a
 session-scoped `.wav` file via `WavFileWriter`, on a dedicated writer thread fed by a
 producer/consumer queue so a slow or failing disk can never block or throw into the audio capture
-callback. The Stop algorithm finalizes (disposes) any active recording before clearing the
+callback. The queue is bounded (2000 frames by default, tens of seconds of typical capture
+frames): the capture callback never waits, and when the queue is full the newest frame is
+dropped and counted, with the total reported to the console when the recording is finalized.
+Memory use is therefore bounded and a stalled writer produces a gap in the recording instead of
+affecting listening. The Stop algorithm finalizes (disposes) any active recording before clearing the
 captured UI context. A recorder that fails to start (for example, an inaccessible directory)
 logs the failure to the console and live recognition proceeds completely unaffected.
 
@@ -89,5 +93,7 @@ logs the failure to the console and live recognition proceeds completely unaffec
 - _Finalization failure containment_: finalizing the WAV file (flush, header patch, close) can
   itself throw; that failure is caught and logged by both the writer thread and disposal, so it can
   neither escape the writer thread and terminate the process nor propagate out of `Dispose()`.
+- _Backpressure_: the bounded queue never blocks the producer; overflow frames are dropped and
+  counted rather than queued, so a stalled writer can neither delay capture nor grow memory.
 - _Start failure_: an inaccessible directory or invalid path is caught in `TryStart`, logged, and
   results in no recorder.
