@@ -4,8 +4,9 @@
 CI-safe `--validate` self-tests, reported as a pass/fail checklist covering native runtimes, the
 model store, audio devices and installed models.
 
-**Data Model**: The unit is a static class with no state. Each check prints lines tagged `[ OK ]`,
-`[INFO]` or `[FAIL]`, and the overall summary line reads `HEALTHY` or `UNHEALTHY`. The only value
+**Data Model**: The unit is a static class with no state. Each check result prints a line tagged
+`[ OK ]`, `[INFO]` or `[FAIL]`; the device and model count lines are plain informational lines without a tag.
+The overall summary line reads `HEALTHY` or `UNHEALTHY`. The only value
 carried between checks is the model-store writability flag, which alone decides the summary and the
 exit code.
 

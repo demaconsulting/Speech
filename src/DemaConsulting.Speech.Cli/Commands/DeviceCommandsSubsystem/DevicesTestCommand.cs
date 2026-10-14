@@ -327,7 +327,7 @@ internal static class DevicesTestCommand
     ///     <see cref="PlaybackDrainMarginSeconds"/> seconds).
     /// </param>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when the device still has queued samples after the total limit.
+    ///     Thrown when starting, writing or draining does not complete within the total limit.
     /// </exception>
     internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainLimit = null)
     {
@@ -343,8 +343,23 @@ internal static class DevicesTestCommand
 
         try
         {
-            device.Start();
-            device.Write(samples);
+            // Start and Write run on a worker task so a call that blocks inside the device cannot
+            // outlive the total limit; the caller waits for the worker only up to that limit.
+            var worker = Task.Run(() =>
+            {
+                device.Start();
+                device.Write(samples);
+            });
+
+            // The wait handle (rather than Task.Wait) is used so a faulted worker is not wrapped in an
+            // AggregateException before its original exception is rethrown below.
+            if (!((IAsyncResult)worker).AsyncWaitHandle.WaitOne(limit > TimeSpan.Zero ? limit : TimeSpan.Zero))
+            {
+                throw CreateTimeoutException();
+            }
+
+            // Surface the worker's original exception (not an AggregateException) when it faulted.
+            worker.GetAwaiter().GetResult();
 
             // Write is fire-and-forget: poll PendingSampleCount until the hardware has actually
             // consumed the queued tone, per IAudioPlaybackDevice's own documented contract. The wait
@@ -354,12 +369,17 @@ internal static class DevicesTestCommand
             {
                 if (totalClock.Elapsed > limit)
                 {
-                    throw new InvalidOperationException(
-                        "The playback device did not finish playing the test tone in time; " +
-                        "check that the output device is connected, enabled, and not stalled.");
+                    throw CreateTimeoutException();
                 }
 
                 Thread.Sleep(50);
+            }
+
+            // A slow Start or Write that returned late with nothing left queued is still a failure:
+            // success is never reported after the total limit has passed.
+            if (totalClock.Elapsed > limit)
+            {
+                throw CreateTimeoutException();
             }
         }
         finally
@@ -372,6 +392,15 @@ internal static class DevicesTestCommand
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
     }
+
+    /// <summary>
+    ///     Creates the error reported when the playback device exceeds the total time limit.
+    /// </summary>
+    /// <returns>The exception to throw.</returns>
+    private static InvalidOperationException CreateTimeoutException() =>
+        new(
+            "The playback device did not finish playing the test tone in time; " +
+            "check that the output device is connected, enabled, and not stalled.");
 
     /// <summary>
     ///     Records a short clip from the resolved capture device and reports basic statistics

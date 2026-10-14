@@ -39,16 +39,17 @@ device's volume. On a multi-channel device every channel of a frame carries the 
 mono device and each channel of a stereo device play an identical signal. The sample array holds
 `sampleRate * 2 * channelCount` interleaved samples.
 
-`PlayTestTone` starts the device, writes the whole tone and then polls `PendingSampleCount` every
-50 ms until the queue is empty, because `Write` is fire-and-forget. The wait is bounded by a total
-limit measured from before the device is started, so a slow start counts against it: when the caller
-passes no limit it is the 2-second tone duration plus a fixed
-5-second
-margin, **7 seconds in all**. If samples are still queued when the limit passes, the command throws
+`PlayTestTone` runs `Start` and `Write` on a worker task and waits for that task for no longer than the
+total limit, so a call that blocks inside the device cannot hang the command. It then polls
+`PendingSampleCount` every 50 ms until the queue is empty, because `Write` is fire-and-forget. The total
+limit is measured from before the device is started, so a slow start or write counts against it: when the
+caller passes no limit it is the 2-second tone duration plus a fixed 5-second margin, **7 seconds in all**.
+The limit is checked again after the queue empties, so success is never reported once it has passed.
+If the worker has not finished, samples are still queued, or the limit has passed, the command throws
 `InvalidOperationException` (a clean message and a non-zero exit code) rather than hanging on a
-stalled device. Tests pass a 1 ms limit so the stalled-device path completes instantly. ``Stop` runs
-in a `finally` block that also covers `Start`, so a stalled device, or one whose`Start` or write throws, is
-stopped before the exception reaches the caller. The
+stalled device. Tests pass short limits so the stalled-device paths complete quickly. `Stop` runs
+in a `finally` block that also covers `Start`, so a stalled device, or one whose `Start` or `Write` throws,
+is stopped before the exception reaches the caller. The
 report line states the tone duration and frequency, and the device's sample rate and channel count.
 
 **Input test.** The same name resolution and availability checks apply to the capture probe and

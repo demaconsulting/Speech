@@ -169,6 +169,13 @@ rejects a missing context, factory or device list.
 
 **Expected**: `ArgumentOutOfRangeException`.
 
+##### DevicesTestCommand_GenerateToneSamples_NonPositiveOtherArguments_ThrowsArgumentOutOfRangeException
+
+**Scenario**: A valid sample rate with a channel count of `0` or `-1`, a duration of `0` or `-1`, or a frequency of
+`0` or `-440` (six cases).
+
+**Expected**: `ArgumentOutOfRangeException` for each.
+
 ##### DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
 
 **Scenario**: `--device` names a device the fake playback probe does not enumerate, run through a
@@ -233,6 +240,20 @@ limit.
 
 **Expected**: `InvalidOperationException` ("did not finish...") and the device has been stopped. This fails if the limit
 is counted only from the drain wait, which is the regression it guards.
+
+##### DevicesTestCommand_PlayTestTone_WriteBlocksPastLimit_ThrowsInvalidOperationException
+
+**Scenario**: A fake device whose `Write` blocks until released by the test, with a 100 ms total limit.
+
+**Expected**: `InvalidOperationException` ("did not finish...") and the device has been stopped, proving a blocking
+`Write` cannot hang the command.
+
+##### DevicesTestCommand_PlayTestTone_SlowWriteWithEmptyQueue_ThrowsInvalidOperationException
+
+**Scenario**: A fake device whose `Write` sleeps 300 ms and whose queue is already empty, with a 50 ms total limit.
+
+**Expected**: `InvalidOperationException` ("did not finish...") and the device has been stopped, proving success is
+never reported after the limit has passed.
 
 ##### DevicesTestCommand_PlayTestTone_StartThrows_StillStopsDevice
 

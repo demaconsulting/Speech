@@ -3,7 +3,7 @@
 #
 # These requirements describe the subsystem-level behavior of the three device-related
 # subcommands (list-devices, devices test, doctor), decomposing the system-level requirement
-# SpeechCli-DeviceInspection in docs/reqstream/speech-cli.yaml.
+# SpeechCli-DeviceInspection and the `devices test` requirement SpeechCli-DeviceTest in docs/reqstream/speech-cli.yaml.
 #
 # Unit-level content lives in per-unit files under docs/reqstream/speech-cli/device-commands-subsystem/ -
 # one per command:
@@ -13,7 +13,8 @@
 #
 # The requirements below are the subsystem's own behavior: the commands taken together treat a
 # machine with no audio hardware as a normal condition rather than an error, and `devices test` plays
-# a tone for a known device and rejects an unknown one cleanly.
+# a tone for a known device (DevicesTestNormalAndError, whose ID is kept for stability) and rejects an
+# unknown one cleanly (DevicesTestUnknownDevice).
 
 sections:
   - title: SpeechCli Requirements
@@ -39,14 +40,22 @@ sections:
           - id: SpeechCli-DeviceCommands-DevicesTestNormalAndError
             title: >-
               The DeviceCommandsSubsystem shall play the test tone on a known playback device and report it when
-              `devices test` is invoked, and shall reject an unknown device name with a clean error naming the
-              device.
+              `devices test` is invoked.
             tags: [subsystem]
             justification: |
-              The test command is the operator's proof that audio works, so both its success path and its
-              mistyped-device failure path must behave predictably when the command's parts run together, with
-              no audio hardware needed.
+              The test command is the operator's proof that audio works, so its success path must behave
+              predictably when the command's parts run together, with no audio hardware needed.
             tests:
               - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+
+          - id: SpeechCli-DeviceCommands-DevicesTestUnknownDevice
+            title: >-
+              The DeviceCommandsSubsystem shall reject an unknown device name with a clean error naming the
+              device when `devices test` is invoked.
+            tags: [subsystem]
+            justification: |
+              A mistyped device name is the commonest operator error for the test command, so it must end
+              with a clear message instead of a stack trace, with no audio hardware needed.
+            tests:
               - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
               - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError

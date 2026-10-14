@@ -381,6 +381,32 @@ public sealed class DevicesTestCommandTests
     }
 
     /// <summary>
+    ///     Test that a non-positive channel count, duration or frequency is rejected.
+    /// </summary>
+    /// <param name="channelCount">The channel count to use.</param>
+    /// <param name="durationSeconds">The duration to use.</param>
+    /// <param name="frequencyHz">The frequency to use.</param>
+    [Theory]
+    [InlineData(0, 1.0, 440.0)]
+    [InlineData(-1, 1.0, 440.0)]
+    [InlineData(1, 0.0, 440.0)]
+    [InlineData(1, -1.0, 440.0)]
+    [InlineData(1, 1.0, 0.0)]
+    [InlineData(1, 1.0, -440.0)]
+    public void DevicesTestCommand_GenerateToneSamples_NonPositiveOtherArguments_ThrowsArgumentOutOfRangeException(
+        int channelCount, double durationSeconds, double frequencyHz)
+    {
+        // Arrange: valid sample rate with one non-positive argument
+        const int sampleRate = 48000;
+
+        // Act
+        void Act() => DevicesTestCommand.GenerateToneSamples(sampleRate, channelCount, durationSeconds, frequencyHz);
+
+        // Assert
+        Assert.Throws<ArgumentOutOfRangeException>(Act);
+    }
+
+    /// <summary>
     ///     Test that an unknown requested device throws a clean <see cref="ArgumentException"/>
     ///     before any device is created, using a real <see cref="AudioDeviceFactory"/> composed
     ///     over fake probes via its public constructor.
@@ -515,6 +541,54 @@ public sealed class DevicesTestCommandTests
         void Act() => DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(50));
 
         // Assert
+        var exception = Assert.Throws<InvalidOperationException>(Act);
+        Assert.Contains("did not finish", exception.Message);
+        Assert.True(device.Stopped);
+    }
+
+    /// <summary>
+    ///     Test that a <c>Write</c> that blocks past the total limit is reported as a failure instead of
+    ///     hanging the command, and the device is still stopped.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_WriteBlocksPastLimit_ThrowsInvalidOperationException()
+    {
+        // Arrange: a device whose Write blocks until released
+        var context = Context.Create(["devices", "test"]);
+        using var gate = new ManualResetEventSlim(false);
+        var device = new RecordingPlaybackDevice { WriteGate = gate };
+
+        try
+        {
+            // Act: play with a short total limit
+            void Act() => DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(100));
+
+            // Assert: the timeout error is raised and the device was stopped
+            var exception = Assert.Throws<InvalidOperationException>(Act);
+            Assert.Contains("did not finish", exception.Message);
+            Assert.True(device.Stopped);
+        }
+        finally
+        {
+            gate.Set();
+        }
+    }
+
+    /// <summary>
+    ///     Test that a slow <c>Write</c> followed by an empty queue is still a failure when it overruns the
+    ///     total limit, so success is never reported after the deadline.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_SlowWriteWithEmptyQueue_ThrowsInvalidOperationException()
+    {
+        // Arrange: a Write that sleeps past the limit and a queue that is already empty
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice { WriteDelay = TimeSpan.FromMilliseconds(300) };
+
+        // Act
+        void Act() => DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(50));
+
+        // Assert: no success is reported
         var exception = Assert.Throws<InvalidOperationException>(Act);
         Assert.Contains("did not finish", exception.Message);
         Assert.True(device.Stopped);
@@ -772,6 +846,15 @@ public sealed class DevicesTestCommandTests
         /// <summary>Gets or sets an exception thrown by <see cref="Write"/> when not <see langword="null"/>.</summary>
         public Exception? WriteException { get; set; }
 
+        /// <summary>Gets or sets how long <see cref="Write"/> blocks before returning.</summary>
+        public TimeSpan WriteDelay { get; set; }
+
+        /// <summary>
+        ///     Gets or sets a gate that <see cref="Write"/> waits on (up to 30 seconds) before returning,
+        ///     simulating a write that blocks until released; <see langword="null"/> means no gate.
+        /// </summary>
+        public ManualResetEventSlim? WriteGate { get; set; }
+
         /// <inheritdoc/>
         public void Start()
         {
@@ -794,6 +877,13 @@ public sealed class DevicesTestCommandTests
         /// <inheritdoc/>
         public void Write(IReadOnlyList<float> samples)
         {
+            if (WriteDelay > TimeSpan.Zero)
+            {
+                Thread.Sleep(WriteDelay);
+            }
+
+            WriteGate?.Wait(TimeSpan.FromSeconds(30));
+
             if (WriteException != null)
             {
                 throw WriteException;

@@ -132,7 +132,8 @@ sections:
                   The DevicesTestCommand shall fail the output test with a non-zero exit code
                   and a clear message, rather than hanging, when the playback device has not
                   finished playing the test tone within 7 seconds in total, counted from the start of
-                  the device (the 2-second tone duration plus a fixed 5-second margin).
+                  the device (the 2-second tone duration plus a fixed 5-second margin), including when
+                  starting or writing is the step that overruns.
                 tags: [unit]
                 justification: |
                   A stalled or disconnected output device must not leave a diagnostic command
@@ -142,6 +143,8 @@ sections:
                 tests:
                   - DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException
                   - DevicesTestCommand_PlayTestTone_SlowStartExceedsTotalLimit_ThrowsInvalidOperationException
+                  - DevicesTestCommand_PlayTestTone_WriteBlocksPastLimit_ThrowsInvalidOperationException
+                  - DevicesTestCommand_PlayTestTone_SlowWriteWithEmptyQueue_ThrowsInvalidOperationException
 
               - id: SpeechCli-DeviceCommands-DevicesTestDeviceStopped
                 title: >-

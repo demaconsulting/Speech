@@ -22,7 +22,7 @@ runs the built tool against an isolated `--models-dir`.
   depends on the environment rather than on a fake: it passes because the `org.k2fsa.sherpa.onnx`
   package unconditionally depends on every platform's runtime package, so the real native asset is
   transitively copied into the test project's output on every supported runner. If the asset is
-  absent on a runner, the test is skipped rather than failed.
+  not packaged for the runner's platform, the test is skipped rather than failed.
 
 #### Acceptance Criteria
 
@@ -71,7 +71,7 @@ store path, an empty store path and an extra argument are rejected.
 **Scenario**: A run through the real `TryProbeSherpaOnnxNativeLibrary`/`CheckNativeRuntimes` path.
 
 **Expected**: The `[ OK ]` SherpaOnnx line is present (see the native-library coupling above). The test is
-skipped, not failed, on a runner where the native asset is absent.
+skipped, not failed, on a runner where the native asset for the platform is not packaged.
 
 ##### DoctorCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
 

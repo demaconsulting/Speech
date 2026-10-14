@@ -33,6 +33,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
 [Collection("Sequential")]
 public sealed class DoctorCommandTests : IDisposable
 {
+    /// <summary>The unique, isolated temporary directory used as the model store root; deleted on disposal.</summary>
     private readonly string _tempDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>
@@ -144,11 +145,11 @@ public sealed class DoctorCommandTests : IDisposable
     [Fact]
     public void DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable()
     {
-        // Arrange: this test deliberately exercises the real native load path, which depends on the
-        // platform's runtime identifier being supported; on an unsupported platform it is skipped.
+        // Arrange: this test deliberately exercises the real native load path, which needs the native
+        // asset for this platform to be packaged next to the test binaries; otherwise it is skipped.
         Assert.SkipUnless(
-            DoctorCommand.ResolveRuntimeIdentifier() is not null,
-            "The current platform has no supported SherpaOnnx runtime identifier.");
+            DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(AppContext.BaseDirectory) is not null,
+            "The SherpaOnnx native asset is not packaged for this runtime identifier.");
         var context = Context.Create(["doctor"]);
         var catalog = new FakeCliModelCatalog();
 
