@@ -34,7 +34,8 @@ download and the post-install emotion check) and the `uninstall` call. In each c
 cancellation with `WriteError` and a non-zero exit code and returns; none of them escapes as an unhandled
 cancellation. An `OperationCanceledException` raised while the token is not canceled is not a user
 cancellation, so it propagates unchanged. For `uninstall` the token is observed only before the removal starts.
-The pack-id lookup before the `install` body is synchronous and cannot be canceled.
+The `packs` listing checks the token before it starts and before each pack, so a canceled run never prints
+a listing. The pack-id lookup before the `install` body is synchronous and cannot be canceled.
 
 **Error Handling**: A missing sub-action, an unknown sub-action, a missing pack id, an extra argument, or an
 unknown pack id is an `ArgumentException`. Argument-count errors carry parameter name `args`; the missing and

@@ -38,7 +38,9 @@ internal static class CliModelCatalogFactory
     ///     A new adapter composed against <see cref="Context.ModelsDir"/> when supplied, or the
     ///     library's default per-user model store root otherwise. Caller owns disposal.
     /// </returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/> is <see langword="null"/>.
+    /// </exception>
     public static SpeechModelCatalogAdapter Create(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);

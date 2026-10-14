@@ -144,6 +144,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     {
         UninstallCalls.Add(modelId);
         cancellationToken.ThrowIfCancellationRequested();
+        RequireKnownModel(modelId);
         if (UninstallException is not null)
         {
             return Task.FromException(UninstallException);
@@ -157,11 +158,23 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
         return Task.CompletedTask;
     }
 
+    /// <summary>Throws <see cref="ArgumentException"/> when <paramref name="modelId"/> is not a known model.</summary>
+    private void RequireKnownModel(string modelId)
+    {
+        if (!_descriptors.ContainsKey(modelId))
+        {
+            throw new ArgumentException(
+                $"'{modelId}' does not match any model in this catalog's known-model list.",
+                nameof(modelId));
+        }
+    }
+
     /// <inheritdoc/>
     public async Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken)
     {
         CleanUpLeftoversCalls.Add(modelId);
         cancellationToken.ThrowIfCancellationRequested();
+        RequireKnownModel(modelId);
         if (CleanUpBlocksUntilCanceled)
         {
             // Simulates a cleanup in flight: completes only when the token is canceled
@@ -288,17 +301,25 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <inheritdoc/>
     public SpeechModelState GetVoicePackState(string packId)
     {
+        RequireKnownPack(packId);
+
+        return PackStates.GetValueOrDefault(packId, SpeechModelState.NotDownloaded);
+    }
+
+    /// <summary>Throws <see cref="ArgumentException"/> when <paramref name="packId"/> is not a known pack.</summary>
+    private void RequireKnownPack(string packId)
+    {
         if (!VoicePacks.Any(pack => pack.Id == packId))
         {
             throw new ArgumentException($"'{packId}' is not a known reference-voice pack.", nameof(packId));
         }
-
-        return PackStates.GetValueOrDefault(packId, SpeechModelState.NotDownloaded);
     }
 
     /// <inheritdoc/>
     public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        RequireKnownPack(packId);
         if (HasEmotionsThrowsCanceled)
         {
             throw new OperationCanceledException(cancellationToken);
@@ -317,6 +338,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
         InstallPackCalls.Add(packId);
         InstallEmotionsCalls.Add(includeEmotions);
         cancellationToken.ThrowIfCancellationRequested();
+        RequireKnownPack(packId);
         OnInstallPack?.Invoke(progress);
         cancellationToken.ThrowIfCancellationRequested();
         if (InstallPackResult.Outcome == SpeechModelDownloadOutcome.Installed)
@@ -335,6 +357,8 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     public Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken)
     {
         UninstallPackCalls.Add(packId);
+        cancellationToken.ThrowIfCancellationRequested();
+        RequireKnownPack(packId);
         if (UninstallPackException is not null)
         {
             return Task.FromException(UninstallPackException);

@@ -126,6 +126,9 @@ internal static class VoicesCommand
     /// <summary>Writes the installable packs with their state, size, and license.</summary>
     private static async Task WritePacksAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
+        // Honor cancellation up front, so a canceled run never prints a listing and exits cleanly.
+        cancellationToken.ThrowIfCancellationRequested();
+
         var packs = catalog.VoicePacks;
         var idWidth = Math.Max("Id".Length, packs.Select(p => p.Id.Length).DefaultIfEmpty(0).Max());
         var rawStates = packs.Select(p => catalog.GetVoicePackState(p.Id)).ToList();
@@ -135,6 +138,7 @@ internal static class VoicesCommand
         context.WriteLine($"{"Id".PadRight(idWidth)}  {"State".PadRight(stateWidth)}  Download  Voices  +Emotions  License");
         for (var i = 0; i < packs.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var state = states[i];
             if (rawStates[i] == SpeechModelState.Downloaded)
             {

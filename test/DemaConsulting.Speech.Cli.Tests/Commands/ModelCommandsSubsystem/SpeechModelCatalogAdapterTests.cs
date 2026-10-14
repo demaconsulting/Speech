@@ -84,7 +84,9 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.Contains(descriptors, d => d.Id == SherpaOnnxZipformerEnRecognitionModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxKokoroEnglishSynthesisModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxNemotronMultilingualRecognitionModel.ModelId);
-        Assert.Contains(descriptors, d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal));
+        Assert.Contains(
+            descriptors,
+            d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal));
         Assert.All(descriptors, descriptor => Assert.Equal(SpeechModelState.NotDownloaded, descriptor.State));
     }
 
@@ -387,7 +389,8 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         using var adapter = CliModelCatalogFactory.Create(context);
 
         // Act
-        var result = await adapter.InstallVoicePackAsync(adapter.VoicePacks[0].Id, false, null, TestContext.Current.CancellationToken);
+        var result = await adapter.InstallVoicePackAsync(
+            adapter.VoicePacks[0].Id, false, null, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
@@ -433,7 +436,8 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     ///     (not a synthesis model).
     /// </summary>
     [Fact]
-    public async Task SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException()
+    public async Task
+        SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
@@ -451,7 +455,8 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     ///     null descriptor.
     /// </summary>
     [Fact]
-    public async Task SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException()
+    public async Task
+        SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });

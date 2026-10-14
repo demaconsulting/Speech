@@ -296,6 +296,24 @@ public sealed class VoicesCommandTests
     }
 
     /// <summary>
+    ///     Test that a canceled <c>voices packs</c> run with no installed pack (so no emotion query can
+    ///     observe the token) still reports cancellation instead of printing a listing and exiting 0.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_PacksCanceledWithNoInstalledPacks_ReportsErrorExitCode()
+    {
+        // Arrange: no pack is installed and the token is already canceled
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        var (output, exitCode) = await ExecuteAsync(["voices", "packs"], catalog, new CancellationToken(canceled: true));
+
+        // Assert: a failure exit code and no listing
+        Assert.Equal(1, exitCode);
+        Assert.DoesNotContain(PackId, output);
+    }
+
+    /// <summary>
     ///     Test that an <see cref="OperationCanceledException"/> not caused by Ctrl+C (the token is not
     ///     canceled) is not masked as a user cancellation.
     /// </summary>

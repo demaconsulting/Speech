@@ -57,6 +57,7 @@ sections:
                   calling script.
                 tests:
                   - VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode
+                  - VoicesCommand_RunAsync_PacksCanceledWithNoInstalledPacks_ReportsErrorExitCode
 
               - id: SpeechCli-ModelCommands-VoiceEmotionsSizes
                 title: >-

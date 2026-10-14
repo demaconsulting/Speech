@@ -62,6 +62,15 @@ model id.
 **Expected**: An `ArgumentException` with parameter name `descriptor` is thrown and its message contains the
 model id.
 
+##### FakeCliModelCatalog contract (FakeCliModelCatalogTests)
+
+**Scenario**: The shared test double is asked to uninstall or clean up an unknown model id, a known never-installed
+model, an unknown pack id (query, install, uninstall) and a known pack with an already-canceled token.
+
+**Expected**: Unknown model and pack ids raise `ArgumentException`; known never-installed items stay a no-op; a
+canceled token raises `OperationCanceledException` without changing pack state. These tests keep the double
+faithful to the seam contract the command tests depend on.
+
 ##### Enumeration, download refusal, never-installed no-op, voice and pack queries
 
 These requirements (`SpeechCli-ModelCommands-ModelEnumeration`, `-DownloadUnknownModelRefused`,

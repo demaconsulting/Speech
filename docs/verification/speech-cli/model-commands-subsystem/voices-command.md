@@ -46,6 +46,12 @@ are shown, with sizes labeled `MiB` and never `MB`.
 
 **Expected**: A "canceled" error is reported with exit code `1` and no exception escapes.
 
+##### VoicesCommand_RunAsync_PacksCanceledWithNoInstalledPacks_ReportsErrorExitCode
+
+**Scenario**: The token is already canceled and no pack is installed, so no per-pack state query observes it.
+
+**Expected**: A "canceled" error is reported with exit code `1` and no pack listing is printed.
+
 ##### VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
 
 **Scenario**: A pack is installed and progress is reported.

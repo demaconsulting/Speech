@@ -68,7 +68,7 @@ public sealed class UninstallCommandTests
     public async Task UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp()
     {
         // Arrange
-        var catalog = new FakeCliModelCatalog();
+        var catalog = new FakeCliModelCatalog().WithModel(new FakeSpeechModel("never-installed"), SpeechModelState.NotDownloaded);
         using var context = Context.Create(["uninstall", "never-installed"]);
 
         // Act
@@ -91,7 +91,7 @@ public sealed class UninstallCommandTests
         var catalog = new FakeCliModelCatalog
         {
             UninstallException = new SpeechModelStoreException("Failed to uninstall model 'model-1'."),
-        };
+        }.WithModel(new FakeSpeechModel("model-1"), SpeechModelState.Downloaded);
         using var context = Context.Create(["uninstall", "model-1"]);
 
         // Act & Assert

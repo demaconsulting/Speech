@@ -38,7 +38,7 @@ public sealed class CleanCommandTests
     public async Task CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess()
     {
         // Arrange
-        var catalog = new FakeCliModelCatalog();
+        var catalog = new FakeCliModelCatalog().WithModel(new FakeSpeechModel("model-1"), SpeechModelState.Downloaded);
         var originalOut = Console.Out;
         try
         {
@@ -100,7 +100,8 @@ public sealed class CleanCommandTests
     {
         // Arrange
         using var cancellation = new CancellationTokenSource();
-        var catalog = new FakeCliModelCatalog { CleanUpBlocksUntilCanceled = true };
+        var catalog = new FakeCliModelCatalog { CleanUpBlocksUntilCanceled = true }
+            .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.Downloaded);
         using var context = Context.Create(["clean", "model-1"]);
         var originalError = Console.Error;
         using var errorWriter = new StringWriter();
