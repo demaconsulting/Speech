@@ -107,7 +107,9 @@ pack's attribution is present) and, for the other model, `VoiceNoticeOtherModels
 
 #### SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
 
-**Scenario**: A required dependency is missing (error case for `DependencyValidation`).
+**Scenario**: A required dependency is missing (error case for `DependencyValidation`; the
+missing-model case, `ModelValidation`, is verified at unit level by
+`SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException`).
 
 **Expected**: An argument-null error is raised.
 

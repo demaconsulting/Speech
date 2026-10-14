@@ -68,15 +68,35 @@ sections:
                   that the wrong-role and invalid-input outcomes are exceptions to.
                 tests:
                   - SynthesizerSessionFactory_LoadAsync_SynthesisModel_ReturnsEngineForThatModel
+                  - SynthesizerSessionFactory_LoadAsync_SynthesisModelWithValues_ForwardsAppliedValues
 
               - id: SpeechDemo-Synthesis-SessionSeamInvalidParameter
                 title: >-
-                  The SynthesizerSessionFactory shall reject an invalid parameter value for a
-                  parameter the model declares with an invalid-argument error, which callers
-                  handle.
+                  The SynthesizerSessionFactory shall reject a numeric parameter value outside the
+                  range the model declares with an invalid-argument error.
                 justification: |
-                  An out-of-range, wrongly typed or non-offered value must be reported rather than
-                  silently producing a synthesizer that speaks with an unintended voice; the
-                  caller turns the error into an explained state for the user.
+                  An out-of-range value must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice; the caller turns the error
+                  into an explained state for the user.
                 tests:
-                  - SynthesizerSessionFactory_LoadAsync_InvalidParameters_PropagatesArgumentException
+                  - SynthesizerSessionFactory_LoadAsync_OutOfRangeParameter_PropagatesArgumentException
+
+              - id: SpeechDemo-Synthesis-SessionSeamWrongTypeParameter
+                title: >-
+                  The SynthesizerSessionFactory shall reject a parameter value of the wrong type
+                  for a parameter the model declares with an invalid-argument error.
+                justification: |
+                  A wrongly typed value must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_WrongTypeParameter_PropagatesArgumentException
+
+              - id: SpeechDemo-Synthesis-SessionSeamUnofferedChoice
+                title: >-
+                  The SynthesizerSessionFactory shall reject a choice value that the model does
+                  not offer for a choice parameter with an invalid-argument error.
+                justification: |
+                  A non-offered choice must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_UnofferedChoice_PropagatesArgumentException

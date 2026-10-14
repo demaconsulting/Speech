@@ -50,17 +50,26 @@ sections:
 
           - id: SpeechDemo-SynthesisPanel-DependencyValidation
             title: >-
-              The SynthesisPanelSubsystem shall reject a missing required dependency or a missing
-              model with an argument-null error.
+              The SynthesisPanelSubsystem shall reject a missing required dependency with an
+              argument-null error.
             justification: |
-              A missing dependency or input is a composition or caller mistake that must surface
-              at the call site instead of as a later, unrelated failure on the first Play.
+              A missing dependency is a composition mistake that must surface at the call site
+              instead of as a later, unrelated failure on the first Play.
             children:
               - SpeechDemo-Synthesis-DependencyValidation
               - SpeechDemo-Synthesis-SessionSeamArgumentValidation
-              - SpeechDemo-Synthesis-SessionSeamModelValidation
             tests:
               - SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+
+          - id: SpeechDemo-SynthesisPanel-ModelValidation
+            title: >-
+              The SynthesisPanelSubsystem shall reject a missing model with an argument-null
+              error.
+            justification: |
+              A missing model is a caller mistake that must surface at the call site instead of
+              as a later, unrelated failure on the first Play.
+            children:
+              - SpeechDemo-Synthesis-SessionSeamModelValidation
 
           - id: SpeechDemo-SynthesisPanel-LifecycleThroughSeams
             title: >-
@@ -120,6 +129,8 @@ sections:
             children:
               - SpeechDemo-Synthesis-SetupFaultReported
               - SpeechDemo-Synthesis-SessionSeamInvalidParameter
+              - SpeechDemo-Synthesis-SessionSeamWrongTypeParameter
+              - SpeechDemo-Synthesis-SessionSeamUnofferedChoice
             tests:
               - SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
 
@@ -172,11 +183,13 @@ sections:
 
           - id: SpeechDemo-SynthesisPanel-EngineSessionReuse
             title: >-
-              The SynthesisPanelSubsystem shall prepare the selected voice and open the playback
-              device only once across repeated Play calls while the model, its parameter values
-              and the playback device are unchanged.
+              The SynthesisPanelSubsystem shall speak repeated Play requests without a perceptible
+              reload delay while the selected model, its parameter values and the playback device
+              are unchanged.
             justification: |
-              Loading a model is the expensive step; replaying the same text must stay fast.
+              Loading a model is the expensive step; replaying the same text must stay fast. The
+              mechanism (one voice preparation and one device opening) is described in the design
+              and verified by the linked test.
             children:
               - SpeechDemo-Synthesis-EngineSessionReuse
               - SpeechDemo-Synthesis-SessionReuse
@@ -200,10 +213,10 @@ sections:
           - id: SpeechDemo-SynthesisPanel-DeviceChangeRespected
             title: >-
               The SynthesisPanelSubsystem shall speak the next Play through the newly selected
-              playback device after the playback device changes, without preparing the voice
-              again.
+              playback device after the playback device changes.
             justification: |
-              A device change must take effect on the next Play but must not cost a model reload.
+              A device change must take effect on the next Play. That it does not cost a model
+              reload is described in the design and verified by the linked test.
             children:
               - SpeechDemo-Synthesis-SessionRecreateOnDeviceChange
             tests:

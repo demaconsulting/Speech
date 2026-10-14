@@ -9,12 +9,11 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 /// <remarks>
 ///     The library exposes engine composition through the static
 ///     <see cref="SpeechSynthesizerFactory.LoadAsync(ISynthesisModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>
-///     method, which requires an <see cref="ISynthesisModel"/> - an interface whose members are
-///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
-///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract
-///     instead and performs the narrowing itself, which is what lets a demo test substitute a
-///     plain, publicly implementable fake model for every scenario (including "wrong role") with
-///     no <c>InternalsVisibleTo</c> grant from the library. This method also cannot be
+///     method, which requires an <see cref="ISynthesisModel"/>. This seam instead accepts the
+///     common <see cref="ISpeechModel"/> contract and performs the narrowing itself, which is
+///     what lets a demo test substitute a plain, publicly implementable fake model for every
+///     scenario (including "wrong role") without implementing the synthesis-specific members.
+///     This method also cannot be
 ///     substituted directly in a ViewModel unit test because it is static; the production
 ///     implementation supplies the shared <see cref="SpeechModelStore"/> itself and delegates
 ///     straight to that factory, which resolves the model's installed-files directory

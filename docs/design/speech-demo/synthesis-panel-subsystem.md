@@ -66,7 +66,9 @@ live inside `SynthesisPanelViewModel` unless noted:
   `DeviceChangeRespected`): the loaded engine and the created session are cached across Play
   calls. The next Play compares the selected model instance, the value bag (key/value) and the
   playback device with those the cache was built for, and reloads the engine or recreates only the
-  session as needed.
+  session as needed. While the model, value bag and playback device are unchanged, repeated Play
+  calls prepare the voice and open the playback device only once; a playback-device change
+  recreates the session through the newly selected device without preparing the voice again.
 - **Refresh** (`ExternalChangeHandling`, `ReferenceVoiceChangeHandling`,
   `ReferenceVoiceChoiceKept`): `ModelInstalled` (synthesis role only) and `ReferenceVoicesChanged`
   trigger a catalog re-read on the UI context. For a voice change the settings value bag is
@@ -83,8 +85,8 @@ live inside `SynthesisPanelViewModel` unless noted:
 - **Shutdown** (`ShutdownReleasesPlayback`, `ShutdownStopsCatalogReaction`): `DisposeAsync`
   unsubscribes from the catalog events, unregisters the pre-refresh hook, stops and awaits an
   in-flight Play, then releases the cached session and engine; every step is safe to repeat.
-- **Input validation** (`DependencyValidation`): the view model rejects a missing dependency at
-  construction, and the session factory rejects a missing store or model, each with an
+- **Input validation** (`DependencyValidation`, `ModelValidation`): the view model rejects a missing
+  dependency at construction, and the session factory rejects a missing store or model, each with an
   argument-null error.
 - **Synthesizer faults** (`SetupFaultReporting`): faults while preparing the voice or opening
   playback are converted to an error state with the fault message; this includes the

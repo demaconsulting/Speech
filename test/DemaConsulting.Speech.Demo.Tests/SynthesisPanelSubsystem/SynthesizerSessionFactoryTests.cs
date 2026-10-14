@@ -103,12 +103,11 @@ public class SynthesizerSessionFactoryTests
         var installed = store.GetCurrentDirectory(model.Id);
         Directory.CreateDirectory(installed);
         var factory = new SynthesizerSessionFactory(store);
-        IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["gain"] = 0.5 };
 
         // Act
-        var engine = await factory.LoadAsync(model, values, TestContext.Current.CancellationToken);
+        var engine = await factory.LoadAsync(model, null, TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert: a real engine composed from the installed directory of that model
         Assert.NotSame(UnavailableSpeechSynthesizerEngine.Instance, engine);
         Assert.True(engine.IsAvailable);
         Assert.Equal(installed, model.BackendDirectory);
@@ -116,16 +115,59 @@ public class SynthesizerSessionFactoryTests
     }
 
     /// <summary>
-    ///     Proves that LoadAsync rejects an invalid value for a declared parameter.
+    ///     Proves that LoadAsync forwards the supplied parameter values so they reach the model
+    ///     when speech is synthesized, using non-default values so a dropped bag is detectable.
     /// </summary>
     [Fact]
-    public async Task SynthesizerSessionFactory_LoadAsync_InvalidParameters_PropagatesArgumentException()
+    public async Task SynthesizerSessionFactory_LoadAsync_SynthesisModelWithValues_ForwardsAppliedValues()
     {
-        // Arrange
+        // Arrange: non-default values (gain default is 0.5, voice default is "a")
         var store = IsolatedStore();
         var model = new SynthesisModelDouble();
         Directory.CreateDirectory(store.GetCurrentDirectory(model.Id));
         var factory = new SynthesizerSessionFactory(store);
+        IReadOnlyDictionary<string, object> values = new Dictionary<string, object>
+        {
+            ["gain"] = 0.8,
+            ["voice"] = "b"
+        };
+
+        // Act
+        var engine = await factory.LoadAsync(model, values, TestContext.Current.CancellationToken);
+        await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
+
+        // Assert: the model resolved its speaker from the forwarded values and the backend used it
+        Assert.True(engine.IsAvailable);
+        Assert.NotNull(model.ReceivedValues);
+        Assert.Equal(0.8, model.ReceivedValues["gain"]);
+        Assert.Equal("b", model.ReceivedValues["voice"]);
+        Assert.Equal(1, model.Backend?.LastSpeakerId);
+        await engine.DisposeAsync();
+    }
+
+    /// <summary>
+    ///     Proves that LoadAsync rejects a value of the wrong type for a declared parameter.
+    /// </summary>
+    [Fact]
+    public async Task SynthesizerSessionFactory_LoadAsync_WrongTypeParameter_PropagatesArgumentException()
+    {
+        // Arrange
+        var factory = FactoryWithInstalledDouble(out var model);
+        IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["gain"] = "loud" };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => factory.LoadAsync(model, values, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that LoadAsync rejects a numeric value outside the declared range.
+    /// </summary>
+    [Fact]
+    public async Task SynthesizerSessionFactory_LoadAsync_OutOfRangeParameter_PropagatesArgumentException()
+    {
+        // Arrange
+        var factory = FactoryWithInstalledDouble(out var model);
         IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["gain"] = 99.0 };
 
         // Act & Assert
@@ -134,7 +176,36 @@ public class SynthesizerSessionFactoryTests
     }
 
     /// <summary>
-    ///     Deterministic public synthesis-role model double declaring one numeric parameter.
+    ///     Proves that LoadAsync rejects a choice value the parameter does not offer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesizerSessionFactory_LoadAsync_UnofferedChoice_PropagatesArgumentException()
+    {
+        // Arrange
+        var factory = FactoryWithInstalledDouble(out var model);
+        IReadOnlyDictionary<string, object> values = new Dictionary<string, object> { ["voice"] = "zzz" };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => factory.LoadAsync(model, values, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Builds a factory over an isolated store in which the synthesis model double is installed.
+    /// </summary>
+    /// <param name="model">The installed model double.</param>
+    /// <returns>The factory under test.</returns>
+    private static SynthesizerSessionFactory FactoryWithInstalledDouble(out SynthesisModelDouble model)
+    {
+        var store = IsolatedStore();
+        model = new SynthesisModelDouble();
+        Directory.CreateDirectory(store.GetCurrentDirectory(model.Id));
+        return new SynthesizerSessionFactory(store);
+    }
+
+    /// <summary>
+    ///     Deterministic public synthesis-role model double declaring one numeric and one choice
+    ///     parameter and recording what it is given.
     /// </summary>
     private sealed class SynthesisModelDouble : ISynthesisModel
     {
@@ -143,39 +214,80 @@ public class SynthesizerSessionFactoryTests
         /// <summary>Gets the directory the backend was created for.</summary>
         public string? BackendDirectory { get; private set; }
 
+        /// <summary>Gets the most recent backend created by this model.</summary>
+        public BackendDouble? Backend { get; private set; }
+
+        /// <summary>Gets the parameter value bag most recently passed to speaker resolution.</summary>
+        public IReadOnlyDictionary<string, object>? ReceivedValues { get; private set; }
+
+        /// <inheritdoc/>
         public string Id => _inner.Id;
 
+        /// <inheritdoc/>
         public string DisplayName => _inner.DisplayName;
 
+        /// <inheritdoc/>
         public SpeechModelRole Role => SpeechModelRole.Synthesis;
 
+        /// <inheritdoc/>
         public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
         [
-            new NumericParameter("gain", "Gain", "Output gain.", new NumericParameterBounds(0.0, 1.0, 0.1, 0.5))
+            new NumericParameter("gain", "Gain", "Output gain.", new NumericParameterBounds(0.0, 1.0, 0.1, 0.5)),
+            new ChoiceParameter(
+                "voice",
+                "Voice",
+                "Voice to speak with.",
+                [new ChoiceParameterOption("a", "Voice A"), new ChoiceParameterOption("b", "Voice B")],
+                "a")
         ];
 
+        /// <inheritdoc/>
         public SpeechModelAudioTagSupport AudioTagSupport => _inner.AudioTagSupport;
 
+        /// <inheritdoc/>
         public SpeechModelDownloadDescriptor DownloadDescriptor => _inner.DownloadDescriptor;
 
+        /// <inheritdoc/>
         public AudioFormat PreferredAudioFormat => AudioFormat.Mono(22050);
 
+        /// <inheritdoc/>
         public ISynthesisBackend CreateBackend(string installedModelDirectory)
         {
             BackendDirectory = installedModelDirectory;
-            return new BackendDouble();
+            Backend = new BackendDouble();
+            return Backend;
+        }
+
+        /// <inheritdoc/>
+        public int ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues)
+        {
+            ReceivedValues = parameterValues;
+            return parameterValues is not null && parameterValues.TryGetValue("voice", out var voice) &&
+                   Equals(voice, "b")
+                ? 1
+                : 0;
         }
     }
 
     /// <summary>
-    ///     Backend producing silence.
+    ///     Backend producing deterministic silence and recording the speaker it was asked for.
     /// </summary>
     private sealed class BackendDouble : ISynthesisBackend
     {
+        /// <summary>Gets the speaker id of the most recent generation request, or null if none.</summary>
+        public int? LastSpeakerId { get; private set; }
+
+        /// <inheritdoc/>
         public int SampleRate => 22050;
 
-        public BackendAudio Generate(string text, float speed, int speakerId) => new([0f], SampleRate);
+        /// <inheritdoc/>
+        public BackendAudio Generate(string text, float speed, int speakerId)
+        {
+            LastSpeakerId = speakerId;
+            return new BackendAudio([0f], SampleRate);
+        }
 
+        /// <inheritdoc/>
         public void Dispose()
         {
         }

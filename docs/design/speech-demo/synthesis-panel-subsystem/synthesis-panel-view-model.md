@@ -54,7 +54,8 @@ calls instead of recomposing them on every call.
   7. Clears the status message and awaits `session.SpeakAsync(Text, cancellationToken)`
   8. On success, `StateChanged` has already driven `State` back to `Idle`; on
      `OperationCanceledException` (from `StopCommand`), reports `StoppedMessage`; on
-     `SpeechSynthesizerUnavailableException`, enters `Error` with the exception's message; on
+     `SpeechSynthesizerUnavailableException`, enters `Error` with the exception's message and keeps
+     the session and engine cached (the next Play reuses them); on
      `SynthesisSessionFaultedException` (terminal for a session), releases the session so the
      next Play creates a fresh one against the still-cached engine, and reports the exception's
      message
@@ -160,9 +161,11 @@ outcome; the mechanisms that deliver them are described in this document:
   cached engine and session and their lazy comparison (see "Engine/session reuse").
 - _Freed resources on unavailable or faulted synthesizers_ (`UnavailableEngineReleased`,
   `UnavailableSessionReleased`, `SpeakFaultReleasesSession`, `SessionFaultRecovery`,
-  `StaleSessionEventIgnored`): the unusable engine or session is disposed and never cached, and
-  state events are accepted only from the current session (see "State derivation" and "Error
-  Handling").
+  `StaleSessionEventIgnored`): an engine or session that reports itself unavailable when it is
+  loaded or created is disposed and never cached (an unavailable session leaves the already-cached
+  engine in place); a session that faults while speaking is released; and state events are accepted
+  only from the current session (see "State derivation" and "Error Handling"). An unavailable
+  exception raised later, while speaking, is a different case: see the known limitations.
 - _Closing the panel_ (`ResourceLifetime`, `EngineLifetime`, `DisposeIdempotent`,
   `DisposeStopsPlayback`, `DisposeUnsubscribes`, `SynthesisRefreshAfterDispose`): the ordered,
   repeat-safe `DisposeAsync` sequence described under Key Methods.
@@ -201,8 +204,10 @@ _Known limitations_:
   honors it, and a Stop that arrives before `SpeakAsync` starts takes effect when `SpeakAsync`
   observes the already-canceled token.
 - `SynthesisSessionFaultedException` and `SpeechSynthesizerUnavailableException` differ in
-  handling: a fault releases the session, while an unavailable-synthesizer exception sets
-  `Error` but keeps the session cached.
+  handling: a fault releases the session, while an unavailable-synthesizer exception raised during
+  `SpeakAsync` sets `Error` with the exception's message but keeps the session and engine cached,
+  so the next Play reuses them and thereby retries. This differs deliberately from an engine or
+  session found unavailable at load or creation time, which is disposed and not cached.
 - A catalog refresh (`Refresh()`, including the one a voice-pack change or install triggers) is
   not deferred while a Play is in flight: it rebuilds `AvailableModels` and re-applies the selection
   and, for a voice change, the settings values, but leaves the running session and cached engine
