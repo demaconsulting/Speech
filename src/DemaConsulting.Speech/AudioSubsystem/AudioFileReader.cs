@@ -22,7 +22,7 @@ public static class AudioFileReader
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
     /// <returns>The decoded clip.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="path"/> is null or blank.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="AudioFileReadOptions.MaxSamples"/> is negative (reported as <c>options</c>, after the file-exists check).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <c>options.MaxSamples</c> is negative (after the file-exists check).</exception>
     /// <exception cref="FileNotFoundException">Thrown when no file exists at the path (a path naming a directory is reported the same way).</exception>
     /// <exception cref="InvalidDataException">Thrown when the file is not a well-formed WAV or FLAC file, or is too large.</exception>
     /// <exception cref="NotSupportedException">Thrown when a WAV file uses an unsupported encoding.</exception>

@@ -22,12 +22,21 @@ compiler-generated positional property would accept any value in a `with` expres
 
 **Key Methods**:
 
+- **FrameCount**: the number of whole frames, `Samples.Length / ChannelCount` with integer division.
+  Precondition: the clip is constructed, so `ChannelCount` is positive. Postcondition: the value is
+  never negative, is zero for an empty clip, and ignores any stray trailing samples.
+- **Duration**: the clip length in seconds as a `double`, `FrameCount` divided by `SampleRate`.
+  Precondition: the clip is constructed, so `SampleRate` is positive. Postcondition: the value is
+  never negative, is zero for an empty clip, and never throws.
 - **ToMono()**: down-mix by averaging channels through `AudioResampler.DownMix`; a mono clip
   yields a copy, and a NaN sample makes the mono frame that contains it NaN (incidental, not a
-  guaranteed contract)
+  guaranteed contract). Precondition: the clip is constructed. Postcondition: the result is a new
+  array of `FrameCount` samples and the clip is unchanged.
 - **ToPcm16()**: convert to signed 16-bit samples by scaling by 32768 and rounding to nearest
   (ties to even), clamping to [-32768, 32767] so +1.0 becomes 32767, and mapping NaN to zero. This
   algorithm is a design detail; the requirements state only the observable mapping and saturation.
+  Precondition: the clip is constructed. Postcondition: the result is a new array with one value
+  per entry of `Samples` (including stray trailing samples) and the clip is unchanged.
 
 **Error Handling**: The constructor and `with` expressions validate: `Samples` null throws
 `ArgumentNullException`; `SampleRate` or `ChannelCount` of zero or less throws
