@@ -376,59 +376,47 @@ public sealed class AudioFileReaderTests
         }
     }
 
-    /// <summary>Proves an oversized file is rejected from its length alone, naming the file.</summary>
+    /// <summary>
+    ///     Proves a valid, extremely incompressible FLAC (far more than five encoded bytes per decoded sample) that is
+    ///     within MaxSamples is decoded rather than rejected by an input-size bound.
+    /// </summary>
     [Fact]
-    public void AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding()
+    public void AudioFileReader_Read_IncompressibleFlacWithinMaxSamples_Decodes()
     {
-        // Arrange - with MaxSamples 0 the cap is the 1 MiB slack, so 2 MiB of zeros is over it
-        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
-        File.WriteAllBytes(path, new byte[2 << 20]);
-
-        try
-        {
-            // Act
-            var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(path, new AudioFileReadOptions { MaxSamples = 0 }));
-
-            // Assert
-            Assert.Contains("limit", ex.Message);
-            Assert.Contains(path, ex.Message);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
-    /// <summary>Proves a seekable stream over the byte cap is rejected from its length.</summary>
-    [Fact]
-    public void AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws()
-    {
-        // Arrange
-        var stream = new MemoryStream(new byte[2 << 20]);
-        var options = new AudioFileReadOptions { MaxSamples = 0 };
+        // Arrange: noise coded with a Rice parameter of zero, about a kilobyte per sample, well above 5 bytes per sample
+        const int count = 4096;
+        var random = new Random(1234);
+        var noise = Enumerable.Range(0, count).Select(_ => random.Next(-8000, 8000)).ToArray();
+        var flac = new TestFlacEncoder { Kind = FlacSubframeKind.Fixed, FixedOrder = 0, BlockSize = count, RiceParameter = 0 }
+            .Encode([noise]);
+        var options = new AudioFileReadOptions { MaxSamples = count };
 
         // Act
-        var error = Record.Exception(() => AudioFileReader.Read(stream, options));
+        var clip = AudioFileReader.Read(new MemoryStream(flac), options);
+
+        // Assert
+        Assert.True(flac.Length > (count * 5) + (1 << 20));
+        Assert.Equal(count, clip.Samples.Length);
+    }
+
+    /// <summary>Proves a valid FLAC holding more samples than MaxSamples is rejected during decoding.</summary>
+    [Fact]
+    public void AudioFileReader_Read_IncompressibleFlacOverMaxSamples_Throws()
+    {
+        // Arrange
+        const int count = 4096;
+        var random = new Random(1234);
+        var noise = Enumerable.Range(0, count).Select(_ => random.Next(-8000, 8000)).ToArray();
+        var flac = new TestFlacEncoder { Kind = FlacSubframeKind.Fixed, FixedOrder = 0, BlockSize = count, RiceParameter = 0 }
+            .Encode([noise]);
+        var options = new AudioFileReadOptions { MaxSamples = count - 1 };
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(flac), options));
 
         // Assert
         Assert.IsType<InvalidDataException>(error);
     }
-
-    /// <summary>Proves a non-seekable stream is read in bounded fashion and rejected once it passes the cap.</summary>
-    [Fact]
-    public void AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws()
-    {
-        // Arrange
-        var stream = new NonSeekableStream(new byte[2 << 20]);
-        var options = new AudioFileReadOptions { MaxSamples = 0 };
-
-        // Act
-        var error = Record.Exception(() => AudioFileReader.Read(stream, options));
-
-        // Assert
-        Assert.IsType<InvalidDataException>(error);
-    }
-
     /// <summary>Proves a seekable stream positioned past its end is rejected with <see cref="InvalidDataException"/> (no negative-length overflow).</summary>
     [Fact]
     public void AudioFileReader_Read_SeekableStreamPositionedPastEnd_ThrowsInvalidData()

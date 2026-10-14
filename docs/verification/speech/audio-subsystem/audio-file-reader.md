@@ -2,7 +2,7 @@
 
 #### Verification Approach
 
-Verified by `AudioFileReaderTests.cs` (container detection, errors, options, byte cap, mono read) under
+Verified by `AudioFileReaderTests.cs` (container detection, errors, options, input size limit, mono read) under
 `test/DemaConsulting.Speech.Tests/AudioSubsystem`. The libFLAC fixture comparison lives with the
 FlacDecoder unit.
 
@@ -14,9 +14,9 @@ FlacDecoder unit.
 #### Acceptance Criteria
 
 Containers are detected by content, errors map to the documented exceptions with the path in the
-message, an input over the byte cap is rejected before decoding (file, seekable stream and
-non-seekable stream), `VerifyChecksums` and `MaxSamples` are honored, `ReadMono` returns native-rate
-mono, a stream is read from its current position, and an I/O failure propagates unwrapped.
+message, an input larger than the largest array length is rejected before it is read, `VerifyChecksums`
+and `MaxSamples` are honored (including for a valid but poorly compressed FLAC), `ReadMono` returns
+native-rate mono, a stream is read from its current position, and an I/O failure propagates unwrapped.
 
 #### Test Scenarios
 
@@ -99,7 +99,7 @@ and with `VerifyChecksums = true`, and decodes with `VerifyChecksums = false`.
 
 **Test**: `AudioFileReader_Read_MaxSamples_LimitsDecodedSamples`
 
-**Expected**: With `MaxSamples = 100` the FLAC and WAV fixtures (well inside the byte cap) throw
+**Expected**: With `MaxSamples = 100` the FLAC and WAV fixtures throw
 `InvalidDataException` because they decode to more samples.
 
 ##### Unsupported WAV names the path
@@ -109,17 +109,18 @@ and with `VerifyChecksums = true`, and decodes with `VerifyChecksums = false`.
 **Expected**: A WAV with format tag 2 (ADPCM) throws `NotSupportedException` whose message contains
 the file path.
 
-##### Oversized input is rejected before decoding
+##### Incompressible FLAC within and over the sample limit
 
-**Tests**: `AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding`,
-`AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws`,
-`AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws`
+**Tests**: `AudioFileReader_Read_IncompressibleFlacWithinMaxSamples_Decodes`,
+`AudioFileReader_Read_IncompressibleFlacOverMaxSamples_Throws`
 
-**Expected**: With `MaxSamples = 0` the cap is the 1 MiB slack, so 2 MiB of zeros throws
-`InvalidDataException` from the length alone (file: message contains "limit" and the path; seekable
-stream: from its length; non-seekable stream: once the bounded read passes the cap).
+**Arrange**: A valid 4096-sample FLAC of noise Rice-coded with parameter 0 (about a kilobyte per
+sample, over 4 MB in total, far above five bytes per sample plus 1 MiB).
 
-##### Byte cap is clamped to the largest array length
+**Expected**: With `MaxSamples = 4096` it decodes to 4096 samples; with `MaxSamples = 4095` it throws
+`InvalidDataException`.
+
+##### Input larger than the largest array length is rejected
 
 **Test**: `AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength`
 
@@ -127,7 +128,7 @@ stream: from its length; non-seekable stream: once the bounded read passes the c
 `Array.MaxLength + 1` bytes throws `InvalidDataException` naming the `Array.MaxLength`-byte limit,
 without reading any data or allocating.
 
-##### Non-seekable stream within the cap decodes
+##### Non-seekable stream decodes
 
 **Test**: `AudioFileReader_Read_NonSeekableStream_Decodes`
 

@@ -74,6 +74,9 @@ public sealed class TestFlacEncoder
     /// <summary>Gets or sets a value indicating whether partitions are coded with the escape code.</summary>
     public bool EscapePartitions { get; set; }
 
+    /// <summary>Gets or sets a fixed Rice parameter to use for every partition, or <see langword="null"/> for the cheapest.</summary>
+    public int? RiceParameter { get; set; }
+
     /// <summary>Gets or sets the stereo coding for two-channel input.</summary>
     public FlacStereoMode Stereo { get; set; } = FlacStereoMode.Independent;
 
@@ -432,13 +435,13 @@ public sealed class TestFlacEncoder
             }
             else
             {
-                WriteRicePartition(writer, slice, parameterBits);
+                WriteRicePartition(writer, slice, parameterBits, RiceParameter);
             }
         }
     }
 
     /// <summary>Writes one Rice partition with the cheapest parameter.</summary>
-    private static void WriteRicePartition(TestBitWriter writer, long[] slice, int parameterBits)
+    private static void WriteRicePartition(TestBitWriter writer, long[] slice, int parameterBits, int? forcedParameter)
     {
         var folded = slice.Select(v => (ulong)((v << 1) ^ (v >> 63))).ToArray();
         var maxParameter = (1 << parameterBits) - 2;
@@ -454,6 +457,7 @@ public sealed class TestFlacEncoder
             }
         }
 
+        best = forcedParameter ?? best;
         writer.Write((ulong)best, parameterBits);
         foreach (var u in folded)
         {

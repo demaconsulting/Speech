@@ -9,13 +9,15 @@ only, so hosts and models can accept either format without a native decoder depe
 
 **Key Methods**:
 
-- **Read(path | stream, options)**: first bounds the input by a byte cap derived from `MaxSamples`
-  (five bytes per sample plus 1 MiB of slack, never above the maximum array length): a file is
-  rejected from the remaining length of the `FileStream` it opens (read-only, `FileShare.Read`), a
-  seekable stream from its remaining length (measured from its current position, never negative),
-  and a non-seekable stream is copied in chunks that stop as soon as the cap is exceeded, so an
-  oversized input is never fully read. The cap is an estimate, not an exact bound: the decoders
-  enforce the exact `MaxSamples` limit on the decoded sample count. A seekable stream positioned at
+- **Read(path | stream, options)**: first bounds the input by the maximum array length (the most
+  that can be held in memory): a file is rejected from the remaining length of the `FileStream` it
+  opens (read-only, `FileShare.Read`), a seekable stream from its remaining length (measured from
+  its current position, never negative), and a non-seekable stream is copied in chunks that stop as
+  soon as the limit is exceeded. No tighter input bound is derived from `MaxSamples`, because a
+  valid FLAC stream (Rice-coded residuals) has no upper bound on encoded bytes per decoded sample.
+  The decoders instead enforce the exact `MaxSamples` limit while decoding: `WavDecoder` before
+  allocating its output, and `FlacDecoder` on the declared total and then as each frame's samples
+  are appended, growing its output buffer in steps never beyond the cap. A seekable stream positioned at
   or past its end yields no bytes and is rejected by the container sniffing as neither WAV nor FLAC.
   Then reads all bytes, detects the container from its magic
   (`RIFF`/`WAVE`, or `fLaC` optionally behind an ID3v2 tag), and delegates to `WavDecoder` or

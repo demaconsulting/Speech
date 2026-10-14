@@ -101,9 +101,10 @@ public static class AudioFileReader
     }
 
     /// <summary>
-    ///     Derives the largest input size, in bytes, a file allowed to decode to <see cref="AudioFileReadOptions.MaxSamples"/>
-    ///     samples can have: at most five bytes per sample (32-bit PCM/float, or incompressible 32-bit FLAC with frame overhead) plus slack
-    ///     for headers, tags and frame overhead, capped at the largest array length.
+    ///     Validates the options and returns the largest input size, in bytes, that can be read into memory: the
+    ///     largest array length. Input size is deliberately not derived from
+    ///     <see cref="AudioFileReadOptions.MaxSamples"/>, because a valid FLAC stream has no upper bound on encoded
+    ///     bytes per decoded sample; the decoders enforce the sample cap while decoding instead.
     /// </summary>
     private static long GetMaxBytes(AudioFileReadOptions options)
     {
@@ -112,9 +113,7 @@ public static class AudioFileReader
             throw new ArgumentOutOfRangeException($"{nameof(options)}.{nameof(AudioFileReadOptions.MaxSamples)}", "MaxSamples must not be negative.");
         }
 
-        const long slack = 1L << 20;
-        var wanted = options.MaxSamples > (long.MaxValue - slack) / 5 ? long.MaxValue : (options.MaxSamples * 5) + slack;
-        return Math.Min(wanted, Array.MaxLength);
+        return Array.MaxLength;
     }
 
     /// <summary>Reads a stream to its end, failing as soon as more than <paramref name="maxBytes"/> bytes are seen.</summary>
@@ -128,7 +127,7 @@ public static class AudioFileReader
             var remaining = Math.Max(0, stream.Length - stream.Position);
             if (remaining > maxBytes)
             {
-                throw new InvalidDataException($"The stream holds {remaining} bytes, which exceeds the {maxBytes}-byte limit implied by MaxSamples.");
+                throw new InvalidDataException($"The stream holds {remaining} bytes, which exceeds the {maxBytes}-byte limit.");
             }
 
             var exact = new byte[remaining];
@@ -159,7 +158,7 @@ public static class AudioFileReader
         {
             if (buffer.Length + read > maxBytes)
             {
-                throw new InvalidDataException($"The stream exceeds the {maxBytes}-byte limit implied by MaxSamples.");
+                throw new InvalidDataException($"The stream exceeds the {maxBytes}-byte limit.");
             }
 
             buffer.Write(chunk, 0, read);

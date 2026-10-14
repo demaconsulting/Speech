@@ -118,7 +118,6 @@ sections:
                 tests:
                   - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
                   - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
-                  - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
 
               - id: Speech-Audio-AudioFileReader-NoPathForStreamFailures
                 title: >-
@@ -169,16 +168,13 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
-                  The AudioFileReader class shall reject an input larger than the byte cap, five
-                  bytes per permitted sample plus 1 MiB and never more than the largest array
-                  length, with InvalidDataException before decoding it.
+                  The AudioFileReader class shall reject an input larger than the largest array
+                  length with InvalidDataException before reading it into memory.
                 justification: |
-                  Hostile or accidental oversized inputs must fail with a bounded memory and time cost
-                  rather than exhausting the host.
+                  An input that cannot fit in memory must fail with a bounded cost rather than
+                  exhausting the host. No smaller input-size limit can be derived from the sample
+                  limit, because a valid FLAC stream has no upper bound on encoded bytes per sample.
                 tests:
-                  - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
-                  - AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws
-                  - AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws
                   - AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength
 
               - id: Speech-Audio-AudioFileReader-MaxSamples
@@ -186,10 +182,12 @@ sections:
                   The AudioFileReader class shall reject a file that decodes to more samples than the
                   configured maximum sample count with InvalidDataException.
                 justification: |
-                  The byte cap is only an estimate; the decoded sample count is the exact bound on
-                  memory use.
+                  The decoded sample count is the exact bound on memory use, and it must not reject
+                  a valid file, however poorly compressed, that stays within the limit.
                 tests:
                   - AudioFileReader_Read_MaxSamples_LimitsDecodedSamples
+                  - AudioFileReader_Read_IncompressibleFlacOverMaxSamples_Throws
+                  - AudioFileReader_Read_IncompressibleFlacWithinMaxSamples_Decodes
 
               - id: Speech-Audio-AudioFileReader-VerifyChecksums
                 title: >-
