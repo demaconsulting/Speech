@@ -250,6 +250,117 @@ public class SpeechDemoTests
     }
 
     /// <summary>
+    ///     Proves that the demo composed through its own composition root over an empty isolated
+    ///     model store offers all four panels and that refreshing each of them leaves the empty
+    ///     store honestly reported.
+    /// </summary>
+    [Fact]
+    public void SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh()
+    {
+        // Arrange: the application's composition root over an isolated, empty model store
+        var launchOptions = AppLaunchOptions.Parse(["--models-dir", IsolatedOptions().RootPathOverride!], _ => null);
+        var shell = App.Compose(launchOptions, out var catalogService);
+        using var disposable = catalogService;
+
+        // Act: refresh every panel the way their buttons do
+        var exception = Record.Exception(() =>
+        {
+            shell.DeviceSelection.RefreshCommand.Execute(null);
+            shell.ModelCatalog.RefreshCommand.Execute(null);
+            shell.Synthesis.RefreshCommand.Execute(null);
+            shell.Recognition.RefreshCommand.Execute(null);
+        });
+
+        // Assert: all four panels exist, refresh did not throw, and no model is installed
+        Assert.Null(exception);
+        Assert.NotNull(shell.DeviceSelection);
+        Assert.NotNull(shell.ModelCatalog);
+        Assert.NotNull(shell.Synthesis);
+        Assert.NotNull(shell.Recognition);
+        Assert.All(shell.ModelCatalog.Models, m => Assert.Equal(SpeechModelState.NotDownloaded, m.State));
+        Assert.False(shell.Synthesis.HasModels);
+        Assert.False(shell.Recognition.HasModels);
+    }
+
+    /// <summary>
+    ///     Proves that the device panel lists the available capture and playback devices and that
+    ///     choosing a listed device changes the selection used for capture and playback.
+    /// </summary>
+    [Fact]
+    public async Task SpeechDemo_SystemIntegration_DevicePanel_ListsDevicesAndSelectionChanges()
+    {
+        // Arrange: a demo over a device service offering named devices
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var microphoneA = new AudioDeviceDescription("Microphone A", AudioDeviceDirection.Capture, 1, 16000);
+        var microphoneB = new AudioDeviceDescription("Microphone B", AudioDeviceDirection.Capture, 1, 16000);
+        var speakerA = new AudioDeviceDescription("Speaker A", AudioDeviceDirection.Playback, 2, 44100);
+        var speakerB = new AudioDeviceDescription("Speaker B", AudioDeviceDirection.Playback, 2, 44100);
+        deviceService.EnumerateCaptureDevices().Returns([microphoneA, microphoneB]);
+        deviceService.EnumeratePlaybackDevices().Returns([speakerA, speakerB]);
+        var panel = new DeviceSelectionViewModel(deviceService);
+        await panel.RefreshAsync();
+        var defaultCapture = panel.CaptureSelection;
+        var defaultPlayback = panel.PlaybackSelection;
+
+        // Act: the user picks the second device in each direction
+        panel.SelectedCaptureDevice = microphoneB;
+        panel.SelectedPlaybackDevice = speakerB;
+
+        // Assert: every device is listed and the selections now differ from the defaults
+        Assert.Equal([microphoneA, microphoneB], panel.CaptureDevices);
+        Assert.Equal([speakerA, speakerB], panel.PlaybackDevices);
+        Assert.NotEqual(defaultCapture, panel.CaptureSelection);
+        Assert.NotEqual(defaultPlayback, panel.PlaybackSelection);
+        Assert.Contains("Microphone B", panel.CaptureSelection.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that the catalog panel shows each listed model's installation state.
+    /// </summary>
+    [Fact]
+    public void SpeechDemo_SystemIntegration_CatalogPanel_ShowsInstalledAndNotInstalledModels()
+    {
+        // Arrange / Act: compose over a catalog with one installed and one not-installed model
+        var shell = ComposeShell(FakeCatalog(
+            FakeSpeechModel.Descriptor("installed-model", SpeechModelState.Downloaded),
+            FakeSpeechModel.Descriptor("missing-model", SpeechModelState.NotDownloaded)));
+
+        // Assert: each row reports its own state
+        Assert.Equal(
+            SpeechModelState.Downloaded, shell.ModelCatalog.Models.Single(m => m.Id == "installed-model").State);
+        Assert.Equal(
+            SpeechModelState.NotDownloaded, shell.ModelCatalog.Models.Single(m => m.Id == "missing-model").State);
+    }
+
+    /// <summary>
+    ///     Proves that a mirror named in launch arguments, applied through the application's own
+    ///     composition root, reaches the catalog panel together with its credentials.
+    /// </summary>
+    [Fact]
+    public void SpeechDemo_SystemIntegration_MirrorRedirection_AppliesThroughComposition()
+    {
+        // Arrange: launch arguments naming a mirror with Basic credentials and an isolated store
+        var launch = AppLaunchOptions.Parse(
+            [
+                "--models-dir", IsolatedOptions().RootPathOverride!,
+                "--mirror-url", "https://mirror.example.com",
+                "--mirror-user", "alice",
+                "--mirror-password", "pw",
+            ],
+            _ => null);
+
+        // Act: compose through the application's own composition root
+        var shell = App.Compose(launch, out var catalogService);
+        using var disposable = catalogService;
+
+        // Assert: the mirror and credentials reached the catalog panel and resolve to library options
+        Assert.Equal("https://mirror.example.com", shell.ModelCatalog.MirrorUrl);
+        Assert.Equal("alice", shell.ModelCatalog.MirrorUser);
+        Assert.Equal("pw", shell.ModelCatalog.MirrorPassword);
+        Assert.Equal(new Uri("https://mirror.example.com"), launch.CreateDownloaderOptions()?.Mirror?.BaseUri);
+    }
+
+    /// <summary>
     ///     Builds a fully composed demo shell over a faked model-catalog service, a faked audio
     ///     device service offering one available capture and one available playback device, and
     ///     the supplied session factories, so system-level scenarios can drive the real view
