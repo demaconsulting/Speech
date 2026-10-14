@@ -97,10 +97,22 @@ internal sealed class ByteLevelBpeTokenizer
             var rank = 0;
             foreach (var merge in model.GetProperty("merges").EnumerateArray())
             {
-                var pair = merge.ValueKind == JsonValueKind.String
-                    ? (merge.GetString() ?? throw new InvalidDataException("A merge entry is null.")).Split(' ')
-                    : [merge[0].GetString() ?? throw new InvalidDataException("A merge entry is null."),
-                       merge[1].GetString() ?? throw new InvalidDataException("A merge entry is null.")];
+                // String-form entries split on a space; array-form entries must hold exactly two strings
+                string[] pair;
+                if (merge.ValueKind == JsonValueKind.String)
+                {
+                    pair = (merge.GetString() ?? throw new InvalidDataException("A merge entry is null.")).Split(' ');
+                }
+                else if (merge.ValueKind == JsonValueKind.Array && merge.GetArrayLength() == 2)
+                {
+                    pair = [merge[0].GetString() ?? throw new InvalidDataException("A merge entry is null."),
+                            merge[1].GetString() ?? throw new InvalidDataException("A merge entry is null.")];
+                }
+                else
+                {
+                    throw new InvalidDataException("A merge entry must contain exactly two pieces.");
+                }
+
                 if (pair.Length != 2)
                 {
                     throw new InvalidDataException("A merge entry must contain exactly two pieces.");

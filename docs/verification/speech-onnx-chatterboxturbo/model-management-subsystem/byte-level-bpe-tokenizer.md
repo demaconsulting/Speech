@@ -54,7 +54,7 @@ trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabular
 
 **Test**: `ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData`
 
-##### Malformed merges throw
+##### Malformed merges throw (including array entries without exactly two pieces)
 
 **Test**: `ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData`
 

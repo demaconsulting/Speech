@@ -230,6 +230,10 @@ public sealed class ByteLevelBpeTokenizerTests
     [InlineData("[null]")]
     [InlineData("[\"a\"]")]
     [InlineData("[[\"a\",null]]")]
+    [InlineData("[[\"a\",\"b\",\"c\"]]")]
+    [InlineData("[[\"a\"]]")]
+    [InlineData("[[]]")]
+    [InlineData("[5]")]
     public void ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData(string merges)
     {
         // Arrange

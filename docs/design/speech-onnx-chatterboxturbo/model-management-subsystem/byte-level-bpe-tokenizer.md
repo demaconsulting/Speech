@@ -25,7 +25,8 @@ is read-only, and a cache race only repeats deterministic work. The added-token 
   regex, map bytes to unicode, apply merges by rank, look up ids, and append the trailing ids
 
 **Error Handling**: `InvalidDataException` for a non-gzip stream, an invalid or empty tokenizer
-document (including null or malformed merge entries and null or empty added-token content) or an
+document (including null or malformed merge entries - an array merge entry must hold exactly two strings -
+and null or empty added-token content) or an
 end-of-text token that is not in the tokenizer when ids must be appended;
 `ArgumentNullException` for null arguments; `ArgumentOutOfRangeException` for a negative
 `trailingEndOfTextCount`; `InvalidOperationException` from `Encode` when a merged piece has no
