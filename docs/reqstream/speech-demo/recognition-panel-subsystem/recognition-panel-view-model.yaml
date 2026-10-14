@@ -389,3 +389,53 @@ sections:
                   A user must be able to pick another model after a failed attempt.
                 tests:
                   - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue
+
+              - id: SpeechDemo-Recognition-StaleStateAfterStopIgnored
+                title: >-
+                  The RecognitionPanelViewModel shall ignore a session state change that was still
+                  pending when that session was stopped.
+                justification: |
+                  A late notification must not overwrite the settled idle state of a stopped
+                  session with a stale listening or error state.
+                tests:
+                  - RecognitionPanelViewModel_QueuedStateChange_RunsAfterStop_IsIgnored
+
+              - id: SpeechDemo-Recognition-StaleStateAfterReplaceIgnored
+                title: >-
+                  The RecognitionPanelViewModel shall ignore a session state change that was still
+                  pending when a newer session replaced that session.
+                justification: |
+                  A notification for an earlier session must not change what the panel reports for
+                  the session the user is listening to now.
+                tests:
+                  - RecognitionPanelViewModel_QueuedStateChange_RunsAfterNewSessionStarted_IsIgnored
+
+              - id: SpeechDemo-Recognition-StaleStateAfterDisposeIgnored
+                title: >-
+                  The RecognitionPanelViewModel shall ignore a session state change that is still
+                  pending when the panel is disposed.
+                justification: |
+                  A disposed panel must not be changed by notifications that arrive afterwards.
+                tests:
+                  - RecognitionPanelViewModel_QueuedStateChange_RunsAfterDispose_IsIgnored
+
+              - id: SpeechDemo-Recognition-QueuedRefreshAfterDisposeIgnored
+                title: >-
+                  The RecognitionPanelViewModel shall ignore a model-list refresh that is still
+                  pending when the panel is disposed.
+                justification: |
+                  An install notification queued just before shutdown must not re-populate a
+                  disposed panel.
+                tests:
+                  - RecognitionPanelViewModel_QueuedRefresh_RunsAfterDispose_IsIgnored
+
+              - id: SpeechDemo-Recognition-ModelSwitchDuringStartIgnored
+                title: >-
+                  The RecognitionPanelViewModel shall ignore an attempt to change the selected
+                  model while a Start is still preparing, leaving the session that Start creates
+                  running.
+                justification: |
+                  A model change arriving between a Start reading the selection and finishing
+                  must not tear down the session it is about to begin.
+                tests:
+                  - RecognitionPanelViewModel_SelectedModelChanged_WhileStartInFlight_IsIgnoredAndSessionSurvives

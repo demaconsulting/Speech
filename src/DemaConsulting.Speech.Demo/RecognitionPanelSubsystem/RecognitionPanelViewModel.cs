@@ -145,6 +145,32 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     private SynchronizationContext? _uiContext;
 
     /// <summary>
+    ///     The generation of the session whose state changes are currently honored. Bumped
+    ///     whenever a session starts, stops, is released or the panel is disposed, so a
+    ///     state-change callback already queued for an earlier session (or raised after disposal)
+    ///     is recognized as stale and ignored instead of mutating the panel.
+    /// </summary>
+    private int _sessionGeneration;
+
+    /// <summary>
+    ///     The state-change handler subscribed to <see cref="_session"/> (it captures that
+    ///     session's generation), retained so exactly the same delegate can be unsubscribed.
+    /// </summary>
+    private EventHandler<SessionStateChangedEventArgs>? _sessionStateHandler;
+
+    /// <summary>
+    ///     Set once <see cref="DisposeAsync"/> begins; makes already-posted catalog refreshes and
+    ///     queued starts do nothing against a disposed panel.
+    /// </summary>
+    private volatile bool _disposed;
+
+    /// <summary>
+    ///     Set from the moment a Start is requested until it completes, so the model cannot be
+    ///     switched while the engine and session are still being prepared.
+    /// </summary>
+    private bool _startPending;
+
+    /// <summary>
     ///     The pre-refresh hook registered with <see cref="_deviceSelection"/>, retained so the
     ///     exact same delegate instance can be unregistered in <see cref="DisposeAsync"/>.
     /// </summary>
@@ -168,8 +194,9 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// <summary>
     ///     Gets or sets the model chosen to listen with, or <see langword="null"/> when none is
     ///     installed or none has been chosen. A change is ignored (the previous selection is kept)
-    ///     while a session is <see cref="RecognitionStreamingState.Listening"/>, so the model can
-    ///     never be switched mid-session whether or not the view disables the picker (see
+    ///     while a session is <see cref="RecognitionStreamingState.Listening"/> or a Start is in
+    ///     flight, so the model can never be switched mid-session or between a Start reading it and
+    ///     the engine it loads whether or not the view disables the picker (see
     ///     <see cref="CanChangeModel"/>).
     /// </summary>
     public ISpeechModel? SelectedModel
@@ -177,7 +204,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         get => _selectedModel;
         set
         {
-            if (State == RecognitionStreamingState.Listening)
+            if (State == RecognitionStreamingState.Listening || _startPending)
             {
                 return;
             }
@@ -247,11 +274,12 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     ///     Gets a value indicating whether the model-selection control may be changed right now.
     /// </summary>
     /// <remarks>
-    ///     <see langword="false"/> only while a session is actively <see cref="RecognitionStreamingState.Listening"/>,
-    ///     so a user cannot switch the recognition model mid-session; <see langword="true"/> at
+    ///     <see langword="false"/> only while a session is actively <see cref="RecognitionStreamingState.Listening"/>
+    ///     or a Start is still preparing its engine and session, so a user cannot switch the
+    ///     recognition model mid-session or mid-start; <see langword="true"/> at
     ///     <see cref="RecognitionStreamingState.Idle"/> and <see cref="RecognitionStreamingState.Error"/>.
     /// </remarks>
-    public bool CanChangeModel => State != RecognitionStreamingState.Listening;
+    public bool CanChangeModel => State != RecognitionStreamingState.Listening && !_startPending;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="RecognitionPanelViewModel"/> class and
@@ -352,12 +380,31 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
         try
         {
+            // The engine already matches the current selection (for example a selection that was
+            // reverted before this ran): nothing to invalidate, and a live session must survive.
+            if (_disposed || ReferenceEquals(_engineModel, _selectedModel))
+            {
+                return;
+            }
+
             await InvalidateEngineAsync().ConfigureAwait(true);
         }
         finally
         {
             _lifecycleGate.Release();
         }
+    }
+
+    /// <summary>
+    ///     Completes once every start, stop or invalidation requested before this call (including
+    ///     the fire-and-forget ones raised by a model or capture-device change) has finished.
+    ///     Lets tests wait deterministically instead of yielding or sleeping.
+    /// </summary>
+    /// <returns>A task that completes when the lifecycle gate has been acquired and released.</returns>
+    internal async Task WaitForPendingLifecycleAsync()
+    {
+        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        _lifecycleGate.Release();
     }
 
     /// <summary>
@@ -379,17 +426,18 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     ///     Marshals one <see cref="IRecognitionSession.StateChanged"/> event onto the UI thread and
     ///     applies <see cref="MapSessionState"/>.
     /// </summary>
-    /// <param name="sender">The raising session. Unused.</param>
+    /// <param name="generation">The generation of the session that raised the event.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
-    private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs e)
+    private void OnSessionStateChanged(int generation, SessionStateChangedEventArgs e)
     {
-        if (_uiContext is null)
+        var uiContext = _uiContext;
+        if (uiContext is null)
         {
-            ApplySessionStateChanged(e);
+            ApplySessionStateChanged(generation, e);
         }
         else
         {
-            _uiContext.Post(state => ApplySessionStateChanged((SessionStateChangedEventArgs)state!), e);
+            uiContext.Post(state => ApplySessionStateChanged(generation, (SessionStateChangedEventArgs)state!), e);
         }
     }
 
@@ -397,15 +445,52 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     ///     Applies one session state transition to <see cref="State"/>, additionally reporting
     ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
     /// </summary>
+    /// <param name="generation">The generation of the session that raised the event.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
-    private void ApplySessionStateChanged(SessionStateChangedEventArgs e)
+    /// <remarks>
+    ///     Ignored when the panel is disposed or when the session that raised the event is no
+    ///     longer the current one (it was stopped, released or replaced after the event was
+    ///     queued), so a late callback can never resurrect a stale Listening/Error state.
+    /// </remarks>
+    private void ApplySessionStateChanged(int generation, SessionStateChangedEventArgs e)
     {
-        State = MapSessionState(e.Current);
+        if (_disposed || generation != Volatile.Read(ref _sessionGeneration))
+        {
+            return;
+        }
 
-        if (e.Current == RecognitionSessionState.Faulted)
+        ApplySessionState(e.Current);
+    }
+
+    /// <summary>
+    ///     Applies one session state to <see cref="State"/>, additionally reporting
+    ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
+    /// </summary>
+    /// <param name="sessionState">The session state to apply.</param>
+    private void ApplySessionState(RecognitionSessionState sessionState)
+    {
+        State = MapSessionState(sessionState);
+
+        if (sessionState == RecognitionSessionState.Faulted)
         {
             StatusMessage = SessionFaultedMessage;
         }
+    }
+
+    /// <summary>
+    ///     Unsubscribes the state-change handler from <paramref name="session"/> and invalidates
+    ///     its generation, so any callback already queued for it is ignored.
+    /// </summary>
+    /// <param name="session">The session whose handler to detach.</param>
+    private void DetachSessionStateHandler(IRecognitionSession session)
+    {
+        if (_sessionStateHandler is not null)
+        {
+            session.StateChanged -= _sessionStateHandler;
+            _sessionStateHandler = null;
+        }
+
+        Interlocked.Increment(ref _sessionGeneration);
     }
 
     /// <summary>
@@ -422,7 +507,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
             return;
         }
 
-        session.StateChanged -= OnSessionStateChanged;
+        DetachSessionStateHandler(session);
 
         if (_pumpCancellation is not null)
         {
@@ -476,6 +561,11 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     [RelayCommand]
     public void Refresh()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         var previousId = SelectedModel?.Id;
 
         AvailableModels.Clear();
@@ -514,20 +604,41 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
-        await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+        SetStartPending(true);
         try
         {
-            await StartCoreAsync().ConfigureAwait(true);
+            await _lifecycleGate.WaitAsync(CancellationToken.None).ConfigureAwait(true);
+            try
+            {
+                await StartCoreAsync().ConfigureAwait(true);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
         }
         finally
         {
-            _lifecycleGate.Release();
+            SetStartPending(false);
         }
+    }
+
+    /// <summary>Updates <see cref="_startPending"/> and notifies the model-picker availability.</summary>
+    /// <param name="value">The new value.</param>
+    private void SetStartPending(bool value)
+    {
+        _startPending = value;
+        OnPropertyChanged(nameof(CanChangeModel));
     }
 
     /// <summary>The body of <see cref="StartAsync"/>; runs with <see cref="_lifecycleGate"/> held.</summary>
     private async Task StartCoreAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         var selectedModel = SelectedModel;
         if (selectedModel is null)
         {
@@ -585,7 +696,9 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         StatusMessage = null;
 
         _uiContext = SynchronizationContext.Current;
-        session.StateChanged += OnSessionStateChanged;
+        var generation = Interlocked.Increment(ref _sessionGeneration);
+        _sessionStateHandler = (_, e) => OnSessionStateChanged(generation, e);
+        session.StateChanged += _sessionStateHandler;
 
         // TEMPORARY diagnostic instrumentation: an independent tap on the same capture device,
         // used only when DEMASPEECH_CAPTURE_DEBUG_DIR is set (see CaptureDebugRecorder), for
@@ -602,7 +715,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
             _captureDebugRecorder?.Dispose();
             _captureDebugRecorder = null;
 
-            session.StateChanged -= OnSessionStateChanged;
+            DetachSessionStateHandler(session);
             await session.DisposeAsync().ConfigureAwait(true);
             _uiContext = null;
 
@@ -664,6 +777,11 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         // (if one was started) so its .wav header is patched and the file is closed
         _captureDebugRecorder?.Dispose();
         _captureDebugRecorder = null;
+
+        // Apply the session's final state directly, then invalidate its generation so any state
+        // callback still queued for it cannot overwrite the settled state afterwards.
+        ApplySessionState(session.State);
+        Interlocked.Increment(ref _sessionGeneration);
 
         _uiContext = null;
 
@@ -778,7 +896,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         }
         else
         {
-            _catalogEventUiContext.Post(_ => Refresh(), null);
+            _catalogEventUiContext.Post(_ => Refresh(), null); // Refresh ignores a disposed panel.
         }
     }
 
@@ -789,6 +907,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         _catalogService.ModelInstalled -= OnModelInstalled;
         _deviceSelection.PropertyChanged -= OnDeviceSelectionChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);

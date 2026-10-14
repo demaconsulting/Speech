@@ -264,6 +264,42 @@ after `Stop()`.
 **Expected**: `CanChangeModel` is `true`, since `Error` is not `Listening` and a user must be
 able to pick a different model after a failed attempt.
 
+##### RecognitionPanelViewModel_QueuedStateChange_RunsAfterStop_IsIgnored
+
+**Scenario**: While a session is listening, a `Faulted` state change is raised but still queued on
+the UI context; the session is stopped; then the queued callback runs.
+
+**Expected**: The panel stays `Idle` with the stopped message.
+
+##### RecognitionPanelViewModel_QueuedStateChange_RunsAfterNewSessionStarted_IsIgnored
+
+**Scenario**: A `Faulted` state change from the first session is queued; that session is stopped
+and a second session is started; then the queued callback runs.
+
+**Expected**: The panel is still `Listening` for the second session with no status message.
+
+##### RecognitionPanelViewModel_QueuedStateChange_RunsAfterDispose_IsIgnored
+
+**Scenario**: A `Faulted` state change is queued while listening; the panel is disposed; then the
+queued callback runs.
+
+**Expected**: The panel does not enter `Error` and reports no fault message.
+
+##### RecognitionPanelViewModel_QueuedRefresh_RunsAfterDispose_IsIgnored
+
+**Scenario**: A matching-role install event posts a refresh to the UI context; the panel is
+disposed; then the posted refresh runs.
+
+**Expected**: The disposed panel does not pick up the newly installed model.
+
+##### RecognitionPanelViewModel_SelectedModelChanged_WhileStartInFlight_IsIgnoredAndSessionSurvives
+
+**Scenario**: A Start is held while its engine loads (released by a completion signal); the other
+model is selected; the engine load is then released.
+
+**Expected**: The selection is ignored, `CanChangeModel` was `false` during the Start, and the
+session is `Listening` with neither the engine nor the session disposed.
+
 ### Accepted Gaps
 
 The pre-refresh hook's removal on disposal and the unsubscription from the shared

@@ -599,7 +599,7 @@ public class RecognitionPanelViewModelTests
 
         // Act: pick the other installed model while idle
         viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
-        await Task.Yield();
+        await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the engine cached for the previous model was disposed
         Assert.Equal(1, engine.DisposeCallCount);
@@ -629,7 +629,7 @@ public class RecognitionPanelViewModelTests
         // Act: pick the other installed model while still listening (bypassing the view's
         // disabled picker, e.g. a direct property set)
         viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
-        await Task.Yield();
+        await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the selection is unchanged and the session was neither stopped nor released
         Assert.Equal("stt-a", viewModel.SelectedModel?.Id);
@@ -689,11 +689,13 @@ public class RecognitionPanelViewModelTests
 
         // Act
         var stop = viewModel.StopCommand.ExecuteAsync(null);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         deviceSelection.SelectedCaptureDevice = deviceB;
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        // The device-change handler has already queued on the lifecycle gate behind the Stop in flight
+        var pendingLifecycle = viewModel.WaitForPendingLifecycleAsync();
         release.SetResult();
-        await stop.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await stop.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await pendingLifecycle.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         await viewModel.DisposeAsync();
 
         // Assert
@@ -701,6 +703,238 @@ public class RecognitionPanelViewModelTests
         Assert.False(disposedWhileStopping);
     }
 
+    /// <summary>
+    ///     Test-only context that runs posted callbacks inline until deferral is switched on, then
+    ///     queues them until <see cref="RunPending"/>, letting a test hold a state-change callback
+    ///     "in flight" exactly as a real UI message queue would.
+    /// </summary>
+    private sealed class DeferrableSynchronizationContext : SynchronizationContext
+    {
+        /// <summary>The callbacks queued while <see cref="Deferring"/> was set.</summary>
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> _pending = new();
+
+        /// <summary>Gets or sets a value indicating whether posted callbacks are queued instead of run.</summary>
+        public bool Deferring { get; set; }
+
+        /// <inheritdoc/>
+        public override void Post(SendOrPostCallback d, object? state)
+        {
+            if (Deferring)
+            {
+                _pending.Enqueue((d, state));
+            }
+            else
+            {
+                d(state);
+            }
+        }
+
+        /// <summary>Runs every queued callback in order.</summary>
+        public void RunPending()
+        {
+            while (_pending.TryDequeue(out var item))
+            {
+                item.Callback(item.State);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Builds a started panel whose UI context is a <see cref="DeferrableSynchronizationContext"/>
+    ///     and whose engine hands out the supplied sessions in order.
+    /// </summary>
+    /// <param name="context">The context to install while starting.</param>
+    /// <param name="engine">The engine to start through.</param>
+    /// <returns>The started panel.</returns>
+    private static async Task<RecognitionPanelViewModel> StartedPanelAsync(
+        DeferrableSynchronizationContext context,
+        FakeSpeechRecognizerEngine engine)
+    {
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        SynchronizationContext.SetSynchronizationContext(context);
+        await viewModel.StartCommand.ExecuteAsync(null);
+        return viewModel;
+    }
+
+    /// <summary>
+    ///     Regression test: a state-change callback queued while a session was listening, but run only
+    ///     after that session was stopped, must not overwrite the settled state.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_QueuedStateChange_RunsAfterStop_IsIgnored()
+    {
+        // Arrange: a listening session with a Faulted notification still queued on the UI context
+        var previous = SynchronizationContext.Current;
+        var context = new DeferrableSynchronizationContext();
+        try
+        {
+            var engine = new FakeSpeechRecognizerEngine();
+            var viewModel = await StartedPanelAsync(context, engine);
+            context.Deferring = true;
+            engine.CreatedSessions.Single().RaiseStateChanged(RecognitionSessionState.Faulted);
+            context.Deferring = false;
+
+            // Act: stop the session, then let the stale notification run
+            await viewModel.StopCommand.ExecuteAsync(null);
+            context.RunPending();
+
+            // Assert: the panel stays idle with the stopped message
+            Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
+            Assert.Equal(RecognitionPanelViewModel.StoppedMessage, viewModel.StatusMessage);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: a state-change callback queued for an earlier session must not affect a
+    ///     newer session that replaced it.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_QueuedStateChange_RunsAfterNewSessionStarted_IsIgnored()
+    {
+        // Arrange: a first session with a Faulted notification still queued
+        var previous = SynchronizationContext.Current;
+        var context = new DeferrableSynchronizationContext();
+        try
+        {
+            var engine = new FakeSpeechRecognizerEngine();
+            var viewModel = await StartedPanelAsync(context, engine);
+            context.Deferring = true;
+            engine.CreatedSessions[0].RaiseStateChanged(RecognitionSessionState.Faulted);
+            context.Deferring = false;
+            await viewModel.StopCommand.ExecuteAsync(null);
+
+            // Act: start a second session, then let the stale notification run
+            await viewModel.StartCommand.ExecuteAsync(null);
+            context.RunPending();
+
+            // Assert: the second session is still listening with no error message
+            Assert.Equal(2, engine.CreatedSessions.Count);
+            Assert.Equal(RecognitionStreamingState.Listening, viewModel.State);
+            Assert.Null(viewModel.StatusMessage);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: a state-change callback still queued when the panel is disposed must not
+    ///     mutate the disposed panel.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_QueuedStateChange_RunsAfterDispose_IsIgnored()
+    {
+        // Arrange: a listening session with a Faulted notification still queued
+        var previous = SynchronizationContext.Current;
+        var context = new DeferrableSynchronizationContext();
+        try
+        {
+            var engine = new FakeSpeechRecognizerEngine();
+            var viewModel = await StartedPanelAsync(context, engine);
+            context.Deferring = true;
+            engine.CreatedSessions.Single().RaiseStateChanged(RecognitionSessionState.Faulted);
+            context.Deferring = false;
+
+            // Act: dispose the panel, then let the stale notification run
+            await viewModel.DisposeAsync();
+            context.RunPending();
+
+            // Assert: the panel did not switch to the error state
+            Assert.NotEqual(RecognitionStreamingState.Error, viewModel.State);
+            Assert.NotEqual(RecognitionPanelViewModel.SessionFaultedMessage, viewModel.StatusMessage);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: a catalog refresh already queued on the UI context when the panel is
+    ///     disposed must not change the disposed panel.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_QueuedRefresh_RunsAfterDispose_IsIgnored()
+    {
+        // Arrange: a panel built on a deferring context, over a catalog with no models yet
+        var previous = SynchronizationContext.Current;
+        var context = new DeferrableSynchronizationContext();
+        try
+        {
+            var catalog = Substitute.For<IModelCatalogService>();
+            var descriptors = Array.Empty<SpeechModelDescriptor>();
+            catalog.Enumerate().Returns(_ => descriptors);
+            SynchronizationContext.SetSynchronizationContext(context);
+            var viewModel = new RecognitionPanelViewModel(
+                catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+                Substitute.For<IRecognizerSessionFactory>());
+            context.Deferring = true;
+            descriptors = [FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition)];
+            catalog.ModelInstalled += Raise.Event<EventHandler<ModelInstalledEventArgs>>(
+                catalog, new ModelInstalledEventArgs("stt", SpeechModelRole.Recognition));
+
+            // Act: dispose the panel, then let the queued refresh run
+            await viewModel.DisposeAsync();
+            context.RunPending();
+
+            // Assert: the disposed panel did not pick up the model
+            Assert.False(viewModel.HasModels);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: choosing another model while a Start is still preparing its engine is ignored,
+    ///     so the new session is never torn down by the stale selection.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_SelectedModelChanged_WhileStartInFlight_IsIgnoredAndSessionSurvives()
+    {
+        // Arrange: two models, and an engine load that is held until the test releases it
+        var firstDescriptor = FakeSpeechModel.Descriptor("stt-a", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var secondDescriptor = FakeSpeechModel.Descriptor("stt-b", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var engine = new FakeSpeechRecognizerEngine();
+        var loadRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLoad = new TaskCompletionSource<ISpeechRecognizerEngine>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var factory = Substitute.For<IRecognizerSessionFactory>();
+        factory.LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            loadRequested.TrySetResult();
+            return releaseLoad.Task;
+        });
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(firstDescriptor, secondDescriptor), deviceService, DeviceSelection(), factory);
+        var start = viewModel.StartCommand.ExecuteAsync(null);
+        await loadRequested.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Act: pick the other model mid-start, then let the start finish
+        viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
+        var canChangeModelDuringStart = viewModel.CanChangeModel;
+        releaseLoad.SetResult(engine);
+        await start.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Assert: the selection was ignored and the new session is still alive on its engine
+        Assert.False(canChangeModelDuringStart);
+        Assert.Equal("stt-a", viewModel.SelectedModel?.Id);
+        Assert.Equal(RecognitionStreamingState.Listening, viewModel.State);
+        Assert.Equal(0, engine.DisposeCallCount);
+        Assert.Equal(0, engine.CreatedSessions.Single().DisposeCallCount);
+    }
     /// <summary>
     ///     Builds an asynchronous sequence that ends immediately, standing in for a result stream with no results.
     /// </summary>
@@ -737,7 +971,7 @@ public class RecognitionPanelViewModelTests
 
         // Act: pick the other capture device while idle
         deviceSelection.SelectedCaptureDevice = deviceB;
-        await Task.Yield();
+        await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the session cached for the previous device was disposed, but the engine was
         // never reloaded
@@ -773,7 +1007,7 @@ public class RecognitionPanelViewModelTests
 
         // Act: pick the other capture device while still listening
         deviceSelection.SelectedCaptureDevice = deviceB;
-        await Task.Yield();
+        await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the active session was stopped and released, but the engine persists
         Assert.Equal(1, session.StopCallCount);

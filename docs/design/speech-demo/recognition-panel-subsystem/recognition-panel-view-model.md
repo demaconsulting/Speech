@@ -65,6 +65,24 @@ resources, a live capture device, or a stale event subscription.
   same time and that the cached engine/session/pump fields are only mutated by one request.
   The fire-and-forget handlers (`OnDeviceSelectionChanged`, `OnSelectedModelChanged`) acquire the
   same gate. Internal steps that are reached with the gate already held use gate-free variants.
+- **Session generation guard**: every session state change is marshaled onto the captured UI
+  context, so it can run after the session it describes has been stopped, released or replaced,
+  or after the panel is disposed. Each started session is assigned a generation number that its
+  state-change handler captures; the generation is advanced when a session starts, is stopped,
+  is released, or when the panel is disposed. A posted state change applies only when the panel
+  is not disposed and its captured generation is still current; otherwise it is ignored. Stop
+  applies the session's final state directly before advancing the generation, so the settled
+  state never depends on a queued notification.
+- **Disposed guard**: `DisposeAsync()` marks the panel disposed before unsubscribing. `Refresh()`
+  (including a refresh already posted to the UI context by a model-install event) and a Start
+  that was queued behind disposal do nothing on a disposed panel.
+- **Model selection and the lifecycle gate**: `SelectedModel` is a UI-thread property whose
+  setter cannot await, so it is not itself taken under the gate. Instead a change is ignored
+  while a session is `Listening` and from the moment a Start is requested until it completes
+  (`CanChangeModel` is `false` in both cases), so Start never pairs a changed selection with the
+  engine it loads. The fire-and-forget invalidation that follows an accepted change takes the
+  gate and does nothing when the cached engine already matches the current selection, so it can
+  never release a live session.
 - **Stop before invalidating**: `OnDeviceSelectionChanged` stops an active session
   (`CanStop` true) before invalidating the cached session, because the capture picker is never
   disabled while listening and disposing a session without stopping it first would leave `State`
