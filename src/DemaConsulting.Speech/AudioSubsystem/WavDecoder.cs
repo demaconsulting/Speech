@@ -89,7 +89,8 @@ internal static class WavDecoder
     ///     extensible channel mask) are ignored.
     /// </returns>
     /// <exception cref="InvalidDataException">
-    ///     Thrown when the chunk is truncated or declares no channels or an unusable sample rate.
+    ///     Thrown when the chunk is truncated (an extensible chunk must supply all 40 bytes) or declares no
+    ///     channels or an unusable sample rate.
     /// </exception>
     /// <exception cref="NotSupportedException">Thrown when the format tag or bit depth is not supported.</exception>
     private static WavFormat ParseFormat(byte[] data, int body, int size)
@@ -107,7 +108,7 @@ internal static class WavDecoder
         // The extensible form carries the real tag in the first two bytes of its sub-format GUID
         if (tag == FormatExtensible)
         {
-            if (size < 40 || body + 26 > data.Length)
+            if (size < 40 || body + 40 > data.Length)
             {
                 throw new InvalidDataException("The WAV file has a truncated extensible 'fmt ' chunk.");
             }

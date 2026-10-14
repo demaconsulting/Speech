@@ -162,6 +162,7 @@ sections:
                   A cut-off extensible header must fail clearly rather than decode garbage.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
+                  - WavDecoder_Decode_TruncatedExtensibleBody_Throws
 
               - id: Speech-Audio-WavDecoder-InvalidFormatFieldRejection
                 title: >-

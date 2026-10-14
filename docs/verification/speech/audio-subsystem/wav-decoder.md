@@ -74,6 +74,14 @@ cut at 30 bytes) and `TruncatedExtensible` (extensible tag with a 16-byte fmt).
 
 **Test**: `WavDecoder_Decode_MalformedImages_Throw` (theory, one case per image)
 
+##### Truncated extensible body throws
+
+**Arrange**: An extensible `fmt` chunk declaring 40 bytes, with the image cut 30 bytes into the body.
+
+**Expected**: `InvalidDataException` containing `truncated extensible 'fmt ' chunk`.
+
+**Test**: `WavDecoder_Decode_TruncatedExtensibleBody_Throws`
+
 ##### Sample cap is enforced
 
 **Arrange**: 100 data bytes (50 samples) with `MaxSamples = 10`.

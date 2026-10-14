@@ -134,6 +134,20 @@ public sealed class WavDecoderTests
         Assert.Contains(fragment, ex.Message);
     }
 
+    /// <summary>Proves an extensible fmt chunk declaring 40 bytes but cut before them is rejected.</summary>
+    [Fact]
+    public void WavDecoder_Decode_TruncatedExtensibleBody_Throws()
+    {
+        // Arrange: a complete extensible image cut after the sub-format tag but before the 40-byte body ends
+        var image = Riff(("fmt ", Extensible(1, 16, 1)), ("data", new byte[2]))[..(20 + 30)];
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(image, long.MaxValue));
+
+        // Assert
+        Assert.Contains("truncated extensible 'fmt ' chunk", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves the sample cap is enforced.</summary>
     [Fact]
     public void WavDecoder_Decode_ExceedsMaxSamples_Throws()
