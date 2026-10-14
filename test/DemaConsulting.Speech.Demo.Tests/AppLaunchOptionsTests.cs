@@ -280,6 +280,48 @@ public sealed class AppLaunchOptionsTests
     }
 
     /// <summary>
+    ///     Test that a whitespace-only <c>--mirror-url</c> option is treated as unset, so the environment variable applies.
+    /// </summary>
+    [Fact]
+    public void Parse_WhitespaceMirrorUrlOption_FallsBackToEnvironment()
+    {
+        // Arrange
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
+
+        // Act
+        var options = AppLaunchOptions.Parse(["--mirror-url", "   "], environment);
+
+        // Assert
+        Assert.Equal("https://env.example.com", options.MirrorUrl);
+    }
+
+    /// <summary>
+    ///     Test that a whitespace-only credential option does not count as a command-line credential,
+    ///     so the environment credentials still apply.
+    /// </summary>
+    /// <param name="option">The credential option given a whitespace-only value.</param>
+    [Theory]
+    [InlineData("--mirror-user")]
+    [InlineData("--mirror-password")]
+    [InlineData("--mirror-bearer-token")]
+    public void Parse_WhitespaceCredentialOption_DoesNotDisableEnvironmentCredentials(string option)
+    {
+        // Arrange
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "env-user"),
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-password"));
+
+        // Act
+        var options = AppLaunchOptions.Parse([option, " \t "], environment);
+
+        // Assert
+        Assert.Equal("env-user", options.MirrorUser);
+        Assert.Equal("env-password", options.MirrorPassword);
+        Assert.Null(options.MirrorBearerToken);
+    }
+
+    /// <summary>
     ///     Test that a Basic username on the command line suppresses the environment password, so
     ///     the two sources are never mixed and the incomplete pair is rejected.
     /// </summary>
@@ -722,6 +764,7 @@ public sealed class AppLaunchOptionsTests
 
         // Assert
         Assert.Contains("--voices-dir", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(missing, exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -915,6 +958,28 @@ public sealed class AppLaunchOptionsTests
         var options = AppLaunchOptions.Parse([], environment);
 
         // Assert
+        Assert.Null(options.CreateDownloaderOptions());
+    }
+
+    /// <summary>Test that a whitespace-only environment variable is treated as unset.</summary>
+    [Fact]
+    public void Parse_WhitespaceEnvironmentVariables_TreatedAsUnset()
+    {
+        // Arrange
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "  "),
+            ("DEMASPEECH_MIRROR_USER", " "),
+            ("DEMASPEECH_MIRROR_PASSWORD", "\t"),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "   "));
+
+        // Act
+        var options = AppLaunchOptions.Parse([], environment);
+
+        // Assert
+        Assert.Null(options.MirrorUrl);
+        Assert.Null(options.MirrorUser);
+        Assert.Null(options.MirrorPassword);
+        Assert.Null(options.MirrorBearerToken);
         Assert.Null(options.CreateDownloaderOptions());
     }
 

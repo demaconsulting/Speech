@@ -26,9 +26,11 @@ launch as in the model catalog panel.
   environment variables through an injectable reader (the one-argument overload passes
   `Environment.GetEnvironmentVariable`), so tests never mutate the process environment. A
   command-line `--mirror-url` overrides the URL variable; any credential option on the command line
-  disables all credential variables so the two sources are never mixed; an empty variable is
-  treated as unset. Secret values and rejected URL values are never written to help or error text.
-  An empty option value (URL, user, password or token) is likewise treated as unset, so it neither
+  disables all credential variables so the two sources are never mixed; an empty or
+  whitespace-only variable is treated as unset. Secret values and rejected URL values are never
+  written to help or error text; the one value named in an error is the non-secret `--voices-dir`
+  path, in its missing-folder message. An empty or whitespace-only option value (URL, user, password
+  or token) is likewise treated as unset, so it neither
   blocks the environment fallback nor counts as a command-line credential. A repeated option keeps
   its last value. The `--voices-dir` folder is checked once, at parse time, unless help was
   requested; the models directory is not checked.

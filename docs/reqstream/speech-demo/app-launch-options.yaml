@@ -254,14 +254,16 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-MirrorEmptyOptionIgnored
             title: >-
-              The AppLaunchOptions unit shall treat an empty mirror option value as unset, so the
+              The AppLaunchOptions unit shall treat an empty or whitespace-only mirror option value as unset, so the
               environment fallback still applies.
             justification: |
-              Scripts commonly pass an empty expanded variable; it must not disable the
+              Scripts commonly pass an empty or blank expanded variable; it must not disable the
               environment configuration nor count as a supplied credential.
             tests:
               - Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
               - Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
+              - Parse_WhitespaceMirrorUrlOption_FallsBackToEnvironment
+              - Parse_WhitespaceCredentialOption_DoesNotDisableEnvironmentCredentials
 
           - id: SpeechDemo-LaunchOptions-MirrorUrlEnvironment
             title: >-
@@ -313,11 +315,12 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
             title: >-
-              The AppLaunchOptions unit shall treat an empty mirror environment variable as unset.
+              The AppLaunchOptions unit shall treat an empty or whitespace-only mirror environment variable as unset.
             justification: |
-              Shells commonly export empty variables, which must not enable a mirror.
+              Shells commonly export empty or blank variables, which must not enable a mirror.
             tests:
               - Parse_EmptyEnvironmentVariables_TreatedAsUnset
+              - Parse_WhitespaceEnvironmentVariables_TreatedAsUnset
 
           - id: SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
             title: >-

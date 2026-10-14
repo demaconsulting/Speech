@@ -161,7 +161,7 @@ scenario).
 
 **Scenario**: `--voices-dir` names a folder that does not exist.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message names the `--voices-dir` option and the missing path.
 
 #### Parse_VoicesDir_NoValue_ThrowsArgumentException
 
@@ -223,6 +223,12 @@ scenario).
 
 **Expected**: No downloader options are produced.
 
+#### Parse_WhitespaceEnvironmentVariables_TreatedAsUnset
+
+**Scenario**: The mirror variables are set to whitespace-only strings.
+
+**Expected**: No downloader options are produced.
+
 #### CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
 
 **Scenario**: Only a credential variable is set.
@@ -275,6 +281,19 @@ scenario).
 #### Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
 
 **Scenario**: An empty credential option is given while credential variables are set.
+
+**Expected**: The environment credentials still apply.
+
+#### Parse_WhitespaceMirrorUrlOption_FallsBackToEnvironment
+
+**Scenario**: A whitespace-only `--mirror-url` is given while the URL variable is set.
+
+**Expected**: The environment URL is used.
+
+#### Parse_WhitespaceCredentialOption_DoesNotDisableEnvironmentCredentials
+
+**Scenario**: A whitespace-only user, password or bearer token option is given while credential variables
+are set.
 
 **Expected**: The environment credentials still apply.
 

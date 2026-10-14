@@ -76,10 +76,13 @@ public sealed class AppLaunchOptions
     ///     A <c>--mirror-*</c> option on the command line always takes precedence:
     ///     <see cref="MirrorUrlEnvironmentVariable"/> applies only when <c>--mirror-url</c> is absent, and
     ///     the credential variables apply only when none of <c>--mirror-user</c>,
-    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty option
-    ///     value or empty variable is treated as unset. A repeated option keeps its last value.
-    ///     Argument and variable values are never written to any output or error message: an
-    ///     unrecognized argument is reported by position only. The <c>--voices-dir</c> existence
+    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty or
+    ///     whitespace-only option value or variable is treated as unset (so it never suppresses an
+    ///     environment fallback). A repeated option keeps its last value.
+    ///     Mirror and credential values are never written to any output or error message: an
+    ///     unrecognized argument is reported by position only. The one exception is the non-secret
+    ///     <c>--voices-dir</c> path, which its missing-directory error names so the failure is
+    ///     actionable. The <c>--voices-dir</c> existence
     ///     check runs once after the whole list is read (so it is a point-in-time check) and is
     ///     skipped when a help flag is present. <c>--models-dir</c> is not checked for existence.
     /// </remarks>
@@ -158,7 +161,7 @@ public sealed class AppLaunchOptions
             throw new ArgumentException($"--voices-dir '{voicesDir}' is not an existing directory.", nameof(args));
         }
 
-        // An empty mirror option counts as not supplied, exactly like an empty environment variable.
+        // An empty or whitespace-only mirror option counts as not supplied, exactly like such an environment variable.
         mirrorUrl = NullIfEmpty(mirrorUrl);
         mirrorUser = NullIfEmpty(mirrorUser);
         mirrorPassword = NullIfEmpty(mirrorPassword);
@@ -236,12 +239,12 @@ public sealed class AppLaunchOptions
         "--mirror-user", "--mirror-password", "--mirror-bearer-token",
     ];
 
-    /// <summary>Reads an environment variable, treating an empty value as unset.</summary>
+    /// <summary>Reads an environment variable, treating an empty or whitespace-only value as unset.</summary>
     private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name) =>
         NullIfEmpty(getEnvironmentVariable(name));
 
-    /// <summary>Maps an empty value to <see langword="null"/>.</summary>
-    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+    /// <summary>Maps an empty or whitespace-only value to <see langword="null"/>.</summary>
+    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     ///     Resolves <see cref="ModelsDir"/> into <see cref="SpeechModelStoreOptions"/> for
