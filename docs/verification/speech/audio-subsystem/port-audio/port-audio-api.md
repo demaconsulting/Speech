@@ -21,7 +21,7 @@ the stream instead of escaping, and the shared singleton loads.
 
 ##### Adapter: Native Metadata and Value Conversion
 
-**Tests**: `PortAudioApi_ConvertHostApiInfo_NativeBlock_ReturnsManagedMetadata`,
+**Tests**: `PortAudioApi_ConvertHostApiInfo_NativeBlock_ReturnsManagedMetadata` (type, name, device count and defaults),
 `PortAudioApi_ConvertHostApiInfo_NullName_ReturnsEmptyName`,
 `PortAudioApi_ConvertSampleRate_FractionalRate_RoundsToWholeHertz`,
 `PortAudioApi_NormalizeCount_NegativeCount_ThrowsWithContext`

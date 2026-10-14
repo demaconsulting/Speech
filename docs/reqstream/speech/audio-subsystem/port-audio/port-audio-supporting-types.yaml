@@ -48,5 +48,6 @@ sections:
                       enumeration, leaving a gap the library must bridge itself. The native
                       binding mechanism is described in the PortAudio design document.
                     tests:
+                      - PortAudioApi_ConvertHostApiInfo_NativeBlock_ReturnsManagedMetadata
                       - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                       - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

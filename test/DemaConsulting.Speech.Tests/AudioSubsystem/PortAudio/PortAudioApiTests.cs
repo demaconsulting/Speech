@@ -41,6 +41,7 @@ public sealed class PortAudioApiTests
             Assert.Equal(PortAudioHostApiType.Wasapi, info.Type);
             Assert.Equal(4, info.DefaultInputDeviceIndex);
             Assert.Equal(7, info.DefaultOutputDeviceIndex);
+            Assert.Equal(3, info.DeviceCount);
         }
         finally
         {

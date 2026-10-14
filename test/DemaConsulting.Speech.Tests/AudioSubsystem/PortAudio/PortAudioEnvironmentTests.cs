@@ -114,7 +114,7 @@ public class PortAudioEnvironmentTests
         var api = new FakePortAudioApi
         {
             FindHostApiIndexResult = 3,
-            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 7, 9)
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 7, 9) { DeviceCount = 5 }
         };
         var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
 
@@ -127,6 +127,7 @@ public class PortAudioEnvironmentTests
         Assert.Equal("Windows WASAPI", hostApiInfo.Name);
         Assert.Equal(7, hostApiInfo.DefaultInputDeviceIndex);
         Assert.Equal(9, hostApiInfo.DefaultOutputDeviceIndex);
+        Assert.Equal(5, hostApiInfo.DeviceCount);
     }
 
     /// <summary>

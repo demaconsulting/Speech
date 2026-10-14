@@ -92,7 +92,10 @@ internal sealed class PortAudioApi : IPortAudioApi
             Marshal.PtrToStringAnsi(hostApiInfoNative.Name) ?? string.Empty,
             hostApiInfoNative.Type,
             hostApiInfoNative.DefaultInputDevice,
-            hostApiInfoNative.DefaultOutputDevice);
+            hostApiInfoNative.DefaultOutputDevice)
+        {
+            DeviceCount = hostApiInfoNative.DeviceCount
+        };
     }
 
     /// <inheritdoc/>
