@@ -1056,6 +1056,100 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a throwing diagnostics sink does not fail a successful start and the
+    ///     stream stays started and registered.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSink_StartSucceedsAndStaysRegistered()
+    {
+        // Arrange: a device whose diagnostics sink throws on every report
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment, diagnostics: new ThrowingDiagnostics());
+
+        // Act: start the device
+        var exception = Record.Exception(device.Start);
+
+        // Assert: start succeeded, the stream was started, not disposed, and remains registered
+        Assert.Null(exception);
+        Assert.Equal(1, stream.StartCallCount);
+        Assert.Equal(0, stream.DisposeCallCount);
+        Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+    }
+
+    /// <summary>
+    ///     Proves that a throwing diagnostics sink does not skip stream disposal or leave the
+    ///     active-stream registration behind on a successful stop.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Stop_ThrowingDiagnosticsSink_DisposesStreamAndUnregisters()
+    {
+        // Arrange: a started device whose diagnostics sink throws on every report
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment, diagnostics: new ThrowingDiagnostics());
+        device.Start();
+
+        // Act: stop the device
+        var exception = Record.Exception(device.Stop);
+
+        // Assert: stop succeeded, the stream was disposed, and a refresh is no longer refused
+        Assert.Null(exception);
+        Assert.Equal(1, stream.StopCallCount);
+        Assert.Equal(1, stream.DisposeCallCount);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     Proves that a throwing diagnostics sink does not mask the start failure or leak the
+    ///     registration when the native start fails.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSinkAndStartFails_ThrowsOriginalFailureAndUnregisters()
+    {
+        // Arrange: a throwing sink and a stream whose native start fails
+        var stream = new FakePortAudioStream { StartException = new InvalidOperationException("Native start failed.") };
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment, diagnostics: new ThrowingDiagnostics());
+
+        // Act: start the device
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
+
+        // Assert: the documented failure surfaces, the stream was disposed, and nothing stays registered
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+        Assert.Equal(1, stream.DisposeCallCount);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     A diagnostics sink that throws for every report.
+    /// </summary>
+    private sealed class ThrowingDiagnostics : ISpeechDiagnostics
+    {
+        /// <inheritdoc/>
+        public void Report(SpeechDiagnosticLevel level, string category, string message) =>
+            throw new InvalidOperationException("Sink failure.");
+    }
+
+    /// <summary>
     ///     A read-only list that deliberately does not implement <see cref="ICollection{T}"/>.
     /// </summary>
     /// <param name="items">The items exposed by the list.</param>
