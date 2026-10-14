@@ -33,3 +33,4 @@ sections:
                 tests:
                   - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
                   - RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice
+                  - RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException

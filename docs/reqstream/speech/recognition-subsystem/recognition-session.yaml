@@ -50,6 +50,16 @@ sections:
                 tests:
                   - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
+              - id: Speech-Recognition-RecognitionSession-StopDeliversAllResults
+                title: >-
+                  Stopping a recognition session shall deliver every result produced from the audio
+                  captured before the stop, however many results a single block yields.
+                justification: |
+                  A recognizer may hold more results for one block than a session drains per block;
+                  results still held at stop would otherwise be silently lost.
+                tests:
+                  - RecognitionSession_StopAsync_MoreResultsThanPerBlockLimit_DeliversAllFinalResults
+
               - id: Speech-Recognition-RecognitionSession-DeviceLostFault
                 title: >-
                   A recognition session shall enter its faulted state when its capture device is

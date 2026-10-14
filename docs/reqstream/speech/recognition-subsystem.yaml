@@ -43,8 +43,11 @@ sections:
               - Speech-Recognition-IRecognitionSession-EnumerationCancellation
               - Speech-Recognition-IRecognitionSession-FaultedEnumeration
               - Speech-Recognition-IRecognitionSession-Backpressure
+              - Speech-Recognition-IRecognitionSession-BoundedProvisionalMemory
               - Speech-Recognition-IRecognitionSession-ProvisionalCoalescing
               - Speech-Recognition-IRecognitionSession-FinalRetention
+              - Speech-Recognition-IRecognitionSession-ResultTextPresent
+              - Speech-Recognition-IRecognitionSession-ResultEventCarriesResult
             tests:
               - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
               - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
@@ -187,6 +190,7 @@ sections:
               consumer is slower than the recognizer; final results are never dropped.
             children:
               - Speech-Recognition-RecognitionSession-TextNormalization
+              - Speech-Recognition-RecognitionSession-StopDeliversAllResults
               - Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
             tests:
               - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
@@ -200,10 +204,12 @@ sections:
             justification: |
               Captured audio is delivered on a high-priority audio callback thread where an
               escaping exception tears down the audio stream, and a stuck native call must never
-              hang an awaiting caller indefinitely. A single bad audio block, a single backend
-              fault, a lost capture device, or a single misbehaving host handler must never
-              silence the microphone, hang the session, or lose the rest of the session's
-              recognized text.
+              hang an awaiting caller indefinitely. A bad audio block, a lost capture device, or a
+              misbehaving host handler must never silence the microphone or hang the session. A
+              failure of the recognition backend itself is terminal for that session by design: it
+              is surfaced as a faulted session (and a fault to any reader of results) rather than
+              a hang, because a backend that has just failed is in an undefined state and the host
+              recovers by creating a new session.
             children:
               - Speech-Recognition-RecognitionSession-DeviceLostFault
               - Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration

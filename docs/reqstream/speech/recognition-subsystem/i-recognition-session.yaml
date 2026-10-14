@@ -133,11 +133,13 @@ sections:
 
               - id: Speech-Recognition-IRecognitionSession-ResultDelivery
                 title: >-
-                  A recognition session shall stream every provisional and final recognition
-                  result produced while it runs, each marked as provisional or final.
+                  A recognition session shall deliver its recognition results to the reader in the
+                  order they were produced, each marked as provisional or final, except that an
+                  unread provisional result may be replaced by a newer one.
                 justification: |
                   A host must be able to tell from a single result whether to replace an
-                  in-progress transcript line or commit it.
+                  in-progress transcript line or commit it. Only unread provisional results may
+                  be skipped (see provisional coalescing); final results are always delivered.
                 tests:
                   - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
                   - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
@@ -172,11 +174,21 @@ sections:
 
               - id: Speech-Recognition-IRecognitionSession-Backpressure
                 title: >-
-                  A slow consumer of a session's results shall never stall recognition or cause
-                  unbounded memory growth from provisional results.
+                  A slow consumer of a session's results shall never stall recognition.
                 justification: |
                   A host transcript consumer that is temporarily slower than the recognizer must
-                  not stall audio processing or exhaust memory.
+                  not stall audio processing.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
+
+              - id: Speech-Recognition-IRecognitionSession-BoundedProvisionalMemory
+                title: >-
+                  A slow consumer of a session's results shall not cause unbounded memory growth
+                  from provisional results.
+                justification: |
+                  A host transcript consumer that is temporarily slower than the recognizer must
+                  not exhaust memory through an ever-growing backlog of superseded provisional
+                  results.
                 tests:
                   - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
 
@@ -199,3 +211,22 @@ sections:
                   merely because the consumer is behind.
                 tests:
                   - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults
+
+              - id: Speech-Recognition-IRecognitionSession-ResultTextPresent
+                title: A recognition result shall always carry text.
+                justification: |
+                  A host rendering a transcript must never have to guard against a missing text
+                  value, so a result without text is rejected when it is created.
+                tests:
+                  - SpeechRecognitionResult_Constructor_NullText_ThrowsArgumentNullException
+                  - SpeechRecognitionResult_Constructor_ValidText_ExposesValues
+                  - SpeechRecognitionResult_WithExpression_NullText_ThrowsArgumentNullException
+
+              - id: Speech-Recognition-IRecognitionSession-ResultEventCarriesResult
+                title: A recognition result event shall always carry the result it reports.
+                justification: |
+                  A host handling a result event must never have to guard against a missing
+                  result, so an event without a result is rejected when it is created.
+                tests:
+                  - SpeechRecognitionEvent_Constructor_NullResult_ThrowsArgumentNullException
+                  - SpeechRecognitionEvent_Constructor_ValidResult_ExposesResult
