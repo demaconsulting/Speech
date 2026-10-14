@@ -727,11 +727,12 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
-    ///     Proves that a native stop failure is wrapped, the pending count resets and the active
-    ///     registration is released.
+    ///     Proves that a native stop failure is wrapped, the stream stays registered as active
+    ///     (so a refresh is refused and a restart is rejected), and a retried stop that succeeds
+    ///     disposes the stream and releases the registration.
     /// </summary>
     [Fact]
-    public void PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration()
+    public void PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds()
     {
         // Arrange: a started device whose stream fails to stop and has queued audio
         var stopException = new InvalidOperationException("Native stop failed.");
@@ -747,14 +748,27 @@ public class PortAudioPlaybackDeviceTests
         device.Start();
         device.Write([0.1f, 0.2f]);
 
-        // Act: stop the device
+        // Act: stop the device, then try to restart and refresh while the stop is unresolved
         var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Stop);
+        var startException = Record.Exception(device.Start);
+        var refreshException = Record.Exception(environment.Refresh);
 
-        // Assert: the original failure is wrapped, the stream was still disposed, the pending
-        // count reset and the registration released so a refresh succeeds
+        // Assert: the original failure is wrapped, the stream is neither disposed nor
+        // unregistered, the pending count reset, the restart rejected and the refresh refused
         Assert.Same(stopException, exception.InnerException);
-        Assert.Equal(1, stream.DisposeCallCount);
+        Assert.Equal(0, stream.DisposeCallCount);
         Assert.Equal(0, device.PendingSampleCount);
+        Assert.IsType<AudioDeviceUnavailableException>(startException);
+        Assert.Equal(1, stream.StartCallCount);
+        Assert.IsType<AudioDeviceInUseException>(refreshException);
+
+        // Act: retry the stop once the native stream can stop
+        stream.StopException = null;
+        device.Stop();
+
+        // Assert: the retry stopped the same stream, disposed it and released the registration
+        Assert.Equal(2, stream.StopCallCount);
+        Assert.Equal(1, stream.DisposeCallCount);
         Assert.Null(Record.Exception(environment.Refresh));
     }
 
@@ -812,12 +826,12 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
-    ///     Proves that a native stop failure leaves no stale head block behind: after the failed
-    ///     stop, a restarted stream sees silence rather than the partially consumed remainder, and
-    ///     the pending count never goes negative.
+    ///     Proves that a callback firing after a failed native stop still sees consistent head
+    ///     state (the unconsumed remainder is delivered exactly once, with an exact pending
+    ///     count), and that once a retried stop succeeds a restarted stream sees silence.
     /// </summary>
     [Fact]
-    public void PortAudioPlaybackDevice_Start_AfterFailedNativeStop_DoesNotReplayStaleHeadBlock()
+    public void PortAudioPlaybackDevice_Stop_NativeStopFailsThenCallbackFires_HeadStateStaysConsistent()
     {
         // Arrange: a started device whose first native stop will fail, with a block of which only
         // half has been consumed by the callback
@@ -836,14 +850,19 @@ public class PortAudioPlaybackDeviceTests
         stream.StopException = new InvalidOperationException("Native stop failed.");
         Assert.Throws<AudioDeviceUnavailableException>(device.Stop);
 
-        // Act: restart after the failed stop and request a callback block
+        // Act: the still-running callback fires after the failed stop, then the stop is retried
+        // successfully and the device restarted
+        var callbackSamples = stream.RequestSamples(2);
+        var pendingAfterCallback = device.PendingSampleCount;
         stream.StopException = null;
+        device.Stop();
         device.Start();
         var drainedSamples = stream.RequestSamples(4);
 
-        // Assert: the stale remainder was discarded, and the pending count is exact (a stale
-        // replay would have driven the raw counter negative, which the clamped property hides
-        // until a later write offsets it)
+        // Assert: the callback received the unconsumed remainder exactly once with an exact
+        // pending count, and the restarted stream sees silence rather than a stale replay
+        Assert.Equal([0.3f, 0.4f], callbackSamples);
+        Assert.Equal(0, pendingAfterCallback);
         Assert.Equal([0.0f, 0.0f, 0.0f, 0.0f], drainedSamples);
         Assert.Equal(0, device.PendingSampleCount);
         device.Write([0.7f, 0.8f]);
@@ -1001,13 +1020,13 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
-    ///     Proves that when both the native stop and the following dispose fail, the stop failure
-    ///     is the one thrown and the dispose fault is only reported.
+    ///     Proves that a native stop failure is reported as an error diagnostic and the stream is not
+    ///     disposed while quiescence is unproven.
     /// </summary>
     [Fact]
-    public void PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure()
+    public void PortAudioPlaybackDevice_Stop_NativeStopFails_ReportsErrorAndDoesNotDisposeStream()
     {
-        // Arrange: a started device whose stream fails to stop and to dispose
+        // Arrange: a started device whose stream fails to stop (and would also fail to dispose)
         var stopException = new InvalidOperationException("Native stop failed.");
         var stream = new FakePortAudioStream
         {
@@ -1027,12 +1046,13 @@ public class PortAudioPlaybackDeviceTests
         // Act: stop the device
         var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Stop);
 
-        // Assert: the stop failure is thrown and the dispose fault was reported, not thrown
+        // Assert: the stop failure is thrown, reported, and the stream was left undisposed
         Assert.Same(stopException, exception.InnerException);
+        Assert.Equal(0, stream.DisposeCallCount);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Error,
             "AudioSubsystem",
-            Arg.Is<string>(message => message.Contains("after a stop failure", StringComparison.Ordinal)));
+            Arg.Is<string>(message => message.Contains("Failed to stop PortAudio playback", StringComparison.Ordinal)));
     }
 
     /// <summary>

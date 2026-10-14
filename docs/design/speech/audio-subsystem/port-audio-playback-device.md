@@ -29,12 +29,15 @@ The `_headBlock`/`_headOffset` cursor requires no additional synchronization: it
 `ProvideSamples` (the single real-time PortAudio callback thread, only while a stream is running)
 and reset by `ClearQueuedSamples` (a caller thread) only after the native stream-stop call has
 returned successfully, which blocks until the callback thread finished. `Start`/`Stop` are
-serialized under the same lock. When the native stop fails the callback may still be running, so
-the stop-failure path drains only the thread-safe queue and leaves the cursor alone; the next
-`Start()` then discards that stale head block (before the replacement stream is opened) so a
-restart never replays it, and removes its unconsumed remainder from `_pendingSampleCount` so the
-counter never goes negative. Until that restart, `PendingSampleCount` after a failed stop may
-still include the unconsumed remainder of the head block. `ClearQueuedSamples` subtracts each
+serialized under the same lock. When the native stop fails the callback may still be running,
+so quiescence is not proven: the device enters a stop-failed state in which the stream stays
+registered as active (a RefreshDevices() call stays refused), Start() is rejected with
+AudioDeviceUnavailableException, the stream is not disposed, and only the thread-safe queue is
+drained, leaving the head cursor to the callback. A later Stop() retries the native stop on the same
+stream; only once it succeeds are the head block cleared, the stream disposed and the registration
+released. Until then PendingSampleCount may still include the unconsumed remainder of the head
+block, which the callback decrements exactly as it consumes it, so the counter never goes negative.
+`ClearQueuedSamples` subtracts each
 dequeued block's length from `_pendingSampleCount` instead of resetting the counter, so a
 concurrent `Write` (which counts a block before enqueueing it) can never leave the counter out of
 step with the queue.
@@ -75,13 +78,14 @@ likewise retained and played by the next `Start()`.
   the interleaved samples into a new block, so the caller may reuse its buffer immediately, adds
   the block length to `_pendingSampleCount` and then enqueues the block. The count is added first
   so the callback can never subtract samples that were not yet counted.
-- **Stop()**: Requires a resolved device (`AudioDeviceUnavailableException` otherwise). Stops and
-  disposes the active playback stream and clears any queued stale audio, resetting
-  `_pendingSampleCount` to zero, then unregisters this instance via
+- **Stop()**: Requires a resolved device (`AudioDeviceUnavailableException` otherwise). Stops the
+  active playback stream; on success it clears any queued stale audio (resetting
+  `_pendingSampleCount` to zero), disposes the stream, then unregisters this instance via
   `PortAudioEnvironment.UnregisterActiveStream(...)`. A device that was never started only clears
-  the queue. When the native stop fails, the failure is reported and the stream is still
-  disposed; the stop failure is then thrown wrapped, and a dispose fault is logged only. When the
-  stop succeeds but the dispose fails, the dispose fault is thrown wrapped.
+  the queue. When the native stop fails, the failure is reported and thrown wrapped, and the stream
+  stays registered and undisposed (stop-failed state, see above) so a later `Stop()` can retry. When
+  the stop succeeds but the dispose fails, the dispose fault is thrown wrapped and the registration is
+  still released.
 - **PendingSampleCount**: A `long` that reports `_pendingSampleCount` (never below zero), or `0`
   when no device was resolved, after `Stop()`, and before any write. `ProvideSamples` (the
   PortAudio callback) decrements it by exactly the number of samples it actually dequeued - never
@@ -92,9 +96,10 @@ likewise retained and played by the next `Start()`.
 
 **Error Handling**: When no device could be resolved, `IsAvailable` is `false` and operational
 members throw `AudioDeviceUnavailableException`. Native stream-open or stream-stop failures are
-wrapped in `AudioDeviceUnavailableException`, with the guarded-dispose/finally cleanup described
-under `Start()` above ensuring the active-stream registration is always released even if the
-cleanup-time `Dispose()` call itself throws. A stale `Generation` at `Start()` time is likewise
+wrapped in `AudioDeviceUnavailableException`. A failed start releases the active-stream
+registration through the guarded-dispose/finally cleanup described under `Start()` above, even if
+the cleanup-time `Dispose()` call itself throws. A failed stop deliberately keeps the registration
+(stop-failed state, see above) until a retried `Stop()` succeeds. A stale `Generation` at `Start()` time is likewise
 reported as `AudioDeviceUnavailableException`, directing the caller to create a fresh instance
 via `AudioDeviceFactory` instead. A `RefreshDevices()` call made while this device's stream is
 active is refused with `AudioDeviceInUseException` by `PortAudioEnvironment`, indirectly via

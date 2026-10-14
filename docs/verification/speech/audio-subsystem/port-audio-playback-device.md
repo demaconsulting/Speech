@@ -24,7 +24,7 @@ Tests pass when all of the following hold:
 - Queueing: queued samples drain in order, `Write` copies the caller's buffer, empty writes are
   ignored, and underruns are zero-filled.
 - Restart: a partially consumed block is never replayed after `Stop()` and a restart, including
-  after a failed native stop, and the pending count stays exact.
+  after a failed then retried native stop, and the pending count stays exact.
 - Formats: preferred formats are honored when within device capability, excessive preferred
   channel counts are clamped, omitted preferences fall back to the device default, a preferred
   sample rate the host API cannot open falls back to the device default with an Info-level
@@ -33,9 +33,11 @@ Tests pass when all of the following hold:
 - `PendingSampleCount` tracks how many written samples the callback has genuinely dequeued and
   resets to zero after `Stop()`.
 - Native faults: open, start and stop failures and a dispose fault after a successful stop are
-  wrapped in `AudioDeviceUnavailableException`; a start failure disposes the opened stream; a
-  dispose fault after a failed start or stop is reported but never replaces the primary failure;
-  the active-stream registration is released in every case.
+  wrapped in `AudioDeviceUnavailableException`; a start failure disposes the opened stream and
+  releases the registration, and a dispose fault during start-failure cleanup is reported but never
+  replaces the primary failure.
+- Failed stop: the stream stays registered and undisposed, a restart is rejected, a refresh is
+  refused and a retried stop that succeeds disposes the stream and releases the registration.
 - Refresh: a device whose environment was refreshed after construction refuses to start with
   `AudioDeviceUnavailableException`, a device resolved after the refresh starts normally, and
   while a stream is active a refresh is refused.
@@ -43,9 +45,11 @@ Tests pass when all of the following hold:
 #### Test Scenarios
 
 The tests mark intent with one Arrange/Act/Assert comment per phase; each scenario below names
-its expected outcome. Concurrency (a `Write` racing `Stop`) is not exercised by a threaded test,
-because the tests deliberately avoid threads and sleeps; the race is instead excluded by design
-(per-block subtraction in `ClearQueuedSamples`) and the sequential write-after-stop scenario below.
+its expected outcome. Threads and sleeps are avoided: the fake stream lets a test invoke the
+playback callback explicitly, so the callback-versus-`Stop` interleavings are exercised
+deterministically (a callback firing after a failed native stop, and a write after a stop). The
+`Write`-versus-`Stop` counter race is covered by per-block subtraction in the queue clear and the
+sequential write-after-stop scenario below.
 
 ##### Construction: Device Query Fault Is Contained
 
@@ -156,13 +160,6 @@ The count rises on `Write`, falls only by samples actually dequeued (never by ze
 
 After a successful stop and restart the first request returns silence.
 
-##### Start: After a Failed Native Stop, No Stale Head Block Is Replayed
-
-**Test**: `PortAudioPlaybackDevice_Start_AfterFailedNativeStop_DoesNotReplayStaleHeadBlock`
-
-After a native stop failure and a restart, the first request returns silence, the pending count is
-`0`, and a subsequent write is counted exactly (`2`) and delivered intact.
-
 ##### Playback Format: Resolved Device Reflects the Resolved Device Format
 
 **Test**: `PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`
@@ -232,19 +229,29 @@ succeeds.
 The original start failure is thrown, the dispose fault is reported, and the registration is
 released.
 
-##### Stop: Native Stop Failure Is Wrapped
+##### Stop: Native Stop Failure Keeps the Stream Active Until a Retry Succeeds
 
-**Test**: `PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration`
+**Test**: `PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds`
 
-The stop failure is wrapped, the stream is still disposed, `PendingSampleCount` is `0`, and a
-later refresh succeeds.
+The stop failure is wrapped, the stream is not disposed, `PendingSampleCount` is `0`, a restart is
+rejected with `AudioDeviceUnavailableException`, and a refresh is refused with
+`AudioDeviceInUseException`. After the native stop is allowed to succeed, a second `Stop()`
+stops the same stream, disposes it once and a later refresh succeeds.
 
-##### Stop: Native Stop and Dispose Both Fail
+##### Stop: Native Stop Failure Is Reported and the Stream Is Not Disposed
 
-**Test**: `PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure`
+**Test**: `PortAudioPlaybackDevice_Stop_NativeStopFails_ReportsErrorAndDoesNotDisposeStream`
 
-The stop failure is thrown and the dispose fault is reported with the "after a stop failure"
-diagnostic.
+The stop failure is thrown, an Error diagnostic names the failed stop, and the stream is left
+undisposed.
+
+##### Stop: Callback After a Failed Native Stop Keeps Head State Consistent
+
+**Test**: `PortAudioPlaybackDevice_Stop_NativeStopFailsThenCallbackFires_HeadStateStaysConsistent`
+
+A callback that fires after the failed stop receives the unconsumed remainder of the partially
+consumed block exactly once and the pending count is exact; after a retried stop succeeds and the
+device restarts, the new stream sees silence rather than a stale replay.
 
 ##### Stop: Dispose Failure After Stop Is Wrapped
 

@@ -103,7 +103,7 @@ sections:
                   of the next stream; a failed native stop must not defeat this guarantee.
                 tests:
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
-                  - PortAudioPlaybackDevice_Start_AfterFailedNativeStop_DoesNotReplayStaleHeadBlock
+                  - PortAudioPlaybackDevice_Stop_NativeStopFailsThenCallbackFires_HeadStateStaysConsistent
                   - PortAudioPlaybackDevice_Write_AfterStop_PendingCountMatchesQueuedSamples
 
               - id: Speech-Audio-PortAudioPlaybackDevice-WriteCopiesBuffer
@@ -170,26 +170,41 @@ sections:
                   Shutdown faults must not escape as arbitrary interop exceptions, and the
                   primary stop failure must remain visible to the caller.
                 tests:
-                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
-                  - PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ReportsErrorAndDoesNotDisposeStream
 
-              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureStillDisposesStream
+              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureKeepsStreamActive
                 title: >-
-                  The PortAudioPlaybackDevice class shall still dispose the stream when a native
-                  stream-stop failure occurs.
+                  The PortAudioPlaybackDevice class shall keep the stream registered as active and
+                  undisposed, and refuse a device-table refresh, after a native stream-stop
+                  failure until a retried stop succeeds.
                 justification: |
-                  A failed stop must not leak the native stream.
+                  A failed stop does not prove the playback callback has ceased, so releasing the
+                  stream or letting a refresh tear down the runtime could race the callback.
                 tests:
-                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
 
-              - id: Speech-Audio-PortAudioPlaybackDevice-StopFailureDisposeFaultLogged
+              - id: Speech-Audio-PortAudioPlaybackDevice-StartRejectedAfterStopFailure
                 title: >-
-                  The PortAudioPlaybackDevice class shall log, and not throw, a stream-dispose
-                  fault that follows a native stream-stop failure.
+                  The PortAudioPlaybackDevice class shall reject Start with
+                  AudioDeviceUnavailableException after a native stream-stop failure until a
+                  retried stop succeeds.
                 justification: |
-                  The primary stop failure must remain the exception the caller sees.
+                  Starting a replacement stream while the failed stream's callback may still be
+                  running could corrupt the queued playback state.
                 tests:
-                  - PortAudioPlaybackDevice_Stop_NativeStopAndDisposeBothFail_ThrowsStopFailure
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StopRetryReleasesStream
+                title: >-
+                  The PortAudioPlaybackDevice class shall dispose the stream and release the
+                  active-stream registration when a Stop that retries after a failed stop
+                  succeeds.
+                justification: |
+                  A transient native stop failure must be recoverable without leaking the stream
+                  or blocking every future refresh.
+                tests:
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
 
               - id: Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
                 title: >-
@@ -319,7 +334,7 @@ sections:
                 tests:
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
                   - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
-                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountZeroWhenUnresolved
                 title: >-
@@ -354,7 +369,7 @@ sections:
                   indefinitely.
                 tests:
                   - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
-                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_KeepsStreamActiveUntilRetrySucceeds
 
               - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistrationOnStartFailure
                 title: >-

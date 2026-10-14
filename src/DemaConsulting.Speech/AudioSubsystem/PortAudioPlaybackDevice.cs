@@ -125,8 +125,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     serialized under <see cref="_syncRoot"/>, and <c>Stop()</c> only calls
     ///     <see cref="ClearQueuedSamples"/> after the native <c>stream.Stop()</c> call has already
     ///     blocked until the callback thread finished - so the two accessors never run concurrently.
-    ///     <see cref="Start"/> also discards a stale block left behind by a failed native stop,
-    ///     before the replacement stream is opened.
+    ///     After a failed native stop the stream stays active, <see cref="Start"/> is rejected and
+    ///     the head block is left to the callback until a later <c>Stop()</c> succeeds.
     /// </summary>
     private float[]? _headBlock;
 
@@ -185,6 +185,14 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// </summary>
     private IPortAudioStream? _stream;
 
+    /// <summary>
+    ///     Whether the last native stop of <see cref="_stream"/> failed, so callback quiescence is
+    ///     not proven. While set, the stream stays registered as active, <see cref="Start"/> is
+    ///     rejected, and a later <see cref="Stop"/> retries the native stop. Guarded by
+    ///     <see cref="_syncRoot"/>.
+    /// </summary>
+    private bool _stopFailed;
+
     /// <inheritdoc/>
     public bool IsAvailable => _resolvedDevice is not null;
 
@@ -219,6 +227,16 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
 
         lock (_syncRoot)
         {
+            if (_stopFailed)
+            {
+                // A native stop failed, so the previous stream's callback may still be running
+                // and own the head-block state. Starting anything now could race it; a later
+                // successful Stop() must prove quiescence first.
+                throw new AudioDeviceUnavailableException(
+                    $"Cannot start playback on '{_resolvedDevice.Name}': the previous stream could not " +
+                    "be stopped; call Stop again until it succeeds.");
+            }
+
             if (_stream is not null)
             {
                 return;
@@ -231,11 +249,6 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     "table was refreshed after this device was created; create a new device via " +
                     "AudioDeviceFactory instead.");
             }
-
-            // A previous native stop may have failed, leaving a stale partially consumed head
-            // block behind (the callback might still have owned it at that time). No stream is
-            // running now, so drop it here rather than replaying stale audio on the new stream.
-            DiscardHeadBlock();
 
             try
             {
@@ -301,7 +314,6 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         lock (_syncRoot)
         {
             var streamToStop = _stream;
-            _stream = null;
 
             if (streamToStop is null)
             {
@@ -309,43 +321,52 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 return;
             }
 
-            // Unregistered only once the native stop/dispose sequence below has genuinely
-            // completed (success or failure) - never before - so a concurrent RefreshDevices()
-            // can never observe this stream as "inactive" and tear down the native runtime while
-            // it is still shutting down.
+            // The stream stays registered as active, and stays in _stream, until the native stop
+            // has genuinely succeeded. If the stop fails, callback quiescence is not proven: the
+            // stream is neither disposed nor unregistered, Start() is rejected, a device-table
+            // refresh stays refused, and a later Stop() retries the stop on the same stream.
             try
             {
-                Exception? stopException = null;
-                try
-                {
-                    streamToStop.Stop();
-                    ClearQueuedSamples();
-                    _diagnostics.Report(
-                        SpeechDiagnosticLevel.Info,
-                        DiagnosticsCategory,
-                        $"Stopped PortAudio playback on '{_resolvedDevice.Name}'.");
-                }
-                catch (Exception ex)
-                {
-                    // Intentionally broad: stopping the native-backed stream must be contained so
-                    // shutdown faults do not escape as arbitrary interop exceptions.
-                    stopException = ex;
+                streamToStop.Stop();
+            }
+            catch (Exception ex)
+            {
+                // Intentionally broad: stopping the native-backed stream must be contained so
+                // shutdown faults do not escape as arbitrary interop exceptions.
+                _stopFailed = true;
 
-                    // The native stop failed, so the callback thread may still be running and
-                    // owns the head-block fields: drain only the thread-safe queue; the next
-                    // Start() discards any stale head block.
-                    ClearQueuedSamples(callbackCeased: false);
-                    _diagnostics.Report(
-                        SpeechDiagnosticLevel.Error,
-                        DiagnosticsCategory,
-                        $"Failed to stop PortAudio playback on '{_resolvedDevice.Name}': {ex.Message}");
-                }
+                // The callback thread may still be running and owns the head-block fields, so
+                // drain only the thread-safe queue.
+                ClearQueuedSamples(callbackCeased: false);
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to stop PortAudio playback on '{_resolvedDevice.Name}': {ex.Message}");
+                throw new AudioDeviceUnavailableException(
+                    $"Failed to stop playback on '{_resolvedDevice.Name}'.",
+                    ex);
+            }
+
+            // The native stop returned, so the callback has ceased and the device is quiescent.
+            _stream = null;
+            _stopFailed = false;
+
+            // Unregistered only once the native stop/dispose sequence has genuinely completed, so
+            // a concurrent RefreshDevices() can never observe this stream as "inactive" and tear
+            // down the native runtime while it is still shutting down.
+            try
+            {
+                ClearQueuedSamples();
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Info,
+                    DiagnosticsCategory,
+                    $"Stopped PortAudio playback on '{_resolvedDevice.Name}'.");
 
                 try
                 {
                     streamToStop.Dispose();
                 }
-                catch (Exception ex) when (stopException is null)
+                catch (Exception ex)
                 {
                     // Intentionally broad: disposing the native-backed stream is the final interop
                     // cleanup boundary, so any managed/native fault must be wrapped consistently.
@@ -356,24 +377,6 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     throw new AudioDeviceUnavailableException(
                         $"Failed to dispose playback stream on '{_resolvedDevice.Name}' after stopping it.",
                         ex);
-                }
-                catch (Exception ex)
-                {
-                    // Intentionally broad: once stopping has already failed, disposal faults are
-                    // logged and contained so callers still observe the primary stop failure.
-                    _diagnostics.Report(
-                        SpeechDiagnosticLevel.Error,
-                        DiagnosticsCategory,
-                        $"Failed to dispose PortAudio playback stream on '{_resolvedDevice.Name}' " +
-                        "after a stop failure: " +
-                        $"{ex.Message}");
-                }
-
-                if (stopException is not null)
-                {
-                    throw new AudioDeviceUnavailableException(
-                        $"Failed to stop playback on '{_resolvedDevice.Name}'.",
-                        stopException);
                 }
             }
             finally
@@ -679,8 +682,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     <see langword="true"/> when the native stream has genuinely stopped, so the callback
     ///     thread can no longer touch <see cref="_headBlock"/>; <see langword="false"/> after a
     ///     failed native stop, when the callback may still be running and only the thread-safe
-    ///     queue may be drained (a stale head block is then discarded by the next
-    ///     <see cref="Start"/>).
+    ///     queue may be drained (the head block is cleared by the later <see cref="Stop"/> that
+    ///     succeeds).
     /// </param>
     private void ClearQueuedSamples(bool callbackCeased = true)
     {
