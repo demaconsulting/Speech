@@ -31,12 +31,17 @@ sections:
           other model package.
         children:
           - SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
+          - SpeechOnnxChatterboxTurbo-Models-CatalogChaining
           - SpeechOnnxChatterboxTurbo-Models-ModelOptions
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsLimits
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsTokensPerTextToken
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsRepeats
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsThreads
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsTagPolicy
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsJoinSilence
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsVoiceSources
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsStoreVoices
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsNoExtraSources
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsRangeValidation
           - SpeechOnnxChatterboxTurbo-Models-ModelOptionsNullVoiceList
@@ -59,6 +64,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Models-ModelOutputFormat
           - SpeechOnnxChatterboxTurbo-Models-ModelCapabilities
           - SpeechOnnxChatterboxTurbo-Models-ModelDownload
+          - SpeechOnnxChatterboxTurbo-Models-VariantLoading
           - SpeechOnnxChatterboxTurbo-Models-BackendCreation
           - SpeechOnnxChatterboxTurbo-Models-BackendCreationFailures
           - SpeechOnnxChatterboxTurbo-Models-BackendCreationPathFailures
@@ -115,9 +121,11 @@ sections:
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceFileErrors
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceArguments
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceSampleRate
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceLength
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceMinimumLength
           - SpeechOnnxChatterboxTurbo-Models-VoiceChoice
+          - SpeechOnnxChatterboxTurbo-Models-VoiceUniqueness
           - SpeechOnnxChatterboxTurbo-Synthesis-VoiceCaching
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount

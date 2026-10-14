@@ -199,6 +199,8 @@ includes:
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.yaml

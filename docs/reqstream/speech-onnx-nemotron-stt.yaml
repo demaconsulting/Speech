@@ -57,6 +57,8 @@ sections:
         children:
           - SpeechOnnxNemotronStt-Models-RealRecognitionModel
           - SpeechOnnxNemotronStt-Models-DownloadDescriptor
+          - SpeechOnnxNemotronStt-Models-DownloadChecksums
+          - SpeechOnnxNemotronStt-Models-DownloadUris
         tests:
           - Metadata_IsDeclared
           - DownloadDescriptor_ListsElevenFiles
@@ -113,6 +115,8 @@ sections:
           Speech library's factory can degrade it to the honest unavailable recognizer.
         children:
           - SpeechOnnxNemotronStt-Models-CreateBackendValidation
+          - SpeechOnnxNemotronStt-Models-CreateBackendMissingFiles
+          - SpeechOnnxNemotronStt-Models-CreateBackendUnsupportedLocale
         tests:
           - CreateBackend_MissingFiles_Throws
 
@@ -128,6 +132,9 @@ sections:
           recognition model.
         children:
           - SpeechOnnxNemotronStt-Recognition-OnnxBackend
+          - SpeechOnnxNemotronStt-Recognition-OnnxBackendSampleRate
+          - SpeechOnnxNemotronStt-Recognition-OnnxBackendBuffering
+          - SpeechOnnxNemotronStt-Recognition-OnnxBackendChunkedDecoding
           - SpeechOnnxNemotronStt-Recognition-EncoderWiring
           - SpeechOnnxNemotronStt-Recognition-FeatureExtraction
           - SpeechOnnxNemotronStt-Recognition-FeatureStreaming
@@ -181,6 +188,8 @@ sections:
           - SpeechOnnxNemotronStt-Recognition-FlushNothing
           - SpeechOnnxNemotronStt-Recognition-QuietEndpointing
           - SpeechOnnxNemotronStt-Recognition-EmptyChunkEndpointing
+          - SpeechOnnxNemotronStt-Recognition-QuietEndpointingInsideBlock
+          - SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
         tests:
           - TryFlush_PartialAudio_ReturnsFinalText
           - TryDecode_QuietAfterSpeech_EndpointsAndResets
@@ -223,6 +232,8 @@ sections:
           - SpeechOnnxNemotronStt-Recognition-SilenceAdaptiveThreshold
           - SpeechOnnxNemotronStt-Recognition-SilenceLimiterStreaming
           - SpeechOnnxNemotronStt-Recognition-SilenceLimiterClockAndReset
+          - SpeechOnnxNemotronStt-Recognition-SilenceCalibrationFlow
+          - SpeechOnnxNemotronStt-Recognition-SilenceNonAdaptive
         tests:
           - Process_DigitalSilence_TruncatesToCap
 

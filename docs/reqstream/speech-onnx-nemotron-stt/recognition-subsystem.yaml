@@ -350,9 +350,6 @@ sections:
             tests:
               - NullArguments_Throw
               - Constructor_NullSessions_Throw
-            tests:
-              - NullArguments_Throw
-              - Constructor_NullSessions_Throw
 
           - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
             title: >-
