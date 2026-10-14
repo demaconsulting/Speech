@@ -281,8 +281,21 @@ sections:
                   - SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered
                   - SpeechDemo-Devices-PreRefreshHookRequired
                   - SpeechDemo-Devices-PreRefreshHookUnregisterRequired
+                  - SpeechDemo-Devices-PreRefreshHookFailure
                 tests:
                   - DeviceSelectionViewModel_RefreshAsync_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+
+              - id: SpeechDemo-Devices-PreRefreshHookFailure
+                title: >-
+                  When a panel fails to stop its audio use before a refresh, both status texts shall
+                  show the failure message and the device lists and selections shall stay unchanged.
+                justification: |
+                  A panel that cannot stop its session leaves its device open; re-scanning anyway
+                  would risk the in-use failure the stop step exists to prevent, and an unhandled
+                  fault would crash the UI. The user must instead see why the refresh did not run.
+                tests:
+                  - DeviceSelectionViewModel_RefreshAsync_HookThrowsSynchronously_SurfacesMessageAndSkipsRefresh
+                  - DeviceSelectionViewModel_RefreshAsync_HookReturnsFaultedTask_SurfacesMessageAndSkipsRefresh
 
               - id: SpeechDemo-Devices-PreRefreshHookOrder
                 title: >-

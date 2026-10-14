@@ -198,13 +198,29 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     device is closed - first. The existing <see cref="AudioDeviceInUseException"/> handling
     ///     in <see cref="RefreshCore"/> remains as a defensive fallback for any session the hooks
     ///     could not stop.
+    ///     <para>
+    ///         A hook that throws (synchronously or through a faulted task) never escapes the
+    ///         command: the remaining hooks and the backend re-scan are skipped, both device lists
+    ///         and selections are left untouched, and the exception's message is surfaced through
+    ///         both status texts, because refreshing while a session could not be stopped risks the
+    ///         device-in-use failure the hooks exist to prevent.
+    ///     </para>
     /// </remarks>
     [RelayCommand]
     public async Task RefreshAsync()
     {
         foreach (var hook in _preRefreshHooks.ToArray())
         {
-            await hook().ConfigureAwait(true);
+            try
+            {
+                await hook().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                CaptureStatus = ex.Message;
+                PlaybackStatus = ex.Message;
+                return;
+            }
         }
 
         RefreshCore();

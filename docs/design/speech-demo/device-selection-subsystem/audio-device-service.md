@@ -34,6 +34,11 @@ no matching device is known, so the adapter inherits those contracts with no han
 `RefreshDevices()` propagates the factory's `AudioDeviceInUseException` and any native fault
 unchanged; `DeviceSelectionViewModel` is the unit that handles them.
 
+**Thread Safety**: The adapter is stateless apart from the injected factory but is not thread-safe.
+The factory requires external synchronization between a refresh and concurrent probe reads, so
+callers must serialize `RefreshDevices()` against every other call. The demo uses the service from
+the UI thread only.
+
 **Dependencies**: The library's `AudioDeviceFactory`, `AudioDeviceDescription`,
 `AudioDeviceSelection`, `IAudioCaptureDevice` and `IAudioPlaybackDevice`.
 

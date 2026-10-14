@@ -495,6 +495,70 @@ public class DeviceSelectionViewModelTests
     }
 
     /// <summary>
+    ///     Proves that a hook that throws synchronously never escapes the refresh command: both
+    ///     status texts show the message, the lists and selections stay unchanged and the
+    ///     backend re-scan is skipped.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_RefreshAsync_HookThrowsSynchronously_SurfacesMessageAndSkipsRefresh()
+    {
+        // Arrange: a populated panel with a hook that throws before returning a task
+        var service = Service([MicA, MicB], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        service.ClearReceivedCalls();
+        const string hookMessage = "Recognition panel could not stop its session.";
+        viewModel.RegisterPreRefreshHook(() => throw new InvalidOperationException(hookMessage));
+
+        // Act: refresh while the hook fails
+        var exception = await Record.ExceptionAsync(() => viewModel.RefreshAsync());
+
+        // Assert: no exception escaped, both statuses show the message, state is untouched and
+        // the backend was never asked to re-scan
+        Assert.Null(exception);
+        Assert.Equal(hookMessage, viewModel.CaptureStatus);
+        Assert.Equal(hookMessage, viewModel.PlaybackStatus);
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Equal([Speaker], viewModel.PlaybackDevices);
+        Assert.Same(MicA, viewModel.SelectedCaptureDevice);
+        Assert.Same(Speaker, viewModel.SelectedPlaybackDevice);
+        service.DidNotReceive().RefreshDevices();
+    }
+
+    /// <summary>
+    ///     Proves that a hook returning a faulted task never escapes the refresh command and that
+    ///     later hooks are skipped along with the backend re-scan.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_RefreshAsync_HookReturnsFaultedTask_SurfacesMessageAndSkipsRefresh()
+    {
+        // Arrange: a populated panel with a faulting hook followed by a second hook
+        var service = Service([MicA, MicB], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        service.ClearReceivedCalls();
+        const string hookMessage = "Synthesis panel stop faulted.";
+        var secondHookInvoked = false;
+        viewModel.RegisterPreRefreshHook(() => Task.FromException(new InvalidOperationException(hookMessage)));
+        viewModel.RegisterPreRefreshHook(() =>
+        {
+            secondHookInvoked = true;
+            return Task.CompletedTask;
+        });
+
+        // Act: refresh while the first hook's task is faulted
+        var exception = await Record.ExceptionAsync(() => viewModel.RefreshAsync());
+
+        // Assert: no exception escaped, both statuses show the message, state is untouched, the
+        // later hook did not run and the backend was never asked to re-scan
+        Assert.Null(exception);
+        Assert.Equal(hookMessage, viewModel.CaptureStatus);
+        Assert.Equal(hookMessage, viewModel.PlaybackStatus);
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Same(MicA, viewModel.SelectedCaptureDevice);
+        Assert.False(secondHookInvoked);
+        service.DidNotReceive().RefreshDevices();
+    }
+
+    /// <summary>
     ///     Proves that a refresh which succeeds after a refused one re-enumerates and replaces
     ///     the refusal message with the normal count status.
     /// </summary>

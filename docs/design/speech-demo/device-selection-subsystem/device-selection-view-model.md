@@ -34,7 +34,12 @@ it opens rather than an empty list the user must manually refresh.
   every other subscriber's task); each registered hook is expected to be a fast no-op when it has
   nothing active. Unregistering a hook that was never registered is a no-op.
 - **RefreshAsync()**: the `[RelayCommand]`-generated, `async Task`-returning method bound to
-  `RefreshCommand`. It awaits every registered pre-refresh hook in turn, then calls the
+  `RefreshCommand`. It awaits every registered pre-refresh hook in turn. If a hook throws
+  synchronously or returns a faulted task, the exception is caught and does not escape the command:
+  the remaining hooks and the backend re-scan are skipped, both lists and selections are left
+  untouched, and `CaptureStatus` and `PlaybackStatus` are both set to the exception's message,
+  because refreshing while a panel could not stop its session risks the device-in-use failure the
+  hooks exist to prevent. When every hook succeeds it calls the
   synchronous `RefreshCore()`, which first calls `IAudioDeviceService.RefreshDevices()` to force
   the backend to re-scan its device table. If that call throws `AudioDeviceInUseException`
   (because a device is still in use despite every hook having run), `CaptureStatus` and
@@ -78,7 +83,8 @@ corresponding chosen device changes.
 **Error Handling**: The constructor throws `ArgumentNullException` for a null device service, and
 the hook registration members throw `ArgumentNullException` for a null hook. A machine with no
 audio device is an ordinary state reported through status text, not an exception, and every fault
-raised by a refresh is surfaced through the status text as described under `RefreshAsync()`.
+raised by a pre-refresh hook or by the refresh itself is surfaced through the status text as
+described under `RefreshAsync()`.
 
 **Dependencies**: Only the `IAudioDeviceService` seam and the library's `AudioDeviceDescription`
 and `AudioDeviceSelection` value types (plus `AudioDeviceInUseException` for the refusal case).

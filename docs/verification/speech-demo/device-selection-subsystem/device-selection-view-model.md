@@ -167,6 +167,24 @@ unconditionally refuses with `AudioDeviceInUseException`.
 **Expected**: The status-message fallback still fires, proving the hook mechanism does not weaken
 the safety net.
 
+##### DeviceSelectionViewModel_RefreshAsync_HookThrowsSynchronously_SurfacesMessageAndSkipsRefresh
+
+**Scenario**: A registered hook throws an exception before returning a task, then the refresh
+command runs.
+
+**Expected**: The command completes without an exception, both `CaptureStatus` and
+`PlaybackStatus` show the exception's message, both lists and selections are unchanged, and
+`IAudioDeviceService.RefreshDevices()` is never called.
+
+##### DeviceSelectionViewModel_RefreshAsync_HookReturnsFaultedTask_SurfacesMessageAndSkipsRefresh
+
+**Scenario**: A registered hook returns a faulted task and a second hook is registered after it,
+then the refresh command runs.
+
+**Expected**: The command completes without an exception, both status texts show the message,
+lists and selections are unchanged, the second hook is not invoked, and
+`IAudioDeviceService.RefreshDevices()` is never called.
+
 ##### DeviceSelectionViewModel_RefreshAsync_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 
 **Scenario**: `IAudioDeviceService.RefreshDevices()` throws a general exception (for example,

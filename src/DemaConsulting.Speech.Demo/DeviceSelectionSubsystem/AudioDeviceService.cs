@@ -12,7 +12,10 @@ namespace DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 ///     the library reports and nothing the demo invented. Because the library's probes never
 ///     throw and degrade to empty enumerations when the audio backend is unavailable, this
 ///     adapter inherits that contract without needing any error handling of its own.
-///     Instances are stateless apart from the injected factory and are safe to share.
+///     Instances are stateless apart from the injected factory and are not thread-safe: callers
+///     must serialize <see cref="RefreshDevices"/> against every other call (the demo uses the
+///     service from the UI thread only), because the delegated factory requires external
+///     synchronization between a refresh and concurrent probe reads.
 /// </remarks>
 public sealed class AudioDeviceService : IAudioDeviceService
 {
