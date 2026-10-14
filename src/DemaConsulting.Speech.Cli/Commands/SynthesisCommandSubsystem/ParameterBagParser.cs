@@ -139,7 +139,8 @@ internal static class ParameterBagParser
             ChoiceParameter choice => ResolveChoice(choice, value, flagName),
             BooleanParameter boolean => ResolveBoolean(boolean, value, flagName),
             _ => throw new ArgumentException(
-                $"Parameter '{parameter.Id}' has an unrecognized kind and cannot be set via {flagName}.",
+                $"Parameter '{parameter.Id}' has an unrecognized kind and cannot be set via {flagName} " +
+                $"(value '{value}').",
                 nameof(parameter))
         };
 

@@ -34,7 +34,8 @@ strings; the result is a `Dictionary<string, object>` keyed by parameter id whos
 the key or parameter id, and the offending value. Both methods take the invoking flag name and echo
 it verbatim, so the same code reports `--tts-param` for `speak` and `--stt-param` for `recognize`.
 A null token list, parameter list or flag name is rejected with `ArgumentNullException`. A declared
-parameter of a kind other than numeric, choice or boolean is rejected as an unrecognized kind.
+parameter of a kind other than numeric, choice or boolean is rejected as an unrecognized kind, and
+that message also names the flag, the parameter id and the offending value.
 
 **Dependencies**: The library's public `ISpeechModelParameter`, `NumericParameter`,
 `ChoiceParameter` and `BooleanParameter` types.

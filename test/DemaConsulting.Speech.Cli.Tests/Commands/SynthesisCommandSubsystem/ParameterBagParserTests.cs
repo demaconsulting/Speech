@@ -72,6 +72,29 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("--stt-param", exception.Message);
+        Assert.Contains("'rate'", exception.Message);
+    }
+
+    /// <summary>Test that a null token is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_ParseToken_NullToken_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string token = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.ParseToken(token, "--stt-param"));
+    }
+
+    /// <summary>Test that a null flag name is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_ParseToken_NullFlagName_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string flagName = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.ParseToken("rate=1.2", flagName));
     }
 
     /// <summary>Test that a token with an empty key throws.</summary>
@@ -86,6 +109,7 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains("'=1.2'", exception.Message);
     }
 
     /// <summary>Test that a value with an empty half (trailing '=') is accepted as an empty value string.</summary>
@@ -131,6 +155,7 @@ public sealed class ParameterBagParserTests
         // Assert
         Assert.Contains("--stt-param", exception.Message);
         Assert.Contains("rate", exception.Message);
+        Assert.Contains("'5.0'", exception.Message);
     }
 
     /// <summary>Test that a malformed numeric value throws.</summary>
@@ -146,6 +171,7 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("not a valid number", exception.Message);
+        Assert.Contains("'not-a-number'", exception.Message);
     }
 
     /// <summary>
@@ -167,8 +193,8 @@ public sealed class ParameterBagParserTests
             ParameterBagParser.Resolve(raw, [RateParameter], "--tts-param"));
 
         // Assert
-        Assert.Contains("not a valid number", exception.Message);
         Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains($"'{value}'", exception.Message);
     }
 
     /// <summary>Regression test: non-finite numbers are also rejected for integer-only parameters.</summary>
@@ -202,6 +228,7 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("whole number", exception.Message);
+        Assert.Contains("'1.5'", exception.Message);
     }
 
     /// <summary>Test that a whole-number value for an integer-only parameter resolves.</summary>
@@ -245,6 +272,7 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("does not match any declared option", exception.Message);
+        Assert.Contains("'carol'", exception.Message);
     }
 
     /// <summary>Test that a valid boolean value resolves to a boxed bool.</summary>
@@ -277,6 +305,25 @@ public sealed class ParameterBagParserTests
 
         // Assert
         Assert.Contains("--stt-param", exception.Message);
+        Assert.Contains("'maybe'", exception.Message);
+    }
+
+    /// <summary>Test that a declared parameter of an unsupported kind is rejected, naming flag, id and value.</summary>
+    [Fact]
+    public void ParameterBagParser_Resolve_UnrecognizedParameterKind_ThrowsArgumentExceptionNamingValue()
+    {
+        // Arrange
+        var raw = new[] { ("custom", "xyz") };
+        var declared = new ISpeechModelParameter[] { new UnsupportedKindParameter() };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, declared, "--tts-param"));
+
+        // Assert
+        Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains("'custom'", exception.Message);
+        Assert.Contains("'xyz'", exception.Message);
     }
 
     /// <summary>Test that an unrecognized key throws a clean ArgumentException naming the key.</summary>
@@ -329,5 +376,29 @@ public sealed class ParameterBagParserTests
 
         // Act / Assert
         Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], declared, "--stt-param"));
+    }
+
+    /// <summary>Test that a null flag name is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_Resolve_NullFlagName_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string flagName = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], [RateParameter], flagName));
+    }
+
+    /// <summary>A parameter of a kind the parser does not support.</summary>
+    private sealed class UnsupportedKindParameter : ISpeechModelParameter
+    {
+        /// <inheritdoc/>
+        public string Id => "custom";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Custom";
+
+        /// <inheritdoc/>
+        public string Description => "Unsupported kind";
     }
 }

@@ -11,6 +11,7 @@
 #   - Invalid values (ParamValueRejection, ParamNumberFormatRejection, ParamIntegerRejection,
 #     ParamChoiceRejection, ParamBooleanRejection)
 #   - Undeclared keys (ParamUnknownKey)
+#   - Error content (ParamRejectionNamesValue)
 # Every test below is a ParameterBagParserTests test.
 
 sections:
@@ -124,3 +125,18 @@ sections:
                   operator mistake that should fail loudly.
                 tests:
                   - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamRejectionNamesValue
+                title: >-
+                  The tool shall name the offending value in the error it reports for a rejected
+                  `--tts-param` token or value.
+                justification: |
+                  An operator correcting a rejected parameter needs to see which value was refused,
+                  especially when several `--tts-param` flags are given.
+                tests:
+                  - ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_UnrecognizedParameterKind_ThrowsArgumentExceptionNamingValue

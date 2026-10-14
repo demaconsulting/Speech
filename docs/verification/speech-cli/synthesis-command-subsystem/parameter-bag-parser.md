@@ -18,8 +18,9 @@ name is a parameter rather than hard-coded to `--tts-param`.
 #### Acceptance Criteria
 
 The unit passes when it splits well-formed tokens, resolves each parameter kind to its typed value,
-rejects every malformed token and invalid value with an error naming the flag, rejects an
-undeclared key, and rejects missing inputs.
+rejects every malformed token and invalid value with an error naming the flag and the offending
+value, rejects an undeclared key and a parameter of an unsupported kind, and rejects missing inputs
+(token, parameter list, raw-value list and flag name).
 
 #### Test Scenarios
 
@@ -33,13 +34,25 @@ undeclared key, and rejects missing inputs.
 
 **Scenario**: The token `rate` has no `=`.
 
-**Expected**: `ArgumentException` whose message contains the invoking flag name.
+**Expected**: `ArgumentException` whose message contains the invoking flag name and the token.
+
+##### ParameterBagParser_ParseToken_NullToken_ThrowsArgumentNullException
+
+**Scenario**: A null token is split.
+
+**Expected**: `ArgumentNullException`.
+
+##### ParameterBagParser_ParseToken_NullFlagName_ThrowsArgumentNullException
+
+**Scenario**: A well-formed token is split with a null flag name.
+
+**Expected**: `ArgumentNullException`.
 
 ##### ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException
 
 **Scenario**: The token `=1.2` has an empty key.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the invoking flag name and the token.
 
 ##### ParameterBagParser_ParseToken_EmptyValueHalf_ReturnsEmptyValue
 
@@ -57,13 +70,14 @@ undeclared key, and rejects missing inputs.
 
 **Scenario**: `rate=5.0` is resolved against the same bounds.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the flag name, the parameter id and the
+value `5.0`.
 
 ##### ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
 
 **Scenario**: `rate=not-a-number` is resolved against a numeric parameter.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the value `not-a-number`.
 
 ##### ParameterBagParser_Resolve_NumericNonFinite_ThrowsArgumentException
 
@@ -82,7 +96,7 @@ accepted as inside the range.
 
 **Scenario**: `speakerIndex=1.5` is resolved against an integer-only numeric parameter.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the value `1.5`.
 
 ##### ParameterBagParser_Resolve_IntegerParameterWholeValue_ResolvesBoxedDouble
 
@@ -100,7 +114,7 @@ accepted as inside the range.
 
 **Scenario**: `voice=carol` is resolved against the same parameter.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the value `carol`.
 
 ##### ParameterBagParser_Resolve_ValidBooleanValue_ResolvesBoxedBool
 
@@ -113,7 +127,15 @@ parameter.
 
 **Scenario**: `denoise=maybe` is resolved against a boolean parameter.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` whose message contains the flag name and the value `maybe`.
+
+##### ParameterBagParser_Resolve_UnrecognizedParameterKind_ThrowsArgumentExceptionNamingValue
+
+**Scenario**: `custom=xyz` is resolved against a declared parameter that is neither numeric, choice
+nor boolean.
+
+**Expected**: `ArgumentException` whose message contains the flag name, the parameter id `custom`
+and the value `xyz`.
 
 ##### ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
 
@@ -136,5 +158,11 @@ parameter.
 ##### ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException
 
 **Scenario**: A null declared-parameter list is supplied.
+
+**Expected**: `ArgumentNullException`.
+
+##### ParameterBagParser_Resolve_NullFlagName_ThrowsArgumentNullException
+
+**Scenario**: A null flag name is supplied.
 
 **Expected**: `ArgumentNullException`.
