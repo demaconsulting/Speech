@@ -991,6 +991,34 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that a canceled fresh pack install leaves the pack not installed and explains the
+    ///     cancellation on the pack's row without raising an error to the user.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_FreshInstallCanceled_ShowsNotInstalledWithMessage()
+    {
+        // Arrange: a pack that is not installed and an install that is canceled
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<SpeechModelDownloadResult>(new OperationCanceledException()));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act: attempt the fresh install
+        var exception = await Record.ExceptionAsync(() =>
+            viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken));
+
+        // Assert: nothing is thrown, the pack is still not installed, can be installed again and
+        // the cancellation is explained on the row
+        Assert.Null(exception);
+        Assert.Equal(SpeechModelState.NotDownloaded, row.State);
+        Assert.True(row.CanInstall);
+        Assert.False(row.CanRemove);
+        Assert.Equal("Install canceled.", row.FailureMessage);
+    }
+
+    /// <summary>
     ///     Proves that a pack install is refused while a model download is in flight, and that a
     ///     null or already-installed row is ignored.
     /// </summary>

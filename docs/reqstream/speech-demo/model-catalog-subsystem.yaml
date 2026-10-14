@@ -149,7 +149,9 @@ sections:
             tests:
               - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
               - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+              - ModelCatalogViewModel_InstallVoicePackAsync_FreshInstallCanceled_ShowsNotInstalledWithMessage
 
           - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
             title: >-
@@ -172,6 +174,7 @@ sections:
             tests:
               - ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
               - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
           - id: SpeechDemo-ModelCatalog-VoicePackRemovedRebuild

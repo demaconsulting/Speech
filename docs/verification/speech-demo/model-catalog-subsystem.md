@@ -209,3 +209,97 @@ is thrown at the user.
 **Expected**: The uninstall does not take effect while the install runs (no voice change is
 reported), then removes the pack once the install ends, after which the voice choices change and the
 notification is raised.
+
+#### ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
+
+**Scenario**: A fresh pack install is canceled, so the install throws a cancellation.
+
+**Expected**: The cancellation reaches the caller, the catalog and library pair is rebuilt so the
+voice choices match the pack's actual state, and `ReferenceVoicesChanged` is raised once so
+dependent panels refresh.
+
+#### ModelCatalogViewModel_InstallVoicePackAsync_FreshInstallCanceled_ShowsNotInstalledWithMessage
+
+**Scenario**: A pack that is not installed is installed through the panel and the install is
+canceled.
+
+**Expected**: Nothing is thrown at the user, the row stays not installed with installation still
+offered and removal unavailable, and "Install canceled." is shown on the row.
+
+#### ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress
+
+**Scenario**: The library reports progress while a model downloads.
+
+**Expected**: The downloading model's row shows the reported progress.
+
+#### ModelCatalogViewModel_DownloadAsync_InFlight_ShowsDownloadingState
+
+**Scenario**: A model download is still running.
+
+**Expected**: The row is in the downloading state until the download finishes.
+
+#### ModelListItemViewModel_IsDownloading_DownloadingState_ReturnsTrue
+
+**Scenario**: A row is in the downloading state.
+
+**Expected**: The row reports that it is downloading, so progress is shown.
+
+#### ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
+
+**Scenario**: A failed download is retried and the retry succeeds.
+
+**Expected**: The row is installed and the earlier failure message is cleared.
+
+#### ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
+
+**Scenario**: The panel is created over a catalog with no models.
+
+**Expected**: No rows are built, the panel reports the catalog as empty and selects nothing.
+
+#### ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels
+
+**Scenario**: The empty-catalog message is read.
+
+**Expected**: The text explains that the catalog has no known models.
+
+#### ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
+
+**Scenario**: The panel is created over a service that has no voice library.
+
+**Expected**: The voice packs list is empty and the reference voices section is hidden.
+
+#### ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
+
+**Scenario**: The panel is created with launch-time mirror values.
+
+**Expected**: The mirror settings fields start with those values.
+
+#### ModelCatalogViewModel_Constructor_VoicePacks_ShowsConsentNote
+
+**Scenario**: The panel is created over a service that offers voice packs.
+
+**Expected**: The voice-cloning consent note is shown in the panel.
+
+#### ModelCatalogViewModel_RefreshAsync_SeamFault_ReportedAndRowsKept
+
+**Scenario**: The service throws while the catalog is re-read.
+
+**Expected**: The panel reports an explained error and keeps the rows it already shows.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror
+
+**Scenario**: The mirror URL is cleared and applied.
+
+**Expected**: The service receives no mirror, so later downloads use each model's own public URI.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
+
+**Scenario**: The mirror is applied but re-reading the catalog afterwards faults.
+
+**Expected**: The fault is reported in the panel rather than thrown.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError
+
+**Scenario**: The service refuses to reconfigure for the mirror.
+
+**Expected**: The panel reports a mirror error with the service's message instead of throwing.
