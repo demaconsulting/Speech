@@ -1,6 +1,6 @@
 # System Verification Design
 
-This document describes the system-level verification strategy for the Speech.
+This document describes the system-level verification strategy for the Speech library.
 
 ## Verification Approach
 
@@ -11,7 +11,8 @@ compose `SpeechRecognizerFactory` over an installed test model, a substitute cap
 fake recognition engine, and compose `SpeechSynthesizerFactory`/`AudioTagParser` over an installed
 test model, a substitute playback device, and a fake synthesis engine. This proves the public
 composition surface, fallback behavior, diagnostics reporting, the streaming-recognition pipeline,
-the Natural Language Audio Tag vocabulary/parser, and the chunked streaming-synthesis pipeline
+the Natural Language Audio Tag vocabulary/parser, file-backed WAV devices and managed WAV/FLAC
+decoding, and the chunked streaming-synthesis pipeline
 without requiring physical audio hardware, network access, a downloaded speech model, or a native
 speech-inference runtime in CI.
 
@@ -39,14 +40,14 @@ project.
   each model-storage/download/catalog test roots its `SpeechModelStore` in a fresh temporary
   directory so no test ever reads or writes a developer's real installed-model store
 
-## External Interface Simulation
+### External Interface Simulation
 
 The system simulates the PortAudio runtime through an internal fake `IPortAudioApi` exposed via
 `PortAudioEnvironment`. This allows system tests to exercise the public `AudioDeviceFactory`
 composition surface with controlled host-API and device catalogs while remaining deterministic
 on every CI runner.
 
-## System-Level Test Scenarios
+## Test Scenarios
 
 ### Integration: PortAudio Initialized Returns Real Devices
 
@@ -76,6 +77,13 @@ Verifies that omitting the diagnostics sink still composes safely through
 Verifies that PortAudio initialization failure degrades composition to the honest unavailable
 fallback devices rather than throwing.
 
+This scenario also evidences the platform requirements (`Speech-Platform-Windows`, `-Linux`, `-MacOS`,
+`-Net8`, `-Net9` and `-Net10`) only as a portability smoke test: the same test runs on every CI operating
+system and target runtime, and each requirement links it through a source filter (`windows@`, `ubuntu@`,
+`macos@`, `net8.0@`, `net9.0@`, `net10.0@`) so only a pass on that platform or runtime counts. It proves the
+library composes and degrades without throwing on that platform; it does not exercise platform-specific
+native behavior such as real PortAudio device I/O.
+
 ### Validation: No Resolvable Capture Device Throws on Start
 
 **Test**: `Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException`
@@ -89,11 +97,15 @@ consistent with `AudioDeviceFactory` consulting its probe before constructing a 
 
 **Test**: `Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults`
 
-Verifies the full public streaming-recognition surface end to end: composing a recognizer for an
-installed model and an available capture device, streaming one captured block through audio-format
-conversion into the recognition engine, and surfacing the resulting provisional and final text
-through the recognizer's result event. The recognition engine is a deterministic test double, so
-this scenario proves the composed pipeline rather than speech-recognition accuracy.
+Verifies the full public streaming-recognition surface end to end, deterministically: composing a
+recognizer for an installed model and an available capture device, streaming one captured block
+through audio-format conversion into the recognition engine, and consuming the stream in a fixed
+order. The scripted engine decodes a provisional result ("hello") for the block and a final
+result ("hello world") only when the session is stopped, so the test reads the provisional result
+first, then stops the session and reads the final result, and finally observes the stream
+completing. Because the consumer drains the provisional result before the final one can exist,
+the outcome never depends on thread scheduling. The recognition engine is a deterministic test
+double, so this scenario proves the composed pipeline rather than speech-recognition accuracy.
 
 ### Integration: Model Download Verifies and Atomically Installs the Model
 
@@ -116,26 +128,51 @@ to `SpeechModelState.Downloaded` once `DownloadAsync` verifies and atomically in
 **Test**: `Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio`
 
 Verifies the full public streaming-synthesis surface end to end: composing a synthesizer for an
-installed model and an available playback device, speaking one plain-text utterance, and
-confirming the playback device is started, receives at least one written block of audio, and is
-stopped. The synthesis engine is a deterministic test double, so this scenario proves the composed
-chunked pipeline rather than speech-synthesis audio quality.
+installed model and an available playback device, speaking one utterance with a Natural Language
+Audio Tag (`[fast] hello world`), and confirming the playback device is started, receives at
+least one written block of audio, and is stopped, and that the backend received the tag-free text
+with a speed override above 1.0 (the Layer 2 rendering). The synthesis engine is a deterministic
+test double, so this scenario proves the composed chunked pipeline rather than speech-synthesis
+audio quality.
 
-### Unit: Every Documented Audio Tag Alias Resolves to Its Canonical Tag Span
+### Integration: File-Backed Devices Round-Trip Synthesized Speech Through a WAV File
 
-**Test**: `AudioTagParser_Parse_EveryDocumentedAlias_ResolvesToItsCanonicalTagSpan`
+**Test**: `Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile`
 
-Verifies, for every alias in the closed Natural Language Audio Tag vocabulary, that
-`AudioTagParser.Parse` resolves the bracketed alias to its canonical tag span, proving the
-model-independent Layer 1 parser recognizes the complete documented vocabulary.
+Verifies the file-backed devices end to end without audio hardware: speech synthesized by a real
+session over a deterministic test engine is written to a WAV file by `WavFileAudioPlaybackDevice`,
+and the same file then streams back through `WavFileAudioCaptureDevice` as captured frames in the
+written format.
 
-### Unit: Unknown Bracketed Word Passes Through as Literal Text
+### Integration: Managed Audio File Decoding Reads WAV and FLAC by Content
 
-**Test**: `AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText`
+**Test**: `Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent`
 
-Verifies that a bracketed word outside the closed vocabulary is passed through as plain narration
-text rather than dropped or rejected, proving the "never worse than plain narration" guarantee for
-unrecognized or malformed bracket content.
+Verifies, through the public `AudioFileReader` alone, that a FLAC fixture and its WAV twin decode
+to identical samples, that the container is detected by content rather than file extension, and
+that `ReadMono` yields one sample per frame at the source rate.
+
+### Integration: Audio Tag Vocabulary Parses Known Tags and Passes Unknown Brackets Through
+
+**Test**: `Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough`
+
+Verifies through the public `AudioTagParser` that a bracketed alias from the closed Natural
+Language Audio Tag vocabulary becomes a tag span while a bracketed word outside the vocabulary
+remains in the plain narration text rather than being dropped or rejected, proving the "never
+worse than plain narration" guarantee. Exhaustive per-alias coverage is proven at unit level by
+`AudioTagParserTests.cs`.
+
+## Requirements Verified at Unit or Subsystem Level
+
+Several system requirements have no dedicated `SpeechTests.cs` scenario because the behavior is
+fully observable below the system boundary and its evidence is the unit or subsystem test set
+linked from the requirement (or its child requirements): the reference-voice library
+(`Speech-Models-ReferenceVoiceLibrary`, `-ReferenceVoiceMergedListing`), the download mirror
+(`Speech-Models-DownloadMirror`), explicit uninstall, corrupt-download rejection and failure
+reporting, the configurable storage root, per-model Layer 2 tag rendering, chunked and low-latency
+playback, and the honest-composition fallbacks for recognition and synthesis. Promoting any of
+these to a composed system scenario is deferred; until then the system-level claim for them rests
+on the linked lower-level tests.
 
 ## Acceptance Criteria
 

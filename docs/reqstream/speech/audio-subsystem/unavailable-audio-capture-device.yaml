@@ -1,0 +1,44 @@
+---
+# Software Unit Requirements for UnavailableAudioCaptureDevice
+#
+# These requirements describe the design-level behavior of the UnavailableAudioCaptureDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: UnavailableAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-ReportsUnavailable
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall report IsAvailable as false and
+                  never throw merely for being constructed or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback capture
+                  device, per this library's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-OperationsThrow
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall throw AudioDeviceUnavailableException
+                  when Start or Stop is invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately.
+                tests:
+                  - UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-ZeroCaptureFormat
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall report a channel count and sample
+                  rate of zero.
+                justification: |
+                  A fallback device delivers no audio, so reporting a plausible-looking format
+                  would mislead a consumer into preparing a conversion for audio that will never
+                  arrive; zero is the honest report and matches the false availability flag.
+                tests:
+                  - UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount

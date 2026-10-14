@@ -24,7 +24,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.Cli.Tests;
 
 /// <summary>
-///     Unit tests for the Program class.
+///     Unit tests for the Program class (entry point, dispatch priority, exit codes, help text).
 /// </summary>
 [Collection("Sequential")]
 public class ProgramTests
@@ -33,7 +33,7 @@ public class ProgramTests
     ///     Test that Run with version flag displays version only.
     /// </summary>
     [Fact]
-    public void Program_Run_WithVersionFlag_DisplaysVersionOnly()
+    public async Task Program_Run_WithVersionFlag_DisplaysVersionOnly()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -44,13 +44,11 @@ public class ProgramTests
             using var context = Context.Create(["--version"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
-            // Assert: verify expected behavior
+            // Assert: verify expected behavior - the output is exactly the version and a line terminator
             var output = outWriter.ToString();
-            Assert.Contains(Program.Version, output);
-            Assert.DoesNotContain("Copyright", output);
-            Assert.DoesNotContain("Speech CLI version", output);
+            Assert.Equal(Program.Version + Environment.NewLine, output);
             Assert.Equal(0, context.ExitCode);
         }
         finally
@@ -63,7 +61,7 @@ public class ProgramTests
     ///     Test that Run with help flag displays usage information listing every subcommand.
     /// </summary>
     [Fact]
-    public void Program_Run_WithHelpFlag_DisplaysUsageInformation()
+    public async Task Program_Run_WithHelpFlag_DisplaysUsageInformation()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -74,7 +72,7 @@ public class ProgramTests
             using var context = Context.Create(["--help"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -83,6 +81,7 @@ public class ProgramTests
             Assert.Contains("--version", output);
             Assert.Contains("--help", output);
             Assert.Contains("--models-dir", output);
+            Assert.Contains("--mirror-bearer-token <t>  HTTP Bearer token for --mirror-url", output);
             foreach (var command in CommandDispatch.Commands)
             {
                 Assert.Contains(command.Name, output);
@@ -97,21 +96,197 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that Run with validate flag runs validation.
+    ///     Test that when version, help and validation are all requested, version takes priority and
+    ///     neither the usage text nor the validation report is produced.
     /// </summary>
     [Fact]
-    public void Program_Run_WithValidateFlag_RunsValidation()
+    public async Task Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder()
     {
-        // Arrange: setup test conditions
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
+        var originalOut = Console.Out;
+        try
+        {
+            using var versionWriter = new StringWriter();
+            Console.SetOut(versionWriter);
+            using var context = Context.Create(["--validate", "--help", "--version", "--models-dir", modelsDir]);
+
+            // Act
+            await Program.RunAsync(context);
+
+            // Assert
+            var versionOutput = versionWriter.ToString();
+            Assert.Contains(Program.Version, versionOutput);
+            Assert.DoesNotContain("Usage:", versionOutput);
+            Assert.DoesNotContain("Total Tests:", versionOutput);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
+        }
+    }
+
+    /// <summary>
+    ///     Test that when help and validation are both requested, help takes priority and the
+    ///     validation report is not produced.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_HelpValidateTogether_HelpTakesPriority()
+    {
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
+        var originalOut = Console.Out;
+        try
+        {
+            using var helpWriter = new StringWriter();
+            Console.SetOut(helpWriter);
+            using var context = Context.Create(["--validate", "--help", "--models-dir", modelsDir]);
+
+            // Act
+            await Program.RunAsync(context);
+
+            // Assert
+            var helpOutput = helpWriter.ToString();
+            Assert.Contains("Usage:", helpOutput);
+            Assert.DoesNotContain("Total Tests:", helpOutput);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
+        }
+    }
+
+    /// <summary>
+    ///     Returns a unique, not-yet-created models directory path under the temp folder.
+    /// </summary>
+    /// <returns>The path of the isolated models directory.</returns>
+    private static string NewModelsDir() =>
+        Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    ///     Deletes a directory tree if it exists.
+    /// </summary>
+    /// <param name="path">The directory to delete.</param>
+    private static void DeleteDirectory(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Runs <c>--validate</c> in process against an isolated models directory and returns the
+    ///     printed output and exit code.
+    /// </summary>
+    /// <returns>The captured standard output and the context exit code.</returns>
+    private static async Task<(string Output, int ExitCode)> RunValidateAsync()
+    {
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
             using var outWriter = new StringWriter();
             Console.SetOut(outWriter);
-            using var context = Context.Create(["--validate"]);
+            using var context = Context.Create(["--validate", "--models-dir", modelsDir]);
+            await Program.RunAsync(context);
+            return (outWriter.ToString(), context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
+        }
+    }
+
+    /// <summary>Test that validation reports the version check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsVersionCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_VersionDisplay - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the help check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsHelpCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_HelpDisplay - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the subcommand registration check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsSubcommandRegistrationCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_DispatchTableWellFormed - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the audio backend check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsAudioBackendCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_AudioBackendProbe - Passed", output);
+    }
+
+    /// <summary>Test that validation reports the model store writability check as passed.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_ReportsModelStoreCheckPassed()
+    {
+        // Arrange / Act
+        var (output, _) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("✓ SpeechCli_ModelStoreRootWritable - Passed", output);
+    }
+
+    /// <summary>Test that validation prints a summary whose totals are consistent with all checks passing.</summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_PrintsSummaryTotals()
+    {
+        // Arrange / Act
+        var (output, exitCode) = await RunValidateAsync();
+
+        // Assert
+        Assert.Contains("Total Tests: 5", output);
+        Assert.Contains("Passed: 5", output);
+        Assert.Contains("Failed: 0", output);
+        Assert.Equal(0, exitCode);
+    }
+
+    /// <summary>
+    ///     Test that Run with validate flag runs validation.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_WithValidateFlag_RunsValidation()
+    {
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
+        var originalOut = Console.Out;
+        try
+        {
+            using var outWriter = new StringWriter();
+            Console.SetOut(outWriter);
+            using var context = Context.Create(["--validate", "--models-dir", modelsDir]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -121,6 +296,7 @@ public class ProgramTests
         finally
         {
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -129,7 +305,7 @@ public class ProgramTests
     ///     <c>--help</c>, since no subcommand was given.
     /// </summary>
     [Fact]
-    public void Program_Run_NoArguments_DisplaysBannerAndUsage()
+    public async Task Program_Run_NoArguments_DisplaysBannerAndUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -140,7 +316,7 @@ public class ProgramTests
             using var context = Context.Create([]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -173,7 +349,7 @@ public class ProgramTests
     ///     Test that Main with invalid arguments returns non-zero exit code.
     /// </summary>
     [Fact]
-    public void Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode()
+    public async Task Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode()
     {
         // Arrange: redirect stderr to suppress error output during test
         var originalError = Console.Error;
@@ -183,7 +359,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unrecognized argument (not a known subcommand or option)
-            var result = Program.Main(["--invalid-argument"]);
+            var result = await Program.Main(["--invalid-argument"]);
 
             // Assert: invalid arguments produce a non-zero exit code
             Assert.Equal(1, result);
@@ -199,7 +375,7 @@ public class ProgramTests
     ///     code and reports the argument in the error output.
     /// </summary>
     [Fact]
-    public void Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand()
+    public async Task Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand()
     {
         // Arrange: redirect stderr to capture error output
         var originalError = Console.Error;
@@ -209,7 +385,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with a command name that is not in the dispatch table
-            var result = Program.Main(["not-a-real-command"]);
+            var result = await Program.Main(["not-a-real-command"]);
 
             // Assert: unknown command produces a clean, non-zero exit with a naming error message
             Assert.Equal(1, result);
@@ -225,12 +401,12 @@ public class ProgramTests
     ///     Test that Main with an unrecognized argument and <c>--silent</c> still returns the
     ///     non-zero exit code, but suppresses the stderr message - proving the top-level
     ///     <see cref="ArgumentException"/> catch in <see cref="Program.Main"/> honors
-    ///     <c>--silent</c> even though <see cref="Cli.Context.Create"/> itself threw before a
-    ///     <see cref="Cli.Context"/> could be constructed to expose its own
-    ///     <see cref="Cli.Context.Silent"/> flag.
+    ///     <c>--silent</c> even though <see cref="Context.Create(string[])"/> itself threw before a
+    ///     <see cref="Context"/> could be constructed to expose its own
+    ///     <see cref="Context.Silent"/> flag.
     /// </summary>
     [Fact]
-    public void Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput()
+    public async Task Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput()
     {
         // Arrange: redirect stderr to capture (expected empty) error output
         var originalError = Console.Error;
@@ -240,7 +416,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unrecognized argument plus --silent
-            var result = Program.Main(["--invalid-argument", "--silent"]);
+            var result = await Program.Main(["--invalid-argument", "--silent"]);
 
             // Assert: non-zero exit code still reported, but nothing written to stderr
             Assert.Equal(1, result);
@@ -258,7 +434,7 @@ public class ProgramTests
     ///     unrecognized command.
     /// </summary>
     [Fact]
-    public void Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput()
+    public async Task Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput()
     {
         // Arrange: redirect stderr to capture (expected empty) error output
         var originalError = Console.Error;
@@ -268,7 +444,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unknown command name plus --silent
-            var result = Program.Main(["not-a-real-command", "--silent"]);
+            var result = await Program.Main(["not-a-real-command", "--silent"]);
 
             // Assert: non-zero exit code still reported, but nothing written to stderr
             Assert.Equal(1, result);
@@ -281,15 +457,16 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>recognize</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's <c>recognize</c> command - the last of all 10
-    ///     subcommands to be implemented. Full <c>recognize</c> coverage lives in
+    ///     Test that dispatching to <c>recognize</c> with no arguments reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>recognize</c> command. Full <c>recognize</c> coverage lives in
     ///     <c>RecognizeCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create a recognize context with no model option
         var originalError = Console.Error;
         try
         {
@@ -297,8 +474,8 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["recognize"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            // Act / Assert: the dispatched command rejects the missing model
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -307,12 +484,12 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>list-models</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's five model-management commands.
+    ///     Test that dispatching to <c>list-models</c> with no arguments reaches the real
+    ///     implementation and completes with a success exit code and a model listing, proving
+    ///     the dispatch table wiring for the model-management commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithListModelsCommand_ListsModelsAndSucceeds()
     {
         // Arrange: an isolated, empty models directory so no real network access occurs
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
@@ -324,9 +501,12 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["--models-dir", modelsDir, "list-models"]);
 
-            // Act & Assert: does not throw NotImplementedException
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.Null(exception);
+            // Act
+            await Program.RunAsync(context);
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+            Assert.NotEqual(string.Empty, outWriter.ToString());
         }
         finally
         {
@@ -339,13 +519,14 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>list-devices</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's device-related commands.
+    ///     Test that dispatching to <c>list-devices</c> with no arguments reaches the real
+    ///     implementation and completes with a success exit code, proving the dispatch table
+    ///     wiring for the device-related commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListDevicesCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode()
     {
+        // Arrange: capture stdout and create a list-devices context
         var originalOut = Console.Out;
         try
         {
@@ -353,8 +534,11 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["list-devices"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.Null(exception);
+            // Act: dispatch the command
+            await Program.RunAsync(context);
+
+            // Assert: the command completed successfully
+            Assert.Equal(0, context.ExitCode);
         }
         finally
         {
@@ -363,13 +547,14 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>doctor</c> with no arguments runs the real implementation
-    ///     (never throwing <see cref="NotImplementedException"/>), against an isolated, empty
+    ///     Test that dispatching to <c>doctor</c> with no arguments reaches the real
+    ///     implementation and produces a report without throwing, against an isolated, empty
     ///     models directory so no real network access or per-user store is touched.
     /// </summary>
     [Fact]
-    public void Program_Run_WithDoctorCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing()
     {
+        // Arrange: an isolated, empty models directory and captured stdout
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
         var originalOut = Console.Out;
@@ -379,8 +564,12 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["--models-dir", modelsDir, "doctor"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
+            // Act: dispatch the command
+            var exception = await Record.ExceptionAsync(() => Program.RunAsync(context));
+
+            // Assert: no exception and a report was written
             Assert.Null(exception);
+            Assert.NotEqual(string.Empty, outWriter.ToString());
         }
         finally
         {
@@ -393,15 +582,15 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>speak</c> without <c>--model</c> reports a clean,
-    ///     missing-model <see cref="ArgumentException"/> rather than
-    ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for this
-    ///     pass's <c>speak</c> command. Full <c>speak</c> coverage lives in
-    ///     <c>SpeakCommandTests</c>.
+    ///     Test that dispatching to <c>speak</c> without <c>--model</c> reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>speak</c> command. Full <c>speak</c> coverage lives in <c>SpeakCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create a speak context with no model option
         var originalError = Console.Error;
         try
         {
@@ -409,8 +598,8 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["speak"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            // Act / Assert: the dispatched command rejects the missing model
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -419,15 +608,15 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>ask</c> without <c>--tts-model</c> reports a clean,
-    ///     missing-model <see cref="ArgumentException"/> rather than
-    ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for the
-    ///     eleventh, later-added <c>ask</c> command. Full <c>ask</c> coverage lives in
-    ///     <c>AskCommandTests</c>.
+    ///     Test that dispatching to <c>ask</c> without <c>--tts-model</c> reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>ask</c> command. Full <c>ask</c> coverage lives in <c>AskCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithAskCommand_DoesNotThrowNotImplemented()
+    public async Task Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create an ask context with no TTS model option
         var originalError = Console.Error;
         try
         {
@@ -435,8 +624,8 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["ask"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            // Act / Assert: the dispatched command rejects the missing model
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -448,7 +637,7 @@ public class ProgramTests
     ///     Test that Run with short version flag -v displays version.
     /// </summary>
     [Fact]
-    public void Program_Run_WithShortVersionFlag_DisplaysVersion()
+    public async Task Program_Run_WithShortVersionFlag_DisplaysVersion()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -459,7 +648,7 @@ public class ProgramTests
             using var context = Context.Create(["-v"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -476,7 +665,7 @@ public class ProgramTests
     ///     Test that Run with short help flag -h displays usage.
     /// </summary>
     [Fact]
-    public void Program_Run_WithShortHelpFlag_DisplaysUsage()
+    public async Task Program_Run_WithShortHelpFlag_DisplaysUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -487,7 +676,7 @@ public class ProgramTests
             using var context = Context.Create(["-h"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -505,7 +694,7 @@ public class ProgramTests
     ///     Test that Run with short help flag -? displays usage.
     /// </summary>
     [Fact]
-    public void Program_Run_WithQuestionMarkFlag_DisplaysUsage()
+    public async Task Program_Run_WithQuestionMarkFlag_DisplaysUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -516,7 +705,7 @@ public class ProgramTests
             using var context = Context.Create(["-?"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -531,195 +720,220 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that a global option (<c>--models-dir</c>) appearing after the subcommand name is
-    ///     still recognized as a global option rather than collected into the subcommand's raw
-    ///     arguments.
+    ///     Test that help documents <c>--voices-dir</c>, the voice commands, voice selection, and the consent note.
     /// </summary>
     [Fact]
-    public void Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption()
+    public async Task Program_Run_Help_DocumentsVoicesOptionsAndConsentNote()
     {
-        // Act: parse a command line with the subcommand first, then a global option
-        using var context = Context.Create(["list-models", "--models-dir", "/tmp/models", "--format", "json"]);
+        // Arrange: capture stdout and create a help context
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["--help"]);
 
-        // Assert: the global option is resolved onto the context, not left in CommandArgs
-        Assert.Equal("list-models", context.Command);
-        Assert.Equal("/tmp/models", context.ModelsDir);
-        Assert.Equal(["--format", "json"], context.CommandArgs);
+            // Act: display the help text
+            await Program.RunAsync(context);
+
+            // Assert: the voice options, commands, selection syntax and consent note are documented
+            var output = writer.ToString();
+            Assert.Contains("--voices-dir", output);
+            Assert.Contains("list-voices", output);
+            Assert.Contains("voices (packs | install <packId> | uninstall <packId>)", output);
+            Assert.Contains("--tts-param voice=<voiceId>", output);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     /// <summary>
-    ///     Test that Run passes through to Main's ArgumentException handling with a null-safe
-    ///     path when <see cref="Program.Run"/> itself is given a null context.
+    ///     Test that <see cref="Program.RunAsync"/> given a null context faults with
+    ///     <see cref="ArgumentNullException"/> (surfaced through the returned task, since the
+    ///     method is asynchronous).
     /// </summary>
     [Fact]
-    public void Program_Run_WithNullContext_ThrowsArgumentNullException()
+    public async Task Program_Run_WithNullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => Program.Run(null!));
+        // Arrange: a null context
+        Context context = null!;
+
+        // Act / Assert: the returned task faults with an argument-null exception
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Program.RunAsync(context));
     }
 
     /// <summary>
-    ///     Test that <c>--mirror-url</c> and the other <c>--mirror-*</c> global options parse onto
-    ///     the <see cref="Context"/> regardless of where they appear relative to the subcommand.
+    ///     Builds an environment reader over a fixed set of variables, so tests never mutate the process environment.
+    /// </summary>
+    private static Func<string, string?> FakeEnvironment(params (string Name, string Value)[] variables) =>
+        name => variables.Where(v => v.Name == name).Select(v => v.Value).FirstOrDefault();
+
+    /// <summary>
+    ///     Test that help names the mirror environment variables.
     /// </summary>
     [Fact]
-    public void Context_Create_WithMirrorOptions_ParsesOntoContext()
+    public async Task Program_Run_Help_DocumentsMirrorEnvironmentVariables()
     {
-        // Act
-        using var context = Context.Create([
-            "list-models",
-            "--mirror-url", "https://mirror.example.com",
-            "--mirror-user", "alice",
-            "--mirror-password", "secret"
-        ]);
+        // Arrange: capture stdout and create a help context with an empty fake environment
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["--help"], FakeEnvironment());
 
-        // Assert
-        Assert.Equal("https://mirror.example.com", context.MirrorUrl);
-        Assert.Equal("alice", context.MirrorUser);
-        Assert.Equal("secret", context.MirrorPassword);
-        Assert.Null(context.MirrorBearerToken);
+            // Act: display the help text
+            await Program.RunAsync(context);
+
+            // Assert: every mirror environment variable name is listed
+            var output = writer.ToString();
+            Assert.Contains("DEMASPEECH_MIRROR_URL", output);
+            Assert.Contains("DEMASPEECH_MIRROR_USER", output);
+            Assert.Contains("DEMASPEECH_MIRROR_PASSWORD", output);
+            Assert.Contains("DEMASPEECH_MIRROR_BEARER_TOKEN", output);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> returns <see langword="null"/> when no
-    ///     <c>--mirror-url</c> was supplied.
+    ///     Test that help never prints an environment secret's value.
     /// </summary>
     [Fact]
-    public void Context_CreateMirror_NoMirrorUrl_ReturnsNull()
+    public async Task Program_Run_Help_DoesNotPrintEnvironmentSecretValues()
     {
-        // Act
-        using var context = Context.Create(["list-models"]);
+        // Arrange: capture stdout and create a help context whose environment holds a secret token
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(
+                ["--help"],
+                FakeEnvironment(
+                    ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                    ("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value")));
 
-        // Assert
-        Assert.Null(context.CreateMirror());
+            // Act: display the help text
+            await Program.RunAsync(context);
+
+            // Assert: the secret value never appears in the output
+            Assert.DoesNotContain("super-secret-value", writer.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> builds a <see cref="DownloadMirror"/> whose
-    ///     base URI matches a valid <c>--mirror-url</c>, with Basic credentials attached when a
-    ///     matching <c>--mirror-user</c>/<c>--mirror-password</c> pair is supplied.
+    ///     Test that <c>--validate</c> with a <c>--results</c> file of an unsupported extension
+    ///     reports the error and makes <c>Main</c> return a non-zero exit code.
     /// </summary>
     [Fact]
-    public void Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror()
+    public async Task Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode()
     {
-        // Act
-        using var context = Context.Create([
-            "list-models",
-            "--mirror-url", "https://mirror.example.com",
-            "--mirror-user", "alice",
-            "--mirror-password", "secret"
-        ]);
-        var mirror = context.CreateMirror();
+        // Arrange: an unsupported results file path and an isolated models directory
+        var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.txt");
+        var modelsDir = NewModelsDir();
+        var originalError = Console.Error;
+        var originalOut = Console.Out;
+        try
+        {
+            using var errWriter = new StringWriter();
+            using var outWriter = new StringWriter();
+            Console.SetError(errWriter);
+            Console.SetOut(outWriter);
 
-        // Assert
-        Assert.NotNull(mirror);
-        Assert.Equal(new Uri("https://mirror.example.com"), mirror.BaseUri);
-        Assert.Equal("alice", mirror.Credentials?.UserName);
-        Assert.Equal("secret", mirror.Credentials?.Password);
-        Assert.Null(mirror.BearerToken);
+            // Act
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
+
+            // Assert
+            Assert.Equal(1, result);
+            Assert.Contains("Unsupported results file format", errWriter.ToString());
+            Assert.False(File.Exists(resultsFile));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Console.SetOut(originalOut);
+            File.Delete(resultsFile);
+            DeleteDirectory(modelsDir);
+        }
     }
 
     /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> builds a bearer-token-authenticated
-    ///     <see cref="DownloadMirror"/> when only <c>--mirror-bearer-token</c> is supplied.
+    ///     Test that <c>--validate</c> with a <c>--results</c> path that cannot be written reports
+    ///     the error and makes <c>Main</c> return a non-zero exit code.
     /// </summary>
     [Fact]
-    public void Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror()
+    public async Task Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode()
     {
-        // Act
-        using var context = Context.Create([
-            "list-models",
-            "--mirror-url", "https://mirror.example.com",
-            "--mirror-bearer-token", "token-value"
-        ]);
-        var mirror = context.CreateMirror();
+        // Arrange: the parent directory does not exist, so the write fails; isolated models directory
+        var resultsFile = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "results.trx");
+        var modelsDir = NewModelsDir();
+        var originalError = Console.Error;
+        var originalOut = Console.Out;
+        try
+        {
+            using var errWriter = new StringWriter();
+            using var outWriter = new StringWriter();
+            Console.SetError(errWriter);
+            Console.SetOut(outWriter);
 
-        // Assert
-        Assert.NotNull(mirror);
-        Assert.Null(mirror.Credentials);
-        Assert.Equal("token-value", mirror.BearerToken);
+            // Act
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
+
+            // Assert
+            Assert.Equal(1, result);
+            Assert.NotEqual(string.Empty, errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
+        }
     }
 
     /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-url</c> that is not a
-    ///     valid absolute URL.
+    ///     Test that <c>--validate</c> with a <c>.xml</c> results file writes a JUnit report and exits successfully.
     /// </summary>
     [Fact]
-    public void Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException()
+    public async Task Program_Main_ValidateWithXmlResults_WritesJUnitFile()
     {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", "not a url"]));
-    }
+        // Arrange: an XML results file path and an isolated models directory
+        var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.xml");
+        var modelsDir = NewModelsDir();
+        var originalOut = Console.Out;
+        try
+        {
+            using var outWriter = new StringWriter();
+            Console.SetOut(outWriter);
 
-    /// <summary>
-    ///     Test that mirror credentials supplied without <c>--mirror-url</c> are rejected even for
-    ///     invocations that never build a model catalog, such as <c>--help</c>.
-    /// </summary>
-    [Fact]
-    public void Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException()
-    {
-        // Act and Assert
-        Assert.Throws<ArgumentException>(() => Context.Create(["--help", "--mirror-user", "alice"]));
-    }
+            // Act
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
 
-    /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-user</c> supplied
-    ///     without the matching <c>--mirror-password</c>.
-    /// </summary>
-    [Fact]
-    public void Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException()
-    {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
-            "list-models",
-            "--mirror-url", "https://mirror.example.com",
-            "--mirror-user", "alice"
-        ]));
-    }
-
-    /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects supplying both HTTP Basic
-    ///     credentials (<c>--mirror-user</c>/<c>--mirror-password</c>) and a bearer token
-    ///     (<c>--mirror-bearer-token</c>) together, since the two authentication mechanisms are
-    ///     mutually exclusive.
-    /// </summary>
-    [Fact]
-    public void Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException()
-    {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
-            "list-models",
-            "--mirror-url", "https://mirror.example.com",
-            "--mirror-user", "alice",
-            "--mirror-password", "secret",
-            "--mirror-bearer-token", "token-value"
-        ]));
-    }
-
-    /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-user</c>/
-    ///     <c>--mirror-password</c> pair supplied without <c>--mirror-url</c>, since the
-    ///     credential would otherwise be silently ignored rather than applied anywhere.
-    /// </summary>
-    [Fact]
-    public void Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException()
-    {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
-            "list-models",
-            "--mirror-user", "alice",
-            "--mirror-password", "secret"
-        ]));
-    }
-
-    /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-bearer-token</c>
-    ///     supplied without <c>--mirror-url</c>, since the token would otherwise be silently
-    ///     ignored rather than applied anywhere.
-    /// </summary>
-    [Fact]
-    public void Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException()
-    {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
+            // Assert: the file parses as JUnit XML and holds one passing test case per self-validation check
+            Assert.Equal(0, result);
+            Assert.True(File.Exists(resultsFile), "Results file was not created");
+            var document = System.Xml.Linq.XDocument.Load(resultsFile);
+            Assert.NotNull(document.Root);
+            var testCases = document.Descendants("testcase").ToList();
+            Assert.Equal(5, testCases.Count);
+            Assert.Contains(testCases, c => (string?)c.Attribute("name") == "SpeechCli_VersionDisplay");
+            Assert.DoesNotContain(testCases, c => c.Element("failure") != null || c.Element("error") != null);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            File.Delete(resultsFile);
+            DeleteDirectory(modelsDir);
+        }
     }
 }

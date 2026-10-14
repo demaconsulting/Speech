@@ -13,7 +13,7 @@ subsystem relies on for comparing descriptions in tests and in future selection 
 `GetHashCode`, `ToString`, `with`-expressions). No behavior beyond data carriage.
 
 **Error Handling**: None — the type performs no validation; it is a pure data carrier populated
-by probes (in a later phase) or by tests today.
+by device probes or by tests.
 
 **Dependencies**: `AudioDeviceDirection` (declared alongside it).
 

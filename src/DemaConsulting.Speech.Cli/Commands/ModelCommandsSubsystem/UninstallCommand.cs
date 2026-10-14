@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 ///     manifest, and any leftover scratch directories.
 /// </summary>
 /// <remarks>
-///     Per <see cref="SpeechModelStore.Uninstall"/>'s own documented behavior, uninstalling a
+///     Per <see cref="SpeechModelStore.UninstallAsync"/>'s own documented behavior, uninstalling a
 ///     model that is not currently installed is a safe no-op (there is simply nothing to
 ///     remove), not an error; this command follows that same documented semantic rather than
 ///     inventing a new "not installed" error case.
@@ -46,12 +46,15 @@ internal static class UninstallCommand
     ///     Thrown when the model's installed directory or manifest could not be removed, most
     ///     likely because another process still has an open file handle into it.
     /// </exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        Run(context, catalog);
+        using var cancellationSource = new CancellationTokenSource();
+
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -60,13 +63,15 @@ internal static class UninstallCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to uninstall through. Must not be null.</param>
+    /// <param name="cancellationToken">A token observed before the removal starts.</param>
+    /// <returns>A task that completes once the model has been removed.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> or <paramref name="catalog"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument (or more than one) is given.</exception>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when the model's installed directory or manifest could not be removed, most
     ///     likely because another process still has an open file handle into it.
     /// </exception>
-    internal static void Run(Context context, ICliModelCatalog catalog)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -74,18 +79,24 @@ internal static class UninstallCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("uninstall requires a <modelId> argument.", nameof(context));
+            throw new ArgumentException("uninstall requires a <modelId> argument.");
         }
 
         if (args.Count > 1)
         {
-            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'uninstall'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'uninstall'.");
         }
 
         var modelId = args[0];
         try
         {
-            catalog.Uninstall(modelId);
+            await catalog.UninstallAsync(modelId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ctrl+C before the removal started: report it cleanly instead of crashing
+            context.WriteError($"Uninstalling model '{modelId}' was canceled.");
+            return;
         }
         catch (SpeechModelStoreException ex)
         {

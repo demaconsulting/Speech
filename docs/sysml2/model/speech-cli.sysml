@@ -3,30 +3,20 @@ package SpeechCli {
     /*
      * SpeechCli is the .NET global tool (`speech-cli`) that exposes the Speech library's
      * model management, audio device inspection, text-to-speech, and speech-to-text
-     * capabilities from the command line. Pass 2 modeled only the scaffold: process
-     * entry point, global-option and subcommand dispatch, and self-validation, with all
-     * ten recognized subcommands dispatching to a stub. Pass 3 added the
-     * ModelCommandsSubsystem, replacing five of those stubs (list-models, model-info,
-     * download, uninstall, clean) with real behavior. Pass 4 added the
-     * DeviceCommandsSubsystem, replacing three more stubs (list-devices, devices test,
-     * doctor) with real behavior. Pass 5 added the SynthesisCommandSubsystem, replacing
-     * the speak stub with real behavior, and extended ModelCommandsSubsystem's
-     * ICliModelCatalog seam with two further members (GetPreferredAudioFormat,
-     * CreateSynthesizer). Pass 6 adds the RecognitionCommandSubsystem, replacing the
-     * last remaining stub (recognize) with real behavior, and extends
-     * ModelCommandsSubsystem's ICliModelCatalog seam with two further members
-     * (GetAudioFormat, CreateRecognizer) symmetric to the synthesis pair - all ten
-     * subcommands are now implemented. Pass 7 adds the ConversationCommandSubsystem,
-     * an eleventh subcommand (ask) that speaks a prompt and then listens for the
-     * reply, combining the synthesis and recognition passes' own CreateSynthesizer/
-     * CreateRecognizer seam members into one invocation with no new seam member of
-     * its own.
+     * capabilities from the command line. It comprises five command subsystems that
+     * implement all thirteen subcommands: ModelCommandsSubsystem (list-models,
+     * model-info, download, uninstall, clean, list-voices, voices, and the shared
+     * ICliModelCatalog seam), DeviceCommandsSubsystem (list-devices, devices test,
+     * doctor), SynthesisCommandSubsystem (speak), RecognitionCommandSubsystem
+     * (recognize), and ConversationCommandSubsystem (ask), which speaks a prompt and
+     * then listens for the reply using the existing synthesis and recognition seam
+     * members with no new seam member of its own.
      */
 
     part def SpeechCliSystem {
         doc /* The SpeechCli application as a whole. */
 
-        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs, test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs, test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs, test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs, test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs */
         comment designRef /* Design: docs/design/speech-cli.md */
         comment verificationRef /* Verification: docs/verification/speech-cli.md */
         comment reqRef /* Requirements: docs/reqstream/speech-cli.yaml */
@@ -36,5 +26,12 @@ package SpeechCli {
         part synthesisCommandSubsystem : SynthesisCommandSubsystem;
         part recognitionCommandSubsystem : RecognitionCommandSubsystem;
         part conversationCommandSubsystem : ConversationCommandSubsystem;
+        part program : Program;
+        part commandDispatch : CommandDispatch;
+        part context : Context;
+        part consoleCancellation : ConsoleCancellation;
+        part validation : Validation;
+        part pathHelpers : PathHelpers;
+        part testResults : TestResults;
     }
 }

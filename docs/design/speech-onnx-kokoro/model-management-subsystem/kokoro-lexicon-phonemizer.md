@@ -64,7 +64,7 @@ throws `ArgumentNullException`.
 - **Words with no near match**: a word with no lexicon entry and no spelling correction within
   the edit-distance limit (an uncommon proper noun or a neologism) is omitted from the phoneme
   stream rather than guessed at. The caller can detect this via `Phonemize`'s `UnknownWords`
-  return value. A later pass may add a real fallback G2P (for example invoking `espeak-ng`)
+  return value. A real fallback G2P could be added (for example invoking `espeak-ng`)
   without changing this class's public contract.
 - **Homographs**: the lexicon maps one spelling to exactly one pronunciation, computed with no
   surrounding sentence context, so a handful of English words (for example "read" or "lead") are

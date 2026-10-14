@@ -1,5 +1,5 @@
 package Speech {
-    part def SessionStateChangedEventArgs {
+    part def RecognitionSessionStateChangedEventArgs {
         doc /* Immutable record payload for IRecognitionSession.StateChanged, carrying the
              * Previous and Current RecognitionSessionState values of one transition. */
 

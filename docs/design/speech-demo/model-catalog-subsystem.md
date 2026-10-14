@@ -14,15 +14,28 @@ following units, each documented in its own file:
   refresh and download commands, and the empty-catalog message — see _ModelCatalogViewModel
   Design_
 - **ModelListItemViewModel**: one row's presentation state — see _ModelListItemViewModel Design_
+- **ReferenceVoicePackListItemViewModel**: one reference voice pack row's presentation state — see
+  _ReferenceVoicePackListItemViewModel Design_
+
+The subsystem also contains **ModelCatalogView**, the Avalonia view bound to
+`ModelCatalogViewModel`, and **ModelCatalogComposition**, the value that pairs a library catalog
+with its shared `ReferenceVoiceLibrary` for the composition root and the service. The view is a
+declarative binding surface and the composition value is an immutable pair with no behavior, so
+neither has a unit design; the view is verified through the view model it binds to, and the
+composition value through the service tests that construct from it.
 
 ### Interfaces
 
-The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogViewModel`, and
-`ModelListItemViewModel` to the shell composition root and to the other panels
+The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogComposition`,
+`ModelCatalogViewModel`, `ModelCatalogView`, `ModelListItemViewModel`, and
+`ReferenceVoicePackListItemViewModel` to the shell composition root and to the other panels
 (`SynthesisPanelSubsystem`, `RecognitionPanelSubsystem`) that subscribe to
-`IModelCatalogService.ModelInstalled` for auto-refresh-on-install. It consumes the library's
-`SpeechModelCatalog` (via the seam, never directly by the view models) for enumeration and
-download.
+`IModelCatalogService.ModelInstalled` for auto-refresh-on-install; the synthesis panel also
+consumes `ReferenceVoicePacks`, `GetReferenceVoicePackState` and `ReferenceVoicesChanged`. It
+consumes the library's `SpeechModelCatalog` and `ReferenceVoiceLibrary` (via the seam; the view
+models read only the library's value types and the static consent notice, never the catalog or
+library instances) for enumeration, download and voice packs, and receives its
+launch-time mirror values from `AppLaunchOptions` through the composition root.
 
 ### Design
 
@@ -31,7 +44,7 @@ download.
 state, progress, and result value types — they never touch `SpeechModelCatalog`, the file
 system, the network, or Avalonia directly. This is what allows the whole download lifecycle —
 progress, success, checksum mismatch, transport failure, seam fault, and cancellation — to be
-verified deterministically with no network access and no downloadable model in existence. See
+verified deterministically with no network access and no downloadable model. See
 each unit's own design document for its data model, algorithms, and error handling.
 
 ### Mirror Reconfiguration
@@ -55,15 +68,58 @@ through the same `MirrorOptionsFactory` the launch-time options use, then calls 
 `ApplyMirror`. An invalid configuration (a malformed URL, or a seam that rejects reconfiguration
 because it was not built with a catalog factory) is reported as an explained panel state rather
 than thrown at the user, consistent with how every other seam failure in this panel is handled; a
-blank URL applies a `null` mirror, reverting every subsequent download to each model's own public
+blank URL with no credentials applies a `null` mirror, reverting every subsequent download to each model's own public
 URI.
+
+### Reference Voice Packs
+
+A `ModelCatalogService` constructed with a `ModelCatalogComposition` (a catalog plus the shared
+`ReferenceVoiceLibrary`) and a composition factory also exposes the library's voice packs, their
+install state and the user voices folder, and installs or uninstalls a pack. Because the
+Chatterbox voice list is fixed when the model is constructed, an uninstall, a mirror change and
+every install attempt however it ends (installed, failed, canceled or thrown) each rebuild the
+catalog and library together through the factory, dispose the old pair, and raise
+`ReferenceVoicesChanged`; an uninstall waits for an in-flight install of that pack, and one that fails or is canceled
+changes nothing, so it neither rebuilds nor raises. The panel (`ModelCatalogViewModel`) lists
+packs as `ReferenceVoicePackListItemViewModel` rows in a "Reference voices" section with the
+consent note and the user folder, and refuses pack operations while a model downloads (and model
+downloads or mirror changes while a pack installs) because the rebuild would dispose the catalog
+an in-flight download uses. After every unsuccessful install or upgrade the panel re-reads the
+pack's state from the service: a failed "Add emotions" upgrade is rolled back by the library to
+the previous voices-only install, so the row stays installed and removable, with the failure
+message preserved. A refused removal is shown as a message on the row and the pack stays
+installed. Services built without a library report no packs and hide the section.
+
+#### Observable Outcomes and Their Mechanisms
+
+The subsystem requirements state only outcomes the user or a dependent panel can observe; this
+design owns the mechanisms behind them:
+
+- **Voice choices shown after a pack change**: the rebuild of the catalog and library through the
+  composition factory (described above) is how install, removal and mirror changes make the voice
+  choices match the installed packs.
+- **Dependent panel state**: `ReferenceVoicesChanged` is the mechanism by which the synthesis
+  panel refreshes its voice choices and keeps the chosen voice when it is still offered.
+- **Operation completion**: an uninstall of a pack whose install is in flight awaits the library's
+  asynchronous uninstall without blocking the calling thread; the library serializes the removal
+  after the install, and the rebuild and notification happen only once the removal has run.
+- **Removed items**: a removal that fails or is canceled changes nothing, so no rebuild or
+  notification occurs and the pack stays installed with an explanation on its row.
+
+### Error Handling
+
+Every failure in this subsystem is reported in place instead of thrown at the user: row
+failures on the model or pack row, mirror failures through the mirror status message, and a
+failed catalog re-read through the refresh error message (or the "could not be re-read" note on
+the mirror status or pack row that triggered it). The only exceptions are programming errors
+such as a null dependency, which throw `ArgumentNullException` from constructors.
 
 ### Thread Safety
 
-`ModelCatalogService.ApplyMirror` and `Dispose` are not safe to call concurrently with each
-other or with themselves: both read and then replace the same current-catalog field without
-synchronization, so two concurrent `ApplyMirror` calls (or a concurrent `ApplyMirror` and
-`Dispose`) could race on which catalog ends up current or disposed. This panel only ever invokes
-them serially from the UI thread, one command at a time, which is the only thread-safety
-guarantee this service currently provides; a host that calls either member from more than one
-thread must provide its own external synchronization.
+`ModelCatalogService.ApplyMirror`, `Dispose` and the pack install and uninstall rebuilds are not
+safe to call concurrently with each other or with themselves: each reads and then replaces the
+same current catalog and library without synchronization, so concurrent calls could race on
+which pair ends up current or disposed. This panel only ever invokes them serially from the UI
+thread, one command at a time, which is the only thread-safety guarantee this service currently
+provides; a host that calls any of these members from more than one thread must provide its own
+external synchronization.

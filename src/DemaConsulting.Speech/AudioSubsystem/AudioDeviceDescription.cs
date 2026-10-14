@@ -35,11 +35,11 @@ public enum AudioDeviceDirection
 /// <param name="Direction">Whether the device captures or plays back audio.</param>
 /// <param name="ChannelCount">
 ///     The number of audio channels the device supports (e.g. <c>1</c> for mono, <c>2</c> for
-///     stereo). Must be a positive number.
+///     stereo). Expected to be positive; the value is not validated.
 /// </param>
 /// <param name="SampleRate">
-///     The device's operating sample rate in Hz (e.g. <c>16000</c>, <c>44100</c>). Must be a
-///     positive number.
+///     The device's operating sample rate in Hz (e.g. <c>16000</c>, <c>44100</c>). Expected to be
+///     positive; the value is not validated.
 /// </param>
 public sealed record AudioDeviceDescription(
     string Name,

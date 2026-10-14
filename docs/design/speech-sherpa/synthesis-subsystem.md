@@ -19,7 +19,7 @@ only through `ISynthesisBackend`. It contains the following unit:
 
 The subsystem exposes no public API: `SherpaOnnxSynthesisEngine` is an `internal` class that
 implements the core library's public `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`) and
-produces the core library's equally public `EngineAudio` values - `ISynthesisBackend` is public
+produces the core library's equally public `BackendAudio` values - `ISynthesisBackend` is public
 specifically so any package, not only this one, can supply its own implementation. It consumes
 the sherpa-onnx managed API (`OfflineTts`, `OfflineTtsConfig`; see _SherpaOnnx Design_). It is
 constructed only by this system's synthesis

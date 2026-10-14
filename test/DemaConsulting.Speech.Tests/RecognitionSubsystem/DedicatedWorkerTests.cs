@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="DedicatedWorker"/>, exercising the cooperative-cancel-then-abandon
-///     policy (Decision #4) without any real recognition backend.
+///     policy without any real recognition backend.
 /// </summary>
 public class DedicatedWorkerTests
 {
@@ -40,7 +40,7 @@ public class DedicatedWorkerTests
         started.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await cts.CancelAsync();
 
-        // Assert: the task completes normally (not cancelled), well within the generous timeout
+        // Assert: the task completes normally (not canceled), well within the generous timeout
         await task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.True(task.IsCompletedSuccessfully);
     }
@@ -48,7 +48,7 @@ public class DedicatedWorkerTests
     /// <summary>
     ///     Proves that a delegate which never observes cancellation is abandoned once
     ///     <see cref="DedicatedWorker.AbandonTimeout"/> elapses, the returned task completes as
-    ///     cancelled, and the abandonment is reported through diagnostics at
+    ///     canceled, and the abandonment is reported through diagnostics at
     ///     <see cref="SpeechDiagnosticLevel.Warning"/>.
     /// </summary>
     [Fact]
@@ -69,7 +69,7 @@ public class DedicatedWorkerTests
         // Act: cancel immediately so the delegate is given its (near-zero) abandon window
         await cts.CancelAsync();
 
-        // Assert: the task completes as cancelled rather than hanging forever
+        // Assert: the task completes as canceled rather than hanging forever
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Warning,

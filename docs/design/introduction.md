@@ -1,7 +1,7 @@
 <!-- cspell:ignore ALSA portaudio -->
 # Introduction
 
-This document provides the detailed design for the Speech, a cross-platform .NET
+This document provides the detailed design for the Speech library, a cross-platform .NET
 library providing local, offline speech-to-text (STT) and text-to-speech (TTS) services for
 desktop applications.
 
@@ -25,15 +25,20 @@ This document is intended for:
 
 This document covers the detailed design of the Speech system and its constituent software
 items, of the SpeechDemo application system and its constituent software items, of the
-SpeechCli command-line tool system and its constituent software items, and of the SpeechSherpa
-model-provider library system and its constituent software items, specifically:
+SpeechCli command-line tool system and its constituent software items, of the SpeechSherpa
+model-provider library system and its constituent software items, and of the four ONNX
+Runtime-based sibling library systems (SpeechOnnx, SpeechOnnxKokoro, SpeechOnnxNemotronStt, and
+SpeechOnnxChatterboxTurbo) and their constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
 - **Diagnostics (Subsystem)** — Reports structural diagnostic events to an optional
   host-supplied sink
 - **AudioSubsystem (Subsystem)** — Audio capture/playback contracts, name-based selection,
-  honest unavailable fallbacks, and real PortAudio-backed device/probe implementations
+  honest unavailable fallbacks, real PortAudio-backed device/probe implementations, file-backed
+  WAV capture and playback devices, and the managed audio-file pipeline: the in-memory
+  `AudioClip`, WAV and FLAC decoding behind `AudioFileReader`, and the windowed-sinc
+  `AudioResampler`
 - **PortAudio (Subsystem)** — Internal child subsystem under AudioSubsystem that isolates
   PortAudioSharp2 and supplementary host-API P/Invoke bindings behind mockable abstractions
 - **ModelManagementSubsystem (Subsystem)** — Per-user speech model storage with atomic
@@ -41,19 +46,21 @@ model-provider library system and its constituent software items, specifically:
   HTTP seam that fetch and install a model's files with honest failure states, and the model
   catalog/contract seam: typed tunable-parameter descriptors, the common per-model contract
   and its role-marker interfaces (the extension point concrete models implement), and catalog
-  enumeration of the host-registered known-model list alongside install state
+  enumeration of the host-registered known-model list alongside install state; the optional
+  download-mirror redirect (`DownloadMirror`); and the reference-voice pack, its installer and
+  the `ReferenceVoiceLibrary` that lists user-folder and installed-pack voices
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public async
   Engine/Session recognizer contract and result types, the composition root (`LoadAsync`/
   `CreateSessionAsync`) with honest unavailable fallbacks and engine exclusivity lease, the
-  capture-to-engine pipeline with its audio-format converter, and the mockable internal
+  capture-to-engine pipeline with its audio-format converter, and the public, mockable
   recognition-backend seam with its model-driven default backend factory
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed, fixed Natural Language Audio
   Tag vocabulary grouped into kinds and the model-independent Layer 1 parser that recognizes
   bracket syntax against it, the Layer 2 rendering strategy that turns a parsed span sequence
-  into a model-appropriate `SpeechPlan`, sentence chunking for pipelined synthesis, the public
-  async Engine/Session streaming/playback contract with its composition root and honest
-  unavailable fallbacks, the mockable internal synthesis-backend seam with its model-driven
-  default backend factory, and the playback-format converter
+  into a model-appropriate `SpeechPlan`, sentence chunking for sequential chunked synthesis, the public
+  async Engine/Session synthesis/playback contract with its composition root and honest
+  unavailable fallbacks, the public, mockable synthesis-backend seam with its model-driven
+  default backend factory, per-segment voice selection, and the playback-format converter
 
 The following software items of the SpeechDemo system are also covered:
 
@@ -61,27 +68,40 @@ The following software items of the SpeechDemo system are also covered:
   library from the position of an ordinary consumer, using only its public API. It is a sibling
   system to Speech, not a subsystem of it: it is separately built and separately run, has its
   own users and its own externally visible behavior, and the library must never depend on it
+- **App, AppLaunchOptions, MirrorOptionsFactory, Program (Units)** — The units that belong
+  directly to the SpeechDemo system: the composition root application class, the command-line
+  options, the shared mirror-option validation, and the process entry point
 - **ShellSubsystem (Subsystem)** — The application's manual composition root and window shell,
-  presenting one titled, selectable panel per demonstrated capability
+  presenting one titled, selectable panel per demonstrated capability; units
+  `MainWindowViewModel` and `DemoPanelViewModel`
 - **DeviceSelectionSubsystem (Subsystem)** — The capture and playback device pickers: a
   demo-owned enumeration seam over the library's device probes plus the presentation state that
-  lists devices, tracks the chosen device by name, and explains an empty machine honestly
+  lists devices, tracks the chosen device by name, and explains an empty machine honestly; units
+  `AudioDeviceService` (with its `IAudioDeviceService` seam) and `DeviceSelectionViewModel`
 - **ModelCatalogSubsystem (Subsystem)** — The model catalog and download panel: a demo-owned
-  catalog seam over the library's model catalog plus the row presentation, download progress and
-  honest failure reporting, and the explanatory empty-catalog message
+  catalog seam over the library's model catalog and reference-voice library (paired by
+  `ModelCatalogComposition`) plus the row presentation for models and reference-voice packs,
+  download progress and honest failure reporting, and the explanatory empty-catalog message;
+  units `ModelCatalogService` (with its `IModelCatalogService` seam), `ModelCatalogViewModel`,
+  `ModelListItemViewModel`, and `ReferenceVoicePackListItemViewModel`
 - **ModelSettingsSubsystem (Subsystem)** — The generic per-model tunable-parameter settings
   panel: presenters for the library's numeric, choice, and boolean parameter kinds, chosen by
   concrete type alone, plus the honest empty state shown with no model selected or a model
-  declaring no parameters
+  declaring no parameters; units `ModelSettingsViewModel` and `ParameterViewModels` (the base,
+  numeric, choice, and boolean presenters)
 - **RecognitionPanelSubsystem (Subsystem)** — The speech-to-text panel: a demo-owned session
   seam over the library's `SpeechRecognizerFactory` narrowing a public model to the library's
   recognition role, and the Start/Stop streaming lifecycle with progressive partial-then-final
-  transcript rendering and honest reporting of every unavailable state
+  transcript rendering and honest reporting of every unavailable state, plus the opt-in
+  `CaptureDebugRecorder`/`WavFileWriter` diagnostic that records the captured audio to a WAV file;
+  units `RecognizerSessionFactory` (with its `IRecognizerSessionFactory` seam) and
+  `RecognitionPanelViewModel`
 - **SynthesisPanelSubsystem (Subsystem)** — The text-to-speech panel: a demo-owned session seam
   over the library's `SpeechSynthesizerFactory` narrowing a public model to the library's
   synthesis role, the embedded `ModelSettingsSubsystem` panel for the selected model's
   parameters, example Natural Language Audio Tag hints, and the Play/Stop lifecycle with honest
-  reporting of every unavailable state
+  reporting of every unavailable state; units `SynthesizerSessionFactory` (with its
+  `ISynthesizerSessionFactory` seam) and `SynthesisPanelViewModel`
 
 The following software items of the SpeechCli system are also covered:
 
@@ -91,24 +111,36 @@ The following software items of the SpeechCli system are also covered:
   capabilities from the command line. It is a sibling system to Speech, not a subsystem of it: it
   is separately built, separately packaged, and separately versioned, has its own users
   (command-line operators and scripts), and the library must never depend on it
-- **ModelCommandsSubsystem (Subsystem)** — The five model-management subcommands (`list-models`,
-  `model-info`, `download`, `uninstall`, `clean`) and the CLI-owned catalog seam
+- **ModelCommandsSubsystem (Subsystem)** — The model-management and reference-voice subcommands (`list-models`,
+  `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`) and the CLI-owned catalog seam
   (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they share over the
-  library's `SpeechModelCatalog`/`SpeechModelStore`
+  library's `SpeechModelCatalog`/`SpeechModelStore`; units `ICliModelCatalog`,
+  `SpeechModelCatalogAdapter`, `CliModelCatalogFactory`, `DownloadProgressReporter`, `ListModelsCommand`,
+  `ModelInfoCommand`, `DownloadCommand`, `UninstallCommand`, `CleanCommand`, `ListVoicesCommand` and
+  `VoicesCommand`
 - **DeviceCommandsSubsystem (Subsystem)** — The three device-related subcommands
   (`list-devices`, `devices test`, `doctor`), consuming the library's already-public
   `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/`AudioDeviceFactory` directly, with no
-  CLI-owned seam wrapper
+  CLI-owned seam wrapper; units `ListDevicesCommand`, `DevicesTestCommand` and `DoctorCommand`
 - **SynthesisCommandSubsystem (Subsystem)** — The one text-to-speech subcommand (`speak`),
   extending `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with synthesis-side members
-  rather than introducing a second, competing seam
+  rather than introducing a second, competing seam, and adding one CLI-owned playback-device
+  seam (`ICliPlaybackDeviceSource`); units `SpeakCommand`, `ParameterBagParser`,
+  `ICliPlaybackDeviceSource` and `AudioDeviceFactoryPlaybackDeviceSource`
 - **RecognitionCommandSubsystem (Subsystem)** — The one speech-to-text subcommand
   (`recognize`) plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, extending
   `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with recognition-side members symmetric to
-  the synthesis pair
+  the synthesis pair; units `RecognizeCommand` and `SilenceTimeoutRecognizerSession`
 - **ConversationCommandSubsystem (Subsystem)** — The one voice-conversation subcommand (`ask`),
   running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
-  and `RecognitionCommandSubsystem`'s existing seam members rather than introducing a new one
+  and `RecognitionCommandSubsystem`'s existing `ICliModelCatalog` seam members (no new catalog
+  member) and adding one CLI-owned capture-device seam (`ICliCaptureDeviceSource`); units `AskCommand`,
+  `ICliCaptureDeviceSource` and `AudioDeviceFactoryCaptureDeviceSource`
+- **Program, CommandDispatch, Context, ConsoleCancellation, Validation, PathHelpers (Units)** — The
+  units that belong directly to SpeechCli rather than to a command subsystem: the process entry
+  point (`Program`, including `--version`/`--help`/`--validate` priority handling), the fixed
+  subcommand dispatch table, global-option parsing and per-invocation state, Ctrl+C handling, the
+  CI-safe `--validate` self-check, and shared path helpers
 
 The following software items of the SpeechSherpa system are also covered:
 
@@ -122,14 +154,55 @@ The following software items of the SpeechSherpa system are also covered:
   the two recognition models and two synthesis models implementing Speech's model contract, and
   the shared `.tar.bz2` archive-extraction and uppercase-transcript-restoration helpers they use
 - **RecognitionSubsystem (Subsystem)** — The real sherpa-onnx streaming recognition engine
-  implementing Speech's internal recognition-backend seam, including its per-model post-endpoint
+  implementing Speech's public recognition-backend seam, including its per-model post-endpoint
   warm-up replay mitigation
 - **SynthesisSubsystem (Subsystem)** — The real sherpa-onnx offline text-to-speech engine
-  implementing Speech's internal synthesis-backend seam
+  implementing Speech's public synthesis-backend seam
+
+The following software items of the four ONNX Runtime-based sibling systems are also covered.
+Each is a sibling system to Speech, not a subsystem of it, and the library must never depend on
+any of them:
+
+- **SpeechOnnx (System)** — The `DemaConsulting.Speech.Onnx` library of shared ONNX Runtime
+  infrastructure reusable by any ONNX Runtime-backed model package; it declares no models of its
+  own and does not depend on the Speech library's types
+- **OnnxRuntimeSubsystem (Subsystem of SpeechOnnx)** — `OnnxExecutionProviderSelector`, which
+  builds an `InferenceSession` by trying a caller-supplied ordered list of accelerated execution
+  providers (each optionally validated by a probe) before falling back to the CPU provider
+- **SpeechOnnxKokoro (System)** — The `DemaConsulting.Speech.Onnx.Kokoro` library, a concrete
+  ONNX Runtime-backed Kokoro-82M text-to-speech model and engine built on SpeechOnnx and
+  implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, with its own embedded
+  lexicon phonemizer and phoneme vocabulary
+- **ModelManagementSubsystem (Subsystem of SpeechOnnxKokoro)** — The `AddKokoroModels()` catalog
+  extension, the Kokoro model class, and the text normalizer, lexicon phonemizer and phoneme
+  vocabulary units
+- **SynthesisSubsystem (Subsystem of SpeechOnnxKokoro)** — `OnnxKokoroSynthesisEngine`, the real
+  synthesis backend
+- **SpeechOnnxNemotronStt (System)** — The `DemaConsulting.Speech.Onnx.NemotronStt` library, a
+  concrete ONNX Runtime-backed streaming speech-recognition model and engine for NVIDIA Nemotron
+  built on SpeechOnnx and implementing Speech's `IRecognitionModel`/`IRecognitionBackend` seam
+- **ModelManagementSubsystem (Subsystem of SpeechOnnxNemotronStt)** — The `AddNemotronSttModels()`
+  catalog extension, the Nemotron recognition model class, and the vocabulary loader
+- **RecognitionSubsystem (Subsystem of SpeechOnnxNemotronStt)** — `OnnxNemotronRecognitionEngine`
+  with its streaming feature extractor, cache-aware encoder (`NemotronEncoder`), decoder and joint
+  network (`NemotronRnntNetwork`), RNN-T greedy decoder, and silence-run limiter
+- **SpeechOnnxChatterboxTurbo (System)** — The `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
+  library, a concrete ONNX Runtime-backed voice-cloning text-to-speech model and engine
+  implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, with its own embedded
+  tokenizer, generation loop, and audio-tag rendering policy
+- **ModelManagementSubsystem (Subsystem of SpeechOnnxChatterboxTurbo)** — The
+  `AddChatterboxTurboModels()` catalog extension, the synthesis model, the byte-level BPE
+  tokenizer, and the reference-voice type
+- **SynthesisSubsystem (Subsystem of SpeechOnnxChatterboxTurbo)** — The synthesis engine, ONNX
+  networks, token selector, reference-clip conditioning, and capability profile
 
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
+- **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by `WavFileAudioCaptureDevice`,
+  `SynthesisSession`, and `WindowedSincLowpassFilter`
+- **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx family of
+  libraries
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
 - **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
@@ -142,6 +215,8 @@ The following OTS items are also covered:
 - **SarifMark** — SARIF report conversion tool
 - **SonarMark** — SonarCloud quality report tool
 - **SysML2Tools** — architecture model lint and diagram rendering tool
+- **TestResults** (`DemaConsulting.TestResults`) — TRX and JUnit serializer used by SpeechCli's
+  `--validate --results` self-validation output
 - **VersionMark** — tool-version documentation tool
 - **WeasyPrint** — HTML-to-PDF conversion tool
 - **xUnit** — unit-testing framework
@@ -152,7 +227,9 @@ The following topics are explicitly excluded from this design documentation:
 
 - External library internals beyond the integration points used by this repository
 - Build pipeline configuration and CI/CD processes
-- Deployment, packaging, and distribution mechanisms
+- Deployment and distribution mechanisms (the packaging mechanism itself is not specified; a
+  packaging constraint that shapes a design, such as SpeechCli's `net10.0`-only target, is
+  stated only where it applies)
 - Infrastructure and hosting environment details
 - Test projects and test infrastructure
 
@@ -164,34 +241,40 @@ SysML2 model directly rather than parsing this diagram or the prose below.
 
 ![Software Structure](SoftwareStructureView.svg)
 
-This system is structured with two subsystems directly under the system level: `Diagnostics`
-and `AudioSubsystem`. `AudioSubsystem` now contains both public audio-device contracts and
-real PortAudio-backed implementations. It also contains a child `PortAudio` subsystem that
+This system is structured with five subsystems directly under the system level: `Diagnostics`,
+`AudioSubsystem`, `ModelManagementSubsystem`, `RecognitionSubsystem`, and
+`SynthesisSubsystem`, described in turn below. `AudioSubsystem` contains the public audio-device
+contracts, the real PortAudio-backed implementations, the file-backed WAV capture and playback
+devices, and the managed audio-file pipeline (WAV and FLAC decoding behind `AudioFileReader`,
+`AudioClip`, and the windowed-sinc `AudioResampler`, which uses its own scalar sinc kernel). It also
+contains a child `PortAudio` subsystem that
 isolates the PortAudioSharp2 wrapper and the supplementary host-API P/Invoke bindings behind
-internal, mockable abstractions. A third subsystem, `ModelManagementSubsystem`, provides
+internal, mockable abstractions. `ModelManagementSubsystem` provides
 per-user speech model storage with atomic install/repair/uninstall, a queued
-download-verify-install orchestration with a mockable HTTP seam, and the model catalog/
+download-verify-install orchestration with a mockable HTTP seam and an optional download mirror,
+the reference-voice library and installable reference-voice packs used by voice-cloning models,
+and the model catalog/
 contract seam (typed tunable parameters, the common model contract, and catalog enumeration)
 that the RecognitionSubsystem and SynthesisSubsystem consume via the `IRecognitionModel`/
 `ISynthesisModel` contracts. Those contracts are the library's model extension point: the
 library ships zero built-in models, and a host registers concrete models with the catalog
-through `SpeechModelCatalog.AddModels(...)`. A fourth subsystem,
-`RecognitionSubsystem`, consumes both of the above: it defines the public async Engine/Session
+through `SpeechModelCatalog.AddModels(...)`. `RecognitionSubsystem`
+consumes both of the above: it defines the public async Engine/Session
 streaming speech-to-text contract (`ISpeechRecognizerEngine`/`IRecognitionSession`), composing a
 recognizer engine for an installed recognition model via `LoadAsync` and then a session bound to
 a capture device via the engine's `CreateSessionAsync` without ever throwing for an ordinary
 machine state, and converts captured audio into the format a model requires before streaming it
-through an internal, mockable recognition-backend seam. A fifth subsystem,
-`SynthesisSubsystem`, provides the text-to-speech side: its closed, fixed Natural Language Audio
+through a public, mockable recognition-backend seam (`IRecognitionBackend`; only its factory is
+internal). `SynthesisSubsystem` provides the text-to-speech side: its closed, fixed Natural Language Audio
 Tag vocabulary and the model-independent Layer 1 parser (`AudioTagCatalog`/`AudioTagParser`) that
 recognizes bracket syntax against it, its Layer 2 rendering strategy
 (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
 into a model-appropriate `SpeechPlan` of `SpeechSegment`s, its `SentenceChunker` for
-pipeline-friendly chunk boundaries, and its public async Engine/Session streaming/playback
+sentence-aligned chunk boundaries, and its public async Engine/Session synthesis/playback
 contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), which composes a synthesizer engine
 for an installed synthesis model via `LoadAsync` and then a session bound to a playback device
-via the engine's `CreateSessionAsync` without ever throwing and pipelines chunked synthesis with
-playback through an internal, mockable synthesis-backend seam.
+via the engine's `CreateSessionAsync` without ever throwing and plays each synthesized chunk in order
+through a public, mockable synthesis-backend seam.
 
 A second, sibling system, `SpeechDemo`, sits alongside `Speech` in the model. It is the Avalonia
 desktop application that consumes the library's public API and demonstrates it, and it is
@@ -207,14 +290,16 @@ nor knows about `SpeechDemo`.
 
 A third, sibling system, `SpeechCli`, also sits alongside `Speech` in the model. It is the
 cross-platform .NET global tool (`speech-cli`) that exposes the library's capabilities from the
-command line, and it is structured with five subsystems: `ModelCommandsSubsystem` (the five
-model-management subcommands over a CLI-owned catalog seam), `DeviceCommandsSubsystem` (the
+command line, and it is structured with five subsystems: `ModelCommandsSubsystem` (the seven
+model-management subcommands - `list-models`, `model-info`, `download`, `uninstall`, `clean`,
+`list-voices`, and `voices` - over a CLI-owned catalog seam), `DeviceCommandsSubsystem` (the
 three device-related subcommands consuming the library's probe/factory interfaces directly),
 `SynthesisCommandSubsystem` (the `speak` subcommand, extending the catalog seam with synthesis
-members), `RecognitionCommandSubsystem` (the `recognize` subcommand and its silence-timeout
+members and adding a CLI-owned playback-device seam), `RecognitionCommandSubsystem` (the `recognize` subcommand and its
+silence-timeout
 utility, extending the same seam with recognition members), and `ConversationCommandSubsystem`
 (the `ask` subcommand, a speak-then-listen conversation turn reusing the synthesis and
-recognition subsystems' existing seam members rather than introducing a new one). As with
+recognition subsystems' existing catalog-seam members, and adding only a CLI-owned capture-device seam). As with
 `SpeechDemo`, the dependency runs one way only: `SpeechCli` references `Speech`, and `Speech`
 neither references nor knows
 about `SpeechCli`.
@@ -228,9 +313,33 @@ archive-extraction and transcript-restoration helpers), `RecognitionSubsystem` (
 sherpa-onnx streaming recognition backend), and `SynthesisSubsystem` (the real sherpa-onnx
 offline text-to-speech backend). Unlike `SpeechDemo` and `SpeechCli`, `SpeechSherpa` both consumes
 `Speech` and extends it, by implementing the `IRecognitionModel`/`ISynthesisModel` seam whose
-internal `CreateBackend` members return `Speech`'s own engine-neutral backend interfaces. The
+`CreateBackend` members return `Speech`'s own engine-neutral backend interfaces. The
 dependency still runs one way only: `SpeechSherpa` references `Speech`, and `Speech` neither
 references nor knows about `SpeechSherpa`, naming no sherpa-onnx type even internally.
+
+Four further sibling systems extend `Speech` in the same way, each a separately packaged library
+that `Speech` neither references nor knows about:
+
+- `SpeechOnnx` (`DemaConsulting.Speech.Onnx`) holds shared ONNX Runtime infrastructure in one
+  subsystem, `OnnxRuntimeSubsystem`, whose `OnnxExecutionProviderSelector` creates inference
+  sessions with a layered accelerated-then-CPU provider fallback.
+- `SpeechOnnxKokoro` (`DemaConsulting.Speech.Onnx.Kokoro`) supplies a Kokoro-82M text-to-speech
+  model and engine in two subsystems, `ModelManagementSubsystem` (catalog extension, model, text
+  normalizer, lexicon phonemizer, phoneme vocabulary) and `SynthesisSubsystem` (the engine). It
+  depends on `Speech` and `SpeechOnnx`.
+- `SpeechOnnxNemotronStt` (`DemaConsulting.Speech.Onnx.NemotronStt`) supplies a streaming
+  Nemotron speech-recognition model and engine in two subsystems, `ModelManagementSubsystem`
+  and `RecognitionSubsystem` (the engine, feature extractor, RNN-T decoder, and silence limiter).
+  It depends on `Speech` and `SpeechOnnx`.
+- `SpeechOnnxChatterboxTurbo` (`DemaConsulting.Speech.Onnx.ChatterboxTurbo`) supplies a
+  voice-cloning text-to-speech model and engine in two subsystems, `ModelManagementSubsystem`
+  (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
+  (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
+  and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
+
+These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
+`IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
+`Speech`'s public API.
 
 ## Folder Layout
 
@@ -260,6 +369,20 @@ src/DemaConsulting.Speech/
     ├── UnavailableAudioPlaybackDevice.cs      — Honest unavailable playback-device fallback
     ├── UnavailableAudioCaptureDeviceProbe.cs  — Honest unavailable capture-probe fallback
     ├── UnavailableAudioPlaybackDeviceProbe.cs — Honest unavailable playback-probe fallback
+    ├── AudioDeviceInUseException.cs           — Thrown when a device is held by another process
+    ├── AudioFormat.cs                         — Sample rate/channel/encoding description
+    ├── AudioClip.cs                           — In-memory decoded mono/multi-channel audio clip
+    ├── AudioFileReader.cs                     — Content-sniffing WAV/FLAC file/stream reader
+    ├── AudioFileReadOptions.cs                — Target rate/channels/size options for reading
+    ├── WavDecoder.cs                          — Managed RIFF/WAVE decoder
+    ├── FlacDecoder.cs                         — Managed FLAC stream decoder
+    ├── FlacFrameDecoder.cs                    — FLAC frame/subframe decoding
+    ├── FlacBitReader.cs                       — FLAC bit-level reader
+    ├── FlacCrc.cs                             — FLAC CRC-8/CRC-16 checks
+    ├── AudioResampler.cs                      — Rate conversion for decoded clips
+    ├── WindowedSincLowpassFilter.cs           — Windowed-sinc anti-alias filter
+    ├── WavFileAudioCaptureDevice.cs           — File-backed capture device (reads a mono 16-bit PCM WAV)
+    ├── WavFileAudioPlaybackDevice.cs          — File-backed playback device (writes a WAV)
     └── PortAudio/
         ├── IPortAudioApi.cs                   — Mockable PortAudio runtime seam
         ├── IPortAudioStream.cs                — Mockable PortAudio stream seam
@@ -277,6 +400,15 @@ src/DemaConsulting.Speech/
     ├── SpeechModelStoreOptions.cs             — Host-configurable storage root override
     ├── SpeechModelStore.cs                    — Atomic per-user model storage/install/uninstall
     ├── SpeechModelStoreException.cs           — Thrown when a store operation cannot complete
+    ├── DownloadMirror.cs                      — Optional download-URI mirror redirect
+    ├── SpeechModelDownloaderOptions.cs        — Downloader tuning options
+    ├── NumericParameterBounds.cs              — Shared numeric-parameter bounds validation
+    ├── SpeechModelParameterDiagnostics.cs     — Parameter-coercion diagnostics helper
+    ├── ReferenceVoiceInfo.cs                  — One listed reference voice (name, source, clips)
+    ├── ReferenceVoiceSource.cs                — User-folder vs installed-pack source enum
+    ├── ReferenceVoicePack.cs                  — Downloadable reference-voice pack descriptor
+    ├── ReferenceVoicePackInstaller.cs         — Pack download/verify/install orchestration
+    ├── ReferenceVoiceLibrary.cs               — Lists user-folder and installed-pack voices
     ├── SpeechModelDownloadFile.cs             — One downloadable file's URI/checksum/install path
     ├── SpeechModelDownloadDescriptor.cs       — Ordered set of files required to install a model
     ├── SpeechModelDownloadProgress.cs         — Single-file transfer progress payload
@@ -317,7 +449,7 @@ src/DemaConsulting.Speech/
     ├── DefaultRecognitionBackendFactory.cs       — Real model-driven backend loader
     ├── SpeechRecognizerEngine.cs                 — Real ISpeechRecognizerEngine implementation
     ├── RecognitionSession.cs                     — Real IRecognitionSession streaming pipeline
-    ├── RecognitionResultBuffer.cs                — Byte-capped backpressure buffer for GetResultsAsync
+    ├── RecognitionResultBuffer.cs                — Backpressure buffer (coalesces provisionals, keeps finals)
     ├── DedicatedWorker.cs                        — Long-running worker thread with cooperative-cancel-then-abandon
     └── AudioFrameResampler.cs                    — Downmix and rate conversion for captured audio
 ```
@@ -337,8 +469,8 @@ src/DemaConsulting.Speech/
     ├── SpeechParameterConventions.cs             — Tag-to-numeric-parameter mapping conventions
     ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract (public)
     ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
-    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking for pipelining
-    ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate (public)
+    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking
+    ├── BackendAudio.cs                             — Raw engine output: samples plus produced rate (public)
     ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
     ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
     ├── SynthesisSessionState.cs                   — Session state machine enum
@@ -353,11 +485,28 @@ src/DemaConsulting.Speech/
     ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
     ├── DefaultSynthesisBackendFactory.cs          — Real model-driven backend loader
     ├── SpeechSynthesizerEngine.cs                 — Real ISpeechSynthesizerEngine implementation
-    ├── SynthesisSession.cs                        — Real ISynthesisSession chunked/pipelined synthesis
+    ├── SynthesisSession.cs                        — Real ISynthesisSession chunked synthesis
     ├── DedicatedWorker.cs                         — Long-running worker thread with cooperative-cancel-then-abandon
     ├── PlaybackAudioResampler.cs                  — Rate conversion and upmix for playback audio
     └── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence
 ```
+
+Several small public types are declared in the file of the type they accompany rather than in a
+file of their own, and are documented with that owning unit:
+
+- `AudioDeviceDirection` is declared in `AudioDeviceDescription.cs`.
+- `AudioCaptureFrameEventArgs` is declared in `IAudioCaptureDevice.cs`.
+- `ChoiceParameterOption` is declared in `ChoiceParameter.cs`.
+- `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
+  `SpeechModelDownloader.cs`.
+
+Several small internal helper types are likewise documented inside the unit that owns them rather
+than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
+FlacDecoder designs), `FlacFrameDecoder`, `FlacBitReader`, and `FlacCrc` (in the FlacDecoder
+design), and `NumericParameterBounds` (in the SpeechModelParameters design).
+
+Each subsystem folder also holds a `NamespaceDoc.cs` file that carries only the namespace's
+XML documentation summary; it declares no behavior and is not a software item.
 
 The SpeechDemo application's folder structure likewise mirrors its software structure:
 
@@ -365,6 +514,8 @@ The SpeechDemo application's folder structure likewise mirrors its software stru
 src/DemaConsulting.Speech.Demo/
 ├── Program.cs                                 — Process entry point and Avalonia host builder
 ├── App.axaml / App.axaml.cs                   — Theme and manual composition root
+├── AppLaunchOptions.cs                        — Command-line option parsing
+├── MirrorOptionsFactory.cs                    — Shared mirror-option validation
 ├── ShellSubsystem/
 │   ├── MainWindow.axaml / .axaml.cs           — Navigation window shell
 │   ├── MainWindowViewModel.cs                 — Panel list and selected-panel state
@@ -377,8 +528,10 @@ src/DemaConsulting.Speech.Demo/
 ├── ModelCatalogSubsystem/
 │   ├── IModelCatalogService.cs                — Demo-owned model catalog seam
 │   ├── ModelCatalogService.cs                 — Real seam over the library's model catalog
+│   ├── ModelCatalogComposition.cs             — Catalog and reference voice library pair
 │   ├── ModelCatalogViewModel.cs               — Catalog panel presentation state
 │   ├── ModelListItemViewModel.cs              — One catalog row's presentation state
+│   ├── ReferenceVoicePackListItemViewModel.cs — One reference voice pack row's presentation state
 │   └── ModelCatalogView.axaml / .axaml.cs     — Catalog panel view
 ├── ModelSettingsSubsystem/
 │   ├── ParameterViewModelBase.cs              — Shared base for one parameter's presentation state
@@ -392,6 +545,8 @@ src/DemaConsulting.Speech.Demo/
 │   ├── RecognizerSessionFactory.cs            — Real seam over SpeechRecognizerFactory
 │   ├── RecognitionStreamingState.cs           — Idle/listening/error streaming state enum
 │   ├── RecognitionPanelViewModel.cs           — Speech-to-text panel presentation state
+│   ├── CaptureDebugRecorder.cs                — Opt-in diagnostic capture-to-WAV recorder
+│   ├── WavFileWriter.cs                       — Minimal WAV writer used by the recorder
 │   └── RecognitionPanelView.axaml / .axaml.cs — Speech-to-text panel view
 └── SynthesisPanelSubsystem/
     ├── ISynthesizerSessionFactory.cs          — Demo-owned synthesizer-session seam
@@ -401,10 +556,10 @@ src/DemaConsulting.Speech.Demo/
     └── SynthesisPanelView.axaml / .axaml.cs   — Text-to-speech panel view
 ```
 
-`Program.cs` and `App.axaml`/`App.axaml.cs` sit at the application root rather than inside a
-subsystem folder because Avalonia requires the process entry point and the application class at
-the application's root namespace. Both belong to the ShellSubsystem for review and traceability
-purposes.
+`Program.cs`, `App.axaml`/`App.axaml.cs`, `AppLaunchOptions.cs` and `MirrorOptionsFactory.cs` sit at
+the application root rather than inside a subsystem folder because Avalonia requires the process
+entry point and the application class at the application's root namespace. They are units of the
+SpeechDemo system itself.
 
 The SpeechCli tool's folder structure likewise mirrors its software structure:
 
@@ -413,8 +568,8 @@ src/DemaConsulting.Speech.Cli/
 ├── Program.cs                                 — Process entry point, banner, help, dispatch
 ├── Cli/
 │   ├── Context.cs                             — Global-option parsing and per-invocation state
-│   ├── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
-│   └── ParameterBagParser.cs                  — Shared `--tts-param`/`--stt-param key=value` parsing/validation
+│   ├── ConsoleCancellation.cs                 — Shared Ctrl+C (`Console.CancelKeyPress`) wiring
+│   └── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
 ├── SelfTest/
 │   └── Validation.cs                          — CI-safe `--validate` self-check implementation
 ├── Utilities/
@@ -428,13 +583,19 @@ src/DemaConsulting.Speech.Cli/
 │   │   ├── ModelInfoCommand.cs                — `model-info` implementation
 │   │   ├── DownloadCommand.cs                 — `download` implementation
 │   │   ├── UninstallCommand.cs                — `uninstall` implementation
-│   │   └── CleanCommand.cs                    — `clean` implementation
+│   │   ├── CleanCommand.cs                    — `clean` implementation
+│   │   ├── DownloadProgressReporter.cs        — Shared throttled download-progress reporter
+│   │   ├── ListVoicesCommand.cs               — `list-voices` implementation
+│   │   └── VoicesCommand.cs                   — `voices` (reference-voice pack) implementation
 │   ├── DeviceCommandsSubsystem/
 │   │   ├── ListDevicesCommand.cs              — `list-devices` implementation
 │   │   ├── DevicesTestCommand.cs              — `devices test` implementation
 │   │   └── DoctorCommand.cs                   — `doctor` implementation
 │   ├── SynthesisCommandSubsystem/
-│   │   └── SpeakCommand.cs                    — `speak` implementation
+│   │   ├── SpeakCommand.cs                    — `speak` implementation
+│   │   ├── ParameterBagParser.cs              — Shared `--tts-param`/`--stt-param key=value` parsing/validation
+│   │   ├── ICliPlaybackDeviceSource.cs        — CLI-owned playback-device seam contract
+│   │   └── AudioDeviceFactoryPlaybackDeviceSource.cs — Real seam over AudioDeviceFactory
 │   ├── RecognitionCommandSubsystem/
 │   │   ├── RecognizeCommand.cs                — `recognize` implementation
 │   │   └── SilenceTimeoutRecognizerSession.cs — Mic idle-timeout utility for `recognize --mic`
@@ -467,6 +628,75 @@ folder because it is the package's public composition entry point in the
 `DemaConsulting.Speech.Sherpa` namespace. It belongs to the ModelManagementSubsystem for review
 and traceability purposes.
 
+The SpeechOnnxChatterboxTurbo library's folder structure also mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/
+├── SpeechModelCatalogChatterboxTurboExtensions.cs         — `AddChatterboxTurboModels()` registration
+├── ModelManagementSubsystem/
+│   ├── OnnxChatterboxTurboEnglishSynthesisModel.cs        — Voice-cloning synthesis model
+│   ├── ChatterboxTurboModelOptions.cs                     — Voices, variants, and tuning options
+│   ├── ChatterboxTurboLanguageModelVariant.cs             — Language-model precision variant enum
+│   ├── ChatterboxTurboAuxiliaryModelVariant.cs            — Auxiliary-graph precision variant enum
+│   ├── ChatterboxTurboEndOfSentenceTagPolicy.cs           — End-of-sentence tag policy enum
+│   ├── ByteLevelBpeTokenizer.cs                           — Embedded byte-level BPE tokenizer
+│   └── ChatterboxTurboReferenceVoice.cs                   — Normalized reference clip
+└── SynthesisSubsystem/
+    ├── OnnxChatterboxTurboSynthesisEngine.cs              — Bounded autoregressive backend
+    ├── OnnxChatterboxTurboNetworks.cs                     — Four ONNX Runtime sessions
+    ├── IChatterboxTurboNetworks.cs                        — Mockable network seam
+    ├── IChatterboxTurboLanguageModelState.cs              — Language-model decode state seam
+    ├── ChatterboxTurboConditioning.cs                     — Reference-clip conditioning bundle
+    ├── ChatterboxTurboGenerationResult.cs                 — Generation loop result
+    ├── ChatterboxTurboTokenSelector.cs                    — Repetition-penalized selection
+    ├── ChatterboxTurboTagKind.cs                          — Tag kind enum
+    ├── ChatterboxTurboTagTreatment.cs                     — Tag treatment table entry (record)
+    └── ChatterboxTurboCapabilityProfile.cs                — Audio-tag rendering policy
+```
+
+The SpeechOnnx library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx/
+└── OnnxRuntimeSubsystem/
+    └── OnnxExecutionProviderSelector.cs                   — Layered execution-provider fallback
+```
+
+The SpeechOnnxKokoro library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx.Kokoro/
+├── SpeechModelCatalogKokoroExtensions.cs                  — `AddKokoroModels()` registration
+├── ModelManagementSubsystem/
+│   ├── OnnxKokoroEnglishSynthesisModel.cs                 — Kokoro multi-voice synthesis model
+│   ├── KokoroTextNormalizer.cs                            — Text normalization for the lexicon
+│   ├── KokoroLexiconPhonemizer.cs                         — Embedded-lexicon word-to-phoneme
+│   └── KokoroPhonemeVocabulary.cs                         — Phoneme-to-token-id vocabulary
+└── SynthesisSubsystem/
+    └── OnnxKokoroSynthesisEngine.cs                       — Real ONNX Runtime synthesis backend
+```
+
+The SpeechOnnxNemotronStt library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx.NemotronStt/
+├── SpeechModelCatalogNemotronSttExtensions.cs             — `AddNemotronSttModels()` registration
+├── ModelManagementSubsystem/
+│   ├── OnnxNemotronMultilingualRecognitionModel.cs        — Streaming recognition model
+│   └── NemotronVocabulary.cs                              — Vocabulary loader
+└── RecognitionSubsystem/
+    ├── OnnxNemotronRecognitionEngine.cs                   — Real ONNX Runtime recognition backend
+    ├── NemotronEngineOptions.cs                           — Engine tuning options
+    ├── INemotronEncoder.cs                                — Mockable encoder seam
+    ├── IRnntNetwork.cs                                    — Mockable decoder/joint seam
+    ├── NemotronEncoder.cs                                 — Cache-aware streaming encoder
+    ├── NemotronRnntNetwork.cs                             — Decoder and joint networks
+    ├── NemotronFeatureExtractor.cs                        — Streaming log-mel features
+    ├── NemotronRnntGreedyDecoder.cs                       — RNN-T greedy decoding
+    ├── DitherNoise.cs                                     — Dither noise source
+    └── SilenceRunLimiter.cs                               — Leading-silence mitigation
+```
+
 ## Document Conventions
 
 Throughout this document:
@@ -475,7 +705,8 @@ Throughout this document:
 - The word **shall** denotes a design constraint that the implementation must satisfy.
 - Section headings within each unit chapter follow a consistent structure: overview, data
   model, methods/algorithms, and interactions with other units.
-- Text tables are used in preference to diagrams, which may not render in all PDF viewers.
+- Text tables are used in preference to diagrams, which may not render in all PDF viewers (the
+  software structure diagram above is generated from the SysML2 model).
 
 ## Companion Artifact Structure
 
@@ -494,6 +725,31 @@ SpeechSherpa's artifacts live under `docs/reqstream/speech-sherpa/`, `docs/desig
 `docs/verification/speech-sherpa/`, `src/DemaConsulting.Speech.Sherpa/`, and
 `test/DemaConsulting.Speech.Sherpa.Tests/`. SpeechSherpa's subsystems share their names with the
 Speech subsystems they extend, so each subsystem is always identified together with its system.
+
+## Modeling Scope and Exclusions
+
+The SysML2 model intentionally follows these rules; they are not omissions:
+
+- **System-to-system dependencies are prose-only.** The dependencies between sibling systems
+  (for example SpeechSherpa, the ONNX model packages, SpeechCli and SpeechDemo all building on
+  Speech, or the ONNX model packages building on SpeechOnnx) are documented in each system's
+  design document and are enforced by the project files; the model's `part` ownership expresses
+  only decomposition (system, subsystem, unit), not inter-system dependency.
+- **OTS parts are modeled only where integration code uses the item.** SpeechCli and SpeechDemo
+  reference `Microsoft.ML.OnnxRuntime` in their project files only to exclude its native assets
+  (`ExcludeAssets="native"`) so the sherpa-onnx native runtime is used; they contain no code that
+  calls it, so they carry no OnnxRuntime OTS part usage. The OTS item itself is modeled and
+  verified under SpeechOnnx. Build-tool OTS items are repository-level tooling (see the note in
+  `ots.sysml`).
+- **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only
+  namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
+  behavior and are covered by the view-model or panel unit they accompany.
+- **Small enums and value types** (for example `TaggedTextSpanKind` and the
+  ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
+  of the unit that owns or consumes them rather than modeled as separate units.
+- **View names** are prefixed with the system name for sibling systems; the core Speech
+  system's views are unprefixed, and `DiagnosticsView`/`PortAudioView` name child subsystems
+  that follow their own short names, as explained in `design-views.sysml`.
 
 ## References
 

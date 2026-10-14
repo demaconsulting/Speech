@@ -5,13 +5,24 @@
 moment the snapshot was built.
 
 **Data Model**: `Model` (`ISpeechModel`), `State` (`SpeechModelState`), plus convenience
-passthrough properties `Id`, `DisplayName`, `Role`, `LicenseName`, and `LicenseUrl` mirroring the
-wrapped model's own properties.
+passthrough properties `Id`, `DisplayName`, `Role`, `LicenseName`, and `LicenseUrl` (`Uri?`, `null`
+when unknown) that delegate live to the wrapped model's own properties (no caching). The type is a
+sealed record whose immutability is shallow: `Model` is a reference to a model that
+is not itself copied, so the descriptor guarantees only that its own `Model` and `State` never change (its
+public properties have no setters). **Equality is defined** as: two descriptors are equal when they wrap the
+same `Model` instance (reference identity, implemented explicitly so that a model type overriding `Equals`
+cannot make distinct instances compare equal; `GetHashCode` uses the same identity) and have the same
+`State`; descriptors for different model instances are not equal even if the models look alike, and
+descriptors for the same model with different states are not equal. Hosts compare descriptors from successive
+`Enumerate()` calls to detect changes.
 
 **Key Methods**:
 
 - **SpeechModelDescriptor(model, state)**: Validates `model` is not null; otherwise a pure,
   immutable record construction.
+- **Passthrough properties** (`Id`, `DisplayName`, `Role`, `LicenseName`, `LicenseUrl`): each reads the
+  wrapped model's property on every access.
+- **Equals(other) / GetHashCode()**: reference identity of `Model` plus `State`.
 
 **Error Handling**: Throws `ArgumentNullException` for a null `model` at construction; otherwise
 never throws (it performs no I/O or store queries itself).

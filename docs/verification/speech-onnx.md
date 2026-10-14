@@ -55,34 +55,79 @@ each candidate's own `SessionOptions` instance so the test can assert its public
 
 ### No preferred providers creates a working CPU session
 
-**Test**: `Create_NoPreferredProviders_CreatesWorkingCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession`
 
 Verifies that calling `Create` with no preferred providers returns a working CPU-backed session
 that can run the fixture model.
 
 ### An unknown/unavailable provider name falls back to a working CPU session
 
-**Test**: `Create_UnknownProviderName_FallsBackToCpuSession`
+**Test**: `OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession`
 
 Verifies that a candidate provider name that fails to construct does not throw, and `Create`
 falls back to a working CPU session instead.
 
 ### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-**Test**: `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+**Test**: `OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu`
 
 Verifies the DirectML/`ConvTranspose`-style scenario this parameter was added for: a
 `validateSession` probe that throws `OnnxRuntimeException` for an accelerated candidate causes
 that candidate's session to be disposed and discarded, the next candidate (or CPU) to be tried,
 and the CPU fallback itself to never be passed to `validateSession`.
 
+### Candidates are tried in the caller-supplied order
+
+**Test**: `OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession`
+
+Verifies that when the probe rejects the first candidate's session, the second candidate is built
+and probed next and its session, not the first's, is returned.
+
+### A successful validateSession probe is accepted
+
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession`
+
+Verifies that a candidate whose probe succeeds is the session returned to the caller: the very
+instance that was handed to the probe.
+
+### Every unsuccessful candidate attempt releases its native resources
+
+**Test**: `OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance`
+
+Verifies that both a failed candidate's and the winning candidate's `SessionOptions` are disposed
+by the time `Create` returns, observed through the test-only hook described above.
+
+### The returned session stays usable and owned by the caller
+
+**Test**: `OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference`
+
+Verifies that the session returned on success is not disposed by `Create`: the caller can run the
+fixture's identity node and read back the value it fed in.
+
 ### A validateSession probe throwing a non-ORT exception propagates to the caller
 
-**Test**: `Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+**Test**:
+`OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
 
 Verifies that a probe throwing any exception type other than
 `OnnxRuntimeException`/`DllNotFoundException` propagates to the caller instead of being treated
 as a "try the next candidate" signal, after that candidate's session is disposed.
+
+### A missing or malformed model is reported to the caller
+
+**Tests**: `OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException`,
+`OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException`
+
+Verifies that a genuine model-file error surfaces as `OnnxRuntimeException`, not as a silent
+fallback.
+
+### Invalid model paths are rejected before any provider is attempted
+
+**Tests**: `OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException`,
+`OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException`
+
+Verifies that a null or empty path is rejected with an argument error naming `modelPath` and that
+no candidate was attempted.
 
 ## Acceptance Criteria
 

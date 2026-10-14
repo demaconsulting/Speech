@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     performs once; this engine then reuses that same backend across as many sequential
 ///     sessions as a host creates, which is why only one session may be active at a time
 ///     (<see cref="CreateSessionAsync"/> fails fast with <see cref="RecognitionEngineBusyException"/>
-///     rather than queuing - Decision #2). The exclusivity lease spans the full life of a session,
+///     rather than queuing). The exclusivity lease spans the full life of a session,
 ///     through its own <see cref="IAsyncDisposable.DisposeAsync"/> completing, so a caller that
 ///     wants low-latency reuse should keep this engine instance around for as long as it may
 ///     recognize speech and create a fresh session per run, rather than reloading the backend per
@@ -36,7 +36,7 @@ internal sealed class SpeechRecognizerEngine : ISpeechRecognizerEngine
     /// <summary>The sink for structural lifecycle and fault events.</summary>
     private readonly ISpeechDiagnostics _diagnostics;
 
-    /// <summary>The single-session exclusivity lease over <see cref="_backend"/> (Decision #2).</summary>
+    /// <summary>The single-session exclusivity lease over <see cref="_backend"/>.</summary>
     private readonly SemaphoreSlim _lease = new(1, 1);
 
     /// <summary>The currently active session, if any, so <see cref="DisposeAsync"/> can dispose it first.</summary>
@@ -113,7 +113,7 @@ internal sealed class SpeechRecognizerEngine : ISpeechRecognizerEngine
 
             // Fail fast rather than queue: waiting here would make this call's latency depend on
             // an unrelated session's teardown, with no way to bound that wait distinctly from
-            // the caller's own cancellationToken (Decision #2).
+            // the caller's own cancellationToken.
             if (!_lease.Wait(0, CancellationToken.None))
             {
                 throw new RecognitionEngineBusyException(

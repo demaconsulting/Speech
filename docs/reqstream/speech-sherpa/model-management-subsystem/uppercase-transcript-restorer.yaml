@@ -69,17 +69,23 @@ sections:
               - id: SpeechSherpa-Models-UppercaseTranscriptRestorer-ArgumentValidation
                 title: >-
                   The UppercaseTranscriptRestorer helper shall throw
-                  ArgumentNullException for a null input and return the empty string for
-                  empty or whitespace-only input, from both RestoreFinal and
+                  ArgumentNullException for a null input from both RestoreFinal and
                   RestoreProvisional.
                 justification: |
                   A programming error (null input) should surface immediately with a clear
                   exception, matching this repository's existing argument-validation
-                  convention; empty/whitespace input is a normal, expected edge case (for
-                  example, a recognizer's very first, empty provisional result) and must not
-                  throw.
+                  convention.
+                tests:
+                  - RestoreFinal_NullInput_ThrowsArgumentNullException
+                  - RestoreProvisional_NullInput_ThrowsArgumentNullException
+
+              - id: SpeechSherpa-Models-UppercaseTranscriptRestorer-EmptyInput
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall return the empty string for
+                  empty or whitespace-only input from both RestoreFinal and RestoreProvisional.
+                justification: |
+                  Empty or whitespace input is a normal, expected edge case (for example, a
+                  recognizer's very first, empty provisional result) and must not throw.
                 tests:
                   - RestoreFinal_EmptyOrWhitespace_ReturnsEmptyString
-                  - RestoreFinal_NullInput_ThrowsArgumentNullException
                   - RestoreProvisional_EmptyOrWhitespace_ReturnsEmptyString
-                  - RestoreProvisional_NullInput_ThrowsArgumentNullException

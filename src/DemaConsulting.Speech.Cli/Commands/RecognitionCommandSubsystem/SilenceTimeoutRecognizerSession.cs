@@ -153,7 +153,7 @@ internal sealed class SilenceTimeoutRecognizerSession
     ///     first time the configured idle window elapses with no result yielded.
     /// </summary>
     /// <param name="cancellationToken">
-    ///     A token that ends only this enumeration when cancelled - the wrapped session itself
+    ///     A token that ends only this enumeration when canceled - the wrapped session itself
     ///     keeps running, mirroring <see cref="IRecognitionSession.GetResultsAsync"/>'s own
     ///     contract.
     /// </param>
@@ -167,34 +167,49 @@ internal sealed class SilenceTimeoutRecognizerSession
         await using var enumerator = _session.GetResultsAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
         while (true)
         {
-            var moveNextTask = enumerator.MoveNextAsync().AsTask();
-            var delayTask = Task.Delay(timeout, _timeProvider, cancellationToken);
-            var winner = await Task.WhenAny(moveNextTask, delayTask).ConfigureAwait(false);
+            bool hasItem;
 
-            // A delayTask that "wins" because cancellationToken was cancelled (rather than
-            // because the idle window genuinely elapsed) is not a timeout: it is
-            // IsCompletedSuccessfully only when the idle window itself ran to completion, while a
-            // cancellation instead leaves it Canceled. Treating a cancellation-triggered delayTask
-            // as a timeout would wrongly call StopAsync here, racing the wrapped session's result
-            // stream completion against moveNextTask's own cancellation and sometimes swallowing
-            // the OperationCanceledException this enumeration's caller is entitled to observe.
-            if (winner == delayTask && delayTask.IsCompletedSuccessfully && !timedOut)
+            // The idle timer is owned by this iteration: it is canceled and disposed as soon as
+            // the iteration finishes (result won, timeout handled, or fault/cancellation), so
+            // timers never accumulate across results.
+            using var delayCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            try
             {
-                // The idle window elapsed with no result yielded since the previous iteration (or
-                // since this method started, for the first iteration). Stop the session - which
-                // completes its result stream - then raise TimedOut, then keep draining below so
-                // any trailing result the stop itself produced is still yielded to our own
-                // caller, exactly as an undecorated foreach over the session would observe it.
-                timedOut = true;
-                await _session.StopAsync(CancellationToken.None).ConfigureAwait(false);
-                TimedOut?.Invoke(this, EventArgs.Empty);
+                var moveNextTask = enumerator.MoveNextAsync().AsTask();
+                var delayTask = Task.Delay(timeout, _timeProvider, delayCancellation.Token);
+                var winner = await Task.WhenAny(moveNextTask, delayTask).ConfigureAwait(false);
+
+                // A delayTask that "wins" because cancellationToken was canceled (rather than
+                // because the idle window genuinely elapsed) is not a timeout: it is
+                // IsCompletedSuccessfully only when the idle window itself ran to completion, while a
+                // cancellation instead leaves it Canceled. Treating a cancellation-triggered delayTask
+                // as a timeout would wrongly call StopAsync here, racing the wrapped session's result
+                // stream completion against moveNextTask's own cancellation and sometimes swallowing
+                // the OperationCanceledException this enumeration's caller is entitled to observe.
+                if (winner == delayTask && delayTask.IsCompletedSuccessfully && !timedOut)
+                {
+                    // The idle window elapsed with no result yielded since the previous iteration (or
+                    // since this method started, for the first iteration). Stop the session - which
+                    // completes its result stream - then raise TimedOut, then keep draining below so
+                    // any trailing result the stop itself produced is still yielded to our own
+                    // caller, exactly as an undecorated foreach over the session would observe it.
+                    timedOut = true;
+                    await _session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                    TimedOut?.Invoke(this, EventArgs.Empty);
+                }
+
+                // Propagate cancellation (either delayTask's own cancellation, or a fault surfaced
+                // through moveNextTask) the same way the standard compiler-generated "await foreach"
+                // would: by awaiting the task that is actually ready, letting its own exception (if
+                // any) propagate naturally.
+                hasItem = await moveNextTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                await delayCancellation.CancelAsync().ConfigureAwait(false);
             }
 
-            // Propagate cancellation (either delayTask's own cancellation, or a fault surfaced
-            // through moveNextTask) the same way the standard compiler-generated "await foreach"
-            // would: by awaiting the task that is actually ready, letting its own exception (if
-            // any) propagate naturally.
-            if (!await moveNextTask.ConfigureAwait(false))
+            if (!hasItem)
             {
                 yield break;
             }

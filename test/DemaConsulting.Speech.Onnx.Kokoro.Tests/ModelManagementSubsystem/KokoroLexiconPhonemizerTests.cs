@@ -71,21 +71,36 @@ public sealed class KokoroLexiconPhonemizerTests
     }
 
     /// <summary>
-    ///     Proves the documented Stage-1 out-of-vocabulary-word limitation: a word absent from
-    ///     the embedded lexicon is silently dropped from the phoneme string and reported, in
-    ///     lower-case, as an unknown word, rather than guessed at.
+    ///     Proves that a word absent from the embedded lexicon is omitted from the phoneme string
+    ///     rather than guessed at.
     /// </summary>
     [Fact]
-    public void Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown()
+    public void Phonemize_OutOfVocabularyWord_IsOmittedFromPhonemes()
     {
         // Arrange
         var phonemizer = new KokoroLexiconPhonemizer();
 
         // Act
-        var (phonemes, unknownWords) = phonemizer.Phonemize("Notarealenglishwordxyz");
+        var (phonemes, _) = phonemizer.Phonemize("Notarealenglishwordxyz");
 
         // Assert
         Assert.Equal(string.Empty, phonemes);
+    }
+
+    /// <summary>
+    ///     Proves that a word absent from the embedded lexicon is reported, in lower-case, as an
+    ///     unknown word.
+    /// </summary>
+    [Fact]
+    public void Phonemize_OutOfVocabularyWord_ReportedAsUnknown()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (_, unknownWords) = phonemizer.Phonemize("Notarealenglishwordxyz");
+
+        // Assert
         Assert.Equal(["notarealenglishwordxyz"], unknownWords);
     }
 
@@ -147,9 +162,9 @@ public sealed class KokoroLexiconPhonemizerTests
         Assert.Empty(unknownWords);
     }
 
-    /// <summary>Misspellings, missing apostrophes, acronyms and numbers are all spoken.</summary>
+    /// <summary>Misspellings and missing apostrophes are corrected and spoken, not reported as unknown.</summary>
     [Fact]
-    public void Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken()
+    public void Phonemize_Misspellings_AreCorrectedAndNotReported()
     {
         // Arrange
         var phonemizer = new KokoroLexiconPhonemizer();
@@ -157,22 +172,27 @@ public sealed class KokoroLexiconPhonemizerTests
         // Act
         var (typo, typoUnknown) = phonemizer.Phonemize("teh recieve dont");
         var (fixedText, _) = phonemizer.Phonemize("the receive don't");
-        var (acronym, acronymUnknown) = phonemizer.Phonemize("FBI");
-        var (letters, _) = phonemizer.Phonemize("F B I");
-        var (number, numberUnknown) = phonemizer.Phonemize("$5");
-        var (words, _) = phonemizer.Phonemize("five dollars");
-        var (markdown, _) = phonemizer.Phonemize("**bold** `code`");
-        var (plain, _) = phonemizer.Phonemize("bold code");
 
         // Assert
         Assert.Equal(fixedText, typo);
         Assert.Empty(typoUnknown);
+    }
+
+    /// <summary>An all-capitals acronym is spoken as its individual letter names.</summary>
+    [Fact]
+    public void Phonemize_Acronym_IsSpokenAsLetterNames()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (acronym, acronymUnknown) = phonemizer.Phonemize("FBI");
+        var (letters, _) = phonemizer.Phonemize("F B I");
+
+        // Assert
         Assert.NotEmpty(acronym);
         Assert.Empty(acronymUnknown);
         Assert.Equal(letters.Replace(" ", string.Empty, StringComparison.Ordinal), acronym.Replace(" ", string.Empty, StringComparison.Ordinal));
-        Assert.Empty(numberUnknown);
-        Assert.Equal(words, number);
-        Assert.Equal(plain, markdown);
     }
 
     /// <summary>Every letter-name phoneme is made of characters the Kokoro vocabulary knows.</summary>

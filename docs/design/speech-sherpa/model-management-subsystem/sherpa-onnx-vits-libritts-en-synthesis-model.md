@@ -29,7 +29,7 @@ confirmed against a real download in this project's development sandbox, not fab
   parsing `DisplayName`.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
-  `TarBz2ArchiveExtractor` (built in Phase 7a, reused here unchanged) to extract the downloaded
+  `TarBz2ArchiveExtractor` (shared with the other Sherpa models, reused unchanged) to extract the downloaded
   archive in place and delete it, leaving the archive's own top-level folder
   (`vits-piper-en_US-libritts_r-medium/`) containing every file `BuildEngineConfig` references.
 - **ISynthesisModel.CreateBackend(installedModelDirectory)** *(internal explicit interface

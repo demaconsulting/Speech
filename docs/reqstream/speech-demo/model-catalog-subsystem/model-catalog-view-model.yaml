@@ -1,9 +1,17 @@
 ---
 # Software Unit Requirements for the SpeechDemo ModelCatalogViewModel
 #
-# These requirements describe the design-level behavior of the ModelCatalogViewModel unit - the
-# catalog panel's presentation state, refresh, and download orchestration - decomposing the
-# parent ModelCatalogSubsystem requirements.
+# These requirements describe the behavior of the ModelCatalogViewModel unit - the catalog
+# panel's presentation state, refresh, download orchestration, mirror settings and reference
+# voice pack section - decomposing the parent ModelCatalogSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each, and identified by prefix:
+#   - SpeechDemo-Models-* : model rows, refresh and its busy guard, downloading and its guards,
+#     the empty-catalog explanation, and the mirror settings (apply, revert, rejection, faults,
+#     blocked during a download)
+#   - SpeechDemo-Voices-* : the reference voice pack section (listing, install, emotion choice,
+#     failure and rollback reporting, removal, and the refusals while a transfer is in flight)
+# Every test below is a ModelCatalogViewModelTests test.
 
 sections:
   - title: SpeechDemo Requirements
@@ -12,64 +20,177 @@ sections:
         sections:
           - title: ModelCatalogViewModel Requirements
             requirements:
+              - id: SpeechDemo-Models-PanelSeamRequired
+                title: >-
+                  The ModelCatalogViewModel shall reject a catalog panel created with no catalog
+                  service.
+                justification: |
+                  The panel is driven entirely by its catalog service; failing at creation makes
+                  a half-composed panel an immediate, diagnosable programming error.
+                tests:
+                  - ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
+
               - id: SpeechDemo-Models-Enumeration
                 title: >-
-                  The ModelCatalogSubsystem shall show one row per model the library reports and
-                  shall preselect the first row.
+                  The ModelCatalogViewModel shall show one row per model the library reports.
                 justification: |
                   The panel is a direct rendering of the library's catalog: one row per known
-                  model, with nothing added and nothing hidden. Preselecting the first row makes
-                  the panel immediately usable without configuration.
+                  model, with nothing added and nothing hidden.
                 tests:
                   - ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel
+
+              - id: SpeechDemo-Models-InitialSelection
+                title: >-
+                  The ModelCatalogViewModel shall preselect the first model row when the panel
+                  is created.
+                justification: |
+                  Preselecting the first row makes the panel immediately usable without
+                  configuration.
+                tests:
                   - ModelCatalogViewModel_Constructor_PopulatedCatalog_SelectsFirstModel
 
               - id: SpeechDemo-Models-Refresh
                 title: >-
-                  The ModelCatalogSubsystem shall re-read the catalog on demand, keeping the
-                  current selection when that model is still reported and dropping the row when
-                  it is not.
+                  The ModelCatalogViewModel shall re-read the catalog on demand, keeping the
+                  current selection when that model is still reported.
                 justification: |
                   The library's catalog is the single source of truth for both membership and
-                  state, so a refresh must adopt it wholesale. Keeping a row the library no
-                  longer reports would let the panel offer a model that cannot be downloaded.
+                  state, so a refresh must adopt it wholesale without disturbing the user's
+                  selection.
                 tests:
-                  - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
-                  - ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
+                  - ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
                   - ModelCatalogViewModel_RefreshCommand_Executed_ReReadsCatalog
+
+              - id: SpeechDemo-Models-RefreshDropsUnknownModel
+                title: >-
+                  The ModelCatalogViewModel shall drop the row of a model the catalog no longer
+                  reports when the catalog is re-read.
+                justification: |
+                  Keeping a row the library no longer reports would let the panel offer a model
+                  that cannot be downloaded.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_ModelNoLongerKnown_DropsRowAndFallsBack
+
+              - id: SpeechDemo-Models-RefreshBlockedDuringDownload
+                title: >-
+                  The ModelCatalogViewModel shall refuse an on-demand catalog refresh while any
+                  model download is in flight, leaving the rows untouched and without
+                  re-reading the catalog.
+                justification: |
+                  Refreshing rebuilds every row, which would discard the row that is showing the
+                  download's progress and eventual outcome. Refusing the refresh keeps the
+                  user's in-flight download visible; the command that finishes the download
+                  reloads the rows itself.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
+
+              - id: SpeechDemo-Models-RefreshBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogViewModel shall refuse an on-demand catalog refresh while a
+                  voice pack install is in flight, leaving the rows untouched and without
+                  re-reading the catalog.
+                justification: |
+                  Refreshing rebuilds every row, which would discard the pack row that is
+                  showing the install's progress and eventual outcome; the command that finishes
+                  the install reloads the rows itself.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
+
+              - id: SpeechDemo-Models-RefreshFaultContained
+                title: >-
+                  The ModelCatalogViewModel shall report an unexpected fault while re-reading the
+                  catalog as an explained panel error, leaving the rows it already shows in
+                  place.
+                justification: |
+                  A refresh is a fault-isolation boundary like every other command in the panel;
+                  an unexpected seam fault must neither crash the demo nor leave the list
+                  cleared.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_SeamFault_ReportedAndRowsKept
+
+              - id: SpeechDemo-Models-RefreshSelectsFirstWithoutPrevious
+                title: >-
+                  The ModelCatalogViewModel shall select the first model row after a refresh
+                  when no row was selected before.
+                justification: |
+                  A panel with rows and no selection would leave the download command without a
+                  target.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_NoPreviousSelection_SelectsFirstRow
 
               - id: SpeechDemo-Models-DownloadProgress
                 title: >-
-                  The ModelCatalogSubsystem shall show a model as downloading while its download
-                  runs, reflect reported progress on that model's row, and mark it installed on
-                  success.
+                  The ModelCatalogViewModel shall reflect the progress reported while a model
+                  downloads on that model's row.
                 justification: |
                   Model downloads are large enough that an application with no progress feedback
                   looks hung. Showing progress on the row being downloaded also proves the
                   library's progress contract is usable from a host's UI thread.
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress
+
+              - id: SpeechDemo-Models-DownloadInFlightState
+                title: >-
+                  The ModelCatalogViewModel shall show a model as downloading while its
+                  download runs.
+                justification: |
+                  The user must see from the row that a download is under way, and the row must
+                  not offer a second download.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_InFlight_ShowsDownloadingState
+
+              - id: SpeechDemo-Models-DownloadInstalled
+                title: >-
+                  The ModelCatalogViewModel shall mark a model installed on its row when its
+                  download succeeds.
+                justification: |
+                  The user must see from the row that the model is ready and no longer
+                  downloadable.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
 
               - id: SpeechDemo-Models-DownloadOutcomes
                 title: >-
-                  The ModelCatalogSubsystem shall report a checksum mismatch, a transport
-                  failure, an unexpected seam fault, and a cancellation as explained row states
-                  rather than as an application error.
+                  The ModelCatalogViewModel shall report a checksum mismatch on a model's row as
+                  an explained failure rather than as an application error.
                 justification: |
                   The library treats a failed download as an ordinary outcome that never
-                  disturbs an existing install, so the demo must not escalate one into a crash.
-                  Cancellation is reported as simply not downloaded, because the library
-                  guarantees nothing was installed.
+                  disturbs an existing install, so the demo must not report a mismatch as a
+                  successful install or escalate it into a crash.
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
+
+              - id: SpeechDemo-Models-DownloadTransportFailure
+                title: >-
+                  The ModelCatalogViewModel shall report a transport failure on a model's row
+                  using the library's own error message.
+                justification: |
+                  The user must see why a download failed rather than a generic message.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
+
+              - id: SpeechDemo-Models-DownloadFaultContained
+                title: >-
+                  The ModelCatalogViewModel shall contain an unexpected fault from the catalog
+                  service in the model's row rather than letting it escape.
+                justification: |
+                  An unexpected exception must not crash the demo.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_SeamThrows_ContainsFaultInRow
+
+              - id: SpeechDemo-Models-DownloadCanceled
+                title: >-
+                  The ModelCatalogViewModel shall report a canceled download as the model being
+                  not downloaded.
+                justification: |
+                  The library guarantees nothing was installed after a cancellation, so the
+                  model is offered again rather than marked corrupt.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
 
               - id: SpeechDemo-Models-DownloadRetry
                 title: >-
-                  The ModelCatalogSubsystem shall allow a failed download to be retried and shall
+                  The ModelCatalogViewModel shall allow a failed download to be retried and shall
                   clear the previous failure explanation when the retry starts.
                 justification: |
                   Most download failures are transient. Leaving a stale failure message beside a
@@ -77,26 +198,42 @@ sections:
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
 
-              - id: SpeechDemo-Models-DownloadGuard
+              - id: SpeechDemo-Models-DownloadGuardInstalled
                 title: >-
-                  The ModelCatalogSubsystem shall not start a download for a model that is
-                  already installed or already downloading, nor when no model is selected.
+                  The ModelCatalogViewModel shall not start a download for a model that is
+                  already installed.
                 justification: |
                   Re-downloading an installed model risks disturbing working content for no
-                  benefit, and a download command invoked with no selection must do nothing
-                  rather than fail.
+                  benefit.
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_AlreadyInstalledModel_DoesNotDownload
+
+              - id: SpeechDemo-Models-DownloadGuardInFlight
+                title: >-
+                  The ModelCatalogViewModel shall not start a second download for a model that
+                  is already downloading.
+                justification: |
+                  A second download of a running one would collide with it.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_AlreadyDownloadingModel_DoesNotDownload
+
+              - id: SpeechDemo-Models-DownloadNoSelection
+                title: >-
+                  The ModelCatalogViewModel shall do nothing when the download command is invoked
+                  without a model row.
+                justification: |
+                  A download command invoked with a null parameter must do nothing rather than
+                  fail.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing
 
               - id: SpeechDemo-Models-EmptyCatalogExplanation
                 title: >-
-                  The ModelCatalogSubsystem shall display a message explaining that the catalog
+                  The ModelCatalogViewModel shall display a message explaining that the catalog
                   currently reports no known models when the catalog reports none.
                 justification: |
-                  An empty catalog remains a possible host/composition state (for example a host
-                  supplying its own, empty known-model list) even though the library's compiled-in
-                  catalog itself now ships four real models. Explaining an empty catalog in the
+                  An empty catalog remains a possible host composition state (for example a host
+                  supplying its own, empty known-model list). Explaining an empty catalog in the
                   panel prevents a developer evaluating such a composition from reporting the
                   empty list as a bug.
                 tests:
@@ -105,37 +242,414 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsUi
                 title: >-
-                  The ModelCatalogSubsystem shall let a user type a mirror base URL and optional
-                  credential or bearer token, pre-populated from any launch-time mirror arguments,
-                  and apply those settings to redirect every subsequent download; an invalid
-                  configuration or a seam that rejects reconfiguration shall be reported as an
-                  explained panel state rather than thrown at the user, and a blank URL shall
-                  revert to each model's own public download URI.
+                  The ModelCatalogViewModel shall apply the mirror base URL a user has entered,
+                  so that every subsequent download is redirected to that mirror.
                 justification: |
                   A user whose network blocks a model's public download host needs to redirect
                   downloads to an internal mirror from the running application, not only via a
-                  launch-time argument that requires relaunching the demo. Reporting every
-                  failure in place matches how every other seam failure in this panel is already
-                  handled, and pre-populating from launch-time arguments keeps the two entry
-                  points consistent rather than contradictory.
+                  launch-time argument that requires relaunching the demo.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
+
+              - id: SpeechDemo-Models-MirrorSettingsBasicCredentials
+                title: >-
+                  The ModelCatalogViewModel shall apply an HTTP Basic user name and password a
+                  user has entered together with the mirror base URL.
+                justification: |
+                  Mirrors protected by Basic credentials must be usable from the panel.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
+
+              - id: SpeechDemo-Models-MirrorSettingsBlankCredentialsIgnored
+                title: >-
+                  The ModelCatalogViewModel shall treat a blank or whitespace-only user name,
+                  password or bearer token as not supplied when applying a mirror.
+                justification: |
+                  A text box the user left empty or cleared holds an empty string, not a null;
+                  forwarding it would configure a credential the user never gave, or reject a
+                  valid mirror. This matches how the launch-time mirror options treat blank
+                  values.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_BlankCredentials_TreatedAsNotSupplied
+
+              - id: SpeechDemo-Models-MirrorSettingsCredentialsNotEchoed
+                title: >-
+                  The ModelCatalogViewModel shall not include a credential the user entered in
+                  any mirror status message.
+                justification: |
+                  Status text is shown on screen and may be captured; a secret must never be
+                  displayed back.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_WithCredentials_MessageDoesNotEchoCredentials
+
+              - id: SpeechDemo-Models-MirrorSettingsBearerToken
+                title: >-
+                  The ModelCatalogViewModel shall apply a bearer token a user has entered
+                  together with the mirror base URL.
+                justification: |
+                  Mirrors protected by a bearer token are as common as those protected by Basic
+                  credentials, and the token must reach the download configuration unchanged.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_BearerToken_ForwardsToken
+
+              - id: SpeechDemo-Models-MirrorSettingsReloadsRows
+                title: >-
+                  The ModelCatalogViewModel shall re-read the catalog after a mirror change is
+                  applied, so the rows show what the reconfigured catalog reports.
+                justification: |
+                  The rebuilt catalog may report different install states, so leaving the old
+                  rows on display would show stale information.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
+
+              - id: SpeechDemo-Models-MirrorSettingsFaultContained
+                title: >-
+                  The ModelCatalogViewModel shall report an unexpected fault while applying a
+                  mirror as an explained panel error rather than letting it escape.
+                justification: |
+                  The mirror command is a fault-isolation boundary like every other command in
+                  the panel; an unexpected seam fault must not crash the demo.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_UnexpectedFault_ReportedInPanel
+
+              - id: SpeechDemo-Models-MirrorSettingsReloadFaultContained
+                title: >-
+                  The ModelCatalogViewModel shall report an unexpected fault while re-reading the
+                  catalog after a mirror change as an explained panel error rather than letting
+                  it escape.
+                justification: |
+                  The re-read is part of the mirror command; a fault there must not crash the
+                  demo.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
+
+              - id: SpeechDemo-Models-MirrorSettingsPrePopulation
+                title: >-
+                  The ModelCatalogViewModel shall pre-populate the mirror settings from any
+                  mirror arguments supplied at launch.
+                justification: |
+                  Pre-populating from launch-time arguments keeps the two entry points
+                  consistent rather than contradictory: the panel shows the mirror the
+                  application is actually using.
                 tests:
                   - ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
-                  - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
-                  - ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
-                  - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
-                  - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
-                  - ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
+
+              - id: SpeechDemo-Models-MirrorSettingsBlankRevert
+                title: >-
+                  The ModelCatalogViewModel shall revert every subsequent download to each
+                  model's own public download URI when a blank mirror URL is applied.
+                justification: |
+                  A user must be able to undo a mirror redirection without relaunching the
+                  application.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror
+
+              - id: SpeechDemo-Models-MirrorSettingsInvalidReported
+                title: >-
+                  The ModelCatalogViewModel shall report an invalid mirror configuration, such as
+                  a malformed URL or credentials without a URL, as an explained panel state
+                  without applying it.
+                justification: |
+                  Reporting a typing mistake in place matches how every other failure in this
+                  panel is handled and avoids reconfiguring downloads with a bad mirror.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+
+              - id: SpeechDemo-Models-MirrorSettingsRejectedReported
+                title: >-
+                  The ModelCatalogViewModel shall report, as an explained panel state rather than
+                  an error thrown at the user, a mirror change that the catalog service rejects.
+                justification: |
+                  A catalog service built over a fixed catalog cannot be reconfigured; the user
+                  must be told so in the panel rather than meeting a crash.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError
 
               - id: SpeechDemo-Models-MirrorBlockedDuringDownload
                 title: >-
-                  The ModelCatalogSubsystem shall refuse to apply a mirror change while any row is
+                  The ModelCatalogViewModel shall refuse to apply a mirror change while any row is
                   downloading, reporting an explained panel error, without calling the catalog
                   service.
                 justification: |
-                  ModelCatalogService.ApplyMirror disposes the catalog instance it replaces, which
-                  aborts any download still in flight against that catalog. Refusing in the panel
-                  before the service is ever called is what keeps that documented "do not call
-                  while one of your own downloads is in progress" contract from being violated
-                  through the only production caller of the service.
+                  Changing the mirror replaces the catalog and aborts any download still in
+                  flight against it. Refusing in the panel before the service is ever called
+                  keeps a user's own download from being aborted by their own action.
                 tests:
-                  - ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+                  - ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
+
+              - id: SpeechDemo-Voices-PackPanel
+                title: >-
+                  The ModelCatalogViewModel shall list the reference voice packs.
+                justification: |
+                  Packs are managed where models are managed, so the user sees what a pack is
+                  before installing it.
+                tests:
+                  - ModelCatalogViewModel_Constructor_ListsVoicePacks
+
+              - id: SpeechDemo-Voices-PackUserFolderShown
+                title: >-
+                  The ModelCatalogViewModel shall show the user voices folder alongside the
+                  reference voice packs.
+                justification: |
+                  The user must see where their own voices go.
+                tests:
+                  - ModelCatalogViewModel_Constructor_VoicePacks_ShowsUserVoicesFolder
+
+              - id: SpeechDemo-Voices-PackConsentNoteShown
+                title: >-
+                  The ModelCatalogViewModel shall show the voice-cloning consent note alongside
+                  the reference voice packs.
+                justification: |
+                  The user must see the consent note before installing a pack.
+                tests:
+                  - ModelCatalogViewModel_Constructor_VoicePacks_ShowsConsentNote
+
+              - id: SpeechDemo-Voices-PackSectionHidden
+                title: >-
+                  The ModelCatalogViewModel shall hide the reference voices section when the
+                  catalog service reports no voice packs.
+                justification: |
+                  Hosts built without voice support must not show an empty, confusing section.
+                tests:
+                  - ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
+
+              - id: SpeechDemo-Voices-PackInstalledEmotionsShown
+                title: >-
+                  The ModelCatalogViewModel shall show, for each installed voice pack, whether
+                  the install includes its emotion variants, as reported by the catalog service
+                  whenever the panel is refreshed.
+                justification: |
+                  The user must be able to tell a voices-only install from a full one, and to
+                  upgrade the former, after every refresh and not only right after an install.
+                tests:
+                  - ModelCatalogViewModel_RefreshAsync_InstalledPack_ReadsHasEmotionsFromService
+
+              - id: SpeechDemo-Voices-PackInstall
+                title: >-
+                  The ModelCatalogViewModel shall install a voice pack on command.
+                justification: |
+                  Installing a pack makes its voices available.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_Command_InstallsRequestedPackWithProgress
+
+              - id: SpeechDemo-Voices-PackInstallRowRefresh
+                title: >-
+                  The ModelCatalogViewModel shall refresh the rows after a voice pack install so
+                  the pack is shown as installed.
+                justification: |
+                  The user must see from the row that the install worked and that the pack can
+                  now be removed.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+
+              - id: SpeechDemo-Voices-PackEmotionChoiceForwarded
+                title: >-
+                  The ModelCatalogViewModel shall install a voice pack with or without its
+                  emotion variants according to the user's choice.
+                justification: |
+                  The emotion clips are most of a pack's size, so the user's choice must decide
+                  what is downloaded.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice
+
+              - id: SpeechDemo-Voices-PackAddEmotionsIncluded
+                title: >-
+                  The ModelCatalogViewModel shall always include the emotion variants when
+                  adding emotions to a voices-only voice pack install.
+                justification: |
+                  "Add emotions" must actually add them, whatever the emotion choice currently
+                  shows.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_AddEmotions_AlwaysIncludesEmotions
+
+              - id: SpeechDemo-Voices-PackInstallFailureReported
+                title: >-
+                  The ModelCatalogViewModel shall report a failed, canceled or faulted voice pack
+                  install on the pack's row, with an explanation, rather than as an application
+                  error.
+                justification: |
+                  An honest failure on the row tells the user what went wrong and lets them
+                  retry, while an escaping exception would take down the demo.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow
+
+              - id: SpeechDemo-Voices-PackInstallRollbackKeepsPack
+                title: >-
+                  The ModelCatalogViewModel shall, after any unsuccessful voice pack install or
+                  upgrade, show the pack in the state the catalog service reports, remaining
+                  installed and removable when it is still installed.
+                justification: |
+                  A failed "Add emotions" upgrade is rolled back to the previous voices-only
+                  install, so the pack is still installed. Reporting it as broken would hide a
+                  working install and disable its removal.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+              - id: SpeechDemo-Voices-PackInstallRollbackKeepsMessage
+                title: >-
+                  The ModelCatalogViewModel shall keep the failure message on the row of a voice
+                  pack whose install or upgrade was unsuccessful, even when the pack remains
+                  installed.
+                justification: |
+                  Dropping the message when the pack is re-read would hide the failure from the
+                  user.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+              - id: SpeechDemo-Voices-PackInstallStateReadFallback
+                title: >-
+                  The ModelCatalogViewModel shall show the outcome of an unsuccessful voice pack
+                  install, with its failure message, when the catalog service cannot report the
+                  pack's state.
+                justification: |
+                  A second fault while re-reading the pack's state must not crash the panel or
+                  lose the original failure explanation.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_StateReadFails_FallsBackToOutcome
+
+              - id: SpeechDemo-Voices-PackRemove
+                title: >-
+                  The ModelCatalogViewModel shall remove an installed voice pack on command.
+                justification: |
+                  The user must be able to reclaim disk space and withdraw voices they no
+                  longer want.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_Command_UninstallsRequestedPack
+
+              - id: SpeechDemo-Voices-PackRemoveRowRefresh
+                title: >-
+                  The ModelCatalogViewModel shall refresh the rows after a voice pack removal so
+                  the pack's voices are no longer offered, and shall ignore a removal request for
+                  a pack that is not installed or a missing row.
+                justification: |
+                  The user must see from the row that the removal worked, and a stale click must
+                  not call the service.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_Installed_UninstallsAndRefreshesRows
+
+              - id: SpeechDemo-Voices-PackRemoveFaultReported
+                title: >-
+                  The ModelCatalogViewModel shall report an unexpected fault while removing a
+                  voice pack on the pack's row, leaving the pack installed, rather than as an
+                  application error.
+                justification: |
+                  A file-system fault during removal must not crash the demo; the user is told on
+                  the row and the pack stays listed.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_Fault_ReportsMessageInRow
+
+              - id: SpeechDemo-Voices-PackRemoveStoreErrorReported
+                title: >-
+                  The ModelCatalogViewModel shall show the catalog service's explanation on the
+                  pack's row, and keep the pack installed, when removing a voice pack fails
+                  with a store error.
+                justification: |
+                  A removal fault must reach the user as an explanation, not a crash.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
+
+              - id: SpeechDemo-Voices-PackRemoveCanceledReported
+                title: >-
+                  The ModelCatalogViewModel shall show a canceled-removal message on the pack's
+                  row, and keep the pack installed, when removing a voice pack is canceled.
+                justification: |
+                  A canceled removal must tell the user nothing was removed instead of failing
+                  silently.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
+
+              - id: SpeechDemo-Voices-PackBlockedDuringDownload
+                title: >-
+                  The ModelCatalogViewModel shall refuse a pack install while any model is
+                  downloading, without calling the catalog service.
+                justification: |
+                  Installing a pack rebuilds the catalog, and disposing the old catalog aborts
+                  any download in flight against it. Refusing the overlapping install in the
+                  panel keeps that from happening through the only production caller.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-PackRemoveBlockedDuringDownload
+                title: >-
+                  The ModelCatalogViewModel shall refuse a pack removal while any model is
+                  downloading, without calling the catalog service.
+                justification: |
+                  Removing a pack rebuilds the catalog, which would abort a download in flight.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-DownloadBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogViewModel shall refuse a model download while a pack is
+                  installing, without calling the catalog service.
+                justification: |
+                  The pack install's catalog rebuild would abort the download, so the panel
+                  refuses the overlapping download.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-MirrorBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogViewModel shall refuse a mirror change while a pack is
+                  installing, reporting an explained panel error, without calling the catalog
+                  service.
+                justification: |
+                  Re-mirroring rebuilds the catalog, which would abort the pack install in
+                  flight.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
+
+              - id: SpeechDemo-Voices-PackBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogViewModel shall refuse a pack install while another pack is
+                  installing, showing an explanation on the row, without calling the catalog
+                  service.
+                justification: |
+                  Each pack change rebuilds the catalog, and disposing the old catalog would
+                  abort the install already in flight.
+                tests:
+                  - ModelCatalogViewModel_VoicePackCommands_AnotherPackInstalling_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-PackRemoveBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogViewModel shall refuse a pack removal while another pack is
+                  installing, showing an explanation on the row, without calling the catalog
+                  service.
+                justification: |
+                  A removal rebuilds the catalog just as an install does, so it would abort the
+                  install already in flight.
+                tests:
+                  - ModelCatalogViewModel_VoicePackCommands_AnotherPackInstalling_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-PackInstallReloadFaultReported
+                title: >-
+                  The ModelCatalogViewModel shall report a fault while re-reading the catalog
+                  after a successful voice pack install as a re-read failure, not as a failed
+                  install.
+                justification: |
+                  The pack was installed; telling the user the install failed would be false and
+                  invite a pointless retry.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_ReloadFaults_ReportedAsReReadFailure
+
+              - id: SpeechDemo-Voices-PackRemoveReloadFaultReported
+                title: >-
+                  The ModelCatalogViewModel shall report a fault while re-reading the catalog
+                  after a successful voice pack removal as a re-read failure that says the pack
+                  was removed.
+                justification: |
+                  A bare fault message would give the user no context for why the rows look
+                  unchanged.
+                tests:
+                  - ModelCatalogViewModel_RemoveVoicePackAsync_ReloadFaults_ReportedAsReReadFailure
+
+              - id: SpeechDemo-Voices-PackInitialEmotionLoadContained
+                title: >-
+                  The ModelCatalogViewModel shall contain a fault while reading an installed
+                  pack's emotion flag, leaving the flag false and completing the initial load.
+                justification: |
+                  The flags are read in the background from the construction path; a fault there
+                  must neither crash the demo nor leave the initial-load task faulted.
+                tests:
+                  - ModelCatalogViewModel_Constructor_EmotionFlagReadFaults_InitialLoadCompletesWithFlagFalse

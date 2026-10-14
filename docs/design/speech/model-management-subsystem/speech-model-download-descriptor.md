@@ -9,13 +9,14 @@ payload.
 **Key Methods**:
 
 - **SpeechModelDownloadDescriptor(Files)**: Validates the file list eagerly - must be non-null,
-  non-empty, and free of two entries sharing the same
+  non-empty, free of null entries, and free of two entries sharing the same
   `SpeechModelDownloadFile.RelativeInstallPath` after normalizing path separators (which would
   silently clobber one another during install, since `/` and `\` are interchangeable once
   `SpeechModelDownloader` stages and requests each file). Declaration order is preserved and is
-  the order `SpeechModelDownloader` fetches and verifies each file in.
+  the order `SpeechModelDownloader` fetches and verifies each file in. The validated list is copied into
+  an immutable snapshot so a later change to the caller's list cannot alter the descriptor.
 
-**Error Handling**: Throws `ArgumentException` for an empty or duplicate-path file list, and
+**Error Handling**: Throws `ArgumentException` for an empty, null-element or duplicate-path file list, and
 `ArgumentNullException` for a null list. Each individual `SpeechModelDownloadFile` has already
 validated its own URI/checksum/path at construction; this type only adds the cross-file
 duplicate-path check.

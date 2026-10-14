@@ -1,0 +1,425 @@
+---
+# Software Unit Requirements for ChatterboxTurboCapabilityProfile
+#
+# Unit-level behavior of the ChatterboxTurboCapabilityProfile unit (with its tag kind and
+# treatment types), decomposing the parent SpeechOnnxChatterboxTurbo SynthesisSubsystem
+# requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
+# ChatterboxTurboCapabilityProfileTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ChatterboxTurboCapabilityProfile Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTags
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a laugh tag as the model's
+                  native [laugh] token.
+                justification: |
+                  This token is the model's reliable paralinguistic output for laughter.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_LaughTag_UsesModelToken
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagThroatClear
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a throat-clear tag as the
+                  model's native [clear throat] token.
+                justification: |
+                  This token is the model's reliable paralinguistic output for a throat clear.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_ClearThroatTag_UsesModelToken
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagGasp
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a gasp tag as the model's
+                  native [gasp] token.
+                justification: |
+                  This token is the model's reliable paralinguistic output for a gasp.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_GaspTag_UsesModelToken
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagInline
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall keep a mid-sentence native tag
+                  inline with the speech around it.
+                justification: |
+                  Splitting the sentence at the tag would break the prosody around it.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a sigh as 300 ms of
+                  silence.
+                justification: |
+                  The model has no usable token for a sigh, so real silence is the faithful
+                  rendering.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-ShortPauseSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a short pause as 300 ms
+                  of silence.
+                justification: |
+                  The model has no usable token for a pause, so real silence is the faithful
+                  rendering.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_ShortPause_BecomesThreeHundredMillisecondSilence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongPauseSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render a long pause as 900 ms
+                  of silence.
+                justification: |
+                  The model has no usable token for a pause, so real silence is the faithful
+                  rendering.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_LongPause_BecomesNineHundredMillisecondSilence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall omit every tag it has no
+                  rendering for, so that no bracketed text the model could speak aloud is emitted.
+                justification: |
+                  The model mispronounces unknown brackets, so tags it cannot render must become
+                  nothing.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
+                  - ChatterboxTurboCapabilityProfile_Treatments_CoverEveryTagWithoutEmotionTokens
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall move a native tag that would
+                  end a sentence before the final word when the configured policy is
+                  move-before-final-word.
+                justification: |
+                  A tag with no speech after it makes the model misbehave.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_MoveBeforeFinalWord_RelocatesTag
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffix
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall append a laugh tag that would
+                  end a sentence with its known-good suffix ("[laugh] ...") when the configured
+                  policy is suffix.
+                justification: |
+                  A host may prefer to keep the tag at the end of the sentence.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsSuffixedTag
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffixDrop
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall drop a gasp or throat-clear tag
+                  that would end a sentence, because it has no suffix form, when the configured
+                  policy is suffix.
+                justification: |
+                  Without a known-good suffix the tag would be silent or misspoken at the end of
+                  a sentence, so dropping it is the only safe rendering.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_SuffixWithoutSuffixForm_DropsTag
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagStrip
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall strip a native tag that would
+                  end a sentence when the configured policy is strip.
+                justification: |
+                  A host may prefer silence over a tag at the end of a sentence.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagBetweenSentences
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall attach a tag between sentences
+                  to the following sentence.
+                justification: |
+                  A tag that stands alone has no speech to attach to.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagOnlyChunk
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall join a chunk holding only a
+                  trailing tag to the previous unit.
+                justification: |
+                  A chunk of only a tag has no speech to carry it.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall split text into sentences at
+                  full stops, exclamation marks and question marks.
+                justification: |
+                  The model is reliable only on moderate-length sentences.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplit
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-EllipsisPause
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add a 500 ms pause after a
+                  sentence that ends in an ellipsis.
+                justification: |
+                  An ellipsis signals a trailing-off pause that the model does not produce itself.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_EllipsisSentence_GetsFiveHundredMillisecondPause
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-DigitFlankedStop
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall not treat a full stop flanked
+                  by digits as a sentence boundary.
+                justification: |
+                  A decimal number must be spoken as one unit.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_DigitFlankedStop_IsNotASentenceBoundary
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
+                  200 characters into parts, keeping every word in order.
+                justification: |
+                  The model degrades on long inputs, and splitting must never lose speech.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplitKeepingEveryWord
+                  - ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceClauses
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
+                  200 characters at comma, semicolon and colon boundaries where possible, and shall
+                  not treat a comma or colon flanked by digits (such as 1,000 or 12:30) as a
+                  boundary.
+                justification: |
+                  Clause boundaries give the model natural phrase breaks, while a numeral must stay
+                  whole.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_LongSentenceWithClauses_SplitsAtClauseBoundaries
+                  - ChatterboxTurboCapabilityProfile_Render_DigitFlankedClauseBoundary_StaysInsideItsUnit
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceBudget
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall keep each rendered unit within
+                  the 200-character budget measured on the text as the caller wrote it, so a unit
+                  holding native tags may exceed 200 characters only by the tags' own expansion.
+                justification: |
+                  The budget protects the model from long inputs, while a tagged sentence must stay
+                  in one unit. How the tags are counted is described in the design document.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TagExpansion_MayExceedBudgetByTheExpansionOnly
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-OverLongToken
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall cut a single unbroken run of
+                  characters longer than 200 characters into parts of at most 200 characters.
+                justification: |
+                  No input, however pathological, may produce a unit over the limit.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_SingleOverLongToken_IsCutToTheLimit
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall return an empty plan for empty,
+                  whitespace-only or span-less input.
+                justification: |
+                  Rendering must never fail a synthesis call on degenerate input.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_EmptyInput_ProducesEmptyPlan
+                  - ChatterboxTurboCapabilityProfile_Render_WhitespaceOnlyText_ProducesEmptyPlan
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagOnlyDropped
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall silently drop a tag run that has
+                  no neighboring speech.
+                justification: |
+                  A tag with no speech to attach to has nothing to render, and the model
+                  misbehaves on a unit made of a tag alone.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TagWithNoSpeech_IsDropped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NullArguments
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall reject null arguments.
+                justification: |
+                  Misuse must be loud.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall map each of the fifteen mood
+                  audio tags to one of the named reference-clip moods (excited, enthused, happy,
+                  sad, anger, shout, calm, surprised, tired, worried, confused, frustrated and
+                  neutral), giving thirteen distinct moods.
+                justification: |
+                  The model has no emotion tokens, so moods are realized by switching the
+                  reference clip per segment.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
+                  - ChatterboxTurboCapabilityProfile_Treatments_FifteenMoodTagsMapToThirteenDistinctMoods
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodAliases
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall map the panicked tag to the
+                  worried mood and the serious tag to the neutral mood, sharing their clips.
+                justification: |
+                  The pack has no separate clip for these tags, so the closest recorded mood is
+                  used. The other aliases (angry to anger, loud to shout, bored to tired) are
+                  covered by the per-tag mood mapping.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Treatments_AliasTags_ShareTheirTargetMood
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodPersistence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall apply a mood to the following
+                  text until the next mood tag.
+                justification: |
+                  A mood tag sets the voice for the text after it, not only for one word.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodLastWins
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall let the last of consecutive mood
+                  tags win.
+                justification: |
+                  Only one reference clip can speak a segment, so the latest mood decides.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NonMoodTags
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall keep the whispers, sarcastic,
+                  soft and breathy tags stripped rather than treating them as moods.
+                justification: |
+                  Only the tags with a recorded reference clip are realized as moods.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall make the mood selected by the
+                  text observable in the rendered plan, so each spoken segment reports the mood
+                  that applies to it and a segment with no mood reports none.
+                justification: |
+                  The engine needs the mood choice per segment. The marker mechanism that carries
+                  it is described in the design document.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsEveryKnownMood
+                  - ChatterboxTurboCapabilityProfile_ReadMoodMarker_TextWithoutMarker_ReturnsTextAndNoMood
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerLookup
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall match a mood name to a known
+                  mood case-insensitively after trimming it.
+                justification: |
+                  Mood names reach the profile in varying case and spacing and must select the
+                  same clip.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerNone
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add no marker for a null,
+                  blank or unknown mood name.
+                justification: |
+                  An unknown mood must leave the text on the base clip instead of failing.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_WithMoodMarker_NullBlankOrUnknownMood_AddsNoMarker
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall remove the mood-marker
+                  characters from user text so a caller cannot forge a mood.
+                justification: |
+                  The carrier must never be spoken or forged by text the user supplies.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PlaceholderSafety
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall remove the native-tag
+                  placeholder characters from user text so a caller cannot forge a model token.
+                justification: |
+                  A forged placeholder would otherwise expand into a native token such as [laugh]
+                  that the user never asked for.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_PlaceholderCharactersInUserText_AreRemoved
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add the configured join silence
+                  (150 ms by default) only where the mood changes.
+                justification: |
+                  A change of reference clip is audible, so a short silence at the change hides
+                  the seam.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceDisabled
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add no join silence when the
+                  configured join silence is zero.
+                justification: |
+                  A host can opt out of the seam-hiding silence.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_JoinSilenceZero_AddsNoSilenceAtMoodChange
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceOverlap
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall not double a pause that already
+                  exists at a mood change.
+                justification: |
+                  Stacked silences would make an audible gap.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceEllipsisWins
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall let an ellipsis pause longer
+                  than the join silence win at a mood change.
+                justification: |
+                  Stacked silences would make an audible gap, and the longer pause already hides
+                  the seam.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_EllipsisPauseLongerThanJoin_WinsAtMoodChange
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceValidation
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall accept a join silence from 0 to
+                  1000 ms inclusive.
+                justification: |
+                  The documented range must be usable at both of its boundaries.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Constructor_JoinBoundaries_AreAccepted
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceRange
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall reject a join silence below 0 or
+                  above 1000 ms.
+                justification: |
+                  Out-of-range configuration must fail early instead of producing odd audio.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Constructor_JoinOutsideRange_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PolicyValidation
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall reject an undefined
+                  end-of-sentence policy.
+                justification: |
+                  An undefined policy must fail early instead of producing odd audio.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Constructor_UndefinedPolicy_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall apply the end-of-sentence tag
+                  policy to each mood segment separately.
+                justification: |
+                  Each segment is generated on its own, so a trailing tag is a problem per
+                  segment.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment

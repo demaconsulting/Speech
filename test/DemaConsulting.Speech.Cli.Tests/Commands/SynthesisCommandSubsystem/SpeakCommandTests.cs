@@ -73,15 +73,24 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--text", "hello"]));
+        // Arrange
+        string[] args = ["--text", "hello"];
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(args));
     }
 
     /// <summary>Test that --text parses into the options.</summary>
     [Fact]
     public void SpeakCommand_ParseArguments_TextFlag_ParsesText()
     {
-        var options = SpeakCommand.ParseArguments(["--tts-model", "model-1", "--text", "hello world"]);
+        // Arrange
+        string[] args = ["--tts-model", "model-1", "--text", "hello world"];
 
+        // Act
+        var options = SpeakCommand.ParseArguments(args);
+
+        // Assert
         Assert.Equal("model-1", options.ModelId);
         Assert.Equal("hello world", options.Text);
     }
@@ -90,9 +99,14 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder()
     {
-        var options = SpeakCommand.ParseArguments(
-            ["--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.2", "--tts-param", "voice=bob"]);
+        // Arrange
+        string[] args =
+            ["--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.2", "--tts-param", "voice=bob"];
 
+        // Act
+        var options = SpeakCommand.ParseArguments(args);
+
+        // Assert
         Assert.Equal([("rate", "1.2"), ("voice", "bob")], options.RawParameters);
     }
 
@@ -100,8 +114,13 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_NoTagsFlag_ParsesTrue()
     {
-        var options = SpeakCommand.ParseArguments(["--tts-model", "model-1", "--text", "hi", "--no-tags"]);
+        // Arrange
+        string[] args = ["--tts-model", "model-1", "--text", "hi", "--no-tags"];
 
+        // Act
+        var options = SpeakCommand.ParseArguments(args);
+
+        // Assert
         Assert.True(options.NoTags);
     }
 
@@ -109,14 +128,87 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--tts-model", "model-1", "--bogus"]));
+        // Arrange
+        string[] args = ["--tts-model", "model-1", "--bogus"];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains("--bogus", exception.Message);
     }
 
     /// <summary>Test that a flag missing its value throws.</summary>
     [Fact]
     public void SpeakCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--tts-model"]));
+        // Arrange
+        string[] args = ["--tts-model"];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains("--tts-model requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Regression test: a value-taking flag directly followed by another recognized option must
+    ///     be reported as missing its value instead of swallowing that option as its value.
+    /// </summary>
+    [Theory]
+    [InlineData("--tts-model")]
+    [InlineData("--text")]
+    [InlineData("--file")]
+    [InlineData("--output-audio")]
+    [InlineData("--playback-device")]
+    [InlineData("--tts-param")]
+    public void SpeakCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        string[] args = [flag, "--no-tags"];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains($"{flag} requires a value", exception.Message);
+    }
+
+    /// <summary>Regression test: a value-taking flag at the end of the arguments is reported as missing its value.</summary>
+    [Theory]
+    [InlineData("--text")]
+    [InlineData("--file")]
+    [InlineData("--output-audio")]
+    [InlineData("--playback-device")]
+    [InlineData("--tts-param")]
+    public void SpeakCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        string[] args = ["--tts-model", "model-1", flag];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains($"{flag} requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that a value which merely starts with a dash but is not a recognized option (for
+    ///     example, narration text) is still accepted as the flag's value.
+    /// </summary>
+    [Fact]
+    public void SpeakCommand_ParseArguments_DashPrefixedNonOptionValue_IsAccepted()
+    {
+        // Arrange
+        string[] args = ["--tts-model", "model-1", "--text", "-- not an option"];
+
+        // Act
+        var options = SpeakCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Equal("-- not an option", options.Text);
     }
 
     // --- Text-source mutual exclusion ---
@@ -125,45 +217,217 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_TextAndFileBothGiven_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--file", "in.txt"]);
 
+        // Act / Assert
         await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+    }
+
+    /// <summary>Test that --text is synthesized verbatim through the resolved model.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_TextFlag_SynthesizesText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "Hello there."]);
+
+        // Act
+        await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("Hello there.", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
     }
 
     /// <summary>Test that neither --text nor --file given, with stdin not redirected, throws.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException()
     {
-        // Skip when stdin actually is redirected (e.g. under some CI/test-runner harnesses),
-        // since this test specifically covers the "no source available" branch.
-        if (Console.IsInputRedirected)
-        {
-            return;
-        }
-
+        // Arrange - the stdin seam reports "not redirected" explicitly, so the test never depends on the host's stdin.
         var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1"]);
 
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => false, new StringReader("ignored")));
+
+        // Assert
+        Assert.Contains("--text, --file, or piped stdin", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
     }
 
-    // --- Model resolution error paths ---
+    /// <summary>Test that, with no --text or --file and redirected stdin, the piped text is synthesized.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, factory, CancellationToken.None, () => true, new StringReader("piped narration"));
+
+        // Assert
+        Assert.Equal("piped narration", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>Test that --text wins over stdin: redirected stdin is not read when --text is given.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_TextWithRedirectedStdin_SynthesizesTextNotStdin()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "from flag"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, factory, CancellationToken.None, () => true, new StringReader("from stdin"));
+
+        // Assert
+        Assert.Equal("from flag", Assert.Single(session.SpeakAsyncCalls));
+    }
+
+    /// <summary>Test that a readable --file has its exact contents synthesized.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var filePath = Path.Join(Path.GetTempPath(), $"speak-input-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(filePath, "Text from a file.\nSecond line.", TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var context = Context.Create(["speak", "--tts-model", "model-1", "--file", filePath]);
+
+            // Act
+            await SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => false, new StringReader(string.Empty));
+
+            // Assert
+            Assert.Equal("Text from a file.\nSecond line.", Assert.Single(session.SpeakAsyncCalls));
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    /// <summary>Test that empty or whitespace-only text is rejected before any model or engine work.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(" \t\r\n ")]
+    public async Task SpeakCommand_RunAsync_EmptyOrWhitespaceText_ThrowsArgumentException(string text)
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", text]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(catalog.CreateSynthesizerParameterValueCalls);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    /// <summary>Test that redirected stdin carrying only whitespace is rejected as empty text.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_WhitespaceOnlyStdin_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => true, new StringReader("\r\n")));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    /// <summary>Test that text consisting only of audio tags is rejected as empty once --no-tags strips it.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_OnlyTagsWithNoTags_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "[laughs]", "--no-tags"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    // --- Text file and model resolution error paths ---
+
+    /// <summary>Test that an unreadable --file is reported as a clean InvalidOperationException naming the file.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt");
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--file", missing]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("missing.txt", exception.Message);
+        Assert.IsAssignableFrom<IOException>(exception.InnerException);
+    }
 
     /// <summary>Test that an unknown model id throws.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = new FakeCliModelCatalog();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "does-not-exist", "--text", "hi"]);
 
+        // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -171,26 +435,53 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel(role: SpeechModelRole.Recognition);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
+        // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
         Assert.Contains("model-1", exception.Message);
+        Assert.Contains("list-models --role tts", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded model throws an actionable "download" message.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel(state: SpeechModelState.NotDownloaded);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
+        // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
         Assert.Contains("download model-1", exception.Message);
+    }
+
+    /// <summary>Test that the unknown-model error names the id and suggests list-models.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_UnknownModelId_SuggestsListModels()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "nope", "--text", "hi"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("'nope'", exception.Message);
+        Assert.Contains("list-models", exception.Message);
     }
 
     // --- --tts-param validation wiring ---
@@ -199,6 +490,7 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizerEngine()
     {
+        // Arrange
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
@@ -206,8 +498,10 @@ public sealed class SpeakCommandTests
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.5"]);
 
+        // Act
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+        // Assert
         var parameterValues = Assert.Single(catalog.CreateSynthesizerParameterValueCalls);
         Assert.NotNull(parameterValues);
         Assert.Equal(1.5, Assert.IsType<double>(parameterValues["rate"]));
@@ -217,14 +511,17 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException()
     {
+        // Arrange
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=100"]);
 
+        // Act / Assert
         await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+        Assert.Empty(catalog.CreateSynthesizerParameterValueCalls);
     }
 
     // --- --no-tags exact-string assertion ---
@@ -233,14 +530,17 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_NoTags_StripsRecognizedTagExactly()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
             ["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there", "--no-tags"]);
 
+        // Act
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+        // Assert
         var spokenText = Assert.Single(session.SpeakAsyncCalls);
         Assert.Equal("Hello  there", spokenText);
     }
@@ -249,13 +549,16 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_WithoutNoTags_PassesOriginalTextUnchanged()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there"]);
 
+        // Act
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+        // Assert
         var spokenText = Assert.Single(session.SpeakAsyncCalls);
         Assert.Equal("Hello [laughs] there", spokenText);
     }
@@ -269,6 +572,7 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         catalog.GetPreferredAudioFormatOverride = _ => AudioFormat.Mono(22050);
         var (_, engine) = WireSynthesizer(catalog);
@@ -280,8 +584,10 @@ public sealed class SpeakCommandTests
         {
             using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--output-audio", outputPath]);
 
+            // Act
             await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+            // Assert
             Assert.NotNull(engine.LastDevice);
             Assert.Equal(22050, engine.LastDevice.SampleRate);
             Assert.Equal(1, engine.LastDevice.ChannelCount);
@@ -300,26 +606,41 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
             ["speak", "--tts-model", "model-1", "--text", "hi", "--playback-device", "does-not-exist"]);
 
+        // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
         Assert.Contains("does-not-exist", exception.Message);
     }
 
-    /// <summary>Test that no available playback device (and no --output-audio) throws InvalidOperationException.</summary>
+    /// <summary>
+    ///     Test that no available playback device (and no --output-audio) throws a clean
+    ///     InvalidOperationException and that synthesis never started (no engine created).
+    /// </summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("--output-audio", exception.Message);
+        Assert.Empty(catalog.CreateSynthesizerParameterValueCalls);
+        Assert.Empty(session.SpeakAsyncCalls);
     }
 
     // --- Cancellation ---
@@ -328,14 +649,17 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, engine) = WireSynthesizer(catalog);
         session.SpeakAsyncException = new OperationCanceledException();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
+        // Act
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+        // Assert
         Assert.Equal(1, context.ExitCode);
         Assert.Equal(1, session.DisposeCallCount);
         Assert.Equal(1, engine.DisposeCallCount);
@@ -347,13 +671,16 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, engine) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
+        // Act
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
+        // Assert
         Assert.Equal(1, session.DisposeCallCount);
         Assert.Equal(1, engine.DisposeCallCount);
         Assert.Equal(0, context.ExitCode);
@@ -365,34 +692,55 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException()
     {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
+
+        // Act / Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => SpeakCommand.RunAsync(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe()), CancellationToken.None));
+            () => SpeakCommand.RunAsync(null!, catalog, factory, CancellationToken.None));
     }
 
     /// <summary>Test that a null catalog is rejected.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
+
+        // Act / Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => SpeakCommand.RunAsync(context, null!, new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe()), CancellationToken.None));
+            () => SpeakCommand.RunAsync(context, null!, factory, CancellationToken.None));
     }
 
     /// <summary>Test that a null factory is rejected.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NullFactory_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
+
+        // Act / Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => SpeakCommand.RunAsync(context, new FakeCliModelCatalog(), null!, CancellationToken.None));
     }
 
-    /// <summary>Test that Run(Context, ICliModelCatalog, ICliPlaybackDeviceSource) rejects a null context.</summary>
+    /// <summary>Test that RunAsync(Context, ICliModelCatalog, ICliPlaybackDeviceSource) rejects a null context.</summary>
     [Fact]
-    public void SpeakCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task SpeakCommand_RunAsync_NullContextWithDeviceSource_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(
-            () => SpeakCommand.Run(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe())));
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
+
+        // Act / Assert
+        // xUnit1051 is suppressed: this deliberately targets the three-argument seam that owns the
+        // Ctrl+C cancellation wiring rather than the CancellationToken overload.
+#pragma warning disable xUnit1051
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeakCommand.RunAsync(null!, catalog, factory));
+#pragma warning restore xUnit1051
     }
 
     /// <summary>
@@ -401,6 +749,7 @@ public sealed class SpeakCommandTests
     /// </summary>
     private sealed class ThrowingAudioPlaybackDeviceProbe : IAudioPlaybackDeviceProbe
     {
+        /// <inheritdoc/>
         public IReadOnlyList<AudioDeviceDescription> Enumerate() =>
             throw new InvalidOperationException("--output-audio must never enumerate real playback devices.");
     }

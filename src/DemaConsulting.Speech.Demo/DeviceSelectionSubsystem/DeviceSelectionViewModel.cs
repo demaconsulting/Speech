@@ -39,7 +39,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     ///     A list of delegates is used instead of a plain multicast event because
-    ///     <see cref="Refresh"/> must genuinely <c>await</c> each hook to completion, in order,
+    ///     <see cref="RefreshAsync"/> must genuinely <c>await</c> each hook to completion, in order,
     ///     before calling <see cref="IAudioDeviceService.RefreshDevices"/>; a standard C# event
     ///     cannot be meaningfully awaited (invoking a multicast delegate only returns the last
     ///     subscriber's return value, discarding the others), so an explicit, awaitable
@@ -133,7 +133,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
 
         _deviceService = deviceService;
 
-        // Calls EnumerateCore() directly (not RefreshCore()/the async Refresh() command) so
+        // Calls EnumerateCore() directly (not RefreshCore()/the async RefreshAsync() command) so
         // construction-time population only reads the already-initialized device table instead
         // of forcing a native PortAudio terminate/reinitialize cycle. Forcing a refresh here
         // would throw AudioDeviceInUseException if any other device created from the shared
@@ -147,7 +147,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     }
 
     /// <summary>
-    ///     Registers a hook to be invoked and awaited by <see cref="Refresh"/> before it forces
+    ///     Registers a hook to be invoked and awaited by <see cref="RefreshAsync"/> before it forces
     ///     the backend to re-scan its device table.
     /// </summary>
     /// <param name="hook">
@@ -198,13 +198,29 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     device is closed - first. The existing <see cref="AudioDeviceInUseException"/> handling
     ///     in <see cref="RefreshCore"/> remains as a defensive fallback for any session the hooks
     ///     could not stop.
+    ///     <para>
+    ///         A hook that throws (synchronously or through a faulted task) never escapes the
+    ///         command: the remaining hooks and the backend re-scan are skipped, both device lists
+    ///         and selections are left untouched, and the exception's message is surfaced through
+    ///         both status texts, because refreshing while a session could not be stopped risks the
+    ///         device-in-use failure the hooks exist to prevent.
+    ///     </para>
     /// </remarks>
     [RelayCommand]
-    public async Task Refresh()
+    public async Task RefreshAsync()
     {
         foreach (var hook in _preRefreshHooks.ToArray())
         {
-            await hook().ConfigureAwait(true);
+            try
+            {
+                await hook().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                CaptureStatus = ex.Message;
+                PlaybackStatus = ex.Message;
+                return;
+            }
         }
 
         RefreshCore();
@@ -214,7 +230,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     Forces the backend to re-scan its device table and re-enumerates both device lists.
     /// </summary>
     /// <remarks>
-    ///     Used by <see cref="Refresh"/>, which is the only caller that should force a native
+    ///     Used by <see cref="RefreshAsync"/>, which is the only caller that should force a native
     ///     PortAudio teardown/reinitialization; construction instead uses
     ///     <see cref="EnumerateCore"/> to read the already-initialized table without forcing a
     ///     re-scan. First forces the backend to re-scan its device table via

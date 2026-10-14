@@ -1,0 +1,11 @@
+<Project>
+
+  <!-- Shared build properties for every packable project under src/. -->
+  <PropertyGroup>
+    <!-- NU5123 (package file path over the length threshold) is disabled: the generated API documentation pages
+         packed under api/ can exceed it, they are documentation only (never loaded), and the extracted paths stay
+         under the 260-character limit for typical NuGet cache locations. -->
+    <NoWarn>$(NoWarn);NU5123</NoWarn>
+  </PropertyGroup>
+
+</Project>

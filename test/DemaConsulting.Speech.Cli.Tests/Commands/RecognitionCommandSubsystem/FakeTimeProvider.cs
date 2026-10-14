@@ -32,10 +32,20 @@ internal sealed class FakeTimeProvider : TimeProvider
     /// <summary>Gets the most recently created timer, or <see langword="null"/> if none has been created yet.</summary>
     public FakeTimer? LastTimer { get; private set; }
 
+    /// <summary>Gets every timer created so far, in creation order.</summary>
+    public IReadOnlyList<FakeTimer> Timers => _timers;
+
+    /// <summary>Gets the number of created timers that have not yet been disposed (still pending).</summary>
+    public int ActiveTimerCount => _timers.Count(timer => !timer.IsDisposed);
+
+    /// <summary>The backing list of every created timer.</summary>
+    private readonly List<FakeTimer> _timers = [];
+
     /// <inheritdoc/>
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         var timer = new FakeTimer(callback, state);
+        _timers.Add(timer);
         LastTimer = timer;
         timer.Change(dueTime, period);
         return timer;
@@ -49,12 +59,17 @@ internal sealed class FakeTimeProvider : TimeProvider
 /// </summary>
 internal sealed class FakeTimer : ITimer
 {
+    /// <summary>The callback <see cref="Fire"/> invokes.</summary>
     private readonly TimerCallback _callback;
+
+    /// <summary>The state object passed to <see cref="_callback"/> when fired.</summary>
     private readonly object? _state;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="FakeTimer"/> class.
     /// </summary>
+    /// <param name="callback">The callback <see cref="Fire"/> invokes.</param>
+    /// <param name="state">The state object passed to <paramref name="callback"/>.</param>
     public FakeTimer(TimerCallback callback, object? state)
     {
         _callback = callback;
@@ -74,6 +89,9 @@ internal sealed class FakeTimer : ITimer
     ///     Records the re-arm request. Never actually schedules anything: a test fires the
     ///     callback explicitly via <see cref="Fire"/>.
     /// </summary>
+    /// <param name="dueTime">The requested due time, recorded as <see cref="LastDueTime"/>.</param>
+    /// <param name="period">The requested period (ignored).</param>
+    /// <returns>Always <see langword="true"/>.</returns>
     public bool Change(TimeSpan dueTime, TimeSpan period)
     {
         ChangeCallCount++;

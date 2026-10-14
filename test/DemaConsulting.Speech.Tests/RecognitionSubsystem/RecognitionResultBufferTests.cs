@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="RecognitionResultBuffer"/>, exercising its provisional-coalescing
-///     and final-result-queueing backpressure policy (Decision #5) directly, without a session.
+///     and final-result-queueing backpressure policy directly, without a session.
 /// </summary>
 public class RecognitionResultBufferTests
 {
@@ -20,7 +20,7 @@ public class RecognitionResultBufferTests
     public async Task RecognitionResultBuffer_AddResult_FinalAfterProvisional_SupersedesProvisional()
     {
         // Arrange
-        var buffer = new RecognitionResultBuffer(NullSpeechDiagnostics.Instance, "RecognitionSubsystem");
+        var buffer = new RecognitionResultBuffer();
 
         // Act: a provisional arrives, then its own final - both before anything reads the buffer
         buffer.AddResult(new SpeechRecognitionEvent(new SpeechRecognitionResult("hello", IsFinal: false)));
@@ -43,7 +43,7 @@ public class RecognitionResultBufferTests
     public async Task RecognitionResultBuffer_AddResult_ProvisionalThenFinalForDifferentUtterances_DeliversBoth()
     {
         // Arrange
-        var buffer = new RecognitionResultBuffer(NullSpeechDiagnostics.Instance, "RecognitionSubsystem");
+        var buffer = new RecognitionResultBuffer();
 
         // Act: a provisional for one utterance, then (after it would have been read) a final for
         // a later, unrelated utterance
@@ -61,6 +61,37 @@ public class RecognitionResultBufferTests
         Assert.True(second.Result.IsFinal);
     }
 
+    /// <summary>
+    ///     Proves that final results are never dropped, however large the unread backlog grows.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionResultBuffer_AddResult_ManyLargeFinals_NeverDropsAnyFinal()
+    {
+        // Arrange
+        var buffer = new RecognitionResultBuffer();
+        const int count = 50;
+        var text = new string('x', 10_000);
+
+        // Act: buffer far more than 64 KiB of final text before anything reads
+        for (var i = 0; i < count; i++)
+        {
+            buffer.AddResult(new SpeechRecognitionEvent(new SpeechRecognitionResult(text + i, IsFinal: true)));
+        }
+
+        buffer.Complete();
+
+        // Assert: every final survived, in order
+        var results = await CollectAsync(buffer);
+        Assert.Equal(count, results.Count);
+        for (var i = 0; i < count; i++)
+        {
+            Assert.Equal(text + i, results[i].Result.Text);
+        }
+    }
+
+    /// <summary>Reads every result from the buffer until it completes.</summary>
+    /// <param name="buffer">The completed buffer to drain.</param>
+    /// <returns>All delivered events, in delivery order.</returns>
     private static async Task<List<SpeechRecognitionEvent>> CollectAsync(RecognitionResultBuffer buffer)
     {
         var results = new List<SpeechRecognitionEvent>();
@@ -72,6 +103,9 @@ public class RecognitionResultBufferTests
         return results;
     }
 
+    /// <summary>Reads exactly one result from the buffer, then disposes the enumerator.</summary>
+    /// <param name="buffer">The buffer to read from.</param>
+    /// <returns>The first delivered result.</returns>
     private static async Task<SpeechRecognitionResult> CollectOneAsync(RecognitionResultBuffer buffer)
     {
         await using var enumerator = buffer.ReadAllAsync(TestContext.Current.CancellationToken).GetAsyncEnumerator();

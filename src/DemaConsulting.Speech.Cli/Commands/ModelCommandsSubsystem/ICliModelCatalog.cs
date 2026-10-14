@@ -65,15 +65,19 @@ internal interface ICliModelCatalog
     ///     Removes a model's installed content, manifest, and any leftover scratch directories.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">A token observed before the removal starts.</param>
+    /// <returns>A task that completes when the model is removed.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
-    void Uninstall(string modelId);
+    Task UninstallAsync(string modelId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Best-effort deletes any leftover partial-install/staging directories for a model.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">A token observed before the cleanup starts.</param>
+    /// <returns>A task that completes when the cleanup pass has finished.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
-    void CleanUpLeftovers(string modelId);
+    Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Resolves the preferred playback audio format for a synthesis-role model descriptor,
@@ -104,7 +108,7 @@ internal interface ICliModelCatalog
     ///     synthesis-role model.
     /// </param>
     /// <param name="parameterValues">
-    ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
+    ///     An optional session-level parameter value bag resolved from <c>--tts-param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
     /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>
@@ -119,25 +123,11 @@ internal interface ICliModelCatalog
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before loading completes.</exception>
     Task<ISpeechSynthesizerEngine> CreateSynthesizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
         CancellationToken cancellationToken = default);
-
-    /// <summary>
-    ///     Resolves the mono audio format a recognition-role model descriptor's engine requires
-    ///     its input audio to be supplied at, symmetric to <see cref="GetPreferredAudioFormat"/>
-    ///     on the synthesis side.
-    /// </summary>
-    /// <param name="descriptor">
-    ///     The descriptor to resolve the required format for. Must not be null and must describe
-    ///     a recognition-role model.
-    /// </param>
-    /// <returns>The model's required capture audio format.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="descriptor"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="descriptor"/> does not describe a recognition-role model.</exception>
-    AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor);
 
     /// <summary>
     ///     Loads a real <see cref="ISpeechRecognizerEngine"/> for a resolved recognition-role
@@ -154,7 +144,7 @@ internal interface ICliModelCatalog
     ///     recognition-role model.
     /// </param>
     /// <param name="parameterValues">
-    ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
+    ///     An optional session-level parameter value bag resolved from <c>--stt-param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
     /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>
@@ -169,9 +159,68 @@ internal interface ICliModelCatalog
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before loading completes.</exception>
     Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Gets the reference-voice packs this catalog can install.
+    /// </summary>
+    IReadOnlyList<ReferenceVoicePack> VoicePacks { get; }
+
+    /// <summary>
+    ///     Gets the folder where the user's own reference-voice files are kept (<c>.wav</c>/<c>.flac</c>).
+    /// </summary>
+    string UserVoicesDirectory { get; }
+
+    /// <summary>
+    ///     Enumerates every available reference voice (the <c>--voices-dir</c> folder, the user folder, and
+    ///     installed packs), re-reading the file system on every call.
+    /// </summary>
+    /// <returns>The voices in precedence order. Never null; may be empty.</returns>
+    IReadOnlyList<ReferenceVoiceInfo> EnumerateVoices();
+
+    /// <summary>
+    ///     Gets the install state of a reference-voice pack.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <returns>The pack's current state.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    SpeechModelState GetVoicePackState(string packId);
+
+    /// <summary>
+    ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
+    /// <returns>A task whose result is <see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Downloads, verifies, and installs a reference-voice pack.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <param name="includeEmotions"><see langword="true"/> to also extract the pack's emotion (mood) clips (an installed voices-only pack is upgraded); <see langword="false"/> for the base voices only.</param>
+    /// <param name="progress">An optional progress sink.</param>
+    /// <param name="cancellationToken">A token that aborts the download.</param>
+    /// <returns>The outcome of the install attempt.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    Task<SpeechModelDownloadResult> InstallVoicePackAsync(
+        string packId,
+        bool includeEmotions,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Removes an installed reference-voice pack (a pack that is not installed is a no-op).
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <param name="cancellationToken">A token that aborts the wait for an in-flight install of the same pack.</param>
+    /// <returns>A task that completes when the pack is removed.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken);
 }

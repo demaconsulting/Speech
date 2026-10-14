@@ -1,0 +1,257 @@
+---
+# Software Unit Requirements for the SpeechCli SpeakCommand
+#
+# These requirements describe the behavior of the SpeakCommand unit - the `speak` subcommand -
+# decomposing the parent SynthesisCommandSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Flags (ModelValidation, ArgumentValidation, ValueFlagOptionRejection)
+#   - Text source (TextSourceValidation, TextSourceMissing, TextFileUnreadable, TextFileSource,
+#     TextStdinSource, TextEmptyRejection)
+#   - Model resolution (ModelUnknown, ModelWrongRole, ModelNotDownloaded)
+#   - Parameters and tags (ParamApplication, ParamInvalidRejection, NoTags)
+#   - Output and device (OutputDispatch, PlaybackDeviceDispatch, PlaybackDeviceUnavailable)
+#   - Cancellation and disposal (CancellationAndDisposal, Disposal)
+#
+# The model-commands requirement SpeechCli-ModelCommands-SynthesisSeamRoleValidation covers only the
+# catalog's refusal to create an engine for a model of the wrong role, naming the model by id. The
+# user-facing `speak` message for a wrong-role model is owned by ModelWrongRole below.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        sections:
+          - title: SpeakCommand Requirements
+            requirements:
+              - id: SpeechCli-SynthesisCommands-ModelValidation
+                title: >-
+                  The tool shall reject `speak` invoked without `--tts-model` with a clean,
+                  non-zero-exit-code error naming the missing option rather than a stack trace.
+                justification: |
+                  A missing model option must fail predictably so a scripted invocation can react
+                  to the specific failure rather than a generic error.
+                tests:
+                  - SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException
+                  - SpeechCli_SpeakCommandWithoutModel_Invoked_ReturnsCleanError
+                  - Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ModelUnknown
+                title: >-
+                  The tool shall reject `speak` invoked with an unknown `--tts-model` id with a
+                  clean, non-zero-exit-code error that names the id and suggests `list-models`,
+                  rather than a stack trace.
+                justification: |
+                  An id typo must fail with an actionable next step.
+                tests:
+                  - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_UnknownModelId_SuggestsListModels
+                  - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-SynthesisCommands-ModelWrongRole
+                title: >-
+                  The tool shall reject `speak` invoked with a `--tts-model` that is not a
+                  synthesis model with a clean, non-zero-exit-code error that names the model and
+                  suggests `list-models --role tts`, before any synthesis is attempted, rather
+                  than a stack trace.
+                justification: |
+                  Naming a recognition model by mistake must fail with an actionable next step
+                  instead of loading the wrong engine. This message is what an operator sees; the
+                  catalog's own refusal to create an engine for such a model is a separate,
+                  defensive requirement.
+                tests:
+                  - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
+                  - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-SynthesisCommands-ModelNotDownloaded
+                title: >-
+                  The tool shall reject `speak` invoked with a `--tts-model` that is known but not
+                  downloaded with a clean, non-zero-exit-code error suggesting `download <modelId>`
+                  rather than a stack trace.
+                justification: |
+                  A model that is known but absent from disk needs a different remedy than an
+                  unknown one, so the error must name the download step.
+                tests:
+                  - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+                  - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
+
+              - id: SpeechCli-SynthesisCommands-TextSourceValidation
+                title: >-
+                  The tool shall reject `speak` invoked with more than one of `--text` and
+                  `--file` with a clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  An ambiguous text source must fail predictably so a scripted invocation never
+                  speaks the wrong text.
+                tests:
+                  - SpeakCommand_RunAsync_TextAndFileBothGiven_ThrowsArgumentException
+                  - SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-SynthesisCommands-TextSourceMissing
+                title: >-
+                  The tool shall reject `speak` invoked with none of `--text`, `--file`, and
+                  piped stdin with a clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A missing text source must fail predictably so a scripted invocation never
+                  waits on input that never arrives.
+                tests:
+                  - SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-TextFileSource
+                title: >-
+                  The tool shall synthesize the exact contents of a readable file named by
+                  `--file` when `speak` is invoked.
+                justification: |
+                  A file source must speak what the file holds, unaltered.
+                tests:
+                  - SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents
+
+              - id: SpeechCli-SynthesisCommands-TextStdinSource
+                title: >-
+                  The tool shall synthesize the text piped to standard input when `speak` is
+                  invoked with neither `--text` nor `--file`.
+                justification: |
+                  A script feeding text through a pipe must have that text spoken.
+                tests:
+                  - SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText
+                  - SpeakCommand_RunAsync_TextWithRedirectedStdin_SynthesizesTextNotStdin
+
+              - id: SpeechCli-SynthesisCommands-TextEmptyRejection
+                title: >-
+                  The tool shall reject `speak` invoked with text that is empty or only whitespace
+                  with a clean, non-zero-exit-code error before any synthesis is attempted.
+                justification: |
+                  Silent success on nothing to say would hide a scripting mistake such as an empty
+                  variable or file.
+                tests:
+                  - SpeakCommand_RunAsync_EmptyOrWhitespaceText_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_WhitespaceOnlyStdin_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_OnlyTagsWithNoTags_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ArgumentValidation
+                title: >-
+                  The tool shall reject `speak` invoked with an unsupported argument, or a flag
+                  missing its value, with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                justification: |
+                  A mistyped option must fail predictably rather than being silently ignored.
+                tests:
+                  - SpeakCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+                  - SpeakCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+                  - SpeakCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ValueFlagOptionRejection
+                title: >-
+                  The tool shall reject `speak` invoked with a flag that takes a value directly
+                  followed by another `speak` option, with a clean, non-zero-exit-code error
+                  naming the flag as missing its value, rather than treating the option as that
+                  flag's value.
+                justification: |
+                  Silently consuming the next option as a value would drop that option and run
+                  the command with the wrong settings, so the omission must fail immediately.
+                  A value that merely begins with a dash but is not a `speak` option, such as
+                  narration text, remains acceptable.
+                tests:
+                  - SpeakCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+                  - SpeakCommand_ParseArguments_DashPrefixedNonOptionValue_IsAccepted
+
+              - id: SpeechCli-SynthesisCommands-TextFileUnreadable
+                title: >-
+                  The tool shall reject `speak` invoked with a `--file` that names a missing or
+                  unreadable file with a clean, non-zero-exit-code error that names the file,
+                  rather than a stack trace.
+                justification: |
+                  A mistyped or inaccessible path must fail with an error that identifies the
+                  file so the operator can correct it.
+                tests:
+                  - SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException
+
+              - id: SpeechCli-SynthesisCommands-ParamApplication
+                title: >-
+                  The tool shall apply every `--tts-param key=value` given to `speak`, in the
+                  typed form the model declares, to the synthesizer it loads.
+                justification: |
+                  An operator tuning a model expects each value they pass to reach the model as
+                  the right kind of value, not as raw text.
+                tests:
+                  - SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
+                  - SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizerEngine
+
+              - id: SpeechCli-SynthesisCommands-ParamInvalidRejection
+                title: >-
+                  The tool shall reject `speak` invoked with a `--tts-param` value the model does
+                  not accept with a clean, non-zero-exit-code error before any synthesizer is
+                  created.
+                justification: |
+                  An invalid value must fail at the command line rather than minutes into a
+                  synthesis run.
+                tests:
+                  - SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-NoTags
+                title: >-
+                  The tool shall strip every Natural Language Audio Tag from the text to speak,
+                  keeping only its literal narration content, when `--no-tags` is given,
+                  regardless of the resolved model's declared audio-tag support.
+                justification: |
+                  An operator explicitly requesting tag stripping wants literal narration text
+                  only; a model's own tag support must not silently override that request.
+                tests:
+                  - SpeakCommand_ParseArguments_NoTagsFlag_ParsesTrue
+                  - SpeakCommand_RunAsync_NoTags_StripsRecognizedTagExactly
+                  - SpeakCommand_RunAsync_WithoutNoTags_PassesOriginalTextUnchanged
+
+              - id: SpeechCli-SynthesisCommands-OutputDispatch
+                title: >-
+                  The tool shall write synthesized audio to a WAV file at the path given by
+                  `--output-audio`, in the audio format the model prefers, ignoring any
+                  `--playback-device` given alongside it.
+                justification: |
+                  `--output-audio` unambiguously indicates the operator wants a file, not real
+                  playback, so requiring the two to agree, or failing when both are given, would
+                  be an unnecessary trap.
+                tests:
+                  - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
+                title: >-
+                  The tool shall, when `--output-audio` is not given, reject `speak` invoked with
+                  a `--playback-device` name that matches no playback device with a clean,
+                  non-zero-exit-code error rather than a stack trace, before any synthesis is
+                  attempted.
+                justification: |
+                  Validating an unknown device before any synthesis is attempted avoids a
+                  partially synthesized, undeliverable session.
+                tests:
+                  - SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceUnavailable
+                title: >-
+                  The tool shall, when `--output-audio` is not given, reject `speak` with a clean,
+                  non-zero-exit-code error rather than a stack trace when no playback device is
+                  available, before any synthesis is attempted.
+                justification: |
+                  A machine with no playback device cannot deliver the speech, so the session must
+                  fail before it starts.
+                tests:
+                  - SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+
+              - id: SpeechCli-SynthesisCommands-CancellationAndDisposal
+                title: >-
+                  The tool shall stop an in-progress `speak` session when the operator cancels it
+                  with `Ctrl+C`, reporting the cancellation as a clean message rather than an
+                  unhandled exception.
+                justification: |
+                  A long-running synthesis session must be interruptible without a stack trace.
+                tests:
+                  - SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly
+
+              - id: SpeechCli-SynthesisCommands-Disposal
+                title: >-
+                  The tool shall release the synthesizer and its session exactly once when a
+                  `speak` session completes or is canceled.
+                justification: |
+                  A leaked synthesizer or session after the command returns would hold the audio
+                  device and block the next command.
+                tests:
+                  - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
+                  - SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly

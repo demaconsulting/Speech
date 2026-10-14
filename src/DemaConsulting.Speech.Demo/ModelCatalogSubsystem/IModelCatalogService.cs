@@ -46,7 +46,12 @@ public interface IModelCatalogService
     ///     library ships no known models, which is the honest state until a production model is
     ///     released.
     /// </returns>
-    /// <remarks>Never throws.</remarks>
+    /// <remarks>
+    ///     Reads the library's in-memory view; it does not touch the network. The library catalog's
+    ///     <c>Enumerate</c> never throws for an honest state query and does not depend on the catalog's
+    ///     downloader, so reading a catalog that a mirror change has just replaced is safe and needs no
+    ///     retry; any fault from the library itself propagates to the caller.
+    /// </remarks>
     IReadOnlyList<SpeechModelDescriptor> Enumerate();
 
     /// <summary>
@@ -92,10 +97,97 @@ public interface IModelCatalogService
     ///     The catalog instance this call replaces is disposed as part of this call (see
     ///     <see cref="ModelCatalogService"/>'s remarks), which aborts any <see cref="DownloadAsync"/>
     ///     call still in flight against it. A caller must not invoke this method while one of its
-    ///     own downloads is in progress; <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces
+    ///     own downloads is in progress; <see cref="ModelCatalogViewModel.ApplyMirrorAsync"/> enforces
     ///     this by refusing to call through while any row is downloading.
     /// </remarks>
     void ApplyMirror(DownloadMirror? mirror);
+
+    /// <summary>
+    ///     Raised after the reference voices a voice-cloning model offers may have changed - that is,
+    ///     after a reference-voice pack install or uninstall (or a mirror change) caused the catalog
+    ///     to be rebuilt - so panels showing a model's voice choice can re-read it. The voice list is
+    ///     fixed when a catalog is built, so this is the demo's refresh contract: voices are refreshed
+    ///     at least on every catalog rebuild.
+    /// </summary>
+    event EventHandler? ReferenceVoicesChanged;
+
+    /// <summary>
+    ///     Gets the reference-voice packs this service can install. Empty when the service was
+    ///     composed without a reference-voice library.
+    /// </summary>
+    IReadOnlyList<ReferenceVoicePack> ReferenceVoicePacks { get; }
+
+    /// <summary>
+    ///     Gets the folder where the user may drop their own <c>.wav</c>/<c>.flac</c> reference
+    ///     voices, or <see langword="null"/> when the service has no reference-voice library.
+    /// </summary>
+    string? UserVoicesDirectory { get; }
+
+    /// <summary>
+    ///     Gets the current install state of one reference-voice pack.
+    /// </summary>
+    /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <returns>The pack's state.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    SpeechModelState GetReferenceVoicePackState(string packId);
+
+    /// <summary>
+    ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
+    /// </summary>
+    /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
+    /// <returns>A task whose result is <see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    Task<bool> ReferenceVoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Downloads and installs one reference-voice pack, then rebuilds the catalog and raises
+    ///     <see cref="ReferenceVoicesChanged"/> whether or not it was installed (an upgrade that fails is rolled
+    ///     back, which can still change the installed state).
+    /// </summary>
+    /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <param name="includeEmotions"><see langword="true"/> to also extract the pack's emotion (mood) clips (an installed voices-only pack is upgraded); <see langword="false"/> for the base voices only.</param>
+    /// <param name="progress">An optional progress sink, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A token that, when canceled, aborts the download.</param>
+    /// <returns>The outcome describing whether the pack was installed.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <remarks>
+    ///     The catalog rebuild aborts any model download still in flight, so callers must not start a
+    ///     pack install while one of their own model downloads is in progress (see <see cref="ApplyMirror"/>).
+    /// </remarks>
+    Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
+        string packId,
+        bool includeEmotions,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Removes one installed reference-voice pack, then rebuilds the catalog and raises
+    ///     <see cref="ReferenceVoicesChanged"/>.
+    /// </summary>
+    /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <param name="cancellationToken">A token that aborts the wait for an in-flight install of the same pack.</param>
+    /// <returns>A task that completes when the pack is removed and the catalog rebuilt.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    /// <exception cref="OperationCanceledException">
+    ///     Thrown when <paramref name="cancellationToken"/> is canceled while waiting for an in-flight install of the
+    ///     pack; nothing is removed and the catalog is not rebuilt.
+    /// </exception>
+    /// <exception cref="SpeechModelStoreException">
+    ///     Thrown when the pack's files are in use and cannot be removed. Nothing is rebuilt; the caller should
+    ///     report the message.
+    /// </exception>
+    /// <remarks>
+    ///     An uninstall that arrives while an install of the same pack is in flight waits for it to finish and
+    ///     then removes the pack; it never blocks the calling thread.
+    /// </remarks>
+    Task UninstallReferenceVoicePackAsync(string packId, CancellationToken cancellationToken);
 }
 
 /// <summary>

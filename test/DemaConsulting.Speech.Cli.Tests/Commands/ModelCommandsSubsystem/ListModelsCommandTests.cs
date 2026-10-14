@@ -184,6 +184,8 @@ public sealed class ListModelsCommandTests
             Assert.Contains("\"Id\": \"model-1\"", output);
             Assert.Contains("\"DisplayName\": \"Model One\"", output);
             Assert.Contains("\"LicenseName\": \"Apache-2.0\"", output);
+            Assert.Contains("\"Role\"", output);
+            Assert.Contains("\"State\"", output);
             Assert.Contains("[", output);
             Assert.Contains("]", output);
         }
@@ -261,6 +263,37 @@ public sealed class ListModelsCommandTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => ListModelsCommand.Run(context, catalog));
+    }
+
+    /// <summary>
+    ///     Test that an invalid <c>--state</c> value is rejected with a clean <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void ListModelsCommand_Run_InvalidStateValue_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        using var context = Context.Create(["list-models", "--state", "bogus"]);
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => ListModelsCommand.Run(context, catalog));
+    }
+
+    /// <summary>
+    ///     Test that contradictory <c>--state</c> values (in either order) are rejected rather than
+    ///     silently producing an empty result.
+    /// </summary>
+    [Fact]
+    public void ListModelsCommand_Run_ConflictingStateValues_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        using var downloadedFirst = Context.Create(["list-models", "--state", "downloaded", "--state", "missing"]);
+        using var missingFirst = Context.Create(["list-models", "--state", "missing", "--state", "downloaded"]);
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => ListModelsCommand.Run(downloadedFirst, catalog));
+        Assert.Throws<ArgumentException>(() => ListModelsCommand.Run(missingFirst, catalog));
     }
 
     /// <summary>

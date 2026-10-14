@@ -1,0 +1,107 @@
+---
+# Software Unit Requirements for the SpeechDemo MainWindowViewModel
+#
+# These requirements describe the behavior of the MainWindowViewModel unit - the main window's
+# navigation state: the ordered panel list, the selected panel and the window title -
+# decomposing the parent ShellSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Panel list (Shell-PanelCatalog, -PanelEntryTitles, -PanelHosting)
+#   - Selection (Shell-DefaultPanel, -SelectionNotification, -SelectionNoNotificationWhenUnchanged)
+#   - Window title (Shell-WindowTitle)
+#   - Construction (Shell-CompositionRoot)
+# Every test below is a MainWindowViewModelTests test.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ShellSubsystem Requirements
+        sections:
+          - title: MainWindowViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Shell-PanelCatalog
+                title: >-
+                  The MainWindowViewModel shall offer one navigable entry for each of the Audio
+                  Devices, Model Catalog, Text to Speech and Speech to Text panels, in that
+                  order.
+                justification: |
+                  The shell is the demo's navigation surface; a user can only reach a capability
+                  that has an entry, and a fixed order lets a user work through the panels in
+                  the sequence the demo is designed to be explored.
+                tests:
+                  - MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
+
+              - id: SpeechDemo-Shell-PanelEntryTitles
+                title: >-
+                  The MainWindowViewModel shall give every navigable entry it offers a non-blank
+                  title.
+                justification: |
+                  A navigation entry with no readable title cannot be told apart from its
+                  neighbors, so every entry the shell builds must be labeled.
+                tests:
+                  - MainWindowViewModel_Constructor_ValidPanels_EveryEntryHasNonBlankTitle
+
+              - id: SpeechDemo-Shell-PanelHosting
+                title: >-
+                  The MainWindowViewModel shall present the exact panel instances it was
+                  constructed with rather than panels of its own.
+                justification: |
+                  The shell owns navigation only; it must never construct or replace the panels
+                  it shows, so that the composition root remains the single place where the
+                  demo's object graph is decided and each panel stays independently testable.
+                tests:
+                  - MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances
+
+              - id: SpeechDemo-Shell-DefaultPanel
+                title: >-
+                  The MainWindowViewModel shall have its first panel selected as soon as it is
+                  constructed.
+                justification: |
+                  An application that opens with nothing selected shows an empty window on
+                  start-up.
+                tests:
+                  - MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
+
+              - id: SpeechDemo-Shell-SelectionNotification
+                title: >-
+                  The MainWindowViewModel shall raise a change notification for the selected
+                  panel when a different panel is selected.
+                justification: |
+                  Announcing selection changes is what lets the bound view swap panels without
+                  any code-behind.
+                tests:
+                  - MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
+
+              - id: SpeechDemo-Shell-SelectionNoNotificationWhenUnchanged
+                title: >-
+                  The MainWindowViewModel shall raise no change notification for the selected
+                  panel when the selection is set to the panel already selected.
+                justification: |
+                  Announcing a change that did not happen would ask the view to swap content
+                  needlessly.
+                tests:
+                  - MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify
+
+              - id: SpeechDemo-Shell-WindowTitle
+                title: >-
+                  The MainWindowViewModel shall provide a window title that names the demo and
+                  the Devices, Model Catalog, Text to Speech and Speech to Text panels.
+                justification: |
+                  A window title that names the panels tells a user what the application offers
+                  before they interact with it.
+                tests:
+                  - MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
+
+              - id: SpeechDemo-Shell-CompositionRoot
+                title: >-
+                  The MainWindowViewModel shall reject construction when the device-selection,
+                  model-catalog, text-to-speech or speech-to-text panel is missing.
+                justification: |
+                  The demo composes manually, without a dependency-injection container, so the
+                  constructor is the only place a missing collaborator can be detected. Failing
+                  loudly there keeps a half-composed window from ever reaching a user.
+                tests:
+                  - MainWindowViewModel_Constructor_NullDeviceSelection_ThrowsArgumentNullException
+                  - MainWindowViewModel_Constructor_NullModelCatalog_ThrowsArgumentNullException
+                  - MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException
+                  - MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException

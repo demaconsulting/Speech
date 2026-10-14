@@ -21,23 +21,49 @@ sections:
             title: >-
               The SpeechSherpa RecognitionSubsystem shall implement the Speech library's
               IRecognitionBackend seam over sherpa-onnx's streaming recognizer so that it
-              transcribes real speech accurately, recovers or discards an abandoned utterance's
-              buffered audio at session end as directed, and never loses genuinely spoken audio
-              to a model's post-reset encoder warm-up period.
+              transcribes real speech accurately.
             justification: |
               The Speech library confines every speech-inference interop call behind
               its public IRecognitionBackend seam so its own recognition policy is verifiable
               without a native runtime. The real, native-backed side of that seam must therefore
               be proven directly against real installed models, because only it can show that
-              real audio decodes into real text and that the engine's buffering behavior at
-              session boundaries and endpoints does not lose or leak spoken words.
+              real audio decodes into real text.
             children:
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SessionEndResetDiscardsBufferedAudio
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-TryFlushRecoversTrailingAudio
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplay
               - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-RealSpeechAccuracy
             tests:
               - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
               - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
+
+          - id: SpeechSherpa-Recognition-SessionEndAudioHandling
+            title: >-
+              The SpeechSherpa RecognitionSubsystem shall recover or discard an abandoned
+              utterance's buffered audio at session end as directed, so no spoken word is lost or
+              bled into the next session.
+            justification: |
+              A streaming transducer buffers accepted audio pending future context that a
+              session end never supplies; the engine's buffering behavior at session boundaries
+              must therefore neither leak that audio into the next session nor lose the last
+              spoken word.
+            children:
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SessionEndResetDiscardsBufferedAudio
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-TryFlushRecoversTrailingAudio
+            tests:
               - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
               - SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords
+
+          - id: SpeechSherpa-Recognition-PostEndpointWarmupRecovery
+            title: >-
+              The SpeechSherpa RecognitionSubsystem shall never lose genuinely spoken audio to a
+              model's post-reset encoder warm-up period.
+            justification: |
+              Some models' endpoint detectors fire as false positives mid-utterance, and the
+              resulting reset exposes an encoder warm-up blackout that would silently drop
+              genuinely spoken audio; the engine must recover that audio for models that opt in
+              without affecting models that do not.
+            children:
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplay
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplayNotReported
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupSilenceNoReplay
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupDisabledNoOp
+            tests:
+              - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod

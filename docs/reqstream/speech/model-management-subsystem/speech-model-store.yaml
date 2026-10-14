@@ -1,8 +1,16 @@
 ---
 # Software Unit Requirements for SpeechModelStore
 #
-# These requirements describe the design-level behavior of the SpeechModelStore unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable behavior of the SpeechModelStore unit,
+# decomposing the parent ModelManagementSubsystem requirements. The on-disk layout, the two-step
+# replace-with-rollback mechanism, the install manifest, and the staging scheme are design
+# decisions documented in docs/design/speech/model-management-subsystem/speech-model-store.md.
+# Tests that only run on Windows carry the windows@ source filter so a skipped run on another
+# platform is never counted as evidence.
+#
+# Note: the IDs "AtomicSwap" and "AtomicSwapReplacesExisting" are retained for traceability
+# stability; the contract they carry is deliberately weaker than a true atomic swap (see their
+# justifications) because Windows cannot atomically swap non-empty directories.
 
 sections:
   - title: Speech Requirements
@@ -13,75 +21,310 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelStore-AtomicSwap
                 title: >-
-                  The SpeechModelStore class shall atomically swap a verified staging directory
-                  into place as a model's new current/ content via a directory rename, renaming
-                  any existing current/ content aside first and writing the install manifest only
-                  after the rename succeeds.
+                  The SpeechModelStore class shall make a fully downloaded and verified model
+                  available as installed content such that an installed model is never observed
+                  partially installed or incomplete.
                 justification: |
-                  A same-volume directory rename is atomic and effectively instantaneous on
-                  NTFS/POSIX; writing the manifest last means a crash between the two steps is
-                  indistinguishable from "not installed", which is the safe direction to fail.
+                  A host or an in-use recognizer/synthesizer must never read half of a model.
+                  Content is therefore prepared and verified in a separate scratch location and
+                  only then promoted in a single directory move.
                 tests:
                   - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
+
+              - id: Speech-Models-SpeechModelStore-ManifestWrittenAfterSwap
+                title: >-
+                  The SpeechModelStore class shall report a model as not installed, and report the
+                  failure to the caller, when recording a newly promoted install as complete fails.
+                justification: |
+                  Recording completion last means an interruption between promoting the content
+                  and recording completion is indistinguishable from "not installed", which is the
+                  safe direction to fail.
+                tests:
+                  - SpeechModelStore_CompleteInstall_ManifestWriteFails_ThrowsAndReadsAsNotInstalled
+
+              - id: Speech-Models-SpeechModelStore-AtomicSwapReplacesExisting
+                title: >-
+                  The SpeechModelStore class shall, when a model is already installed, replace its
+                  content with the newly verified content and leave no superseded content behind,
+                  without ever exposing partially replaced content; a momentary not-installed state
+                  during the replacement is permitted.
+                justification: |
+                  A re-install (repair or update) must replace an installed model without leaving
+                  it half replaced. Windows cannot atomically swap two non-empty directories, so
+                  the contract is deliberately the weaker "never partial; momentary absence
+                  permitted; failure restores the prior install" (see InstallRollback), and the
+                  replacement is implemented as a two-step replace with rollback.
+                tests:
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
 
               - id: Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
                 title: >-
-                  The SpeechModelStore class shall never touch a model's current/ directory
-                  while a download is being fetched and verified into a separate staging
-                  directory.
+                  The SpeechModelStore class shall leave an installed model's content unaffected
+                  while a new download of that model is being fetched and verified.
                 justification: |
                   A model already loaded by an in-use recognizer/synthesizer must continue
-                  reading unaffected content until the swap completes, addressing the
+                  reading unaffected content until the replacement completes, addressing the
                   download-while-in-use concern.
                 tests:
+                  - SpeechModelStore_BeginStaging_ExistingCurrent_LeavesInstalledContentUntouched
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
+                  - SpeechModelStore_BeginInstall_ExistingInstall_LeavesCurrentUntouchedDuringStaging
+
+              - id: Speech-Models-SpeechModelStore-StagingCreation
+                title: >-
+                  The SpeechModelStore class shall provide, for each new install operation, a
+                  fresh, empty, uniquely identified scratch location that is never read as
+                  installed content, including when several operations begin concurrently.
+                justification: |
+                  Staged content must never collide with another operation's staging or be
+                  mistaken for installed content, including when operations begin concurrently.
+                tests:
+                  - SpeechModelStore_BeginStaging_ConcurrentCalls_CreateUniqueEmptyDirectories
+
+              - id: Speech-Models-SpeechModelStore-AbandonStaging
+                title: >-
+                  The SpeechModelStore class shall discard a failed or canceled operation's scratch
+                  content without affecting the model's installed content.
+                justification: |
+                  A failed install must not leave partial content behind or disturb a model that
+                  is already installed and in use.
+                tests:
+                  - SpeechModelStore_AbandonStaging_StagingDirectory_IsDeletedAndCurrentKept
+
+              - id: Speech-Models-SpeechModelStore-InstallArgumentGuards
+                title: >-
+                  The SpeechModelStore class shall reject an install request, without touching
+                  installed content, whose operation identifier is not safe to use as a single
+                  path segment.
+                justification: |
+                  The operation identifier becomes part of a path, so an unvalidated value could
+                  move or overwrite unrelated directories.
+                tests:
+                  - SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelStore-InstallScratchLocationGuard
+                title: >-
+                  The SpeechModelStore class shall reject an install request, without touching
+                  installed content or any scratch location, whose scratch location is not the one
+                  created for the same operation of the named model.
+                justification: |
+                  The scratch location is promoted to installed content, so accepting another
+                  operation's scratch location (or a directory nested inside it) would install
+                  content that the caller never verified.
+                tests:
+                  - SpeechModelStore_CompleteInstall_OtherOperationStaging_ThrowsArgumentExceptionAndTouchesNothing
+                  - SpeechModelStore_CompleteInstall_NestedStagingDescendant_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelStore-InstallStateHonesty
                 title: >-
-                  The SpeechModelStore class shall report a model as installed only when both
-                  current/ exists and a valid install manifest accompanies it, never throwing for
-                  a missing model, missing manifest, or unreadable manifest.
+                  The SpeechModelStore class shall report a model as installed only when both its
+                  installed content exists and a valid install record accompanies it.
                 justification: |
-                  Treating a missing/unreadable manifest as "not installed" rather than an error
-                  makes retrying an interrupted install always safe.
+                  Treating a missing install as "not installed" makes retrying an interrupted
+                  install always safe, and a half-removed model must never read as installed.
                 tests:
                   - SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse
                   - SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse
+                  - windows@SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException
+
+              - id: Speech-Models-SpeechModelStore-InstallStateQueryNeverThrows
+                title: >-
+                  The SpeechModelStore class shall report a model whose install record is
+                  malformed, empty of required fields, or unreadable as not installed without
+                  throwing.
+                justification: |
+                  Treating an unreadable install record as "not installed" rather than an error
+                  makes retrying an interrupted install always safe.
+                tests:
+                  - SpeechModelStore_IsInstalled_ManifestIsMalformedJson_ReturnsFalse
+                  - SpeechModelStore_IsInstalled_ManifestIsEmptyJsonObject_ReturnsFalse
+                  - windows@SpeechModelStore_IsInstalled_ManifestReadAccessDenied_ReturnsFalse
+
+              - id: Speech-Models-SpeechModelStore-InstallRollback
+                title: >-
+                  The SpeechModelStore class shall, when replacing an installed model's content
+                  fails, leave the previously installed model usable and reported as installed.
+                justification: |
+                  A failed repair must not turn a working installed model into a missing one, so
+                  the prior content and its install record are restored when the replacement
+                  cannot be completed.
+                tests:
+                  - SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall
+                  - SpeechModelStore_CompleteInstall_RepairSwapFails_RestoresPreviousManifest
+                  - SpeechModelStore_CompleteInstall_Repair_WritesNewManifest
+
+              - id: Speech-Models-SpeechModelStore-UninstallCurrentFailureReporting
+                title: >-
+                  The SpeechModelStore class shall report with a SpeechModelStoreException when an
+                  uninstall cannot remove a model's installed content, leaving the model reading
+                  as not installed.
+                justification: |
+                  Uninstall is an explicit user action; silently leaving content behind would
+                  misreport success, so a locked file is surfaced as a documented exception. The
+                  install record is removed before the content so a partially deleted model is
+                  never reported as installed.
+                tests:
+                  - windows@SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException
+
+              - id: Speech-Models-SpeechModelStore-UninstallManifestFailureReporting
+                title: >-
+                  The SpeechModelStore class shall report with a SpeechModelStoreException when an
+                  uninstall cannot remove a model's install record, leaving the model installed.
+                justification: |
+                  Uninstall is an explicit user action; a failure before anything was removed is
+                  surfaced as a documented exception and leaves the model fully intact.
+                tests:
+                  - windows@SpeechModelStore_Uninstall_ManifestDeleteFails_ThrowsSpeechModelStoreException
+                  - windows@SpeechModelStore_Uninstall_ManifestDeleteFails_LeavesModelInstalled
+
+              - id: Speech-Models-SpeechModelStore-UninstallAsyncFailureReporting
+                title: >-
+                  The SpeechModelStore class shall report an asynchronous uninstall failure
+                  through the returned task as a SpeechModelStoreException.
+                justification: |
+                  An awaiting caller observes the failure where it awaits, not on a thread-pool
+                  thread.
+                tests:
+                  - windows@SpeechModelStore_UninstallAsync_OpenFileHandleInCurrent_FaultsWithSpeechModelStoreException
+
+              - id: Speech-Models-SpeechModelStore-ModelIdValidation
+                title: >-
+                  The SpeechModelStore class shall reject a null, empty, whitespace-only,
+                  invalid-file-name, ".", or ".." model identifier before touching the file
+                  system.
+                justification: |
+                  A model identifier is used as a single directory name; an unvalidated
+                  identifier could escape its own directory under the storage root.
+                tests:
+                  - SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException
+                  - SpeechModelStore_GetModelDirectory_NullModelId_ThrowsArgumentNullException
+                  - SpeechModelStore_GetModelDirectory_InvalidCharacterModelId_ThrowsAndCreatesNothing
+                  - SpeechModelStore_Uninstall_InvalidModelId_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelStore-DefaultRootResolution
                 title: >-
-                  The SpeechModelStore class shall resolve its root directory under
-                  Environment.SpecialFolder.LocalApplicationData by default, and use a
-                  host-supplied SpeechModelStoreOptions.RootPathOverride verbatim when supplied.
+                  The SpeechModelStore class shall store models under the current user's local
+                  application data folder by default, including when the host-supplied storage
+                  root override is null, empty, or whitespace-only.
                 justification: |
-                  Per-user storage under LocalApplicationData is the conventional default for
-                  downloaded application data on all supported desktop platforms, while an
-                  override lets a host redirect storage without any library code change.
+                  Per-user storage under the local application data folder is the conventional
+                  default for downloaded application data on all supported desktop platforms.
                 tests:
                   - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
+                  - SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot
+                  - SpeechModelStore_Constructor_NullOrEmptyRootPathOverride_UsesDefaultRoot
+
+              - id: Speech-Models-SpeechModelStore-RootPathOverrideVerbatim
+                title: >-
+                  The SpeechModelStore class shall use a host-supplied storage root override
+                  exactly as given as its storage root.
+                justification: |
+                  An override lets a host redirect storage without any library code change.
+                tests:
                   - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
 
               - id: Speech-Models-SpeechModelStore-Uninstall
                 title: >-
-                  The SpeechModelStore class shall remove an installed model's current/ content
-                  and install manifest when explicitly uninstalled, and shall not throw when the
-                  model was never installed.
+                  The SpeechModelStore class shall remove an installed model's content and install
+                  record when the model is explicitly uninstalled.
                 justification: |
                   Uninstall is an explicit, user-invoked operation; it must actually remove the
-                  installed content while remaining a safe no-op for a model that was never
-                  installed.
+                  installed content.
                 tests:
                   - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
+
+              - id: Speech-Models-SpeechModelStore-UninstallAsync
+                title: >-
+                  The SpeechModelStore class shall remove an installed model's content and install
+                  record when an asynchronous uninstall is awaited.
+                justification: |
+                  An awaitable uninstall lets callers that must not block (a UI) remove a model
+                  off their thread.
+                tests:
+                  - SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest
+
+              - id: Speech-Models-SpeechModelStore-UninstallNotInstalledNoOp
+                title: >-
+                  The SpeechModelStore class shall not throw when asked to uninstall a model that
+                  was never installed.
+                justification: |
+                  Uninstalling a model that is not there is a safe no-op.
+                tests:
                   - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
 
-              - id: Speech-Models-SpeechModelStore-CleanUpLeftovers
+              - id: Speech-Models-SpeechModelStore-UninstallAsyncRejection
                 title: >-
-                  The SpeechModelStore class shall best-effort delete any leftover
-                  current.replaced-* or .tmp/* directories left behind by a prior interrupted
-                  install or uninstall, without throwing when a directory cannot yet be removed.
+                  The SpeechModelStore class shall reject an invalid model identifier or an
+                  already canceled token passed to an asynchronous uninstall.
                 justification: |
-                  An open file handle held by another process must not block or fail cleanup;
-                  the leftover directory is simply left for a future call to retry.
+                  Invalid input and a canceled caller must be refused before any file is touched.
+                tests:
+                  - SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected
+
+              - id: Speech-Models-SpeechModelStore-UninstallLeavesLiveStaging
+                title: >-
+                  The SpeechModelStore class shall, on uninstall, leave another operation's
+                  in-progress scratch content alone.
+                justification: |
+                  An in-flight install of the same model must not be disturbed by an uninstall.
+                tests:
+                  - SpeechModelStore_Uninstall_LiveStagingDirectory_IsLeftAlone
+
+              - id: Speech-Models-SpeechModelStore-UninstallRemovesReplaced
+                title: >-
+                  The SpeechModelStore class shall, on uninstall, also remove any superseded
+                  content left over from earlier replacements of that model.
+                justification: |
+                  Leftover superseded content must not accumulate after the model is removed.
+                tests:
+                  - SpeechModelStore_Uninstall_ReplacedDirectories_AreRemoved
+
+              - id: Speech-Models-SpeechModelStore-CleanUpLeftoversStaging
+                title: >-
+                  The SpeechModelStore class shall best-effort delete scratch content left behind
+                  by a prior interrupted install.
+                justification: |
+                  Interrupted installs must not leave partial content on disk indefinitely.
                 tests:
                   - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
+                  - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
+                  - SpeechModelStore_CleanUpLeftoversAsync_CanceledToken_ThrowsWithoutDeleting
+
+              - id: Speech-Models-SpeechModelStore-CleanUpLeftoversReplaced
+                title: >-
+                  The SpeechModelStore class shall best-effort delete superseded content left
+                  behind by an earlier replacement while keeping the model's installed content.
+                justification: |
+                  Superseded content that could not be removed at replacement time is retried
+                  later.
+                tests:
+                  - SpeechModelStore_CleanUpLeftovers_ReplacedDirectory_IsRemovedAndCurrentKept
+
+              - id: Speech-Models-SpeechModelStore-CleanUpLeftoversNeverThrows
+                title: >-
+                  The SpeechModelStore class shall not throw when leftover content cannot yet be
+                  removed.
+                justification: |
+                  An open file handle held by another process must not block or fail cleanup;
+                  the leftover content is simply left for a future call to retry.
+                tests:
+                  - windows@SpeechModelStore_CleanUpLeftovers_LockedLeftoverDirectory_DoesNotThrow
+
+              - id: Speech-Models-SpeechModelStore-EmptyTempCleanup
+                title: >-
+                  The SpeechModelStore class shall leave no empty scratch folder behind after a
+                  successful install.
+                justification: |
+                  An install leaves an empty scratch folder beside the content; removing it keeps
+                  the model's storage tidy.
+                tests:
+                  - SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot
+
+              - id: Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
+                title: >-
+                  The SpeechModelStore class shall keep the scratch area after an install while
+                  another operation's scratch content is still present.
+                justification: |
+                  A concurrent operation's staging must never be disturbed.
+                tests:
+                  - SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot

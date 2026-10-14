@@ -42,16 +42,45 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_NoFilter_ListsBothDirections()
     {
+        // Arrange
         var context = CreateContext([]);
         var captureProbe = new FakeAudioCaptureDeviceProbe([InputDevice]);
         var playbackProbe = new FakeAudioPlaybackDeviceProbe([OutputDevice]);
 
+        // Act
         var output = RunCapturingOutput(context, captureProbe, playbackProbe);
 
+        // Assert
         Assert.Contains("Fake Microphone", output);
         Assert.Contains("Fake Speakers", output);
         Assert.Contains("Capture", output);
         Assert.Contains("Playback", output);
+    }
+
+    /// <summary>
+    ///     Test that each listed device reports its own channel count and sample rate, using values
+    ///     distinctive enough that they cannot appear in the output by coincidence.
+    /// </summary>
+    [Fact]
+    public void ListDevicesCommand_Run_Devices_ReportChannelCountAndSampleRate()
+    {
+        // Arrange
+        var context = CreateContext([]);
+        var captureProbe = new FakeAudioCaptureDeviceProbe(
+            [new AudioDeviceDescription("Distinct Microphone", AudioDeviceDirection.Capture, 7, 44123)]);
+        var playbackProbe = new FakeAudioPlaybackDeviceProbe(
+            [new AudioDeviceDescription("Distinct Speakers", AudioDeviceDirection.Playback, 5, 96321)]);
+
+        // Act
+        var output = RunCapturingOutput(context, captureProbe, playbackProbe);
+
+        // Assert
+        var microphoneLine = output.Split('\n').Single(line => line.Contains("Distinct Microphone"));
+        var speakersLine = output.Split('\n').Single(line => line.Contains("Distinct Speakers"));
+        Assert.Contains("7", microphoneLine);
+        Assert.Contains("44123", microphoneLine);
+        Assert.Contains("5", speakersLine);
+        Assert.Contains("96321", speakersLine);
     }
 
     /// <summary>
@@ -60,12 +89,15 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_DirectionInput_ListsOnlyCaptureDevices()
     {
+        // Arrange
         var context = CreateContext(["--direction", "input"]);
         var captureProbe = new FakeAudioCaptureDeviceProbe([InputDevice]);
         var playbackProbe = new FakeAudioPlaybackDeviceProbe([OutputDevice]);
 
+        // Act
         var output = RunCapturingOutput(context, captureProbe, playbackProbe);
 
+        // Assert
         Assert.Contains("Fake Microphone", output);
         Assert.DoesNotContain("Fake Speakers", output);
     }
@@ -76,12 +108,15 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_DirectionOutput_ListsOnlyPlaybackDevices()
     {
+        // Arrange
         var context = CreateContext(["--direction", "output"]);
         var captureProbe = new FakeAudioCaptureDeviceProbe([InputDevice]);
         var playbackProbe = new FakeAudioPlaybackDeviceProbe([OutputDevice]);
 
+        // Act
         var output = RunCapturingOutput(context, captureProbe, playbackProbe);
 
+        // Assert
         Assert.DoesNotContain("Fake Microphone", output);
         Assert.Contains("Fake Speakers", output);
     }
@@ -93,12 +128,15 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_NoDevices_PrintsNoDevicesMessage()
     {
+        // Arrange
         var context = CreateContext([]);
         var captureProbe = new FakeAudioCaptureDeviceProbe();
         var playbackProbe = new FakeAudioPlaybackDeviceProbe();
 
+        // Act
         var output = RunCapturingOutput(context, captureProbe, playbackProbe);
 
+        // Assert
         Assert.Contains("No devices found.", output);
     }
 
@@ -108,10 +146,14 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_InvalidDirectionValue_ThrowsArgumentException()
     {
+        // Arrange
         var context = CreateContext(["--direction", "sideways"]);
 
-        Assert.Throws<ArgumentException>(() =>
-            ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe()));
+        // Act
+        void Act() => ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe());
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -120,10 +162,33 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_DirectionFlagMissingValue_ThrowsArgumentException()
     {
+        // Arrange
         var context = CreateContext(["--direction"]);
 
-        Assert.Throws<ArgumentException>(() =>
-            ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe()));
+        // Act
+        void Act() => ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe());
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--direction requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that <c>--direction</c> followed by another option token is rejected rather than
+    ///     swallowing the option as the direction value.
+    /// </summary>
+    [Fact]
+    public void ListDevicesCommand_Run_DirectionFlagFollowedByOption_ThrowsArgumentException()
+    {
+        // Arrange
+        var context = CreateContext(["--direction", "--direction", "input"]);
+
+        // Act
+        void Act() => ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe());
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(Act);
+        Assert.Contains("--direction requires a value", exception.Message);
     }
 
     /// <summary>
@@ -132,10 +197,14 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException()
     {
+        // Arrange
         var context = CreateContext(["--bogus"]);
 
-        Assert.Throws<ArgumentException>(() =>
-            ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe()));
+        // Act
+        void Act() => ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe());
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
     }
 
     /// <summary>
@@ -144,8 +213,15 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            ListDevicesCommand.Run(null!, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe()));
+        // Arrange
+        var captureProbe = new FakeAudioCaptureDeviceProbe();
+        var playbackProbe = new FakeAudioPlaybackDeviceProbe();
+
+        // Act
+        void Act() => ListDevicesCommand.Run(null!, captureProbe, playbackProbe);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -154,10 +230,14 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_NullCaptureProbe_ThrowsArgumentNullException()
     {
+        // Arrange
         var context = CreateContext([]);
 
-        Assert.Throws<ArgumentNullException>(() =>
-            ListDevicesCommand.Run(context, null!, new FakeAudioPlaybackDeviceProbe()));
+        // Act
+        void Act() => ListDevicesCommand.Run(context, null!, new FakeAudioPlaybackDeviceProbe());
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>
@@ -166,10 +246,14 @@ public sealed class ListDevicesCommandTests
     [Fact]
     public void ListDevicesCommand_Run_NullPlaybackProbe_ThrowsArgumentNullException()
     {
+        // Arrange
         var context = CreateContext([]);
 
-        Assert.Throws<ArgumentNullException>(() =>
-            ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), null!));
+        // Act
+        void Act() => ListDevicesCommand.Run(context, new FakeAudioCaptureDeviceProbe(), null!);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 
     /// <summary>

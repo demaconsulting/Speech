@@ -82,3 +82,15 @@ an unbalanced `Initialize()`/`Terminate()` pair.
 ##### IsInitialized: Concurrent Evaluation With Refresh Serializes and Preserves Initialize/Terminate Balance
 
 **Test**: `PortAudioEnvironment_IsInitialized_ConcurrentWithRefresh_SerializesAndPreservesInitializeTerminateBalance`
+
+##### Refresh: A Changed Outcome Is Reflected In The Cached Initialization Result
+
+**Test**: `PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult`
+
+##### Refresh: A Throwing Terminate Propagates And Leaves Cached State Untouched
+
+**Test**: `PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched`
+
+##### PortAudioApi: Instance Read Twice Returns The Same Instance
+
+**Test**: `PortAudioApi_Instance_ReadTwice_ReturnsSameInstance`

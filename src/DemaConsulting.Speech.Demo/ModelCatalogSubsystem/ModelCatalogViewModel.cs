@@ -22,7 +22,10 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     </para>
 ///     <para>
 ///     Not thread-safe: expected to be used from the UI thread. Download progress is marshalled
-///     back through the same synchronization context the download was started on.
+///     back through the same synchronization context the download was started on. While a model
+///     download or voice-pack install is in flight, <see cref="RefreshAsync"/>, <see cref="ApplyMirrorAsync"/>
+///     and the voice-pack commands are refused, because they would rebuild the catalog or the rows
+///     the transfer depends on.
 ///     </para>
 /// </remarks>
 public sealed partial class ModelCatalogViewModel : ObservableObject
@@ -33,6 +36,11 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         "This can happen if the model catalog service was configured with no models; the panel " +
         "will list models automatically once the catalog knows about any.";
 
+    /// <summary>The explanation shown when a voice-pack action is refused because a transfer is in flight.</summary>
+    public const string VoiceBusyMessage =
+        "Wait for the current model or voice-pack download to finish (or cancel it) and try again: " +
+        "installing or removing a voice pack rebuilds the catalog, which would abort it.";
+
     /// <summary>The seam supplying the model list and performing downloads.</summary>
     private readonly IModelCatalogService _catalogService;
 
@@ -40,6 +48,24 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     Gets the rows currently displayed in the catalog list.
     /// </summary>
     public ObservableCollection<ModelListItemViewModel> Models { get; } = [];
+
+    /// <summary>
+    ///     Gets the rows of the "Reference voices" section: one per installable reference-voice pack.
+    ///     Empty when the catalog service has no reference-voice support.
+    /// </summary>
+    public ObservableCollection<ReferenceVoicePackListItemViewModel> VoicePacks { get; } = [];
+
+    /// <summary>Gets a value indicating whether the "Reference voices" section has any pack to show.</summary>
+    public bool HasVoicePacks => VoicePacks.Count > 0;
+
+    /// <summary>
+    ///     Gets the user folder where the user may drop their own <c>.wav</c>/<c>.flac</c> voices, or
+    ///     <see langword="null"/> when unavailable.
+    /// </summary>
+    public string? UserVoicesDirectory => _catalogService.UserVoicesDirectory;
+
+    /// <summary>Gets the consent notice shown with the reference-voice section.</summary>
+    public string VoiceConsentNotice { get; } = ReferenceVoiceLibrary.ConsentNotice;
 
     /// <summary>
     ///     Gets or sets the row the user has selected, or <see langword="null"/> when none is
@@ -87,7 +113,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     public partial string? MirrorBearerToken { get; set; }
 
     /// <summary>
-    ///     Gets or sets the result message from the most recent <see cref="ApplyMirror"/>
+    ///     Gets or sets the result message from the most recent <see cref="ApplyMirrorAsync"/>
     ///     attempt, or <see langword="null"/> before one has been made.
     /// </summary>
     [ObservableProperty]
@@ -110,6 +136,19 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     successfully applied mirror configuration.
     /// </summary>
     public bool MirrorAppliedSuccessfully => HasMirrorStatusMessage && !MirrorHasError;
+
+    /// <summary>
+    ///     Gets or sets the explanation shown when the catalog could not be (re-)read, or
+    ///     <see langword="null"/> when the most recent re-read succeeded.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRefreshErrorMessage))]
+    public partial string? RefreshErrorMessage { get; set; }
+
+    /// <summary>
+    ///     Gets a value indicating whether <see cref="RefreshErrorMessage"/> has content to show.
+    /// </summary>
+    public bool HasRefreshErrorMessage => !string.IsNullOrEmpty(RefreshErrorMessage);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogViewModel"/> class and loads
@@ -143,8 +182,18 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         MirrorUser = initialMirrorUser;
         MirrorPassword = initialMirrorPassword;
         MirrorBearerToken = initialMirrorBearerToken;
-        Refresh();
+        RefreshCore();
+
+        // A constructor cannot await: the installed packs' emotion flags are read in the background (the task never
+        // faults) and a caller that needs them settled awaits InitialLoadTask
+        InitialLoadTask = LoadPackEmotionsAsync(CancellationToken.None);
     }
+
+    /// <summary>
+    ///     Gets a task that completes when the emotion flags of the packs that were installed at construction
+    ///     have been read. It never faults.
+    /// </summary>
+    public Task InitialLoadTask { get; }
 
     /// <summary>
     ///     Applies the mirror settings currently typed into <see cref="MirrorUrl"/>,
@@ -155,7 +204,8 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     ///     Validation failures (an invalid URL, a lone user or password, or a mirror this
-    ///     service's catalog does not support reconfiguring) are reported in
+    ///     service's catalog does not support reconfiguring), and any unexpected fault from the
+    ///     service or from the catalog re-read that follows, are reported in
     ///     <see cref="MirrorStatusMessage"/> rather than thrown at the user, consistent with how
     ///     <see cref="DownloadAsync"/> reports every failure in-row instead of crashing the panel.
     ///     <para>
@@ -167,44 +217,83 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     </para>
     /// </remarks>
     [RelayCommand]
-    public void ApplyMirror()
+    public async Task ApplyMirrorAsync()
     {
-        if (Models.Any(model => model.IsDownloading))
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(pack => pack.IsInstalling))
         {
             MirrorHasError = true;
             MirrorStatusMessage =
                 "Cannot change the mirror while a download is in progress. Wait for it to " +
                 "finish, or cancel it, and try again.";
-            OnPropertyChanged(nameof(HasMirrorStatusMessage));
-            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+            NotifyMirrorStatusChanged();
             return;
         }
 
         try
         {
-            var mirror = MirrorOptionsFactory.Create(MirrorUrl, MirrorUser, MirrorPassword, MirrorBearerToken);
+            // Reconfigure first; any failure here (invalid input, an unsupported reconfiguration or an
+            // unexpected seam fault) is reported as the mirror error and the rows are left alone.
+            // A cleared text box yields "" rather than null; a blank credential means "not supplied".
+            var mirror = MirrorOptionsFactory.Create(
+                MirrorUrl,
+                NullIfBlank(MirrorUser),
+                NullIfBlank(MirrorPassword),
+                NullIfBlank(MirrorBearerToken));
             _catalogService.ApplyMirror(mirror);
 
             MirrorHasError = false;
             MirrorStatusMessage = mirror is null
                 ? "Mirror cleared: downloads now use each model's own public URI."
                 : $"Mirror applied: downloads now use '{mirror.BaseUri}'.";
+            NotifyMirrorStatusChanged();
 
             // The freshly rebuilt catalog may report different install states for models whose
             // files live under a models directory this session has not yet touched, so refresh
-            // the row list from it rather than leaving stale rows on display.
-            Refresh();
+            // the row list from it rather than leaving stale rows on display. A failure of this
+            // re-read is contained separately so it cannot escape the command.
+            await ReloadAfterMirrorAsync().ConfigureAwait(true);
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
         {
             MirrorHasError = true;
             MirrorStatusMessage = exception.Message;
+            NotifyMirrorStatusChanged();
         }
-        finally
+    }
+
+    /// <summary>
+    ///     Re-reads the catalog after a successful mirror change, reporting a failed re-read as a mirror error.
+    /// </summary>
+    /// <returns>A task that completes when the rows are current or the failure has been reported.</returns>
+    private async Task ReloadAfterMirrorAsync()
+    {
+        try
         {
-            OnPropertyChanged(nameof(HasMirrorStatusMessage));
-            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+            await ReloadAsync().ConfigureAwait(true);
+            RefreshErrorMessage = null;
         }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            MirrorHasError = true;
+            MirrorStatusMessage = $"Mirror applied, but the catalog could not be re-read: {exception.Message}";
+            NotifyMirrorStatusChanged();
+        }
+    }
+
+    /// <summary>Maps an empty or whitespace-only typed value to <see langword="null"/>.</summary>
+    /// <param name="value">The typed value.</param>
+    /// <returns>The value, or <see langword="null"/> when it is null, empty or whitespace-only.</returns>
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>Announces the derived mirror-status display flags.</summary>
+    private void NotifyMirrorStatusChanged()
+    {
+        OnPropertyChanged(nameof(HasMirrorStatusMessage));
+        OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
     }
 
     /// <summary>
@@ -215,15 +304,85 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     Rows are rebuilt rather than merged because the library's catalog is the single source
     ///     of truth for both membership and state; keeping stale rows alive across a refresh would
     ///     let the panel show a model the library no longer reports.
+    ///     <para>
+    ///     Refused (leaving the rows untouched) while any model download or voice-pack install is in
+    ///     flight, because rebuilding the rows would discard the row that is showing that transfer's
+    ///     progress and outcome. The same busy rule already guards <see cref="ApplyMirrorAsync"/> and the
+    ///     voice-pack commands.
+    ///     </para>
     /// </remarks>
     [RelayCommand]
-    public void Refresh()
+    public async Task RefreshAsync()
+    {
+        if (IsTransferInFlight())
+        {
+            return;
+        }
+
+        await ReloadReportingAsync("The catalog could not be re-read").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Re-reads the catalog (without the busy check) and reports a failed re-read in
+    ///     <see cref="RefreshErrorMessage"/> instead of throwing; the rows stay as they were.
+    /// </summary>
+    /// <param name="context">The explanation prefix that tells the user what was being re-read and why.</param>
+    /// <returns>A task that completes when the rows are current or the failure has been reported.</returns>
+    private async Task ReloadReportingAsync(string context)
+    {
+        try
+        {
+            await ReloadAsync().ConfigureAwait(true);
+            RefreshErrorMessage = null;
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            RefreshErrorMessage = $"{context}: {exception.Message}";
+        }
+    }
+
+    /// <summary>
+    ///     Gets a value indicating whether a model download or voice-pack install is currently in flight.
+    /// </summary>
+    /// <returns><see langword="true"/> when any row is downloading or installing.</returns>
+    private bool IsTransferInFlight() =>
+        Models.Any(model => model.IsDownloading) || VoicePacks.Any(pack => pack.IsInstalling);
+
+    /// <summary>
+    ///     Rebuilds the rows and reads the installed packs' emotion flags without the busy check; used by the
+    ///     commands that have just finished (or deliberately completed) the transfer themselves.
+    /// </summary>
+    /// <returns>A task that completes when the rows and flags are current.</returns>
+    private async Task ReloadAsync()
+    {
+        RefreshCore();
+        await LoadPackEmotionsAsync(CancellationToken.None).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Rebuilds the model and voice-pack rows from the catalog service synchronously (pure in-memory reads);
+    ///     the installed packs' emotion flags, which need file I/O, are filled in by
+    ///     <see cref="LoadPackEmotionsAsync"/>.
+    /// </summary>
+    private void RefreshCore()
     {
         var previousId = SelectedModel?.Id;
 
+        // Read everything first so a seam fault leaves the displayed rows untouched.
+        var models = _catalogService.Enumerate()
+            .Select(static descriptor => new ModelListItemViewModel(descriptor))
+            .ToList();
+        var packs = new List<ReferenceVoicePackListItemViewModel>();
+        foreach (var pack in _catalogService.ReferenceVoicePacks)
+        {
+            var packState = _catalogService.GetReferenceVoicePackState(pack.Id);
+            packs.Add(new ReferenceVoicePackListItemViewModel(pack, packState, hasEmotions: false));
+        }
+
         Models.Clear();
-        foreach (var model in _catalogService.Enumerate()
-            .Select(static descriptor => new ModelListItemViewModel(descriptor)))
+        foreach (var model in models)
         {
             Models.Add(model);
         }
@@ -233,8 +392,40 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             : Models.FirstOrDefault(model => string.Equals(model.Id, previousId, StringComparison.Ordinal))
               ?? Models.FirstOrDefault();
 
+        VoicePacks.Clear();
+        foreach (var pack in packs)
+        {
+            VoicePacks.Add(pack);
+        }
+
         OnPropertyChanged(nameof(HasModels));
         OnPropertyChanged(nameof(IsCatalogEmpty));
+        OnPropertyChanged(nameof(HasVoicePacks));
+        OnPropertyChanged(nameof(UserVoicesDirectory));
+    }
+
+    /// <summary>
+    ///     Reads, asynchronously, whether each installed voice-pack row has its emotion clips and updates the row.
+    /// </summary>
+    /// <param name="cancellationToken">A token that aborts the reads.</param>
+    /// <returns>A task that completes when every installed row has been updated; it never faults.</returns>
+    private async Task LoadPackEmotionsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var row in VoicePacks.Where(static pack => pack.State == SpeechModelState.Downloaded).ToList())
+        {
+            try
+            {
+                row.HasEmotions = await _catalogService
+                    .ReferenceVoicePackHasEmotionsAsync(row.Id, cancellationToken)
+                    .ConfigureAwait(true);
+            }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+                // The flag stays false when the service cannot report it
+            }
+        }
     }
 
     /// <summary>
@@ -259,6 +450,13 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     {
         if (model is null || !model.CanDownload)
         {
+            return;
+        }
+
+        // A voice-pack install rebuilds the catalog on completion, which would abort this download.
+        if (VoicePacks.Any(pack => pack.IsInstalling))
+        {
+            model.FailureMessage = VoiceBusyMessage;
             return;
         }
 
@@ -309,6 +507,160 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             model.ProgressFraction = null;
             model.FailureMessage = exception.Message;
         }
+    }
+
+    /// <summary>
+    ///     Downloads and installs one reference-voice pack, reflecting progress and the final outcome
+    ///     in that pack's row, then refreshes the panel so the new voices are offered.
+    /// </summary>
+    /// <param name="pack">The row to install, or <see langword="null"/> (ignored).</param>
+    /// <param name="cancellationToken">A token supplied by the command infrastructure that cancels the install.</param>
+    /// <returns>A task that completes when the install attempt has finished and been reported.</returns>
+    /// <remarks>
+    ///     Refused (with <see cref="VoiceBusyMessage"/> on the row) while any model download is in
+    ///     flight, because the catalog rebuild after a successful install would abort it. Every
+    ///     failure is reported in-row rather than thrown.
+    /// </remarks>
+    [RelayCommand]
+    public async Task InstallVoicePackAsync(ReferenceVoicePackListItemViewModel? pack, CancellationToken cancellationToken)
+    {
+        if (pack is null || !pack.CanInstall)
+        {
+            return;
+        }
+
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(other => other.IsInstalling))
+        {
+            pack.FailureMessage = VoiceBusyMessage;
+            return;
+        }
+
+        // Read the choice before the state changes: an "Add emotions" upgrade always includes them
+        var includeEmotions = pack.EffectiveIncludeEmotions;
+
+        pack.FailureMessage = null;
+        pack.ProgressFraction = null;
+        pack.State = SpeechModelState.Downloading;
+
+        var progress = new Progress<SpeechModelDownloadProgress>(value => pack.ProgressFraction = value.FractionComplete);
+
+        try
+        {
+            var result = await _catalogService
+                .InstallReferenceVoicePackAsync(pack.Id, includeEmotions, progress, cancellationToken)
+                .ConfigureAwait(true);
+
+            if (result.Outcome == SpeechModelDownloadOutcome.Installed)
+            {
+                // The service rebuilt the catalog (so Chatterbox re-reads its voices); re-read the rows. A failed
+                // re-read is not an install failure, so it is reported separately.
+                await ReloadReportingAsync("The voice pack was installed, but the catalog could not be re-read").ConfigureAwait(true);
+            }
+            else
+            {
+                await ApplyPackOutcomeAsync(pack, SpeechModelState.FailedOrCorrupt, DescribeFailure(result), cancellationToken).ConfigureAwait(true);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            await ApplyPackOutcomeAsync(pack, SpeechModelState.NotDownloaded, "Install canceled.", CancellationToken.None).ConfigureAwait(true);
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            await ApplyPackOutcomeAsync(pack, SpeechModelState.FailedOrCorrupt, exception.Message, CancellationToken.None).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    ///     Re-reads one pack's state from the catalog service after an install or upgrade that did not
+    ///     succeed, and shows it together with the failure message.
+    /// </summary>
+    /// <param name="pack">The row whose attempt just ended.</param>
+    /// <param name="outcomeState">
+    ///     The state to show when the service reports the pack is not installed (a failed or canceled
+    ///     fresh install).
+    /// </param>
+    /// <param name="message">The failure or cancellation explanation to keep on the row.</param>
+    /// <param name="cancellationToken">A token that aborts the state re-read.</param>
+    /// <returns>A task that completes when the row has been updated.</returns>
+    /// <remarks>
+    ///     A failed "Add emotions" upgrade is rolled back by the library to the previous voices-only
+    ///     install, so the pack is still <see cref="SpeechModelState.Downloaded"/> and must stay
+    ///     removable. Trusting the service's report, rather than assuming the failure left the pack
+    ///     broken, keeps the row honest; the failure message is preserved either way.
+    /// </remarks>
+    private async Task ApplyPackOutcomeAsync(ReferenceVoicePackListItemViewModel pack, SpeechModelState outcomeState, string message, CancellationToken cancellationToken)
+    {
+        var state = outcomeState;
+        var hasEmotions = false;
+
+        try
+        {
+            if (_catalogService.GetReferenceVoicePackState(pack.Id) == SpeechModelState.Downloaded)
+            {
+                state = SpeechModelState.Downloaded;
+                hasEmotions = await _catalogService.ReferenceVoicePackHasEmotionsAsync(pack.Id, cancellationToken).ConfigureAwait(true);
+            }
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            // The service cannot report the pack's state; fall back to the attempt's own outcome.
+        }
+
+        pack.ProgressFraction = null;
+        pack.HasEmotions = hasEmotions;
+        pack.State = state;
+        pack.FailureMessage = message;
+    }
+
+    /// <summary>
+    ///     Removes one installed reference-voice pack and refreshes the panel so its voices disappear
+    ///     from the voice choice.
+    /// </summary>
+    /// <param name="pack">The row to remove, or <see langword="null"/> (ignored).</param>
+    /// <param name="cancellationToken">A token supplied by the command infrastructure.</param>
+    /// <returns>A task that completes when the removal has finished and been reported.</returns>
+    /// <remarks>
+    ///     The removal runs asynchronously so the UI thread is never blocked; if an install of the same pack is
+    ///     in flight the library waits for it before removing (this panel also refuses to start one while an install
+    ///     or download is running).
+    /// </remarks>
+    [RelayCommand]
+    public async Task RemoveVoicePackAsync(ReferenceVoicePackListItemViewModel? pack, CancellationToken cancellationToken)
+    {
+        if (pack is null || !pack.CanRemove)
+        {
+            return;
+        }
+
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(other => other.IsInstalling))
+        {
+            pack.FailureMessage = VoiceBusyMessage;
+            return;
+        }
+
+        try
+        {
+            await _catalogService.UninstallReferenceVoicePackAsync(pack.Id, cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            pack.FailureMessage = "Removal canceled.";
+            return;
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            pack.FailureMessage = exception.Message;
+            return;
+        }
+
+        await ReloadReportingAsync("The voice pack was removed, but the catalog could not be re-read").ConfigureAwait(true);
     }
 
     /// <summary>

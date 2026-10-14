@@ -18,6 +18,7 @@ namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 ///     specific timing window would require either a multi-second sleep per test run or reducing
 ///     the class's own (intentionally private, non-configurable) timeout constant.
 /// </remarks>
+[Collection(ProcessWideStateCollection.Name)]
 public class CaptureDebugRecorderTests
 {
     /// <summary>
@@ -59,10 +60,13 @@ public class CaptureDebugRecorderTests
     [Fact]
     public void CaptureDebugRecorder_TryStart_EnvironmentVariableUnset_ReturnsNull()
     {
+        // Arrange
         using var scoped = new ScopedEnvironmentVariable(null);
 
+        // Act
         var recorder = CaptureDebugRecorder.TryStart(FakeDevice());
 
+        // Assert
         Assert.Null(recorder);
     }
 
@@ -75,6 +79,7 @@ public class CaptureDebugRecorderTests
     [Fact]
     public void CaptureDebugRecorder_TryStart_RecordsFramesThenDisposed_WritesValidFinalizedWavFile()
     {
+        // Arrange
         var directory = Path.Join(AppContext.BaseDirectory, "CaptureDebugRecorderTests", Guid.NewGuid().ToString("N"));
         using var scoped = new ScopedEnvironmentVariable(directory);
 
@@ -84,7 +89,8 @@ public class CaptureDebugRecorderTests
 
         try
         {
-            // Act: raise a couple of frames as the real capture callback would, then stop
+            // Act
+            // (raise a couple of frames as the real capture callback would, then stop)
             device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
                 device, new AudioCaptureFrameEventArgs([0.1f, -0.2f, 0.3f]));
             device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
@@ -95,7 +101,8 @@ public class CaptureDebugRecorderTests
             recorder.Dispose();
         }
 
-        // Assert: exactly one .wav file was written, with a header finalized to the real size
+        // Assert
+        // (exactly one .wav file was written, with a header finalized to the real size)
         var files = Directory.GetFiles(directory, "*.wav");
         var path = Assert.Single(files);
         var bytes = File.ReadAllBytes(path);
@@ -114,14 +121,17 @@ public class CaptureDebugRecorderTests
     [Fact]
     public void CaptureDebugRecorder_Dispose_NoFramesCaptured_StillWritesValidFinalizedWavFile()
     {
+        // Arrange
         var directory = Path.Join(AppContext.BaseDirectory, "CaptureDebugRecorderTests", Guid.NewGuid().ToString("N"));
         using var scoped = new ScopedEnvironmentVariable(directory);
 
         var recorder = CaptureDebugRecorder.TryStart(FakeDevice());
         Assert.NotNull(recorder);
 
+        // Act
         recorder.Dispose();
 
+        // Assert
         var files = Directory.GetFiles(directory, "*.wav");
         var path = Assert.Single(files);
         var bytes = File.ReadAllBytes(path);
@@ -136,15 +146,155 @@ public class CaptureDebugRecorderTests
     [Fact]
     public void CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow()
     {
+        // Arrange
         var directory = Path.Join(AppContext.BaseDirectory, "CaptureDebugRecorderTests", Guid.NewGuid().ToString("N"));
         using var scoped = new ScopedEnvironmentVariable(directory);
 
         var recorder = CaptureDebugRecorder.TryStart(FakeDevice());
         Assert.NotNull(recorder);
-
         recorder.Dispose();
+
+        // Act
         var exception = Record.Exception(recorder.Dispose);
 
+        // Assert
         Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Regression test: a capture callback that was already dispatched when the recorder was disposed
+    ///     (so it still holds the handler) must be discarded, never throwing into the audio thread.
+    /// </summary>
+    [Fact]
+    public void CaptureDebugRecorder_FrameCallback_AfterDispose_IsDiscardedWithoutThrowing()
+    {
+        // Arrange
+        EventHandler<AudioCaptureFrameEventArgs>? captured = null;
+        var device = FakeDevice();
+        device.When(d => d.FrameCaptured += Arg.Any<EventHandler<AudioCaptureFrameEventArgs>>())
+            .Do(call => captured = call.Arg<EventHandler<AudioCaptureFrameEventArgs>>());
+        var written = new List<float>();
+        var recorder = new CaptureDebugRecorder(device, written.AddRange, () => { });
+        Assert.NotNull(captured);
+        recorder.Dispose();
+
+        // Act
+        var exception = Record.Exception(() => captured(device, new AudioCaptureFrameEventArgs([0.5f])));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Empty(written);
+    }
+
+    /// <summary>
+    ///     Regression test: when finalizing the output throws, the failure is contained (not thrown from the
+    ///     writer thread or from <see cref="CaptureDebugRecorder.Dispose"/>).
+    /// </summary>
+    [Fact]
+    public void CaptureDebugRecorder_Dispose_WriterFinalizationThrows_IsContained()
+    {
+        // Arrange
+        var device = FakeDevice();
+        var closeCalls = 0;
+        var recorder = new CaptureDebugRecorder(
+            device,
+            _ => { },
+            () =>
+            {
+                closeCalls++;
+                throw new IOException("finalize failed");
+            });
+
+        // Act
+        var exception = Record.Exception(recorder.Dispose);
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(1, closeCalls);
+    }
+
+    /// <summary>
+    ///     Regression test: a non-IO write failure (such as an access error) stops writing, is contained, and the
+    ///     output is still finalized exactly once.
+    /// </summary>
+    [Fact]
+    public void CaptureDebugRecorder_FrameCaptured_WriteThrowsUnauthorized_StopsWritingAndFinalizesOnce()
+    {
+        // Arrange
+        var device = FakeDevice();
+        var closeCalls = 0;
+        var writes = 0;
+        var recorder = new CaptureDebugRecorder(
+            device,
+            _ =>
+            {
+                writes++;
+                throw new UnauthorizedAccessException("denied");
+            },
+            () => closeCalls++);
+
+        // Act
+        device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
+            device, new AudioCaptureFrameEventArgs([0.1f]));
+        var exception = Record.Exception(recorder.Dispose);
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(1, writes);
+        Assert.Equal(1, closeCalls);
+    }
+
+    /// <summary>
+    ///     Regression test: when the writer stalls, the capture callback never waits, memory stays
+    ///     bounded by dropping the newest frames, and every dropped frame is counted.
+    /// </summary>
+    [Fact]
+    public async Task CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking()
+    {
+        // Arrange: a writer that blocks on its first frame, and a recorder with room for 3 queued frames
+        var device = FakeDevice();
+        var writerEntered = new ManualResetEventSlim(false);
+        var releaseWriter = new ManualResetEventSlim(false);
+        var written = 0;
+        var recorder = new CaptureDebugRecorder(
+            device,
+            _ =>
+            {
+                Interlocked.Increment(ref written);
+                writerEntered.Set();
+                releaseWriter.Wait(TimeSpan.FromSeconds(30));
+            },
+            () => { },
+            queueCapacity: 3,
+            drainTimeout: TimeSpan.FromSeconds(30));
+        void RaiseFrame() => device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
+            device, new AudioCaptureFrameEventArgs([0.1f]));
+        try
+        {
+            RaiseFrame();
+            Assert.True(writerEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+            // Act: capture 3 frames that fit and 4 more that do not, while the writer is stalled
+            var raiseAll = Task.Run(() =>
+            {
+                for (var index = 0; index < 7; index++)
+                {
+                    RaiseFrame();
+                }
+            }, TestContext.Current.CancellationToken);
+            var completedPromptly = await Task.WhenAny(raiseAll, Task.Delay(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)) == raiseAll;
+
+            // Assert: the callbacks returned without waiting, and exactly the overflow was dropped
+            Assert.True(completedPromptly);
+            Assert.Equal(4, recorder.DroppedFrameCount);
+        }
+        finally
+        {
+            releaseWriter.Set();
+            recorder.Dispose();
+        }
+
+        // Assert: the stalled frame and the 3 queued frames were written once the writer resumed
+        Assert.Equal(4, written);
     }
 }

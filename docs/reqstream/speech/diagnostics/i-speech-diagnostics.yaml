@@ -13,11 +13,38 @@ sections:
             requirements:
               - id: Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
                 title: >-
-                  The ISpeechDiagnostics interface shall define a Report method accepting a
-                  severity level, category, and message.
+                  A host-implemented diagnostics sink shall be able to receive each structural
+                  event the library reports.
                 justification: |
-                  A structured, three-part event shape (level/category/message) lets a host
-                  filter or group events without parsing free-form text, and keeps every
-                  implementation's contract identical regardless of which component reports.
+                  A single, stable contract lets a host receive events from every library
+                  component identically, regardless of which component reports.
                 tests:
                   - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
+                  - SpeechDiagnostics_Report_AnySeverity_SinkReceivesSeverity
+
+              - id: Speech-Diagnostics-ISpeechDiagnostics-ReportSeverity
+                title: Each event delivered to a diagnostics sink shall carry its severity level.
+                justification: |
+                  A host needs severity to decide which events to surface or suppress.
+                tests:
+                  - SpeechDiagnostics_Report_AnySeverity_SinkReceivesSeverity
+
+              - id: Speech-Diagnostics-ISpeechDiagnostics-ReportCategory
+                title: >-
+                  Each event delivered to a diagnostics sink shall carry a category identifying
+                  the reporting component.
+                justification: |
+                  A host can filter or group events by category without parsing free-form text.
+                tests:
+                  - SpeechDiagnostics_Report_Category_SinkReceivesCategory
+
+              - id: Speech-Diagnostics-ISpeechDiagnostics-ReportMessage
+                title: >-
+                  Each event delivered to a diagnostics sink shall carry a human-readable message
+                  describing a structural fact, never raw user audio or recognized or synthesized
+                  text.
+                justification: |
+                  The message gives a host a readable log line that is safe to surface, because
+                  it never exposes user speech or dictated text.
+                tests:
+                  - SpeechDiagnostics_Report_Message_SinkReceivesMessage

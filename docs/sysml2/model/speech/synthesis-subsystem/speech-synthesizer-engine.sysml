@@ -12,6 +12,6 @@ package Speech {
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs */
         comment designRef /* Design: docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md */
         comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/speech-synthesizer-engine.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml */
+        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-engine.yaml */
     }
 }

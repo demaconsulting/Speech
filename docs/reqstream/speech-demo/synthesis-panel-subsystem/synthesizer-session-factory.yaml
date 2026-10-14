@@ -1,12 +1,12 @@
 ---
 # Software Unit Requirements for the SpeechDemo SynthesizerSessionFactory
 #
-# These requirements describe the design-level behavior of the ISynthesizerSessionFactory /
-# SynthesizerSessionFactory unit - the demo-owned synthesizer-engine composition seam over the
-# library's SpeechModelStore and SpeechSynthesizerFactory - decomposing the parent
-# SynthesisPanelSubsystem requirements. ISynthesizerSessionFactory and SynthesizerSessionFactory
-# are treated as one unit because the interface has no independently observable behavior of its
-# own; every test exercises it through SynthesizerSessionFactory, its sole implementation.
+# These requirements describe the externally observable behavior of the ISynthesizerSessionFactory /
+# SynthesizerSessionFactory unit - the demo-owned way the panel obtains a speech synthesizer for
+# an installed model - decomposing the parent SynthesisPanelSubsystem requirements.
+# ISynthesizerSessionFactory and SynthesizerSessionFactory are treated as one unit because the
+# interface has no independently observable behavior of its own; every test exercises it through
+# SynthesizerSessionFactory, its sole implementation.
 
 sections:
   - title: SpeechDemo Requirements
@@ -17,18 +17,86 @@ sections:
             requirements:
               - id: SpeechDemo-Synthesis-SessionSeam
                 title: >-
-                  The SynthesisPanelSubsystem shall compose every speech synthesizer engine it
-                  uses through an injectable seam over the library's synthesizer factory, and
-                  that seam shall honestly report a model of the wrong role as unavailable rather
-                  than throwing.
+                  The SynthesizerSessionFactory shall report a model that does not implement the
+                  synthesis role as an unavailable engine rather than throwing.
                 justification: |
-                  The library's synthesizer factory requires an interface only the library's own
-                  assemblies can implement, so a demo-owned seam accepting the library's public
-                  model contract is what makes Play/Stop testable with no downloaded model and
-                  no native runtime, while still reporting a role mismatch the same honest way
-                  the library itself reports an uninstalled model.
+                  A user can choose an installed model of the wrong role; reporting the mismatch
+                  as an unavailable engine, the same honest way the library reports an
+                  uninstalled model, keeps the panel's unavailable-state handling uniform.
                 tests:
-                  - SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
-                  - SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
-                  - SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
                   - SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRole_ReturnsUnavailableEngine
+
+              - id: SpeechDemo-Synthesis-SessionSeamParameterBag
+                title: >-
+                  The SynthesizerSessionFactory shall report a wrong-role model as an unavailable
+                  engine even when a parameter value bag is supplied.
+                justification: |
+                  The panel always supplies the settings panel's value bag; the outcome for a
+                  wrong-role model must not depend on it, or a wrong-role model with settings
+                  would fail differently from one without.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableEngine
+
+              - id: SpeechDemo-Synthesis-SessionSeamArgumentValidation
+                title: >-
+                  The SynthesizerSessionFactory shall reject a missing model store with an
+                  argument-null error.
+                justification: |
+                  A missing store is a composition mistake that must surface at the call site
+                  instead of as a later, unrelated failure.
+                tests:
+                  - SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Synthesis-SessionSeamModelValidation
+                title: >-
+                  The SynthesizerSessionFactory shall reject a missing model with an
+                  argument-null error.
+                justification: |
+                  A missing model is a caller mistake that must surface at the call site instead
+                  of as a later, unrelated failure.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Synthesis-SessionSeamCorrectRole
+                title: >-
+                  The SynthesizerSessionFactory shall return the speech synthesizer for a model
+                  that has the synthesis role, prepared from that model and the supplied
+                  parameter values.
+                justification: |
+                  Speaking text with a user's chosen voice depends on the model and the values
+                  chosen for it reaching the synthesizer unchanged; this is the normal outcome
+                  that the wrong-role and invalid-input outcomes are exceptions to.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_SynthesisModel_ReturnsEngineForThatModel
+                  - SynthesizerSessionFactory_LoadAsync_SynthesisModelWithValues_ForwardsAppliedValues
+
+              - id: SpeechDemo-Synthesis-SessionSeamInvalidParameter
+                title: >-
+                  The SynthesizerSessionFactory shall reject a numeric parameter value outside the
+                  range the model declares with an invalid-argument error.
+                justification: |
+                  An out-of-range value must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice; the caller turns the error
+                  into an explained state for the user.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_OutOfRangeParameter_PropagatesArgumentException
+
+              - id: SpeechDemo-Synthesis-SessionSeamWrongTypeParameter
+                title: >-
+                  The SynthesizerSessionFactory shall reject a parameter value of the wrong type
+                  for a parameter the model declares with an invalid-argument error.
+                justification: |
+                  A wrongly typed value must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_WrongTypeParameter_PropagatesArgumentException
+
+              - id: SpeechDemo-Synthesis-SessionSeamUnofferedChoice
+                title: >-
+                  The SynthesizerSessionFactory shall reject a choice value that the model does
+                  not offer for a choice parameter with an invalid-argument error.
+                justification: |
+                  A non-offered choice must be reported rather than silently producing a
+                  synthesizer that speaks with an unintended voice.
+                tests:
+                  - SynthesizerSessionFactory_LoadAsync_UnofferedChoice_PropagatesArgumentException

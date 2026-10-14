@@ -1,0 +1,174 @@
+---
+# Software Unit Requirements for the SpeechDemo ParameterViewModels
+#
+# These requirements describe the design-level behavior of the ParameterViewModels unit -
+# ParameterViewModelBase and its three concrete presenters (NumericParameterViewModel,
+# ChoiceParameterViewModel and BooleanParameterViewModel) - decomposing the parent
+# ModelSettingsSubsystem requirements. The abstract base is treated as part of the unit because it
+# has no independently observable behavior; every test exercises it through a concrete presenter.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelSettingsSubsystem Requirements
+        sections:
+          - title: ParameterViewModels Requirements
+            requirements:
+              - id: SpeechDemo-Settings-NumericPresenter-DefaultInitialization
+                title: >-
+                  The NumericParameterViewModel shall start at the declared default value of its
+                  parameter.
+                justification: |
+                  A slider or numeric-updown control needs a starting value; starting at the
+                  model's own declared default keeps the presented control consistent with what
+                  the model would use if no setting were ever changed.
+                tests:
+                  - NumericParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefault
+
+              - id: SpeechDemo-Settings-NumericPresenter-Clamping
+                title: >-
+                  The NumericParameterViewModel shall clamp every value written to it to the
+                  parameter's declared range.
+                justification: |
+                  A slider or numeric-updown control can be bound to a value outside a
+                  parameter's declared range (for example, through free-text entry); clamping on
+                  every write keeps the presented value honoring the model's own declared
+                  constraint regardless of how the value was set.
+                tests:
+                  - NumericParameterViewModel_Value_SetOutsideRange_ClampsToBounds
+
+              - id: SpeechDemo-Settings-NumericPresenter-ContinuousPrecision
+                title: >-
+                  The NumericParameterViewModel shall keep the fractional part of a value written
+                  to a parameter that is not declared IsInteger.
+                justification: |
+                  Rounding is only meaningful for a discrete parameter; a continuous parameter
+                  such as a speed multiplier must keep the precision the user selected.
+                tests:
+                  - NumericParameterViewModel_Value_SetFractionalOnContinuousParameter_KeepsFraction
+
+              - id: SpeechDemo-Settings-NumericPresenter-IntegerRounding
+                title: >-
+                  The NumericParameterViewModel shall round every value written to it to the
+                  nearest whole number when its parameter is declared IsInteger.
+                justification: |
+                  A discrete parameter with no fractional meaning (for example the LibriTTS-R
+                  speaker index) must never allow a fractional value to be selected in the first
+                  place - rounding on every write, applied together with range clamping, keeps
+                  that guarantee true regardless of how the value was set.
+                tests:
+                  - NumericParameterViewModel_Value_SetFractionalOnIntegerParameter_RoundsToNearestWholeNumber
+                  - NumericParameterViewModel_Value_SetFractionalOutsideRangeOnIntegerParameter_ClampsAndRounds
+
+              - id: SpeechDemo-Settings-NumericPresenter-ControlSelection
+                title: >-
+                  The NumericParameterViewModel shall report whether its parameter is declared
+                  IsInteger.
+                justification: |
+                  Exposing the flag lets the view tell a discrete parameter from a continuous
+                  one; the presenter itself offers no control.
+                tests:
+                  - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
+
+              - id: SpeechDemo-Settings-NumericPresenter-NonFiniteIgnored
+                title: >-
+                  The NumericParameterViewModel shall ignore a written value that is not a finite
+                  number (NaN or positive or negative infinity) and keep its previous value.
+                justification: |
+                  A non-finite value cannot honor the declared range and would corrupt the value
+                  bag forwarded to synthesis; keeping the previous value leaves the presenter
+                  valid.
+                tests:
+                  - NumericParameterViewModel_Value_SetNonFinite_KeepsPreviousValue
+
+              - id: SpeechDemo-Settings-ChoicePresenter
+                title: >-
+                  The ChoiceParameterViewModel shall present exactly the options its parameter
+                  declares, in declaration order.
+                justification: |
+                  A dropdown or radio group needs a concrete list of selectable options that
+                  matches what the model actually accepts.
+                tests:
+                  - ChoiceParameterViewModel_Constructor_Parameter_PresentsDeclaredOptionsInOrder
+
+              - id: SpeechDemo-Settings-ChoicePresenterDefaultSelection
+                title: >-
+                  The ChoiceParameterViewModel shall start with the option whose value matches
+                  its parameter's declared default selected.
+                justification: |
+                  A dropdown or radio group needs a sane starting selection; resolving the
+                  default by value (rather than by position) keeps the starting selection correct
+                  regardless of the declared option order.
+                tests:
+                  - ChoiceParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefaultOption
+                  - ChoiceParameterViewModel_Constructor_NonFirstDefault_SelectsOptionMatchingDefaultByValue
+
+              - id: SpeechDemo-Settings-ChoicePresenterSelection
+                title: >-
+                  The ChoiceParameterViewModel shall reflect a newly selected option in its boxed
+                  value.
+                justification: |
+                  The value bag is assembled from the boxed value, so a user's selection must be
+                  visible there.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_ChangedToDifferentOption_UpdatesBoxedValue
+
+              - id: SpeechDemo-Settings-ChoicePresenterNullSelectionIgnored
+                title: >-
+                  The ChoiceParameterViewModel shall ignore an attempt to select no option and
+                  keep its previous selection.
+                justification: |
+                  A choice always has a value in the bag; clearing the selection would leave the
+                  parameter without one.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_SetNull_KeepsPreviousSelection
+
+              - id: SpeechDemo-Settings-ChoicePresenterNonMemberSelectionIgnored
+                title: >-
+                  The ChoiceParameterViewModel shall ignore an attempt to select an option its
+                  parameter does not declare and keep its previous selection.
+                justification: |
+                  Only declared options are values the model accepts; an undeclared option must
+                  never reach the value bag.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_SetNonMember_KeepsPreviousSelection
+
+              - id: SpeechDemo-Settings-ChoicePresenterSelectionNotification
+                title: >-
+                  The ChoiceParameterViewModel shall notify observers when its selected option
+                  changes.
+                justification: |
+                  The notification keeps a bound control in step with the selection.
+                tests:
+                  - ChoiceParameterViewModel_SelectedOption_Changed_RaisesPropertyChanged
+
+              - id: SpeechDemo-Settings-BooleanPresenter
+                title: >-
+                  The BooleanParameterViewModel shall start at the declared default of its
+                  parameter.
+                justification: |
+                  A checkbox or toggle needs a starting state; starting at the model's own
+                  declared default keeps the presented control consistent with what the model
+                  would use if no setting were ever changed.
+                tests:
+                  - BooleanParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefault
+                  - BooleanParameterViewModel_Constructor_FalseDefault_StartsFalseAndCarriesIdentity
+
+              - id: SpeechDemo-Settings-BooleanPresenterToggle
+                title: >-
+                  The BooleanParameterViewModel shall reflect a toggled value in its boxed value.
+                justification: |
+                  The value bag is assembled from the boxed value, so a user's toggle must be
+                  visible there.
+                tests:
+                  - BooleanParameterViewModel_Value_Toggled_UpdatesBoxedValue
+
+              - id: SpeechDemo-Settings-ParameterConstructionGuards
+                title: >-
+                  The ParameterViewModels shall reject a missing library parameter descriptor for
+                  every presenter kind.
+                justification: |
+                  A presenter built with no descriptor has nothing to display; failing loudly at
+                  construction keeps a half-built presenter from ever reaching a bound view.
+                tests:
+                  - ParameterViewModels_Constructor_NullParameter_ThrowArgumentNullException

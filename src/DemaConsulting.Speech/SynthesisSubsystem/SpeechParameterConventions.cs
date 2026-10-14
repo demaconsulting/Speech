@@ -10,9 +10,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     Kept as its own tiny, shared lookup so both sides of the convention - "which declared
 ///     parameter should a pace/volume tag adjust" and "how should an adjusted value actually be
 ///     applied when generating audio" - stay in agreement without duplicating the keyword lists.
-///     No model backing class ships in this phase to validate the convention against; it is
-///     deliberately conservative and silently no-ops for any model whose declared parameter ids
-///     do not match, per the approved plan's risk mitigation.
+///     The convention is deliberately conservative and silently no-ops for any model whose
+///     declared parameter ids do not match.
 /// </remarks>
 internal static class SpeechParameterConventions
 {

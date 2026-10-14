@@ -6,18 +6,20 @@ The SynthesisSubsystem's Layer 1 scope - the closed Natural Language Audio Tag v
 Layer 1 parser - is verified entirely through deterministic, pure unit tests over plain strings.
 Neither `AudioTagCatalog` nor `AudioTagParser` depends on a model, an inference engine, an audio
 device, or any native runtime, so no test double is required at this stage: every test calls the
-production catalog/parser directly and asserts on their return values. This remains unchanged by
-the Engine/Session redesign.
+production catalog/parser directly and asserts on their return values.
 
 The Layer 3/Layer 5 Engine/Session API is verified the same way the RecognitionSubsystem's own
-Engine/Session redesign is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
-NSubstitute `IAudioPlaybackDevice` stand in for the native sherpa-onnx runtime and real speakers,
-making Layer 2 rendering, chunking, per-operation synthesize-then-play behavior, engine
+Engine/Session API is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
+NSubstitute `IAudioPlaybackDevice` stand in for the native synthesis backend and real speakers,
+making Layer 2 rendering, chunking, per-operation sequential synthesize-then-play behavior, engine
 exclusivity leasing, the session state machine, the overlap rule, cancellation, fault
 containment, and honest degradation fully testable without a downloaded speech model or physical
-audio hardware. Determinism is structural, not timing-based: a deterministic fake backend plus
+audio hardware. Determinism is structural wherever practical: a deterministic fake backend plus
 `SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
-transitions without polling or sleeping.
+transitions without polling. No test relies on a bounded sleep: the drain-wait test awaits a
+semaphore signalled by the stubbed device, abandonment is awaited through `StateChanged` reaching
+`Faulted`, and "not yet complete" assertions are made against backends gated by the test, with
+ordering witnesses captured at lease release.
 
 The lease/exclusivity behavior is verified by driving `SpeechSynthesizerEngine`'s real
 `CreateSessionAsync`/`DisposeAsync` logic against a fake backend, asserting that a second
@@ -37,8 +39,9 @@ Automated coverage **does not** include synthesizing real, intelligible speech. 
 text produces correct audible speech through a real model on real speakers requires a downloaded
 production model (which this library deliberately does not ship by default) and audio hardware,
 so it remains a manual/local verification activity, mirroring the RecognitionSubsystem's
-identical boundary. The real, native-backed `SherpaOnnxSynthesisEngine` backend ships in the
-sibling SpeechSherpa library; see _SpeechSherpa SynthesisSubsystem Verification_.
+identical boundary. The real, native-backed backends ship in sibling systems (for example the
+sherpa-onnx backend in the SpeechSherpa system); see _SpeechSherpa SynthesisSubsystem
+Verification_.
 
 ### Test Environment
 
@@ -60,14 +63,17 @@ A SynthesisSubsystem test run passes when:
 - Every canonical `NaturalLanguageAudioTag` value has at least one alias in `AudioTagCatalog`,
   and no alias is shared by two different tags
 - Every documented alias resolves back to its own canonical tag and kind
-- Alias resolution is case-insensitive and tolerant of extra internal whitespace
+- Alias resolution is case-insensitive and tolerant of extra internal whitespace, and null
+  bracket content or null parser input is rejected with `ArgumentNullException`
+- The catalog's tag table and each descriptor's alias list are read-only (not castable back to a
+  mutable collection), and every canonical tag has its independently expected kind
 - `AudioTagParser.Parse` returns literal text and recognized tags as an ordered sequence of
   spans that reconstructs the input's structure, for plain text alone, a tag alone, adjacent
   tags, and a tag at the start or end of the input, with no spurious empty spans
 - An empty input returns an empty span list
 - Unrecognized bracket content, empty brackets, unclosed brackets, and stray closing brackets are
   passed through as literal text, exactly as they appeared, rather than throwing or being
-  discarded
+  discarded, while a nested opening bracket never swallows a valid tag that follows it
 - Pause tags always render as timed silence regardless of a model's declared audio-tag support;
   native support passes canonical bracket text through unchanged; parameter-mapped support maps
   the handful of tags with a numeric convention and strips every other tag; no support strips
@@ -76,7 +82,8 @@ A SynthesisSubsystem test run passes when:
   unconditionally splits every resulting sentence-level piece further on secondary clause
   punctuation, falls back to a whitespace-budget split only when still over budget, merges
   degenerate word-less pieces onto the preceding chunk, never splits a single word, and rejects a
-  non-positive budget or null text. `ChunkWithMetadata` additionally flags, per chunk, whether the
+  non-positive budget or null text, and yields no chunks for empty or whitespace-only text.
+  `ChunkWithMetadata` additionally flags, per chunk, whether the
   chunk's text ends in a genuine ellipsis
 - `SpeechSynthesizerFactory.LoadAsync` returns a real engine only when the model is installed,
   declares the synthesis role, and the backend loads; every other outcome returns the honest
@@ -88,7 +95,13 @@ A SynthesisSubsystem test run passes when:
   installed/role/backend-load check runs
 - `ISpeechSynthesizerEngine.CreateSessionAsync` succeeds when no lease is held and fails fast with
   `SynthesisEngineBusyException` when one is; disposing a leased session or the engine releases
-  the lease so a subsequent request succeeds again
+  the lease so a subsequent request succeeds again; a `CreateSessionAsync` racing `DisposeAsync`
+  never observes a torn state; and a `LoadAsync` canceled after the backend has been created still
+  disposes that backend
+- The engine's one-shot `SpeakAsync` creates and disposes a session per call, and its one-shot
+  `SynthesizeAsync` returns segments without a playback device
+- `SynthesisEngineBusyException` and `SynthesisSessionFaultedException` follow the standard
+  constructor pattern, preserving the supplied message and inner exception
 - A session's `SpeakAsync`/`SynthesizeAsync` calls never overlap on the same instance - a second
   call while one is in flight throws `InvalidOperationException` - and the session can be reused
   across many sequential calls without reconstruction
@@ -122,12 +135,21 @@ A SynthesisSubsystem test run passes when:
 
 **Tests**: `AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias`,
 `AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags`,
-`AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag`
+`AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag`,
+`AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag`,
+`AudioTagCatalog_Tags_Always_IsNotCastableToMutableList`,
+`AudioTagCatalog_Tags_Always_AliasesAreNotCastableToMutableArray`,
+`AudioTagCatalog_Tags_EveryCanonicalTag_HasExpectedKind`
+
+The catalog includes nine mood tags (`angry`, `calm`, `happy`, `enthused`, `surprised`, `worried`,
+`confused`, `frustrated`, `neutral`), all of kind Emotion, plus the `shout` alias of `Loud`.
 
 Verifies that every declared `NaturalLanguageAudioTag` value is reachable through at least one
 alias, that no alias is ambiguous between two tags, and that every documented alias resolves
 back to its own canonical tag and kind, sourced directly from `AudioTagCatalog.Tags` so this
-coverage can never drift out of sync with the catalog it exercises.
+coverage can never drift out of sync with the catalog it exercises. Also verifies that each
+canonical tag has its independently expected kind, and that neither the tag table nor any
+descriptor's alias list can be cast back to a mutable collection.
 
 #### Vocabulary: Normalization, Case-Insensitivity, and Whitespace Tolerance
 
@@ -143,10 +165,12 @@ canonical tag and kind.
 #### Vocabulary: Unresolvable Content
 
 **Tests**: `AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse`,
-`AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse`
+`AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse`,
+`AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException`
 
 Verifies that an unknown word and empty or whitespace-only bracket content never resolve to a
-tag.
+tag, and that null content is rejected with `ArgumentNullException` by both `Normalize` and
+`TryResolve`.
 
 #### Parsing: Span Sequence and Ordering
 
@@ -156,10 +180,12 @@ tag.
 `AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans`,
 `AudioTagParser_Parse_AdjacentTags_ReturnsTwoSeparateTagSpans`,
 `AudioTagParser_Parse_TagAtStartOfText_ReturnsTagSpanFirst`,
-`AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast`
+`AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast`,
+`AudioTagParser_Parse_NullText_ThrowsArgumentNullException`
 
 Verifies that every documented alias, bracketed alone, resolves to a single tag span; that plain
-text with no tags, and an empty input, each produce the expected trivial span list; and that
+text with no tags, and an empty input, each produce the expected trivial span list; that null
+text is rejected with `ArgumentNullException`; and that
 mixed text, adjacent tags, and tags at either edge of the input all produce correctly ordered
 spans with no spurious empty spans.
 
@@ -169,10 +195,12 @@ spans with no spurious empty spans.
 `AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText`,
-`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`
+`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`,
+`AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag`
 
 Verifies that an unrecognized bracketed word, an unclosed opening bracket, empty brackets, and a
-stray closing bracket all pass through as literal text exactly as they appeared, and that a
+stray closing bracket all pass through as literal text exactly as they appeared; that a nested
+opening bracket in front of a valid tag does not swallow the tag; and that a
 recognized tag immediately followed by an unrecognized bracket yields distinct, correctly
 ordered tag and literal spans rather than merging or losing either.
 
@@ -183,7 +211,17 @@ ordered tag and literal spans rather than merging or losing either.
 `DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText`,
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter`,
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride`,
+`DefaultModelCapabilityProfile_Render_ParameterMappedTagMidText_OverridesOnlyFollowingText`,
+`DefaultModelCapabilityProfile_Render_ConsecutiveParameterMappedTags_BothApplyToFollowingText`,
+`SpeechPlan_Constructor_NullSegments_ThrowsArgumentNullException`,
+`SpeechPlan_Constructor_NullSegmentElement_ThrowsArgumentException`,
+`SpeechPlan_Constructor_CallerListChangedLater_PlanIsUnaffected`,
+`SpeechSegment_Constructor_NullText_ThrowsArgumentNullException`,
+`SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException`,
+`SpeechSegment_Constructor_EmptyTextAndZeroSilence_IsAccepted`,
 `DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags`,
+`DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords`,
+`DefaultModelCapabilityProfile_Render_NativeSupport_MoodTag_PassesCanonicalText`,
 `DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments`,
 `DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException`,
 `DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd`,
@@ -192,7 +230,11 @@ ordered tag and literal spans rather than merging or losing either.
 Verifies that pauses always render as silence regardless of declared support, that native
 support passes tags through unchanged, that parameter-mapped support maps the tags with a
 built-in numeric convention and strips every other tag, that no support strips every non-pause
-tag, that plain text is split into chunked segments, and that null arguments are rejected. Also
+tag, that plain text is split into chunked segments, and that null arguments are rejected. A
+parameter-mapped tag in the middle of narration (`Hello [fast] world.`) is verified to put the
+override only on the segment spoken after the tag, and consecutive tags both apply to the text
+that follows them. A speech plan or segment is verified to reject missing content, reject a
+negative silence, and keep its own copy of the segment list. Also
 verifies that a chunk whose text ends in a genuine ellipsis (adjacent or whitespace-spaced)
 renders a longer post-chunk silence (`EllipsisPauseMilliseconds`) than an ordinary
 single-terminator sentence end, while every other chunk boundary still adds zero silence.
@@ -213,14 +255,17 @@ single-terminator sentence end, while every other chunk boundary still adds zero
 `SentenceChunker_Chunk_NullText_ThrowsArgumentNullException`,
 `SentenceChunker_Chunk_ShortSentenceWithComma_SplitsOnCommaEvenUnderBudget`,
 `SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget`,
+`SentenceChunker_Chunk_LetterPrecededPeriodFollowedByDigit_Splits`,
 `SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached`,
+`SentenceChunker_Chunk_LeadingDecimalPoint_StaysAttached`,
 `SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk`,
 `SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk`,
 `SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped`,
 `SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue`,
 `SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue`,
 `SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse`,
-`SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`
+`SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`,
+`SentenceChunker_Chunk_EmptyOrWhitespace_ReturnsEmpty`
 
 Verifies that chunking splits on primary sentence-ending punctuation first, then
 **unconditionally** splits every resulting sentence-level piece further on secondary clause
@@ -236,7 +281,8 @@ as a single boundary and stays attached to the preceding sentence as one piece. 
 a degenerate, word-less punctuation piece is merged onto the immediately preceding non-empty
 chunk, or dropped entirely when it occurs at the very start of the text. Finally, verifies that
 `ChunkWithMetadata` correctly flags a chunk as ending in a genuine ellipsis and not for fewer than
-three dots, and that `Chunk` produces exactly the same chunk text as `ChunkWithMetadata`.
+three dots, and that `Chunk` produces exactly the same chunk text as `ChunkWithMetadata`. Empty
+or whitespace-only text yields no chunks.
 
 #### Composition: Real Engine for an Installed Model
 
@@ -263,14 +309,17 @@ shared unavailable engine without throwing.
 #### Composition: Null Arguments and Cancellation Are Programming Errors
 
 **Tests**: `SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException`,
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
 
-Verifies that a null model, store, or catalog throws, and that a cancelled `cancellationToken`
-throws `OperationCanceledException`, distinguishing a programming error/explicit cancellation
+Verifies that a null model, store, or catalog throws, and that a canceled `cancellationToken`
+throws `OperationCanceledException` - including a cancellation that arrives after the backend
+creation has already succeeded, in which case the created backend is disposed rather than
+leaked - distinguishing a programming error/explicit cancellation
 request from an ordinary machine state. Unlike the former synchronous factory, no
 `NullPlaybackDevice` variant exists for any overload: `LoadAsync` no longer takes a playback
 device parameter at all.
@@ -282,7 +331,8 @@ device parameter at all.
 `SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws`,
 `SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws`,
 `SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws`,
-`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`
+`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws`
 
 Verifies that an optional `parameterValues` bag supplied by the caller is forwarded unchanged to
 the constructed engine; that a supplied `parameterValues` key naming a parameter the model does
@@ -300,7 +350,10 @@ specific reason the value is invalid.
 `SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
 `SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
 `SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
-`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`
+`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`,
+`SpeechSynthesizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState`,
+`SynthesisEngineBusyException_Constructors_PreserveMessageAndInnerException`,
+`SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException`
 
 Verifies that `CreateSessionAsync` succeeds immediately when no lease is held; fails fast with
 `SynthesisEngineBusyException` (never queueing or waiting) when a lease is already held by a
@@ -308,7 +361,10 @@ still-undisposed session; succeeds again once that prior session is disposed, pr
 released exactly once from the session's own `DisposeAsync`; rejects a null device; always reports
 itself available; disposes its owned backend exactly once across repeated `DisposeAsync` calls;
 and, when disposed while a session is still actively leased, disposes that session first (which
-also releases the lease) before disposing the backend.
+also releases the lease) before disposing the backend. A `CreateSessionAsync` racing a concurrent
+`DisposeAsync` either yields a usable session or fails cleanly with `ObjectDisposedException` (or
+the lease-busy exception), and never any other exception indicating a half-disposed engine. The two
+lease/fault exceptions each expose the message and inner exception supplied to their constructors.
 
 #### Engine: One-Shot Convenience Overloads
 
@@ -323,13 +379,21 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 
 **Tests**: `SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
 `SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
-`SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`
+`SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted`,
+`SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed`,
+`SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`,
+`SynthesisSession_IsAvailable_AfterFault_ReturnsFalse`,
+`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`
 
 Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
 `Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
-subscriber's handler exception is caught and routed to diagnostics rather than propagated or
-destabilizing the session; and that `IsAvailable` correctly reflects the session's lifecycle
-before and after disposal.
+faulting operation raises `Created → Starting → Running → Faulted` directly (never passing through
+`Stopping`); that a subscriber's handler exception
+is caught and routed to diagnostics rather than propagated or destabilizing the session; that a
+handler blocking while another thread reads `State` does not deadlock (handlers never run under
+the session lock); that
+disposal reports `Disposing` and then the terminal `Disposed`; and that
+`IsAvailable` reports false once the session is disposed or faulted.
 
 #### Session: Overlap Rule - No Concurrent Operations
 
@@ -352,7 +416,8 @@ utterance.
 #### Session: Faulted Is Terminal
 
 **Tests**: `SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted`,
-`SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`
+`SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`,
+`SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException`
 
 Verifies that a non-cancellation failure during an operation reports the fault through
 diagnostics and transitions the session to the terminal `Faulted` state, and that every
@@ -372,11 +437,15 @@ processes the returned segments gets a faithful, lossless reconstruction of the 
 
 **Tests**: `SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment`,
 `SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice`,
-`SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
+`SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`,
+`SynthesisSession_SpeakAsync_MultiSentenceInput_WritesEachSegmentBeforeSynthesizingNext`
 
 Verifies that plain text yields a synthesized audio segment, that `SpeakAsync` starts the
 playback device, writes segments in order, and stops the device, and that a long, multi-sentence
 input still yields segments in the correct order with the backend never called concurrently.
+Synthesis is sequential: each segment is synthesized and written before the next is synthesized
+(a backend fake records, at each `Generate` call, how many segments have already been written);
+no scenario expects synthesis to overlap playback.
 
 #### Session: Fault Containment
 
@@ -390,10 +459,12 @@ device still results in a stop attempt during teardown.
 
 #### Session: Genuine Playback Drain Before Stopping
 
-**Test**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
+**Tests**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`,
+`SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly`
 
 Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
-before stopping it, rather than stopping as soon as every segment has been written. Uses an
+before stopping it, rather than stopping as soon as every segment has been written, and that
+cancelling during that wait ends it promptly instead of waiting for the queue to drain. Uses an
 NSubstitute playback device whose `PendingSampleCount` getter signals a semaphore on every read,
 so the test deterministically observes the wait has genuinely begun (rather than racing a sleep)
 before asserting the awaited task has not completed and `Stop()` has not been called; only after
@@ -402,16 +473,71 @@ stopped.
 
 #### Session: Cancellation and Disposal Lifecycle
 
-**Tests**: `SynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns`,
+**Tests**: `SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns`,
 `SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
 `SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
+`SynthesisSession_SpeakAsync_AfterDispose_ThrowsObjectDisposedException`,
 `SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
 
-Verifies that `StopAsync` cancels an in-flight operation deterministically, only after the
+Verifies that `StopAsync` cancels an in-flight operation and does not complete until the
 in-flight `DedicatedWorker`-routed `Generate` call has genuinely returned (never orphaning it); is
 a safe no-op when no operation is in flight; releases the engine's exclusivity lease exactly once
-across repeated `DisposeAsync` calls; and that operating on a disposed session throws
-`ObjectDisposedException`.
+across repeated `DisposeAsync` calls; and that both `SpeakAsync` and `SynthesizeAsync` on a disposed
+session throw `ObjectDisposedException`.
+
+#### Session: Abandoned Native Calls Fault the Session
+
+**Tests**: `SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately`,
+`SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCanceledOperationWhileNativeCallStillRunning`,
+`SynthesisSession_AbandonedGenerate_ReportsFaultThroughDiagnostics`,
+`SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns`,
+`SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns`,
+`SynthesisSession_DisposeAsync_AbandonedWorker_DoesNotReleaseLeaseUntilWorkerExits`,
+`SynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns`,
+`SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops`,
+`SynthesisSession_StopAsync_CallerTokenPreCanceled_OperationStillCanceledAndAwaited`,
+`SynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller`,
+`SynthesisSession_DisposeAsync_WhileSpeaking_DoesNotReleaseLeaseBeforeOperationSettles`,
+`SynthesisSession_DisposeAsync_RacingSpeakAsync_NeverDisposesBackendWhileOperationInFlight`,
+`SynthesisSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown`,
+`SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation`,
+`SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException`
+
+Verifies that a cancellation request the native `Generate` call does not honor within the abandon
+timeout returns the canceled operation to the caller promptly (while the native call is still
+running), reports the fault through diagnostics, moves the session to `Faulted`, and rejects
+reuse; that `StopAsync` and `DisposeAsync` do not complete (and the engine lease is not released)
+until the abandoned native call, or an abandoned playback-device start, has genuinely returned;
+that a device stop is deferred until an abandoned start returns; that a caller token bounds only
+that caller's own wait; and that concurrent and racing stop/dispose calls share one teardown
+without throwing.
+
+#### Session: Silence, Volume, and Unrequested Cancellation
+
+**Tests**: `SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio`,
+`SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples`,
+`SynthesisSession_SynthesizeAsync_SpeedOverride_PassesRatioToDefaultToBackend`,
+`SynthesisSession_SynthesizeAsync_NonPositiveOverrideRatio_IsIgnored`,
+`SynthesisSession_SynthesizeAsync_BackendThrowsUnrequestedOperationCanceledException_TransitionsToFaultedNotStopped`,
+`SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks`,
+`SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics`,
+`SynthesisSession_DisposeAsync_IdleSessionHandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`
+
+Verifies that a pause segment's silence is written to the device as zero samples sized for the
+device's rate and channel count, with backend audio up-mixed to the device's channel count; that
+a very long pause is written in bounded chunks; that
+a volume tag scales the amplitude and a large boost is clamped to full scale; that an
+`OperationCanceledException` thrown by the backend without a cancellation request is treated as
+a fault, not a stop; that no diagnostic report contains the synthesized text; and that disposal
+teardown never runs under the session lock.
+
+#### Session: Default Backend Factory
+
+**Tests**: `DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend`,
+`DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws`
+
+Verifies that the default factory returns the backend the model itself constructs and rejects a
+null model and a null or empty directory.
 
 #### Session: Voice/Speaker Selection
 
@@ -434,7 +560,7 @@ call, proving the two mechanisms coexist without either regressing the other.
 Verifies that a delegate honoring cancellation promptly lets `Run` complete promptly rather than
 waiting out its full abandon timeout; that a delegate which never observes cancellation is
 abandoned once the (injectable, test-shortened) abandon timeout elapses, with a `Warning`
-diagnostic reported and the awaited call still returning control to its caller as cancelled; and
+diagnostic reported and the awaited call still returning control to its caller as canceled; and
 that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
 
 #### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix
@@ -445,6 +571,7 @@ that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
 `PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated`,
 `PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow`,
 `PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty`,
+`PlaybackAudioResampler_Resample_NonPositiveRate_ThrowsArgumentOutOfRangeException`,
 `PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged`,
 `PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame`,
 `PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty`,

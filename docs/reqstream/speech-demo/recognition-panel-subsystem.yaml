@@ -1,203 +1,289 @@
 ---
 # Software Subsystem Requirements for the SpeechDemo RecognitionPanelSubsystem
 #
-# These requirements describe the subsystem-level behavior of the demo's speech-to-text panel,
-# decomposing the system-level recognition requirements in docs/reqstream/speech-demo.yaml.
+# These requirements describe the subsystem-level behavior of the demo's speech-to-text panel that
+# spans its units, decomposing the system-level recognition requirements in
+# docs/reqstream/speech-demo.yaml. Unit-level requirements live in:
 #
-# Unit-level content is consolidated here: IRecognizerSessionFactory/RecognizerSessionFactory and
-# RecognitionPanelViewModel form one seam-and-presenter pair whose behavior is only observable
-# together, so per-unit requirement files would restate this content.
+#   recognition-panel-subsystem/recognition-panel-view-model.yaml - RecognitionPanelViewModel
+#   recognition-panel-subsystem/recognizer-session-factory.yaml   - RecognizerSessionFactory
+#                                                                   (with IRecognizerSessionFactory)
 
 sections:
   - title: SpeechDemo Requirements
     sections:
       - title: RecognitionPanelSubsystem Requirements
         requirements:
-          - id: SpeechDemo-Recognition-ModelSelection
+          - id: SpeechDemo-Recognition-SessionSeam
             title: >-
-              The RecognitionPanelSubsystem shall offer only the installed recognition models a
-              user may choose to transcribe with, and shall preserve the current selection
-              across a refresh where it is still installed.
+              The RecognitionPanelSubsystem shall operate deterministically, starting and stopping
+              a transcription session and presenting its results, when no downloaded model and no
+              native speech runtime is available.
             justification: |
-              A model of the wrong role, or one not yet downloaded, cannot honestly transcribe
-              audio; offering it would let a user start a session that can only fail. Preserving
-              a still-installed selection across a refresh keeps the panel from resetting a
-              choice the user already made.
+              A user or evaluator on a machine with no downloaded model and no native runtime
+              must still be able to exercise the Start/Stop lifecycle and see predictable
+              outcomes; the same property makes the lifecycle repeatable under automated test.
+            children:
+              - SpeechDemo-Recognition-ModelSelection
+              - SpeechDemo-Recognition-EngineLifetime
+              - SpeechDemo-Recognition-FailedStartReleasesSession
+              - SpeechDemo-Recognition-EngineReuse
+              - SpeechDemo-Recognition-FailedAttemptReleasesResources
+              - SpeechDemo-Recognition-SessionSeamWrongRole
+              - SpeechDemo-Recognition-SessionSeamRecognitionModel
             tests:
-              - RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels
-              - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+              - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
+
+          - id: SpeechDemo-Recognition-SessionSeamUnavailableEngine
+            title: >-
+              The RecognitionPanelSubsystem shall report an error state, rather than failing,
+              when the seam returns an engine that is unavailable.
+            justification: |
+              An unavailable engine must be reported the same honest way the library itself
+              reports an uninstalled model.
+            children:
+              - SpeechDemo-Recognition-HonestUnavailableStates
+              - SpeechDemo-Recognition-SessionStartFailureReported
+              - SpeechDemo-Recognition-EngineBusyReported
+              - SpeechDemo-Recognition-SessionFaultedReported
+              - SpeechDemo-Recognition-ResultStreamFaultReported
+            tests:
+              - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
 
           - id: SpeechDemo-Recognition-StartStopLifecycle
             title: >-
               The RecognitionPanelSubsystem shall start a streaming transcription session for the
-              selected model through the selected capture device when Start is invoked, shall let
-              a user stop it deterministically at any time - including two concurrent Stop
-              invocations completing without racing to double-dispose - shall reuse the loaded
-              recognizer engine across Start/Stop cycles rather than reloading it on every click
-              while creating a fresh single-use session per Start, and shall invalidate the
-              cached engine or session - stopping an active session first, even while actively
-              listening, rather than leaving the panel stuck in a listening state it can no
-              longer stop - whenever the selected model changes (invalidating the engine), the
-              selected capture device changes (invalidating only the session), or a shared device
-              refresh replaces the underlying capture device (invalidating only the session).
+              selected model through the selected capture device when Start is invoked.
             justification: |
               Streaming speech-to-text is only useful as a start/stop lifecycle a user directly
-              controls; this is the demonstrable proof that a host can drive the library's async
-              engine/session contract from a UI thread with ordinary property-changed
-              notification alone. Reloading the (expensive) engine on every click previously
-              reloaded the model from scratch each turn, contradicting the library's own
-              "construct once, reuse across many sessions" guidance for
-              `ISpeechRecognizerEngine`; caching it instead makes repeated Start/Stop cycles
-              cheap, while a fresh `IRecognitionSession` is still created per Start since a
-              session is single-use. A model or device change can arrive mid-session (neither
-              property is guarded at the model level, only disabled in the view), so
-              invalidation must stop the session first or the panel would be left listening with
-              no way to stop it. A device refresh can also replace the underlying capture device
-              object without changing the selected name, so it must invalidate the cached session
-              too even though no selection property actually changed; the cached engine is not
-              bound to a device and is never invalidated on a device change alone.
+              controls; starting is the demonstrable proof that a host can drive the library's
+              async engine/session contract from a UI thread with ordinary property-changed
+              notification alone.
+            children:
+              - SpeechDemo-Recognition-AutoRefreshOnInstall
+              - SpeechDemo-Recognition-ModelSelectionFallback
+              - SpeechDemo-Recognition-ModelSwitchAllowedAfterError
+              - SpeechDemo-Recognition-ModelSwitchAllowedAfterStop
+              - SpeechDemo-Recognition-SessionSeamModelValidation
+              - SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
+              - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
+              - SpeechDemo-Recognition-DeviceChangeInvalidatesSession
+              - SpeechDemo-Recognition-SessionSeamArgumentValidation
+              - SpeechDemo-Recognition-StaleStateAfterReplaceIgnored
+              - SpeechDemo-Recognition-StaleStateAfterDisposeIgnored
+              - SpeechDemo-Recognition-QueuedRefreshAfterDisposeIgnored
+              - SpeechDemo-Recognition-ModelSwitchDuringStartIgnored
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
+
+          - id: SpeechDemo-Recognition-StopLifecycle
+            title: >-
+              The RecognitionPanelSubsystem shall stop the active streaming session and report
+              that it was stopped when Stop is invoked.
+            justification: |
+              A user must be able to end a streaming session at any time and see that it ended.
+            children:
+              - SpeechDemo-Recognition-StopSession
+              - SpeechDemo-Recognition-StopIdleSafe
+              - SpeechDemo-Recognition-ConcurrentStopSafe
+              - SpeechDemo-Recognition-LifecycleSerialized
+              - SpeechDemo-Recognition-StaleStateAfterStopIgnored
+            tests:
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
-              - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
-              - RecognitionPanelViewModel_Stop_CalledTwiceConcurrently_BothCompleteWithoutThrowing
-              - RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine
-              - RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
-              - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
-              - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine
-              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
-              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesSession
 
-          - id: SpeechDemo-Recognition-TranscriptSequencing
+          - id: SpeechDemo-Recognition-CaptureDebugOptIn
             title: >-
-              The RecognitionPanelSubsystem shall replace the trailing provisional transcript
-              line with each new partial result, and shall commit a final result to the ordered
-              list of finished lines while clearing the trailing partial.
+              The RecognitionPanelSubsystem shall start no capture-debug recording unless the
+              capture-debug environment variable names a folder.
             justification: |
-              A live captioning display must show the most recent provisional guess without
-              accumulating every intermediate guess as noise, and must commit an utterance to a
-              stable line the instant the recognizer considers it final - the exact sequencing a
-              real captioning UI depends on.
+              The diagnostic writes microphone audio to disk, so it must be off by default.
             tests:
-              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
-              - RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder
+              - CaptureDebugRecorder_TryStart_EnvironmentVariableUnset_ReturnsNull
 
-          - id: SpeechDemo-Recognition-HonestUnavailableStates
+          - id: SpeechDemo-Recognition-CaptureDebugWavOutput
             title: >-
-              The RecognitionPanelSubsystem shall report an honest, explanatory outcome - rather
-              than a crash or a silent no-op - when no recognition model is selected, no capture
-              device is available, the loaded engine honestly reports itself unavailable, the
-              session faults when actually started, or an active session itself transitions to
-              a faulted state after Start completes, and shall release any engine or session it
-              created for a failed attempt.
+              The RecognitionPanelSubsystem shall write the captured audio at its native sample
+              rate and channel count as a finalized, valid WAV file, even when no frame arrived.
             justification: |
-              A user evaluating the library on a machine with no installed model, no microphone,
-              or an engine fault beyond the library's control must see why Start did nothing,
-              matching the library's own "nothing throws at composition" guarantee carried
-              through to the panel. A session can also fault asynchronously, after a successful
-              Start, via `IRecognitionSession.StateChanged`; that must be reported with the same
-              honesty as a failure discovered synchronously during Start.
+              A diagnostic recording is only useful if it plays back exactly as captured.
             tests:
-              - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
-              - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState
-              - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
-              - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
-              - RecognitionPanelViewModel_StateChanged_SessionTransitionsToFaulted_ReportsErrorState
+              - CaptureDebugRecorder_TryStart_RecordsFramesThenDisposed_WritesValidFinalizedWavFile
+              - CaptureDebugRecorder_Dispose_NoFramesCaptured_StillWritesValidFinalizedWavFile
+              - WavFileWriter_Dispose_AfterWritingSamples_WritesValidRiffWaveHeader
+              - WavFileWriter_WriteSamples_NormalizedFloatSamples_RoundTripAsPcm16
+              - WavFileWriter_WriteSamples_OutOfRangeSample_ClampsToBoundary
 
-          - id: SpeechDemo-Recognition-HonestEmptyCatalogState
+          - id: SpeechDemo-Recognition-CaptureDebugFailureContained
             title: >-
-              The RecognitionPanelSubsystem shall explain, rather than silently show nothing,
-              when no installed recognition model exists to choose from.
+              The RecognitionPanelSubsystem shall continue listening unaffected, and stop
+              recording, when writing the capture-debug audio fails.
             justification: |
-              Consistent with the honest-empty-state precedent set by the model catalog panel, an
-              unexplained empty picker reads to a user as a broken application rather than an
-              expected pre-download state.
+              A temporary diagnostic must never be able to break the feature it observes, and a
+              full or unwritable disk is an expected fault.
             tests:
-              - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+              - CaptureDebugRecorder_FrameCaptured_WriteThrowsUnauthorized_StopsWritingAndFinalizesOnce
 
-          - id: SpeechDemo-Recognition-ResourceLifetime
+          - id: SpeechDemo-Recognition-CaptureDebugFinalizationFailureContained
             title: >-
-              The RecognitionPanelSubsystem shall release an active session and the cached
-              recognizer engine, unsubscribe from the session's StateChanged event, and
-              unsubscribe from IModelCatalogService.ModelInstalled and the shared
-              device-selection panel's pre-refresh hook when the panel is disposed, idempotently.
+              The RecognitionPanelSubsystem shall continue unaffected, reporting the failure to
+              the console, when finalizing the capture-debug recording fails.
             justification: |
-              A recognizer engine and its session own unmanaged inference resources and a live
-              capture device; leaking either when the panel's host shuts down would starve the
-              next session or leave the device open. The panel also holds a ModelInstalled
-              subscription and a registered pre-refresh hook for its own lifetime, which must be
-              released the same way or a disposed panel would keep refreshing itself in response
-              to later installs or interfere with a shared device refresh. Idempotent disposal
-              keeps a duplicate DisposeAsync call - however it is triggered by the shell - from
-              faulting.
+              Closing the recording can itself fail (for example while flushing or patching the
+              header); that must not terminate the process or break listening.
             tests:
-              - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+              - CaptureDebugRecorder_Dispose_WriterFinalizationThrows_IsContained
 
-          - id: SpeechDemo-Recognition-SessionSeam
+          - id: SpeechDemo-Recognition-CaptureDebugLateFrameDiscarded
             title: >-
-              The RecognitionPanelSubsystem shall compose every speech recognizer engine it uses
-              through an injectable seam over the library's recognizer factory, and that seam
-              shall honestly report a model of the wrong role as unavailable rather than
-              throwing.
+              The RecognitionPanelSubsystem shall discard, without error, any captured audio frame
+              that arrives after the capture-debug recording has been disposed.
             justification: |
-              The library's recognizer factory requires an interface only the library's own
-              assemblies can implement, so a demo-owned seam accepting the library's public model
-              contract is what makes Start/Stop testable with no downloaded model and no native
-              runtime, while still reporting a role mismatch the same honest way the library
-              itself reports an uninstalled model.
+              Stopping a session can race with the capture device delivering a last frame; the
+              audio capture path must never receive an error from the diagnostic.
             tests:
-              - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
-              - RecognizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
-              - RecognizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
-              - RecognizerSessionFactory_LoadAsync_ModelNotRecognitionRole_ReturnsUnavailableEngine
+              - CaptureDebugRecorder_FrameCallback_AfterDispose_IsDiscardedWithoutThrowing
 
-          - id: SpeechDemo-Recognition-AutoRefreshOnInstall
+          - id: SpeechDemo-Recognition-CaptureDebugBoundedMemory
             title: >-
-              The RecognitionPanelSubsystem shall subscribe to
-              IModelCatalogService.ModelInstalled at construction and automatically refresh its
-              offered models when the event reports a recognition-role model, ignoring the event
-              for any other role, and shall unsubscribe from it on disposal.
+              The RecognitionPanelSubsystem shall keep the memory used for pending capture-debug
+              audio bounded, dropping the newest audio, when writing is slower than the audio
+              arrives.
             justification: |
-              A user who downloads a recognition model from the Model Catalog panel should see it
-              become available on this panel immediately, without a manual Refresh click or an
-              application restart. Filtering by role keeps an unrelated synthesis-model install
-              from causing a spurious refresh, and unsubscribing on disposal prevents a disposed
-              panel from reacting to a later install.
+              A stalled or slow disk must not let the diagnostic consume memory without limit;
+              the recording simply has a gap.
             tests:
-              - RecognitionPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
-              - RecognitionPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
-              - RecognitionPanelViewModel_Dispose_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+              - CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking
 
-          - id: SpeechDemo-Recognition-ModelSwitchGuard
+          - id: SpeechDemo-Recognition-CaptureDebugNeverDelaysCapture
             title: >-
-              The RecognitionPanelSubsystem shall expose a CanChangeModel value that is true
-              only when State is not Listening, and the view shall disable the model-selection
-              control while it is false.
+              The RecognitionPanelSubsystem shall deliver captured audio to the recognizer
+              without waiting for the capture-debug recording to be written.
             justification: |
-              Switching the selected recognition model while a streaming session is active would
-              leave a running recognizer bound to a model no longer reflected in SelectedModel,
-              silently desynchronizing the displayed selection from the model actually
-              transcribing audio; disabling selection while Listening prevents that
-              inconsistency.
+              A stalled or slow disk must never delay the audio capture path that live
+              recognition depends on.
             tests:
-              - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
-              - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue
+              - CaptureDebugRecorder_FrameCaptured_WriterStalled_DropsFramesBeyondCapacityWithoutBlocking
 
+          - id: SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
+            title: >-
+              The RecognitionPanelSubsystem shall treat repeated disposal of a capture-debug
+              recording as harmless.
+            justification: |
+              Stop, error handling, and shutdown can each release the recording; a duplicate
+              release must not fault.
+            tests:
+              - CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow
+              - WavFileWriter_Dispose_CalledTwice_IsIdempotent
+
+          - id: SpeechDemo-Recognition-CaptureDebugInvalidArgumentsRejected
+            title: >-
+              The RecognitionPanelSubsystem shall reject a capture-debug WAV output with an empty
+              path or a non-positive sample rate or channel count.
+            justification: |
+              Such a file could never be a valid, playable WAV recording.
+            tests:
+              - WavFileWriter_Constructor_EmptyPath_ThrowsArgumentException
+              - WavFileWriter_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+              - WavFileWriter_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
           - id: SpeechDemo-Recognition-StopsBeforeDeviceRefresh
             title: >-
-              The RecognitionPanelSubsystem shall register a pre-refresh hook with the shared
-              device-selection panel at construction that stops an active listening session
-              before a device refresh proceeds (a safe no-op while idle), and shall unregister it
-              on disposal.
+              The RecognitionPanelSubsystem shall stop an active listening session before a
+              shared device refresh proceeds.
             justification: |
               The recognition panel shares a device-selection panel (and its underlying device
               factory) with the synthesis panel; clicking "Refresh devices" while this panel is
               actively listening has a real chance of the backend refusing the refresh because
-              the capture device is in use. Registering the panel's own stop-and-invalidate path
-              as a pre-refresh hook lets a shared refresh proceed deterministically instead of
-              relying on the AudioDeviceInUseException fallback, and the hook must also be
-              provably inert while idle so an unrelated Refresh click never tries to stop a
-              session that was never created.
+              the capture device is in use. Stopping the session first lets a shared refresh
+              proceed deterministically instead of relying on the AudioDeviceInUseException
+              fallback.
+            children:
+              - SpeechDemo-Recognition-ResourceLifetime
+              - SpeechDemo-Recognition-ModelSwitchGuard
+              - SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
+              - SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
             tests:
               - RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds
+
+          - id: SpeechDemo-Recognition-IdleDeviceRefreshInert
+            title: >-
+              The RecognitionPanelSubsystem shall let a shared device refresh proceed unaffected,
+              without creating a session, while it is not listening.
+            justification: |
+              An unrelated Refresh click must never try to stop a session that was never
+              created, nor change the panel's state.
+            tests:
               - RecognitionPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds
+
+          - id: SpeechDemo-Recognition-SpeechToText-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall let a user start a live streaming
+              transcription session through the selected capture device using a chosen installed
+              recognition model.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-SpeechToText.
+            children:
+              - SpeechDemo-Recognition-DisposeIdempotent
+              - SpeechDemo-Recognition-PanelDependenciesRequired
+              - SpeechDemo-Recognition-ModelSelectionPreserved
+              - SpeechDemo-Recognition-AutoRefreshIgnoresOtherRoles
+            tests:
+              - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+              - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+              - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+              - RecognitionPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+
+          - id: SpeechDemo-Recognition-PartialTranscript-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall show each provisional transcript result as it
+              streams, replacing the previous provisional text.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-PartialTranscript.
+            children:
+              - SpeechDemo-Recognition-TranscriptSequencing
+            tests:
+              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+
+          - id: SpeechDemo-Recognition-FinalTranscript-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall commit each final transcript result as a
+              finished line and clear the provisional text.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-FinalTranscript.
+            children:
+              - SpeechDemo-Recognition-TranscriptFinalCommit
+              - SpeechDemo-Recognition-TranscriptText
+              - SpeechDemo-Recognition-TranscriptResetOnStart
+            tests:
+              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+              - RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder
+              - RecognitionPanelViewModel_Start_SecondRun_ClearsPreviousTranscriptAndStatus
+
+          - id: SpeechDemo-Recognition-UnavailableExplanation-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall report an honest, explanatory outcome, rather
+              than a crash, when no recognition model is installed.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-UnavailableExplanation.
+            children:
+              - SpeechDemo-Recognition-HonestEmptyCatalogState
+              - SpeechDemo-Recognition-EmptyCatalogMessageClears
+              - SpeechDemo-Recognition-NoModelSelectedReported
+            tests:
+              - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+              - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
+
+          - id: SpeechDemo-Recognition-NoCaptureDeviceExplanation-RecognitionPanelSubsystem
+            title: >-
+              The RecognitionPanelSubsystem shall report an honest, explanatory outcome, rather
+              than a crash, when no capture device is available and the user starts listening.
+            justification: |
+              Subsystem-level grouping of the RecognitionPanelSubsystem unit requirements that
+              implement SpeechDemo-Recognition-NoCaptureDeviceExplanation.
+            children:
+              - SpeechDemo-Recognition-NoCaptureDeviceReported
+            tests:
+              - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState

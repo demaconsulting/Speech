@@ -63,5 +63,5 @@ public interface ISynthesisBackend : IDisposable
     ///     cooperative-cancel-then-abandon policy, which <see cref="SynthesisSession"/>
     ///     does via <see cref="DedicatedWorker"/>.
     /// </remarks>
-    EngineAudio Generate(string text, float speed, int speakerId);
+    BackendAudio Generate(string text, float speed, int speakerId);
 }

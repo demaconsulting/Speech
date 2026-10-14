@@ -1,0 +1,109 @@
+---
+# Software Unit Requirements for the SpeechCli ListModelsCommand
+#
+# These requirements describe the `list-models` command, decomposing the system-level
+# SpeechCli-ModelManagement requirement. They are grouped by concern, one criterion each:
+#   - Output (ListModels, ListModelsFilters, ListModelsJsonFormat)
+#   - Argument validation (one requirement per rejected form)
+# The JSON fields (Id, DisplayName, Role, State, LicenseName) carry the same data as the table's
+# columns; the unit test asserts only Id, DisplayName and LicenseName and the integration test only
+# Id and DisplayName, so no separate "same fields" requirement is claimed.
+# Tests named ListModelsCommand_* are ListModelsCommandTests; SpeechCli_* tests are out-of-process
+# tests in IntegrationTests.cs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: ListModelsCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-ListModels
+                title: >-
+                  The tool shall list every known model's id, display name, role, install state,
+                  and license name as an aligned table when invoked with `list-models`.
+                justification: |
+                  An operator or script needs to discover which models exist, which are already
+                  installed, and which still need to be downloaded, without inspecting the
+                  model-store directory by hand.
+                tests:
+                  - ListModelsCommand_Run_NoFilters_ListsEveryModelAsTable
+                  - ListModelsCommand_Run_EmptyCatalog_PrintsNoModelsMessage
+                  - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
+
+              - id: SpeechCli-ModelCommands-ListModelsFilters
+                title: >-
+                  The tool shall restrict the `list-models` output to one role (`--role tts`/`stt`)
+                  and/or one install-state group (`--state downloaded`/`missing`) when those
+                  options are given.
+                justification: |
+                  An operator usually wants only the models of one kind, or only those still
+                  missing, and a script needs the same selection without post-filtering the
+                  output.
+                tests:
+                  - ListModelsCommand_Run_RoleFilterTts_ListsOnlySynthesisModels
+                  - ListModelsCommand_Run_StateFilterDownloaded_ListsOnlyDownloadedModels
+                  - ListModelsCommand_Run_StateFilterMissing_ListsOnlyMissingModels
+
+              - id: SpeechCli-ModelCommands-ListModelsJsonFormat
+                title: >-
+                  The tool shall print the `list-models` result as a JSON array when invoked with
+                  `--format json`.
+                justification: |
+                  A machine-parseable form lets a script decide which models to download without
+                  scraping table formatting.
+                tests:
+                  - ListModelsCommand_Run_FormatJson_EmitsJsonArray
+                  - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+              - id: SpeechCli-ModelCommands-ListModelsRoleValidation
+                title: >-
+                  The tool shall reject a `list-models` invocation whose `--role` value is
+                  unrecognized or missing with a clear, non-zero-exit-code error rather than a
+                  stack trace.
+                justification: |
+                  A mistyped role must fail predictably so a script can detect it instead of
+                  silently receiving an empty or unfiltered list.
+                tests:
+                  - ListModelsCommand_Run_InvalidRoleValue_ThrowsArgumentException
+                  - ListModelsCommand_Run_RoleFlagMissingValue_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-ListModelsStateValidation
+                title: >-
+                  The tool shall reject a `list-models` invocation whose `--state` value is
+                  unrecognized with a clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A mistyped state must fail predictably so a script can detect it instead of
+                  silently receiving an empty or unfiltered list.
+                tests:
+                  - ListModelsCommand_Run_InvalidStateValue_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-ListModelsStateConflict
+                title: >-
+                  The tool shall reject a `list-models` invocation that gives both
+                  `--state downloaded` and `--state missing` with a clear, non-zero-exit-code
+                  error rather than a stack trace.
+                justification: |
+                  Contradictory state filters can only match nothing, so they are rejected rather
+                  than silently returning an empty list.
+                tests:
+                  - ListModelsCommand_Run_ConflictingStateValues_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-ListModelsFormatValidation
+                title: >-
+                  The tool shall reject a `list-models` invocation whose `--format` value is
+                  unrecognized with a clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A mistyped format must fail predictably so a script never receives output in an
+                  unexpected form.
+                tests:
+                  - ListModelsCommand_Run_InvalidFormatValue_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-ListModelsUnsupportedFlag
+                title: >-
+                  The tool shall reject a `list-models` invocation that carries an unsupported flag
+                  with a clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A mistyped option must fail predictably instead of being silently ignored.
+                tests:
+                  - ListModelsCommand_Run_UnsupportedFlag_ThrowsArgumentException

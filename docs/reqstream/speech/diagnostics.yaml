@@ -11,12 +11,17 @@ sections:
       - title: Diagnostics Requirements
         requirements:
           - id: Speech-Diagnostics-Interface
-            title: The Diagnostics subsystem shall expose an interface for reporting structural events.
+            title: >-
+              The Diagnostics subsystem shall let a host receive structural events from the library
+              through a host-implemented sink.
             justification: |
               Hosts need a single, stable contract to implement in order to receive diagnostic
               events, independent of which library component raises them.
             children:
               - Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportSeverity
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportCategory
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportMessage
             tests:
               - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
 
@@ -27,7 +32,7 @@ sections:
               selected, model state changed) so a host can safely surface diagnostics without
               risking exposure of user speech or dictated text content.
             children:
-              - Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportMessage
             tests:
               - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
 

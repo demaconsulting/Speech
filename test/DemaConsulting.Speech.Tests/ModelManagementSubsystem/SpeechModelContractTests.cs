@@ -3,6 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
+using DemaConsulting.Speech.Tests.RecognitionSubsystem.Fakes;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -322,5 +323,158 @@ public class SpeechModelContractTests
 
         // Assert
         Assert.Equal(text, normalized);
+    }
+
+    /// <summary>
+    ///     Proves that the default <see cref="IRecognitionModel.NormalizeText(string,bool)"/> hook forwards to a model's
+    ///     own <see cref="ISpeechModel.NormalizeText(string)"/> override, for both a finalized and a provisional result.
+    /// </summary>
+    /// <param name="isFinal">Whether the result is finalized.</param>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void IRecognitionModel_NormalizeText_OverriddenSharedNormalizer_IsAppliedForBothResultKinds(bool isFinal)
+    {
+        // Arrange
+        var model = new DefaultsRecognitionModel();
+
+        // Act
+        var normalized = ((IRecognitionModel)model).NormalizeText("hello", isFinal);
+
+        // Assert
+        Assert.Equal("hello|normalized", normalized);
+    }
+
+    /// <summary>
+    ///     Proves that a recognition model that declares no post-endpoint warm-up reports a zero-length window.
+    /// </summary>
+    [Fact]
+    public void IRecognitionModel_PostEndpointWarmupWindowMs_DefaultImplementation_ReturnsZero()
+    {
+        // Arrange
+        var model = new DefaultsRecognitionModel();
+
+        // Act
+        var window = ((IRecognitionModel)model).PostEndpointWarmupWindowMs;
+
+        // Assert
+        Assert.Equal(0, window);
+    }
+
+    /// <summary>
+    ///     Proves that the default parameterized backend creation ignores the supplied parameter values and creates the
+    ///     same backend as the parameter-less creation, from the same installed-model directory.
+    /// </summary>
+    [Fact]
+    public void IRecognitionModel_CreateBackendWithParameters_DefaultImplementation_ForwardsToParameterlessCreation()
+    {
+        // Arrange
+        var model = new DefaultsRecognitionModel();
+        var parameters = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act
+        var withParameters = ((IRecognitionModel)model).CreateBackend("installed-dir", parameters);
+        var firstCreated = model.LastBackend;
+        var withNull = ((IRecognitionModel)model).CreateBackend("other-dir", null);
+
+        // Assert
+        Assert.Equal(["installed-dir", "other-dir"], model.CreatedFrom);
+        Assert.Same(firstCreated, withParameters);
+        Assert.Same(model.LastBackend, withNull);
+        Assert.NotSame(withParameters, withNull);
+    }
+
+    /// <summary>
+    ///     Proves that a synthesis model that declares no speaker selection resolves any parameter values (absent or
+    ///     supplied) to the first speaker.
+    /// </summary>
+    [Fact]
+    public void ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker()
+    {
+        // Arrange
+        var model = new DefaultsSynthesisModel();
+        var parameters = new Dictionary<string, object> { ["voice"] = "anything" };
+
+        // Act
+        var withNull = ((ISynthesisModel)model).ResolveSpeakerId(null);
+        var withValues = ((ISynthesisModel)model).ResolveSpeakerId(parameters);
+
+        // Assert
+        Assert.Equal(0, withNull);
+        Assert.Equal(0, withValues);
+    }
+
+    /// <summary>
+    ///     A minimal recognition model that relies on every default interface member and overrides only the shared
+    ///     text normalizer, so the defaults' forwarding can be observed.
+    /// </summary>
+    private sealed class DefaultsRecognitionModel : IRecognitionModel
+    {
+        /// <summary>Gets the installed-model directories passed to the parameter-less backend creation, in order.</summary>
+        public List<string> CreatedFrom { get; } = [];
+
+        /// <summary>Gets the most recently created backend, or <see langword="null"/> before the first creation.</summary>
+        public IRecognitionBackend? LastBackend { get; private set; }
+
+        /// <inheritdoc/>
+        public string Id => "defaults-recognition";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Defaults Recognition";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Recognition;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = FakeModelDescriptors.SingleFileDescriptor("defaults-recognition");
+
+        /// <inheritdoc/>
+        public AudioFormat AudioFormat => AudioFormat.Mono(16000);
+
+        /// <inheritdoc/>
+        public IRecognitionBackend CreateBackend(string installedModelDirectory)
+        {
+            CreatedFrom.Add(installedModelDirectory);
+            LastBackend = new FakeRecognitionEngine();
+            return LastBackend;
+        }
+
+        /// <inheritdoc/>
+        string ISpeechModel.NormalizeText(string text) => text + "|normalized";
+    }
+
+    /// <summary>A minimal synthesis model that relies on every default interface member.</summary>
+    private sealed class DefaultsSynthesisModel : ISynthesisModel
+    {
+        /// <inheritdoc/>
+        public string Id => "defaults-synthesis";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Defaults Synthesis";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Synthesis;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = FakeModelDescriptors.SingleFileDescriptor("defaults-synthesis");
+
+        /// <inheritdoc/>
+        public AudioFormat PreferredAudioFormat => AudioFormat.Mono(24000);
+
+        /// <inheritdoc/>
+        public ISynthesisBackend CreateBackend(string installedModelDirectory) =>
+            throw new NotSupportedException("The defaults model never creates a backend.");
     }
 }

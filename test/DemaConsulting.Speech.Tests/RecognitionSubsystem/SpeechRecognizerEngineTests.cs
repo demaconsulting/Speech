@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="SpeechRecognizerEngine"/>, proving the single-session
-///     exclusivity lease (Decision #2) over a fake backend and a substitute capture device, with
+///     exclusivity lease over a fake backend and a substitute capture device, with
 ///     no native sherpa-onnx runtime.
 /// </summary>
 public class SpeechRecognizerEngineTests
@@ -63,7 +63,7 @@ public class SpeechRecognizerEngineTests
     ///     Proves that the exclusivity lease is still held - and a concurrent
     ///     <see cref="SpeechRecognizerEngine.CreateSessionAsync"/> still fails fast -
     ///     while a prior session's own <see cref="IAsyncDisposable.DisposeAsync"/> is still in
-    ///     flight, not yet complete (Decision #2).
+    ///     flight, not yet complete.
     /// </summary>
     [Fact]
     public async Task SpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException()

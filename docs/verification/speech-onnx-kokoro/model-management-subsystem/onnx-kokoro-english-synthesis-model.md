@@ -40,13 +40,25 @@ styled audio is produced.
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity and 29-voice parameter
+##### The model declares its expected, stable catalog identity
 
 **Test**: `OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues`
 
-##### The model declares exactly 30 unique, validated download files
+##### The model declares its Apache-2.0 license
 
-**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles`
+**Test**: `OnnxKokoroEnglishSynthesisModel_License_DeclaresApache2`
+
+##### The model declares a 29-voice parameter with the expected default
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_VoiceParameter_Declares29VoicesWithDefault`
+
+##### The model declares the model graph and every voice file for download
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresModelGraphAndEveryVoiceFile`
+
+##### Every download file has an HTTPS address, a SHA-256 checksum, and a unique install path
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_FilesHaveHttpsChecksumAndUniquePaths`
 
 ##### PreferredAudioFormat reports the model's best-effort mono 24000 Hz hint
 

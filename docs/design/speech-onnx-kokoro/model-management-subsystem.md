@@ -6,7 +6,7 @@
 
 The SpeechOnnxKokoro ModelManagementSubsystem supplies this package's one concrete,
 ONNX-Runtime-backed speech model as an implementation of the Speech library's `ISynthesisModel`
-extension point (see _Speech ModelManagementSubsystem Design_), together with the two supporting
+extension point (see _Speech ModelManagementSubsystem Design_), together with the three supporting
 units that give this model its own complete text-to-phoneme-to-token pipeline - a responsibility
 the sibling SpeechSherpa system does not need, because sherpa-onnx's native library bundles
 phonemization itself. It contains the following units:
@@ -17,6 +17,9 @@ phonemization itself. It contains the following units:
   export `onnx-community/Kokoro-82M-v1.0-ONNX` (Apache-2.0), declaring 29 American/British
   English voices as a `ChoiceParameter` and owning the download descriptor for the ONNX model
   graph and every voice's style-vector file
+- **KokoroTextNormalizer**: the internal static helper that rewrites numbers, currency, times,
+  abbreviations, URLs, markdown and diacritics into speakable text before lexicon lookup;
+  documented with, and verified through, `KokoroLexiconPhonemizer`
 - **KokoroLexiconPhonemizer**: converts English text into Kokoro v1.0's own IPA phoneme string by
   looking each word up in an embedded, precomputed word-to-phoneme lexicon, rather than
   reimplementing grapheme-to-phoneme (G2P) linguistics by hand
@@ -27,7 +30,8 @@ phonemization itself. It contains the following units:
 ### Interfaces
 
 The subsystem exposes `SpeechModelCatalogKokoroExtensions` and `OnnxKokoroEnglishSynthesisModel`
-as its public API (`KokoroLexiconPhonemizer` and `KokoroPhonemeVocabulary` are internal). It
+as its public API (`KokoroTextNormalizer`, `KokoroLexiconPhonemizer` and `KokoroPhonemeVocabulary`
+are internal). It
 consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `ISynthesisModel`,
 `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the _Speech
 ModelManagementSubsystem Design_, `AudioFormat` from Speech's AudioSubsystem, and the sibling

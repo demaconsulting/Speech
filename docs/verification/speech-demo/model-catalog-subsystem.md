@@ -2,23 +2,22 @@
 
 ### Verification Approach
 
-The ModelCatalogSubsystem is verified through deterministic unit tests in two layers. The
-`ModelCatalogViewModel` and `ModelListItemViewModel` are tested against an NSubstitute fake of
-`IModelCatalogService`, which is what makes the whole download lifecycle — progress, success,
-checksum mismatch, transport failure, unexpected seam fault, and cancellation — verifiable with
-no network access and no downloadable model in existence. The `ModelCatalogService` adapter is
-tested against a real `SpeechModelCatalog` rooted in an isolated scratch directory, proving it
-really does forward to the library.
+The ModelCatalogSubsystem is verified at subsystem level by the units working together: the
+`ModelCatalogViewModel` driving the catalog through the `IModelCatalogService` seam, and the
+`ModelCatalogService` adapter rebuilding its catalog and reference voice library when a voice pack
+or the mirror changes. Unit-level behavior is verified in the unit verification documents for
+ModelCatalogService, ModelCatalogViewModel, ModelListItemViewModel and
+ReferenceVoicePackListItemViewModel.
 
-Download progress callbacks are made deterministic by installing an inline synchronization
-context for the duration of the test, because `Progress<T>` otherwise marshals to the thread
-pool. This changes nothing about production behavior; it only removes a race from the assertions.
+The panel view model is exercised against an NSubstitute fake of `IModelCatalogService`, which
+makes the whole download lifecycle verifiable with no network access and no downloadable model.
+The adapter is exercised against a real `SpeechModelCatalog` rooted in an isolated scratch
+directory. Download progress callbacks are made deterministic by an inline synchronization context,
+because `Progress<T>` otherwise marshals to the thread pool; this changes nothing about production
+behavior.
 
-Automated tests do **not** claim proof of a real, multi-hundred-megabyte model download. The
-library's real catalog, populated via `DemaConsulting.Speech.Sherpa`'s `AddSherpaModels()`,
-contains four real models (two recognition, two synthesis), so the real-catalog tests now prove
-those models pass through the adapter unchanged; the full download lifecycle is still proven
-against controlled catalog data, never a real network fetch.
+Automated tests do not claim proof of a real, multi-hundred-megabyte model download. The full
+download lifecycle is proven against controlled catalog data, never a real network fetch.
 
 ### Test Environment
 
@@ -27,463 +26,280 @@ against controlled catalog data, never a real network fetch.
 - **Isolation**: Adapter tests root the library's model store in a fresh directory under the test
   output folder, so no test touches a developer's real installed-model store
 - **Test doubles**: An NSubstitute fake of `IModelCatalogService`, a fake `ISpeechModel`, a fake
-  `IModelDownloadClient` (for the `ModelCatalogService`-level `ModelInstalled` tests, which inject
-  a model and client directly into the library's `SpeechModelCatalog` so a genuine install can be
-  proven with no real network access), and an inline synchronization context for deterministic
-  progress delivery
+  `IModelDownloadClient`, and an inline synchronization context
+
+### Acceptance Criteria
+
+A ModelCatalogSubsystem test run passes when all of the following hold:
+
+- The panel shows, refreshes and downloads models purely through the catalog service seam and
+  reports every outcome as row state rather than an application error.
+- Mirror changes reconfigure the catalog through the seam, take effect for later downloads and
+  voice packs, and are refused while a download or pack install is in flight.
+- A voice pack install attempt (including a failed or canceled one), a voice pack removal or a
+  mirror change leaves the offered voice choices matching the installed packs, and the synthesis
+  panel's voice choices reflect it while keeping the chosen voice.
+- A voice pack removal that fails leaves the voice choices and dependent panels unchanged.
+- A voice pack that is still installed after a failed install or upgrade stays installed and
+  removable with its failure message.
+- Removing a pack whose install is in flight takes effect only after the install has finished,
+  and a removal that cannot complete or is canceled is explained on the pack's row instead of
+  failing.
+- Disposing the service releases its owned resources even when one release fails, and disposing it
+  twice is harmless.
 
 ### Test Scenarios
 
-#### ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException
-
-**Scenario**: The adapter is constructed with no library catalog.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.
-
-#### ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem
-
-**Scenario**: The adapter enumerates the real library catalog.
-
-**Expected**: The same models the library itself knows about (its four real models - two
-recognition, two synthesis), reported as-is with each model's own declared role
-preserved rather than replaced with invented placeholder models.
-
-**Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.
-
-#### ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
-
-**Scenario**: A download is requested for a model id the library does not know.
-
-**Expected**: The library's own `ArgumentException` propagates, proving the adapter delegates
-rather than reimplements.
-
-**Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.
-
-#### ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
-
-**Scenario**: A second adapter over the same catalog goes out of use and the first enumerates.
-
-**Expected**: Enumeration still succeeds, proving an adapter never disposes a catalog it does not
-own.
-
-**Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.
-
-#### ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole
-
-**Scenario**: A download completes with the library genuinely installing an injected fake model
-(a fake `IModelDownloadClient` serving a payload whose checksum matches the model's declared
-descriptor, so no real network access is needed).
-
-**Expected**: `ModelInstalled` fires exactly once, carrying the installed model's id and its
-declared role.
-
-**Requirement coverage**: `SpeechDemo-Models-InstallNotification`.
-
-#### ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled
-
-**Scenario**: A download fails against an injected fake model and a fake `IModelDownloadClient`
-that always throws.
-
-**Expected**: `ModelInstalled` is never raised.
-
-**Requirement coverage**: `SpeechDemo-Models-InstallNotification`.
-
-#### ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
-
-**Scenario**: The factory-based adapter constructor is given a catalog but a null catalog
-factory.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
-
-#### ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
-
-**Scenario**: `ApplyMirror` is called on an adapter built with the single-argument (no-factory)
-constructor.
-
-**Expected**: `InvalidOperationException`, so a service that cannot be reconfigured says so
-rather than silently doing nothing.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
-
-#### ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
-
-**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory.
-
-**Expected**: The factory is invoked with downloader options carrying the requested mirror, and
-the adapter's subsequent enumeration reflects the rebuilt catalog.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorRebuild`.
-
-#### ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
-
-**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory, after a prior
-download on the original catalog has seeded a per-model lock.
-
-**Expected**: The catalog `ApplyMirror` just replaced is genuinely disposed, rather than merely
-detached and leaked, proven by a later direct download attempt against it surfacing
-`ObjectDisposedException`.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
-
-#### ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
-
-**Scenario**: An adapter built with a catalog factory is disposed after a prior download has
-seeded a per-model lock.
-
-**Expected**: The current catalog is genuinely disposed, proving a factory-constructed adapter
-owns every catalog it ever points to.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
-
-#### ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
-
-**Scenario**: An adapter built with the single-argument constructor is disposed.
-
-**Expected**: The shared catalog is left usable, preserving the existing "does not dispose a
-catalog it does not own" contract.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
-
-#### ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
-
-**Scenario**: The panel is constructed with no catalog seam.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.
-
 #### ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel
 
-**Scenario**: The seam reports several models.
+**Scenario**: The panel is created over a service that enumerates several models.
 
-**Expected**: Exactly one row per reported model, with nothing added or hidden.
-
-**Requirement coverage**: `SpeechDemo-Models-Enumeration`.
-
-#### ModelCatalogViewModel_Constructor_PopulatedCatalog_SelectsFirstModel
-
-**Scenario**: The seam reports several models.
-
-**Expected**: The first row is preselected, so the panel is immediately usable.
-
-**Requirement coverage**: `SpeechDemo-Models-Enumeration`.
-
-#### ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
-
-**Scenario**: The seam reports no models.
-
-**Expected**: No rows, and the panel reports itself empty so the explanatory message is shown.
-
-**Requirement coverage**: `SpeechDemo-Models-EmptyCatalogExplanation`.
-
-#### ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels
-
-**Scenario**: The empty-catalog message is read.
-
-**Expected**: It states that no speech models are currently known to this catalog (the honest
-reason for a host-supplied empty catalog), without claiming the library itself ships no
-downloadable models.
-
-**Requirement coverage**: `SpeechDemo-Models-EmptyCatalogExplanation`.
-
-#### ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
-
-**Scenario**: A model's install state changes and the panel is refreshed.
-
-**Expected**: Rows are rebuilt from the library's current view and the previously selected model
-stays selected.
-
-**Requirement coverage**: `SpeechDemo-Models-Refresh`.
-
-#### ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
-
-**Scenario**: The selected model is no longer reported and the panel is refreshed.
-
-**Expected**: Its row is dropped and another row is selected, so the panel never offers a model
-the library no longer knows.
-
-**Requirement coverage**: `SpeechDemo-Models-Refresh`.
-
-#### ModelCatalogViewModel_RefreshCommand_Executed_ReReadsCatalog
-
-**Scenario**: The refresh command is executed the way a bound button does.
-
-**Expected**: The catalog is re-read through the seam.
-
-**Requirement coverage**: `SpeechDemo-Models-Refresh`.
+**Expected**: One row per model is built, each with its installation state.
 
 #### ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
 
-**Scenario**: A download completes with the library reporting the model installed.
+**Scenario**: The panel downloads a model through the seam and the library reports it installed.
 
 **Expected**: The row becomes installed at full progress.
 
-**Requirement coverage**: `SpeechDemo-Models-DownloadProgress`.
+#### ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
 
-#### ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress
+**Scenario**: The library reports a failed download.
 
-**Scenario**: The library reports transfer progress during a download.
-
-**Expected**: The downloading row's progress fraction tracks the reported value.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadProgress`.
+**Expected**: The row shows the failure as row state with the library's message; nothing is thrown.
 
 #### ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
 
 **Scenario**: The library reports a checksum mismatch.
 
-**Expected**: The row becomes failed with an explanation stating the files did not match their
-expected checksums and were discarded.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadOutcomes`.
-
-#### ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
-
-**Scenario**: The library reports a transport failure carrying an error.
-
-**Expected**: The row becomes failed carrying the library's own error message.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadOutcomes`.
-
-#### ModelCatalogViewModel_DownloadAsync_SeamThrows_ContainsFaultInRow
-
-**Scenario**: The seam throws an unexpected exception.
-
-**Expected**: The row becomes failed carrying that message; the application does not crash.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadOutcomes`.
+**Expected**: The row shows an explained failure rather than raising an application error.
 
 #### ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
 
 **Scenario**: A download is canceled.
 
-**Expected**: The row returns to not-downloaded with a cancellation note, because the library
-guarantees a canceled download installs nothing.
+**Expected**: The row returns to not downloaded without an error.
 
-**Requirement coverage**: `SpeechDemo-Models-DownloadOutcomes`.
+#### ModelCatalogViewModel_ApplyMirrorAsync_DownloadInProgress_RefusesAndReportsError
 
-#### ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
+**Scenario**: A mirror is applied while a model download is in flight.
 
-**Scenario**: A failed download is retried.
+**Expected**: The seam is not asked to reconfigure and the panel explains the refusal.
 
-**Expected**: The previous failure explanation is cleared when the retry starts.
+#### ModelCatalogViewModel_ApplyMirrorAsync_PackInstalling_IsRefused
 
-**Requirement coverage**: `SpeechDemo-Models-DownloadRetry`.
+**Scenario**: A mirror is applied while a voice pack install is in flight.
 
-#### ModelCatalogViewModel_DownloadAsync_AlreadyInstalledModel_DoesNotDownload
+**Expected**: The change is refused and explained, and the seam is not called.
 
-**Scenario**: A download is requested for an already-installed model.
+#### ModelCatalogViewModel_RefreshAsync_StateChanged_RebuildsRowsAndKeepsSelection
 
-**Expected**: No download is started, so working installed content is never disturbed.
+**Scenario**: A model's install state changes and the panel is refreshed.
 
-**Requirement coverage**: `SpeechDemo-Models-DownloadGuard`.
+**Expected**: Rows are rebuilt from the seam and the selected model stays selected.
 
-#### ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing
-
-**Scenario**: The download command is invoked with no selected row.
-
-**Expected**: Nothing happens and nothing throws.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadGuard`.
-
-#### ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
-
-**Scenario**: The panel is constructed with launch-time mirror values supplied.
-
-**Expected**: The mirror URL/user/password/bearer-token fields start pre-populated from those
-values, so the GUI and launch-time entry points stay consistent.
-
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
-
-#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ForwardsConfiguredMirror
 
 **Scenario**: Valid mirror fields are applied.
 
-**Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
-and the panel reports success and refreshes.
+**Expected**: The seam's `ApplyMirror` receives the configured mirror.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReportsSuccess
 
-#### ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
+**Scenario**: A valid mirror URL is applied.
 
-**Scenario**: The mirror URL field is blank when applied.
+**Expected**: The panel reports no error and confirms that the mirror was applied.
 
-**Expected**: The seam's `ApplyMirror` is called with `null`, reverting to each model's own
-public download URI.
+#### ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+**Scenario**: A pack is uninstalled through a composed service.
 
-#### ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+**Expected**: The offered voice choices no longer include the removed pack, the catalog and library
+pair is rebuilt (mechanism) and `ReferenceVoicesChanged` is raised once so dependent panels refresh.
 
-**Scenario**: The mirror URL field holds an invalid URI.
+#### ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 
-**Expected**: The panel reports an explained error and never calls the seam.
+**Scenario**: The mirror is changed on a composed service.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+**Expected**: The new mirror takes effect for subsequent downloads and voice packs (the pair is
+rebuilt with it) and `ReferenceVoicesChanged` is raised so dependent panels refresh.
 
-#### ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+#### ModelCatalogViewModel_ApplyMirrorAsync_ValidMirror_ReReadsCatalog
 
-**Scenario**: The bearer-token field holds a value but the mirror URL field is blank.
+**Scenario**: A valid mirror is applied through the panel.
 
-**Expected**: `MirrorOptionsFactory.Create` rejects the stray credential (matching
-`DemaConsulting.Speech.Cli`'s `Context.CreateMirror` behavior for the same case) and the panel
-reports an explained error without ever calling the seam, rather than silently discarding the
-credential.
+**Expected**: The catalog is re-read so the rows reflect the rebuilt catalog.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Installed_UninstallsAndRefreshesRows
 
-#### ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
+**Scenario**: A pack is removed through the panel.
 
-**Scenario**: The seam throws `InvalidOperationException` because it was not built with a
-catalog factory.
+**Expected**: The seam uninstalls it and the rows are re-read.
 
-**Expected**: The panel reports the seam's explanation as an error rather than letting the
-exception escape.
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Fault_ReportsMessageInRow
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+**Scenario**: The seam's uninstall throws.
 
-#### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+**Expected**: The fault is reported on the row and the pack stays installed.
 
-**Scenario**: One row is `Downloading` and the mirror URL field holds a valid URI.
+#### SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
-**Expected**: The panel reports an explained error and never calls the seam's `ApplyMirror`,
-because that call would dispose the catalog the in-flight download depends on.
+**Scenario**: The service raises `ReferenceVoicesChanged` to a subscribed synthesis panel.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorBlockedDuringDownload`.
+**Expected**: The panel refreshes its voice choices and keeps the chosen voice; this is the
+observable effect of every voices-changed notification the subsystem raises.
 
-#### ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
+#### ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
 
-**Scenario**: A row is built with no descriptor.
+**Scenario**: A pack install fails.
 
-**Expected**: `ArgumentNullException`, rather than an unidentified model in the list.
+**Expected**: The voice choices are refreshed to match the pack's actual installed state and the
+notification is still raised.
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+#### ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
 
-#### ModelListItemViewModel_Constructor_Descriptor_CarriesDescriptorIdentityAndState
+**Scenario**: A pack install completes through the panel.
 
-**Scenario**: A row is built from a descriptor.
+**Expected**: The pack row refreshes to the installed state.
 
-**Expected**: Identity, display name, role, and state all come from the descriptor unchanged.
+#### ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+**Scenario**: An "Add emotions" upgrade of an installed voices-only pack fails, hits a checksum mismatch,
+is canceled, or the service throws, and the service reports the pack still installed because the
+library rolled the upgrade back.
 
-#### ModelListItemViewModel_StatusText_EachState_ReturnsReadableCaption
+**Expected**: The row stays installed with removal enabled and "Add emotions" still offered, and the
+failure message is shown on the row.
 
-**Scenario**: Each install state is presented.
+#### ModelCatalogViewModel_RemoveVoicePackAsync_StoreException_ShowsMessageAndKeepsPack
 
-**Expected**: Each maps to its documented human-readable caption.
+**Scenario**: The service rejects the uninstall of a pack with a store exception.
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+**Expected**: The exception's message is shown on the pack's row, the pack stays installed, and nothing
+is thrown at the user.
 
-#### ModelListItemViewModel_CanDownload_EachState_ReflectsRetryPolicy
+#### ModelCatalogViewModel_RemoveVoicePackAsync_Canceled_ShowsCanceledMessage
 
-**Scenario**: Each install state is presented.
+**Scenario**: The seam's uninstall is canceled.
 
-**Expected**: Only not-downloaded and failed offer a download, so installed content is protected
-and a retry after failure stays possible.
+**Expected**: The row shows "Removal canceled." and the pack stays installed.
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+#### ModelCatalogService_Dispose_CatalogDisposalThrows_StillDisposesVoiceLibrary
+
+**Scenario**: A composed service is disposed while releasing its catalog throws.
+
+**Expected**: The voice library is still released and the catalog's failure reaches the caller.
+
+#### ModelCatalogService_Dispose_CalledTwice_DoesNotThrow
+
+**Scenario**: A service is disposed twice.
+
+**Expected**: The second disposal does nothing and does not throw.
+
+#### ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise
+
+**Scenario**: A pack removal fails.
+
+**Expected**: The voice choices stay as they were and no voices-changed notification is raised.
+
+#### ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
+
+**Scenario**: A pack is uninstalled through a composed service while an install of that pack is in flight.
+
+**Expected**: The uninstall does not take effect while the install runs (no voice change is
+reported), then removes the pack once the install ends, after which the voice choices change and the
+notification is raised.
+
+#### ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
+
+**Scenario**: A fresh pack install is canceled, so the install throws a cancellation.
+
+**Expected**: The cancellation reaches the caller, the catalog and library pair is rebuilt so the
+voice choices match the pack's actual state, and `ReferenceVoicesChanged` is raised once so
+dependent panels refresh.
+
+#### ModelCatalogViewModel_InstallVoicePackAsync_FreshInstallCanceled_ShowsNotInstalledWithMessage
+
+**Scenario**: A pack that is not installed is installed through the panel and the install is
+canceled.
+
+**Expected**: Nothing is thrown at the user, the row stays not installed with installation still
+offered and removal unavailable, and "Install canceled." is shown on the row.
+
+#### ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress
+
+**Scenario**: The library reports progress while a model downloads.
+
+**Expected**: The downloading model's row shows the reported progress.
+
+#### ModelCatalogViewModel_DownloadAsync_InFlight_ShowsDownloadingState
+
+**Scenario**: A model download is still running.
+
+**Expected**: The row is in the downloading state until the download finishes.
 
 #### ModelListItemViewModel_IsDownloading_DownloadingState_ReturnsTrue
 
-**Scenario**: A downloading row and an idle row are compared.
+**Scenario**: A row is in the downloading state.
 
-**Expected**: Only the downloading row reports an in-flight download.
+**Expected**: The row reports that it is downloading, so progress is shown.
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+#### ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
 
-#### ModelListItemViewModel_HasFailureMessage_ReflectsPresenceOfMessage
+**Scenario**: A failed download is retried and the retry succeeds.
 
-**Scenario**: A failure explanation is recorded on a row.
+**Expected**: The row is installed and the earlier failure message is cleared.
 
-**Expected**: The row reports a failure message present only when there is one to show.
+#### ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+**Scenario**: The panel is created over a catalog with no models.
 
-#### ModelListItemViewModel_State_Changed_NotifiesDerivedProperties
+**Expected**: No rows are built, the panel reports the catalog as empty and selects nothing.
 
-**Scenario**: A row's install state changes.
+#### ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels
 
-**Expected**: The caption, download enablement, and progress visibility are all re-announced, so
-a bound row cannot go stale mid-download.
+**Scenario**: The empty-catalog message is read.
 
-**Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
+**Expected**: The text explains that the catalog has no known models.
 
-### Requirements Coverage
+#### ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
 
-- **`SpeechDemo-Models-Enumeration`**:
-  `ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel`,
-  `ModelCatalogViewModel_Constructor_PopulatedCatalog_SelectsFirstModel`
-- **`SpeechDemo-Models-StatePresentation`**:
-  `ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException`,
-  `ModelListItemViewModel_Constructor_Descriptor_CarriesDescriptorIdentityAndState`,
-  `ModelListItemViewModel_StatusText_EachState_ReturnsReadableCaption`,
-  `ModelListItemViewModel_CanDownload_EachState_ReflectsRetryPolicy`,
-  `ModelListItemViewModel_IsDownloading_DownloadingState_ReturnsTrue`,
-  `ModelListItemViewModel_HasFailureMessage_ReflectsPresenceOfMessage`,
-  `ModelListItemViewModel_State_Changed_NotifiesDerivedProperties`
-- **`SpeechDemo-Models-Refresh`**:
-  `ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection`,
-  `ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack`,
-  `ModelCatalogViewModel_RefreshCommand_Executed_ReReadsCatalog`
-- **`SpeechDemo-Models-LibraryCatalogDelegation`**:
-  `ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException`,
-  `ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem`,
-  `ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException`,
-  `ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks`,
-  `ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException`
-- **`SpeechDemo-Models-DownloadProgress`**:
-  `ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress`,
-  `ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded`
-- **`SpeechDemo-Models-DownloadOutcomes`**:
-  `ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure`,
-  `ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage`,
-  `ModelCatalogViewModel_DownloadAsync_SeamThrows_ContainsFaultInRow`,
-  `ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded`
-- **`SpeechDemo-Models-DownloadRetry`**:
-  `ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage`
-- **`SpeechDemo-Models-DownloadGuard`**:
-  `ModelCatalogViewModel_DownloadAsync_AlreadyInstalledModel_DoesNotDownload`,
-  `ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing`
-- **`SpeechDemo-Models-EmptyCatalogExplanation`**:
-  `ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState`,
-  `ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels`
-- **`SpeechDemo-Models-InstallNotification`**:
-  `ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole`,
-  `ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled`
-- **`SpeechDemo-Models-MirrorRebuild`**:
-  `ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory`
-- **`SpeechDemo-Models-MirrorRequiresFactory`**:
-  `ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException`,
-  `ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException`
-- **`SpeechDemo-Models-MirrorCatalogOwnership`**:
-  `ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog`,
-  `ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog`,
-  `ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog`
-- **`SpeechDemo-Models-MirrorSettingsUi`**:
-  `ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields`,
-  `ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess`,
-  `ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror`,
-  `ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService`,
-  `ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService`,
-  `ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError`
-- **`SpeechDemo-Models-MirrorBlockedDuringDownload`**:
-  `ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError`
+**Scenario**: The panel is created over a service that has no voice library.
 
-### Acceptance Criteria
+**Expected**: The voice packs list is empty and the reference voices section is hidden.
 
-A ModelCatalogSubsystem test run passes when: the adapter forwards to the library without adding
-or hiding anything and never disposes a catalog it does not own; the panel shows one row per
-reported model and rebuilds correctly on refresh; every download outcome — success, progress,
-checksum mismatch, transport failure, seam fault, and cancellation — is reported as a row state
-with an honest explanation rather than as an application error; an installed model is never
-re-downloaded; an empty catalog is explained rather than shown blank; `ModelInstalled` fires
-exactly once with the correct model id and role for a genuine install, and never for a failed
-download; a factory-constructed adapter rebuilds and takes ownership of its catalog when the
-mirror changes while a no-factory adapter rejects reconfiguration outright; and the panel's
-mirror-settings fields apply a valid mirror (or revert to each model's own public URI on a blank
-URL) while reporting any validation or reconfiguration failure as an explained panel state.
+#### ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
+
+**Scenario**: The panel is created with launch-time mirror values.
+
+**Expected**: The mirror settings fields start with those values.
+
+#### ModelCatalogViewModel_Constructor_VoicePacks_ShowsConsentNote
+
+**Scenario**: The panel is created over a service that offers voice packs.
+
+**Expected**: The voice-cloning consent note is shown in the panel.
+
+#### ModelCatalogViewModel_RefreshAsync_SeamFault_ReportedAndRowsKept
+
+**Scenario**: The service throws while the catalog is re-read.
+
+**Expected**: The panel reports an explained error and keeps the rows it already shows.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_BlankUrl_AppliesNullMirror
+
+**Scenario**: The mirror URL is cleared and applied.
+
+**Expected**: The service receives no mirror, so later downloads use each model's own public URI.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_ReloadFault_ReportedInPanel
+
+**Scenario**: The mirror is applied but re-reading the catalog afterwards faults.
+
+**Expected**: The fault is reported in the panel rather than thrown.
+
+#### ModelCatalogViewModel_ApplyMirrorAsync_ServiceRejectsReconfiguration_ReportsError
+
+**Scenario**: The service refuses to reconfigure for the mirror.
+
+**Expected**: The panel reports a mirror error with the service's message instead of throwing.

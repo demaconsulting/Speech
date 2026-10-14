@@ -51,8 +51,20 @@ internal sealed class FakeCaptureDeviceSource : ICliCaptureDeviceSource
     ///     selection is known to <paramref name="captureProbe"/>, or <see langword="null"/> to
     ///     use a fake, available device.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="captureProbe"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="device"/> is not available, because the
+    ///     <see cref="ICliCaptureDeviceSource"/> contract requires a known selection to resolve to a
+    ///     usable device.
+    /// </exception>
     public FakeCaptureDeviceSource(IAudioCaptureDeviceProbe captureProbe, IAudioCaptureDevice? device = null)
     {
+        ArgumentNullException.ThrowIfNull(captureProbe);
+        if (device is { IsAvailable: false })
+        {
+            throw new ArgumentException("The device returned for a known selection must be available.", nameof(device));
+        }
+
         CaptureProbe = captureProbe;
         _device = device ?? new FakeAudioCaptureDevice();
     }

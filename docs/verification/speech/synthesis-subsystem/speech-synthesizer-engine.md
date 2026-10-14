@@ -7,7 +7,8 @@
 so no downloaded model and no platform-specific native speech-inference binary is ever needed. Its
 exclusivity lease is verified by driving two sequential `CreateSessionAsync` calls - the second
 before the first session is disposed, then again after - and asserting
-`SynthesisEngineBusyException` in the first case and success in the second. Disposal ordering
+`SynthesisEngineBusyException` in the first case and success in the second (the exception type
+itself is described in its own document, _SynthesisEngineBusyException_). Disposal ordering
 (active leased session disposed before the owned backend) is verified by asserting the fake
 backend's dispose call is observed only after the session's own teardown has run.
 
@@ -31,5 +32,23 @@ overloads are verified to create and dispose a fresh session per call.
 
 #### Test Scenarios
 
-See the SynthesisSubsystem-level scenarios "Engine: Session Exclusivity and Lease Lifecycle" and
-"Engine: One-Shot Convenience Overloads".
+##### Engine: Session Exclusivity and Lease Lifecycle
+
+**Tests**: `SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
+`SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession`,
+`SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`,
+`SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain`,
+`SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
+`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`,
+`SpeechSynthesizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState`
+
+One lease at a time, fail-fast busy exception, reuse after disposal, and ordered, idempotent
+disposal.
+
+##### Engine: One-Shot Convenience Overloads
+
+**Tests**: `SpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime`,
+`SpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments`
+
+Each one-shot call creates and disposes its own session.

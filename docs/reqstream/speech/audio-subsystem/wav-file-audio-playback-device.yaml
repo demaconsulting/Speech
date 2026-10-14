@@ -25,15 +25,23 @@ sections:
               - id: Speech-Audio-WavFileAudioPlaybackDevice-WriteEncodesPcm
                 title: >-
                   The WavFileAudioPlaybackDevice class shall encode every sample supplied to
-                  Write as 16-bit PCM into a RIFF/WAVE file, clamping each sample to [-1.0, 1.0]
-                  before scaling so a sample at or beyond the clamp boundary maps to the nearest
-                  valid 16-bit value rather than overflowing into an unrelated sample on the wire.
+                  Write as 16-bit PCM into a RIFF/WAVE file.
                 justification: |
                   Promoting the demo's temporary WavFileWriter byte-layout into a permanent
-                  public library type must not subtly diverge in clamping/rounding behavior; the
+                  public library type must not subtly diverge in rounding behavior; the
                   same round-trip fidelity previously informal must now be tested and guaranteed.
                 tests:
                   - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-WriteClampsSamples
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall clamp each sample to [-1.0, 1.0]
+                  before scaling, so a sample at or beyond the clamp boundary maps to the nearest
+                  valid 16-bit value rather than overflowing into an unrelated sample on the wire.
+                justification: |
+                  Out-of-range synthesized samples must not wrap around and produce loud
+                  artifacts in the written file.
+                tests:
                   - WavFileAudioPlaybackDevice_Write_SamplesBeyondClampBoundary_ClampToNearestValidValue
 
               - id: Speech-Audio-WavFileAudioPlaybackDevice-ReportsConstructedFormat
@@ -60,29 +68,49 @@ sections:
               - id: Speech-Audio-WavFileAudioPlaybackDevice-FinalizesHeaderOnDispose
                 title: >-
                   The WavFileAudioPlaybackDevice class shall patch the RIFF and data chunk sizes
-                  with the total bytes written when disposed, and shall tolerate being disposed
-                  more than once.
+                  with the total bytes written when disposed.
                 justification: |
                   The total sample count is not known until writing stops, so the header must be
-                  patched after the fact; a caller that disposes twice (for example, via both an
-                  explicit call and a using block) must not fault.
+                  patched after the fact.
                 tests:
                   - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-DisposeIsIdempotent
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall tolerate being disposed more than once.
+                justification: |
+                  A caller that disposes twice (for example, via both an explicit call and a
+                  using block) must not fault.
+                tests:
                   - WavFileAudioPlaybackDevice_Dispose_CalledTwice_DoesNotThrow
 
               - id: Speech-Audio-WavFileAudioPlaybackDevice-ArgumentValidation
                 title: >-
-                  The WavFileAudioPlaybackDevice class shall validate its constructor arguments
-                  and Write's sample buffer, and shall reject Write after disposal.
+                  The WavFileAudioPlaybackDevice class shall validate its constructor arguments.
                 justification: |
-                  Invalid construction arguments or a null sample buffer are programming errors
-                  that should surface immediately rather than corrupt the written file; writing
-                  after disposal must not silently write into a closed stream.
+                  Invalid construction arguments are programming errors that should surface
+                  immediately rather than corrupt the written file.
                 tests:
                   - WavFileAudioPlaybackDevice_Constructor_NullOrEmptyPath_ThrowsArgumentException
                   - WavFileAudioPlaybackDevice_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
                   - WavFileAudioPlaybackDevice_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-WriteBufferValidation
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall reject a null sample buffer passed to
+                  Write.
+                justification: |
+                  A null sample buffer is a programming error that should surface immediately.
+                tests:
                   - WavFileAudioPlaybackDevice_Write_NullSamples_ThrowsArgumentNullException
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-WriteAfterDisposeRejected
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall reject Write after disposal with
+                  ObjectDisposedException.
+                justification: |
+                  Writing after disposal must not silently write into a closed stream.
+                tests:
                   - WavFileAudioPlaybackDevice_Write_AfterDispose_ThrowsObjectDisposedException
 
               - id: Speech-Audio-WavFileAudioPlaybackDevice-StartStopAreNoOps

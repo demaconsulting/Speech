@@ -80,6 +80,62 @@ public class WavFileAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that 16-bit PCM samples are converted to floats normalized by 32767, which
+    ///     verifies the numerical result of the vectorized conversion and division rather than
+    ///     only the sample count.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats()
+    {
+        // Arrange: a mono 16-bit PCM file holding known sample values
+        short[] pcm = [0, 32767, -32767, 16384];
+        var path = CreateTempWavPath();
+        try
+        {
+            using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+            using (var writer = new BinaryWriter(stream))
+            {
+                var dataLength = pcm.Length * sizeof(short);
+                writer.Write("RIFF"u8);
+                writer.Write(36 + dataLength);
+                writer.Write("WAVE"u8);
+                writer.Write("fmt "u8);
+                writer.Write(16);
+                writer.Write((short)1);
+                writer.Write((short)1);
+                writer.Write(16000);
+                writer.Write(32000);
+                writer.Write((short)2);
+                writer.Write((short)16);
+                writer.Write("data"u8);
+                writer.Write(dataLength);
+                foreach (var sample in pcm)
+                {
+                    writer.Write(sample);
+                }
+            }
+
+            var device = new WavFileAudioCaptureDevice(path);
+            var delivered = new List<float>();
+            device.FrameCaptured += (_, args) => delivered.AddRange(args.Samples);
+
+            // Act: deliver the whole file
+            device.Start();
+
+            // Assert: each delivered sample is the PCM value divided by 32767
+            Assert.Equal(pcm.Length, delivered.Count);
+            for (var i = 0; i < pcm.Length; i++)
+            {
+                Assert.Equal(pcm[i] / 32767f, delivered[i], 6);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Proves that <see cref="WavFileAudioCaptureDevice.EndOfFileReached"/> fires exactly
     ///     once, after the last <see cref="IAudioCaptureDevice.FrameCaptured"/> event, when the
     ///     fixture file is fully consumed.

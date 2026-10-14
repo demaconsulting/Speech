@@ -1,0 +1,54 @@
+---
+# Software Unit Requirements for DitherNoise
+#
+# These requirements describe the design-level behavior of the DitherNoise unit, the seeded
+# deterministic noise source that keeps digital silence from producing an exactly-zero log-mel input,
+# decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# DitherNoiseTests.cs.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: DitherNoise Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
+                title: >-
+                  The DitherNoise class shall give the same noise sequence for the same seed, and
+                  shall restart the sequence on Reset.
+                justification: |
+                  Deterministic dither keeps recognition results reproducible, which is
+                  essential for verifying them.
+                tests:
+                  - Apply_SameSeed_IsDeterministicAndResettable
+
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-SeedVariation
+                title: >-
+                  The DitherNoise class shall give a different noise sequence for a different
+                  seed.
+                justification: |
+                  The seed must actually select the sequence, or it would be meaningless.
+                tests:
+                  - Apply_DifferentSeeds_Differ
+
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
+                title: >-
+                  The DitherNoise class shall add zero-mean Gaussian noise whose standard
+                  deviation, measured over at least 100000 samples, is within 10% of the
+                  configured amplitude.
+                justification: |
+                  The dither must be tiny enough not to disturb speech yet large enough to avoid
+                  the exact-zero log-mel degeneracy of digital silence.
+                tests:
+                  - Apply_Statistics_MatchAmplitude
+
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-ZeroAmplitude
+                title: >-
+                  The DitherNoise class shall leave samples unchanged for an amplitude of zero.
+                justification: |
+                  The dither must be disableable.
+                tests:
+                  - Apply_ZeroAmplitude_LeavesSamples

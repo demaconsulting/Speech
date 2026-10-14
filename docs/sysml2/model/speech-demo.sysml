@@ -20,5 +20,11 @@ package SpeechDemo {
         part modelSettingsSubsystem : ModelSettingsSubsystem;
         part synthesisPanelSubsystem : SynthesisPanelSubsystem;
         part recognitionPanelSubsystem : RecognitionPanelSubsystem;
+        part app : App;
+        part appLaunchOptions : AppLaunchOptions;
+        part mirrorOptionsFactory : MirrorOptionsFactory;
+        part program : Program;
+        part avalonia : Avalonia;
+        part communityToolkitMvvm : CommunityToolkitMvvm;
     }
 }

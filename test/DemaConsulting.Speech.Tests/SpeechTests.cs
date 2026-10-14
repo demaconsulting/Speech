@@ -18,6 +18,43 @@ namespace DemaConsulting.Speech.Tests;
 /// </summary>
 public class SpeechTests
 {
+    /// <summary>Upper bound for awaiting an asynchronous result in a test, so a regression fails instead of hanging.</summary>
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     Advances a result enumerator, failing the test instead of hanging if nothing arrives.
+    /// </summary>
+    /// <typeparam name="T">The enumerated item type.</typeparam>
+    /// <param name="enumerator">The enumerator to advance.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns><see langword="true"/> if an item is available; <see langword="false"/> at end of stream.</returns>
+    private static async Task<bool> NextAsync<T>(IAsyncEnumerator<T> enumerator, CancellationToken cancellationToken)
+    {
+        var next = enumerator.MoveNextAsync();
+        return await next.AsTask().WaitAsync(Timeout, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Best-effort scratch-directory cleanup: a locked file or a missing directory must never
+    ///     mask the test's own assertion failure.
+    /// </summary>
+    /// <param name="path">The scratch directory to delete.</param>
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup only.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup only.
+        }
+    }
+
     /// <summary>
     ///     Proves that the composed system returns real PortAudio-backed device abstractions when PortAudio initializes.
     /// </summary>
@@ -131,11 +168,9 @@ public class SpeechTests
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var device = factory.CreateCaptureDevice();
 
-        // Act & Assert: the factory's own default probe reports no capture devices, so it returns
-        // the honest unavailable fallback (consistent with AudioDeviceFactory_CreateCaptureDevice
-        // now consulting CaptureProbe before constructing a real device) rather than a real,
-        // resolved-but-unavailable PortAudioCaptureDevice - starting it still throws the same
-        // documented exception either way.
+        // Act & Assert: the factory consults its default capture probe, which reports no capture
+        // devices, so it returns the honest unavailable fallback. Starting that device throws the
+        // documented exception.
         Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
         Assert.False(device.IsAvailable);
         Assert.Throws<AudioDeviceUnavailableException>(device.Start);
@@ -177,7 +212,7 @@ public class SpeechTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TryDeleteDirectory(testRoot);
         }
     }
 
@@ -224,7 +259,7 @@ public class SpeechTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TryDeleteDirectory(testRoot);
         }
     }
 
@@ -250,47 +285,44 @@ public class SpeechTests
             captureDevice.SampleRate.Returns(16000);
             captureDevice.ChannelCount.Returns(1);
             var backendFactory = new FakeRecognitionEngineFactory(new FakeRecognitionEngine(
-            [
-                new SpeechRecognitionResult("hello", IsFinal: false),
-                new SpeechRecognitionResult("hello world", IsFinal: true)
-            ]));
+                scriptedResults: [new SpeechRecognitionResult("hello", IsFinal: false)],
+                scriptedFlushResult: new SpeechRecognitionResult("hello world", IsFinal: true)));
 
-            // Act: load the engine, create a session, stream one captured block, and drain the pipeline
+            // Act: load the engine and create a session
             var cancellationToken = TestContext.Current.CancellationToken;
             await using var engine = await SpeechRecognizerFactory.LoadAsync(
                 new FakeRecognitionModel(), installedModelDirectory, null, backendFactory,
                 cancellationToken: cancellationToken);
             await using var session = await engine.CreateSessionAsync(captureDevice, cancellationToken);
+            await using var results = session.GetResultsAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
 
-            var received = new List<SpeechRecognitionResult>();
-            var pump = Task.Run(async () =>
-            {
-                await foreach (var evt in session.GetResultsAsync(cancellationToken))
-                {
-                    received.Add(evt.Result);
-                }
-            }, cancellationToken);
-
+            // Act: stream one captured block; the backend decodes only a provisional result for it
             await session.StartAsync(cancellationToken);
             captureDevice.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
                 captureDevice,
                 new AudioCaptureFrameEventArgs([0.1f, 0.2f, 0.3f]));
-            await session.StopAsync(cancellationToken);
-            await pump;
 
-            // Assert: the system produced the final recognition result from the captured audio.
-            // The scripted provisional result ("hello") arrived before the consumer started
-            // draining, and its own final ("hello world") was buffered before it was ever read,
-            // so the provisional was superseded rather than delivered as a stale partial
-            // transcript trailing its own final (Decision #5).
+            // Act: consume the provisional result BEFORE stopping, so ordering never depends on
+            // scheduling; stopping then flushes the backend's trailing final result
+            Assert.True(await NextAsync(results, cancellationToken));
+            var provisional = results.Current.Result;
+            await session.StopAsync(cancellationToken);
+            Assert.True(await NextAsync(results, cancellationToken));
+            var final = results.Current.Result;
+            var streamEnded = !await NextAsync(results, cancellationToken);
+
+            // Assert: the system surfaced a provisional result followed by the final result, in
+            // that order, and then completed the stream
             Assert.True(session.IsAvailable);
-            var result = Assert.Single(received);
-            Assert.True(result.IsFinal);
-            Assert.Equal("hello world", result.Text);
+            Assert.False(provisional.IsFinal);
+            Assert.Equal("hello", provisional.Text);
+            Assert.True(final.IsFinal);
+            Assert.Equal("hello world", final.Text);
+            Assert.True(streamEnded);
         }
         finally
         {
-            Directory.Delete(installedModelDirectory, recursive: true);
+            TryDeleteDirectory(installedModelDirectory);
         }
     }
 
@@ -315,26 +347,138 @@ public class SpeechTests
             playbackDevice.IsAvailable.Returns(true);
             playbackDevice.SampleRate.Returns(16000);
             playbackDevice.ChannelCount.Returns(1);
-            var backendFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
+            var synthesisEngine = new FakeSynthesisEngine(sampleRate: 16000);
+            var backendFactory = new FakeSynthesisEngineFactory(synthesisEngine);
 
-            // Act: load the engine, create a session, and speak one plain-text utterance end to end
+            // Act: load the engine, create a session, and speak one tagged utterance end to end
             var cancellationToken = TestContext.Current.CancellationToken;
             await using var engine = await SpeechSynthesizerFactory.LoadAsync(
                 new FakeSynthesisModel(), installedModelDirectory, null, backendFactory,
                 cancellationToken: cancellationToken);
             Assert.True(engine.IsAvailable);
             await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken);
-            await session.SpeakAsync("hello world", cancellationToken);
+            await session.SpeakAsync("[fast] hello world", cancellationToken);
 
             // Assert: the system started the device, wrote at least one block of audio, and stopped it
             playbackDevice.Received(1).Start();
             playbackDevice.Received().Write(Arg.Any<IReadOnlyList<float>>());
             playbackDevice.Received(1).Stop();
+
+            // Assert: the Layer 2 tag was rendered into a speed override and stripped from the text
+            var call = Assert.Single(synthesisEngine.GenerateCalls);
+            Assert.True(call.Speed > 1.0f);
+            Assert.Equal("hello world", call.Text.Trim());
         }
         finally
         {
-            Directory.Delete(installedModelDirectory, recursive: true);
+            TryDeleteDirectory(installedModelDirectory);
         }
+    }
+
+    /// <summary>
+    ///     Proves the file-backed devices work as a system without audio hardware: speech
+    ///     synthesized through a real <see cref="ISynthesisSession"/> is written to a WAV file by
+    ///     <see cref="WavFileAudioPlaybackDevice"/>, and the same file then streams back through
+    ///     <see cref="WavFileAudioCaptureDevice"/> as captured frames with the written format.
+    /// </summary>
+    [Fact]
+    public async Task Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile()
+    {
+        // Arrange: a scratch model directory, a WAV output path, and a deterministic backend
+        var root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var wavPath = Path.Join(root, "speech.wav");
+        try
+        {
+            var backendFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
+            var cancellationToken = TestContext.Current.CancellationToken;
+
+            // Act: synthesize into the file-backed playback device, then replay the file
+            using (var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 16000, 1))
+            {
+                await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                    new FakeSynthesisModel(), root, null, backendFactory, cancellationToken: cancellationToken);
+                await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken);
+                await session.SpeakAsync("hello world", cancellationToken);
+            }
+
+            // The capture device is not IDisposable; Start() delivers the whole file synchronously
+            // before returning, so every frame is counted before the assertions run. Stop() in the
+            // finally releases any file handle before the scratch directory is deleted.
+            var captureDevice = new WavFileAudioCaptureDevice(wavPath);
+            try
+            {
+                var capturedSampleCount = 0;
+                captureDevice.FrameCaptured += (_, args) => capturedSampleCount += args.Samples.Count;
+                captureDevice.Start();
+
+                // Assert: the file holds the synthesized audio in the written format
+                Assert.True(File.Exists(wavPath));
+                Assert.True(capturedSampleCount > 0);
+                Assert.Equal(16000, captureDevice.SampleRate);
+                Assert.Equal(1, captureDevice.ChannelCount);
+            }
+            finally
+            {
+                captureDevice.Stop();
+            }
+        }
+        finally
+        {
+            TryDeleteDirectory(root);
+        }
+    }
+
+    /// <summary>
+    ///     Proves managed audio-file decoding works through the public API alone: a FLAC file and
+    ///     its WAV twin read to identical clips, the container is detected by content rather
+    ///     than extension, and a stereo clip converts to mono at a requested rate.
+    /// </summary>
+    [Fact]
+    public void Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent()
+    {
+        // Arrange: a FLAC fixture, its WAV twin, and a copy of the FLAC under an unrelated extension
+        var directory = Path.Combine(AppContext.BaseDirectory, "TestData", "flac");
+        var renamedPath = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.dat");
+        File.Copy(Path.Combine(directory, "stereo-16-48000.flac"), renamedPath);
+        try
+        {
+            // Act
+            var flac = AudioFileReader.Read(Path.Combine(directory, "stereo-16-48000.flac"));
+            var wav = AudioFileReader.Read(Path.Combine(directory, "stereo-16-48000.wav"));
+            var sniffed = AudioFileReader.Read(renamedPath);
+            var (monoSamples, monoRate) = AudioFileReader.ReadMono(Path.Combine(directory, "stereo-16-48000.flac"));
+
+            // Assert: identical decode, content-based detection, and mono conversion
+            Assert.Equal(wav.Samples, flac.Samples);
+            Assert.Equal(wav.SampleRate, flac.SampleRate);
+            Assert.Equal(2, flac.ChannelCount);
+            Assert.Equal(flac.Samples, sniffed.Samples);
+            Assert.Equal(flac.Samples.Length / 2, monoSamples.Length);
+            Assert.Equal(flac.SampleRate, monoRate);
+        }
+        finally
+        {
+            File.Delete(renamedPath);
+        }
+    }
+
+    /// <summary>
+    ///     Proves the closed audio-tag vocabulary is usable through the public parser alone: a
+    ///     known tag becomes a tag span and an unrecognized bracketed phrase passes through as
+    ///     plain narration text rather than being dropped or rejected.
+    /// </summary>
+    [Fact]
+    public void Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough()
+    {
+        // Act
+        var spans = AudioTagParser.Parse("Hello [laughs] world [nonsense].");
+
+        // Assert: exactly one tag span, and the unknown bracket survives in the narration text
+        var tagSpan = Assert.Single(spans, span => span.Kind == TaggedTextSpanKind.Tag);
+        Assert.Equal(NaturalLanguageAudioTag.Laughs, tagSpan.Tag);
+        var narration = string.Concat(spans.Where(span => span.Kind == TaggedTextSpanKind.PlainText).Select(span => span.Text));
+        Assert.Contains("[nonsense]", narration);
     }
 
     /// <summary>

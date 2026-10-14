@@ -8,8 +8,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackend.cs, IRecognitionBackendFactory.cs, DefaultRecognitionBackendFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs */
-        comment designRef /* Design: docs/design/speech/recognition-subsystem/recognition-session.md (documented with the pipeline it serves) */
-        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/recognition-session.md (documented with the pipeline it serves) */
-        comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/recognition-session.yaml */
+        comment designRef /* Design: docs/design/speech/recognition-subsystem/recognition-backend.md */
+        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/recognition-backend.md */
+        comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/recognition-backend.yaml */
     }
 }

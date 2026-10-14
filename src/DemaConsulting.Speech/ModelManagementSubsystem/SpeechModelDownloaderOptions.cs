@@ -5,6 +5,12 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     model's declared files.
 /// </summary>
 /// <remarks>
+///     Instances are immutable after initialization (the type is a record with an init-only
+///     <see cref="Mirror"/>), so one instance is safe to share between threads and between downloader
+///     instances. The referenced <see cref="DownloadMirror"/> exposes its optional
+///     <see cref="System.Net.NetworkCredential"/> as supplied, so a caller must not modify that credentials
+///     object after handing it to the mirror.
+///
 ///     Per this library's "universal download mirror" decision, a host almost never needs to
 ///     supply this type - when omitted (or <see cref="Mirror"/> is left <see langword="null"/>),
 ///     every file is fetched from exactly the URI its own

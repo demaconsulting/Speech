@@ -1,0 +1,26 @@
+---
+# Software Unit Requirements for AudioDeviceInUseException
+#
+# These requirements describe the design-level behavior of the AudioDeviceInUseException
+# unit. The refresh-refusal behavior that throws it is owned by the PortAudioEnvironment
+# requirements (port-audio/port-audio-environment.yaml).
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioDeviceInUseException Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceInUseException-Constructors
+                title: >-
+                  The AudioDeviceInUseException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, mirroring
+                  AudioDeviceUnavailableException's identical constructor pattern.
+                tests:
+                  - AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage
+                  - AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth
+                  - AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage

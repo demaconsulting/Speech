@@ -1,0 +1,120 @@
+---
+# Software Unit Requirements for the SpeechCli Validation
+#
+# These requirements describe the design-level behavior of the Validation unit - the hardware- and
+# network-independent --validate self-test - decomposing system-level requirements in
+# docs/reqstream/speech-cli.yaml. There is no dedicated test class; the tests are ProgramTests tests
+# and IntegrationTests tests that run the real --validate path.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: Validation Requirements
+        requirements:
+          - id: SpeechCli-Validation-Checks
+            title: >-
+              The Validation unit shall report the version display check as passed on a
+              functional installation.
+            justification: |
+              This check confirms that the installed tool can report its version.
+            tests:
+              - Program_Run_WithValidateFlag_ReportsVersionCheckPassed
+
+          - id: SpeechCli-Validation-HelpCheck
+            title: >-
+              The Validation unit shall report the help display check as passed on a functional
+              installation.
+            justification: |
+              This check confirms that the usage text lists every subcommand.
+            tests:
+              - Program_Run_WithValidateFlag_ReportsHelpCheckPassed
+
+          - id: SpeechCli-Validation-SubcommandRegistrationCheck
+            title: >-
+              The Validation unit shall report the subcommand registration check as passed when
+              every registered subcommand has a unique name, a usage summary and a handler.
+            justification: |
+              This check confirms that the set of subcommands the tool recognizes is well formed.
+            tests:
+              - Program_Run_WithValidateFlag_ReportsSubcommandRegistrationCheckPassed
+
+          - id: SpeechCli-Validation-AudioBackendCheck
+            title: >-
+              The Validation unit shall report the audio backend check as passed when the audio
+              devices can be enumerated without error, even if none are found.
+            justification: |
+              This check confirms that the audio backend is usable without requiring hardware.
+            tests:
+              - Program_Run_WithValidateFlag_ReportsAudioBackendCheckPassed
+
+          - id: SpeechCli-Validation-ModelStoreCheck
+            title: >-
+              The Validation unit shall report the model store check as passed when the model
+              store folder can be created and written to.
+            justification: |
+              This check confirms that models can be installed on the host.
+            tests:
+              - Program_Run_WithValidateFlag_ReportsModelStoreCheckPassed
+
+          - id: SpeechCli-Validation-Summary
+            title: >-
+              The Validation unit shall print a summary of the total, passed and failed check
+              counts.
+            justification: |
+              Operators and scripts read the totals to judge the outcome.
+            tests:
+              - Program_Run_WithValidateFlag_PrintsSummaryTotals
+              - Program_Run_WithValidateFlag_RunsValidation
+
+          - id: SpeechCli-Validation-HardwareIndependence
+            title: >-
+              The Validation unit shall pass on a host with no installed model, no network access
+              and no audio hardware.
+            justification: |
+              Qualification must be repeatable on any build agent.
+            tests:
+              - SpeechCli_ValidateFlag_Provided_RunsValidation
+
+          - id: SpeechCli-Validation-ResultsFile
+            title: >-
+              The Validation unit shall write a TRX file when the results path has a .trx
+              extension.
+            justification: |
+              Qualification evidence is consumed by test-result tooling in this format.
+            tests:
+              - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
+
+          - id: SpeechCli-Validation-ResultsFileJUnit
+            title: >-
+              The Validation unit shall write a JUnit file when the results path has a .xml
+              extension.
+            justification: |
+              Qualification evidence is consumed by test-result tooling in this format.
+            tests:
+              - Program_Main_ValidateWithXmlResults_WritesJUnitFile
+
+          - id: SpeechCli-Validation-HeadingDepth
+            title: >-
+              The Validation unit shall honor the heading depth when printing the report.
+            justification: |
+              The report is embedded in larger documents at varying heading levels.
+            tests:
+              - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
+
+          - id: SpeechCli-Validation-ResultsErrors
+            title: >-
+              The Validation unit shall report an unsupported results file extension as an error,
+              write no results file and return exit code 1.
+            justification: |
+              Qualification evidence that was requested but not produced must fail the run.
+            tests:
+              - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
+
+          - id: SpeechCli-Validation-ResultsUnwritableError
+            title: >-
+              The Validation unit shall report an unwritable results path as an error and return
+              exit code 1.
+            justification: |
+              Qualification evidence that was requested but not produced must fail the run.
+            tests:
+              - Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode

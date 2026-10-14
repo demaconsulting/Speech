@@ -12,18 +12,18 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     plays the resulting audio through this session's bound playback device.
 /// </summary>
 /// <remarks>
-///     Moved here from the former <c>SherpaOnnxSpeechSynthesizer</c>: the chunking/pipelined-
-///     generation logic and playback-device ownership are unchanged in substance, now wrapped in
-///     an explicit state machine (<see cref="SynthesisSessionState"/>), an overlap guard (at most
-///     one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> call in flight at a time), and
-///     per-segment native calls routed through <see cref="DedicatedWorker"/> for the
-///     cooperative-cancel-then-abandon policy.
+///     The session runs an explicit state machine (<see cref="SynthesisSessionState"/>), an
+///     overlap guard (at most one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> call in
+///     flight at a time), and routes per-segment native calls through <see cref="DedicatedWorker"/>
+///     for the cooperative-cancel-then-abandon policy.
 ///     <para>
-///     Unlike the former streaming pipeline, this session does not pipeline synthesis ahead of
-///     playback across an unbounded channel: each segment is synthesized, then (for
+///     Synthesis is not pipelined ahead of playback: each segment is synthesized, then (for
 ///     <see cref="SpeakAsync"/>) written to the playback device, before the next segment's
-///     synthesis begins. This keeps the per-call state machine simple (one worker call in flight
-///     at a time) while still overlapping this call's own synthesis-then-playback work normally.
+///     synthesis begins, so exactly one worker call is in flight at a time. Playback of an early
+///     segment can begin after only that segment has been synthesized.
+///     </para>
+///     <para>
+///     The session does not own or dispose the backend; the creating engine does.
 ///     </para>
 /// </remarks>
 internal sealed class SynthesisSession : ISynthesisSession
@@ -190,16 +190,14 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     with that validation.
     /// </summary>
     /// <remarks>
-    ///     Validation and registration both run inside one <see cref="_syncRoot"/> critical
-    ///     section, including the call into <see cref="RunOperationAsync"/> itself: <c>lock</c> is
-    ///     reentrant on the same thread, and calling an <see langword="async"/> method runs it
-    ///     synchronously up to its first genuine <see langword="await"/> before control returns
-    ///     here with a <see cref="Task"/> handle - so <see cref="RunOperationAsync"/>'s own state
-    ///     transitions to <see cref="SynthesisSessionState.Running"/> have already happened by the
-    ///     time <see cref="_operationTask"/> is assigned below. This closes the window where a
-    ///     concurrent <see cref="DisposeAsync"/> could otherwise observe <see cref="_operationTask"/>
-    ///     as <see langword="null"/> while the operation is already inside
-    ///     <see cref="GenerateSegmentAsync"/>/native <c>Generate</c>.
+    ///     Validation, the move to <see cref="SynthesisSessionState.Starting"/> and registration of the in-flight
+    ///     operation (a tracker task that completes when the operation settles, so it exists before any of the
+    ///     operation runs) all happen inside one <see cref="_syncRoot"/> critical section. This closes the window
+    ///     where a concurrent <see cref="DisposeAsync"/> could otherwise observe <see cref="_operationTask"/> as
+    ///     <see langword="null"/> while the operation is already inside <see cref="GenerateSegmentAsync"/>/native
+    ///     <c>Generate</c>. The <see cref="StateChanged"/> notification for <c>Starting</c> and the operation itself
+    ///     then run after the lock is released, so handlers never execute under <see cref="_syncRoot"/>; the
+    ///     operation still runs synchronously on the caller's thread up to its first genuine await.
     /// </remarks>
     private Task<IReadOnlyList<SynthesizedSpeech>> StartOperation(
         string text,
@@ -207,6 +205,8 @@ internal sealed class SynthesisSession : ISynthesisSession
         CancellationToken callerToken)
     {
         var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        var tracker = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        SynthesisSessionState previous;
         lock (_syncRoot)
         {
             if (_disposeTask is not null)
@@ -229,12 +229,24 @@ internal sealed class SynthesisSession : ISynthesisSession
                     "session already has an operation in progress; await completion before calling again");
             }
 
+            previous = _state;
+            _state = SynthesisSessionState.Starting;
             _operationCancellation = operationCancellation;
-
-            var task = RunOperationAsync(text, playAfterSynthesis, operationCancellation);
-            _operationTask = task;
-            return task;
+            _operationTask = tracker.Task;
         }
+
+        RaiseStateChanged(previous, SynthesisSessionState.Starting);
+
+        var task = RunOperationAsync(text, playAfterSynthesis, operationCancellation);
+
+        // The tracker only tells StopAsync/DisposeAsync when the operation has settled; callers get the real task
+        _ = task.ContinueWith(
+            static (_, state) => ((TaskCompletionSource)state!).TrySetResult(),
+            tracker,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return task;
     }
 
     /// <inheritdoc/>
@@ -242,11 +254,11 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     Requests cancellation of any in-flight operation and awaits the tracked operation's own
     ///     completion, including its raw native-call completion (see
     ///     <see cref="_pendingNativeCompletion"/>) so an abandoned <see cref="DedicatedWorker"/>
-    ///     native call cannot still be running once this returns (finding 27), before returning,
+    ///     native call cannot still be running once this returns, before returning,
     ///     matching the documented <see cref="ISynthesisSession.StopAsync"/> contract that the
     ///     returned task completes once the in-flight operation has genuinely stopped.
     ///     <paramref name="cancellationToken"/> bounds only this caller's own wait for that
-    ///     teardown (finding 28), mirroring the recognition session's <c>StopAsync</c>: it never
+    ///     teardown, mirroring the recognition session's <c>StopAsync</c>: it never
     ///     aborts the underlying cancel-and-await work itself, which every other concurrent caller
     ///     (and <see cref="DisposeAsync"/>) still needs to complete regardless of whether this
     ///     particular caller stopped waiting for it.
@@ -313,7 +325,7 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     stopped while an abandoned native call is still demonstrably running.
     ///     <para>
     ///     This re-read, and the subsequent await, must happen even when
-    ///     <paramref name="operationTask"/> is itself <see langword="null"/> (finding 30):
+    ///     <paramref name="operationTask"/> is itself <see langword="null"/>:
     ///     <see cref="RunOperationAsync"/>'s abandon-fault handler clears <c>_operationTask</c>
     ///     (and <c>_operationCancellation</c>) as part of transitioning to
     ///     <see cref="SynthesisSessionState.Faulted"/>, while deliberately leaving
@@ -353,8 +365,8 @@ internal sealed class SynthesisSession : ISynthesisSession
         // deliberately leaves _pendingNativeCompletion set. Re-reading and awaiting that field
         // unconditionally (not only when operationTask was non-null) is what actually proves the
         // abandoned native call has genuinely returned before this method lets the caller
-        // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend reusable
-        // (finding 30).
+        // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend
+        // reusable.
         Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
@@ -386,7 +398,7 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     on success or genuine, promptly-honored cancellation, or to
     ///     <see cref="SynthesisSessionState.Faulted"/> on any other failure - including a
     ///     cancellation request the native <c>Generate</c> call did not honor within
-    ///     <see cref="DedicatedWorker"/>'s abandon timeout (finding 26), since that leaves the
+    ///     <see cref="DedicatedWorker"/>'s abandon timeout, since that leaves the
     ///     shared backend not safely reusable until the abandoned call genuinely returns.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
@@ -401,7 +413,6 @@ internal sealed class SynthesisSession : ISynthesisSession
         bool playAfterSynthesis,
         CancellationTokenSource operationCancellation)
     {
-        TransitionTo(SynthesisSessionState.Starting);
         TransitionTo(SynthesisSessionState.Running);
 
         try
@@ -422,7 +433,7 @@ internal sealed class SynthesisSession : ISynthesisSession
             // linked source) is even a candidate for normal cancellation. An
             // OperationCanceledException the backend throws on its own initiative, with no
             // cancellation actually requested, falls through to the general fault handler below
-            // instead (finding 9), since silently treating it as a clean stop would let a
+            // instead, since silently treating it as a clean stop would let a
             // genuinely broken backend be reused.
             Task? pendingNativeCompletion;
             lock (_syncRoot)
@@ -433,7 +444,7 @@ internal sealed class SynthesisSession : ISynthesisSession
             if (pendingNativeCompletion is not null && !pendingNativeCompletion.IsCompleted)
             {
                 // The native Generate call did not honor this request within DedicatedWorker's
-                // abandon timeout and is still running in the background (finding 26): the shared
+                // abandon timeout and is still running in the background: the shared
                 // backend is not safely reusable until that raw completion genuinely finishes, so
                 // - unlike a native call that stopped promptly - this is not a clean cancellation
                 // this session can return to Stopped from. Fault instead, which both reports the
@@ -726,6 +737,12 @@ internal sealed class SynthesisSession : ISynthesisSession
             }
 
             var ratio = doubleValue / parameter.Default;
+            if (!(ratio > 0.0) || double.IsInfinity(ratio))
+            {
+                // A non-positive or non-finite ratio is not a valid speed/volume multiplier.
+                continue;
+            }
+
             if (SpeechParameterConventions.IsSpeedParameter(parameterId))
             {
                 speedRatio = (float)ratio;
@@ -800,13 +817,21 @@ internal sealed class SynthesisSession : ISynthesisSession
 
         var sampleRate = _device.SampleRate > 0 ? _device.SampleRate : _backend.SampleRate;
         var channelCount = _device.ChannelCount > 0 ? _device.ChannelCount : 1;
-        var frameCount = (int)(duration.TotalSeconds * sampleRate);
+        var frameCount = (long)(duration.TotalSeconds * sampleRate);
         if (frameCount <= 0)
         {
             return;
         }
 
-        _device.Write(new float[frameCount * channelCount]);
+        // Written in bounded chunks (at most one second each) so a very long pause can neither
+        // overflow the int array size nor allocate one huge buffer.
+        var maxChunkFrames = Math.Max(1L, sampleRate);
+        while (frameCount > 0)
+        {
+            var chunkFrames = (int)Math.Min(frameCount, maxChunkFrames);
+            _device.Write(new float[chunkFrames * channelCount]);
+            frameCount -= chunkFrames;
+        }
     }
 
     /// <summary>
@@ -823,6 +848,14 @@ internal sealed class SynthesisSession : ISynthesisSession
             _state = newState;
         }
 
+        RaiseStateChanged(previous, newState);
+    }
+
+    /// <summary>Raises <see cref="StateChanged"/> (never while holding <see cref="_syncRoot"/>), isolating handler exceptions.</summary>
+    /// <param name="previous">The state before the transition.</param>
+    /// <param name="newState">The state after the transition.</param>
+    private void RaiseStateChanged(SynthesisSessionState previous, SynthesisSessionState newState)
+    {
         if (previous == newState)
         {
             return;
@@ -854,10 +887,43 @@ internal sealed class SynthesisSession : ISynthesisSession
     /// </remarks>
     public ValueTask DisposeAsync()
     {
+        TaskCompletionSource? completion = null;
+        Task disposeTask;
         lock (_syncRoot)
         {
-            _disposeTask ??= DisposeCoreAsync();
-            return new ValueTask(_disposeTask);
+            // Only publish the single-flight task under the lock; the teardown itself (which can
+            // run synchronously when the session is idle) starts after the lock is released so
+            // StateChanged handlers, cancellation callbacks and the engine's lease-release
+            // callback never execute under _syncRoot.
+            if (_disposeTask is null)
+            {
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+            }
+
+            disposeTask = _disposeTask;
+        }
+
+        if (completion is not null)
+        {
+            _ = RunDisposeAsync(completion);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    /// <summary>Runs <see cref="DisposeCoreAsync"/> outside the lock and relays its outcome to the published single-flight task.</summary>
+    /// <param name="completion">The completion source behind <see cref="_disposeTask"/>.</param>
+    private async Task RunDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 

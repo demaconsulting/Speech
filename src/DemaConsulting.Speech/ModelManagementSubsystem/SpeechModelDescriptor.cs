@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
 /// <summary>
@@ -46,4 +48,20 @@ public sealed record SpeechModelDescriptor
 
     /// <summary>Gets the canonical URL to the full text of the model's declared license, when known. Equivalent to <c>Model.LicenseUrl</c>.</summary>
     public Uri? LicenseUrl => Model.LicenseUrl;
+
+    /// <summary>
+    ///     Determines whether another descriptor describes the very same model instance in the same state.
+    /// </summary>
+    /// <param name="other">The descriptor to compare with.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="other"/> is not null, holds the same <see cref="Model"/>
+    ///     instance (reference identity, regardless of any equality the model type defines) and has the same
+    ///     <see cref="State"/>; otherwise <see langword="false"/>.
+    /// </returns>
+    public bool Equals(SpeechModelDescriptor? other) =>
+        other is not null && ReferenceEquals(Model, other.Model) && State == other.State;
+
+    /// <summary>Returns a hash code consistent with <see cref="Equals(SpeechModelDescriptor?)"/>.</summary>
+    /// <returns>A hash code combining the model's reference identity and the state.</returns>
+    public override int GetHashCode() => HashCode.Combine(RuntimeHelpers.GetHashCode(Model), State);
 }

@@ -1,0 +1,28 @@
+---
+# Software Unit Requirements for RecognitionResultBuffer
+#
+# These requirements describe the result-buffering backpressure policy between the
+# RecognitionSession pump thread and a possibly-slow GetResultsAsync consumer, decomposing the
+# parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: RecognitionResultBuffer Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
+                title: >-
+                  The RecognitionResultBuffer class shall coalesce queued provisional results
+                  down to a single latest-provisional slot while queuing every final result in a
+                  FIFO that never drops one, so GetResultsAsync can
+                  apply the documented backpressure policy without dropping a final result.
+                justification: |
+                  A session's result-delivery pipeline must never grow without bound merely
+                  because a consumer is temporarily slower than the recognition backend, but a
+                  provisional result's whole purpose is to be superseded, while a final result is
+                  a committed transcript line that must never be silently dropped.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults

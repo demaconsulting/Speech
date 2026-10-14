@@ -4,6 +4,9 @@ using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 using NSubstitute;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -38,7 +41,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
                 Directory.Delete(_testRoot, recursive: true);
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best-effort cleanup only; a leftover temp directory does not fail the test.
         }
@@ -184,6 +187,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         await client.DidNotReceive().DownloadAsync(
             Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
         diagnostics.Received(1).Report(SpeechDiagnosticLevel.Info, "ModelManagementSubsystem", Arg.Any<string>());
+        Assert.False(Directory.Exists(Path.Join(store.GetModelDirectory("model-a"), ".tmp")));
     }
 
     /// <summary>
@@ -220,7 +224,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
     /// <summary>
     ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model takes
-    ///     the Issue 3 fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
+    ///     the already-installed fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
     ///     without ever inspecting the second call's descriptor/checksum at all - leaving the
     ///     prior successful install completely untouched. This supersedes this library's earlier
     ///     "second call genuinely re-verifies and can report ChecksumMismatch" behavior: once
@@ -280,6 +284,35 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => downloader.DownloadAsync("model-a", descriptor, cancellationToken: cts.Token));
         Assert.False(store.IsInstalled("model-a"));
+        Assert.Empty(Directory.GetFiles(_testRoot, "*", SearchOption.AllDirectories));
+    }
+
+    /// <summary>
+    ///     Proves that disposing the downloader while a download using a caller-supplied client is
+    ///     still in flight neither fails that download nor throws from its lock release (the
+    ///     documented disposal race). A downloader-owned client is released by disposal and so
+    ///     gives no such guarantee; hosts cancel and await outstanding downloads first.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var store = NewStore();
+        var client = new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]> { [descriptor.Files[0].Uri] = payload });
+        var downloader = new SpeechModelDownloader(store, client);
+        var inFlight = downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        await client.FirstCallEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Act
+        downloader.Dispose();
+        client.ReleaseFirstCall();
+        var result = await inFlight;
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(store.IsInstalled("model-a"));
     }
 
     /// <summary>
@@ -336,7 +369,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var store = NewStore();
         var orderTrackingClient = new OrderTrackingModelDownloadClient(
             new Dictionary<Uri, byte[]> { [descriptorA.Files[0].Uri] = payloadA });
-        var downloader = new SpeechModelDownloader(store, orderTrackingClient);
+        using var downloader = new SpeechModelDownloader(store, orderTrackingClient);
 
         // Act: start a first download for "model-a" and wait until it has genuinely reached the
         // client (and is held open there), then start a second download for the same model id.
@@ -348,14 +381,18 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
         // Give the second call a brief window to run - since the first call still holds the
         // per-model-id lock open, the second call must still be queued behind it and so must not
-        // yet have reached the client.
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        // yet have reached the client or completed. This is a proof of a negative: absence cannot
+        // be awaited on directly (no event fires when a call stays queued), so the wait is bounded;
+        // the delay can only ever let a regression slip through, never fail a correct
+        // implementation, so it cannot cause a spurious failure on a slow machine.
+        await Task.Delay(200, TestContext.Current.CancellationToken);
         Assert.Equal(1, orderTrackingClient.CallCount);
+        Assert.False(taskB.IsCompleted);
 
         // Release the first call so it can complete and install the model. The second call was
         // genuinely serialized behind the first (never raced its atomic-swap install); once it
-        // acquires the lock in turn, it now observes the already-installed fast path added for
-        // Issue 3 and short-circuits to Installed without ever reaching the client a second time
+        // acquires the lock in turn, it now observes the already-installed fast path and
+        // short-circuits to Installed without ever reaching the client a second time
         // - proving both that serialization held (only entry order [1] was ever recorded) and
         // that the fast path itself is race-safe when checked while holding the same lock a
         // concurrent first-time install just released.
@@ -367,6 +404,108 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, resultA.Outcome);
         Assert.Equal(SpeechModelDownloadOutcome.Installed, resultB.Outcome);
         Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a download canceled while queued behind another download of the same model id
+    ///     throws <see cref="OperationCanceledException"/> without ever reaching the client, and does
+    ///     not disturb the first download.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var store = NewStore();
+        var client = new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]> { [descriptor.Files[0].Uri] = payload });
+        using var downloader = new SpeechModelDownloader(store, client);
+        using var queuedCancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var first = downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        await client.FirstCallEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var queued = downloader.DownloadAsync("model-a", descriptor, cancellationToken: queuedCancellation.Token);
+
+        // Act
+        await queuedCancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+        client.ReleaseFirstCall();
+        var result = await first;
+
+        // Assert
+        Assert.Equal([1], client.EntryOrder);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+    }
+
+    /// <summary>
+    ///     Proves that every download overload throws <see cref="ObjectDisposedException"/> after the downloader is
+    ///     disposed, and that disposing twice is harmless.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var downloader = new SpeechModelDownloader(NewStore(), new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act
+        downloader.Dispose();
+        downloader.Dispose();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync("model-a", descriptor, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync(
+                new RecordingInstallHookModel("model-a", descriptor), cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a null descriptor or null model is rejected with <see cref="ArgumentNullException"/>
+    ///     before any download is attempted.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync("model-a", null!, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync("model-a", null!, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            downloader.DownloadAsync((ISpeechModel)null!, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a null, empty or invalid model id is rejected with <see cref="ArgumentException"/>
+    ///     before any download is attempted.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptorFor("payload-a"u8.ToArray(), "a.bin");
+        using var downloader = new SpeechModelDownloader(NewStore(), new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act / Assert
+        await Assert.ThrowsAnyAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(null!, descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(string.Empty, descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync("..", descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync("..", descriptor, installHook: null, progress: null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadAsync(
+                new RecordingInstallHookModel("..", descriptor), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -394,6 +533,166 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.True(model.StagingDirectoryContainedVerifiedFileWhenInstallAsyncRan);
         Assert.False(model.CurrentDirectoryExistedWhenInstallAsyncRan);
         Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that the internal install-hook-delegate overload runs the delegate on the verified
+    ///     staging directory before <c>current/</c> exists, and that what the delegate leaves behind
+    ///     is what gets installed.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+        var currentExistedInHook = true;
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "pack-a",
+            descriptor,
+            (staging, _) =>
+            {
+                currentExistedInHook = Directory.Exists(store.GetCurrentDirectory("pack-a"));
+                File.Delete(Path.Join(staging, "model.bin"));
+                File.WriteAllText(Path.Join(staging, "extracted.txt"), "done");
+                return Task.CompletedTask;
+            },
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.False(currentExistedInHook);
+        Assert.True(File.Exists(Path.Join(store.GetCurrentDirectory("pack-a"), "extracted.txt")));
+        Assert.False(File.Exists(Path.Join(store.GetCurrentDirectory("pack-a"), "model.bin")));
+    }
+
+    /// <summary>
+    ///     Proves that an install-hook delegate that throws leaves nothing installed and reports a
+    ///     failure rather than success.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "pack-b",
+            descriptor,
+            (_, _) => throw new InvalidDataException("bad pack"),
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, result.Outcome);
+        Assert.IsType<InvalidDataException>(result.Error);
+        Assert.False(store.IsInstalled("pack-b"));
+    }
+
+    /// <summary>
+    ///     Proves that an install-hook delegate throwing an <see cref="IOException"/> is classified
+    ///     as <see cref="SpeechModelDownloadOutcome.IoFailure"/> and installs nothing.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_InstallHookThrowsIOException_ReportsIoFailure()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "pack-c",
+            descriptor,
+            (_, _) => throw new IOException("Disk full."),
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.IsType<IOException>(result.Error);
+        Assert.False(store.IsInstalled("pack-c"));
+    }
+
+    /// <summary>
+    ///     Proves that caller cancellation observed inside an install-hook delegate propagates as
+    ///     an <see cref="OperationCanceledException"/> and installs nothing.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_InstallHookCanceled_ThrowsAndInstallsNothing()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+        using var cts = new CancellationTokenSource();
+
+        // Act / Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => downloader.DownloadAsync(
+            "pack-d",
+            descriptor,
+            async (_, token) =>
+            {
+                await cts.CancelAsync();
+                token.ThrowIfCancellationRequested();
+            },
+            progress: null,
+            cts.Token));
+        Assert.False(store.IsInstalled("pack-d"));
+    }
+
+    /// <summary>
+    ///     Proves that a multi-file descriptor reports each file's own
+    ///     <see cref="SpeechModelDownloadProgress.FileIndex"/> and the shared
+    ///     <see cref="SpeechModelDownloadProgress.FileCount"/> in its progress reports.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount()
+    {
+        // Arrange: two files served with the same payload so both checksums match
+        var payload = "multi-file payload"u8.ToArray();
+        var checksum = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(payload));
+        var descriptor = new SpeechModelDownloadDescriptor(
+        [
+            new SpeechModelDownloadFile(new Uri("https://example.test/one.bin"), checksum, "one.bin"),
+            new SpeechModelDownloadFile(new Uri("https://example.test/two.bin"), checksum, "two.bin")
+        ]);
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 4));
+        var reports = new List<SpeechModelDownloadProgress>();
+        var progress = new SynchronousProgress<SpeechModelDownloadProgress>(reports.Add);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-multi", descriptor, progress, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.All(reports, r => Assert.Equal(2, r.FileCount));
+        Assert.Contains(reports, r => r.FileIndex == 0);
+        Assert.Contains(reports, r => r.FileIndex == 1);
+        Assert.All(reports.Select(r => r.FileIndex), index => Assert.InRange(index, 0, 1));
+
+        // File indexes never move backwards
+        for (var i = 1; i < reports.Count; i++)
+        {
+            Assert.True(reports[i].FileIndex >= reports[i - 1].FileIndex);
+        }
+
+        Assert.True(File.Exists(Path.Join(store.GetCurrentDirectory("model-multi"), "one.bin")));
+        Assert.True(File.Exists(Path.Join(store.GetCurrentDirectory("model-multi"), "two.bin")));
     }
 
     /// <summary>
@@ -426,7 +725,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
 
     /// <summary>
     ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model id takes
-    ///     the Issue 3 fast path even when supplied a model whose
+    ///     the already-installed fast path even when supplied a model whose
     ///     <see cref="ISpeechModel.InstallAsync"/> hook would throw - the hook is never invoked
     ///     at all, since the fast path returns before any staging/install work begins - leaving
     ///     the prior successful install completely untouched. This supersedes this library's
@@ -664,9 +963,48 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
         var options = new SpeechModelDownloaderOptions { Mirror = mirror };
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(
+        // Act
+        var exception = Record.Exception(
             () => new SpeechModelDownloader(store, client, diagnostics: null, options: options));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
+    }
+
+    /// <summary>
+    ///     Proves that a credentialed <see cref="DownloadMirror"/> combined with no caller-supplied
+    ///     client is honored end to end: the downloader's own client sends the mirror's bearer
+    ///     token to the (loopback) mirror for the effective mirror URI, and the verified model
+    ///     installs.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_CredentialedLoopbackMirrorWithOwnedClient_SendsAuthorizationAndInstalls()
+    {
+        // Arrange
+        var payload = "mirror-payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/models/model-a/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+        var mirror = new DownloadMirror(new Uri($"{server.Urls[0]}/models"), bearerToken: "secret-token");
+        var options = new SpeechModelDownloaderOptions { Mirror = mirror };
+        using var downloader = new SpeechModelDownloader(store, client: null, diagnostics: null, options: options);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(store.IsInstalled("model-a"));
+        var request = Assert.Single(server.LogEntries).RequestMessage;
+        Assert.NotNull(request);
+        Assert.NotNull(request.Headers);
+        Assert.True(request.Headers.ContainsKey("Authorization"));
+        Assert.Equal(new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "secret-token").ToString(),
+            request.Headers["Authorization"].Single());
     }
 
     /// <summary>
@@ -681,7 +1019,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var store = NewStore();
         var client = new ThrowingModelDownloadClient(
             () => new HttpRequestException("Not Found", inner: null, System.Net.HttpStatusCode.NotFound));
-        var downloader = new SpeechModelDownloader(store, client);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var downloader = new SpeechModelDownloader(store, client, diagnostics);
 
         // Act
         var result = await downloader.DownloadAsync(
@@ -691,6 +1030,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.HttpError, result.Outcome);
         Assert.IsType<HttpRequestException>(result.Error);
         Assert.False(store.IsInstalled("model-a"));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Error,
+            "ModelManagementSubsystem",
+            Arg.Is<string>(message => message.Contains("model-a", StringComparison.Ordinal)));
     }
 
     /// <summary>
@@ -853,6 +1196,36 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
         Assert.IsType<IOException>(result.Error);
         Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a failure to create the staging directory is classified as
+    ///     <see cref="SpeechModelDownloadOutcome.IoFailure"/> and reported as an Error diagnostic, rather than
+    ///     escaping as an exception, and that the download client is never invoked.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure()
+    {
+        // Arrange: a file occupying the model's .tmp path makes creating a staging directory fail
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetModelDirectory("model-a"));
+        await File.WriteAllTextAsync(Path.Join(store.GetModelDirectory("model-a"), ".tmp"), "not a directory", TestContext.Current.CancellationToken);
+        var client = Substitute.For<IModelDownloadClient>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var downloader = new SpeechModelDownloader(store, client, diagnostics);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.IsAssignableFrom<IOException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+        diagnostics.Received(1).Report(SpeechDiagnosticLevel.Error, "ModelManagementSubsystem", Arg.Any<string>());
+        await client.DidNotReceive().DownloadAsync(
+            Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>

@@ -1,0 +1,88 @@
+---
+# Software Unit Requirements for the PlaybackAudioResampler
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: PlaybackAudioResampler Requirements
+            requirements:
+              - id: Speech-Synthesis-PlaybackAudioResampler-RateConversion
+                title: >-
+                  The PlaybackAudioResampler class shall convert single-channel synthesized audio
+                  from the engine's sample rate to the playback device's sample rate, producing a
+                  proportional number of output samples.
+                justification: |
+                  A synthesis engine produces audio at one fixed rate while a playback device
+                  resolves whatever rate its hardware defaults to; without this conversion,
+                  synthesized speech would only play correctly on a device that happened to match
+                  the model's rate.
+                tests:
+                  - PlaybackAudioResampler_Resample_Upsample_ProducesInterpolatedSamples
+                  - PlaybackAudioResampler_Resample_Downsample_ReducesSampleCount
+                  - PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-EqualRateUnchanged
+                title: >-
+                  The PlaybackAudioResampler class shall return single-channel audio unchanged
+                  when the engine's sample rate equals the playback device's sample rate.
+                justification: |
+                  Resampling audio that already matches would introduce avoidable error and cost.
+                tests:
+                  - PlaybackAudioResampler_Resample_EqualRates_CopiesUnchanged
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-DownsampleAntiAliasing
+                title: >-
+                  The PlaybackAudioResampler class shall apply anti-aliasing lowpass filtering
+                  before decimation whenever it downsamples.
+                justification: |
+                  A downsampling path that omits anti-aliasing folds above-target-Nyquist energy
+                  back into the audible band and audibly degrades playback.
+                tests:
+                  - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+                  - PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-Upmix
+                title: >-
+                  The PlaybackAudioResampler class shall replicate single-channel audio across
+                  every channel the playback device requires, leaving already single-channel
+                  output unchanged when the device requires one channel.
+                justification: |
+                  A playback device commonly requires stereo or multi-channel output while a
+                  synthesis engine produces mono audio; replicating the single channel across every
+                  output channel is the simplest correct upmix.
+                tests:
+                  - PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged
+                  - PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame
+                  - PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-UpmixChannelCountRejection
+                title: >-
+                  The PlaybackAudioResampler class shall reject a non-positive channel count with
+                  ArgumentOutOfRangeException.
+                justification: |
+                  A non-positive channel count describes no meaningful playback format and must be
+                  rejected.
+                tests:
+                  - PlaybackAudioResampler_UpmixToChannels_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-Composition
+                title: >-
+                  The PlaybackAudioResampler class shall convert engine-rate mono audio to the
+                  playback device's sample rate and replicate it across the device's channel
+                  count in one step, so that the result has both the device's rate and its
+                  channel count.
+                justification: |
+                  The synthesis pipeline always needs both conversions for every segment it
+                  plays, so callers must receive audio in exactly the device's format.
+                tests:
+                  - PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-CompositionSingleChannelTarget
+                title: >-
+                  The PlaybackAudioResampler class shall return only rate-converted audio, with no
+                  channel replication, when the playback device requires a single channel.
+                justification: |
+                  A mono device needs no upmix, and replicating channels would corrupt its audio.
+                tests:
+                  - PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix

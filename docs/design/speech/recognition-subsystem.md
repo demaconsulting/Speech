@@ -5,22 +5,22 @@
 ### Overview
 
 The RecognitionSubsystem turns audio captured by the AudioSubsystem into text using a model
-installed by the ModelManagementSubsystem. It exposes an async Engine/Session API across five
-conceptual layers rather than one synchronous recognizer contract: a Layer 3 engine owns one
-loaded model and leases exclusive use of it to a Layer 5 session bound to one capture device, so
-a host can load a model once and run many sequential or future concurrent-by-device sessions
-against it without reloading. It contains the following direct units:
+installed by the ModelManagementSubsystem. It exposes an async Engine/Session API rather than one
+synchronous recognizer contract: an engine owns one loaded model and leases exclusive use of it
+to a session bound to one capture device, so a host can load a model once and run many
+sequential sessions against it without reloading. An engine has at most one active session at a
+time; a host that needs two simultaneous sessions loads two engines. It contains the following direct units:
 
-- **ISpeechRecognizerEngine**: the public Layer 3 contract for one loaded, reusable recognition
+- **ISpeechRecognizerEngine**: the public engine contract for one loaded, reusable recognition
   engine - `IsAvailable` plus `CreateSessionAsync`, which leases the engine to a new session
-- **IRecognitionSession**: the public Layer 5 contract for one streaming recognition session
+- **IRecognitionSession**: the public session contract for one streaming recognition session
   bound to one capture device - a forward-only `RecognitionSessionState` machine with
   `StartAsync`/`StopAsync`/`GetResultsAsync`, together with the **RecognitionSessionState**,
   **SessionStateChangedEventArgs**, **SpeechRecognitionResult**, and **SpeechRecognitionEvent**
   value types it uses
 - **SpeechRecognizerFactory**: composition root whose `LoadAsync` overloads return a real engine
   or the honest unavailable fallback, and never throw for an ordinary machine state
-- **SpeechRecognizerEngine** and **RecognitionSession**: the real Layer 3/5
+- **SpeechRecognizerEngine** and **RecognitionSession**: the real engine and session
   implementations, together with the public **IRecognitionBackend** seam and its internal
   **IRecognitionBackendFactory** loading seam, its model-driven
   **DefaultRecognitionBackendFactory** implementation (which asks the model itself to construct
@@ -64,12 +64,12 @@ every concrete engine backend lives in a model-supplying extension such as the s
 The redesign separates "is a model loaded and usable?" from "is one device currently streaming
 through it?":
 
-- **Layer 3 - `ISpeechRecognizerEngine`**: owns one loaded `IRecognitionBackend` for one
+- **Engine - `ISpeechRecognizerEngine`**: owns one loaded `IRecognitionBackend` for one
   recognition model. `IsAvailable` reports whether the machine can recognize at all.
   `CreateSessionAsync(IAudioCaptureDevice, CancellationToken)` leases exclusive use of the engine
   to exactly one live session at a time and returns a new `IRecognitionSession` bound to the
   supplied device.
-- **Layer 5 - `IRecognitionSession`**: owns the per-device streaming pipeline - the capture
+- **Session - `IRecognitionSession`**: owns the per-device streaming pipeline - the capture
   subscription, the resampler, the pump thread, and the result buffer - for exactly one
   `StartAsync`/`StopAsync` cycle. A session is single-use: it cannot be restarted after
   `Stopped`.
@@ -111,7 +111,7 @@ never returns to `Starting` or `Running`. A fault surfaces to a consumer of `Get
 #### Engine exclusivity and lease behavior
 
 `ISpeechRecognizerEngine.CreateSessionAsync` leases the engine's single `IRecognitionBackend` to
-exactly one live session (Decision #2 of the async redesign). The real engine implements this
+exactly one live session. The real engine implements this
 with a `SemaphoreSlim(1, 1)` acquired with a zero timeout: a second `CreateSessionAsync` call
 while a session is still live fails fast with `RecognitionEngineBusyException` rather than
 queueing or blocking the caller, since a recognition backend genuinely cannot usefully decode two
@@ -126,10 +126,10 @@ Both the pump thread inside `RecognitionSession` and the model-load step inside
 `SpeechRecognizerFactory` run on a `DedicatedWorker`: a dedicated, long-running
 (`TaskCreationOptions.LongRunning`) thread rather than a pooled thread, because both can block
 inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
-then-abandon** policy (Decision #4): on cancellation it signals the delegate's own
+then-abandon** policy: on cancellation it signals the delegate's own
 `CancellationToken` first, then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds)
 for the delegate to observe it and return; if the delegate has not returned by then, the worker
-_abandons_ it - the returned `Task` completes (faulted with `OperationCanceledException`) without
+_abandons_ it - the returned `Task` completes as canceled (an awaiting caller observes `OperationCanceledException`) without
 waiting for the native call to return, and the abandonment itself is reported through
 `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate.
 This bounds how long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an
@@ -138,21 +138,20 @@ abandoned native thread to finish on its own; it never blocks indefinitely on a 
 #### Backpressure policy
 
 `RecognitionSession` isolates a possibly-slow `GetResultsAsync` consumer from the pump
-thread with two independent, bounded buffers (Decision #5):
+thread with two independent, bounded buffers:
 
 - Captured-but-not-yet-converted audio queues in a bounded, drop-oldest `Channel<float[]>`
   (`PendingFrameCapacity`, 64 blocks): recognition that has fallen behind live audio cannot be
   caught up by queueing more of it, so the oldest unconverted block is dropped rather than
   growing the backlog without bound.
 - Converted results queue in a `RecognitionResultBuffer`: one overwritable "latest provisional"
-  slot (an unconsumed provisional is superseded by the next one, never queued) plus a byte-capped
-  (`MaxFinalResultBytes`, 64 KiB) FIFO of final results. A final result is only ever evicted when
-  the FIFO is full and no new final can otherwise be delivered, and that eviction is itself
-  reported through `ISpeechDiagnostics` at `Warning` level, since silently dropping a final result
-  without a trace would hide genuine data loss from a slow consumer.
+  slot (an unconsumed provisional is superseded by the next one, never queued) plus a FIFO of final
+  results. Provisional results may therefore be coalesced when the consumer is slow, but a final
+  result is never dropped: finals are small and arrive at utterance boundaries, so retaining all
+  of them is bounded by the length of the session.
 
-Both policies independently bound the subsystem's steady-state memory and latency instead of
-letting either grow without limit when a consumer or the native backend cannot keep up.
+The capture queue bounds latency and memory when the native backend cannot keep up, and the
+single provisional slot bounds memory when a consumer cannot keep up.
 
 #### Composition
 
@@ -173,7 +172,7 @@ handler does nothing but copy the block into the bounded, drop-oldest queue and 
 conversion, inference, and result buffering happens on the `DedicatedWorker` pump thread.
 `StopAsync` completes the queue and awaits that pump task (subject to the abandon policy above),
 so every result derived from audio captured before the stop request is either delivered or
-accounted for as an evicted-with-diagnostic final by the time the call returns.
+delivered by the time the call returns.
 
 `AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
 interpolation for rate conversion except on the downsampling path, where a small windowed-sinc
@@ -189,107 +188,29 @@ containment, and result ordering are all exercised through pure managed fakes wi
 and no native inference binary present. It mirrors the `IPortAudioApi` seam used for audio
 interop and the `IModelDownloadClient` seam used for downloads.
 
-#### UnavailableSpeechRecognizerEngine
+#### Design Constraints
 
-**Purpose**: Provide a safe, always-obtainable `ISpeechRecognizerEngine` fallback for use when
-recognition is not possible on the current machine.
+**Recognition results are never reported through diagnostics.** Every diagnostic this subsystem
+emits is a structural fact - composed, started, stopped, or a named fault - and never includes
+recognized text, honoring the `ISpeechDiagnostics` contract that makes it safe for a host to wire
+a diagnostics sink to a visible developer log.
 
-**Data Model**: No instance fields. Exposes a single static `Instance` singleton; the constructor
-is private. `IsAvailable` always returns `false`.
+**Core ships zero built-in recognition models.** `SpeechModelCatalog` starts with an empty
+known-model list, and this subsystem names no concrete model or engine backend: a host populates
+the catalog through `SpeechModelCatalog.AddModels` (or an extension method such as the sibling
+`SpeechSherpa` system's `AddSherpaModels`). Within this repository the session is therefore proven
+end to end against fake models and fake backends; real-model, real-native-runtime recognition
+evidence lives with the concrete backend in _SpeechSherpa RecognitionSubsystem Design_ and its
+companion verification.
 
-**Key Methods**:
+#### Unit Design Documents
 
-- **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: Never throws for the ordinary
-  unavailable machine state; returns a completed task holding
-  `UnavailableRecognitionSession.Instance` regardless of the supplied device's own availability.
-  Still throws `ArgumentNullException` synchronously for a null device, and
-  `OperationCanceledException` synchronously for an already-cancelled token, since those are
-  caller errors rather than machine states.
-
-**Error Handling**: Never throws for an ordinary unavailable machine state; unavailability is
-represented entirely by the returned session's own behavior. A null device or an
-already-cancelled token is still a caller error and throws synchronously, same as the real engine.
-
-**Dependencies**: `UnavailableRecognitionSession`; implements `ISpeechRecognizerEngine`.
-
-**Callers**: `SpeechRecognizerFactory.LoadAsync(...)` for every unavailable state.
-
-#### UnavailableRecognitionSession
-
-**Purpose**: Provide a safe, always-obtainable `IRecognitionSession` fallback returned by
-`UnavailableSpeechRecognizerEngine.CreateSessionAsync`.
-
-**Data Model**: No instance fields other than the never-invoked backing field for
-`StateChanged`. Exposes a single static `Instance` singleton; the constructor is private.
-`IsAvailable` always returns `false`; `State` always reports `Created`, since this session never
-runs and so never reaches any other state.
-
-**Key Methods**:
-
-- **StartAsync()**: Always throws `SpeechRecognizerUnavailableException`.
-- **StopAsync()** / **DisposeAsync()**: Safe no-ops that complete synchronously; this session
-  was never running and owns no engine, thread, or native resource, so there is nothing to stop
-  or release. Disposal must never throw or invalidate the shared instance, because a host that
-  wraps its session in a disposal scope receives this instance and may dispose it repeatedly.
-- **GetResultsAsync()**: Throws `SpeechRecognizerUnavailableException` synchronously at the
-  point of invocation (not deferred to the first `MoveNextAsync`).
-- **StateChanged**: Never raised; subscribing and unsubscribing are safe no-ops.
-
-**Error Handling**: Signals misuse of a known-unavailable session with
-`SpeechRecognizerUnavailableException`.
-
-**Dependencies**: `SpeechRecognizerUnavailableException`; implements `IRecognitionSession`.
-
-**Callers**: `UnavailableSpeechRecognizerEngine.CreateSessionAsync(...)` for every call.
-
-#### SpeechRecognizerUnavailableException
-
-**Purpose**: Signal that an operational member of an unavailable recognizer engine or session was
-invoked, or that a session that claimed to be available failed on first use.
-
-**Data Model**: No additional fields beyond the standard `Exception` base members.
-
-**Key Methods**: Standard three-constructor exception pattern.
-
-**Error Handling**: This type is itself the error-handling mechanism.
-
-**Dependencies**: `Exception`.
-
-**Callers**: `UnavailableRecognitionSession` for its operational members, and
-`RecognitionSession.StartAsync()`/its frame handler when the capture device fails to
-start or goes unavailable mid-session.
-
-#### RecognitionEngineBusyException
-
-**Purpose**: Signal that `ISpeechRecognizerEngine.CreateSessionAsync` was called while the
-engine's single lease is already held by another live session (see "Engine exclusivity and lease
-behavior" above).
-
-**Data Model**: No additional fields beyond the standard `Exception` base members.
-
-**Key Methods**: Standard three-constructor exception pattern.
-
-**Error Handling**: This type is itself the error-handling mechanism; the engine fails fast
-(no queueing) rather than blocking the caller.
-
-**Dependencies**: `Exception`.
-
-**Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`.
-
-#### RecognitionSessionFaultedException
-
-**Purpose**: Signal, through an active `GetResultsAsync` enumeration, that its session has
-transitioned to `RecognitionSessionState.Faulted`.
-
-**Data Model**: No additional fields beyond the standard `Exception` base members.
-
-**Key Methods**: Standard three-constructor exception pattern.
-
-**Error Handling**: This type is itself the error-handling mechanism; it wraps the underlying
-cause (for example a `SpeechRecognizerUnavailableException` from a capture device going
-unavailable mid-session) as `InnerException`.
-
-**Dependencies**: `Exception`.
-
-**Callers**: `RecognitionResultBuffer.ReadAllAsync(...)` (consumed by
-`RecognitionSession.GetResultsAsync`) once the buffer has been faulted.
+The session coordinates several units, each documented in its own file under
+`recognition-subsystem/`: _SpeechRecognizerEngine_ (the engine that leases the backend and
+creates sessions), _RecognitionBackend_ (`IRecognitionBackend`, `IRecognitionBackendFactory`,
+`DefaultRecognitionBackendFactory`), _RecognitionResultBuffer_, _DedicatedWorker_,
+_AudioFrameResampler_, _UnavailableSpeechRecognizerEngine_ and _UnavailableRecognitionSession_ (the
+always-obtainable honest fallbacks), and the exception types _SpeechRecognizerUnavailableException_,
+_RecognitionEngineBusyException_, and _RecognitionSessionFaultedException_ (the fault type surfaced
+through `GetResultsAsync`). The session's whole job is to move audio from the converter into the
+backend on the right thread and buffer the results back out; see _RecognitionSession_.

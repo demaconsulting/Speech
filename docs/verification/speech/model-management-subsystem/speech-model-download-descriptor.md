@@ -3,9 +3,9 @@
 #### Verification Approach
 
 Verified through direct unit tests in `SpeechModelDownloadDescriptorTests.cs` proving order
-preservation, the constructor's rejection of an empty, null, null-element, or
-duplicate-install-path (including differing-separator duplicates) file list, and the defensive
-copy of the caller's list.
+preservation, the constructor's separate rejection of a null file list, an empty file list, a
+null-element file list and a duplicate-install-path (including differing-separator duplicates)
+file list, and the defensive copy of the caller's list. Each requirement is covered by its own test(s).
 
 #### Test Environment
 

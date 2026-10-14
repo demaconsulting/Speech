@@ -13,8 +13,8 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelStoreException-UninstallFailureSignal
                 title: >-
-                  The SpeechModelStoreException class shall be thrown by SpeechModelStore.Uninstall
-                  when a model's current/ directory cannot be removed (most commonly because
+                  The SpeechModelStoreException class shall be the failure signal reported when an
+                  uninstall cannot remove a model's installed content (most commonly because
                   another process still holds an open file handle into it).
                 justification: |
                   Per this library's "nothing throws at composition" decision, this exception
@@ -25,11 +25,14 @@ sections:
 
               - id: Speech-Models-SpeechModelStoreException-StandardConstructors
                 title: >-
-                  The SpeechModelStoreException class shall provide the standard three-constructor
-                  exception pattern (default, message, message with inner exception).
+                  The SpeechModelStoreException class shall carry a caller-supplied message and an
+                  optional underlying cause, and shall have a non-empty message when no message
+                  is supplied.
                 justification: |
-                  Standard constructor conformance lets callers construct, catch, and inspect
-                  this exception like any other .NET exception type.
+                  Callers must be able to create, catch, and inspect this exception like any other
+                  .NET exception type, including reaching the original failure that caused it.
+                  The conventional three-constructor shape is a design decision documented in the
+                  unit design.
                 tests:
                   - SpeechModelStoreException_Constructor_WithMessage_ExposesMessage
                   - SpeechModelStoreException_Constructor_WithInnerException_ExposesBoth

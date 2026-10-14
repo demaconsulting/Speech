@@ -30,5 +30,9 @@ package Speech {
         part speechModelContract : SpeechModelContract;
         part speechModelDescriptor : SpeechModelDescriptor;
         part speechModelCatalog : SpeechModelCatalog;
+        part referenceVoicePack : ReferenceVoicePack;
+        part referenceVoicePackInstaller : ReferenceVoicePackInstaller;
+        part referenceVoiceLibrary : ReferenceVoiceLibrary;
+        part numericParameterBounds : NumericParameterBounds;
     }
 }

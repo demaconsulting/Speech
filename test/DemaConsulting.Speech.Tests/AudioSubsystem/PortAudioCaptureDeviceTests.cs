@@ -396,6 +396,47 @@ public class PortAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a throwing diagnostics sink does not fail start or stop, skip disposal, or
+    ///     leave the active-stream registration behind.
+    /// </summary>
+    [Fact]
+    public void PortAudioCaptureDevice_StartStop_ThrowingDiagnosticsSink_CompletesAndUnregisters()
+    {
+        // Arrange: a device whose diagnostics sink throws on every report
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Mic", 5, 2, 0, 48000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1),
+            CaptureStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioCaptureDevice(environment, diagnostics: new ThrowingDiagnostics());
+
+        // Act: start, observe the registration, then stop
+        var startException = Record.Exception(device.Start);
+        var registeredWhileStarted = Record.Exception(environment.Refresh) is AudioDeviceInUseException;
+        var stopException = Record.Exception(device.Stop);
+
+        // Assert: both succeed, the stream was disposed, and the registration was released
+        Assert.Null(startException);
+        Assert.True(registeredWhileStarted);
+        Assert.Null(stopException);
+        Assert.Equal(1, stream.DisposeCallCount);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     A diagnostics sink that throws for every report.
+    /// </summary>
+    private sealed class ThrowingDiagnostics : ISpeechDiagnostics
+    {
+        /// <inheritdoc/>
+        public void Report(SpeechDiagnosticLevel level, string category, string message) =>
+            throw new InvalidOperationException("Sink failure.");
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the capture-device tests.
     /// </summary>
     private sealed class FakePortAudioApi(IReadOnlyList<PortAudioDeviceInfo> devices) : IPortAudioApi

@@ -20,8 +20,10 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 using DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
@@ -147,14 +149,15 @@ internal static class RecognizeCommand
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>recognize</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
         var factory = new AudioDeviceFactory();
-        Run(context, catalog, factory);
+        await RunAsync(context, catalog, factory).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -163,17 +166,16 @@ internal static class RecognizeCommand
     ///     hardware.
     /// </summary>
     /// <remarks>
-    ///     This overload stays synchronous at its boundary, mirroring <c>SpeakCommand</c>'s own
-    ///     established "sync entry wraps async inner via <c>GetAwaiter().GetResult()</c> once"
-    ///     convention: it owns a <see cref="CancellationTokenSource"/> and
-    ///     <see cref="Console.CancelKeyPress"/> subscription for the whole call, then blocks on
-    ///     <see cref="RunAsync"/> exactly once. <c>CommandDispatch</c>'s own handler signature
-    ///     (<c>Action&lt;Context&gt;</c>) is unchanged by this redesign, so this remains the one
-    ///     place a blocking wait is unavoidable.
+    ///     This overload owns a <see cref="CancellationTokenSource"/> and
+    ///     <see cref="Console.CancelKeyPress"/> subscription for the whole call and awaits
+    ///     <see cref="RunAsync(Context, ICliModelCatalog, AudioDeviceFactory, CancellationToken)"/>.
+    ///     <c>CommandDispatch</c>'s handler signature (<c>Func&lt;Context, Task&gt;</c>) is
+    ///     asynchronous, so no blocking wait is needed anywhere in the pipeline.
     /// </remarks>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>recognize</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="factory"/> is <see langword="null"/>.
@@ -184,39 +186,26 @@ internal static class RecognizeCommand
     ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
-    internal static void Run(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(factory);
 
         using var cancellationSource = new CancellationTokenSource();
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        await RunAsync(context, catalog, factory, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>
     ///     Runs the <c>recognize</c> subcommand's full async implementation: resolves the model
     ///     and capture device, loads a recognition engine, binds a session to the device, and
-    ///     pumps results until the session ends (file-drained, idle-timed-out, or cancelled).
+    ///     pumps results until the session ends (file-drained, idle-timed-out, or canceled).
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
-    /// <param name="cancellationToken">A token that, when cancelled, stops the session cooperatively.</param>
+    /// <param name="cancellationToken">A token that, when canceled, stops the session cooperatively.</param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="factory"/> is <see langword="null"/>.
@@ -227,15 +216,39 @@ internal static class RecognizeCommand
     ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
-    internal static async Task RunAsync(
+    internal static Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         AudioDeviceFactory factory,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(factory);
+        return RunAsync(context, catalog, new AudioDeviceFactoryCaptureDeviceSource(factory), cancellationToken);
+    }
+
+    /// <summary>
+    ///     Runs the <c>recognize</c> subcommand against an injected catalog seam and capture-device
+    ///     source, so mic mode can be unit tested against a deterministic in-memory device.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
+    /// <param name="captureDeviceSource">The seam used to resolve a real capture device. Must not be null.</param>
+    /// <param name="cancellationToken">A token that, when canceled, stops the session cooperatively.</param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="captureDeviceSource"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">Thrown for any usage error (see the other overload).</exception>
+    /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
+    internal static async Task RunAsync(
+        Context context,
+        ICliModelCatalog catalog,
+        ICliCaptureDeviceSource captureDeviceSource,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(captureDeviceSource);
 
         var options = ParseArguments(context.CommandArgs);
 
@@ -249,7 +262,7 @@ internal static class RecognizeCommand
         var descriptor = ResolveModel(catalog, options.ModelId);
         var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, SttParamFlag);
 
-        var captureDevice = ResolveCaptureDevice(factory, options);
+        var captureDevice = ResolveCaptureDevice(captureDeviceSource, options);
 
         using var outputWriter = options.OutputPath is null
             ? null
@@ -283,8 +296,6 @@ internal static class RecognizeCommand
         // pump below naturally; cancellationToken is also forwarded into GetResultsAsync as a
         // belt-and-suspenders safety net for the documented edge case where StopAsync called
         // while the session never started does not itself complete that stream.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, _) => _ = session.StopAsync(CancellationToken.None);
-
         var results = silenceTimeout?.GetResultsAsync(cancellationToken) ?? session.GetResultsAsync(cancellationToken);
 
         // Started before StartAsync is awaited (see this type's remarks on live interim
@@ -292,8 +303,8 @@ internal static class RecognizeCommand
         // suspends immediately since no result exists yet, handing control straight back here.
         var pumpTask = PumpResultsAsync(results, outputWriter, options, consoleLine, cancellationToken);
 
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
+        // Fire-and-forget by design: the handler is synchronous and must not block.
+        using (ConsoleCancellation.Observe(() => _ = session.StopAsync(CancellationToken.None)))
         {
             try
             {
@@ -301,7 +312,7 @@ internal static class RecognizeCommand
             }
             catch (OperationCanceledException)
             {
-                // Ctrl+C (or an already-cancelled token) landed before/while starting; ensure the
+                // Ctrl+C (or an already-canceled token) landed before/while starting; ensure the
                 // session still reaches a terminal state so the pump below is guaranteed to end.
                 await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
             }
@@ -310,15 +321,20 @@ internal static class RecognizeCommand
             {
                 // File mode: StartAsync already blocked until the whole file was delivered (see
                 // this type's remarks); drain any buffered-but-not-yet-decoded audio now so every
-                // result is produced before the pump below settles.
-                await session.StopAsync(cancellationToken).ConfigureAwait(false);
+                // result is produced before the pump below settles. A cancellation observed here
+                // (Ctrl+C during the drain) must still end gracefully: fall back to an
+                // uncancelable stop so the session reaches a terminal state and the pump ends.
+                try
+                {
+                    await session.StopAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                }
             }
 
             await pumpTask.ConfigureAwait(false);
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
         }
 
         // Settle any interim line still pending (e.g. a session that ends right after an
@@ -334,7 +350,7 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Consumes <paramref name="results"/> via <c>await foreach</c>, calling
     ///     <see cref="HandleResult"/> for each one, until the sequence ends or
-    ///     <paramref name="cancellationToken"/> is cancelled.
+    ///     <paramref name="cancellationToken"/> is canceled.
     /// </summary>
     /// <remarks>
     ///     A cancellation that ends the enumeration is expected and graceful here - the same
@@ -520,21 +536,21 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Resolves the capture device for this session: a <see cref="WavFileAudioCaptureDevice"/>
     ///     over the given file when <c>--input</c> was given, otherwise a real device resolved
-    ///     from <paramref name="factory"/> (honoring <c>--capture-device</c>).
+    ///     from <paramref name="source"/> (honoring <c>--capture-device</c>).
     /// </summary>
     /// <exception cref="ArgumentException">Thrown when <c>--capture-device</c> names an unknown capture device.</exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
-    private static IAudioCaptureDevice ResolveCaptureDevice(AudioDeviceFactory factory, RecognizeOptions options)
+    private static IAudioCaptureDevice ResolveCaptureDevice(ICliCaptureDeviceSource source, RecognizeOptions options)
     {
         if (options.InputPath is not null)
         {
             return new WavFileAudioCaptureDevice(options.InputPath);
         }
 
-        var knownDevices = factory.CaptureProbe.Enumerate();
+        var knownDevices = source.CaptureProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.DeviceName, "capture");
 
-        var device = factory.CreateCaptureDevice(selection);
+        var device = source.CreateCaptureDevice(selection);
         if (!device.IsAvailable)
         {
             throw new InvalidOperationException(
@@ -645,13 +661,23 @@ internal static class RecognizeCommand
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || KnownOptions.Contains(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     The option tokens <c>recognize</c> recognizes; one of these in value position means the
+    ///     preceding flag's value is missing.
+    /// </summary>
+    private static readonly HashSet<string> KnownOptions = new(StringComparer.Ordinal)
+    {
+        "--stt-model", "--input", "--mic", "--capture-device", "--silence-timeout", "--start-timeout",
+        SttParamFlag, "--interim", "--final-only", "--output-text"
+    };
 
     /// <summary>
     ///     Gets the value following a flag, parsed as a positive <see cref="double"/>, throwing a
@@ -661,6 +687,7 @@ internal static class RecognizeCommand
     {
         var value = RequireValue(args, ref index, flag);
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ||
+            !double.IsFinite(parsed) ||
             parsed <= 0.0)
         {
             throw new ArgumentException($"{flag} requires a positive number of seconds, not '{value}'.", nameof(args));

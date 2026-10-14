@@ -6,8 +6,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs, UnavailableSynthesisSessionTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem.md (documented as a supporting fallback type) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem.md (documented as a supporting fallback type) */
-        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml, unavailable-synthesis-session.yaml */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md */
+        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.yaml */
     }
 }

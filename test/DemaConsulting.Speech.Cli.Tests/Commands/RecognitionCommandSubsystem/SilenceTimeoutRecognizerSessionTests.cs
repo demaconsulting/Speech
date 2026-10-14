@@ -45,6 +45,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentNullException>(
             () => new SilenceTimeoutRecognizerSession(null!, TimeSpan.FromSeconds(5), new FakeTimeProvider()));
     }
@@ -53,8 +54,10 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
 
+        // Act / Assert
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new SilenceTimeoutRecognizerSession(session, TimeSpan.Zero, new FakeTimeProvider()));
     }
@@ -63,8 +66,10 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
 
+        // Act / Assert
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new SilenceTimeoutRecognizerSession(
                 session,
@@ -77,25 +82,66 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
 
+        // Act
         var exception = Record.Exception(() => new SilenceTimeoutRecognizerSession(session, TimeSpan.FromMinutes(10)));
 
+        // Assert
         Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Test that, with no time source supplied, the session uses a working system-clock timer: a
+    ///     result arriving well inside a long idle window is yielded and no timeout occurs. The
+    ///     timeout behavior itself is verified deterministically with the fake time source, so this
+    ///     test never depends on wall-clock timing.
+    /// </summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_YieldsResultWithoutTimingOut()
+    {
+        // Arrange: a long idle window on the default (system) time source
+        var session = new FakeRecognitionSession();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromMinutes(10));
+        var timedOutCount = 0;
+        wrapper.TimedOut += (_, _) => timedOutCount++;
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act: request the first result, deliver one, then end the session
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+        session.RaiseResult("hello", isFinal: true);
+        var hasResult = await firstMoveNextTask;
+        var text = enumerator.Current.Result.Text;
+        var secondMoveNextTask = enumerator.MoveNextAsync();
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        var hasMore = await secondMoveNextTask;
+
+        // Assert: the result was yielded, the stream ended on the explicit stop only, and no timeout fired
+        Assert.True(hasResult);
+        Assert.Equal("hello", text);
+        Assert.False(hasMore);
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Equal(0, timedOutCount);
     }
 
     /// <summary>Test that enumeration, with no start timeout given, arms the idle timer with the idle timeout.</summary>
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(7), timeProvider);
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var moveNextTask = enumerator.MoveNextAsync();
 
+        // Assert
         Assert.NotNull(timeProvider.LastTimer);
         Assert.Equal(TimeSpan.FromSeconds(7), timeProvider.LastTimer.LastDueTime);
 
@@ -108,6 +154,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(
@@ -118,8 +165,11 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var moveNextTask = enumerator.MoveNextAsync();
 
+        // Assert
         Assert.NotNull(timeProvider.LastTimer);
         Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer.LastDueTime);
 
@@ -131,6 +181,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(
@@ -141,6 +192,8 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var firstMoveNextTask = enumerator.MoveNextAsync();
         Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer!.LastDueTime);
 
@@ -149,6 +202,8 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         Assert.Equal("hel", enumerator.Current.Result.Text);
 
         var secondMoveNextTask = enumerator.MoveNextAsync();
+
+        // Assert
         Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer.LastDueTime);
 
         await session.StopAsync(TestContext.Current.CancellationToken);
@@ -159,6 +214,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(
@@ -169,6 +225,8 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var firstMoveNextTask = enumerator.MoveNextAsync();
 
         session.RaiseResult("hel", isFinal: false);
@@ -177,6 +235,8 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         var secondMoveNextTask = enumerator.MoveNextAsync();
         session.RaiseResult("hello", isFinal: true);
         Assert.True(await secondMoveNextTask);
+
+        // Assert
         Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
 
         var thirdMoveNextTask = enumerator.MoveNextAsync();
@@ -190,6 +250,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(
@@ -202,10 +263,13 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var moveNextTask = enumerator.MoveNextAsync();
 
         timeProvider.LastTimer!.Fire();
 
+        // Assert
         Assert.False(await moveNextTask);
         Assert.Equal(1, session.StopCallCount);
         Assert.Equal(1, timedOutCount);
@@ -215,6 +279,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
@@ -223,6 +288,8 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
         using var cts = new CancellationTokenSource();
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
         var firstMoveNextTask = enumerator.MoveNextAsync();
 
         session.RaiseResult("hel", isFinal: false);
@@ -231,6 +298,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         var secondMoveNextTask = enumerator.MoveNextAsync();
         timeProvider.LastTimer!.Fire();
 
+        // Assert
         Assert.False(await secondMoveNextTask);
         Assert.Equal(1, session.StopCallCount);
         Assert.Equal(1, timedOutCount);
@@ -240,6 +308,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException()
     {
+        // Arrange
         var session = new FakeRecognitionSession();
         var timeProvider = new FakeTimeProvider();
         var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
@@ -248,8 +317,95 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
         var moveNextTask = enumerator.MoveNextAsync();
 
+        // Act
         await cts.CancelAsync();
 
+        // Assert
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await moveNextTask);
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    /// <summary>
+    ///     Regression test: the idle timer of every iteration is canceled once a result wins the
+    ///     race, so no pending timers accumulate across results.
+    /// </summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_ManyResults_LeavesNoPendingTimers()
+    {
+        // Arrange
+        const int resultCount = 5;
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act / Assert
+        for (var i = 0; i < resultCount; i++)
+        {
+            var moveNextTask = enumerator.MoveNextAsync();
+            Assert.Equal(1, timeProvider.ActiveTimerCount);
+            session.RaiseResult($"result {i}", isFinal: false);
+            Assert.True(await moveNextTask);
+            Assert.Equal(0, timeProvider.ActiveTimerCount);
+        }
+
+        var lastMoveNextTask = enumerator.MoveNextAsync();
+        Assert.Equal(1, timeProvider.ActiveTimerCount);
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        Assert.False(await lastMoveNextTask);
+        Assert.Equal(resultCount + 1, timeProvider.Timers.Count);
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    /// <summary>Test that the timer that lost the race against a yielded result is disposed (canceled).</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_ResultWinsRace_DisposesLosingTimer()
+    {
+        // Arrange
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var moveNextTask = enumerator.MoveNextAsync();
+        var firstTimer = timeProvider.LastTimer!;
+
+        // Act
+        session.RaiseResult("hello", isFinal: true);
+        await moveNextTask;
+
+        // Assert
+        Assert.True(firstTimer.IsDisposed);
+    }
+
+    /// <summary>
+    ///     Test that a trailing result produced by the timeout-triggered <c>StopAsync</c> drain is
+    ///     still yielded before the enumeration ends.
+    /// </summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutDrain_YieldsTrailingResultBeforeEnding()
+    {
+        // Arrange
+        var session = new FakeRecognitionSession();
+        session.OnStop = s => s.RaiseResult("trailing", isFinal: true);
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+
+        // Act
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+        timeProvider.LastTimer!.Fire();
+        var hasTrailing = await firstMoveNextTask;
+        var trailingText = enumerator.Current.Result.Text;
+        var hasMore = await enumerator.MoveNextAsync();
+
+        // Assert
+        Assert.True(hasTrailing);
+        Assert.Equal("trailing", trailingText);
+        Assert.False(hasMore);
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 }

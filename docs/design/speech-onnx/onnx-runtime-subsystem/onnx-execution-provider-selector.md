@@ -7,15 +7,15 @@ piece of infrastructure every sibling raw-ONNX model package needs in order to c
 model session without each duplicating its own provider-fallback logic.
 
 **Data Model**: No instance state - a stateless static class. `DefaultProviderNames` is a
-read-only `IReadOnlyList<string>`, currently empty (Stage 1 is CPU-only).
+read-only `IReadOnlyList<string>`, empty (CPU-only by default).
 
 **Key Methods**:
 
-- **DefaultProviderNames**: The default, Stage-1 candidate execution provider names to try before
-  falling back to CPU. Deliberately empty, matching the "start simple" design decision for the
-  raw-ONNX model family; a later pass can populate it (for example with
-  `"CUDAExecutionProvider"` or `"DmlExecutionProvider"`) without changing any other code in this
-  class.
+- **DefaultProviderNames**: The default candidate execution provider names to try before falling
+  back to CPU. Deliberately empty, matching the "start simple" design decision for the raw-ONNX
+  model family; callers that want acceleration pass their own list (for example
+  `"CUDAExecutionProvider"` or `"DmlExecutionProvider"`) to `Create` without any other change to
+  this class.
 - **Create(modelPath, preferredProviderNames, validateSession)**: Creates an `InferenceSession`
   for the `.onnx` model at `modelPath`, trying each of `preferredProviderNames` (or
   `DefaultProviderNames` when `null`) in order before falling back to the CPU provider. For each
@@ -41,16 +41,28 @@ read-only `IReadOnlyList<string>`, currently empty (Stage 1 is CPU-only).
   provider ships inside the base package and needs no explicit append - which is guaranteed to
   succeed for a well-formed model.
 
-**Error Handling**: Throws `ArgumentException` when `modelPath` is null or empty, validated via
-`ArgumentException.ThrowIfNullOrEmpty` before any provider is attempted. Never throws due to an
-unavailable or non-functional accelerated provider: the CPU provider is always attempted last and
-is guaranteed to succeed for a well-formed model. A genuinely malformed or unreadable model file
-still throws from that final CPU attempt, exactly as a direct `new InferenceSession(modelPath)`
-call would; that exception propagates unchanged to the caller. An exception thrown by
-`validateSession` of a type other than `OnnxRuntimeException`/`DllNotFoundException` also
-propagates to the caller (after the probed candidate's session is disposed), rather than being
-treated as "try the next candidate" - a probe is expected to signal "this provider cannot run this
-model" only via those two types, matching session-construction's own failure modes.
+**Error Handling**: Exception contract (identical to the system API table and data flow): only a
+provider's _unavailability_ is swallowed into the CPU fallback.
+
+- A null or empty `modelPath` throws `ArgumentException` (`ArgumentNullException` for null,
+  naming `modelPath`), validated via `ArgumentException.ThrowIfNullOrEmpty` before any provider is
+  attempted.
+- An unavailable or non-functional accelerated provider never causes a throw: the CPU provider is
+  always attempted last and is guaranteed to succeed for a well-formed model.
+- A missing, unreadable, or malformed model file throws `OnnxRuntimeException` from that final CPU
+  attempt, exactly as a direct `new InferenceSession(modelPath)` call would (a preferred
+  candidate's `OnnxRuntimeException` is only "provider unavailable"; the genuine model error is
+  re-raised by the CPU attempt); that exception propagates unchanged to the caller.
+- An exception thrown by `validateSession` of a type other than
+  `OnnxRuntimeException`/`DllNotFoundException` propagates to the caller unchanged (after the
+  probed candidate's session is disposed), rather than being treated as "try the next candidate" -
+  a probe is expected to signal "this provider cannot run this model" only via those two types,
+  matching session-construction's own failure modes.
+
+**Test Hook**: `OnCandidateOptionsCreated` is an `internal static` test-only callback (visible to
+the test project through `InternalsVisibleTo`) invoked with each candidate's `SessionOptions`. As
+process-wide static state it is only used by tests that run in a serialized xUnit collection and
+install it through a disposable scope that restores the previous value.
 
 **Dependencies**: The `Microsoft.ML.OnnxRuntime` managed API (`InferenceSession`,
 `SessionOptions`, `OnnxRuntimeException`); no other unit, subsystem, or shared package.

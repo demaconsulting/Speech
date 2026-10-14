@@ -144,6 +144,13 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
                     break;
 
                 case SpeechModelAudioTagSupport.ParameterMapped:
+                    // Text before the tag must keep its own overrides, so emit it first; the tag's
+                    // override then applies only to the text that follows.
+                    if (buffer.Length > 0)
+                    {
+                        Flush();
+                    }
+
                     ApplyParameterMapping(tag, model, ref pendingOverrides);
                     break;
 

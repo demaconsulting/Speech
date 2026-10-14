@@ -57,14 +57,15 @@ internal static class SpeakCommand
     ///     <c>Ctrl+C</c> to cooperative cancellation for the duration of the call.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>speak</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
         var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(new AudioDeviceFactory());
-        Run(context, catalog, deviceSource);
+        await RunAsync(context, catalog, deviceSource).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -75,11 +76,12 @@ internal static class SpeakCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>speak</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="deviceSource"/> is <see langword="null"/>.
     /// </exception>
-    internal static void Run(Context context, ICliModelCatalog catalog, ICliPlaybackDeviceSource deviceSource)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, ICliPlaybackDeviceSource deviceSource)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -90,21 +92,8 @@ internal static class SpeakCommand
         // Ask an in-flight speak session to cancel cooperatively rather than letting the runtime
         // kill the process outright, so partially-played audio and any open output file are
         // still disposed cleanly.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, deviceSource, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        await RunAsync(context, catalog, deviceSource, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -115,6 +104,14 @@ internal static class SpeakCommand
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress speak session.</param>
+    /// <param name="isInputRedirected">
+    ///     Optional seam reporting whether standard input is redirected; defaults to the console's
+    ///     own state. Lets tests exercise the piped-stdin and no-text-source paths deterministically.
+    /// </param>
+    /// <param name="standardInput">
+    ///     Optional seam supplying the piped text when standard input is redirected; defaults to
+    ///     the console's standard input.
+    /// </param>
     /// <returns>A task that completes once the speak session has finished, failed, or been canceled.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
@@ -122,14 +119,17 @@ internal static class SpeakCommand
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
-    ///     or missing text source, malformed/invalid <c>--tts-param</c> value, or unknown <c>--playback-device</c>.
+    ///     or missing text source, empty or whitespace-only text, malformed/invalid <c>--tts-param</c>
+    ///     value, or unknown <c>--playback-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real playback device is available and <c>--output-audio</c> was not given.</exception>
     internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         ICliPlaybackDeviceSource deviceSource,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<bool>? isInputRedirected = null,
+        TextReader? standardInput = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -140,10 +140,17 @@ internal static class SpeakCommand
         // Text-source resolution runs before model resolution: a usage error like conflicting
         // --text/--file is a cheap, model-independent input mistake that should be reported
         // immediately, not masked by an unrelated "unknown model id" error.
-        var text = ResolveText(options);
+        var text = ResolveText(options, isInputRedirected ?? (() => Console.IsInputRedirected), standardInput);
         if (options.NoTags)
         {
             text = StripAudioTags(text);
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException(
+                "speak requires non-empty text; the supplied text is empty or whitespace only.",
+                nameof(context));
         }
 
         var descriptor = ResolveModel(catalog, options.ModelId);
@@ -244,11 +251,14 @@ internal static class SpeakCommand
     ///     Resolves the text to speak from exactly one of <c>--text</c>, <c>--file</c>, or a
     ///     redirected stdin stream.
     /// </summary>
+    /// <param name="options">The parsed <c>speak</c> flags.</param>
+    /// <param name="isInputRedirected">Reports whether standard input is redirected.</param>
+    /// <param name="standardInput">The piped-text reader, or <see langword="null"/> for the console's input.</param>
     /// <exception cref="ArgumentException">
     ///     Thrown when more than one text source was given, or when none was given and stdin is
     ///     not redirected.
     /// </exception>
-    private static string ResolveText(SpeakOptions options)
+    private static string ResolveText(SpeakOptions options, Func<bool> isInputRedirected, TextReader? standardInput)
     {
         var sourceCount = (options.Text is not null ? 1 : 0) +
             (options.FilePath is not null ? 1 : 0);
@@ -267,17 +277,24 @@ internal static class SpeakCommand
 
         if (options.FilePath is not null)
         {
-            return File.ReadAllText(options.FilePath);
+            try
+            {
+                return File.ReadAllText(options.FilePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Cannot read the text file '{options.FilePath}': {ex.Message}", ex);
+            }
         }
 
-        if (!Console.IsInputRedirected)
+        if (!isInputRedirected())
         {
             throw new ArgumentException(
                 "speak requires text from --text, --file, or piped stdin.",
                 nameof(options));
         }
 
-        return Console.In.ReadToEnd();
+        return (standardInput ?? Console.In).ReadToEnd();
     }
 
     /// <summary>
@@ -363,13 +380,22 @@ internal static class SpeakCommand
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || KnownOptions.Contains(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     The option tokens <c>speak</c> recognizes; one of these in value position means the
+    ///     preceding flag's value is missing.
+    /// </summary>
+    private static readonly HashSet<string> KnownOptions = new(StringComparer.Ordinal)
+    {
+        "--tts-model", "--text", "--file", "--output-audio", "--playback-device", "--no-tags", TtsParamFlag
+    };
 
     /// <summary>The parsed <c>speak</c> flags.</summary>
     /// <param name="ModelId">The requested model id (required).</param>

@@ -41,7 +41,7 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     to choose between.
 ///     </para>
 ///     <para>
-///     <b>License - materially different from every other model in this pass</b>: the underlying
+///     <b>License - materially different from the other Sherpa models</b>: the underlying
 ///     NVIDIA model (<c>nvidia/nemotron-speech-streaming-en-0.6b</c> on HuggingFace) is released
 ///     under the <b>NVIDIA Open Model License</b>
 ///     (<c>https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/</c>),
@@ -56,8 +56,8 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     redistribution terms permit a given consumer's specific intended use is a legal/compliance
 ///     question outside this library's competence to certify - a maintainer/legal reviewer should
 ///     read the license text directly before relying on this model in a context requiring a
-///     legally certain determination. This is flagged as a named risk in the phase 7 planning
-///     report (<c>.agent-logs/planning-speech-phase7-c48a07.md</c>, Risk #1) and is not resolved
+///     legally certain determination. This is tracked as the top risk of the original
+///     integration and is not resolved
 ///     by this class's existence - it is a build-time metadata/download registration only.
 ///     </para>
 ///     <para>
@@ -107,8 +107,8 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
 
     /// <summary>
     ///     <inheritdoc/>
-    ///     See the type-level remarks' "License - materially different from every other model
-    ///     in this pass" paragraph - this is a custom, NVIDIA-authored license, not Apache-2.0,
+    ///     See the type-level remarks' "License - materially different from the other Sherpa
+    ///     models" paragraph - this is a custom, NVIDIA-authored license, not Apache-2.0,
     ///     MIT, or any other widely-used OSI-approved permissive license.
     /// </summary>
     public string LicenseName => "NVIDIA Open Model License";

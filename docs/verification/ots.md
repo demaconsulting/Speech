@@ -6,10 +6,11 @@ This document describes the overall Off-The-Shelf (OTS) verification strategy fo
 
 Runtime OTS dependencies and build-time OTS tools are verified differently in this repository.
 For build/pipeline tools, verification is a combination of self-validation CLI modes and
-pipeline-evidence-based verification. For the Speech library's runtime PortAudio dependency and
-the SpeechSherpa library's sherpa-onnx and SharpCompress dependencies, automated verification
-focuses on deterministic integration logic, while true end-to-end physical audio I/O and real
-native speech inference remain manual/local verification only. For the
+pipeline-evidence-based verification. For the Speech library's runtime PortAudio dependency, its
+System.Numerics.Tensors dependency, the SpeechSherpa library's sherpa-onnx and SharpCompress
+dependencies, and the SpeechOnnx libraries' Microsoft.ML.OnnxRuntime dependency, automated
+verification focuses on deterministic integration logic, while true end-to-end physical audio I/O
+and real native speech inference remain manual/local verification only. For the
 SpeechDemo application's Avalonia and CommunityToolkit.Mvvm dependencies, automated verification
 covers application-host configuration and the generated MVVM members, while visual appearance and
 interactive behavior remain manual/local verification only.
@@ -20,6 +21,9 @@ interactive behavior remain manual/local verification only.
 | --- | --- |
 | PortAudioSharp2 | Deterministic integration tests for managed binding use; manual/local hardware I/O verification |
 | SherpaOnnx | Deterministic integration tests for managed configuration use; manual native-inference verification |
+| SharpCompress | Deterministic in-memory `.tar.bz2` fixture extraction tests |
+| System.Numerics.Tensors | Deterministic tests over the audio math that calls `TensorPrimitives` |
+| Microsoft.ML.OnnxRuntime | Deterministic tests over tiny in-memory graphs; manual real-model and GPU verification |
 | Avalonia | Deterministic application-host configuration tests; manual/local UI verification |
 | CommunityToolkit.Mvvm | Deterministic tests over the generated properties and commands |
 | BuildMark | Self-validation CLI suite plus pipeline evidence via build-notes document |

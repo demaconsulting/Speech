@@ -22,6 +22,12 @@ public sealed class AppLaunchOptions
     /// <summary>Gets the models directory override supplied via <c>--models-dir</c>, or <see langword="null"/>.</summary>
     public string? ModelsDir { get; private init; }
 
+    /// <summary>
+    ///     Gets the extra reference-voice directory supplied via <c>--voices-dir</c>, or
+    ///     <see langword="null"/>. When set, it is guaranteed to have existed when parsed.
+    /// </summary>
+    public string? VoicesDir { get; private init; }
+
     /// <summary>Gets the internal download mirror base URL supplied via <c>--mirror-url</c>, or <see langword="null"/>.</summary>
     public string? MirrorUrl { get; private init; }
 
@@ -34,23 +40,71 @@ public sealed class AppLaunchOptions
     /// <summary>Gets the bearer token supplied via <c>--mirror-bearer-token</c>, or <see langword="null"/>.</summary>
     public string? MirrorBearerToken { get; private init; }
 
-    /// <summary>Gets a value indicating whether <c>--help</c> or <c>-h</c> was supplied.</summary>
+    /// <summary>Gets a value indicating whether <c>--help</c>, <c>-h</c>, or <c>-?</c> was supplied.</summary>
     public bool Help { get; private init; }
+
+    /// <summary>Name of the environment variable that supplies the mirror URL when <c>--mirror-url</c> is absent.</summary>
+    public const string MirrorUrlEnvironmentVariable = "DEMASPEECH_MIRROR_URL";
+
+    /// <summary>Name of the environment variable that supplies the mirror HTTP Basic username.</summary>
+    public const string MirrorUserEnvironmentVariable = "DEMASPEECH_MIRROR_USER";
+
+    /// <summary>Name of the environment variable that supplies the mirror HTTP Basic password.</summary>
+    public const string MirrorPasswordEnvironmentVariable = "DEMASPEECH_MIRROR_PASSWORD";
+
+    /// <summary>Name of the environment variable that supplies the mirror bearer token.</summary>
+    public const string MirrorBearerTokenEnvironmentVariable = "DEMASPEECH_MIRROR_BEARER_TOKEN";
 
     /// <summary>
     ///     Parses <paramref name="args"/> into a new <see cref="AppLaunchOptions"/>.
     /// </summary>
     /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
     /// <returns>The parsed options.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="args"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when an option requiring a value is the last argument, or an unrecognized
-    ///     argument is supplied.
+    ///     Thrown when an option requiring a value is the last argument or is followed by another
+    ///     recognized option, an unrecognized
+    ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
     /// </exception>
-    public static AppLaunchOptions Parse(string[] args)
+    public static AppLaunchOptions Parse(string[] args) => Parse(args, Environment.GetEnvironmentVariable);
+
+    /// <summary>
+    ///     Parses <paramref name="args"/> into a new <see cref="AppLaunchOptions"/>, reading the
+    ///     mirror environment-variable fallbacks through <paramref name="getEnvironmentVariable"/>.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>--mirror-*</c> option on the command line always takes precedence:
+    ///     <see cref="MirrorUrlEnvironmentVariable"/> applies only when <c>--mirror-url</c> is absent, and
+    ///     the credential variables apply only when none of <c>--mirror-user</c>,
+    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty or
+    ///     whitespace-only option value or variable is treated as unset (so it never suppresses an
+    ///     environment fallback). A repeated option keeps its last value.
+    ///     Mirror and credential values are never written to any output or error message: an
+    ///     unrecognized argument is reported by position only. The one exception is the non-secret
+    ///     <c>--voices-dir</c> path, which its missing-directory error names so the failure is
+    ///     actionable. The <c>--voices-dir</c> existence
+    ///     check runs once after the whole list is read (so it is a point-in-time check) and is
+    ///     skipped when a help flag is present. <c>--models-dir</c> is not checked for existence.
+    /// </remarks>
+    /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
+    /// <param name="getEnvironmentVariable">Reads an environment variable by name; <see langword="null"/> when unset.</param>
+    /// <returns>The parsed options.</returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="args"/> or <paramref name="getEnvironmentVariable"/> is
+    ///     <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when an option requiring a value is the last argument or is followed by another
+    ///     recognized option, an unrecognized
+    ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
+    /// </exception>
+    public static AppLaunchOptions Parse(string[] args, Func<string, string?> getEnvironmentVariable)
     {
         ArgumentNullException.ThrowIfNull(args);
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         string? modelsDir = null;
+        string? voicesDir = null;
         string? mirrorUrl = null;
         string? mirrorUser = null;
         string? mirrorPassword = null;
@@ -73,6 +127,10 @@ public sealed class AppLaunchOptions
                     modelsDir = RequireValue(arg, args, ref i);
                     break;
 
+                case "--voices-dir":
+                    voicesDir = RequireValue(arg, args, ref i);
+                    break;
+
                 case "--mirror-url":
                     mirrorUrl = RequireValue(arg, args, ref i);
                     break;
@@ -90,13 +148,39 @@ public sealed class AppLaunchOptions
                     break;
 
                 default:
-                    throw new ArgumentException($"Unrecognized argument '{arg}'.", nameof(args));
+                    // The argument text is deliberately not echoed: a mistyped option such as
+                    // "--mirror-password=secret" would otherwise copy the secret into the error text.
+                    throw new ArgumentException($"Unrecognized argument at position {i}.", nameof(args));
             }
+        }
+
+        // Fail fast on a mistyped folder rather than silently offering no extra voices. A help
+        // request skips this check so that asking for usage always succeeds.
+        if (!help && voicesDir is not null && !Directory.Exists(voicesDir))
+        {
+            throw new ArgumentException($"--voices-dir '{voicesDir}' is not an existing directory.", nameof(args));
+        }
+
+        // An empty or whitespace-only mirror option counts as not supplied, exactly like such an environment variable.
+        mirrorUrl = NullIfEmpty(mirrorUrl);
+        mirrorUser = NullIfEmpty(mirrorUser);
+        mirrorPassword = NullIfEmpty(mirrorPassword);
+        mirrorBearerToken = NullIfEmpty(mirrorBearerToken);
+
+        // Explicit command-line options win; credentials come from one source only, never a mixture.
+        var credentialsOnCommandLine = mirrorUser is not null || mirrorPassword is not null || mirrorBearerToken is not null;
+        mirrorUrl ??= ReadEnvironment(getEnvironmentVariable, MirrorUrlEnvironmentVariable);
+        if (!credentialsOnCommandLine)
+        {
+            mirrorUser = ReadEnvironment(getEnvironmentVariable, MirrorUserEnvironmentVariable);
+            mirrorPassword = ReadEnvironment(getEnvironmentVariable, MirrorPasswordEnvironmentVariable);
+            mirrorBearerToken = ReadEnvironment(getEnvironmentVariable, MirrorBearerTokenEnvironmentVariable);
         }
 
         return new AppLaunchOptions
         {
             ModelsDir = modelsDir,
+            VoicesDir = voicesDir,
             MirrorUrl = mirrorUrl,
             MirrorUser = mirrorUser,
             MirrorPassword = mirrorPassword,
@@ -112,16 +196,55 @@ public sealed class AppLaunchOptions
     /// <param name="args">The full argument list.</param>
     /// <param name="index">The index of the next unread argument; advanced past the consumed value.</param>
     /// <returns>The option's value.</returns>
-    /// <exception cref="ArgumentException">Thrown when no value follows <paramref name="option"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when no value follows <paramref name="option"/>, or the next argument is itself a
+    ///     recognized option.
+    /// </exception>
     private static string RequireValue(string option, string[] args, ref int index)
     {
-        if (index >= args.Length)
+        // A following recognized option (for example "--mirror-url --help") means the value was
+        // left out; swallowing it would silently discard that option. Any other token, including
+        // one that merely starts with '-' (a path such as "-models"), is a legitimate value.
+        if (index >= args.Length || IsRecognizedOption(args[index]))
         {
             throw new ArgumentException($"{option} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     Determines whether <paramref name="token"/> is one of this parser's option tokens,
+    ///     either bare or in the <c>--option=value</c> form.
+    /// </summary>
+    /// <param name="token">The command-line token to test.</param>
+    /// <returns><see langword="true"/> when the token names a recognized option.</returns>
+    private static bool IsRecognizedOption(string token)
+    {
+        foreach (var option in RecognizedOptions)
+        {
+            if (token == option || (option.StartsWith("--", StringComparison.Ordinal) && token.StartsWith(option + "=", StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The option tokens this parser recognizes, used to detect a missing option value.</summary>
+    private static readonly string[] RecognizedOptions =
+    [
+        "-h", "-?", "--help", "--models-dir", "--voices-dir", "--mirror-url",
+        "--mirror-user", "--mirror-password", "--mirror-bearer-token",
+    ];
+
+    /// <summary>Reads an environment variable, treating an empty or whitespace-only value as unset.</summary>
+    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name) =>
+        NullIfEmpty(getEnvironmentVariable(name));
+
+    /// <summary>Maps an empty or whitespace-only value to <see langword="null"/>.</summary>
+    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     ///     Resolves <see cref="ModelsDir"/> into <see cref="SpeechModelStoreOptions"/> for
@@ -160,16 +283,30 @@ public sealed class AppLaunchOptions
     ///     Prints this demo's launch-option usage to the console, mirroring the CLI's own
     ///     <c>--help</c> presentation for the same option names.
     /// </summary>
-    public static void PrintHelp()
+    public static void PrintHelp() => PrintHelp(Console.Out);
+
+    /// <summary>
+    ///     Writes this demo's launch-option usage to <paramref name="writer"/>.
+    /// </summary>
+    /// <param name="writer">The destination writer. Must not be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="writer"/> is <see langword="null"/>.</exception>
+    public static void PrintHelp(TextWriter writer)
     {
-        Console.WriteLine("Usage: DemaConsulting.Speech.Demo [options]");
-        Console.WriteLine();
-        Console.WriteLine("Options:");
-        Console.WriteLine("  -h, -?, --help             Display this help message and exit");
-        Console.WriteLine("  --models-dir <path>        Override the model store root directory");
-        Console.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
-        Console.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
-        Console.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
-        Console.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        ArgumentNullException.ThrowIfNull(writer);
+
+        writer.WriteLine("Usage: DemaConsulting.Speech.Demo [options]");
+        writer.WriteLine();
+        writer.WriteLine("Options:");
+        writer.WriteLine("  -h, -?, --help             Display this help message and exit");
+        writer.WriteLine("  --models-dir <path>        Override the model store root directory");
+        writer.WriteLine("  --voices-dir <path>        Add reference voices (.wav/.flac) for voice-cloning models from this directory");
+        writer.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
+        writer.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
+        writer.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
+        writer.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        writer.WriteLine();
+        writer.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
+        writer.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
+        writer.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
     }
 }

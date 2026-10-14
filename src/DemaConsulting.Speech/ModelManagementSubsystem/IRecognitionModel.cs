@@ -9,23 +9,19 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     streaming recognition engine that runs it.
 /// </summary>
 /// <remarks>
-///     Sub-phase 2b defined this interface as an empty role marker so
-///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
-///     check, and stated that Phase 3 would add "the real recognition-engine-configuration
-///     member here". This pass fulfills exactly that: <see cref="AudioFormat"/> and
-///     <see cref="CreateBackend(string)"/> are new members added to an interface that still has no
-///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
+///     The interface's role is recognized by <see cref="SpeechModelCatalog"/> via a type check,
+///     which lets the catalog report and filter models by role. <see cref="AudioFormat"/> and
+///     <see cref="CreateBackend(string)"/> carry the recognition-engine configuration.
 ///     <para>
 ///     The full interface, including <see cref="CreateBackend(string)"/>, is public by design:
 ///     third-party extension of the Speech library is a confirmed goal, and a host application
 ///     composes its catalog by calling <see cref="SpeechModelCatalog.AddModels(ISpeechModel[])"/>
 ///     with models it supplies itself. A public contract lets an external package implement
 ///     <see cref="IRecognitionModel"/> to add an entirely new recognition backend - not merely
-///     another instance of an existing sherpa-onnx-backed model - without requiring
-///     <c>InternalsVisibleTo</c> access to this assembly. The sibling
-///     <c>DemaConsulting.Speech.Sherpa</c> package is simply the first such implementer, supplying
-///     this library's built-in sherpa-onnx-backed models; it has no special access that a
-///     third-party package lacks.
+///     another instance of an existing model - without requiring
+///     <c>InternalsVisibleTo</c> access to this assembly. Engine packages such as
+///     <c>DemaConsulting.Speech.Sherpa</c> are ordinary implementers of this interface; they
+///     have no special access that a third-party package lacks.
 ///     </para>
 /// </remarks>
 public interface IRecognitionModel : ISpeechModel

@@ -1,0 +1,227 @@
+---
+# Software Unit Requirements for ReferenceVoicePackInstaller
+#
+# Unit-level behavior of the internal ReferenceVoicePackInstaller (the downloader install hook
+# that extracts a verified pack archive), decomposing the parent ModelManagementSubsystem
+# requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackInstallerTests.cs.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ReferenceVoicePackInstaller Requirements
+            requirements:
+              - id: Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
+                title: >-
+                  The ReferenceVoicePackInstaller shall extract only the voice clips and the
+                  license and readme files from a verified pack archive, with the archive root
+                  folder removed.
+                justification: |
+                  The upstream archive holds far more content (about 2000 emotion clips) than the
+                  voice list needs; extracting only the allow-listed entries keeps the installed
+                  size small while retaining the license text the CC0 attribution refers to.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_TypicalArchive_ExtractsOnlyAllowListedEntries
+                  - ReferenceVoicePackInstaller_Install_EntriesOutsideRoot_AreIgnored
+                  - ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-PackMetadata
+                title: >-
+                  The ReferenceVoicePackInstaller shall record a description of the installed pack
+                  (identity, license, attribution, source and voice count).
+                justification: |
+                  Hosts and the library read the installed pack's description and variants from it.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_TypicalArchive_WritesPackMetadata
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-ArchiveDeletion
+                title: >-
+                  The ReferenceVoicePackInstaller shall delete the archive after a successful
+                  extraction.
+                justification: |
+                  The archive is large and redundant once its voices are extracted.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_TypicalArchive_DeletesArchive
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject archives containing path-traversal,
+                  rooted, drive-qualified, backslash, "." segment or NUL entry names.
+                justification: |
+                  Even a checksum-verified archive is untrusted input to the extractor (the
+                  checksum guards integrity, not safety), so a zip-slip entry must never write
+                  outside the staging directory.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-PortableNames
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject an archive containing any entry, whether
+                  or not it would be extracted, whose name has a segment that is not valid on every
+                  platform.
+                justification: |
+                  A name that is invalid on some platform must not yield a pack that installs on one
+                  platform only, and the check cannot depend on which entries the installer happens to
+                  extract.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData
+                  - ReferenceVoicePackInstaller_Install_IgnoredEntryWithInvalidSegment_ThrowsInvalidData
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject archives with two entries that map to
+                  the same destination.
+                justification: |
+                  A duplicate destination would silently overwrite or fail part-way through the
+                  extraction.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-NoVoicesRejection
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject an archive that holds no voice clips.
+                justification: |
+                  A pack without voices must fail the install rather than produce an empty voice
+                  library.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NoVoices_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-NotAZipRejection
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject a file that is not a zip archive.
+                justification: |
+                  A corrupt or mislabeled download must fail the install with a data error.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NotAZip_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-FailureKeepsArchive
+                title: >-
+                  The ReferenceVoicePackInstaller shall leave the staged archive in place when the
+                  install fails or is canceled, including when the failure occurs after the clips
+                  were extracted.
+                justification: |
+                  Only a fully successful install makes the archive redundant, so every failure or
+                  cancellation must leave it available for a retry.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive
+                  - ReferenceVoicePackInstaller_Install_MetadataWriteFails_KeepsArchive
+                  - ReferenceVoicePackInstaller_Install_CanceledToken_KeepsArchive
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-MissingArchive
+                title: >-
+                  The ReferenceVoicePackInstaller shall report a missing staged archive as a
+                  file-access failure, not as malformed archive data.
+                justification: |
+                  A missing file is an environment fault, not malformed archive data.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_MissingArchive_ThrowsIOException
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-ArgumentValidation
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject a null pack and an empty staging
+                  directory.
+                justification: |
+                  Both are mandatory inputs; failing fast identifies the caller bug.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NullPackOrEmptyStaging_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-Cancellation
+                title: >-
+                  The ReferenceVoicePackInstaller shall stop and report cancellation
+                  when its cancellation token is canceled, including when the token is already
+                  canceled before the staged archive is opened or the archive has no entries.
+                justification: |
+                  Extraction of a large archive must be cancelable, and a canceled call must report
+                  the cancellation rather than an unrelated file or archive error.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_CanceledToken_Throws
+                  - ReferenceVoicePackInstaller_Install_CanceledTokenAndMissingArchive_ThrowsOperationCanceled
+                  - ReferenceVoicePackInstaller_Install_CanceledTokenAndEmptyArchive_ThrowsOperationCanceled
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
+                title: >-
+                  The ReferenceVoicePackInstaller shall fail the install as malformed archive data when
+                  the bytes actually read for one entry exceed 128 MiB.
+                justification: |
+                  Bounding the bytes read per entry limits disk use against a decompression bomb.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws
+                  - ReferenceVoicePackInstaller_Install_ForgedHeaderSize_NeverExtractsMoreThanCap
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
+                title: >-
+                  The ReferenceVoicePackInstaller shall fail the install as malformed archive data when
+                  the running total of bytes actually read exceeds 2 GiB.
+                justification: |
+                  Many small entries can still exhaust the disk, so the total is bounded as well as each
+                  entry.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps
+                title: >-
+                  The ReferenceVoicePackInstaller shall accept content exactly at the entry and
+                  total size caps.
+                justification: |
+                  The caps are inclusive limits, so content exactly at a cap is legitimate.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_AtCaps_Succeeds
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
+                title: >-
+                  The ReferenceVoicePackInstaller shall, when emotion variants are requested,
+                  additionally extract the per-speaker emotion clips (voices-emotion/{speaker}/{mood}.flac)
+                  and the emotion readme.
+                justification: |
+                  The emotion clips are the larger part of the pack (about 528 MiB against about
+                  44 MiB for the base voices), so they are opt-in.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-EmotionVariantRecording
+                title: >-
+                  The ReferenceVoicePackInstaller shall record the extracted variants and emotion
+                  clip count in the installed pack's description.
+                justification: |
+                  The library reports installed variants from the description without scanning the disk again.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-NoEmotionsUnlessRequested
+                title: >-
+                  The ReferenceVoicePackInstaller shall extract no emotion clip when emotion
+                  variants are not requested.
+                justification: |
+                  Hosts that opt out of the emotion clips must not pay their disk cost.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithoutEmotions_SkipsMoodClips
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-MisshapenEmotionEntriesIgnored
+                title: >-
+                  The ReferenceVoicePackInstaller shall ignore misshapen emotion entries.
+                justification: |
+                  Entries that do not match the speaker/mood layout are not emotion clips and must
+                  not break or pollute the install.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_IgnoresMisshapenEmotionEntries
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-UnsafeEmotionEntryRejection
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject an unsafe emotion entry name.
+                justification: |
+                  The same zip-slip protection applies to emotion clips as to voice clips.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-OnlyEmotionClipsRejected
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject a pack that holds only emotion clips
+                  and no base voices.
+                justification: |
+                  A pack with only emotion clips and no base voices is still malformed.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_OnlyEmotionClips_Throws

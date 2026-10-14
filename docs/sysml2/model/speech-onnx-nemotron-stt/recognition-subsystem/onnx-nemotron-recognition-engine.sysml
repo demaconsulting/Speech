@@ -7,7 +7,7 @@ package SpeechOnnxNemotronStt {
              * OnnxNemotronMultilingualRecognitionModel.CreateBackend. Also documents its ONNX
              * collaborators NemotronEncoder (INemotronEncoder) and NemotronRnntNetwork. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/OnnxNemotronRecognitionEngine.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/OnnxNemotronRecognitionEngine.cs, src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs, src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs, src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs, src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxNemotronRecognitionEngineTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md */

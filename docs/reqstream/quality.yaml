@@ -8,49 +8,85 @@ sections:
   - title: Quality Requirements
     requirements:
       - id: Quality-TestInfrastructure
-        title: The repository shall rely on xUnit to execute and report automated test results.
+        title: The repository shall execute its automated tests.
         tags: [quality]
         justification: |
-          Automated testing depends on xUnit's test execution and reporting
-          capabilities. This grouping requirement links the xUnit OTS requirements
-          to the quality root so they participate in orphan detection without being
+          Automated testing depends on xUnit's test execution capability. This
+          grouping requirement links the xUnit execution OTS requirement
+          to the quality root so it participates in orphan detection without being
           falsely reported as disconnected from library functionality.
         children:
-          - Template-OTS-xUnit-Execute
-          - Template-OTS-xUnit-Report
+          - Speech-OTS-xUnit-Execute
+
+      - id: Quality-TestReporting
+        title: The repository shall report the results of its automated tests.
+        tags: [quality]
+        justification: |
+          Automated testing depends on xUnit's result reporting capability. This
+          grouping requirement links the xUnit reporting OTS requirement
+          to the quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
+        children:
+          - Speech-OTS-xUnit-Report
 
       - id: Quality-BuildIntegrity
-        title: >-
-          The repository's build pipeline shall rely on BuildMark and VersionMark
-          to validate tool versions and enforce build integrity.
+        title: The repository's build pipeline shall generate build notes.
         tags: [quality]
         justification: |
-          CI/CD reliability depends on BuildMark's build-integrity checks and
-          VersionMark's version-tracking capabilities. This grouping requirement
-          links those OTS requirements to the quality root so they participate in
-          orphan detection without being falsely reported as disconnected from
-          library functionality.
+          CI/CD reliability depends on BuildMark's build-notes generation. This
+          grouping requirement links the BuildMark OTS requirement to the quality
+          root so it participates in orphan detection without being falsely
+          reported as disconnected from library functionality.
         children:
-          - Template-OTS-BuildMark
-          - Template-OTS-VersionMark
-          - Template-OTS-VersionMark-Lint
+          - Speech-OTS-BuildMark
+
+      - id: Quality-VersionTracking
+        title: The repository's build pipeline shall record the versions of the tools it uses.
+        tags: [quality]
+        justification: |
+          CI/CD reliability depends on VersionMark's version-tracking capability.
+          This grouping requirement links that OTS requirement to
+          the quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
+        children:
+          - Speech-OTS-VersionMark
+
+      - id: Quality-VersionValidation
+        title: The repository's build pipeline shall validate its tool-version configuration.
+        tags: [quality]
+        justification: |
+          CI/CD reliability depends on VersionMark's linting capability. This
+          grouping requirement links that OTS requirement to
+          the quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
+        children:
+          - Speech-OTS-VersionMark-Lint
 
       - id: Quality-StaticAnalysis
-        title: The repository shall rely on SarifMark and SonarMark to enforce static-analysis quality gates.
+        title: The repository shall enforce its static-analysis results.
         tags: [quality]
         justification: |
-          Code quality assurance depends on SarifMark's SARIF-based enforcement and
-          SonarMark's SonarCloud integration. This grouping requirement links those
-          OTS requirements to the quality root so they participate in orphan
-          detection without being falsely reported as disconnected from library
-          functionality.
+          Code quality assurance depends on SarifMark's SARIF-based enforcement.
+          This grouping requirement links those OTS requirements to the quality
+          root so they participate in orphan detection without being falsely
+          reported as disconnected from library functionality.
         children:
-          - Template-OTS-SarifMark
-          - Template-OTS-SarifMark-Enforcement
-          - Template-OTS-SonarMark
+          - Speech-OTS-SarifMark
+          - Speech-OTS-SarifMark-Enforcement
+
+      - id: Quality-QualityDashboard
+        title: The repository shall report its quality-gate status.
+        tags: [quality]
+        justification: |
+          Code quality visibility depends on SonarMark's SonarCloud integration.
+          This grouping requirement links that OTS requirement to the quality root
+          so it participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
+          - Speech-OTS-SonarMark
 
       - id: Quality-PeerReview
-        title: The repository shall rely on ReviewMark to enforce peer-review tracking and reporting.
+        title: The repository shall enforce peer-review tracking and reporting.
         tags: [quality]
         justification: |
           Peer-review compliance depends on ReviewMark's indexing, enforcement,
@@ -59,45 +95,70 @@ sections:
           participate in orphan detection without being falsely reported as
           disconnected from library functionality.
         children:
-          - Template-OTS-ReviewMark
-          - Template-OTS-ReviewMark-IndexScan
-          - Template-OTS-ReviewMark-Enforce
-          - Template-OTS-ReviewMark-Elaborate
-          - Template-OTS-ReviewMark-Lint
-          - Template-OTS-ReviewMark-DirectoryOverride
+          - Speech-OTS-ReviewMark
+          - Speech-OTS-ReviewMark-IndexScan
+          - Speech-OTS-ReviewMark-Enforce
+          - Speech-OTS-ReviewMark-Elaborate
+          - Speech-OTS-ReviewMark-Lint
+          - Speech-OTS-ReviewMark-DirectoryOverride
 
       - id: Quality-DocumentationGeneration
-        title: The repository shall rely on Pandoc and WeasyPrint to generate HTML and PDF documentation.
+        title: The repository shall convert its documentation to HTML.
         tags: [quality]
         justification: |
-          Documentation generation depends on Pandoc's format conversion and
-          WeasyPrint's PDF rendering. This grouping requirement links those OTS
-          requirements to the quality root so they participate in orphan detection
-          without being falsely reported as disconnected from library functionality.
+          Documentation generation depends on Pandoc's format conversion. This
+          grouping requirement links that OTS requirement to the quality root so it
+          participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
         children:
-          - Template-OTS-Pandoc
-          - Template-OTS-WeasyPrint
+          - Speech-OTS-Pandoc
+
+      - id: Quality-PdfGeneration
+        title: The repository shall render its documentation as PDF.
+        tags: [quality]
+        justification: |
+          PDF documentation depends on WeasyPrint's PDF rendering. This grouping
+          requirement links that OTS requirement to the quality root so it
+          participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
+          - Speech-OTS-WeasyPrint
 
       - id: Quality-RequirementsTraceability
-        title: >-
-          The repository shall rely on ReqStream and FileAssert to validate
-          requirements traceability and generated documentation.
+        title: The repository shall report requirements traceability.
         tags: [quality]
         justification: |
-          Requirements traceability depends on ReqStream's linting and reporting
-          capabilities, and generated-document verification depends on FileAssert.
-          This grouping requirement links those OTS requirements to the quality
-          root so they participate in orphan detection without being falsely
-          reported as disconnected from library functionality.
+          Requirements traceability depends on ReqStream's reporting capability.
+          This grouping requirement links that OTS requirement to
+          the quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
         children:
-          - Template-OTS-ReqStream
-          - Template-OTS-ReqStream-Lint
-          - Template-OTS-FileAssert
+          - Speech-OTS-ReqStream
+
+      - id: Quality-RequirementsLinting
+        title: The repository shall lint its requirements.
+        tags: [quality]
+        justification: |
+          Requirements quality depends on ReqStream's linting capability. This
+          grouping requirement links that OTS requirement to
+          the quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
+        children:
+          - Speech-OTS-ReqStream-Lint
+
+      - id: Quality-GeneratedDocumentVerification
+        title: The repository shall verify that its generated documents exist.
+        tags: [quality]
+        justification: |
+          Generated-document verification depends on FileAssert. This grouping
+          requirement links that OTS requirement to the quality root so it
+          participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
+          - Speech-OTS-FileAssert
 
       - id: Quality-AudioBackend
-        title: >-
-          The repository shall rely on PortAudioSharp2 for real cross-platform audio capture and
-          playback.
+        title: The repository shall capture and play back audio on every supported platform.
         tags: [quality]
         justification: |
           Real audio I/O depends on PortAudioSharp2's managed PortAudio binding and its
@@ -112,12 +173,12 @@ sections:
 
       - id: Quality-SpeechEngine
         title: >-
-          The repository shall rely on sherpa-onnx for local, offline speech recognition
-          inference.
+          The repository shall run speech recognition and synthesis inference locally and offline.
         tags: [quality]
         justification: |
-          Streaming speech-to-text depends on sherpa-onnx's managed streaming-recognition API and
-          on each model declaring its own engine configuration through that API. This grouping
+          Streaming speech-to-text and text-to-speech in the SpeechSherpa package depend on
+          sherpa-onnx's managed API and on each model declaring its own engine configuration
+          through that API. This grouping
           requirement links those OTS requirements to the quality root so they participate in
           orphan detection without being falsely reported as disconnected from library
           functionality.
@@ -126,9 +187,7 @@ sections:
           - Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
 
       - id: Quality-ArchiveExtraction
-        title: >-
-          The repository shall rely on SharpCompress to unpack downloaded .tar.bz2 model
-          archives.
+        title: The repository shall unpack downloaded .tar.bz2 model archives.
         tags: [quality]
         justification: |
           Model installation depends on SharpCompress's managed BZip2 tar decoder, and the
@@ -140,31 +199,93 @@ sections:
           - Speech-OTS-SharpCompress-TarBz2Extraction
           - Speech-OTS-SharpCompress-ArgumentValidation
 
+      - id: Quality-OnnxInference
+        title: The repository shall run ONNX model inference locally and offline.
+        tags: [quality]
+        justification: |
+          The ONNX-based recognition and synthesis packages depend on ONNX Runtime's managed
+          inference API, execution-provider fallback, and tensor binding. This grouping
+          requirement links those OTS requirements to the quality root so they participate in
+          orphan detection without being falsely reported as disconnected from library
+          functionality.
+        children:
+          - Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference
+          - Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
+          - Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
+          - Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
+          - Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
+
+      - id: Quality-VectorizedAudioMath
+        title: The repository shall convert, scale, clamp and combine audio samples numerically.
+        tags: [quality]
+        justification: |
+          WAV decoding, resampling, and volume scaling depend on System.Numerics.Tensors'
+          vectorized primitives. This grouping requirement links that OTS requirement to the
+          quality root so it participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
+          - Speech-OTS-SystemNumericsTensors-SampleConversion
+          - Speech-OTS-SystemNumericsTensors-SampleDivision
+          - Speech-OTS-SystemNumericsTensors-SampleMultiplication
+          - Speech-OTS-SystemNumericsTensors-SampleClamping
+          - Speech-OTS-SystemNumericsTensors-DotProduct
+
       - id: Quality-SoftwareStructureModeling
-        title: The repository shall rely on SysML2Tools to lint and render software-structure models.
+        title: The repository shall lint its software-structure models.
         tags: [quality]
         justification: |
           Software-structure documentation depends on SysML2Tools' model-linting
-          and diagram-rendering capabilities. This grouping requirement links those
-          OTS requirements to the quality root so they participate in orphan
-          detection without being falsely reported as disconnected from library
-          functionality.
+          capability. This grouping requirement links that OTS requirement to the
+          quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
         children:
-          - Template-OTS-SysML2Tools-Lint
-          - Template-OTS-SysML2Tools-Render
+          - Speech-OTS-SysML2Tools-Lint
+
+      - id: Quality-SoftwareStructureRendering
+        title: The repository shall render its software-structure diagrams.
+        tags: [quality]
+        justification: |
+          Software-structure documentation depends on SysML2Tools' diagram-rendering
+          capability. This grouping requirement links that OTS requirement to the
+          quality root so it participates in orphan detection without being
+          falsely reported as disconnected from library functionality.
+        children:
+          - Speech-OTS-SysML2Tools-Render
 
       - id: Quality-DemoUserInterface
         title: >-
-          The repository shall rely on Avalonia and CommunityToolkit.Mvvm for the cross-platform
-          demo application user interface.
+          The repository shall host its demo application as a cross-platform desktop application.
         tags: [quality]
         justification: |
           The SpeechDemo application depends on Avalonia for its cross-platform desktop
-          application host and on CommunityToolkit.Mvvm for observable change notification and
-          generated commands. This grouping requirement links those OTS requirements to the
-          quality root so they participate in orphan detection without being falsely reported as
+          application host. This grouping requirement links that OTS requirement to the
+          quality root so it participates in orphan detection without being falsely reported as
           disconnected from library functionality.
         children:
           - SpeechDemo-OTS-Avalonia-DesktopApplicationHost
+          - SpeechDemo-OTS-Avalonia-ApplicationBuilderConfiguration
+
+      - id: Quality-DemoMvvm
+        title: The repository shall notify demo views when a view-model value changes.
+        tags: [quality]
+        justification: |
+          The SpeechDemo view models depend on CommunityToolkit.Mvvm for observable change
+          notification. This grouping requirement links that OTS requirement to the quality
+          root so it participates in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
           - SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
+          - SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
+
+      - id: Quality-DemoCommands
+        title: The repository shall provide the demo view models with invocable commands.
+        tags: [quality]
+        justification: |
+          The SpeechDemo view models depend on CommunityToolkit.Mvvm for generated commands.
+          This grouping requirement links that OTS requirement to the quality root so it
+          participates in orphan detection without being falsely reported as disconnected from
+          library functionality.
+        children:
           - SpeechDemo-OTS-CommunityToolkitMvvm-Commands
+          - SpeechDemo-OTS-CommunityToolkitMvvm-AsyncCommands
+          - SpeechDemo-OTS-CommunityToolkitMvvm-CommandCancellation

@@ -1,0 +1,38 @@
+---
+# Software Unit Requirements for the SpeechCli DownloadProgressReporter
+#
+# These requirements describe the shared progress output used by `download` and `voices install`,
+# decomposing the system-level SpeechCli-ModelDownload requirement.
+# Every test below is a DownloadProgressReporterTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: DownloadProgressReporter Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-ProgressWholePercentLines
+                title: >-
+                  The progress reporter shall print one line per whole percent completed for each
+                  downloaded file, never repeating a value within a file, when the total download
+                  size is known.
+                justification: |
+                  Progress must be readable and must not flood the output with one line per
+                  transferred chunk, yet each file of a multi-file download must show its own
+                  progress.
+                tests:
+                  - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
+                  - DownloadProgressReporter_Create_NextFileSamePercent_ReportsBothFiles
+
+              - id: SpeechCli-ModelCommands-ProgressKilobyteLines
+                title: >-
+                  The progress reporter shall print the number of whole kilobytes transferred,
+                  rather than a percentage, when the total download size is unknown, without
+                  repeating a value within a file.
+                justification: |
+                  Without a total there is no meaningful percentage, yet the operator still needs
+                  to see that the download is advancing.
+                tests:
+                  - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
+                  - DownloadProgressReporter_Create_NextFileSameKilobytes_ReportsBothFiles

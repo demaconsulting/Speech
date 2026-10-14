@@ -11,9 +11,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     dropdown, <see cref="BooleanParameter"/> → checkbox) using only this common shape plus a
 ///     type check/pattern match - it never needs to know a specific model's parameter set ahead
 ///     of time. Values are supplied to synthesis/recognition as an untyped key-value bag keyed
-///     by <see cref="Id"/>; a model's own backing class validates, clamps, and silently ignores
-///     unrecognized keys, so a host built against one model does not break when switching to a
-///     model with a different declared parameter set.
+///     by <see cref="Id"/>; an invalid value for a recognized key is rejected with an exception
+///     (values are never clamped), while an unrecognized key is not an error - it is ignored
+///     and reported at Info level - so a host built against one model does not break when
+///     switching to a model with a different declared parameter set.
 /// </remarks>
 public interface ISpeechModelParameter
 {

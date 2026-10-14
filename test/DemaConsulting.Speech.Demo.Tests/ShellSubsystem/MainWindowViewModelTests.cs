@@ -133,7 +133,7 @@ public class MainWindowViewModelTests
     }
 
     /// <summary>
-    ///     Proves that this phase's shell offers exactly the four implemented panels, in the
+    ///     Proves that the shell offers exactly the four implemented panels, in the
     ///     order a user would work through them.
     /// </summary>
     [Fact]
@@ -233,16 +233,49 @@ public class MainWindowViewModelTests
     ///     audio devices and a library with no known models.
     /// </summary>
     [Fact]
-    public void MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState()
+    public void MainWindowViewModel_Constructor_EmptyEnvironment_ComposesAllPanelsWithEmptyStates()
     {
         // Arrange & Act: compose the shell over a machine reporting nothing
         var viewModel = FullShell();
 
-        // Assert: every panel reports its honest empty state without faulting
+        // Assert: all four panels are still present and each reports its own empty state
+        Assert.Equal(4, viewModel.Panels.Count);
         Assert.False(viewModel.DeviceSelection.HasCaptureDevices);
         Assert.False(viewModel.DeviceSelection.HasPlaybackDevices);
         Assert.True(viewModel.ModelCatalog.IsCatalogEmpty);
         Assert.False(viewModel.Synthesis.HasModels);
         Assert.False(viewModel.Recognition.HasModels);
+    }
+
+    /// <summary>
+    ///     Proves that assigning the panel that is already selected raises no change
+    ///     notification, so the bound view is not asked to swap content needlessly.
+    /// </summary>
+    [Fact]
+    public void MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify()
+    {
+        // Arrange: a composed shell with a recorded notification list
+        var viewModel = FullShell();
+        var changed = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        // Act: reassign the already-selected panel
+        viewModel.SelectedPanel = viewModel.Panels[0];
+
+        // Assert: no selection change was announced
+        Assert.DoesNotContain(nameof(MainWindowViewModel.SelectedPanel), changed);
+    }
+
+    /// <summary>
+    ///     Proves that every navigation entry the shell builds carries a non-blank title.
+    /// </summary>
+    [Fact]
+    public void MainWindowViewModel_Constructor_ValidPanels_EveryEntryHasNonBlankTitle()
+    {
+        // Arrange & Act: compose the shell
+        var viewModel = FullShell();
+
+        // Assert: no entry is untitled
+        Assert.All(viewModel.Panels, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Title)));
     }
 }

@@ -15,9 +15,10 @@ namespace DemaConsulting.Speech.Tests.SynthesisSubsystem;
 ///     overlap-rule behavior unique to the session abstraction.
 /// </summary>
 /// <remarks>
-///     Every test is deterministic without timing assumptions: segments are synthesized and
-///     played strictly in order (one at a time), so every assertion runs only once the awaited
-///     call has genuinely completed.
+///     Tests are deterministic: segments are synthesized and played strictly in order (one at a
+///     time), and "not yet complete" assertions are made against semaphore-gated doubles rather
+///     than sleeps. The only real-time dependencies are the abandon-timeout and drain-poll
+///     intervals of the session under test, which bound (never assert) elapsed time.
 /// </remarks>
 public class SynthesisSessionTests
 {
@@ -90,6 +91,34 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that no diagnostic report emitted over a successful and a faulted operation
+    ///     contains the synthesized text.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_Operations_SynthesizedText_IsNeverReportedThroughDiagnostics()
+    {
+        // Arrange
+        const string secret = "ultra-secret-utterance";
+        var reports = new List<string>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        diagnostics.When(d => d.Report(Arg.Any<SpeechDiagnosticLevel>(), Arg.Any<string>(), Arg.Any<string>()))
+            .Do(call => reports.Add(call.ArgAt<string>(2)));
+        var goodBackend = new FakeSynthesisEngine();
+        var failingBackend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        await using var goodSession = CreateSession(goodBackend, CreateAvailablePlaybackDevice(), diagnostics: diagnostics);
+        await using var failingSession = CreateSession(failingBackend, CreateAvailablePlaybackDevice(), diagnostics: diagnostics);
+
+        // Act
+        await goodSession.SynthesizeAsync(secret, TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => failingSession.SynthesizeAsync(secret, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotEmpty(reports);
+        Assert.All(reports, report => Assert.DoesNotContain(secret, report, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     Proves that a faulted session rejects any further operation with
     ///     <see cref="SynthesisSessionFaultedException"/>, rather than attempting to synthesize
     ///     again.
@@ -122,7 +151,7 @@ public class SynthesisSessionTests
     {
         // Arrange: a backend whose Generate throws OperationCanceledException on its own,
         // independent of any cancellation token this session ever observes
-        var backend = new FakeSynthesisEngine(generateException: new OperationCanceledException("backend cancelled unexpectedly"));
+        var backend = new FakeSynthesisEngine(generateException: new OperationCanceledException("backend canceled unexpectedly"));
         var device = CreateAvailablePlaybackDevice();
         await using var session = CreateSession(backend, device);
 
@@ -248,7 +277,7 @@ public class SynthesisSessionTests
     /// <summary>
     ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> returns control to its caller
     ///     well before a slow, synchronous <see cref="IAudioPlaybackDevice.Start"/> call returns -
-    ///     closing the review finding that the native playback device-start call used to run
+    ///     guarding the regression where the native playback device-start call used to run
     ///     inline on the calling thread, before this already-async method's first await, blocking
     ///     the caller (for example a UI thread) for however long the native call took.
     /// </summary>
@@ -270,7 +299,7 @@ public class SynthesisSessionTests
         // Act: call SpeakAsync and prove it returns control to this thread - without blocking -
         // well before the device's own blocking Start() call has returned
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
-        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the device call was genuinely entered, but SpeakAsync has not yet completed and
         // this thread was never blocked waiting for it
@@ -279,7 +308,7 @@ public class SynthesisSessionTests
 
         // Act: release the blocked device call and let the speak call genuinely finish
         startRelease.Set();
-        await speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the device was started and stopped exactly once each
         device.Received(1).Start();
@@ -316,11 +345,19 @@ public class SynthesisSessionTests
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
 
+        // Ordering witness (no timing window): records, at the instant StopAsync's task
+        // completes, whether the native call had genuinely returned. A regression that completed
+        // StopAsync early would record false here no matter when it happened.
+        var generateReturnedWhenStopCompleted = false;
+        var stopObserved = stopTask.ContinueWith(
+            _ => generateReturnedWhenStopCompleted = backend.GenerateReturned,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
         // Assert: StopAsync's own task must not be reported complete while the backend's
-        // Generate call is still in flight - this is exactly the window in which a caller
-        // previously could (and, per the bug report this design supersedes, did) wrongly believe
-        // the device/backend was quiescent and dispose the engine out from under it.
-        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+        // Generate call is still in flight - the backend is gated by the test, so this state is
+        // stable until the test releases it.
         Assert.False(stopTask.IsCompleted);
         Assert.False(speakTask.IsCompleted);
 
@@ -330,7 +367,9 @@ public class SynthesisSessionTests
 
         // Assert: StopAsync itself completes only once the operation has truly stopped, and the
         // operation ends via cancellation rather than hanging or faulting some other way
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await stopObserved;
+        Assert.True(generateReturnedWhenStopCompleted);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
         Assert.True(backend.GenerateReturned);
         Assert.Equal(SynthesisSessionState.Stopped, session.State);
@@ -451,7 +490,7 @@ public class SynthesisSessionTests
     ///     still awaits the original, still-in-flight operation (and its raw native completion)
     ///     before disposing the backend/releasing the lease, rather than observing only the
     ///     rejected call's already-completed (faulted) task and disposing the backend out from
-    ///     under the original call (finding 20).
+    ///     under the original call.
     /// </summary>
     [Fact]
     public async Task SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation()
@@ -461,7 +500,14 @@ public class SynthesisSessionTests
         using var generateRelease = new SemaphoreSlim(0, 1);
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
-        var session = CreateSession(backend, device);
+        var generateReturnedAtLeaseRelease = false;
+        var session = new SynthesisSession(
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () => generateReturnedAtLeaseRelease = backend.GenerateReturned);
         var firstCall = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
 
@@ -474,16 +520,18 @@ public class SynthesisSessionTests
 
         // Assert: DisposeAsync does not complete while the original call is still blocked -
         // proving it is awaiting the original operation, not the rejected call's faulted task
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.False(disposeTask.IsCompleted);
         Assert.False(backend.GenerateReturned);
 
         // Release the original call so both it and disposal can complete
         generateRelease.Release();
         await Record.ExceptionAsync(() => firstCall);
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
+        // Ordering witness: the lease was released only after the native call genuinely returned
         Assert.True(backend.GenerateReturned);
+        Assert.True(generateReturnedAtLeaseRelease);
     }
 
     /// <summary>
@@ -513,6 +561,64 @@ public class SynthesisSessionTests
                 SynthesisSessionState.Stopped
             ],
             observedStates);
+    }
+
+    /// <summary>
+    ///     Proves <see cref="ISynthesisSession.StateChanged"/> handlers do not run under the session's
+    ///     internal lock: a handler that waits for another thread to read the lock-protected state completes.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        var observedOnOtherThread = new List<SynthesisSessionState>();
+        session.StateChanged += (_, _) =>
+        {
+            var read = Task.Run(() => session.State);
+            Assert.True(read.Wait(TimeSpan.FromSeconds(30)), "State read blocked while a handler was running");
+            lock (observedOnOtherThread)
+            {
+                observedOnOtherThread.Add(read.Result);
+            }
+        };
+
+        // Act
+        await session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(4, observedOnOtherThread.Count);
+    }
+
+    /// <summary>
+    ///     Proves the dispose path honors the same rule: a handler that blocks on another thread
+    ///     reading the lock-protected state completes when an idle session is disposed.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_DisposeAsync_IdleSessionHandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        var observed = new List<SynthesisSessionState>();
+        session.StateChanged += (_, _) =>
+        {
+            var read = Task.Run(() => session.State);
+            Assert.True(read.Wait(TimeSpan.FromSeconds(30)), "State read blocked while a dispose-path handler was running");
+            lock (observed)
+            {
+                observed.Add(read.Result);
+            }
+        };
+
+        // Act
+        await session.DisposeAsync();
+
+        // Assert
+        Assert.Equal([SynthesisSessionState.Disposing, SynthesisSessionState.Disposed], observed);
     }
 
     /// <summary>
@@ -669,7 +775,7 @@ public class SynthesisSessionTests
         async Task DisposeOnceAsync() => await session.DisposeAsync();
         var first = DisposeOnceAsync();
         var second = DisposeOnceAsync();
-        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: both callers converged, and the lease was released exactly once
         Assert.Equal(SynthesisSessionState.Disposed, session.State);
@@ -691,11 +797,21 @@ public class SynthesisSessionTests
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         var releaseCount = 0;
+        var generateReturnedAtLeaseRelease = false;
         var session = new SynthesisSession(
-            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () =>
+            {
+                generateReturnedAtLeaseRelease = backend.GenerateReturned;
+                releaseCount++;
+            });
 
         // Act: start speaking, wait until the backend call has begun, then begin disposing
-        // directly (DisposeAsync requests its own cancellation and - per finding 27 - must wait
+        // directly (DisposeAsync requests its own cancellation and must wait
         // for the native call's genuine raw completion, not just the abandon-aware operation
         // task, before releasing the lease)
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
@@ -704,24 +820,26 @@ public class SynthesisSessionTests
 
         // Assert: the lease must not be released while the abandoned worker is still stuck inside
         // the backend's blocking Generate call
-        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.Equal(0, releaseCount);
         Assert.False(disposeTask.IsCompleted);
 
         // Act: release the abandoned background call so it can genuinely finish
         generateRelease.Release();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
-        // Assert: only once the worker genuinely exited was the lease released
+        // Assert: only once the worker genuinely exited was the lease released; the ordering
+        // witness captured at the instant of release proves it independent of timing
         Assert.True(backend.GenerateReturned);
         Assert.Equal(1, releaseCount);
+        Assert.True(generateReturnedAtLeaseRelease);
 
         // Observe the task's outcome so it is never reported as an unobserved exception
         await Record.ExceptionAsync(() => speakTask);
     }
 
     /// <summary>
-    ///     Proves that an abandoned native <c>Generate</c> call (finding 26) faults the session
+    ///     Proves that an abandoned native <c>Generate</c> call faults the session
     ///     rather than returning it to the reusable <see cref="SynthesisSessionState.Stopped"/>
     ///     state, so a subsequent <see cref="ISynthesisSession.SpeakAsync"/>/
     ///     <see cref="ISynthesisSession.SynthesizeAsync"/> call can never start a second native
@@ -749,7 +867,7 @@ public class SynthesisSessionTests
         // abandon timeout plus margin), the session is Faulted - not the reusable Stopped state -
         // and a new call is rejected immediately rather than needing to wait for the still-running
         // abandoned native call
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
 
         var reuseException = await Record.ExceptionAsync(
             () => session.SynthesizeAsync("Second call.", TestContext.Current.CancellationToken));
@@ -762,7 +880,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that <see cref="ISynthesisSession.StopAsync"/> does not complete merely because
-    ///     the abandon-aware operation task has settled (finding 27): while the native
+    ///     the abandon-aware operation task has settled: while the native
     ///     <c>Generate</c> call is still genuinely running in the background past the abandon
     ///     timeout, the task <c>StopAsync</c> returns must remain incomplete, matching its
     ///     documented "operation has stopped" contract.
@@ -785,14 +903,14 @@ public class SynthesisSessionTests
         // Assert: even once the default 2s abandon timeout has elapsed and the session has
         // faulted, StopAsync's own task must still not be complete, because the native call is
         // still genuinely running against the backend
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
         Assert.False(stopTask.IsCompleted);
 
         // Act: only now let the in-flight native-style call finish
         generateRelease.Release();
 
         // Assert: StopAsync completes only once the native call has genuinely returned
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.True(backend.GenerateReturned);
 
         await Record.ExceptionAsync(() => speakTask);
@@ -800,7 +918,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that <c>DisposeAsync</c>, called after an abandoned native <c>Generate</c> call
-    ///     has already faulted the session (finding 30), still waits for that native call's
+    ///     has already faulted the session, still waits for that native call's
     ///     genuine raw completion before releasing the engine's exclusivity lease. The session's
     ///     abandon-fault handling clears the operation's tracked task eagerly, alongside the
     ///     Faulted transition, so a naive re-read of that cleared task (without also re-checking
@@ -816,8 +934,18 @@ public class SynthesisSessionTests
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         var releaseCount = 0;
+        var generateReturnedAtLeaseRelease = false;
         var session = new SynthesisSession(
-            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () =>
+            {
+                generateReturnedAtLeaseRelease = backend.GenerateReturned;
+                releaseCount++;
+            });
 
         // Act: start speaking, wait until the backend call has begun, then stop - the real
         // backend never honors cancellation, so the dedicated worker abandons it after its
@@ -825,7 +953,7 @@ public class SynthesisSessionTests
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         _ = session.StopAsync(TestContext.Current.CancellationToken);
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
 
         // Act: only now - after the fault, with the tracked operation task already cleared -
         // begin disposing
@@ -833,24 +961,26 @@ public class SynthesisSessionTests
 
         // Assert: the lease must not be released while the abandoned native call is still
         // genuinely running, even though there is no tracked operation task left to await
-        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.Equal(0, releaseCount);
         Assert.False(disposeTask.IsCompleted);
 
         // Act: release the abandoned background call so it can genuinely finish
         generateRelease.Release();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
-        // Assert: only once the native call genuinely returned was the lease released
+        // Assert: only once the native call genuinely returned was the lease released; the
+        // ordering witness captured at the instant of release proves it independent of timing
         Assert.True(backend.GenerateReturned);
         Assert.Equal(1, releaseCount);
+        Assert.True(generateReturnedAtLeaseRelease);
 
         await Record.ExceptionAsync(() => speakTask);
     }
 
     /// <summary>
     ///     Proves that an abandoned playback <see cref="IAudioPlaybackDevice.Start"/> call (the
-    ///     device-start review finding mirroring finding 27, but for the one-shot playback-device
+    ///     device-start counterpart of the abandoned-Generate case, but for the one-shot playback-device
     ///     startup rather than the per-segment native <c>Generate</c> call) is routed through the
     ///     same <see cref="DedicatedWorker"/> cooperative-cancel-then-abandon policy: cancelling
     ///     while <see cref="IAudioPlaybackDevice.Start"/> is still genuinely blocked must not hang
@@ -887,7 +1017,7 @@ public class SynthesisSessionTests
         // Assert: even once the default 2s abandon timeout has elapsed and the session has
         // faulted, StopAsync's own task must still not be complete, and the playback device must
         // never have been stopped, because the abandoned Start() call is still genuinely running
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
         Assert.False(stopTask.IsCompleted);
         Assert.False(deviceStopCalled);
 
@@ -896,7 +1026,7 @@ public class SynthesisSessionTests
 
         // Assert: StopAsync completes, and the device was stopped, only once Start() genuinely
         // returned
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.True(deviceStopCalled);
 
         await Record.ExceptionAsync(() => speakTask);
@@ -904,7 +1034,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that a canceled caller token passed to <see cref="ISynthesisSession.StopAsync"/>
-    ///     only bounds that caller's own wait (finding 28) rather than aborting the shared
+    ///     only bounds that caller's own wait rather than aborting the shared
     ///     cancel-and-await teardown: the caller observes <see cref="OperationCanceledException"/>
     ///     promptly, but the in-flight operation is still genuinely requested to cancel and the
     ///     session still converges normally afterward.
@@ -912,12 +1042,15 @@ public class SynthesisSessionTests
     [Fact]
     public async Task SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops()
     {
-        // Arrange
-        var backend = new FakeSynthesisEngine();
+        // Arrange: a gated in-flight call, so the stop is still pending when the caller's wait begins
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         await using var session = CreateSession(backend, device);
 
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
 
         using var preCanceled = new CancellationTokenSource();
         await preCanceled.CancelAsync();
@@ -926,26 +1059,118 @@ public class SynthesisSessionTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(preCanceled.Token));
 
         // Assert: the operation itself was still genuinely requested to stop and settles normally
+        generateRelease.Release();
         await Record.ExceptionAsync(() => speakTask);
         Assert.NotEqual(SynthesisSessionState.Running, session.State);
     }
 
     /// <summary>
-    ///     Polls <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> until it
-    ///     equals <paramref name="expected"/> or <paramref name="timeout"/> elapses, used only to
-    ///     bound a wait for an asynchronous state transition driven by
-    ///     <see cref="DedicatedWorker"/>'s own abandon-timeout delay, not as a substitute for
-    ///     awaiting a task directly.
+    ///     Proves that a pre-canceled token passed to <see cref="ISynthesisSession.StopAsync"/>
+    ///     does not abort the teardown: while a gated native call is still in flight, the
+    ///     caller's wait is released by its own token, yet the operation is still canceled and
+    ///     only settles - ending in <see cref="SynthesisSessionState.Stopped"/> - once the call
+    ///     genuinely returns.
+    /// </summary>
+    [Fact(Timeout = 5000)]
+    public async Task SynthesisSession_StopAsync_CallerTokenPreCanceled_OperationStillCanceledAndAwaited()
+    {
+        // Arrange: a gated in-flight native call
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        using var preCanceled = new CancellationTokenSource();
+        await preCanceled.CancelAsync();
+
+        // Act: the caller's own wait is released by its own canceled token
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(preCanceled.Token));
+
+        // Assert: teardown was not abandoned - the operation is still pending on the gated call
+        Assert.False(speakTask.IsCompleted);
+        Assert.False(backend.GenerateReturned);
+
+        // Act: let the native call return
+        generateRelease.Release();
+
+        // Assert: the operation ends canceled and the session converges to Stopped
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
+        Assert.Equal(SynthesisSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
+    ///     Waits until <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> equals
+    ///     <paramref name="expected"/> by observing <see cref="ISynthesisSession.StateChanged"/>
+    ///     (no polling), bounded by <paramref name="timeout"/>.
     /// </summary>
     private static async Task WaitForStateAsync(ISynthesisSession session, SynthesisSessionState expected, TimeSpan timeout)
     {
-        var deadline = DateTime.UtcNow + timeout;
-        while (session.State != expected && DateTime.UtcNow < deadline)
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(object? sender, SessionStateChangedEventArgs e)
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(20), TestContext.Current.CancellationToken);
+            if (session.State == expected)
+            {
+                reached.TrySetResult();
+            }
+        }
+
+        session.StateChanged += Handler;
+        try
+        {
+            if (session.State != expected)
+            {
+                await reached.Task.WaitAsync(timeout, TestContext.Current.CancellationToken);
+            }
+        }
+        finally
+        {
+            session.StateChanged -= Handler;
         }
 
         Assert.Equal(expected, session.State);
+    }
+
+    /// <summary>
+    ///     Proves that disposing a session reports the <see cref="SynthesisSessionState.Disposing"/>
+    ///     state and then the terminal <see cref="SynthesisSessionState.Disposed"/> state, in that order.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        var observed = new List<SynthesisSessionState>();
+        session.StateChanged += (_, args) => observed.Add(args.Current);
+
+        // Act
+        await session.DisposeAsync();
+
+        // Assert
+        Assert.Equal([SynthesisSessionState.Disposing, SynthesisSessionState.Disposed], observed);
+    }
+
+    /// <summary>
+    ///     Proves that speaking on a disposed session throws <see cref="ObjectDisposedException"/>
+    ///     rather than silently doing nothing.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        await session.DisposeAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => session.SpeakAsync("hello", TestContext.Current.CancellationToken));
+        Assert.Equal(SynthesisSessionState.Disposed, session.State);
+        Assert.False(session.IsAvailable);
     }
 
     /// <summary>
@@ -1098,7 +1323,7 @@ public class SynthesisSessionTests
         // Assert: the speaker id still resolves from the bag, and the segment's speed differs from 1.0
         var call = Assert.Single(backend.GenerateCalls);
         Assert.Equal(5, call.SpeakerId);
-        Assert.NotEqual(1.0f, call.Speed);
+        Assert.True(call.Speed > 1.0f);
     }
 
     /// <summary>
@@ -1139,6 +1364,328 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> writes a pause segment's
+    ///     silence as zero-valued samples sized for the device's rate and channel count (here a
+    ///     stereo device, so the mono backend audio is also up-mixed), in segment order.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio()
+    {
+        // Arrange: a stereo 16 kHz device; the short pause renders as 300 ms of post-silence
+        var backend = new FakeSynthesisEngine(sampleRate: 16000);
+        var device = CreateAvailablePlaybackDevice(sampleRate: 16000, channelCount: 2);
+        var writes = new List<float[]>();
+        device.When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(call => writes.Add([.. call.Arg<IReadOnlyList<float>>()]));
+        await using var session = CreateSession(backend, device);
+
+        // Act
+        await session.SpeakAsync("Hello [short pause] world.", TestContext.Current.CancellationToken);
+
+        // Assert: speech, then 300 ms of stereo silence (4800 frames x 2 channels), then speech
+        Assert.Equal(3, writes.Count);
+        Assert.Equal("Hello".Length * 4 * 2, writes[0].Length);
+        Assert.Equal(4800 * 2, writes[1].Length);
+        Assert.All(writes[1], sample => Assert.Equal(0f, sample));
+        Assert.Equal("world.".Length * 4 * 2, writes[2].Length);
+    }
+
+    /// <summary>
+    ///     Proves a very long pause is written to the playback device in bounded chunks of at
+    ///     most one second each whose total length equals the pause, rather than one huge buffer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_VeryLongSilence_IsWrittenInBoundedChunks()
+    {
+        // Arrange: a stereo 16 kHz device and a plan whose only segment is a 150 s pause
+        const int sampleRate = 16000;
+        const int channelCount = 2;
+        const int pauseSeconds = 150;
+        var backend = new FakeSynthesisEngine(sampleRate: sampleRate);
+        var device = CreateAvailablePlaybackDevice(sampleRate: sampleRate, channelCount: channelCount);
+        var writeLengths = new List<int>();
+        device.When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(call => writeLengths.Add(call.Arg<IReadOnlyList<float>>().Count));
+        var profile = Substitute.For<IModelCapabilityProfile>();
+        profile.Render(Arg.Any<IReadOnlyList<TaggedTextSpan>>(), Arg.Any<ISpeechModel>())
+            .Returns(new SpeechPlan([new SpeechSegment(string.Empty, 0, pauseSeconds * 1000, null)]));
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(profile);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        await session.SpeakAsync("pause", TestContext.Current.CancellationToken);
+
+        // Assert: every write is at most one second of frames and the total is the full pause
+        Assert.All(writeLengths, length => Assert.True(length <= sampleRate * channelCount));
+        Assert.Equal(pauseSeconds * sampleRate * channelCount, writeLengths.Sum());
+    }
+
+    /// <summary>
+    ///     Proves that a volume tag scales the synthesized amplitude by the resolved ratio and
+    ///     that a boost large enough to exceed full scale is clamped to <c>1.0</c>.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples()
+    {
+        // Arrange: the fake backend emits 0.5 samples; "loud" resolves to ratio 4.9, "soft" to 0.5
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = new FakeSynthesisModel(parameters:
+        [
+            new NumericParameter("volume", "Volume", "Output gain.", new NumericParameterBounds(0.5, 20.0, 0.1, 1.0), "x"),
+        ]);
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        var loud = await session.SynthesizeAsync("[loud] Hello.", TestContext.Current.CancellationToken);
+        var soft = await session.SynthesizeAsync("[soft] Hello.", TestContext.Current.CancellationToken);
+
+        // Assert: boosted audio is clamped to full scale; reduced audio is scaled by 0.5
+        Assert.All(Assert.Single(loud).Samples, sample => Assert.Equal(1.0f, sample));
+        Assert.All(Assert.Single(soft).Samples, sample => Assert.Equal(0.25f, sample, 0.0001f));
+    }
+
+    /// <summary>
+    ///     Proves that a speed override from the capability profile reaches the backend as the
+    ///     ratio of the overridden value to the declared parameter's default, not the raw value.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_SpeedOverride_PassesRatioToDefaultToBackend()
+    {
+        // Arrange: tempo defaults to 2.0, so an override of 3.0 is a 1.5x speed ratio
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = CreateModelWithOverrides(
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 4.0, 0.05, 2.0), "x")],
+            new Dictionary<string, object> { ["tempo"] = 3.0 });
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        await session.SynthesizeAsync("Hello.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.GenerateCalls);
+        Assert.Equal(1.5f, call.Speed, 0.0001f);
+    }
+
+    /// <summary>
+    ///     Proves that a speed or volume override resolving to a non-positive ratio is ignored,
+    ///     leaving the backend speed at <c>1.0</c> and the samples unscaled.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_NonPositiveOverrideRatio_IsIgnored()
+    {
+        // Arrange: a negative tempo override and a zero volume override are not valid multipliers
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = CreateModelWithOverrides(
+            [
+                new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0), "x"),
+                new NumericParameter("volume", "Volume", "Output gain.", new NumericParameterBounds(0.5, 20.0, 0.1, 1.0), "x"),
+            ],
+            new Dictionary<string, object> { ["tempo"] = -1.0, ["volume"] = 0.0 });
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        var segments = await session.SynthesizeAsync("Hello.", TestContext.Current.CancellationToken);
+
+        // Assert: default speed, and the fake backend's unscaled 0.5 samples
+        var call = Assert.Single(backend.GenerateCalls);
+        Assert.Equal(1.0f, call.Speed);
+        Assert.All(Assert.Single(segments).Samples, sample => Assert.Equal(0.5f, sample, 0.0001f));
+    }
+
+    /// <summary>
+    ///     Creates a substitute synthesis model declaring <paramref name="parameters"/> whose
+    ///     capability profile renders every text as one segment carrying
+    ///     <paramref name="overrides"/>.
+    /// </summary>
+    private static ISynthesisModel CreateModelWithOverrides(
+        IReadOnlyList<ISpeechModelParameter> parameters,
+        IReadOnlyDictionary<string, object> overrides)
+    {
+        var profile = Substitute.For<IModelCapabilityProfile>();
+        profile.Render(Arg.Any<IReadOnlyList<TaggedTextSpan>>(), Arg.Any<ISpeechModel>())
+            .Returns(new SpeechPlan([new SpeechSegment("Hello.", 0, 0, overrides)]));
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(profile);
+        model.Parameters.Returns(parameters);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        return model;
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> writes each segment to the
+    ///     playback device as soon as that segment has been synthesized, rather than after the
+    ///     whole plan has been synthesized: when the backend is asked for segment N, exactly the
+    ///     N-1 earlier segments have already been written.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_MultiSentenceInput_WritesEachSegmentBeforeSynthesizingNext()
+    {
+        // Arrange: a device that counts writes, and a backend that records that count each time
+        // it is asked to synthesize a segment
+        var writeCount = 0;
+        var device = CreateAvailablePlaybackDevice();
+        device
+            .When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(_ => Interlocked.Increment(ref writeCount));
+        var backend = new WriteObservingSynthesisBackend(() => Volatile.Read(ref writeCount));
+        await using var session = CreateSession(backend, device);
+
+        // Act
+        await session.SpeakAsync("First sentence. Second sentence. Third sentence.", TestContext.Current.CancellationToken);
+
+        // Assert: each segment was already written when the next one was requested
+        Assert.Equal([0, 1, 2], backend.WritesObservedAtEachGenerate);
+    }
+
+    /// <summary>
+    ///     Proves that cancelling <see cref="ISynthesisSession.SpeakAsync"/> while it is waiting
+    ///     for the playback device to drain exits the wait promptly, rather than waiting out the
+    ///     full drain: the device keeps reporting pending samples forever, so only cancellation
+    ///     can end the operation.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly()
+    {
+        // Arrange: a device that never drains, signalling a semaphore on every poll
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        using var polled = new SemaphoreSlim(0);
+        device.PendingSampleCount.Returns(_ =>
+        {
+            polled.Release();
+            return 1;
+        });
+        await using var session = CreateSession(backend, device);
+
+        // Act: wait until the drain wait has genuinely begun, then stop the operation
+        var speakTask = session.SpeakAsync("Hi.", TestContext.Current.CancellationToken);
+        await polled.WaitAsync(TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the speak call unwound via cancellation and the device was still stopped
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
+        device.Received(1).Stop();
+        Assert.Equal(SynthesisSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.StateChanged"/> raises
+    ///     <c>Starting → Running → Faulted</c>, in order, for an operation whose backend call
+    ///     throws.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        List<SynthesisSessionState> observedStates = [];
+        session.StateChanged += (_, args) => observedStates.Add(args.Current);
+
+        // Act
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Equal(
+            [
+                SynthesisSessionState.Starting,
+                SynthesisSessionState.Running,
+                SynthesisSessionState.Faulted
+            ],
+            observedStates);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.IsAvailable"/> reports <see langword="false"/>
+    ///     once the session has faulted, without throwing to read it.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_IsAvailable_AfterFault_ReturnsFalse()
+    {
+        // Arrange: fault the session with one failing call
+        var backend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        Assert.True(session.IsAvailable);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken));
+
+        // Act & Assert
+        Assert.False(session.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that when a native <c>Generate</c> call does not honor cancellation within the
+    ///     dedicated worker's abandon timeout, the canceled operation is returned to its caller
+    ///     promptly - while the native call is still genuinely running.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCanceledOperationWhileNativeCallStillRunning()
+    {
+        // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+
+        // Act: start speaking, wait until the backend call has begun, then stop
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the caller's task completes as canceled, bounded by the abandon timeout plus
+        // margin, although the native call has not returned
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.False(backend.GenerateReturned);
+
+        // Cleanup: release the abandoned background call so disposal does not hang
+        generateRelease.Release();
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that an abandoned native <c>Generate</c> call is reported through diagnostics
+    ///     at <see cref="SpeechDiagnosticLevel.Error"/> when it faults the session.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_AbandonedGenerate_ReportsFaultThroughDiagnostics()
+    {
+        // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        await using var session = CreateSession(backend, device, diagnostics: diagnostics);
+
+        // Act: start speaking, wait until the backend call has begun, stop, and let the abandoned
+        // operation settle (the fault is reported before the operation task completes)
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+        await Record.ExceptionAsync(() => speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        // Assert
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Error,
+            "SynthesisSubsystem",
+            Arg.Is<string>(message => message.Contains("faulted", StringComparison.Ordinal)));
+
+        // Cleanup: release the abandoned background call so disposal does not hang
+        generateRelease.Release();
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
     ///     Builds a substitute playback device reporting itself available with the given format.
     /// </summary>
     private static IAudioPlaybackDevice CreateAvailablePlaybackDevice(int sampleRate = 16000, int channelCount = 1)
@@ -1164,12 +1711,54 @@ public class SynthesisSessionTests
         new(backend, device, model ?? new FakeSynthesisModel(), parameterValues, diagnostics ?? NullSpeechDiagnostics.Instance, () => { });
 
     /// <summary>
+    ///     Test-only <see cref="ISynthesisBackend"/> that records, at the start of every
+    ///     <see cref="Generate"/> call, the value of an externally supplied counter, so a test
+    ///     can prove what had already happened (for example, how many playback writes) by the
+    ///     time each segment was requested.
+    /// </summary>
+    /// <param name="readObservedCount">Reads the counter to record on each <see cref="Generate"/> call.</param>
+    private sealed class WriteObservingSynthesisBackend(Func<int> readObservedCount) : ISynthesisBackend
+    {
+        /// <summary>The counter values observed at the start of each call, guarded by itself.</summary>
+        private readonly List<int> _observed = [];
+
+        public int SampleRate => 16000;
+
+        /// <summary>Gets the counter value observed at the start of each <see cref="Generate"/> call, in call order.</summary>
+        public IReadOnlyList<int> WritesObservedAtEachGenerate
+        {
+            get
+            {
+                lock (_observed)
+                {
+                    return [.. _observed];
+                }
+            }
+        }
+
+        public BackendAudio Generate(string text, float speed, int speakerId)
+        {
+            lock (_observed)
+            {
+                _observed.Add(readObservedCount());
+            }
+
+            return new BackendAudio(new float[text.Length * 4], SampleRate);
+        }
+
+        public void Dispose()
+        {
+            // Nothing to release.
+        }
+    }
+
+    /// <summary>
     ///     Test-only <see cref="ISynthesisBackend"/> whose <see cref="Generate"/> signals a
     ///     semaphore once called, then blocks until the test explicitly releases a second
     ///     semaphore - simulating a native call that keeps running for a while after the
-    ///     session's cancellation token is cancelled, exactly like the real sherpa-onnx binding,
+    ///     session's cancellation token is canceled, exactly like the real sherpa-onnx binding,
     ///     which has no in-flight cancellation primitive of its own and so cannot be interrupted
-    ///     by <see cref="ISynthesisSession.StopAsync"/> or an externally cancelled token.
+    ///     by <see cref="ISynthesisSession.StopAsync"/> or an externally canceled token.
     /// </summary>
     /// <remarks>
     ///     Deliberately does <em>not</em> unblock <see cref="Generate"/> from <see cref="Dispose"/>:
@@ -1197,9 +1786,12 @@ public class SynthesisSessionTests
         public int SampleRate => 16000;
 
         /// <summary>Gets a value indicating whether the in-flight <see cref="Generate"/> call has genuinely returned.</summary>
-        public bool GenerateReturned { get; private set; }
+        public bool GenerateReturned => _generateReturned;
 
-        public EngineAudio Generate(string text, float speed, int speakerId)
+        /// <summary>Backing store for <see cref="GenerateReturned"/>; volatile because it is read from other threads.</summary>
+        private volatile bool _generateReturned;
+
+        public BackendAudio Generate(string text, float speed, int speakerId)
         {
             generateStarted.Release();
 
@@ -1210,8 +1802,8 @@ public class SynthesisSessionTests
             // failed or timed-out test cannot leave this background thread blocked forever.
             generateRelease.Wait(testCancellationToken);
 
-            GenerateReturned = true;
-            return new EngineAudio([], SampleRate);
+            _generateReturned = true;
+            return new BackendAudio([], SampleRate);
         }
 
         public void Dispose()

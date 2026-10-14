@@ -15,16 +15,24 @@ sections:
               - id: SpeechSherpa-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-Identity
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a stable
-                  catalog identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None),
-                  and shall declare LicenseName = "CC BY 4.0" with a canonical LicenseUrl to
-                  the CC BY 4.0 full text.
+                  catalog identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None).
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/ISynthesisModel contract; this model must honestly declare its
                   own fixed identity for the catalog and downloader to enumerate and fetch it
-                  correctly. This model's CC BY 4.0 attribution license (confirmed directly from
-                  its own MODEL_CARD) must be discoverable programmatically, not only via
-                  DisplayName prose or XML documentation.
+                  correctly.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechSherpa-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-License
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare
+                  LicenseName = "CC BY 4.0" with a canonical LicenseUrl to the CC BY 4.0 full
+                  text.
+                justification: |
+                  This model's CC BY 4.0 attribution license (confirmed directly from its own
+                  MODEL_CARD) must be discoverable programmatically, not only via DisplayName
+                  prose or XML documentation.
                 tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
 
@@ -55,8 +63,7 @@ sections:
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall build an
                   OfflineTtsConfig wiring its VITS model/tokens/data-dir files, this model's own
-                  recommended NoiseScale/NoiseScaleW/LengthScale values, an unset Lexicon, and
-                  the shared default CapabilityProfile.
+                  recommended NoiseScale/NoiseScaleW/LengthScale values, and an unset Lexicon.
                 justification: |
                   This exact VITS configuration was proven end-to-end in this project's
                   development sandbox against a real, loaded OfflineTts instance that reported
@@ -65,6 +72,15 @@ sections:
                   consistently for every installed-directory argument it may be given.
                 tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_BuildEngineConfig_ResolvesVitsFilesAndConfig
+
+              - id: SpeechSherpa-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-CapabilityProfile
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare the shared
+                  default CapabilityProfile.
+                justification: |
+                  The model supports no audio tags, so the shared default profile is the honest
+                  declaration the Speech library's Layer 2 rendering relies on.
+                tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
 
               - id: SpeechSherpa-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
@@ -102,7 +118,7 @@ sections:
                   SpeechModelDownloader invokes InstallAsync after checksum verification and
                   before the atomic install swap; this model's declared payload is an archive,
                   so its files must be expanded in place for the paths BuildEngineConfig
-                  resolves to actually exist after install. Reusing the Phase 7a
+                  resolves to actually exist after install. Reusing the shared
                   TarBz2ArchiveExtractor (rather than a duplicate helper) keeps archive-extraction
                   behavior identical and once-reviewed across every model that needs it.
                 tests:
@@ -123,9 +139,7 @@ sections:
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall resolve a numeric
                   speaker value from the supplied parameter value bag to that same sherpa-onnx
-                  speaker id when it is a finite number within its declared 0-903 range, falling
-                  back to the default speaker id (0) for a null value bag, a missing key, a
-                  non-numeric value, or a value outside that range.
+                  speaker id when it is a finite number within its declared 0-903 range.
                 justification: |
                   ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - reading
                   its numeric speaker parameter directly out of the bag lets
@@ -133,11 +147,20 @@ sections:
                   library-consumer-selected numeric speaker index into the real speaker id
                   sherpa-onnx's native Generate call needs, replacing the previous hard-coded
                   speakerId: 0 and closing this model's previously known, accepted, out-of-scope
-                  limitation. Never throwing on a missing/invalid/out-of-range selection keeps
-                  synthesis available even for a malformed or stale caller-supplied value bag.
+                  limitation.
                 tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_BoxedInt_ReturnsThatValue
+
+              - id: SpeechSherpa-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerIdFallback
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall fall back to the
+                  default speaker id (0) from ResolveSpeakerId for a null value bag, a missing
+                  key, a non-numeric value, or a value outside its declared 0-903 range.
+                justification: |
+                  Never throwing on a missing/invalid/out-of-range selection keeps synthesis
+                  available even for a malformed or stale caller-supplied value bag.
+                tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_OutOfRangeValue_ReturnsDefaultId
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_NonNumericValue_ReturnsDefaultId
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId

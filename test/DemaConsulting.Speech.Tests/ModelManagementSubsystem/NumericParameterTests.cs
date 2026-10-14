@@ -14,9 +14,11 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_ValidRange_ExposesValues()
     {
+        // Arrange
+        var bounds = new NumericParameterBounds(0.5, 2.0, 0.1, 1.0);
+
         // Act
-        var parameter = new NumericParameter(
-            "tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0), "x");
+        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", bounds, "x");
 
         // Assert
         Assert.Equal("tempo", parameter.Id);
@@ -36,8 +38,11 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_NoUnit_UnitIsNull()
     {
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 1, 0.05, 0.5);
+
         // Act
-        var parameter = new NumericParameter("gain", "Gain", "Input gain.", new NumericParameterBounds(0, 1, 0.05, 0.5));
+        var parameter = new NumericParameter("gain", "Gain", "Input gain.", bounds);
 
         // Assert
         Assert.Null(parameter.Unit);
@@ -45,26 +50,38 @@ public class NumericParameterTests
 
     /// <summary>
     ///     Proves that a minimum greater than the maximum is rejected, since such a range could
-    ///     never be honored by any slider control.
+    ///     never be honored by any range-based control.
     /// </summary>
     [Fact]
     public void NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad range.", new NumericParameterBounds(1.0, 0.0, 0.1, 0.5)));
+        // Arrange
+        var bounds = new NumericParameterBounds(1.0, 0.0, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad range.", bounds));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
     ///     Proves that a non-positive step is rejected, since a zero or negative step has no
-    ///     meaningful slider increment.
+    ///     meaningful increment.
     /// </summary>
     [Fact]
     public void NumericParameter_Constructor_NonPositiveStep_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad step.", new NumericParameterBounds(0.0, 1.0, 0.0, 0.5)));
+        // Arrange
+        var bounds = new NumericParameterBounds(0.0, 1.0, 0.0, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad step.", bounds));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -74,9 +91,15 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_DefaultOutsideRange_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad default.", new NumericParameterBounds(0.0, 1.0, 0.1, 2.0)));
+        // Arrange
+        var bounds = new NumericParameterBounds(0.0, 1.0, 0.1, 2.0);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad default.", bounds));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -88,9 +111,15 @@ public class NumericParameterTests
     [InlineData(double.NegativeInfinity)]
     public void NumericParameter_Constructor_NonFiniteMinimum_ThrowsArgumentException(double minimum)
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad bound.", new NumericParameterBounds(minimum, 1.0, 0.1, 0.5)));
+        // Arrange
+        var bounds = new NumericParameterBounds(minimum, 1.0, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad bound.", bounds));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -99,9 +128,132 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_NullId_ThrowsArgumentNullException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() =>
-            new NumericParameter(null!, "Name", "Description.", new NumericParameterBounds(0, 1, 0.1, 0.5)));
+        // Arrange
+        string? id = null;
+        var bounds = new NumericParameterBounds(0, 1, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            new NumericParameter(id!, "Name", "Description.", bounds));
+
+        // Assert
+        Assert.Equal("id", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that an empty or whitespace-only id is rejected.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void NumericParameter_Constructor_EmptyOrWhitespaceId_ThrowsArgumentException(string id)
+    {
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 1, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter(id, "Name", "Desc.", bounds));
+
+        // Assert
+        Assert.Equal("id", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a null display name is rejected.
+    /// </summary>
+    [Fact]
+    public void NumericParameter_Constructor_NullDisplayName_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string? displayName = null;
+        var bounds = new NumericParameterBounds(0, 1, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            new NumericParameter("id", displayName!, "Desc.", bounds));
+
+        // Assert
+        Assert.Equal("displayName", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a null description is rejected.
+    /// </summary>
+    [Fact]
+    public void NumericParameter_Constructor_NullDescription_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string? description = null;
+        var bounds = new NumericParameterBounds(0, 1, 0.1, 0.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            new NumericParameter("id", "Name", description!, bounds));
+
+        // Assert
+        Assert.Equal("description", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a non-finite Maximum, Step, or Default is rejected, naming
+    ///     <c>bounds</c> as the offending parameter.
+    /// </summary>
+    [Theory]
+    [InlineData(double.NaN, 0.1, 0.5)]
+    [InlineData(double.PositiveInfinity, 0.1, 0.5)]
+    [InlineData(1.0, double.NaN, 0.5)]
+    [InlineData(1.0, double.PositiveInfinity, 0.5)]
+    [InlineData(1.0, 0.1, double.NaN)]
+    [InlineData(1.0, 0.1, double.NegativeInfinity)]
+    public void NumericParameter_Constructor_NonFiniteMaximumStepOrDefault_ThrowsArgumentException(
+        double maximum, double step, double @default)
+    {
+        // Arrange
+        var bounds = new NumericParameterBounds(0.0, maximum, step, @default);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad bound.", bounds));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a default exactly at Minimum or Maximum is accepted (inclusive range).
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(1.0)]
+    public void NumericParameter_Constructor_DefaultAtBoundary_Succeeds(double @default)
+    {
+        // Arrange
+        var bounds = new NumericParameterBounds(0.0, 1.0, 0.1, @default);
+
+        // Act
+        var parameter = new NumericParameter("edge", "Edge", "Boundary default.", bounds);
+
+        // Assert
+        Assert.Equal(@default, parameter.Default);
+    }
+
+    /// <summary>
+    ///     Proves that an integer declaration with a fractional bound reports <c>bounds</c> as
+    ///     the offending parameter name.
+    /// </summary>
+    [Fact]
+    public void NumericParameter_Constructor_IsIntegerWithFractionalBound_ParamNameIsBounds()
+    {
+        // Arrange
+        var bounds = new NumericParameterBounds(0.5, 10, 1, 1);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => new NumericParameter(
+            "bad", "Bad", "Fractional.", bounds, isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -113,9 +265,11 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerWithWholeNumberBounds_ExposesIsIntegerTrue()
     {
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 903, 1, 0);
+
         // Act
-        var parameter = new NumericParameter(
-            "speaker", "Speaker", "Speaker index.", new NumericParameterBounds(0, 903, 1, 0), isInteger: true);
+        var parameter = new NumericParameter("speaker", "Speaker", "Speaker index.", bounds, isInteger: true);
 
         // Assert
         Assert.True(parameter.IsInteger);
@@ -132,8 +286,11 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerOmitted_DefaultsToFalse()
     {
+        // Arrange
+        var bounds = new NumericParameterBounds(0.5, 2.0, 0.1, 1.0);
+
         // Act
-        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
+        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", bounds);
 
         // Assert
         Assert.False(parameter.IsInteger);
@@ -147,9 +304,15 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerWithFractionalMinimum_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad minimum.", new NumericParameterBounds(0.5, 10, 1, 1), isInteger: true));
+        // Arrange
+        var bounds = new NumericParameterBounds(0.5, 10, 1, 1);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad minimum.", bounds, isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -159,9 +322,15 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerWithFractionalMaximum_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad maximum.", new NumericParameterBounds(0, 10.5, 1, 1), isInteger: true));
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 10.5, 1, 1);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad maximum.", bounds, isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -171,9 +340,15 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerWithFractionalStep_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad step.", new NumericParameterBounds(0, 10, 0.5, 1), isInteger: true));
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 10, 0.5, 1);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad step.", bounds, isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 
     /// <summary>
@@ -183,8 +358,14 @@ public class NumericParameterTests
     [Fact]
     public void NumericParameter_Constructor_IsIntegerWithFractionalDefault_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad default.", new NumericParameterBounds(0, 10, 1, 1.5), isInteger: true));
+        // Arrange
+        var bounds = new NumericParameterBounds(0, 10, 1, 1.5);
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad default.", bounds, isInteger: true));
+
+        // Assert
+        Assert.Equal("bounds", exception.ParamName);
     }
 }

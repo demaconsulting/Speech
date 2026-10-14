@@ -83,3 +83,12 @@ documented exceptions.
 ##### Constructor: Non-Positive Frame Sample Count Throws ArgumentOutOfRangeException
 
 **Test**: `WavFileAudioCaptureDevice_Constructor_NonPositiveFrameSampleCount_ThrowsArgumentOutOfRangeException`
+
+##### Start: Known PCM Samples Are Delivered As Normalized Floats
+
+**Test**: `WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats`
+
+##### Start: Truncated Or Undersized Fmt Chunk Throws InvalidOperationException
+
+**Tests**: `WavFileAudioCaptureDevice_Start_TruncatedFmtChunk_ThrowsInvalidOperationException`,
+`WavFileAudioCaptureDevice_Start_UndersizedFmtChunk_ThrowsInvalidOperationException`

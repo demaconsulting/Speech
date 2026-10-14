@@ -84,3 +84,9 @@ after the refresh starts normally.
 ##### Start: Constructed After Refresh Starts Normally
 
 **Test**: `PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally`
+
+##### Diagnostics: Throwing Sink Does Not Fail Start or Stop
+
+**Test**: `PortAudioCaptureDevice_StartStop_ThrowingDiagnosticsSink_CompletesAndUnregisters`
+
+`Start` and `Stop` complete, the stream is disposed once and the registration is released.

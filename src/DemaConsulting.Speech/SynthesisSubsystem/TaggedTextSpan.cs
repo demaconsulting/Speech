@@ -18,7 +18,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// </param>
 /// <remarks>
 ///     This type is a pure, model-independent value shape: it carries no opinion about how a
-///     tag should be rendered into audio. Layer 2 per-model rendering (a later phase) consumes an
+///     tag should be rendered into audio. Layer 2 per-model rendering consumes an
 ///     ordered sequence of these spans to build a <c>SpeechPlan</c>. The record is immutable and
 ///     therefore safe to share across threads.
 /// </remarks>
@@ -29,7 +29,12 @@ public sealed record TaggedTextSpan(TaggedTextSpanKind Kind, string Text, Natura
     /// </summary>
     /// <param name="text">The literal text this span carries. Must not be <see langword="null"/>.</param>
     /// <returns>A new plain-text span.</returns>
-    public static TaggedTextSpan PlainText(string text) => new(TaggedTextSpanKind.PlainText, text, null);
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
+    public static TaggedTextSpan PlainText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return new(TaggedTextSpanKind.PlainText, text, null);
+    }
 
     /// <summary>
     ///     Creates a <see cref="TaggedTextSpanKind.Tag"/> span.

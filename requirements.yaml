@@ -34,11 +34,24 @@ includes:
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-environment.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-api.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-supporting-types.yaml
-  - docs/reqstream/speech/audio-subsystem/unavailable-fallbacks.yaml
-  - docs/reqstream/speech/audio-subsystem/audio-device-refresh.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device-probe.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device-probe.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-device-in-use-exception.yaml
+  - docs/reqstream/speech/audio-subsystem/windowed-sinc-lowpass-filter.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-file-reader.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-clip.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-resampler.yaml
+  - docs/reqstream/speech/audio-subsystem/wav-decoder.yaml
+  - docs/reqstream/speech/audio-subsystem/flac-decoder.yaml
   - docs/reqstream/speech/model-management-subsystem.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-options.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-pack.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-pack-installer.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-library.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-exception.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-downloader-options.yaml
@@ -56,40 +69,95 @@ includes:
   - docs/reqstream/speech/recognition-subsystem.yaml
   - docs/reqstream/speech/recognition-subsystem/i-speech-recognizer-engine.yaml
   - docs/reqstream/speech/recognition-subsystem/i-recognition-session.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-session-faulted-exception.yaml
   - docs/reqstream/speech/recognition-subsystem/speech-recognizer-factory.yaml
-  - docs/reqstream/speech/recognition-subsystem/recognition-session-lease.yaml
+  - docs/reqstream/speech/recognition-subsystem/speech-recognizer-engine.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-engine-busy-exception.yaml
   - docs/reqstream/speech/recognition-subsystem/recognition-session.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-backend.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-result-buffer.yaml
+  - docs/reqstream/speech/recognition-subsystem/audio-frame-resampler.yaml
   - docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/recognition-subsystem/unavailable-speech-recognizer-engine.yaml
+  - docs/reqstream/speech/recognition-subsystem/speech-recognizer-unavailable-exception.yaml
   - docs/reqstream/speech/recognition-subsystem/unavailable-recognition-session.yaml
   - docs/reqstream/speech/synthesis-subsystem.yaml
   - docs/reqstream/speech/synthesis-subsystem/audio-tag-parser.yaml
   - docs/reqstream/speech/synthesis-subsystem/i-speech-synthesizer-engine.yaml
   - docs/reqstream/speech/synthesis-subsystem/i-synthesis-session.yaml
   - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-factory.yaml
-  - docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml
+  - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-engine.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-engine-busy-exception.yaml
   - docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-session-faulted-exception.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-backend.yaml
+  - docs/reqstream/speech/synthesis-subsystem/layer2-rendering.yaml
+  - docs/reqstream/speech/synthesis-subsystem/sentence-chunker.yaml
+  - docs/reqstream/speech/synthesis-subsystem/playback-audio-resampler.yaml
   - docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml
+  - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-synthesis-session.yaml
   - docs/reqstream/speech-demo.yaml
+  - docs/reqstream/speech-demo/app.yaml
+  - docs/reqstream/speech-demo/app-launch-options.yaml
+  - docs/reqstream/speech-demo/mirror-options-factory.yaml
+  - docs/reqstream/speech-demo/program.yaml
   - docs/reqstream/speech-demo/shell-subsystem.yaml
+  - docs/reqstream/speech-demo/shell-subsystem/main-window-view-model.yaml
+  - docs/reqstream/speech-demo/shell-subsystem/demo-panel-view-model.yaml
   - docs/reqstream/speech-demo/device-selection-subsystem.yaml
+  - docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml
+  - docs/reqstream/speech-demo/device-selection-subsystem/device-selection-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-service.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-list-item-view-model.yaml
+  - docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml
   - docs/reqstream/speech-demo/model-settings-subsystem.yaml
+  - docs/reqstream/speech-demo/model-settings-subsystem/model-settings-view-model.yaml
+  - docs/reqstream/speech-demo/model-settings-subsystem/parameter-view-models.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml
   - docs/reqstream/speech-demo/recognition-panel-subsystem.yaml
+  - docs/reqstream/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.yaml
+  - docs/reqstream/speech-demo/recognition-panel-subsystem/recognizer-session-factory.yaml
   - docs/reqstream/speech-cli.yaml
+  - docs/reqstream/speech-cli/program.yaml
+  - docs/reqstream/speech-cli/context.yaml
+  - docs/reqstream/speech-cli/command-dispatch.yaml
+  - docs/reqstream/speech-cli/console-cancellation.yaml
+  - docs/reqstream/speech-cli/validation.yaml
+  - docs/reqstream/speech-cli/path-helpers.yaml
   - docs/reqstream/speech-cli/model-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/clean-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/cli-model-catalog-factory.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/download-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/download-progress-reporter.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/i-cli-model-catalog.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/list-models-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/list-voices-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/model-info-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/uninstall-command.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem/voices-command.yaml
   - docs/reqstream/speech-cli/device-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/devices-test-command.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/doctor-command.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem/list-devices-command.yaml
   - docs/reqstream/speech-cli/synthesis-command-subsystem.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/parameter-bag-parser.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem/speak-command.yaml
   - docs/reqstream/speech-cli/recognition-command-subsystem.yaml
+  - docs/reqstream/speech-cli/recognition-command-subsystem/recognize-command.yaml
+  - docs/reqstream/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.yaml
   - docs/reqstream/speech-cli/conversation-command-subsystem.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/ask-command.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.yaml
   - docs/reqstream/speech-sherpa.yaml
   - docs/reqstream/speech-sherpa/model-management-subsystem.yaml
   - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.yaml
@@ -112,6 +180,18 @@ includes:
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.yaml
   - docs/reqstream/speech-onnx-nemotron-stt.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.yaml
@@ -119,11 +199,16 @@ includes:
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml
+  - docs/reqstream/ots/microsoft-ml-onnxruntime.yaml
+  - docs/reqstream/ots/system-numerics-tensors.yaml
   - docs/reqstream/ots/xunit.yaml
   - docs/reqstream/ots/reqstream.yaml
   - docs/reqstream/ots/buildmark.yaml
@@ -137,3 +222,4 @@ includes:
   - docs/reqstream/ots/fileassert.yaml
   - docs/reqstream/ots/avalonia.yaml
   - docs/reqstream/ots/community-toolkit-mvvm.yaml
+  - docs/reqstream/ots/test-results.yaml

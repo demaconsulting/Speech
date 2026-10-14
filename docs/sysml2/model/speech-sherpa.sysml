@@ -16,5 +16,7 @@ package SpeechSherpa {
         part modelManagementSubsystem : ModelManagementSubsystem;
         part recognitionSubsystem : RecognitionSubsystem;
         part synthesisSubsystem : SynthesisSubsystem;
+        part sherpaOnnx : SherpaOnnx;
+        part sharpCompress : SharpCompress;
     }
 }

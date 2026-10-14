@@ -8,7 +8,12 @@ rules for what counts as a valid supplied value.
 
 **Data Model**:
 
-- `ISpeechModelParameter`: common contract - `Id`, `DisplayName`, `Description`.
+- `ISpeechModelParameter`: common contract - `Id`, `DisplayName`, `Description`. The "never
+  null/empty" guarantees are enforced only by the three library implementations' constructors; the
+  interface is public, so a custom subtype is not checked for them. `ValidateAndReport` rejects a
+  custom subtype with `ArgumentException` only when a supplied value targets its `Id`; a
+  custom subtype that violates the guarantees (for example a null `Id`) is the implementer's
+  responsibility and its behavior is not defined by this unit.
 - `NumericParameter`: `Minimum`, `Maximum`, `Step`, `Default`, optional `Unit`, `IsInteger`
   (defaults to `false`).
 - `NumericParameterBounds`: a small `readonly record struct` bundling `Minimum`, `Maximum`,
@@ -16,7 +21,9 @@ rules for what counts as a valid supplied value.
   constructor parameter count small. It has no behavior of its own; `NumericParameter` still
   validates and exposes the four values as its own individual properties.
 - `ChoiceParameter`: ordered `Options` (`IReadOnlyList<ChoiceParameterOption>`, each a
-  `Value`/`Label` pair) and `Default`.
+  `Value`/`Label` pair) and `Default`. The constructor stores a defensive copy of the supplied
+  list, so later mutation of the caller's list cannot invalidate the validated invariants.
+- `ChoiceParameterOption`: a `Value` (non-empty, non-whitespace) and a `Label` (non-null).
 - `BooleanParameter`: `Default`.
 - `SpeechModelParameterDiagnostics`: an internal, stateless static helper with a single
   `ValidateAndReport(modelId, declaredParameters, parameterValues, diagnostics, category)` entry
@@ -30,21 +37,32 @@ rules for what counts as a valid supplied value.
   `true` (default `false`), additionally validates that every value in `bounds` is a whole
   number - an inherently whole-number value (for example a discrete speaker index) has no
   fractional meaning, so a host renders it with a numeric up-down rather than a continuous
-  slider, guaranteeing no fractional value can be selected in the first place.
+  slider, guaranteeing no fractional value can be selected in the first place. Every failure
+  reports `ParamName` `"bounds"` (including the `isInteger` check, whose offending values live in
+  `bounds`). The common fields are validated too: a null, empty or whitespace `id`, and a null
+  `displayName` or `description`, are rejected.
 - **ChoiceParameter(id, displayName, description, options, default)**: Validates `options` is
-  non-empty, contains no duplicate `Value`s, and that `default` matches one option's `Value`
-  exactly (ordinal comparison).
+  non-empty, contains no null element (`ArgumentException`) and no duplicate `Value`s, and that
+  `default` matches one option's `Value` exactly (ordinal comparison). A null `options` or
+  `default` throws `ArgumentNullException`; the common fields are validated as for
+  `NumericParameter`.
 - **ChoiceParameterOption(value, label)**: Validates `value` is non-empty/non-whitespace.
 - **BooleanParameter(id, displayName, description, default)**: Validates only the common fields.
 - **SpeechModelParameterDiagnostics.ValidateAndReport(modelId, declaredParameters,
   parameterValues, diagnostics, category)**: Called once, up front, by both composition factories'
-  innermost `LoadAsync` overloads (before either factory does any other work). Iterates
+  innermost `LoadAsync` overloads (before either factory constructs a recognizer or synthesizer). Iterates
   `declaredParameters` in their declared order; for each one present as a key in
   `parameterValues`, validates the supplied value against that parameter's own rules - a
-  `NumericParameter` value must be a `double`/`int`/`float` within `[Minimum, Maximum]`, and
+  `NumericParameter` value must be a `double`/`int`/`float` that is finite and within
+  `[Minimum, Maximum]` (a NaN/infinite value is reported as non-finite rather than as a wrong
+  type), and
   additionally a whole number when `IsInteger` is `true` (a fractional value is rejected outright,
   never silently rounded); a `ChoiceParameter` value must be a `string` matching one declared
-  `ChoiceParameterOption.Value` exactly; a `BooleanParameter` value must be a `bool`. The first
+  `ChoiceParameterOption.Value` exactly; a `BooleanParameter` value must be a `bool`. A `null`
+  supplied value is an invalid value for every descriptor type (`ArgumentException`, described as
+  "null"), and a descriptor that is none of the three known types throws `ArgumentException`
+  (`ISpeechModelParameter` is public, so a custom subtype would otherwise bypass validation). The
+  first
   invalid recognized value found (in declared-parameter order, so behavior is deterministic)
   throws `ArgumentException` immediately, naming the parameter id, the model id, and the specific
   reason the value is invalid; the exception's `ParamName` is always `"parameterValues"` - the
@@ -60,11 +78,23 @@ rules for what counts as a valid supplied value.
 **Error Handling**: Every parameter-descriptor constructor validates eagerly and throws
 `ArgumentException`/`ArgumentNullException` for an invalid or internally inconsistent descriptor
 at construction time - never silently accepted and discovered later when a host tries to render
-it. `SpeechModelParameterDiagnostics.ValidateAndReport` throws `ArgumentException` for an invalid
-value supplied for a parameter this model *does* declare (a caller bug - the host explicitly
+it. The reported `ParamName` is the constructor argument that was invalid (`id`, `displayName`,
+`description`, `options`, `default`, `value`, `label`), except that every numeric range,
+finiteness, step, default or whole-number failure reports `"bounds"`, the argument that carries
+the offending values. `SpeechModelParameterDiagnostics.ValidateAndReport` throws
+`ArgumentException` for an invalid value supplied for a parameter this model *does* declare (a
+caller bug - the host explicitly
 targeted this parameter on this model), but never throws for a supplied key naming a parameter
 this model does not declare (a legitimate cross-model compatibility gap, only reported as an
-`Info` diagnostic).
+`Info` diagnostic). A `null` `modelId`, `declaredParameters`, `diagnostics` or `category` throws
+`ArgumentNullException`; a `null` element in `declaredParameters` throws `ArgumentException`
+with `ParamName` `"declaredParameters"`.
+
+**Host Control Guidance** (informative; the requirements state only the observable declaration
+rules): a host may render a `NumericParameter` as a slider (or a numeric up-down when
+`IsInteger` is `true`), a `ChoiceParameter` as a dropdown, and a `BooleanParameter` as a
+checkbox. The eager validation guarantees every such declaration is displayable (a non-empty,
+finite, ordered range; a non-empty option list with unique values and a matching default).
 
 **Dependencies**: `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter`
 depend on none beyond each other (`ChoiceParameter` depends on `ChoiceParameterOption`).

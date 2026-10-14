@@ -20,7 +20,7 @@ backend only through `ISynthesisBackend`. It contains the following unit:
 
 The subsystem exposes no public API: `OnnxKokoroSynthesisEngine` is an `internal` class that
 implements the core library's public `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`) and
-produces the core library's equally public `EngineAudio` values - `ISynthesisBackend` is public
+produces the core library's equally public `BackendAudio` values - `ISynthesisBackend` is public
 specifically so any package, not only this one, can supply its own implementation. It consumes
 the `Microsoft.ML.OnnxRuntime` managed API (`InferenceSession`, `DenseTensor<T>`,
 `NamedOnnxValue`) and the sibling `DemaConsulting.Speech.Onnx` system's
@@ -48,7 +48,7 @@ indexed by token count (mirroring the proven Python reference pipeline's own
 `voices[len(ids)]` lookup), and runs a single ONNX Runtime forward pass over `input_ids`,
 `style`, and `speed` tensors, returning the model's raw waveform output at its own fixed
 `SampleRate` (24000 Hz). Text that phonemizes to zero tokens (empty text, or text whose every
-word is absent from the embedded lexicon) short-circuits to an empty `EngineAudio` without
+word is absent from the embedded lexicon) short-circuits to an empty `BackendAudio` without
 running the ONNX graph. The engine's `SampleRate` is authoritative over the model's best-effort
 `PreferredAudioFormat` hint, and the core library resamples to the playback device's format when
 they differ.

@@ -237,6 +237,7 @@ public sealed class ModelInfoCommandTests
         var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
         Assert.Contains("Unknown model id 'does-not-exist'", ex.Message);
         Assert.Contains("list-models", ex.Message);
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
@@ -250,11 +251,13 @@ public sealed class ModelInfoCommandTests
         using var context = Context.Create(["model-info"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        Assert.Contains("model-info requires a <modelId> argument.", ex.Message);
+        Assert.Null(ex.ParamName);
     }
 
     /// <summary>
-    ///     Test that a second, unsupported positional argument throws.
+    ///     Test that a second, unsupported positional argument throws and the message names the argument.
     /// </summary>
     [Fact]
     public void ModelInfoCommand_Run_ExtraArgument_ThrowsArgumentException()
@@ -264,7 +267,40 @@ public sealed class ModelInfoCommandTests
         using var context = Context.Create(["model-info", "model-1", "extra"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        var ex = Assert.Throws<ArgumentException>(() => ModelInfoCommand.Run(context, catalog));
+        Assert.Contains("Unsupported argument 'extra' for 'model-info'.", ex.Message);
+        Assert.Null(ex.ParamName);
+    }
+
+    /// <summary>
+    ///     Test that a model without a license URL prints the license name alone, with no URL or
+    ///     empty parentheses.
+    /// </summary>
+    [Fact]
+    public void ModelInfoCommand_Run_NoLicenseUrl_PrintsLicenseNameWithoutUrl()
+    {
+        // Arrange
+        var model = new FakeSpeechModel("model-nolicense", licenseName: "MIT", licenseUrl: null);
+        var catalog = new FakeCliModelCatalog().WithModel(model, SpeechModelState.NotDownloaded);
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["model-info", "model-nolicense"]);
+
+            // Act
+            ModelInfoCommand.Run(context, catalog);
+
+            // Assert
+            var lines = writer.ToString().Split('\n').Select(line => line.TrimEnd('\r')).ToList();
+            Assert.Contains("License: MIT", lines);
+            Assert.DoesNotContain("(", lines.Single(line => line.StartsWith("License:", StringComparison.Ordinal)));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     /// <summary>
@@ -273,7 +309,11 @@ public sealed class ModelInfoCommandTests
     [Fact]
     public void ModelInfoCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ModelInfoCommand.Run(null!, new FakeCliModelCatalog()));
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => ModelInfoCommand.Run(null!, catalog));
     }
 
     /// <summary>
@@ -282,7 +322,10 @@ public sealed class ModelInfoCommandTests
     [Fact]
     public void ModelInfoCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["model-info", "model-1"]);
+
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => ModelInfoCommand.Run(context, null!));
     }
 }

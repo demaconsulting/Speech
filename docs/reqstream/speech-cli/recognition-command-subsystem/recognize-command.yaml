@@ -1,0 +1,425 @@
+---
+# Software Unit Requirements for the SpeechCli RecognizeCommand
+#
+# These requirements describe the behavior of the RecognizeCommand unit - the `recognize`
+# subcommand - decomposing the parent RecognitionCommandSubsystem requirements and the
+# system-level SpeechToText and SpeechToTextMicrophone requirements in
+# docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Input source (InputSourceValidation, InputSourceMissing, FileInputSource,
+#     FileInputEofDrivenStop, InputFileValidation, TimeoutsIgnoredForFileInput)
+#   - Arguments (ArgumentValidation, ValueFlagOptionRejection, FileInputCancellation)
+#   - Model resolution (ModelValidation, ModelUnknown, ModelWrongRole, ModelNotDownloaded)
+#   - Model parameters (ParamValidation, ParamRejection)
+#   - Idle timeout options (SilenceTimeoutOption, SilenceTimeoutDefault,
+#     SilenceTimeoutValidation, StartTimeoutOption, StartTimeoutDefault, StartTimeoutValidation)
+#   - Console output (DefaultVerbosity, InterimOverwrite, InterimOnly, FinalOnly,
+#     VerbosityConflict)
+#   - Text file output (OutputText, OutputTextFinalOnly, OutputTextOneLinePerResult,
+#     OutputTextOverwrite)
+#   - Capture device (DeviceDispatch, DeviceUnavailable)
+# Every test below is a RecognizeCommandTests test unless it is named SpeechCli_... (an
+# IntegrationTests test that runs the built tool) or Program_... (a ProgramTests test).
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: RecognitionCommandSubsystem Requirements
+        sections:
+          - title: RecognizeCommand Requirements
+            requirements:
+              - id: SpeechCli-RecognitionCommands-InputSourceValidation
+                title: >-
+                  The tool shall reject `recognize` invoked with both `--input` and `--mic` with a
+                  clean, non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  An ambiguous input source must fail predictably so a scripted invocation never
+                  listens to the wrong source.
+                tests:
+                  - RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException
+                  - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-RecognitionCommands-InputSourceMissing
+                title: >-
+                  The tool shall reject `recognize` invoked with neither `--input` nor `--mic`
+                  with a clean, non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A missing input source must fail predictably so a scripted invocation never
+                  waits on input that never arrives.
+                tests:
+                  - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-FileInputSource
+                title: >-
+                  The tool shall, when `recognize` is invoked with `--input <wav-path>`, recognize
+                  the audio in that WAV file rather than audio from a capture device.
+                tags: [unit]
+                justification: |
+                  A scripted run over a recorded file must be repeatable, which it is only if the
+                  recognizer hears the named file and not whatever the machine's microphone
+                  happens to pick up.
+                tests:
+                  - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession
+
+              - id: SpeechCli-RecognitionCommands-FileInputEofDrivenStop
+                title: >-
+                  The tool shall, in `--input` mode, print the recognition results for the whole
+                  file and then finish with exit code 0 and a completion message, without any
+                  operator interruption.
+                tags: [unit]
+                justification: |
+                  A recorded file has a known end, so a scripted or unattended run must finish
+                  by itself once that end is reached, with every result for the file already
+                  printed; an operator should never have to press `Ctrl+C` to obtain the
+                  transcript or wonder whether output is still to come.
+                tests:
+                  - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain
+                  - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
+
+              - id: SpeechCli-RecognitionCommands-InputFileValidation
+                title: >-
+                  The tool shall reject an `--input` file that is not a valid WAV file, or is not
+                  mono 16-bit PCM, with a clear, non-zero-exit-code error naming the problem
+                  rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Recognition models require mono audio; an unsupported or corrupt input file
+                  must produce an actionable message instead of garbage results or a crash.
+                tests:
+                  - RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile
+                  - RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono
+
+              - id: SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput
+                title: >-
+                  The tool shall accept `--start-timeout` and `--silence-timeout` together with
+                  `--input` and ignore them, because they apply only to `--mic` mode.
+                tags: [unit]
+                justification: |
+                  File input ends on its own once the whole file has been delivered, so it needs
+                  no idle window. Accepting and ignoring the flags, rather than rejecting them,
+                  matches the documented precedent that `--capture-device` is inert with
+                  `--input` and that `speak` ignores `--playback-device` when a file destination
+                  is given, so one set of flags works for scripted use of either mode.
+                tests:
+                  - RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds
+
+              - id: SpeechCli-RecognitionCommands-ArgumentValidation
+                title: >-
+                  The tool shall reject `recognize` invoked with an unsupported argument, or a
+                  flag missing its value, with a clean, non-zero-exit-code error rather than a
+                  stack trace.
+                tags: [unit]
+                justification: |
+                  A mistyped option must fail predictably rather than being silently ignored.
+                tests:
+                  - RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-ValueFlagOptionRejection
+                title: >-
+                  The tool shall reject `recognize` invoked with a flag that takes a value
+                  directly followed by another `recognize` option, with a clean,
+                  non-zero-exit-code error naming the flag as missing its value, rather than
+                  treating the option as that flag's value.
+                tags: [unit]
+                justification: |
+                  Silently consuming the next option as a value would drop that option and run
+                  the command with the wrong settings, so the omission must fail immediately.
+                tests:
+                  - RecognizeCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-FileInputCancellation
+                title: >-
+                  The tool shall, when the operator cancels a `recognize --input` run with
+                  `Ctrl+C`, finish the run gracefully, without an unhandled exception, and
+                  release the recognizer and its session.
+                tags: [unit]
+                justification: |
+                  Interrupting a long file transcription must end cleanly instead of printing a
+                  stack trace or leaking the recognizer.
+                tests:
+                  - RecognizeCommand_Run_FileInputCanceledDuringStart_CompletesGracefully
+
+              - id: SpeechCli-RecognitionCommands-ModelValidation
+                title: >-
+                  The tool shall reject `recognize` invoked without `--stt-model` with a clean,
+                  non-zero-exit-code error naming the missing option rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A missing model option must fail predictably so a scripted invocation can
+                  react to the specific failure rather than a generic error.
+                tests:
+                  - RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException
+                  - SpeechCli_RecognizeCommandWithoutModel_Invoked_ReturnsCleanError
+                  - Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-ModelUnknown
+                title: >-
+                  The tool shall reject `recognize` invoked with an unknown `--stt-model` id with
+                  a clean, non-zero-exit-code error naming the id and suggesting `list-models`
+                  rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  An id typo must fail with an actionable next step.
+                tests:
+                  - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
+                  - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-RecognitionCommands-ModelWrongRole
+                title: >-
+                  The tool shall reject `recognize` invoked with an `--stt-model` that is not a
+                  recognition model with a clean, non-zero-exit-code error that names the model
+                  and suggests `list-models --role stt`, rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Naming a synthesis model by mistake must fail with an actionable next step
+                  instead of loading the wrong engine. This command-level message, which tells
+                  the operator which model was wrong and where to find a recognition model, is
+                  distinct from the catalog's own refusal to create an engine for a wrong-role
+                  model, which is specified by the model-commands requirements.
+                tests:
+                  - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
+                  - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-RecognitionCommands-ModelNotDownloaded
+                title: >-
+                  The tool shall reject `recognize` invoked with an `--stt-model` that is known
+                  but not downloaded with a clean, non-zero-exit-code error suggesting
+                  `download <modelId>` rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A model that is known but absent from disk needs a different remedy than an
+                  unknown one, so the error must name the download step.
+                tests:
+                  - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+                  - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
+
+              - id: SpeechCli-RecognitionCommands-ParamValidation
+                title: >-
+                  The tool shall accept repeatable `--stt-param key=value` flags and apply each to
+                  the recognition model.
+                tags: [unit]
+                justification: |
+                  Recognition models declare tunable parameters exactly as synthesis models do
+                  (for example decoding beam width), with the same `--stt-param` semantics
+                  `recognize` and `ask` share.
+                tests:
+                  - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
+                  - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
+
+              - id: SpeechCli-RecognitionCommands-ParamRejection
+                title: >-
+                  The tool shall reject a `--stt-param` with a malformed token, a value outside
+                  the range or options that the recognition model declares, or a key that model
+                  does not declare, with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                tags: [unit]
+                justification: |
+                  Validating each value against the model's declared parameters before
+                  recognition starts catches an operator typo immediately.
+                tests:
+                  - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
+                  - RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-SilenceTimeoutOption
+                title: >-
+                  The tool shall accept an optional `--silence-timeout <seconds>` giving a
+                  positive number of seconds for `--mic` mode.
+                tags: [unit]
+                justification: |
+                  An operator must be able to choose how long a pause ends the session, because
+                  a dictation pace that suits one speaker cuts another off.
+                tests:
+                  - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
+
+              - id: SpeechCli-RecognitionCommands-SilenceTimeoutDefault
+                title: >-
+                  The tool shall use a silence timeout of 5 seconds in `--mic` mode when
+                  `--silence-timeout` is omitted.
+                tags: [unit]
+                justification: |
+                  A fixed default lets an unattended session end itself without the operator
+                  having to choose a value.
+                tests:
+                  - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
+
+              - id: SpeechCli-RecognitionCommands-SilenceTimeoutValidation
+                title: >-
+                  The tool shall reject a non-positive, non-finite (`NaN` or infinite), or
+                  malformed `--silence-timeout` with a clean, non-zero-exit-code error.
+                tags: [unit]
+                justification: |
+                  A zero, negative, non-finite, or non-numeric timeout would end the session
+                  immediately or never, so it must fail predictably.
+                tests:
+                  - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-StartTimeoutOption
+                title: >-
+                  The tool shall accept an optional `--start-timeout <seconds>` giving a positive
+                  number of seconds that `--mic` mode waits for the first recognition result.
+                tags: [unit]
+                justification: |
+                  An operator must be able to give a slow starter a longer grace period than the
+                  pause that ends an utterance, so the two waits are separately configurable.
+                tests:
+                  - RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds
+                  - RecognizeCommand_Run_StartTimeoutGiven_ResolvesToGivenValue
+
+              - id: SpeechCli-RecognitionCommands-StartTimeoutDefault
+                title: >-
+                  The tool shall use a start timeout of 8 seconds in `--mic` mode when
+                  `--start-timeout` is omitted, whatever `--silence-timeout` is.
+                tags: [unit]
+                justification: |
+                  A fixed default keeps the start window independent of whatever silence timeout
+                  an operator chooses.
+                tests:
+                  - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
+                  - RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault
+
+              - id: SpeechCli-RecognitionCommands-StartTimeoutValidation
+                title: >-
+                  The tool shall reject a non-positive, non-finite (`NaN` or infinite), or
+                  malformed `--start-timeout` with a clean, non-zero-exit-code error.
+                tags: [unit]
+                justification: |
+                  A zero, negative, non-finite, or non-numeric start window would end the session
+                  immediately or never, so it must fail predictably.
+                tests:
+                  - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-DefaultVerbosity
+                title: >-
+                  The tool shall, by default, print both interim and final recognition results,
+                  with a final result settled on its own line.
+                tags: [unit]
+                justification: |
+                  A live console benefits from seeing an evolving interim hypothesis as well as
+                  the settled transcript.
+                tests:
+                  - RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue
+                  - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
+
+              - id: SpeechCli-RecognitionCommands-InterimOverwrite
+                title: >-
+                  The tool shall overwrite an interim recognition result in place on the console,
+                  leaving no stale characters when a later interim result is shorter.
+                tags: [unit]
+                justification: |
+                  An evolving interim hypothesis must stay readable on a single line.
+                tests:
+                  - RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters
+
+              - id: SpeechCli-RecognitionCommands-InterimOnly
+                title: >-
+                  The tool shall print only interim recognition results when `--interim` is
+                  given.
+                tags: [unit]
+                justification: |
+                  An operator watching live feedback may not want settled lines interleaved with
+                  it.
+                tests:
+                  - RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput
+
+              - id: SpeechCli-RecognitionCommands-FinalOnly
+                title: >-
+                  The tool shall print only final recognition results when `--final-only` is
+                  given.
+                tags: [unit]
+                justification: |
+                  A scripted consumer of the console output needs the settled transcript without
+                  never-finalized partial guesses.
+                tests:
+                  - RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput
+
+              - id: SpeechCli-RecognitionCommands-VerbosityConflict
+                title: >-
+                  The tool shall reject `recognize` invoked with both `--interim` and
+                  `--final-only` with a clear, non-zero-exit-code error rather than a stack
+                  trace.
+                tags: [unit]
+                justification: |
+                  The two flags select contradictory output; failing fast avoids silently
+                  picking one.
+                tests:
+                  - RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-OutputText
+                title: >-
+                  The tool shall, given `--output-text <text-path>`, write every final
+                  recognition result to that file.
+                tags: [unit]
+                justification: |
+                  A scripted consumer needs the settled transcript in a file rather than scraped
+                  from console output.
+                tests:
+                  - RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath
+                  - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+              - id: SpeechCli-RecognitionCommands-OutputTextFinalOnly
+                title: >-
+                  The tool shall not write interim recognition results to the `--output-text`
+                  file.
+                tags: [unit]
+                justification: |
+                  An interim result is a live-console guess that a later result revises, so the
+                  file would be unusable as a transcript if it held them.
+                tests:
+                  - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+              - id: SpeechCli-RecognitionCommands-OutputTextOneLinePerResult
+                title: >-
+                  The tool shall write each final recognition result to the `--output-text` file
+                  as its own line.
+                tags: [unit]
+                justification: |
+                  One result per line lets a script split the transcript into utterances without
+                  parsing.
+                tests:
+                  - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+              - id: SpeechCli-RecognitionCommands-OutputTextOverwrite
+                title: >-
+                  The tool shall overwrite, rather than append to, any prior content of the
+                  `--output-text` file.
+                tags: [unit]
+                justification: |
+                  A scripted consumer needs a stable, append-free file whose content always
+                  reflects only the latest run.
+                tests:
+                  - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+              - id: SpeechCli-RecognitionCommands-DeviceDispatch
+                title: >-
+                  The tool shall, in `--mic` mode, reject a `--capture-device` name that matches
+                  no capture device with a clean, non-zero-exit-code error rather than a stack
+                  trace, before any recognition is attempted.
+                tags: [unit]
+                justification: |
+                  Validating an unknown real capture device before any recognition is attempted
+                  avoids a partially-run, undeliverable session, mirroring `devices test`'s and
+                  `speak`'s own validate-before-create pattern.
+                tests:
+                  - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-DeviceUnavailable
+                title: >-
+                  The tool shall, in `--mic` mode, reject `recognize` with a clean,
+                  non-zero-exit-code error rather than a stack trace when no capture device is
+                  available.
+                tags: [unit]
+                justification: |
+                  A machine with no capture device cannot hear the speaker, so the session must
+                  fail with an actionable message.
+                tests:
+                  - RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException

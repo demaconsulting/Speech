@@ -13,12 +13,26 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelStoreOptions-RootOverride
                 title: >-
-                  The SpeechModelStoreOptions class shall expose an optional RootPathOverride
-                  property that, when non-null and non-empty, replaces SpeechModelStore's default
-                  per-user storage root verbatim.
+                  The SpeechModelStoreOptions class shall let a host redirect model storage to a
+                  chosen root directory, which the model store uses exactly as given (a relative
+                  path resolving against the current working directory), whenever the chosen
+                  value contains at least one non-whitespace character.
                 justification: |
                   Some hosts need to redirect model storage (for example to a shared or portable
-                  location) without any library code change; a plain options property is the
-                  simplest seam for this.
+                  location) without any library code change.
                 tests:
                   - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
+                  - SpeechModelStore_Constructor_PaddedRootPathOverride_UsesOverrideVerbatim
+
+              - id: Speech-Models-SpeechModelStoreOptions-RootOverrideBlank
+                title: >-
+                  The SpeechModelStoreOptions class shall treat a null, empty, or whitespace-only
+                  storage root choice as "no override", so the model store uses its default
+                  per-user storage root.
+                justification: |
+                  A blank value cannot name a usable directory; treating it as unset (rather than
+                  failing later on first write) lets configuration sources that emit empty strings
+                  work without special handling by the host.
+                tests:
+                  - SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot
+                  - SpeechModelStore_Constructor_NullOrEmptyRootPathOverride_UsesDefaultRoot

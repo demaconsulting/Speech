@@ -24,6 +24,5 @@ at composition" decision.
 
 **Dependencies**: `AudioDeviceDescription` (parameter/return type).
 
-**Callers**: A later phase's real `AudioDeviceFactory` backend (to honor a host's device
-preference); exercised directly by unit tests in this phase since `AudioDeviceFactory` does not
-yet use it for resolution.
+**Callers**: Hosts that persist a device preference and resolve it against an enumerated device
+list; exercised directly by unit tests.

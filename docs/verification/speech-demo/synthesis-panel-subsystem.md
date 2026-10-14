@@ -2,344 +2,231 @@
 
 ### Verification Approach
 
-The SynthesisPanelSubsystem is verified through deterministic unit tests in two layers.
-`SynthesisPanelViewModel` is tested against NSubstitute/fake doubles of `IModelCatalogService`,
-`IAudioDeviceService`, `ISynthesizerSessionFactory`, `ISpeechSynthesizerEngine`, and
-`ISynthesisSession`, which lets every async Play/Stop lifecycle transition, state derivation from
-`ISynthesisSession.StateChanged`, the two-tier engine/session lazy-reload cache (the central
-bugfix this redesign exists for), and every unavailable-state path (no model, no device,
-unavailable engine) be produced on demand with no downloaded model, no native runtime, and no
-real speakers. `SynthesizerSessionFactory` is tested directly for argument validation and the
-honest "wrong role" outcome.
+The SynthesisPanelSubsystem is verified at subsystem level by the `SynthesisPanelViewModel`
+working with its seams: the catalog service, the device service and the session factory.
+Unit-level behavior is verified in the unit verification documents for SynthesisPanelViewModel and
+SynthesizerSessionFactory.
 
-The "correct role composes a working engine" path inside `SynthesizerSessionFactory` delegates to
-the library's own `SpeechSynthesizerFactory`, which requires an `ISynthesisModel` - an interface
-only the library's own assemblies can implement (see the design document's remarks). That
-composition path is therefore outside this test project's reach and remains covered by the
-library's own synthesis-subsystem tests; the system-level integration test additionally proves
-the panel composes over the real seam without a downloaded model.
+The seams are replaced by NSubstitute and hand-written fakes, so every lifecycle transition and
+every unavailable-state path is produced on demand with no downloaded model, no native runtime and
+no real speakers. The system-level integration test additionally proves the panel composes over the
+real seam without a downloaded model.
 
 ### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
-- **Isolation**: `SynthesizerSessionFactoryTests` roots the library's model store in a fresh
-  directory under the test output folder
-- **Test doubles**: NSubstitute fakes of `IModelCatalogService`, `IAudioDeviceService`, and
+- **Isolation**: Every test builds its own view model; no shared state exists between tests
+- **Test doubles**: NSubstitute fakes of `IModelCatalogService`, `IAudioDeviceService` and
   `ISynthesizerSessionFactory`; hand-written `FakeSpeechSynthesizerEngine` and
-  `FakeSynthesisSession` (from `Fakes/`) standing in for `ISpeechSynthesizerEngine` and
-  `ISynthesisSession`; `FakeSpeechModel`
+  `FakeSynthesisSession`
+
+### Acceptance Criteria
+
+A SynthesisPanelSubsystem test run passes when all of the following hold:
+
+- Play speaks the entered text through the selected installed model and device.
+- Stop interrupts an in-flight Play and reports it.
+- An unavailable playback device and a setup fault each produce an explained error state.
+- The panel refreshes its models while keeping the chosen settings when the catalog or the
+  reference voices change.
+- The model-switch guard and the Chatterbox voice notice behave as specified.
+- Playback is stopped and awaited before a shared device refresh.
+- A successful Play leaves no status message, and a closed panel frees its playback device and
+  voice and no longer reacts to catalog changes.
+- Repeated Play calls with nothing changed prepare the voice and open the device once; a changed
+  model, parameter value or playback device takes effect on the next Play.
+- The consent note, the pack attribution and the absence of a notice for other models are each
+  shown as specified.
 
 ### Test Scenarios
 
-#### SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+#### SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
 
-**Scenario**: The panel is constructed with each dependency missing in turn.
+**Scenario**: Play is invoked with entered text and a selected playback device.
 
-**Expected**: `ArgumentNullException` for every missing dependency.
+**Expected**: The exact text is spoken through a session bound to that device.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-SessionSeam`.
+#### SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage
 
-#### SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState
+**Scenario**: Engine load or session creation throws.
 
-**Scenario**: The catalog reports no installed synthesis models.
+**Expected**: An error state carrying the exception's message; nothing escapes.
 
-**Expected**: `HasModels` is false and `AvailableModels`/`SelectedModel` reflect nothing to
-choose from.
+#### SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
 
-**Requirement coverage**: `SpeechDemo-Synthesis-HonestEmptyCatalogState`.
+**Scenario**: A successful Play passes through its lifecycle.
 
-#### SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels
+**Expected**: Changing the model is allowed only while idle or in error.
 
-**Scenario**: The catalog reports an installed synthesis model, a not-yet-downloaded synthesis
-model, and an installed recognition model.
+#### SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
 
-**Expected**: Only the installed synthesis model is offered and preselected.
+**Scenario**: Chatterbox Turbo and another model are selected in turn.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-ModelSelection`.
+**Expected**: The notice appears only for Chatterbox. This one scenario covers three subsystem
+requirements: `VoiceNotice` (the consent note is present), `VoiceAttribution` (the installed
+pack's attribution is present) and, for the other model, `VoiceNoticeOtherModels` (no notice).
+
+#### SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing
+
+**Scenario**: Only a non-Chatterbox synthesis model is offered and a voice pack is installed.
+
+**Expected**: No voice notice is shown (boundary for `VoiceNoticeOtherModels`).
+
+#### SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
+
+**Scenario**: Play is invoked twice with nothing changed.
+
+**Expected**: The voice is prepared and the playback device opened once, and both calls speak
+(`EngineSessionReuse`).
+
+#### SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession
+
+**Scenario**: A parameter value changes between two Play calls (`ChangedVoiceRespected`).
+
+**Expected**: The next Play prepares the voice again and speaks with the changed value.
+
+#### SynthesisPanelViewModel_Play_ModelInstanceChanged_ReloadsEngine
+
+**Scenario**: The selected model is replaced by a different model between two Play calls
+(`ChangedVoiceRespected`).
+
+**Expected**: The next Play prepares the voice again.
+
+#### SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine
+
+**Scenario**: The playback device changes between two Play calls (`DeviceChangeRespected`).
+
+**Expected**: The next Play uses the new device without preparing the voice again.
 
 #### SynthesisPanelViewModel_SelectedModel_Changed_UpdatesEmbeddedSettings
 
-**Scenario**: `SelectedModel` is assigned.
+**Scenario**: The selected model changes (`ModelSettings`).
 
-**Expected**: The embedded `Settings.Model` is updated to the same model.
+**Expected**: The presented parameters are those of the newly selected model.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-EmbeddedSettings`.
+#### SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+
+**Scenario**: A required dependency is missing (error case for `DependencyValidation`; the
+missing-model case, `ModelValidation`, is verified at unit level by
+`SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException`).
+
+**Expected**: An argument-null error is raised.
 
 #### SynthesisPanelViewModel_Play_NoModelSelected_ReportsErrorState
 
-**Scenario**: Play is invoked with no model selected.
+**Scenario**: Play is invoked with no model selected (error case).
 
-**Expected**: `NoModelSelectedMessage` and `Error` state, not an exception.
+**Expected**: An explained error state; no exception.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-HonestUnavailableStates`.
+#### SynthesisPanelViewModel_Play_SpeakThrowsUnexpected_ReportsErrorAndReleasesSession
 
-#### SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState
+**Scenario**: An unexpected fault occurs while speaking (error case).
 
-**Scenario**: The device seam reports no available playback device.
+**Expected**: An error state with the fault message and the playback device freed.
 
-**Expected**: `NoPlaybackDeviceMessage` and `Error` state.
+#### SynthesisPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
 
-**Requirement coverage**: `SpeechDemo-Synthesis-HonestUnavailableStates`.
+**Scenario**: A recognition-role model is installed (boundary for `ExternalChangeHandling`).
 
-#### SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes
+**Expected**: The offered models are unchanged.
 
-**Scenario**: The session seam loads an engine that honestly reports itself unavailable.
+#### SynthesisPanelViewModel_DisposeAsync_WhilePlaying_StopsPlayAndReleasesSessionAndEngine
 
-**Expected**: `SynthesizerUnavailableMessage` and `Error` state, and the unavailable engine is
-disposed.
+**Scenario**: The panel is closed while a Play is in flight (`ShutdownReleasesPlayback`).
 
-**Requirement coverage**: `SpeechDemo-Synthesis-HonestUnavailableStates`.
+**Expected**: Speech stops, and the playback device and voice are freed once.
 
-#### SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory
+#### SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
 
-**Scenario**: The selected model declares a `voice` `ChoiceParameter` with a non-default current
-selection, and Play is invoked.
+**Scenario**: The panel is closed twice after a completed Play (`ShutdownReleasesPlayback`).
 
-**Expected**: `ISynthesizerSessionFactory.LoadAsync` is called with a `parameterValues` bag whose
-content exactly matches `Settings.BuildValueBag()` (one entry, `"voice"` -> the selected value),
-proving the embedded settings panel's selection genuinely reaches the session factory rather
-than being built and discarded.
+**Expected**: Resources are freed exactly once; the second close does nothing.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-VoiceSelectionForwarding`.
+#### SynthesisPanelViewModel_DisposeAsync_NoActiveSession_IsSafeAndIdempotent
+
+**Scenario**: The panel is closed twice with nothing played (boundary).
+
+**Expected**: No exception.
+
+#### SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+
+**Scenario**: A matching model install occurs after close (`ShutdownStopsCatalogReaction`).
+
+**Expected**: The offered models do not change and nothing throws.
+
+#### SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged
+
+**Scenario**: A reference voice change occurs after close (`ShutdownStopsCatalogReaction`).
+
+**Expected**: The offered models do not change.
 
 #### SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
 
 **Scenario**: A full Play with a working engine and session.
 
-**Expected**: `State` transitions through `Synthesizing` then `Playing` before settling on
-`Idle`, driven by `ISynthesisSession.StateChanged`, and the exact text is forwarded to
-`SpeakAsync`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-PlayLifecycle`.
-
-#### SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
-
-**Scenario**: A successful `PlayAsync` transitions `State` through `Synthesizing`, `Playing`, and
-back to `Idle`.
-
-**Expected**: `CanChangeModel` is `true` while `Idle`, `false` while `Synthesizing`/`Playing`, and
-`true` again once settled back at `Idle`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-ModelSwitchGuard`.
-
-#### SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue
-
-**Scenario**: `PlayAsync` fails (no playback device available) and the panel enters `Error`.
-
-**Expected**: `CanChangeModel` is `true`, matching `CanPlay`'s own `Idle`-or-`Error` condition, so
-a user can pick a different model after a failed attempt.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-ModelSwitchGuard`.
+**Expected**: `State` passes through `Synthesizing` then `Playing` before settling on `Idle`, no
+status message is left, and the exact entered text reaches the session.
 
 #### SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped
 
-**Scenario**: Stop is invoked while Play is in flight (an indefinitely long `SpeakAsync` awaiting
-cancellation).
+**Scenario**: Stop is invoked while Play is in flight.
 
-**Expected**: The session's `StopAsync()` is invoked, cancellation unwinds the task cleanly,
-`State` settles on `Idle`, and `StatusMessage` reports `StoppedMessage`.
+**Expected**: The session is stopped, the panel settles on `Idle` and reports the stopped message.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-StopControl`.
+#### SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState
 
-#### SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
+**Scenario**: No playback device is available.
 
-**Scenario**: A `PlayAsync` execution is in flight (an indefinitely long `SpeakAsync` awaiting
-cancellation), sharing the panel's own `DeviceSelectionViewModel`. The shared
-`DeviceSelectionViewModel.Refresh()` is then invoked, as the "Refresh devices" button would.
-
-**Expected**: The panel's registered pre-refresh hook calls `StopAsync()` on the session and
-awaits the in-flight `PlayCommand.ExecutionTask` to its actual completion (not merely its
-cancellation request) before the device refresh proceeds, so the refresh completes without
-throwing, the session is released, and the panel settles on `Idle`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`.
-
-#### SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds
-
-**Scenario**: The registered pre-refresh hook runs while no Play session was ever started (no
-engine, no session created).
-
-**Expected**: The refresh completes without throwing, no session is created, and the panel
-remains `Idle`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`.
-
-#### SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
-
-**Scenario**: Play is invoked twice in a row with the selected model and settings parameter
-values unchanged between calls - the central bugfix this redesign exists for.
-
-**Expected**: The engine is loaded exactly once (`LoadAsync` invoked once), exactly one session
-is created, and both Play calls speak through that same cached session rather than reloading the
-model and recreating the session on every click.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-EngineSessionReuse`.
-
-#### SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession
-
-**Scenario**: A declared settings parameter's value is changed between two Play calls.
-
-**Expected**: The stale cached engine is disposed and a fresh one is loaded for the second Play
-(`LoadAsync` invoked twice), and - as a direct consequence of the engine reload - a fresh session
-is created from the new engine rather than reusing the previous one.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-EngineSessionReuse`.
-
-#### SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine
-
-**Scenario**: The shared `DeviceSelectionViewModel`'s selected playback device is changed between
-two Play calls, with the same model and parameter values throughout.
-
-**Expected**: The engine is loaded only once (`LoadAsync` invoked once), but a second, distinct
-session is created bound to the newly selected device, and the stale first session is disposed.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-EngineSessionReuse`.
-
-#### SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags
-
-**Scenario**: `ExampleTagHints` is read.
-
-**Expected**: It contains bracketed tags drawn from the library's `AudioTagCatalog`, including
-`[whispers]`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-AudioTagHints`.
-
-#### SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
-
-**Scenario**: The seam is constructed with no model store.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-SessionSeam`.
-
-#### SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
-
-**Scenario**: `LoadAsync` is called with a missing model.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-SessionSeam`.
-
-#### SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRole_ReturnsUnavailableEngine
-
-**Scenario**: `LoadAsync` is called with a model that does not implement the library's synthesis
-role.
-
-**Expected**: The library's own `UnavailableSpeechSynthesizerEngine.Instance`, exactly like a
-model that is not installed, rather than an exception.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-SessionSeam`.
-
-#### SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableEngine
-
-**Scenario**: `LoadAsync` is called with a non-null `parameterValues` bag alongside a model that
-does not implement the library's synthesis role.
-
-**Expected**: The library's own `UnavailableSpeechSynthesizerEngine.Instance`, proving the
-`parameterValues` argument does not disturb the existing wrong-role fallback.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-VoiceSelectionForwarding`.
+**Expected**: The panel reports an error state rather than throwing.
 
 #### SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
 
-**Scenario**: `IModelCatalogService.ModelInstalled` is raised for a synthesis-role model after
-construction.
+**Scenario**: The catalog raises `ModelInstalled` for a synthesis model.
 
-**Expected**: The panel refreshes itself automatically and the newly installed model appears in
-`AvailableModels`, without a manual Refresh click.
+**Expected**: The panel refreshes and offers the new model.
 
-**Requirement coverage**: `SpeechDemo-Synthesis-AutoRefreshOnInstall`.
+#### SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
-#### SynthesisPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+**Scenario**: The catalog raises `ReferenceVoicesChanged` with a rebuilt model.
 
-**Scenario**: `IModelCatalogService.ModelInstalled` is raised for a recognition-role model.
+**Expected**: The panel refreshes and keeps the voice the user had chosen.
 
-**Expected**: The panel does not refresh; it still reports no models.
+#### SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
 
-**Requirement coverage**: `SpeechDemo-Synthesis-AutoRefreshOnInstall`.
+**Scenario**: A Play is in flight and the shared device list is refreshed.
 
-#### SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+**Expected**: Playback is stopped and awaited before the refresh proceeds, which then succeeds.
 
-**Scenario**: The panel is disposed (`DisposeAsync`), then `IModelCatalogService.ModelInstalled`
-is raised for a matching-role model.
+#### Supporting subsystem scenarios
 
-**Expected**: No exception, and the panel does not pick up the later install since it had already
-unsubscribed.
+The following scenarios, detailed in the SynthesisPanelViewModel verification document, are
+also cited as subsystem evidence for the requirement named in each line:
 
-**Requirement coverage**: `SpeechDemo-Synthesis-ResourceLifetime`.
-
-#### SynthesisPanelViewModel_DisposeAsync_NoActiveSession_IsSafeAndIdempotent
-
-**Scenario**: The panel is disposed twice with no active session.
-
-**Expected**: No exception either time - this is a new capability on this class (it did not
-previously implement any disposable contract), so unlike `RecognitionPanelViewModel` it has no
-prior coverage to rely on.
-
-**Requirement coverage**: `SpeechDemo-Synthesis-ResourceLifetime`.
-
-### Requirements Coverage
-
-- **`SpeechDemo-Synthesis-ModelSelection`**:
-  `SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels`
-- **`SpeechDemo-Synthesis-EmbeddedSettings`**:
-  `SynthesisPanelViewModel_SelectedModel_Changed_UpdatesEmbeddedSettings`
-- **`SpeechDemo-Synthesis-AudioTagHints`**:
-  `SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags`
-- **`SpeechDemo-Synthesis-PlayLifecycle`**:
-  `SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle`
-- **`SpeechDemo-Synthesis-StopControl`**:
-  `SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped`
-- **`SpeechDemo-Synthesis-EngineSessionReuse`**:
-  `SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload`,
-  `SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession`,
-  `SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine`
-- **`SpeechDemo-Synthesis-HonestUnavailableStates`**:
-  `SynthesisPanelViewModel_Play_NoModelSelected_ReportsErrorState`,
-  `SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState`,
-  `SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes`
-- **`SpeechDemo-Synthesis-HonestEmptyCatalogState`**:
-  `SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState`
-- **`SpeechDemo-Synthesis-SessionSeam`**:
-  `SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException`,
-  `SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException`,
-  `SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException`,
-  `SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRole_ReturnsUnavailableEngine`
-- **`SpeechDemo-Synthesis-VoiceSelectionForwarding`**:
-  `SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory`,
-  `SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableEngine`
-- **`SpeechDemo-Synthesis-AutoRefreshOnInstall`**:
-  `SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh`,
-  `SynthesisPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh`
-- **`SpeechDemo-Synthesis-ResourceLifetime`**:
-  `SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromModelInstalled_NoRefreshAfterDispose`,
-  `SynthesisPanelViewModel_DisposeAsync_NoActiveSession_IsSafeAndIdempotent`
-- **`SpeechDemo-Synthesis-ModelSwitchGuard`**:
-  `SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle`,
-  `SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue`
-- **`SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`**:
-  `SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds`,
-  `SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds`
-
-### Acceptance Criteria
-
-A SynthesisPanelSubsystem test run passes when: only installed synthesis models are offered and
-the selection survives a refresh; the embedded settings panel always reflects the selected
-model; the example tag hints are drawn from the library's own vocabulary; a successful Play
-transitions through every documented lifecycle state (driven by `ISynthesisSession.StateChanged`)
-and releases its session; Stop interrupts an in-flight Play deterministically; calling Play
-repeatedly with the same model/parameter/device selection reuses the same cached engine and
-session rather than reloading the model and recreating the session on every click, while a
-changed parameter value reloads the engine (and, as a consequence, recreates the session) and a
-changed playback device alone recreates only the session; every unavailable state - no model, no
-device, an unavailable engine - is reported honestly rather than crashing; the session seam
-validates its arguments and reports a role mismatch the same honest way the library reports an
-uninstalled model, regardless of whether a `parameterValues` bag is supplied; the settings
-panel's current value bag genuinely reaches the session factory when Play is invoked; a
-matching-role `ModelInstalled` event triggers an automatic refresh while a non-matching-role
-event does not; `DisposeAsync()` - now implemented on this class for the first time - is safe and
-idempotent, releases the cached engine/session, and unsubscribes from `ModelInstalled` so a later
-event is never applied; and the panel's registered pre-refresh hook stops an in-flight Play and
-genuinely awaits its completion before a shared device refresh is attempted (and is a safe no-op
-while idle), so the refresh succeeds deterministically.
+- `SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels` and
+  `SynthesisPanelViewModel_Refresh_SelectedModelStillInstalled_PreservesSelection` - the model
+  choice (normal and boundary): only installed synthesis models are offered and a still-installed
+  selection is kept (`PlaybackThroughSeams`, model-choice grouping).
+- `SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags` - example tags are shown.
+- `SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState` - with
+  no synthesis model installed the panel offers nothing, disables Play and shows a message that
+  explains how to install one (error case; consistent with the other panels' empty states).
+- `SynthesisPanelViewModel_Play_WhilePlaying_IsRefused`,
+  `SynthesisPanelViewModel_SessionStateChanged_ForeignSender_IsIgnored` and
+  `SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle` - a second Play
+  is refused, a late report from replaced playback is ignored and a refresh does not interrupt
+  speech (`LifecycleThroughSeams`, `ReferenceVoiceChangeHandling`).
+- `SynthesisPanelViewModel_Play_SetupCanceled_ReportsStoppedAndReturnsToIdle` - stopping during
+  preparation reports stopped and returns to idle (`StopPlayback`).
+- `SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue` - the model may be changed again
+  after a failed Play (`ModelChangeGuard`).
+- `SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory` -
+  the chosen voice values reach the synthesizer (`PlaybackThroughSeams`).
+- `SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds` - a device
+  refresh with nothing playing is unaffected (`DeviceRefreshCoordination`, boundary).
+- `SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes`,
+  `..._UnavailableSession_ReportsErrorStateAndDisposesSession`,
+  `..._SpeakThrowsSynthesizerUnavailable_ReportsErrorStateWithMessage`,
+  `..._EngineBusy_ReportsErrorStateWithEngineMessage`,
+  `..._SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers` - every unavailable, busy
+  and faulted synthesizer outcome is an explained error state and the next Play recovers.

@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for SpeechSynthesizerUnavailableException
+#
+# These requirements describe the exception thrown when an operational member of an unavailable
+# synthesizer engine or session is invoked, decomposing the parent SynthesisSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SpeechSynthesizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
+                title: >-
+                  The SpeechSynthesizerUnavailableException class shall provide standard
+                  exception constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  playback-device failure as the inner exception.
+                tests:
+                  - SpeechSynthesizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechSynthesizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechSynthesizerUnavailableException_Constructor_Default_HasNonEmptyMessage

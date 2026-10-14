@@ -1,0 +1,122 @@
+---
+# Software Unit Requirements for AudioFrameResampler
+#
+# These requirements describe the pure capture-audio format conversion (downmix and resample to the
+# model-declared rate) used by RecognitionSession, decomposing the parent RecognitionSubsystem
+# requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: AudioFrameResampler Requirements
+            requirements:
+              - id: Speech-Recognition-AudioFrameResampler-Downmix
+                title: >-
+                  Multi-channel audio shall be converted to single-channel audio by averaging each
+                  frame's channels.
+                justification: |
+                  A speaker is normally present in every channel of a desktop microphone, so
+                  averaging preserves the voice while partially canceling uncorrelated per-channel
+                  noise.
+                tests:
+                  - AudioFrameResampler_DownmixToMono_StereoInput_AveragesChannelsPerFrame
+                  - AudioFrameResampler_DownmixToMono_SingleChannel_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_StereoInput_WritesAveragedFrames
+
+              - id: Speech-Recognition-AudioFrameResampler-DownmixTrailingPartialFrame
+                title: >-
+                  When multi-channel audio ends in an incomplete frame, that incomplete frame
+                  shall be discarded.
+                justification: |
+                  An incomplete trailing frame has no defined average and must be dropped.
+                tests:
+                  - AudioFrameResampler_DownmixToMono_TrailingPartialFrame_DiscardsPartialFrame
+
+              - id: Speech-Recognition-AudioFrameResampler-RateConversion
+                title: >-
+                  Single-channel audio shall be converted from one sample rate to another, producing
+                  a proportional number of output samples.
+                justification: |
+                  Recognition models accept exactly one input rate, so audio captured at any other
+                  rate must be converted.
+                tests:
+                  - AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples
+                  - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
+                  - AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix
+                  - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples
+
+              - id: Speech-Recognition-AudioFrameResampler-EqualRatePassthrough
+                title: >-
+                  Single-channel audio shall be returned unchanged when the source and target sample
+                  rates are equal.
+                justification: |
+                  Converting audio that already matches the target rate would introduce avoidable
+                  error and cost.
+                tests:
+                  - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
+
+              - id: Speech-Recognition-AudioFrameResampler-AntiAliasing
+                title: >-
+                  Downsampled audio shall be filtered so that energy above the target rate's
+                  Nyquist frequency is attenuated.
+                justification: |
+                  A downsampling path that omits anti-aliasing folds above-target-Nyquist energy
+                  back into the speech band, degrading recognition.
+                tests:
+                  - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+
+              - id: Speech-Recognition-AudioFrameResampler-BoundaryHandling
+                title: >-
+                  Converting an empty block of audio shall return an empty result without failing.
+                justification: |
+                  A capture device may legitimately deliver an empty or very short block, which
+                  must not interrupt a recognition session.
+                tests:
+                  - AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult
+
+              - id: Speech-Recognition-AudioFrameResampler-SingleSampleHandling
+                title: Converting a block holding a single sample shall not fail.
+                justification: |
+                  A capture device may legitimately deliver a very short block.
+                tests:
+                  - AudioFrameResampler_Resample_SingleSample_ClampsToThatSample
+
+              - id: Speech-Recognition-AudioFrameResampler-ShortInputHandling
+                title: Downsampling a block shorter than the filter shall not fail.
+                justification: |
+                  A short block must not interrupt a recognition session.
+                tests:
+                  - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
+
+              - id: Speech-Recognition-AudioFrameResampler-RoundsToEmptyHandling
+                title: >-
+                  Converting a block whose converted length rounds to zero samples shall return an
+                  empty result without failing.
+                justification: |
+                  A very short block at a large rate reduction must not interrupt a recognition
+                  session.
+                tests:
+                  - AudioFrameResampler_Resample_OutputRoundsToZeroSamples_ReturnsEmptyResult
+
+              - id: Speech-Recognition-AudioFrameResampler-InvalidFormatRejected
+                title: >-
+                  A non-positive sample rate or channel count shall be rejected as out of range.
+                justification: |
+                  A non-positive rate or channel count describes no meaningful audio and must be
+                  rejected rather than silently producing corrupt output.
+                tests:
+                  - AudioFrameResampler_Constructor_NonPositiveSourceRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Recognition-AudioFrameResampler-UndersizedDestinationRejected
+                title: >-
+                  A destination buffer too small for the converted audio shall be rejected.
+                justification: |
+                  An undersized destination buffer must be rejected rather than written past its
+                  bounds.
+                tests:
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException

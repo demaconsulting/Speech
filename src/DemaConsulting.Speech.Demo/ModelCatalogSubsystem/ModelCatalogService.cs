@@ -25,12 +25,20 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     current when this adapter itself is disposed.
 ///     </para>
 ///     <para>
-///     <b>Thread safety</b>: <see cref="ApplyMirror"/> and <see cref="Dispose"/> are not safe to
-///     call concurrently with each other or with themselves - both read and then replace the
-///     same current-catalog field with no synchronization, so concurrent calls could race on
-///     which catalog ends up current or disposed. Callers must serialize their own calls to
-///     these two members (for example, as this demo's UI does, by invoking them one at a time
-///     from a single UI thread); this type provides no internal locking of its own.
+///     <b>Thread safety</b>: <see cref="ApplyMirror"/>, <see cref="Dispose"/> and the pack
+///     install/uninstall rebuilds (<see cref="InstallReferenceVoicePackAsync"/> and
+///     <see cref="UninstallReferenceVoicePackAsync"/>) all read and then replace the same
+///     current catalog, voice library and downloader-options state (the options field is not
+///     volatile) with no synchronization, so concurrent calls could race on which pair ends up
+///     current or disposed. In particular, a rebuild disposes the previous pair, which aborts any
+///     <see cref="DownloadAsync"/> still running against it. Callers must serialize their own
+///     calls to these members (for example, as this demo's UI does, by invoking them one at a time
+///     from a single UI thread and refusing overlapping transfers); this type provides no
+///     internal locking of its own. Every rebuild is a single publish-then-dispose step: the new
+///     pair is built first and published by plain assignments (which cannot fail), so a failing
+///     factory leaves the previous pair in place and untouched. Ownership: when constructed with a
+///     factory, this service owns every catalog and voice library it ever holds and disposes each
+///     replaced pair and the current pair on <see cref="Dispose"/>; otherwise it owns neither.
 ///     </para>
 /// </remarks>
 public sealed class ModelCatalogService : IModelCatalogService, IDisposable
@@ -45,6 +53,29 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     <see cref="ApplyMirror"/>.
     /// </summary>
     private readonly Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>? _catalogFactory;
+
+    /// <summary>
+    ///     Rebuilds a catalog and its shared reference-voice library as a pair, or
+    ///     <see langword="null"/> when this service was not constructed with a composition factory
+    ///     and therefore has no reference-voice support.
+    /// </summary>
+    private readonly Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>? _compositionFactory;
+
+    /// <summary>The reference-voice library shared with the current catalog, if any.</summary>
+    private volatile ReferenceVoiceLibrary? _voiceLibrary;
+
+    /// <summary>The downloader options the current catalog was built with (mirror), reused for pack-driven rebuilds.</summary>
+    private SpeechModelDownloaderOptions? _downloaderOptions;
+
+    /// <summary>Whether <see cref="Dispose"/> has already run; later calls do nothing.</summary>
+    private bool _disposed;
+
+    /// <summary>
+    ///     Gets the action used to dispose a catalog this service owns. Defaults to the catalog's own
+    ///     <see cref="SpeechModelCatalog.Dispose"/>; tests replace it to simulate a failing disposal, which the
+    ///     library catalog cannot otherwise be made to do.
+    /// </summary>
+    internal Action<SpeechModelCatalog> CatalogDisposer { get; init; } = catalog => catalog.Dispose();
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that
@@ -92,23 +123,159 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         _catalogFactory = catalogFactory;
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that supports
+    ///     <see cref="ApplyMirror"/> and reference-voice pack management by rebuilding its catalog
+    ///     and shared <see cref="ReferenceVoiceLibrary"/> through <paramref name="compositionFactory"/>.
+    /// </summary>
+    /// <param name="initial">The initial catalog and its reference-voice library. Must not be <see langword="null"/>.</param>
+    /// <param name="initialDownloaderOptions">
+    ///     The downloader options <paramref name="initial"/> was built with, reused when a pack
+    ///     install or uninstall rebuilds the catalog; <see langword="null"/> for public downloads.
+    /// </param>
+    /// <param name="compositionFactory">
+    ///     Builds a fresh catalog and library pair for given downloader options. Must not be <see langword="null"/>.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="initial"/> or <paramref name="compositionFactory"/> is <see langword="null"/>.
+    /// </exception>
+    public ModelCatalogService(
+        ModelCatalogComposition initial,
+        SpeechModelDownloaderOptions? initialDownloaderOptions,
+        Func<SpeechModelDownloaderOptions?, ModelCatalogComposition> compositionFactory)
+    {
+        ArgumentNullException.ThrowIfNull(initial);
+        ArgumentNullException.ThrowIfNull(compositionFactory);
+
+        _catalog = initial.Catalog;
+        _voiceLibrary = initial.VoiceLibrary;
+        _downloaderOptions = initialDownloaderOptions;
+        _compositionFactory = compositionFactory;
+        _catalogFactory = options => compositionFactory(options).Catalog;
+    }
+
     /// <inheritdoc/>
     public event EventHandler<ModelInstalledEventArgs>? ModelInstalled;
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechModelDescriptor> Enumerate()
+    public event EventHandler? ReferenceVoicesChanged;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoicePack> ReferenceVoicePacks =>
+        _voiceLibrary is null ? [] : ReferenceVoiceLibrary.Packs;
+
+    /// <inheritdoc/>
+    public string? UserVoicesDirectory => _voiceLibrary?.UserDirectory;
+
+    /// <inheritdoc/>
+    public SpeechModelState GetReferenceVoicePackState(string packId) =>
+        RequireVoiceLibrary().GetPackState(packId);
+
+    /// <inheritdoc/>
+    public Task<bool> ReferenceVoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
+        RequireVoiceLibrary().PackHasEmotionsAsync(packId, cancellationToken);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Whether the install succeeds, fails or is canceled (or throws), the catalog and library are rebuilt (so
+    ///     the Chatterbox model re-reads its voices) and <see cref="ReferenceVoicesChanged"/> is raised, because the
+    ///     pack's installed state may have changed even then (an upgrade moves the old install aside and restores
+    ///     it on failure). The rebuild aborts
+    ///     any model download in flight; see <see cref="IModelCatalogService.InstallReferenceVoicePackAsync"/>.
+    ///     If the install itself throws (including cancellation) and the rebuild then also throws, the
+    ///     install's exception is the one that propagates; the rebuild failure is discarded so it cannot mask it.
+    ///     After a successful install, a rebuild failure propagates to the caller.
+    /// </remarks>
+    public async Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
+        string packId,
+        bool includeEmotions,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
+        var library = RequireVoiceLibrary();
+        SpeechModelDownloadResult result;
         try
         {
-            return _catalog.Enumerate();
+            result = await library
+                .InstallPackAsync(packId, includeEmotions, progress, cancellationToken)
+                .ConfigureAwait(true);
         }
-        catch (ObjectDisposedException)
+#pragma warning disable CA1031 // The rebuild must not mask the install's own exception.
+        catch
+#pragma warning restore CA1031
         {
-            // A concurrent ApplyMirror disposed the catalog read just before the swap; the
-            // replacement is already published, so retry against it.
-            return _catalog.Enumerate();
+            try
+            {
+                RebuildAndNotifyVoicesChanged();
+            }
+#pragma warning disable CA1031 // Intentionally discarded: the install's exception is rethrown below.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+                // The install's own exception is more useful to the caller than a secondary rebuild failure
+            }
+
+            throw;
+        }
+
+        RebuildAndNotifyVoicesChanged();
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task UninstallReferenceVoicePackAsync(string packId, CancellationToken cancellationToken)
+    {
+        await RequireVoiceLibrary().UninstallPackAsync(packId, cancellationToken).ConfigureAwait(true);
+        RebuildAndNotifyVoicesChanged();
+    }
+
+    /// <summary>Returns the current voice library or throws when this service has none.</summary>
+    /// <returns>The current library.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when this service has no reference-voice library.</exception>
+    private ReferenceVoiceLibrary RequireVoiceLibrary() =>
+        _voiceLibrary ?? throw new InvalidOperationException(
+            "This service was constructed without a reference-voice library. Use the " +
+            "ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?, Func<...>) constructor instead.");
+
+    /// <summary>
+    ///     Replaces the catalog and library with freshly composed ones (same downloader options) and
+    ///     raises <see cref="ReferenceVoicesChanged"/>.
+    /// </summary>
+    private void RebuildAndNotifyVoicesChanged()
+    {
+        Recompose(_downloaderOptions);
+        ReferenceVoicesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    ///     Builds a new catalog/library pair for <paramref name="options"/>, publishes it, and
+    ///     disposes the pair it replaces.
+    /// </summary>
+    /// <param name="options">The downloader options for the new pair.</param>
+    private void Recompose(SpeechModelDownloaderOptions? options)
+    {
+        var factory = _compositionFactory!;
+        var previousCatalog = _catalog;
+        var previousLibrary = _voiceLibrary;
+        var composition = factory(options);
+        _catalog = composition.Catalog;
+        _voiceLibrary = composition.VoiceLibrary;
+        _downloaderOptions = options;
+
+        // The new pair is already published, so the previous library is disposed even when disposing
+        // the previous catalog throws; that failure then propagates after both disposals were attempted.
+        try
+        {
+            CatalogDisposer(previousCatalog);
+        }
+        finally
+        {
+            previousLibrary?.Dispose();
         }
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
 
     /// <inheritdoc/>
     public async Task<SpeechModelDownloadResult> DownloadAsync(
@@ -138,7 +305,7 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     catalog (its underlying HTTP operations observe a disposed object and fail). Callers
     ///     must therefore never invoke this method while one of their own downloads is in
     ///     progress; see <see cref="IModelCatalogService.ApplyMirror"/>'s remarks. This demo's
-    ///     own <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces that by refusing to call
+    ///     own <see cref="ModelCatalogViewModel.ApplyMirrorAsync"/> enforces that by refusing to call
     ///     through while any row is downloading.
     ///     <para>
     ///     Not safe to call concurrently with another <see cref="ApplyMirror"/> or
@@ -157,9 +324,16 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         }
 
         var downloaderOptions = mirror is null ? null : new SpeechModelDownloaderOptions { Mirror = mirror };
+        if (_compositionFactory is not null)
+        {
+            Recompose(downloaderOptions);
+            ReferenceVoicesChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         var previousCatalog = _catalog;
         _catalog = _catalogFactory(downloaderOptions);
-        previousCatalog.Dispose();
+        CatalogDisposer(previousCatalog);
     }
 
     /// <summary>
@@ -169,15 +343,29 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     contract that a shared, externally owned catalog outlives this adapter.
     /// </summary>
     /// <remarks>
-    ///     Not safe to call concurrently with another <see cref="Dispose"/> or
+    ///     Idempotent. The voice library is disposed even when disposing the catalog throws (that exception
+    ///     then propagates). Not safe to call concurrently with another <see cref="Dispose"/> or
     ///     <see cref="ApplyMirror"/> call - see this type's remarks for this instance's
     ///     thread-safety contract.
     /// </remarks>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         if (_catalogFactory is not null)
         {
-            _catalog.Dispose();
+            try
+            {
+                CatalogDisposer(_catalog);
+            }
+            finally
+            {
+                _voiceLibrary?.Dispose();
+            }
         }
     }
 }

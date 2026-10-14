@@ -1,0 +1,237 @@
+---
+# Software Unit Requirements for the SpeechCli VoicesCommand
+#
+# These requirements describe the `voices` command (packs, install, uninstall), decomposing the
+# system-level SpeechCli-ReferenceVoicePacks, SpeechCli-ReferenceVoicePackInstall,
+# SpeechCli-ReferenceVoicePackUninstall and SpeechCli-ReferenceVoiceEmotions requirements. They
+# are grouped by concern, one criterion each:
+#   - Listing (VoicePacks, VoicePacksConsentNote, VoiceEmotionsSizes, VoicePacksCancellation)
+#   - Install (VoicePackInstall, VoicePackInstallProgress, VoicePackInstallFailure,
+#     VoicePackConsentNote, VoicePackInstallPreCheckCancellation, VoiceEmotions*)
+#   - Uninstall (VoicePackUninstall, VoicePackUninstallCancellation)
+#   - Argument validation (VoicePackUnknownId, VoicePackMissingId, VoicesExtraArgument,
+#     VoicesMissingSubAction, VoicesUnknownSubAction)
+# The never-installed uninstall behavior is a catalog requirement
+# (SpeechCli-ModelCommands-VoicePackUninstallNeverInstalled) and the mirror applied to an install
+# is specified by the CliModelCatalogFactory unit. Null-argument guards are verified in the
+# verification document and are not requirements.
+# Tests named VoicesCommand_* are VoicesCommandTests; SpeechCli_* tests are out-of-process tests in
+# IntegrationTests.cs; ConsoleCancellation_* tests are ConsoleCancellationTests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: VoicesCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-VoicePacks
+                title: >-
+                  The tool shall list the installable reference-voice packs with their install
+                  state when invoked with `voices packs`.
+                justification: |
+                  An operator needs to see which voice packs exist and which are already
+                  installed before choosing to download one.
+                tests:
+                  - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
+                  - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoicePacksConsentNote
+                title: >-
+                  The tool shall print the consent note, that only voices the operator has
+                  permission to use may be cloned, when `voices packs` lists the packs.
+                justification: |
+                  The consent note is shown where an operator chooses a pack of real people's
+                  voices.
+                tests:
+                  - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoicePacksCancellation
+                title: >-
+                  The tool shall report a clean error with a non-zero exit code, rather than an
+                  unhandled exception, when the operator interrupts (`Ctrl+C`) a `voices packs`
+                  listing.
+                justification: |
+                  Listing queries each pack's installed state, which can take time; an
+                  interruption is a deliberate operator action and must end predictably for a
+                  calling script.
+                tests:
+                  - VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode
+                  - VoicesCommand_RunAsync_PacksCanceledWithNoInstalledPacks_ReportsErrorExitCode
+
+              - id: SpeechCli-ModelCommands-VoiceEmotionsSizes
+                title: >-
+                  The tool shall show, in `voices packs`, the download size, the installed size
+                  without and with emotions (each in MiB, labeled as such), and the installed
+                  variant of each pack.
+                justification: |
+                  An operator must be able to see the sizes before choosing whether to include
+                  emotions.
+                tests:
+                  - VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes
+
+              - id: SpeechCli-ModelCommands-VoicePackInstall
+                title: >-
+                  The tool shall download and install a reference-voice pack when invoked with
+                  `voices install <packId>`, and report that the pack is installed.
+                justification: |
+                  The reference-voice pack is a large optional download that gives an operator
+                  the voices the voice-cloning model needs.
+                tests:
+                  - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallVerified
+                title: >-
+                  The tool shall reject a downloaded reference-voice pack that fails verification
+                  (for example a checksum mismatch), reporting the reason and leaving the pack not
+                  installed.
+                justification: |
+                  A corrupted or tampered pack must never be installed and presented as usable.
+                tests:
+                  - VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallProgress
+                title: >-
+                  The tool shall report live progress while `voices install` downloads a
+                  reference-voice pack.
+                justification: |
+                  The reference-voice pack is a large download, so the operator needs visible
+                  progress to tell it is working.
+                tests:
+                  - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallFailure
+                title: >-
+                  The tool shall exit non-zero and report the reason when `voices install` fails
+                  or is canceled.
+                justification: |
+                  A script installing the voice pack must be able to detect that it did not
+                  complete, including when the operator interrupted it.
+                tests:
+                  - VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode
+                  - VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode
+                  - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallPreCheckCancellation
+                title: >-
+                  The tool shall report a clean error with a non-zero exit code when the operator
+                  interrupts (`Ctrl+C`) `voices install` while it is checking the pack's existing
+                  install, and shall not treat a cancellation that the operator did not request
+                  as an operator interruption.
+                justification: |
+                  The check that detects an upgrade runs before the download starts; an
+                  interruption there must end as predictably as one during the download, while a
+                  cancellation from elsewhere is a defect that must not be masked.
+                tests:
+                  - VoicesCommand_RunAsync_InstallCanceledDuringPreCheck_ReportsErrorExitCode
+                  - VoicesCommand_RunAsync_InstallCanceledWithoutToken_Propagates
+
+              - id: SpeechCli-ModelCommands-VoicePackConsentNote
+                title: >-
+                  The tool shall print the consent note, that only voices the operator has
+                  permission to use may be cloned, after a successful `voices install`.
+                justification: |
+                  The consent note is repeated at install time because that is when a pack of
+                  real people's voices arrives on the machine.
+                tests:
+                  - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+              - id: SpeechCli-ModelCommands-VoiceEmotions
+                title: >-
+                  The tool shall install a reference-voice pack with its emotion variants by
+                  default when invoked with `voices install`.
+                justification: |
+                  Emotion variants make the cloned voices expressive, so an operator who does not
+                  ask otherwise gets the full pack.
+                tests:
+                  - VoicesCommand_RunAsync_Install_DefaultIncludesEmotions
+
+              - id: SpeechCli-ModelCommands-VoiceEmotionsOptOut
+                title: >-
+                  The tool shall install only the base voices when `voices install` is given
+                  `--no-emotions`.
+                justification: |
+                  The emotion clips make the pack many times larger than the base voices alone,
+                  so an operator must be able to opt out.
+                tests:
+                  - VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly
+
+              - id: SpeechCli-ModelCommands-VoiceEmotionsUpgradeNotice
+                title: >-
+                  The tool shall announce that the pack is removed and downloaded again when
+                  `voices install` replaces a voices-only install to add emotions.
+                justification: |
+                  Replacing an existing install triggers a large download, so the operator must
+                  be told why.
+                tests:
+                  - VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade
+
+              - id: SpeechCli-ModelCommands-VoicePackUninstall
+                title: >-
+                  The tool shall remove an installed reference-voice pack when invoked with
+                  `voices uninstall <packId>`.
+                justification: |
+                  Freeing disk space is the sole purpose of this command.
+                tests:
+                  - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
+                  - VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException
+
+              - id: SpeechCli-ModelCommands-VoicePackUninstallCancellation
+                title: >-
+                  The tool shall report a clean error with a non-zero exit code, rather than an
+                  unhandled exception, when the operator interrupts (`Ctrl+C`) a
+                  `voices uninstall` that is in progress.
+                justification: |
+                  An interrupted voice-pack removal is a deliberate operator action and must end
+                  predictably for a calling script.
+                tests:
+                  - VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode
+
+              - id: SpeechCli-ModelCommands-VoicePackUnknownId
+                title: >-
+                  The tool shall reject `voices install` invoked with an unknown pack id with a
+                  clear, non-zero-exit-code error rather than a stack trace, without downloading
+                  or printing anything else.
+                justification: |
+                  A pack-id typo must fail predictably, before anything is downloaded.
+                tests:
+                  - VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-VoicePackMissingId
+                title: >-
+                  The tool shall reject `voices install` or `voices uninstall` invoked without a
+                  pack id with a clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A forgotten pack id must fail predictably so a script can detect it.
+                tests:
+                  - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-VoicesExtraArgument
+                title: >-
+                  The tool shall reject a `voices` sub-action invoked with more arguments than it
+                  takes with a clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  An extra argument usually means a mistyped command; it must fail rather than be
+                  silently ignored.
+                tests:
+                  - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-VoicesMissingSubAction
+                title: >-
+                  The tool shall reject `voices` invoked without a sub-action with a clear,
+                  non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A bare `voices` has no defined meaning and must fail predictably.
+                tests:
+                  - VoicesCommand_RunAsync_MissingSubAction_ReportsNoParameterName
+                  - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-VoicesUnknownSubAction
+                title: >-
+                  The tool shall reject `voices` invoked with an unknown sub-action with a clear,
+                  non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A mistyped sub-action must fail predictably so a script can detect it.
+                tests:
+                  - VoicesCommand_RunAsync_UnknownSubAction_ReportsNoParameterName
+                  - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException

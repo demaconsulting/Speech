@@ -1,0 +1,134 @@
+---
+# Software Unit Requirements for the SpeechDemo MirrorOptionsFactory
+#
+# These requirements describe the design-level behavior of the MirrorOptionsFactory unit - the
+# shared builder of a download mirror from raw strings - decomposing the system-level mirror
+# redirection requirement in docs/reqstream/speech-demo.yaml. The factory is verified directly
+# by MirrorOptionsFactoryTests; the AppLaunchOptions and ModelCatalogViewModel requirements
+# record the caller-level behavior.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: MirrorOptionsFactory Requirements
+        requirements:
+          - id: SpeechDemo-MirrorOptions-Validation
+            title: >-
+              The MirrorOptionsFactory unit shall build a download mirror from a raw URL with
+              optional Basic credentials or a bearer token.
+            justification: |
+              Launch-time arguments and the in-app mirror settings must build the same mirror
+              from the same raw values.
+            tests:
+              - MirrorOptionsFactory_Create_UrlWithBasicCredentials_ReturnsConfiguredMirror
+              - MirrorOptionsFactory_Create_UrlWithBearerToken_ReturnsConfiguredMirror
+              - MirrorOptionsFactory_Create_UrlOnly_ReturnsUnauthenticatedMirror
+              - MirrorOptionsFactory_Create_CredentialOverPlainHttpToLoopback_ReturnsMirror
+
+          - id: SpeechDemo-MirrorOptions-BlankUrlNoMirror
+            title: >-
+              The MirrorOptionsFactory unit shall return no mirror for a null, empty or whitespace
+              URL when no credential is supplied.
+            justification: |
+              Without a mirror every model downloads from its own declared public location.
+            tests:
+              - MirrorOptionsFactory_Create_BlankUrlNoCredentials_ReturnsNull
+              - MirrorOptionsFactory_Create_BlankUrlWithEmptyCredentials_ReturnsNull
+              - MirrorOptionsFactory_Create_AllWhitespace_ReturnsNull
+
+          - id: SpeechDemo-MirrorOptions-EmptyCredentialIsUnset
+            title: >-
+              The MirrorOptionsFactory unit shall treat an empty username, password or token as
+              not supplied.
+            justification: |
+              Form fields and expanded variables are empty rather than null; an empty credential
+              must not select an authentication scheme.
+            tests:
+              - MirrorOptionsFactory_Create_UrlWithEmptyCredentials_ReturnsUnauthenticatedMirror
+              - MirrorOptionsFactory_Create_EmptyUserWithPassword_ThrowsArgumentException
+
+          - id: SpeechDemo-MirrorOptions-WhitespaceCredentialIsUnset
+            title: >-
+              The MirrorOptionsFactory unit shall treat a whitespace-only username, password or
+              token as not supplied.
+            justification: |
+              A text box holding only spaces is visually empty; it must not select an
+              authentication scheme or be sent to a mirror as a credential.
+            tests:
+              - MirrorOptionsFactory_Create_UrlWithWhitespaceCredentials_ReturnsUnauthenticatedMirror
+              - MirrorOptionsFactory_Create_WhitespaceUserWithPassword_ThrowsArgumentException
+              - MirrorOptionsFactory_Create_WhitespaceTokenWithBasicCredentials_ReturnsBasicMirror
+
+          - id: SpeechDemo-MirrorOptions-CredentialWithoutUrl
+            title: >-
+              The MirrorOptionsFactory unit shall reject a credential or token supplied
+              without a URL.
+            justification: |
+              A credential with nowhere to apply almost always means a missing or misspelled
+              URL, so it is rejected rather than silently ignored.
+            tests:
+              - MirrorOptionsFactory_Create_CredentialWithoutUrl_ThrowsWithoutEchoingSecret
+              - MirrorOptionsFactory_Create_WhitespaceUrlWithCredential_ThrowsCredentialWithoutUrl
+              - ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+
+          - id: SpeechDemo-MirrorOptions-HalfCredentialPair
+            title: >-
+              The MirrorOptionsFactory unit shall reject a username supplied without a
+              password.
+            justification: |
+              Half of a Basic-authentication pair can never authenticate, so the mismatch is
+              reported instead of sending a request that is certain to fail.
+            tests:
+              - MirrorOptionsFactory_Create_UserWithoutPassword_ThrowsArgumentException
+
+          - id: SpeechDemo-MirrorOptions-PasswordWithoutUser
+            title: >-
+              The MirrorOptionsFactory unit shall reject a password supplied without a
+              username.
+            justification: |
+              A password with no username can never authenticate, so the mismatch is reported
+              instead of the password being silently dropped.
+            tests:
+              - MirrorOptionsFactory_Create_PasswordWithoutUser_ThrowsArgumentException
+
+          - id: SpeechDemo-MirrorOptions-InsecureCredentialRejected
+            title: >-
+              The MirrorOptionsFactory unit shall reject a credential or token configured for a
+              plain-HTTP mirror on a non-loopback host.
+            justification: |
+              A credential sent over unencrypted HTTP to a remote host is exposed to anyone on
+              the network path, so the configuration is refused.
+            tests:
+              - MirrorOptionsFactory_Create_CredentialOverPlainHttpToRemoteHost_ThrowsArgumentException
+              - MirrorOptionsFactory_Create_BasicCredentialsOverPlainHttpToRemoteHost_ThrowsWithoutEchoingSecret
+
+          - id: SpeechDemo-MirrorOptions-InvalidUrl
+            title: >-
+              The MirrorOptionsFactory unit shall reject a URL that is not a valid absolute
+              URL.
+            justification: |
+              Launch-time arguments and the in-app mirror settings must validate identically;
+              a malformed URL is reported before any download is attempted.
+            tests:
+              - MirrorOptionsFactory_Create_InvalidUrl_ThrowsWithoutEchoingValue
+              - MirrorOptionsFactory_Create_RelativeUrl_ThrowsArgumentException
+              - ModelCatalogViewModel_ApplyMirrorAsync_InvalidUrl_ReportsErrorWithoutCallingService
+
+          - id: SpeechDemo-MirrorOptions-NonHttpSchemeRejected
+            title: >-
+              The MirrorOptionsFactory unit shall reject a URL whose scheme is not http or https,
+              without echoing the value.
+            justification: |
+              A pasted user:password@host string parses with the user name as its scheme, so the
+              rejection must not leak it.
+            tests:
+              - MirrorOptionsFactory_Create_NonHttpScheme_ThrowsWithoutEchoingValue
+
+          - id: SpeechDemo-MirrorOptions-BasicAndBearerRejected
+            title: >-
+              The MirrorOptionsFactory unit shall reject Basic credentials supplied together with
+              a bearer token, without echoing either.
+            justification: |
+              Two competing authentication schemes are ambiguous.
+            tests:
+              - MirrorOptionsFactory_Create_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets

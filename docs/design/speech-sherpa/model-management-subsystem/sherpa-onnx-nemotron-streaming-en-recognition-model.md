@@ -80,7 +80,7 @@ against a real download in this project's development sandbox, not fabricated).
 a null/empty directory argument on `InstallAsync`/`BuildEngineConfig`/`CreateBackend`; extraction failures
 propagate unchanged to `SpeechModelDownloader`.
 
-**License - materially different from every other model in this pass**: the underlying NVIDIA
+**License - materially different from the other Sherpa models**: the underlying NVIDIA
 model (`nvidia/nemotron-speech-streaming-en-0.6b` on HuggingFace) is released under the **NVIDIA
 Open Model License**, a custom, NVIDIA-authored, non-OSI license - *not* Apache-2.0 or any other
 widely-used permissive OSS license like the Zipformer model above. Confirmed via web-search
@@ -95,8 +95,7 @@ GitHub Releases mirror; the actual model bytes are fetched by the consumer's own
 their own explicit `SpeechModelCatalog.DownloadAsync` call, exactly like every other model in
 this catalog. Whether the license's field-of-use/redistribution terms permit a given consumer's
 specific intended use is a legal/compliance question outside this library's competence to
-certify - flagged as Risk #1 in the phase 7 planning report
-(`.agent-logs/planning-speech-phase7-c48a07.md`) and not resolved by this class's existence, which
+certify - tracked as the top risk of the original Nemotron integration and not resolved by this class's existence, which
 is a build-time metadata/download registration only.
 
 **Dependencies**: `IRecognitionModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,

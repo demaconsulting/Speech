@@ -50,13 +50,18 @@ public sealed partial class NumericParameterViewModel : ParameterViewModelBase
     ///     When <see cref="IsInteger"/> is <see langword="true"/>, the value is additionally
     ///     rounded to the nearest whole number, so no code path - test, XAML binding, or
     ///     otherwise - can leave this presenter holding a fractional value for an integer
-    ///     parameter.
+    ///     parameter. A non-finite write (NaN or an infinity) is ignored and the previous value is kept.
     /// </summary>
     public double Value
     {
         get => _value;
         set
         {
+            if (!double.IsFinite(value))
+            {
+                return;
+            }
+
             var clamped = Math.Clamp(value, Minimum, Maximum);
             var resolved = IsInteger ? Math.Round(clamped, MidpointRounding.AwayFromZero) : clamped;
             SetProperty(ref _value, resolved);

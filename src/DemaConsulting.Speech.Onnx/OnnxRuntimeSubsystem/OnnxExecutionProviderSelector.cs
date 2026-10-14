@@ -77,13 +77,21 @@ public static class OnnxExecutionProviderSelector
     ///     A loaded <see cref="InferenceSession"/> using the first provider that both appended and
     ///     loaded successfully, or the CPU provider when none did.
     /// </returns>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="modelPath"/> is null or empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="modelPath"/> is null (<see cref="ArgumentNullException"/>) or empty.</exception>
+    /// <exception cref="OnnxRuntimeException">
+    ///     Thrown when the model file is missing, unreadable, or malformed. Every preferred
+    ///     candidate's <see cref="OnnxRuntimeException"/> is treated as "provider unavailable", so
+    ///     a model error always surfaces from the final CPU attempt, exactly as a direct
+    ///     <c>new InferenceSession(modelPath)</c> call would report it.
+    /// </exception>
     /// <remarks>
-    ///     Never throws due to an unavailable accelerated provider: the CPU provider is always
-    ///     attempted last and is guaranteed to succeed for a well-formed model, since it ships
+    ///     Exception contract: only a provider's <em>unavailability</em> is swallowed into the CPU
+    ///     fallback. Argument errors, model-file errors, and any unexpected exception from
+    ///     <paramref name="validateSession"/> propagate to the caller.
+    ///     An unavailable accelerated provider never causes a throw: the CPU provider is always
+    ///     attempted last and succeeds for a well-formed model, since it ships
     ///     inside the base <c>Microsoft.ML.OnnxRuntime</c> package this class's own project
-    ///     references. A genuinely malformed or unreadable model file still throws from that final
-    ///     CPU attempt, exactly as a direct <c>new InferenceSession(modelPath)</c> call would.
+    ///     references.
     ///     Only <see cref="OnnxRuntimeException"/> and <see cref="DllNotFoundException"/> from a
     ///     candidate's construction or probe are treated as "try the next candidate"; any other
     ///     exception type a candidate's construction or <paramref name="validateSession"/> throws

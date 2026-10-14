@@ -1,5 +1,5 @@
 package Speech {
-    part def SessionStateChangedEventArgs {
+    part def SynthesisSessionStateChangedEventArgs {
         doc /* Event arguments record carrying the Previous/Current SynthesisSessionState of an
              * ISynthesisSession.StateChanged transition. Declared separately from
              * RecognitionSubsystem's identically-shaped record (which carries

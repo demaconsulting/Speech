@@ -115,10 +115,10 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
     ///     An empty <paramref name="text"/>, or text whose every word is absent from the embedded
     ///     lexicon (see <see cref="KokoroLexiconPhonemizer"/>'s remarks), produces no phoneme
     ///     tokens at all; this method recognizes that case and returns an empty
-    ///     <see cref="EngineAudio"/> directly rather than running the ONNX graph on a
+    ///     <see cref="BackendAudio"/> directly rather than running the ONNX graph on a
     ///     content-free, all-padding input.
     /// </remarks>
-    public EngineAudio Generate(string text, float speed, int speakerId)
+    public BackendAudio Generate(string text, float speed, int speakerId)
     {
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -127,7 +127,7 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
         var ids = _vocabulary.ToTokenIds(phonemes);
         if (ids.Count == 0)
         {
-            return new EngineAudio([], SampleRate);
+            return new BackendAudio([], SampleRate);
         }
 
         var paddedIds = new long[ids.Count + 2];
@@ -141,7 +141,7 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
 
         var samples = RunInference(paddedIds, SelectStyleVector(speakerId, ids.Count), speed);
 
-        return new EngineAudio(samples, SampleRate);
+        return new BackendAudio(samples, SampleRate);
     }
 
     private float[] RunInference(long[] paddedIds, float[] style, float speed)

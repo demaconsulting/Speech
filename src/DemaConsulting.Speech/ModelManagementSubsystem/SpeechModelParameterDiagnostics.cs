@@ -63,7 +63,8 @@ internal static class SpeechModelParameterDiagnostics
     ///     <paramref name="diagnostics"/>, or <paramref name="category"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="parameterValues"/> contains a value for a declared
+    ///     Thrown when <paramref name="declaredParameters"/> contains a null element (only when there are values to
+    ///     validate), or when <paramref name="parameterValues"/> contains a value for a declared
     ///     parameter that is invalid for it - wrong CLR type, out of
     ///     <see cref="NumericParameter.Minimum"/>/<see cref="NumericParameter.Maximum"/> range, a
     ///     non-integral value for a <see cref="NumericParameter"/> with
@@ -87,6 +88,11 @@ internal static class SpeechModelParameterDiagnostics
         if (parameterValues is null || parameterValues.Count == 0)
         {
             return;
+        }
+
+        if (declaredParameters.Any(parameter => parameter is null))
+        {
+            throw new ArgumentException("The declared parameters must not contain a null element.", nameof(declaredParameters));
         }
 
         // Validate every recognized parameter first, iterating in declared order so the first
@@ -173,10 +179,17 @@ internal static class SpeechModelParameterDiagnostics
             _ => null,
         };
 
-        if (numericValue is not double resolved || !double.IsFinite(resolved))
+        if (numericValue is not double resolved)
         {
             throw new ArgumentException(
                 $"Parameter '{parameter.Id}' expected a numeric value but received {DescribeType(value)} for model '{modelId}'.",
+                paramName);
+        }
+
+        if (!double.IsFinite(resolved))
+        {
+            throw new ArgumentException(
+                $"Parameter '{parameter.Id}' value {resolved} must be a finite number for model '{modelId}'.",
                 paramName);
         }
 

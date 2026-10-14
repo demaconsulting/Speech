@@ -127,11 +127,12 @@ internal static class ListDevicesCommand
 
     /// <summary>
     ///     Gets the value following a flag, throwing a clean <see cref="ArgumentException"/> when
-    ///     none was supplied.
+    ///     none was supplied or the next argument is <c>--direction</c> (so a forgotten value never
+    ///     silently swallows the next option).
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || string.Equals(args[index], "--direction", StringComparison.Ordinal))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }

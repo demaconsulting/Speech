@@ -4,13 +4,13 @@
 
 ### Overview
 
-The ModelManagementSubsystem provides the storage/download machinery and the model catalog/
-contract machinery for speech models. Sub-phase 2a implements a per-user on-disk store with
-atomic install/replace semantics, and a queued downloader that fetches, SHA-256-verifies, and
-atomically installs a model's declared files. Sub-phase 2b adds the generic model catalog/
-contract seam on top: a typed tunable-parameter descriptor set, the common `ISpeechModel`
+The ModelManagementSubsystem provides the storage/download machinery and the model
+catalog/contract machinery for speech models. A per-user on-disk store provides
+atomic install/replace semantics, and a downloader fetches, SHA-256-verifies, and
+installs a model's declared files. On top of that sits a generic model catalog and
+contract seam: a typed tunable-parameter descriptor set, the common `ISpeechModel`
 contract with its `IRecognitionModel`/`ISynthesisModel` role markers, and `SpeechModelCatalog`
-itself. Later passes added the model-owned extension hooks concrete models build on - an
+itself. The contracts also carry the model-owned extension hooks concrete models build on - an
 `ISynthesisModel.ResolveSpeakerId` hook for model-owned voice/speaker selection, a recognition-only
 `IRecognitionModel.NormalizeText(text, isFinal)` hook (a default pass-through, distinct from the
 shared `ISpeechModel.NormalizeText(string)` used on the synthesis side) for restoring readable
@@ -33,14 +33,20 @@ sibling `SpeechSherpa` system; see _SpeechSherpa ModelManagementSubsystem Design
 It contains the following units:
 
 - **SpeechModelStore** / **SpeechModelStoreOptions** / **SpeechModelStoreException**: the
-  per-user on-disk layout, atomic `current/` swap, install-state query, uninstall, and
+  per-user on-disk layout, two-step `current/` replace with rollback, install-state query, uninstall, and
   best-effort cleanup, plus the storage-root override options and the exception thrown only by
   an explicit uninstall that cannot complete
-- **SpeechModelDownloader** / **SpeechModelDownloaderOptions** / **DownloadMirror**: the queued
-  (one-at-a-time) fetch → SHA-256 verify → atomic-install orchestrator, defining honest
+- **SpeechModelDownloader** / **SpeechModelDownloaderOptions** / **DownloadMirror**: the
+  fetch → SHA-256 verify → install orchestrator (serialized per model id, concurrent across models), defining
+  honest
   `SpeechModelDownloadOutcome` result states (including network/HTTP/I-O failure classification),
   plus the optional configuration seam and mirror-description type that let a host redirect every
-  model download through an internal, possibly-authenticated HTTPS mirror
+  model download through an internal, possibly-authenticated HTTP(S) mirror
+- **ReferenceVoicePack** / **ReferenceVoicePackInstaller** / **ReferenceVoiceLibrary**: the model-agnostic
+  reference-voice library - a descriptor for a downloadable, checksum-verified voice pack (the built-in
+  voice-zero 1.0, CC0), the safe selective extractor the downloader runs on it, and the library that
+  installs/removes packs, keeps a user voice folder and lists all voices merged and de-duplicated; any
+  voice-cloning model (the first is ChatterboxTurbo) consumes it
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS-only URL(s) plus
   SHA-256 checksum descriptor types describing what a downloader fetches and verifies
 - **SpeechModelDownloadProgress**: the `IProgress<T>`-compatible download-progress payload
@@ -75,31 +81,48 @@ The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechMode
 `IModelDownloadClient`, `HttpModelDownloadClient`, `SpeechModelRole`, `SpeechModelState`,
 `SpeechModelAudioTagSupport`, `ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
 `ChoiceParameterOption`, `BooleanParameter`, `ISpeechModel`, `IRecognitionModel`,
-`ISynthesisModel`, `SpeechModelDescriptor`, and `SpeechModelCatalog` as its public API
-(`SpeechModelParameterDiagnostics` is internal). It consumes `ISpeechDiagnostics` from the
+`ISynthesisModel`, `SpeechModelDescriptor`, `SpeechModelCatalog`, `ReferenceVoicePack`,
+`ReferenceVoiceLibrary` (which also exposes the shared `ConsentNotice` text hosts show when listing voices),
+`ReferenceVoiceInfo` and `ReferenceVoiceSource` as its public API
+(`SpeechModelParameterDiagnostics` and `ReferenceVoicePackInstaller` are internal; the installer
+extracts a downloaded pack archive and is driven by `ReferenceVoiceLibrary`, which obtains the archive
+through `SpeechModelDownloader` into the shared `SpeechModelStore` layout). Value types it returns are owned by these
+units: `SpeechModelDownloadResult` by `SpeechModelDownloader`,
+`ChoiceParameterOption` by `ChoiceParameter` (in SpeechModelParameters), and
+`ReferenceVoiceInfo`/`ReferenceVoiceSource` by
+`ReferenceVoicePack`. It consumes `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural download-failure facts without ever exposing raw
 model bytes. It also consumes `AudioFormat` from the AudioSubsystem as a narrow plain-data
 dependency for public model format declarations.
 
 ### Design
 
-`SpeechModelStore` owns the on-disk layout resolving the download-while-in-use concern
-(download-while-in-use). For each model id, it manages `{root}/{model-id}/current/` (the
-stable, installed content, only ever replaced by a directory rename),
-`{root}/{model-id}/install-manifest.json` (a sidecar written only after a successful swap so
+`SpeechModelStore` owns the on-disk layout that resolves the download-while-in-use concern. For
+each model id, it manages `{root}/{model-id}/current/` (the
+stable, installed content, replaced only after a verified replacement is fully staged),
+`{root}/{model-id}/install-manifest.json` (a sidecar written only after a successful replace so
 `IsInstalled` can report cheaply without re-hashing gigabytes on every query), and
 `{root}/{model-id}/.tmp/{operation-id}/` (scratch space for an in-progress
 download/install, never read as installed content). `current/` is never touched while a
 download is being fetched and verified, so an in-use recognizer/synthesizer continues reading
-unaffected content until the swap completes.
+unaffected content until the replacement is switched in. Because Windows cannot atomically
+swap a non-empty directory over another, the switch is a two-step replace with rollback: the prior
+`current/` is moved aside, the staged directory is moved into place, and the moved-aside copy is
+deleted only afterwards; if the second step fails the prior `current/` is restored. The contract is
+therefore that an installed model is never observed partially replaced, a failed or interrupted
+replacement leaves the prior install usable or reported as not installed, and a momentary
+not-installed state while the switch happens is permitted (this is the realization of
+`Speech-Models-AtomicInstall`, whose ID is kept for stability).
 
-`SpeechModelDownloader` is the only caller of `SpeechModelStore`'s internal staging/swap
-members. It serializes downloads one at a time via an internal single-flight lock, fetches each
+`SpeechModelDownloader` is the only caller of `SpeechModelStore`'s internal staging/replace
+members. It serializes downloads of the same model id with a per-model-id lock (a second request for that id waits,
+honoring
+its cancellation token) while downloads of different model ids run fully concurrently, fetches each
 declared file through the injected `IModelDownloadClient`, verifies its SHA-256 checksum, and -
 when its `ISpeechModel`-aware `DownloadAsync` overload is used - invokes the model's own
 `InstallAsync` hook to unpack the staged files in place (a no-op by default), before only then
 handing the fully verified (and, if applicable, unpacked) staging directory to `SpeechModelStore`
-for the atomic swap. A checksum mismatch, transport failure, install-hook failure, or
+for the replace. A checksum mismatch, transport failure, install-hook failure, or
 cancellation discards the staging directory and leaves any prior successful install of the same
 model completely untouched - `SpeechModelDownloadOutcome` never reports `Installed` for a
 corrupted, partial, checksum-mismatched, or install-hook-failed download. An optional
@@ -113,7 +136,7 @@ TLS-interception policy breaking `huggingface.co`) can be worked around without 
 code change. A true NTLM challenge/response handshake is not supported, since negotiating one
 would require a dedicated `HttpClientHandler` that bypasses whatever `HttpClient` a host has
 already configured; preemptive Basic (sent on the first request, no round trip) covers the
-HTTPS-mirror scenario this library targets instead. A non-`Installed`, non-`ChecksumMismatch`
+mirror scenario this library targets instead. A non-`Installed`, non-`ChecksumMismatch`
 outcome is further classified by a dedicated
 `ClassifyFailure` helper into `HttpError` (a real non-success HTTP response), `NetworkBlocked` (a
 TLS/certificate failure, a DNS/connection failure, or `HttpClient`'s own internal timeout - as
@@ -121,7 +144,7 @@ distinct from the caller's own cancellation, which always propagates unchanged a
 `OperationCanceledException`), `IoFailure` (a local disk/permission failure), or the final
 generic `Failed` fallback - so a host can react to _why_ a download failed, not just that it did.
 
-`IModelDownloadClient` mirrors the existing `IPortAudioApi`/`IPortAudioStream` seam pattern: a
+`IModelDownloadClient` follows the library's seam pattern (as `IPortAudioApi`/`IPortAudioStream` do): a
 small library-owned interface with one real implementation (`HttpModelDownloadClient`, backed by
 `System.Net.Http.HttpClient`) and hand-written fakes used in tests for fast, deterministic
 coverage of `SpeechModelDownloader`'s orchestration logic without any real network access.
@@ -142,9 +165,9 @@ before calling `DownloadAsync`.
 its declared `Parameters` (`ISpeechModelParameter` instances - `NumericParameter`,
 `ChoiceParameter`, or `BooleanParameter`, each self-validating an internally consistent range/
 option-set/default at construction), its declared `AudioTagSupport` (a declaration only - the
-Layer 2 rendering logic is Phase 4), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
+Layer 2 rendering logic is implemented per model), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
 default, overridable to unpack an archive payload), its `NormalizeText` hook (an identity
-default, overridable for Phase 4 text normalization), and its `LicenseName`/`LicenseUrl`
+default, overridable for model-specific text normalization), and its `LicenseName`/`LicenseUrl`
 default-hook members (`"Unknown"`/`null` by default, overridable to declare a model's real
 license name and an optional canonical URL to its full text). `IRecognitionModel` exposes a
 public plain-data `AudioFormat` declaration alongside its public
@@ -163,18 +186,60 @@ returns the same catalog instance so registrations chain fluently (for example t
 `SpeechModelDownloader`. A distinct, all-required-parameter three-argument public constructor
 overload (`options, downloaderOptions, diagnostics`) additionally accepts
 `SpeechModelDownloaderOptions` (for example a `DownloadMirror`), forwarded to the internally
-created `SpeechModelDownloader` - exposing the catalog's normal composition path to a mirror,
-which previously only a direct `SpeechModelDownloader` construction (bypassing the catalog's
-model install-hook orchestration entirely) could reach. Registration is a builder-phase step:
+created `SpeechModelDownloader` - exposing the catalog's normal composition path (with the model install-hook
+orchestration) to a mirror.
+Registration is a builder-phase step:
 every `AddModels` call must complete before the catalog is shared for concurrent enumeration or
 download. `Enumerate()`
 builds one immutable `SpeechModelDescriptor` snapshot per known model, resolving each model's
-`SpeechModelState` by combining `SpeechModelStore.IsInstalled` (installed/not-installed) with
+`SpeechModelState` by combining `SpeechModelStore.IsInstalled` (`Downloaded`/`NotDownloaded`) with
 in-memory tracking of which model ids currently have a `DownloadAsync` call in flight
 (`Downloading`) and which model ids' most recent attempt did not result in an installed model
 (`FailedOrCorrupt`) - tracking scoped to one catalog instance's lifetime, since a bare on-disk
 store has no durable concept of "currently downloading" or "last attempt failed". `DownloadAsync(
 modelId, ...)` looks up the named model and delegates to `SpeechModelDownloader.DownloadAsync(
 model, ...)` - the `ISpeechModel`-aware overload, so the model's own `InstallAsync` hook always
-runs - throwing only when `modelId` matches no known model - an explicit, user-invoked action,
-never composition or enumeration.
+runs - and throws only when `modelId` matches no known model. Downloading is an explicit,
+user-invoked action; composition and enumeration never trigger it.
+
+#### Reference-voice collaboration
+
+`ReferenceVoiceLibrary` is constructed from the catalog's `SpeechModelStore` (typically
+`catalog.Store`) and owns a second `SpeechModelStore` rooted at a `reference-voices` folder beside
+the model folders, so packs reuse the same two-step-replace layout. It obtains a pack archive through a
+lazily created `SpeechModelDownloader` (hash-verified and mirror-aware) with
+`ReferenceVoicePackInstaller` as the install hook. `EnumerateVoices` merges voices with a fixed
+precedence: caller-named directories first, then the user folder, then installed packs; the first
+voice id wins and later duplicates are dropped with an `Info` diagnostic. Installs and uninstalls of
+one pack are serialized by a per-pack lock: an uninstall that arrives during an install waits for
+it (honoring its cancellation token) and then removes the pack, and the two never interleave. See
+the `ReferenceVoiceLibrary` unit design for details.
+
+#### Requirement realization notes
+
+The subsystem requirements state observable behavior only; the mechanisms that realize them are:
+`SpeechModelCatalog.Store` exposes the catalog's own `SpeechModelStore` so a host resolves model
+directories through the same instance used for enumeration and download
+(`Speech-Models-CatalogStoreComposition`); `SpeechModelCatalog.AddModels(params ISpeechModel[])`
+registers models and returns the catalog for chaining (`Speech-Models-CatalogEnumeration`);
+`SpeechModelDownloadProgress` is an `IProgress<T>`-compatible payload with a computed
+`FractionComplete` (`Speech-Models-DownloadProgress`); `IModelDownloadClient` is the mockable fetch
+seam that lets `SpeechModelDownloader` be unit tested with no network
+(`Speech-Models-MockableHttpSeam`); the model-contract hooks (`InstallAsync`, `NormalizeText`) are
+default interface members (`Speech-Models-ContractHooks`); a mirror's credentials are applied by the
+`HttpModelDownloadClient` instance the downloader constructs for itself, which is why a downloader
+configured with a credentialed mirror refuses an injected client
+(`Speech-Models-MirrorAuthentication`); and the failure categories are produced by the downloader's
+`ClassifyFailure` helper (`Speech-Models-RicherFailureClassification`).
+
+#### Error handling
+
+Expected failures are reported as values, not exceptions (the downloader also reports structural failure facts, never
+raw model bytes, through `ISpeechDiagnostics`): a download returns a
+`SpeechModelDownloadResult` whose outcome is `Installed`, `ChecksumMismatch`, `HttpError`,
+`NetworkBlocked`, `IoFailure`, or `Failed`, with any staging directory discarded and a prior
+install untouched. Cancellation always propagates unchanged as `OperationCanceledException`.
+Programming errors (null or invalid arguments, an invalid parameter value, an unknown model id on
+an explicit download, use after dispose) throw `ArgumentException`-family or
+`ObjectDisposedException` exceptions, and only an explicit uninstall that cannot complete throws
+`SpeechModelStoreException`.

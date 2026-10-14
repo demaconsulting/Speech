@@ -1,0 +1,83 @@
+---
+# Software Unit Requirements for the SpeechCli ConsoleCancellation
+#
+# These requirements describe the design-level behavior of the ConsoleCancellation unit - the Ctrl+C
+# registration used by long-running commands - decomposing the proposed system requirement
+# SpeechCli-Cli-CtrlCCancellation. Every test below is a ConsoleCancellationTests test. The tests
+# drive the registration through its Raise seam, which runs the work of the real signal handler.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConsoleCancellation Requirements
+        requirements:
+          - id: SpeechCli-ConsoleCancellation-RegisterCancels
+            title: >-
+              The ConsoleCancellation unit shall, on Ctrl+C during a Register registration, cancel
+              the supplied operation.
+            justification: |
+              A running command must be able to stop cleanly and release resources instead of
+              being killed mid-operation.
+            tests:
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+              - ConsoleCancellation_Register_NoCallback_CancelsSource
+              - ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource
+
+          - id: SpeechCli-ConsoleCancellation-RegisterCallbackAfterCancel
+            title: >-
+              The ConsoleCancellation unit shall run the optional callback of a Register
+              registration after the operation has been canceled.
+            justification: |
+              Command-specific clean-up (such as stopping a live session) must observe the
+              canceled state.
+            tests:
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+
+          - id: SpeechCli-ConsoleCancellation-ObserveCallbackOnly
+            title: >-
+              The ConsoleCancellation unit shall, on Ctrl+C for an Observe registration, run the
+              callback without suppressing process termination.
+            justification: |
+              A command that has no cancellable work still needs to notify the user, and must
+              still end when Ctrl+C is pressed.
+            tests:
+              - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination
+              - ConsoleCancellation_Observe_Handler_RunsCallbackAndLeavesCancelUnset
+
+          - id: SpeechCli-ConsoleCancellation-DisposeIdempotent
+            title: >-
+              The ConsoleCancellation unit shall tolerate a registration being disposed more than
+              once.
+            justification: |
+              Registrations are disposed from using blocks and error paths that can overlap.
+            tests:
+              - ConsoleCancellation_Dispose_CalledTwice_DoesNotThrow
+
+          - id: SpeechCli-ConsoleCancellation-DisposeDetaches
+            title: >-
+              The ConsoleCancellation unit shall stop reacting to Ctrl+C for a registration once
+              that registration has been disposed.
+            justification: |
+              A finished command must not cancel or notify after it has returned.
+            tests:
+              - ConsoleCancellation_Dispose_DetachesHandler
+
+          - id: SpeechCli-ConsoleCancellation-RegisterSuppressesTermination
+            title: >-
+              The ConsoleCancellation unit shall keep the process running on Ctrl+C for a
+              Register registration.
+            justification: |
+              Cancellation must let the command finish its clean-up rather than end the process.
+            tests:
+              - ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+
+          - id: SpeechCli-ConsoleCancellation-ArgumentValidation
+            title: >-
+              The ConsoleCancellation unit shall reject a null source for Register and a null
+              callback for Observe with an ArgumentNullException.
+            justification: |
+              A registration without its required argument would fail later, at signal time.
+            tests:
+              - ConsoleCancellation_Register_NullSource_ThrowsArgumentNullException
+              - ConsoleCancellation_Observe_NullCallback_ThrowsArgumentNullException

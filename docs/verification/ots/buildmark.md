@@ -31,15 +31,11 @@ BuildMark did not produce the required output.
 **Expected**: BuildMark exits without error and produces a non-empty markdown build-notes document
 in the release artifacts.
 
-**Requirement coverage**: `Template-OTS-BuildMark`.
-
 #### BuildMark_GitIntegration
 
 **Scenario**: BuildMark self-validation reads version tags and commits from a mock Git history.
 
 **Expected**: Exits 0 and correctly reads version tags and commit history.
-
-**Requirement coverage**: `Template-OTS-BuildMark`.
 
 #### BuildMark_IssueTracking
 
@@ -47,15 +43,11 @@ in the release artifacts.
 
 **Expected**: Exits 0 and correctly fetches and processes mock issues and pull requests.
 
-**Requirement coverage**: `Template-OTS-BuildMark`.
-
 #### BuildMark_KnownIssuesReporting
 
 **Scenario**: BuildMark self-validation includes open bugs in the generated report when requested.
 
 **Expected**: Exits 0 and correctly includes known issues.
-
-**Requirement coverage**: `Template-OTS-BuildMark`.
 
 #### BuildMark_RulesRouting
 
@@ -63,10 +55,3 @@ in the release artifacts.
 type rules.
 
 **Expected**: Exits 0 and correctly routes items to the expected sections.
-
-**Requirement coverage**: `Template-OTS-BuildMark`.
-
-### Requirements Coverage
-
-- **`Template-OTS-BuildMark`**: BuildMark_MarkdownReportGeneration, BuildMark_GitIntegration,
-  BuildMark_IssueTracking, BuildMark_KnownIssuesReporting, BuildMark_RulesRouting

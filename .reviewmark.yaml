@@ -69,7 +69,7 @@ reviews:
       - "docs/verification/introduction.md"                                    # verification introduction
       - "docs/verification/speech.md"                        # system verification
       - "test/DemaConsulting.Speech.Tests/SpeechTests.cs"  # integration tests
-
+      - "test/DemaConsulting.Speech.Tests/PlatformSupportTests.cs"  # per-platform and per-runtime evidence tests
   # Speech-Design Review (one per system)
   - id: Speech-Design
     title: Review that Speech Design is Consistent and Complete
@@ -111,7 +111,8 @@ reviews:
     paths:
       - "docs/reqstream/speech/diagnostics.yaml"                          # subsystem requirements
       - "docs/reqstream/speech/diagnostics/*.yaml"                        # unit requirements
-      - "docs/design/speech/diagnostics.md"                               # subsystem + inline unit design
+      - "docs/design/speech/diagnostics.md"                               # subsystem design
+      - "docs/design/speech/diagnostics/*.md"                             # unit design
       - "docs/verification/speech/diagnostics.md"                         # subsystem + inline unit verification
       - "src/DemaConsulting.Speech/Diagnostics/**/*.cs"                   # subsystem source
       - "test/DemaConsulting.Speech.Tests/Diagnostics/**/*.cs"            # subsystem tests
@@ -128,6 +129,87 @@ reviews:
       - "docs/verification/speech/audio-subsystem.md"          # subsystem verification + inline units
       - "src/DemaConsulting.Speech/AudioSubsystem/NamespaceDoc.cs"        # subsystem namespace summary
 
+  # Speech-AudioSubsystem-AudioClip Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioClip
+    title: Review that Speech AudioSubsystem AudioClip Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-clip.yaml"
+      - "docs/design/speech/audio-subsystem/audio-clip.md"
+      - "docs/verification/speech/audio-subsystem/audio-clip.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioClip.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioClipTests.cs"
+
+  # Speech-AudioSubsystem-AudioFileReader Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioFileReader
+    title: Review that Speech AudioSubsystem AudioFileReader Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-file-reader.yaml"
+      - "docs/design/speech/audio-subsystem/audio-file-reader.md"
+      - "docs/verification/speech/audio-subsystem/audio-file-reader.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioFileReader.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioFileReadOptions.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioFileReaderTests.cs"
+
+  # Speech-AudioSubsystem-AudioResampler Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioResampler
+    title: Review that Speech AudioSubsystem AudioResampler Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-resampler.yaml"
+      - "docs/design/speech/audio-subsystem/audio-resampler.md"
+      - "docs/verification/speech/audio-subsystem/audio-resampler.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioResampler.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs"
+
+  # Speech-AudioSubsystem-FlacDecoder Review (one per unit)
+  - id: Speech-AudioSubsystem-FlacDecoder
+    title: Review that Speech AudioSubsystem FlacDecoder Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/flac-decoder.yaml"
+      - "docs/design/speech/audio-subsystem/flac-decoder.md"
+      - "docs/verification/speech/audio-subsystem/flac-decoder.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacDecoder.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacFrameDecoder.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacBitReader.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacCrc.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/FlacDecoderTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/TestFlacEncoder.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/TestBitWriter.cs"
+
+  # Speech-AudioSubsystem-WavDecoder Review (one per unit)
+  - id: Speech-AudioSubsystem-WavDecoder
+    title: Review that Speech AudioSubsystem WavDecoder Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/wav-decoder.yaml"
+      - "docs/design/speech/audio-subsystem/wav-decoder.md"
+      - "docs/verification/speech/audio-subsystem/wav-decoder.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/WavDecoder.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavDecoderTests.cs"
+
   # Speech-AudioSubsystem-AudioDeviceDescription Review (one per unit)
   - id: Speech-AudioSubsystem-AudioDeviceDescription
     title: Review that Speech AudioSubsystem AudioDeviceDescription Implementation is Correct
@@ -141,6 +223,7 @@ reviews:
       - "docs/design/speech/audio-subsystem/audio-device-description.md"
       - "docs/verification/speech/audio-subsystem/audio-device-description.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceDescription.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceDescriptionTests.cs"
 
   # Speech-AudioSubsystem-AudioDeviceSelection Review (one per unit)
   - id: Speech-AudioSubsystem-AudioDeviceSelection
@@ -181,7 +264,12 @@ reviews:
       - "docs/reqstream/speech.yaml"
       - "docs/reqstream/speech/audio-subsystem.yaml"
     paths:
+      - "docs/reqstream/speech/audio-subsystem/windowed-sinc-lowpass-filter.yaml"
+      - "docs/design/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
+      - "docs/verification/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/WindowedSincLowpassFilter.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WindowedSincLowpassFilterTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/PlaybackAudioResamplerTests.cs"
 
   # Speech-AudioSubsystem-IAudioCaptureDevice Review (one per unit)
   - id: Speech-AudioSubsystem-IAudioCaptureDevice
@@ -362,33 +450,93 @@ reviews:
       - "src/DemaConsulting.Speech/AudioSubsystem/PortAudio/**/*.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/PortAudio/**/*.cs"
 
-  # Speech-AudioSubsystem-UnavailableFallbacks Review (grouped small supporting types)
-  - id: Speech-AudioSubsystem-UnavailableFallbacks
-    title: Review that Speech AudioSubsystem Unavailable Fallback Implementations are Correct
+  # Speech-AudioSubsystem-UnavailableAudioCaptureDevice Review (one per unit)
+  - id: Speech-AudioSubsystem-UnavailableAudioCaptureDevice
+    title: Review that Speech AudioSubsystem UnavailableAudioCaptureDevice Implementation is Correct
     context:
       - "docs/design/speech.md"
       - "docs/design/speech/audio-subsystem.md"
       - "docs/reqstream/speech.yaml"
       - "docs/reqstream/speech/audio-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech/audio-subsystem/unavailable-fallbacks.yaml"
+      - "docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device.yaml"
+      - "docs/design/speech/audio-subsystem/unavailable-audio-capture-device.md"
+      - "docs/verification/speech/audio-subsystem/unavailable-audio-capture-device.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/UnavailableAudioCaptureDevice.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs"
+
+  # Speech-AudioSubsystem-UnavailableAudioPlaybackDevice Review (one per unit)
+  - id: Speech-AudioSubsystem-UnavailableAudioPlaybackDevice
+    title: Review that Speech AudioSubsystem UnavailableAudioPlaybackDevice Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device.yaml"
+      - "docs/design/speech/audio-subsystem/unavailable-audio-playback-device.md"
+      - "docs/verification/speech/audio-subsystem/unavailable-audio-playback-device.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/UnavailableAudioPlaybackDevice.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs"
+
+  # Speech-AudioSubsystem-UnavailableAudioCaptureDeviceProbe Review (one per unit)
+  - id: Speech-AudioSubsystem-UnavailableAudioCaptureDeviceProbe
+    title: Review that Speech AudioSubsystem UnavailableAudioCaptureDeviceProbe Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device-probe.yaml"
+      - "docs/design/speech/audio-subsystem/unavailable-audio-capture-device-probe.md"
+      - "docs/verification/speech/audio-subsystem/unavailable-audio-capture-device-probe.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/UnavailableAudioCaptureDeviceProbe.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs"
+
+  # Speech-AudioSubsystem-UnavailableAudioPlaybackDeviceProbe Review (one per unit)
+  - id: Speech-AudioSubsystem-UnavailableAudioPlaybackDeviceProbe
+    title: Review that Speech AudioSubsystem UnavailableAudioPlaybackDeviceProbe Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device-probe.yaml"
+      - "docs/design/speech/audio-subsystem/unavailable-audio-playback-device-probe.md"
+      - "docs/verification/speech/audio-subsystem/unavailable-audio-playback-device-probe.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/UnavailableAudioPlaybackDeviceProbe.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs"
+
+  # Speech-AudioSubsystem-AudioDeviceUnavailableException Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioDeviceUnavailableException
+    title: Review that Speech AudioSubsystem AudioDeviceUnavailableException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml"
+      - "docs/design/speech/audio-subsystem/audio-device-unavailable-exception.md"
+      - "docs/verification/speech/audio-subsystem/audio-device-unavailable-exception.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceUnavailableException.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs"
 
-  # Speech-AudioSubsystem-AudioDeviceRefresh Review (grouped small supporting behavior)
-  - id: Speech-AudioSubsystem-AudioDeviceRefresh
-    title: Review that Speech AudioSubsystem Audio Device Refresh Behavior Satisfies Requirements
+  # Speech-AudioSubsystem-AudioDeviceInUseException Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioDeviceInUseException
+    title: Review that Speech AudioSubsystem AudioDeviceInUseException Implementation is Correct
     context:
       - "docs/design/speech.md"
       - "docs/design/speech/audio-subsystem.md"
       - "docs/reqstream/speech.yaml"
       - "docs/reqstream/speech/audio-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech/audio-subsystem/audio-device-refresh.yaml"
+      - "docs/reqstream/speech/audio-subsystem/audio-device-in-use-exception.yaml"
+      - "docs/design/speech/audio-subsystem/audio-device-in-use-exception.md"
+      - "docs/verification/speech/audio-subsystem/audio-device-in-use-exception.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceInUseException.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceInUseExceptionTests.cs"
 
@@ -403,6 +551,55 @@ reviews:
       - "docs/design/speech/model-management-subsystem.md"               # subsystem design
       - "docs/verification/speech/model-management-subsystem.md"         # subsystem verification
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+
+  # Speech-ModelManagementSubsystem-ReferenceVoicePack Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoicePack
+    title: Review that Speech ModelManagementSubsystem ReferenceVoicePack Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-pack.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-pack.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-pack.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePack.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceInfo.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceSource.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackTests.cs"
+
+  # Speech-ModelManagementSubsystem-ReferenceVoiceLibrary Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoiceLibrary
+    title: Review that Speech ModelManagementSubsystem ReferenceVoiceLibrary Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-library.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-library.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-library.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceLibrary.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
+
+  # Speech-ModelManagementSubsystem-ReferenceVoicePackInstaller Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoicePackInstaller
+    title: Review that Speech ModelManagementSubsystem ReferenceVoicePackInstaller Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-pack-installer.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-pack-installer.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-pack-installer.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePackInstaller.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackInstallerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
 
   # Speech-ModelManagementSubsystem-SpeechModelStore Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelStore
@@ -665,9 +862,10 @@ reviews:
       - "docs/reqstream/speech.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem.yaml"           # subsystem requirements
-      - "docs/design/speech/recognition-subsystem.md"                # subsystem design + inline fallback units
+      - "docs/design/speech/recognition-subsystem.md"                # subsystem design
       - "docs/verification/speech/recognition-subsystem.md"          # subsystem verification + inline units
       - "src/DemaConsulting.Speech/RecognitionSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSubsystemTests.cs"  # subsystem integration
 
   # Speech-RecognitionSubsystem-ISpeechRecognizerEngine Review (one per unit)
   - id: Speech-RecognitionSubsystem-ISpeechRecognizerEngine
@@ -679,12 +877,9 @@ reviews:
       - "docs/reqstream/speech/recognition-subsystem.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem/i-speech-recognizer-engine.yaml"
-      - "docs/reqstream/speech/recognition-subsystem/recognition-session-lease.yaml"
       - "docs/design/speech/recognition-subsystem/i-speech-recognizer-engine.md"
       - "docs/verification/speech/recognition-subsystem/i-speech-recognizer-engine.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/ISpeechRecognizerEngine.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionEngineBusyException.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionEngineBusyExceptionTests.cs"
 
   # Speech-RecognitionSubsystem-IRecognitionSession Review (one per unit)
   - id: Speech-RecognitionSubsystem-IRecognitionSession
@@ -701,9 +896,9 @@ reviews:
       - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionSession.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionState.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SessionStateChangedEventArgs.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionFaultedException.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionResult.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionEvent.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognitionRecordTests.cs"
 
   # Speech-RecognitionSubsystem-SpeechRecognizerFactory Review (one per unit)
   - id: Speech-RecognitionSubsystem-SpeechRecognizerFactory
@@ -730,21 +925,10 @@ reviews:
       - "docs/reqstream/speech/recognition-subsystem.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem/recognition-session.yaml"
-      - "docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml"
       - "docs/design/speech/recognition-subsystem/recognition-session.md"
       - "docs/verification/speech/recognition-subsystem/recognition-session.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSession.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerEngine.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackend.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackendFactory.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/DefaultRecognitionBackendFactory.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/AudioFrameResampler.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionResultBuffer.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/DedicatedWorker.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionResultBufferTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/DedicatedWorkerTests.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngine.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngineFactory.cs"
@@ -762,8 +946,134 @@ reviews:
       - "docs/design/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md"
       - "docs/verification/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/UnavailableSpeechRecognizerEngine.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerUnavailableException.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/UnavailableSpeechRecognizerEngineTests.cs"
+
+  # Speech-RecognitionSubsystem-SpeechRecognizerEngine Review (one per unit)
+  - id: Speech-RecognitionSubsystem-SpeechRecognizerEngine
+    title: Review that Speech RecognitionSubsystem SpeechRecognizerEngine Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/speech-recognizer-engine.yaml"
+      - "docs/design/speech/recognition-subsystem/speech-recognizer-engine.md"
+      - "docs/verification/speech/recognition-subsystem/speech-recognizer-engine.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngineFactory.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionBackend Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionBackend
+    title: Review that Speech RecognitionSubsystem RecognitionBackend Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-backend.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-backend.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-backend.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackend.cs"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackendFactory.cs"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/DefaultRecognitionBackendFactory.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerFactoryTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionResultBuffer Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionResultBuffer
+    title: Review that Speech RecognitionSubsystem RecognitionResultBuffer Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-result-buffer.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-result-buffer.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-result-buffer.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionResultBuffer.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionResultBufferTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+
+  # Speech-RecognitionSubsystem-DedicatedWorker Review (one per unit)
+  - id: Speech-RecognitionSubsystem-DedicatedWorker
+    title: Review that Speech RecognitionSubsystem DedicatedWorker Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml"
+      - "docs/design/speech/recognition-subsystem/dedicated-worker.md"
+      - "docs/verification/speech/recognition-subsystem/dedicated-worker.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/DedicatedWorker.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/DedicatedWorkerTests.cs"
+
+  # Speech-RecognitionSubsystem-AudioFrameResampler Review (one per unit)
+  - id: Speech-RecognitionSubsystem-AudioFrameResampler
+    title: Review that Speech RecognitionSubsystem AudioFrameResampler Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/audio-frame-resampler.yaml"
+      - "docs/design/speech/recognition-subsystem/audio-frame-resampler.md"
+      - "docs/verification/speech/recognition-subsystem/audio-frame-resampler.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/AudioFrameResampler.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionSessionFaultedException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionSessionFaultedException
+    title: Review that Speech RecognitionSubsystem RecognitionSessionFaultedException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-session-faulted-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-session-faulted-exception.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-session-faulted-exception.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionFaultedException.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionEngineBusyException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionEngineBusyException
+    title: Review that Speech RecognitionSubsystem RecognitionEngineBusyException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-engine-busy-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-engine-busy-exception.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-engine-busy-exception.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionEngineBusyException.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionEngineBusyExceptionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
+
+  # Speech-RecognitionSubsystem-SpeechRecognizerUnavailableException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-SpeechRecognizerUnavailableException
+    title: Review that Speech RecognitionSubsystem SpeechRecognizerUnavailableException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/speech-recognizer-unavailable-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
+      - "docs/verification/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerUnavailableException.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerUnavailableExceptionTests.cs"
 
   # Speech-RecognitionSubsystem-UnavailableRecognitionSession Review (one per unit)
   - id: Speech-RecognitionSubsystem-UnavailableRecognitionSession
@@ -870,11 +1180,10 @@ reviews:
       - "docs/reqstream/speech.yaml"
       - "docs/reqstream/speech/synthesis-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-engine.yaml"
       - "docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md"
       - "docs/verification/speech/synthesis-subsystem/speech-synthesizer-engine.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerEngine.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs"
 
   # Speech-SynthesisSubsystem-SynthesisSession Review (one per unit)
@@ -890,26 +1199,137 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/synthesis-session.md"
       - "docs/verification/speech/synthesis-subsystem/synthesis-session.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSession.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/BackendAudio.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngineFactory.cs"
+
+  # Speech-SynthesisSubsystem-SynthesisSessionFaultedException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SynthesisSessionFaultedException
+    title: Review that Speech SynthesisSubsystem SynthesisSessionFaultedException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/synthesis-session-faulted-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/synthesis-session-faulted-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/synthesis-session-faulted-exception.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSessionFaultedException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionFaultedExceptionTests.cs"
+
+  # Speech-SynthesisSubsystem-SynthesisEngineBusyException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SynthesisEngineBusyException
+    title: Review that Speech SynthesisSubsystem SynthesisEngineBusyException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/synthesis-engine-busy-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/synthesis-engine-busy-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/synthesis-engine-busy-exception.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisEngineBusyExceptionTests.cs"
+
+  # Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException
+    title: Review that Speech SynthesisSubsystem SpeechSynthesizerUnavailableException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs"
+
+  # Speech-SynthesisSubsystem-SynthesisBackend Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SynthesisBackend
+    title: Review that Speech SynthesisSubsystem SynthesisBackend Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/synthesis-backend.yaml"
+      - "docs/design/speech/synthesis-subsystem/synthesis-backend.md"
+      - "docs/verification/speech/synthesis-subsystem/synthesis-backend.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackend.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/EngineAudio.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackendFactory.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultSynthesisBackendFactory.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultSynthesisBackendFactoryTests.cs"
+
+  # Speech-SynthesisSubsystem-Layer2Rendering Review (one per unit)
+  - id: Speech-SynthesisSubsystem-Layer2Rendering
+    title: Review that Speech SynthesisSubsystem Layer2Rendering Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/layer2-rendering.yaml"
+      - "docs/design/speech/synthesis-subsystem/layer2-rendering.md"
+      - "docs/verification/speech/synthesis-subsystem/layer2-rendering.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/IModelCapabilityProfile.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultModelCapabilityProfile.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSegment.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechPlan.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechParameterConventions.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/PlaybackAudioResampler.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/DedicatedWorker.cs"
-      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultModelCapabilityProfileTests.cs"
+
+  # Speech-SynthesisSubsystem-SentenceChunker Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SentenceChunker
+    title: Review that Speech SynthesisSubsystem SentenceChunker Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/sentence-chunker.yaml"
+      - "docs/design/speech/synthesis-subsystem/sentence-chunker.md"
+      - "docs/verification/speech/synthesis-subsystem/sentence-chunker.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceChunkerTests.cs"
+
+  # Speech-SynthesisSubsystem-PlaybackAudioResampler Review (one per unit)
+  - id: Speech-SynthesisSubsystem-PlaybackAudioResampler
+    title: Review that Speech SynthesisSubsystem PlaybackAudioResampler Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/playback-audio-resampler.yaml"
+      - "docs/design/speech/synthesis-subsystem/playback-audio-resampler.md"
+      - "docs/verification/speech/synthesis-subsystem/playback-audio-resampler.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/PlaybackAudioResampler.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/PlaybackAudioResamplerTests.cs"
+
+  # Speech-SynthesisSubsystem-DedicatedWorker Review (one per unit)
+  - id: Speech-SynthesisSubsystem-DedicatedWorker
+    title: Review that Speech SynthesisSubsystem DedicatedWorker Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml"
+      - "docs/design/speech/synthesis-subsystem/dedicated-worker.md"
+      - "docs/verification/speech/synthesis-subsystem/dedicated-worker.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/DedicatedWorker.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DedicatedWorkerTests.cs"
-      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngine.cs"
-      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngineFactory.cs"
 
   # Speech-SynthesisSubsystem-UnavailableSpeechSynthesizerEngine Review (one per unit)
   - id: Speech-SynthesisSubsystem-UnavailableSpeechSynthesizerEngine
@@ -924,7 +1344,6 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md"
       - "docs/verification/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/UnavailableSpeechSynthesizerEngine.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs"
 
   # Speech-SynthesisSubsystem-UnavailableSynthesisSession Review (one per unit)
@@ -1156,6 +1575,63 @@ reviews:
       - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"    # launch-option parsing tests
       - "test/DemaConsulting.Speech.Demo.Tests/Fakes/**/*.cs"               # shared test doubles
 
+  # SpeechDemo-App Review (one per unit)
+  - id: SpeechDemo-App
+    title: Review that SpeechDemo App Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/app.yaml"
+      - "docs/design/speech-demo/app.md"
+      - "docs/verification/speech-demo/app.md"
+      - "src/DemaConsulting.Speech.Demo/App.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/SpeechDemoTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
+
+  # SpeechDemo-AppLaunchOptions Review (one per unit)
+  - id: SpeechDemo-AppLaunchOptions
+    title: Review that SpeechDemo AppLaunchOptions Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/app-launch-options.yaml"
+      - "docs/design/speech-demo/app-launch-options.md"
+      - "docs/verification/speech-demo/app-launch-options.md"
+      - "src/DemaConsulting.Speech.Demo/AppLaunchOptions.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"
+
+  # SpeechDemo-MirrorOptionsFactory Review (one per unit)
+  - id: SpeechDemo-MirrorOptionsFactory
+    title: Review that SpeechDemo MirrorOptionsFactory Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/mirror-options-factory.yaml"
+      - "docs/design/speech-demo/mirror-options-factory.md"
+      - "docs/verification/speech-demo/mirror-options-factory.md"
+      - "src/DemaConsulting.Speech.Demo/MirrorOptionsFactory.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/MirrorOptionsFactoryTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogViewModelTests.cs"
+
+  # SpeechDemo-Program Review (one per unit)
+  - id: SpeechDemo-Program
+    title: Review that SpeechDemo Program Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/program.yaml"
+      - "docs/design/speech-demo/program.md"
+      - "docs/verification/speech-demo/program.md"
+      - "src/DemaConsulting.Speech.Demo/Program.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ProgramTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
+
   # SpeechDemo-Design Review (one per system)
   - id: SpeechDemo-Design
     title: Review that SpeechDemo Design is Consistent and Complete
@@ -1191,10 +1667,43 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/shell-subsystem.yaml"                   # subsystem requirements
-      - "docs/design/speech-demo/shell-subsystem.md"                        # subsystem + inline unit design
-      - "docs/verification/speech-demo/shell-subsystem.md"                  # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/**/*.cs"             # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/**/*.cs"      # subsystem tests
+      - "docs/design/speech-demo/shell-subsystem.md"                        # subsystem design
+      - "docs/verification/speech-demo/shell-subsystem.md"                  # subsystem verification
+
+  # SpeechDemo-ShellSubsystem-MainWindowViewModel Review (one per unit)
+  - id: SpeechDemo-ShellSubsystem-MainWindowViewModel
+    title: >-
+      Review that SpeechDemo ShellSubsystem MainWindowViewModel Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/shell-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/shell-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/shell-subsystem/main-window-view-model.yaml"
+      - "docs/design/speech-demo/shell-subsystem/main-window-view-model.md"
+      - "docs/verification/speech-demo/shell-subsystem/main-window-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/MainWindowViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/MainWindow.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/MainWindowViewModelTests.cs"
+
+  # SpeechDemo-ShellSubsystem-DemoPanelViewModel Review (one per unit)
+  - id: SpeechDemo-ShellSubsystem-DemoPanelViewModel
+    title: >-
+      Review that SpeechDemo ShellSubsystem DemoPanelViewModel Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/shell-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/shell-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/shell-subsystem/demo-panel-view-model.yaml"
+      - "docs/design/speech-demo/shell-subsystem/demo-panel-view-model.md"
+      - "docs/verification/speech-demo/shell-subsystem/demo-panel-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/DemoPanelViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/DemoPanelViewModelTests.cs"
 
   # SpeechDemo-DeviceSelectionSubsystem Review (one per subsystem)
   - id: SpeechDemo-DeviceSelectionSubsystem
@@ -1204,10 +1713,45 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/device-selection-subsystem.md"                     # subsystem + inline unit design
+      - "docs/design/speech-demo/device-selection-subsystem.md"                     # subsystem design
       - "docs/verification/speech-demo/device-selection-subsystem.md"               # subsystem verification
-      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/**/*.cs"    # subsystem tests
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/DeviceSelectionSubsystemTests.cs"
+
+  # SpeechDemo-DeviceSelectionSubsystem-AudioDeviceService Review (one per unit)
+  - id: SpeechDemo-DeviceSelectionSubsystem-AudioDeviceService
+    title: >-
+      Review that SpeechDemo DeviceSelectionSubsystem AudioDeviceService Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/device-selection-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml"
+      - "docs/design/speech-demo/device-selection-subsystem/audio-device-service.md"
+      - "docs/verification/speech-demo/device-selection-subsystem/audio-device-service.md"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/IAudioDeviceService.cs"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/AudioDeviceService.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/AudioDeviceServiceTests.cs"
+
+  # SpeechDemo-DeviceSelectionSubsystem-DeviceSelectionViewModel Review (one per unit)
+  - id: SpeechDemo-DeviceSelectionSubsystem-DeviceSelectionViewModel
+    title: >-
+      Review that SpeechDemo DeviceSelectionSubsystem DeviceSelectionViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/device-selection-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/device-selection-subsystem/device-selection-view-model.yaml"
+      - "docs/design/speech-demo/device-selection-subsystem/device-selection-view-model.md"
+      - "docs/verification/speech-demo/device-selection-subsystem/device-selection-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/DeviceSelectionViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/DeviceSelectionView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/DeviceSelectionViewModelTests.cs"
 
   # SpeechDemo-ModelCatalogSubsystem Review (one per subsystem)
   - id: SpeechDemo-ModelCatalogSubsystem
@@ -1236,7 +1780,26 @@ reviews:
       - "docs/verification/speech-demo/model-catalog-subsystem/model-catalog-service.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/IModelCatalogService.cs"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogService.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogComposition.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogServiceTests.cs"
+
+  # SpeechDemo-ModelCatalogSubsystem-ReferenceVoicePackListItemViewModel Review (one per unit)
+  - id: SpeechDemo-ModelCatalogSubsystem-ReferenceVoicePackListItemViewModel
+    title: >-
+      Review that SpeechDemo ModelCatalogSubsystem ReferenceVoicePackListItemViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-catalog-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-catalog-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml"
+      - "docs/design/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem.md"
+      - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModelTests.cs"
 
   # SpeechDemo-ModelCatalogSubsystem-ModelCatalogViewModel Review (one per unit)
   - id: SpeechDemo-ModelCatalogSubsystem-ModelCatalogViewModel
@@ -1251,6 +1814,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml"
       - "docs/design/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
       - "docs/verification/speech-demo/model-catalog-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogView.axaml.cs"
@@ -1281,10 +1845,48 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/model-settings-subsystem.md"                     # subsystem + inline unit design
-      - "docs/verification/speech-demo/model-settings-subsystem.md"               # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/**/*.cs"    # subsystem tests
+      - "docs/design/speech-demo/model-settings-subsystem.md"                     # subsystem design
+      - "docs/verification/speech-demo/model-settings-subsystem.md"               # subsystem verification
+
+  # SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel Review (one per unit)
+  - id: SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel
+    title: >-
+      Review that SpeechDemo ModelSettingsSubsystem ModelSettingsViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-settings-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-settings-subsystem/model-settings-view-model.yaml"
+      - "docs/design/speech-demo/model-settings-subsystem/model-settings-view-model.md"
+      - "docs/verification/speech-demo/model-settings-subsystem/model-settings-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewModelTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewTests.cs"
+
+  # SpeechDemo-ModelSettingsSubsystem-ParameterViewModels Review (one per unit)
+  - id: SpeechDemo-ModelSettingsSubsystem-ParameterViewModels
+    title: >-
+      Review that SpeechDemo ModelSettingsSubsystem ParameterViewModels Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-settings-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-settings-subsystem/parameter-view-models.yaml"
+      - "docs/design/speech-demo/model-settings-subsystem/parameter-view-models.md"
+      - "docs/verification/speech-demo/model-settings-subsystem/parameter-view-models.md"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ParameterViewModelBase.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/NumericParameterViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ChoiceParameterViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/BooleanParameterViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ParameterViewModelsTests.cs"
 
   # SpeechDemo-SynthesisPanelSubsystem Review (one per subsystem)
   - id: SpeechDemo-SynthesisPanelSubsystem
@@ -1328,6 +1930,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml"
       - "docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
+      - "docs/verification/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
       - "docs/verification/speech-demo/synthesis-panel-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPlaybackState.cs"
@@ -1342,10 +1945,49 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/recognition-panel-subsystem.md"               # subsystem + inline unit design
-      - "docs/verification/speech-demo/recognition-panel-subsystem.md"         # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/**/*.cs"    # subsystem tests
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"               # subsystem design
+      - "docs/verification/speech-demo/recognition-panel-subsystem.md"         # subsystem verification
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/CaptureDebugRecorder.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/WavFileWriter.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/CaptureDebugRecorderTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/WavFileWriterTests.cs"
+
+  # SpeechDemo-RecognitionPanelSubsystem-RecognizerSessionFactory Review (one per unit)
+  - id: SpeechDemo-RecognitionPanelSubsystem-RecognizerSessionFactory
+    title: >-
+      Review that SpeechDemo RecognitionPanelSubsystem RecognizerSessionFactory
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem/recognizer-session-factory.yaml"
+      - "docs/design/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md"
+      - "docs/verification/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/IRecognizerSessionFactory.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognizerSessionFactory.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognizerSessionFactoryTests.cs"
+
+  # SpeechDemo-RecognitionPanelSubsystem-RecognitionPanelViewModel Review (one per unit)
+  - id: SpeechDemo-RecognitionPanelSubsystem-RecognitionPanelViewModel
+    title: >-
+      Review that SpeechDemo RecognitionPanelSubsystem RecognitionPanelViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.yaml"
+      - "docs/design/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md"
+      - "docs/verification/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionStreamingState.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognitionPanelViewModelTests.cs"
 
   # SpeechCli-Architecture Review (one per system)
   - id: SpeechCli-Architecture
@@ -1356,16 +1998,9 @@ reviews:
       - "docs/reqstream/speech-cli.yaml"                                    # system requirements
       - "docs/design/speech-cli.md"                                        # system design
       - "docs/verification/speech-cli.md"                                  # system verification
-      - "src/DemaConsulting.Speech.Cli/Program.cs"                        # process entry point
-      - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"                    # global-option/subcommand parser
-      - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"            # subcommand dispatch table
-      - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"            # self-validation
-      - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"          # path-traversal-safe combine
       - "test/DemaConsulting.Speech.Cli.Tests/AssemblyInfo.cs"            # test assembly attributes
-      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # in-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
-      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"  # PathHelpers tests
 
   # SpeechCli-Design Review (one per system)
   - id: SpeechCli-Design
@@ -1395,8 +2030,7 @@ reviews:
       - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/model-commands-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/model-commands-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-DeviceCommandsSubsystem Review (one per subsystem)
   - id: SpeechCli-DeviceCommandsSubsystem
@@ -1408,8 +2042,7 @@ reviews:
       - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/device-commands-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/device-commands-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-SynthesisCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-SynthesisCommandSubsystem
@@ -1423,9 +2056,7 @@ reviews:
       - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/synthesis-command-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/synthesis-command-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/**/*.cs"         # subsystem source
-      - "src/DemaConsulting.Speech.Cli/Cli/ParameterBagParser.cs"                         # subsystem parsing utility
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-RecognitionCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-RecognitionCommandSubsystem
@@ -1441,8 +2072,7 @@ reviews:
       - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"                      # subsystem requirements
       - "docs/design/speech-cli/recognition-command-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/recognition-command-subsystem.md"                     # subsystem verification
-      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/**/*.cs"         # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/Fake*.cs"  # shared test doubles
 
   # SpeechCli-ConversationCommandSubsystem Review (one per subsystem)
   - id: SpeechCli-ConversationCommandSubsystem
@@ -1459,7 +2089,430 @@ reviews:
       - "docs/design/speech-cli/conversation-command-subsystem.md"                          # subsystem design
       - "docs/verification/speech-cli/conversation-command-subsystem.md"                    # subsystem verification
       - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/**/*.cs"        # subsystem source
-      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/**/*.cs"  # subsystem tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/Fake*.cs"  # shared test doubles
+
+  # SpeechCli-Program Review (one per unit)
+  - id: SpeechCli-Program
+    title: Review that SpeechCli Program Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/program.yaml"
+      - "docs/design/speech-cli/program.md"
+      - "docs/verification/speech-cli/program.md"
+      - "src/DemaConsulting.Speech.Cli/Program.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"
+
+  # SpeechCli-Context Review (one per unit)
+  - id: SpeechCli-Context
+    title: Review that SpeechCli Context Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/context.yaml"
+      - "docs/design/speech-cli/context.md"
+      - "docs/verification/speech-cli/context.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ContextTests.cs"
+
+  # SpeechCli-CommandDispatch Review (one per unit)
+  - id: SpeechCli-CommandDispatch
+    title: Review that SpeechCli CommandDispatch Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/command-dispatch.yaml"
+      - "docs/design/speech-cli/command-dispatch.md"
+      - "docs/verification/speech-cli/command-dispatch.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/CommandDispatchTests.cs"
+
+  # SpeechCli-ConsoleCancellation Review (one per unit)
+  - id: SpeechCli-ConsoleCancellation
+    title: Review that SpeechCli ConsoleCancellation Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/console-cancellation.yaml"
+      - "docs/design/speech-cli/console-cancellation.md"
+      - "docs/verification/speech-cli/console-cancellation.md"
+      - "src/DemaConsulting.Speech.Cli/Cli/ConsoleCancellation.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ConsoleCancellationTests.cs"
+
+  # SpeechCli-Validation Review (one per unit)
+  - id: SpeechCli-Validation
+    title: Review that SpeechCli Validation Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/validation.yaml"
+      - "docs/design/speech-cli/validation.md"
+      - "docs/verification/speech-cli/validation.md"
+      - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"
+
+  # SpeechCli-PathHelpers Review (one per unit)
+  - id: SpeechCli-PathHelpers
+    title: Review that SpeechCli PathHelpers Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/path-helpers.yaml"
+      - "docs/design/speech-cli/path-helpers.md"
+      - "docs/verification/speech-cli/path-helpers.md"
+      - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-CleanCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-CleanCommand
+    title: Review that SpeechCli CleanCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/clean-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/clean-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/clean-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CleanCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/CleanCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-CliModelCatalogFactory Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-CliModelCatalogFactory
+    title: Review that SpeechCli CliModelCatalogFactory Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/cli-model-catalog-factory.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CliModelCatalogFactory.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-DownloadCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-DownloadCommand
+    title: Review that SpeechCli DownloadCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/download-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/download-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/download-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/DownloadCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/DownloadCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-DownloadProgressReporter Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-DownloadProgressReporter
+    title: Review that SpeechCli DownloadProgressReporter Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/download-progress-reporter.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/download-progress-reporter.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/download-progress-reporter.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/DownloadProgressReporter.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/DownloadProgressReporterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ICliModelCatalog Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ICliModelCatalog
+    title: Review that SpeechCli ICliModelCatalog Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/i-cli-model-catalog.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/i-cli-model-catalog.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/i-cli-model-catalog.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ICliModelCatalog.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/FakeCliModelCatalog.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ListModelsCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ListModelsCommand
+    title: Review that SpeechCli ListModelsCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/list-models-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/list-models-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/list-models-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListModelsCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListModelsCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ListVoicesCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ListVoicesCommand
+    title: Review that SpeechCli ListVoicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/list-voices-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/list-voices-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/list-voices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListVoicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListVoicesCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-ModelInfoCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-ModelInfoCommand
+    title: Review that SpeechCli ModelInfoCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/model-info-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/model-info-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/model-info-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ModelInfoCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ModelInfoCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-SpeechModelCatalogAdapter Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-SpeechModelCatalogAdapter
+    title: Review that SpeechCli SpeechModelCatalogAdapter Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapter.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-UninstallCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-UninstallCommand
+    title: Review that SpeechCli UninstallCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/uninstall-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/uninstall-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/uninstall-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/UninstallCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/UninstallCommandTests.cs"
+
+  # SpeechCli-ModelCommandsSubsystem-VoicesCommand Review (one per unit)
+  - id: SpeechCli-ModelCommandsSubsystem-VoicesCommand
+    title: Review that SpeechCli VoicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem/voices-command.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem/voices-command.md"
+      - "docs/verification/speech-cli/model-commands-subsystem/voices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/VoicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/VoicesCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-DevicesTestCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-DevicesTestCommand
+    title: Review that SpeechCli DevicesTestCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/devices-test-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/devices-test-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/devices-test-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/DevicesTestCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/DevicesTestCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-DoctorCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-DoctorCommand
+    title: Review that SpeechCli DoctorCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/doctor-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/doctor-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/doctor-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/DoctorCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/DoctorCommandTests.cs"
+
+  # SpeechCli-DeviceCommandsSubsystem-ListDevicesCommand Review (one per unit)
+  - id: SpeechCli-DeviceCommandsSubsystem-ListDevicesCommand
+    title: Review that SpeechCli ListDevicesCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem/list-devices-command.yaml"
+      - "docs/design/speech-cli/device-commands-subsystem/list-devices-command.md"
+      - "docs/verification/speech-cli/device-commands-subsystem/list-devices-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/ListDevicesCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/ListDevicesCommandTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-AudioDeviceFactoryPlaybackDeviceSource Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-AudioDeviceFactoryPlaybackDeviceSource
+    title: Review that SpeechCli AudioDeviceFactoryPlaybackDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/AudioDeviceFactoryPlaybackDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/AudioDeviceFactoryPlaybackDeviceSourceTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-ICliPlaybackDeviceSource Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-ICliPlaybackDeviceSource
+    title: Review that SpeechCli ICliPlaybackDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ICliPlaybackDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/FakePlaybackDeviceSource.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-ParameterBagParser Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-ParameterBagParser
+    title: Review that SpeechCli ParameterBagParser Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/parameter-bag-parser.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ParameterBagParser.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/ParameterBagParserTests.cs"
+
+  # SpeechCli-SynthesisCommandSubsystem-SpeakCommand Review (one per unit)
+  - id: SpeechCli-SynthesisCommandSubsystem-SpeakCommand
+    title: Review that SpeechCli SpeakCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem/speak-command.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem/speak-command.md"
+      - "docs/verification/speech-cli/synthesis-command-subsystem/speak-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/SpeakCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/SpeakCommandTests.cs"
+
+  # SpeechCli-RecognitionCommandSubsystem-RecognizeCommand Review (one per unit)
+  - id: SpeechCli-RecognitionCommandSubsystem-RecognizeCommand
+    title: Review that SpeechCli RecognizeCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem.md"
+      - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/recognition-command-subsystem/recognize-command.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem/recognize-command.md"
+      - "docs/verification/speech-cli/recognition-command-subsystem/recognize-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/RecognizeCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/RecognizeCommandTests.cs"
+
+  # SpeechCli-RecognitionCommandSubsystem-SilenceTimeoutRecognizerSession Review (one per unit)
+  - id: SpeechCli-RecognitionCommandSubsystem-SilenceTimeoutRecognizerSession
+    title: Review that SpeechCli SilenceTimeoutRecognizerSession Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem.md"
+      - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.yaml"
+      - "docs/design/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md"
+      - "docs/verification/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSession.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSessionTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-AskCommand Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-AskCommand
+    title: Review that SpeechCli AskCommand Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/ask-command.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/ask-command.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/ask-command.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AskCommand.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AskCommandTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-AudioDeviceFactoryCaptureDeviceSource Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-AudioDeviceFactoryCaptureDeviceSource
+    title: Review that SpeechCli AudioDeviceFactoryCaptureDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AudioDeviceFactoryCaptureDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AudioDeviceFactoryCaptureDeviceSourceTests.cs"
+
+  # SpeechCli-ConversationCommandSubsystem-ICliCaptureDeviceSource Review (one per unit)
+  - id: SpeechCli-ConversationCommandSubsystem-ICliCaptureDeviceSource
+    title: Review that SpeechCli ICliCaptureDeviceSource Implementation is Correct
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem.md"
+      - "docs/reqstream/speech-cli/conversation-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.yaml"
+      - "docs/design/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md"
+      - "docs/verification/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md"
+      - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/ICliCaptureDeviceSource.cs"
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/FakeCaptureDeviceSource.cs"
 
   # SpeechOnnx-Architecture Review (one per system)
   - id: SpeechOnnx-Architecture
@@ -1518,6 +2571,7 @@ reviews:
       - "docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md"
       - "src/DemaConsulting.Speech.Onnx/OnnxRuntimeSubsystem/OnnxExecutionProviderSelector.cs"
       - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxSelectorHookCollection.cs"
 
   # SpeechOnnxKokoro-Architecture Review (one per system)
   - id: SpeechOnnxKokoro-Architecture
@@ -1646,6 +2700,238 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
 
+  # SpeechOnnxChatterboxTurbo-Architecture Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Architecture
+    title: Review that SpeechOnnxChatterboxTurbo Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"        # system requirements
+      - "docs/design/speech-onnx-chatterboxturbo.md"             # system design
+      - "docs/verification/speech-onnx-chatterboxturbo.md"       # system verification
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SpeechOnnxChatterboxTurboTests.cs"  # system tests
+
+  # SpeechOnnxChatterboxTurbo-Design Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Design
+    title: Review that SpeechOnnxChatterboxTurbo Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/design/speech-onnx-chatterboxturbo.md"             # system design
+      - "docs/design/speech-onnx-chatterboxturbo/**/*.md"        # all system design documents
+
+  # SpeechOnnxChatterboxTurbo-Verification Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Verification
+    title: Review that SpeechOnnxChatterboxTurbo Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/verification/speech-onnx-chatterboxturbo.md"       # system verification
+      - "docs/verification/speech-onnx-chatterboxturbo/**/*.md"  # all verification documents
+
+  # SpeechOnnxChatterboxTurbo-AllRequirements Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-AllRequirements
+    title: Review that All SpeechOnnxChatterboxTurbo Requirements are Complete
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/**/*.yaml"   # SpeechOnnxChatterboxTurbo subsystem/unit requirements
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem Review (one per subsystem)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem Satisfies Subsystem
+      Requirements
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-SpeechModelCatalogChatterboxTurboExtensions Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-SpeechModelCatalogChatterboxTurboExtensions
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      SpeechModelCatalogChatterboxTurboExtensions Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SpeechModelCatalogChatterboxTurboExtensions.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/SpeechModelCatalogChatterboxTurboExtensionsTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      ByteLevelBpeTokenizer Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ByteLevelBpeTokenizer.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/ByteLevelBpeTokenizerTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/TestData/chatterbox-turbo-tokenizer-golden.json"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ChatterboxTurboReferenceVoice Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ChatterboxTurboReferenceVoice
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      ChatterboxTurboReferenceVoice Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboReferenceVoice.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/ChatterboxTurboReferenceVoiceTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-OnnxChatterboxTurboEnglishSynthesisModel Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-OnnxChatterboxTurboEnglishSynthesisModel
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      OnnxChatterboxTurboEnglishSynthesisModel Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboAuxiliaryModelVariant.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem Review (one per subsystem)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem Satisfies Subsystem
+      Requirements (documents only; source and tests are reviewed in the per-unit sets)
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboSynthesisEngine Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboSynthesisEngine
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      OnnxChatterboxTurboSynthesisEngine Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngine.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboGenerationResult.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboConditioning Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboConditioning
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboConditioning Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboConditioning.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboConditioningTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboNetworks Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboNetworks
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      OnnxChatterboxTurboNetworks Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboNetworks.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboNetworks.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboLanguageModelState.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboGraphFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboTokenSelector Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboTokenSelector
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboTokenSelector Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTokenSelector.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboTokenSelectorTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboCapabilityProfile Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboCapabilityProfile
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboCapabilityProfile Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboCapabilityProfile.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTagKind.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTagTreatment.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboCapabilityProfileTests.cs"
+
   # SpeechOnnxNemotronStt-Architecture Review (one per system)
   - id: SpeechOnnxNemotronStt-Architecture
     title: Review that SpeechOnnxNemotronStt Architecture Satisfies Requirements
@@ -1762,12 +3048,48 @@ reviews:
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/OnnxNemotronRecognitionEngine.cs"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEngineOptions.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxNemotronRecognitionEngineTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/Fakes.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEncoder Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEncoder
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronEncoder Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntNetwork Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntNetwork
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronRnntNetwork Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntNetworkTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronNetworkFixture.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor Review (one per unit)
@@ -1802,11 +3124,7 @@ reviews:
       - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntGreedyDecoder.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntGreedyDecoderTests.cs"
-      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntNetworkTests.cs"
-      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronNetworkFixture.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter Review (one per unit)
@@ -1824,8 +3142,23 @@ reviews:
       - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/SilenceRunLimiter.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/SilenceRunLimiterTests.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-DitherNoise Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-DitherNoise
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      DitherNoise Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/DitherNoiseTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
@@ -1851,6 +3184,29 @@ reviews:
       - "docs/reqstream/ots/sharp-compress.yaml"
       - "docs/design/ots/sharp-compress.md"
       - "docs/verification/ots/sharp-compress.md"
+
+  # OTS-MicrosoftMlOnnxRuntime Review (one per OTS item)
+  - id: OTS-MicrosoftMlOnnxRuntime
+    title: Review that Microsoft.ML.OnnxRuntime Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/microsoft-ml-onnxruntime.yaml"
+      - "docs/design/ots/microsoft-ml-onnxruntime.md"
+      - "docs/verification/ots/microsoft-ml-onnxruntime.md"
+      - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
+
+  # OTS-SystemNumericsTensors Review (one per OTS item)
+  - id: OTS-SystemNumericsTensors
+    title: Review that System.Numerics.Tensors Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/system-numerics-tensors.yaml"
+      - "docs/design/ots/system-numerics-tensors.md"
+      - "docs/verification/ots/system-numerics-tensors.md"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioCaptureDeviceTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WindowedSincLowpassFilterTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
 
   # OTS-BuildMark Review (one per OTS item)
   - id: OTS-BuildMark
@@ -1957,3 +3313,13 @@ reviews:
       - "docs/design/ots/community-toolkit-mvvm.md"                               # OTS integration design
       - "docs/verification/ots/community-toolkit-mvvm.md"                         # OTS verification
       - "test/DemaConsulting.Speech.Demo.Tests/Ots/CommunityToolkitMvvmTests.cs"  # OTS integration tests
+
+  # OTS-TestResults Review (one per OTS item)
+  - id: OTS-TestResults
+    title: Review that DemaConsulting.TestResults Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/test-results.yaml"                                    # OTS requirements
+      - "docs/design/ots/test-results.md"                                         # OTS integration design
+      - "docs/verification/ots/test-results.md"                                   # OTS verification
+      - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"                # OTS integration tests (TRX)
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"                    # OTS integration tests (JUnit)

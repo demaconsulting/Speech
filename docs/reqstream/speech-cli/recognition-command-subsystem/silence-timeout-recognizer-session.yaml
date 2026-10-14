@@ -1,0 +1,136 @@
+---
+# Software Unit Requirements for the SpeechCli SilenceTimeoutRecognizerSession
+#
+# These requirements describe the behavior of the SilenceTimeoutRecognizerSession unit - the
+# idle-timeout decorator that ends a microphone recognition session - decomposing the parent
+# RecognitionCommandSubsystem requirements and the system-level SpeechToTextMicrophone
+# requirement in docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Idle windows (SilenceTimeout, StartTimeout, SessionStartWindowFallback)
+#   - Construction (SessionRequiresWrappedSession, SessionTimeoutValidation,
+#     SessionDefaultClock)
+#   - Draining (SessionTimeoutDrain)
+#   - Cancellation (SessionCancellation)
+# Every test below is a SilenceTimeoutRecognizerSessionTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: RecognitionCommandSubsystem Requirements
+        sections:
+          - title: SilenceTimeoutRecognizerSession Requirements
+            requirements:
+              - id: SpeechCli-RecognitionCommands-SilenceTimeout
+                title: >-
+                  The tool shall, in `--mic` mode, end the recognition session on its own once no
+                  recognition result (partial or final) has arrived for the number of seconds
+                  given by `--silence-timeout <seconds>` since the previous result.
+                tags: [unit]
+                justification: |
+                  An unattended microphone session has no natural end-of-file signal, so it must
+                  end itself when the speaker has stopped talking; otherwise an operator has to
+                  stay present to press `Ctrl+C`. Each new result, interim or final, restarts the
+                  wait, so a speaker who is still talking is never cut off.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_ManyResults_LeavesNoPendingTimers
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_ResultWinsRace_DisposesLosingTimer
+
+              - id: SpeechCli-RecognitionCommands-StartTimeout
+                title: >-
+                  The tool shall, in `--mic` mode, end the recognition session on its own when no
+                  recognition result has arrived within the number of seconds given by
+                  `--start-timeout <seconds>` after listening begins, whatever `--silence-timeout`
+                  is.
+                tags: [unit]
+                justification: |
+                  A grace period for a user to begin speaking is typically much longer than the
+                  brief pause that ends an utterance; conflating the two into one value forces an
+                  operator to choose between a session that gives up on a slow starter and one
+                  that lingers after the user has stopped.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout
+
+              - id: SpeechCli-RecognitionCommands-SessionStartWindowFallback
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall, when no start timeout is supplied,
+                  wait for the first recognition result for as long as its idle timeout.
+                tags: [unit]
+                justification: |
+                  A caller that wants one value to govern both waits must get a defined,
+                  predictable first wait instead of an immediate or unbounded one.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout
+
+              - id: SpeechCli-RecognitionCommands-SessionRequiresWrappedSession
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall reject creation without a session to
+                  wrap.
+                tags: [unit]
+                justification: |
+                  A decorator with nothing to stop could never end a session, so a missing
+                  session is a programming error to surface at creation.
+                tests:
+                  - SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException
+
+              - id: SpeechCli-RecognitionCommands-SessionTimeoutValidation
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall reject creation with an idle timeout
+                  or a start timeout that is not greater than zero.
+                tags: [unit]
+                justification: |
+                  A zero or negative window would end every session immediately, so it must fail
+                  at creation rather than produce a session that never listens.
+                tests:
+                  - SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException
+                  - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechCli-RecognitionCommands-SessionDefaultClock
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall be creatable without supplying a time
+                  source.
+                tags: [unit]
+                justification: |
+                  Production callers have no reason to supply a clock, so creation must succeed
+                  without one; only tests substitute a clock to avoid real waiting.
+                tests:
+                  - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow
+
+              - id: SpeechCli-RecognitionCommands-SessionDefaultClockOperation
+                title: >-
+                  The SilenceTimeoutRecognizerSession created without a time source shall deliver
+                  a result that arrives inside the idle window without timing out.
+                tags: [unit]
+                justification: |
+                  A session on the default clock must behave as a normal result stream while
+                  speech keeps arriving; the timeout itself is verified with a substituted clock
+                  so no test depends on wall-clock timing.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_YieldsResultWithoutTimingOut
+
+              - id: SpeechCli-RecognitionCommands-SessionTimeoutDrain
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall deliver any result produced while the
+                  session is being stopped after an idle timeout before it ends its result
+                  stream.
+                tags: [unit]
+                justification: |
+                  Audio captured just before the idle window elapsed may still yield a final
+                  result when the session drains; dropping it would lose the last words spoken.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutDrain_YieldsTrailingResultBeforeEnding
+
+              - id: SpeechCli-RecognitionCommands-SessionCancellation
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall surface a cancellation of the token
+                  given to its result stream as a cancellation, not as an idle timeout.
+                tags: [unit]
+                justification: |
+                  When an operator cancels, the caller must see the cancellation it asked for
+                  rather than a stopped session reported as an ordinary timeout.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException

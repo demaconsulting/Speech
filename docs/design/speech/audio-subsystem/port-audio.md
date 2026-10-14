@@ -60,7 +60,7 @@ PortAudioSharp2 does not expose. The adapter converts native/device structures i
 channel counts, default sample rate, and default low-latency values.
 
 **PortAudioHostApiInfo**: Managed host-API metadata record carrying the stable host-API type,
-host-API name, and host-API-scoped default input/output device indices.
+host-API name, device count, and host-API-scoped default input/output device indices.
 
 **PortAudioHostApiType**: Internal enum carrying the stable PortAudio constants used by the OS to
 preferred-host mapping policy.

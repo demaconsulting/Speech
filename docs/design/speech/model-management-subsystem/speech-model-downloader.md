@@ -10,9 +10,9 @@ downloaded through this instance. Two concurrent `DownloadAsync` calls for the s
 serialize against that model id's own semaphore; calls for different model ids resolve to
 different semaphores and so run fully concurrently, with no pool limit. `SpeechModelDownloadOutcome`
 (declared alongside it) is an enum of `Installed`, `ChecksumMismatch`, `Failed`, `NetworkBlocked`,
-`HttpError`, and `IoFailure` - deliberately distinct from the Sub-phase 2b model-catalog state
-enum, since this type only ever describes one `DownloadAsync` call's outcome. The three new
-members (appended after `Failed` to preserve any existing numeric-ordinal usage) let a host
+`HttpError`, and `IoFailure` - deliberately distinct from the model-catalog state
+enum, since this type only ever describes one `DownloadAsync` call's outcome. The `NetworkBlocked`,
+`HttpError`, and `IoFailure` members (appended after `Failed` to preserve numeric-ordinal usage) let a host
 distinguish *why* a non-checksum download/install failure occurred - a blocked/intercepted network
 path, a real HTTP error response, or a local disk/permission failure - without inspecting `Error`'s
 exception type itself; `Failed` remains the final generic fallback for anything unmatched.
@@ -39,14 +39,20 @@ underlying exception, populated for every non-`Installed` outcome.
   or a `null` `options.Mirror` (both the default) preserve this type's exact pre-mirror behavior;
   a non-null `Mirror` is retained and consulted by `ResolveEffectiveUri`, and is also passed
   through to the internally-created default `HttpModelDownloadClient` (when `client` is not
-  supplied) so every request it issues carries that mirror's authentication.
-- **ResolveEffectiveUri(mirror, modelId, file)** *(internal, directly unit-testable)*: Computes
+  supplied) so every request it issues carries that mirror's authentication. A mirror that
+  carries credentials combined with a caller-supplied `IModelDownloadClient` is rejected with an
+  `ArgumentException` by the constructor, because the downloader cannot attach credentials to a
+  client it does not own; the supported credentialed-mirror form therefore keeps the internally owned
+  `HttpModelDownloadClient` (verified end to end against a loopback server, where the owned client
+  sends the mirror's `Authorization` header to the mirror URI). An auth-free mirror may be combined
+  with a caller-supplied client.
+- **ResolveEffectiveUri(originalUri, mirror, modelId, relativeInstallPath)** *(internal, directly unit-testable)*: Computes
   the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file.
-  With no mirror configured, returns `file.Uri` completely unchanged - byte-for-byte identical to
+  With no mirror configured, returns `originalUri` completely unchanged - byte-for-byte identical to
   this type's behavior before the mirror feature existed. With a mirror configured, returns
-  `{mirror.BaseUri}/{modelId}/{file.RelativeInstallPath}`, combined via `Uri`-segment
-  construction that normalizes exactly one separating slash regardless of whether
-  `mirror.BaseUri` itself ends in a trailing slash, and percent-escapes `modelId` and each
+  `{mirror.BaseUri.AbsoluteUri}/{modelId}/{relativeInstallPath}`, combined via `Uri`-segment
+  construction that normalizes exactly one separating slash (exactly one trailing slash of
+  `mirror.BaseUri` is trimmed, never more), and percent-escapes `modelId` and each
   `RelativeInstallPath` segment individually (so a subdirectory such as `tokens/vocab.txt`
   still resolves as two escaped segments, not one single escaped string containing a literal
   slash).
@@ -55,9 +61,10 @@ underlying exception, populated for every non-`Installed` outcome.
   of a different model id proceeds immediately in parallel). Immediately after acquiring that
   lock - and before touching the network or the staging directory at all - checks
   `SpeechModelStore.IsInstalled(modelId)`: if the model is already installed, opportunistically
-  calls `SpeechModelStore.CleanUpLeftovers(modelId)` (a cheap, best-effort directory
+  calls `SpeechModelStore.CleanUpLeftoversAsync(modelId, cancellationToken)` (a cheap, best-effort directory
   enumeration/delete with no network or hashing involved, so it does not compromise the no-op
-  contract below), reports an `Info` diagnostic ("Model '{id}' is already installed; DownloadAsync
+  contract below; the sweep observes the caller's token before it starts), reports an `Info`
+  diagnostic ("Model '{id}' is already installed; DownloadAsync
   is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)`
   immediately, with no fetch, verification, or network work performed at all - the only
   staging-directory activity is the cheap opportunistic leftover sweep. This fast-path check
@@ -71,7 +78,12 @@ underlying exception, populated for every non-`Installed` outcome.
   call unconditionally on every launch; once a model is installed there is no way through this
   public API to force a re-verification/repair of it (a host that wants to force a fresh
   install must first uninstall the model). When the model is not yet installed, proceeds to
-  begin staging via `SpeechModelStore`, fetches each declared file in order (rewriting each
+  sweep leftovers (`CleanUpLeftoversAsync`, which never throws for ordinary storage conditions) and then begin
+  staging via `SpeechModelStore.BeginStaging`. A local file-system failure creating the staging directory
+  (`IOException` or `UnauthorizedAccessException`) is reported as an `IoFailure` result with an `Error`
+  diagnostic, like every other disk failure. The downloader then resolves each file's staged path through
+  `SpeechModelDownloadFile.ResolveStagedPath` (the same helper an install hook uses, so both agree on the path
+  regardless of the separator the declared `RelativeInstallPath` used), fetches each declared file in order (rewriting each
   file's progress reports with its true `FileIndex`/`FileCount` via an internal,
   order-preserving `RelayProgress` adapter), verifies its SHA-256 checksum, and - only once
   every file verifies - hands the staging
@@ -91,15 +103,43 @@ underlying exception, populated for every non-`Installed` outcome.
   genuinely installed even when a model expands or shrinks during unpacking. `SpeechModelCatalog`
   uses this overload exclusively, so every catalog-driven download genuinely runs the model's
   install hook.
+- **DownloadAsync(modelId, descriptor, installHook, progress?, cancellationToken)** (internal): The
+  model-agnostic form of the overload above. Both overloads share one private core that
+  takes an optional `Func<string, CancellationToken, Task>` hook; the `ISpeechModel` overload passes
+  `model.InstallAsync`. It exists so a payload that is not an `ISpeechModel` - the reference-voice
+  pack - gets the identical verified, mirror-aware, atomic download plus its own extraction step. A hook
+  failure is classified exactly as a model hook failure is (`InvalidDataException` is `Failed`,
+  `IOException` is `IoFailure`) and installs nothing.
 
-**Error Handling**: A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
+- **Dispose()**: Marks the downloader disposed (later `DownloadAsync` calls throw
+  `ObjectDisposedException`), disposes every per-model-id lock, and disposes the download client only
+  when this instance created it. It is idempotent. **Disposal race**: `Dispose` is not synchronized with
+  in-flight downloads. A download that started earlier may still be running when the semaphores are
+  disposed, and its `finally` block then releases a disposed semaphore; that release swallows the
+  `ObjectDisposedException` (`ReleaseQuietly`), so the in-flight download is not turned into a failure by
+  the disposal itself. A caller still waiting for the lock fails with `ObjectDisposedException`, and an
+  in-flight transfer can fail when the owned client is disposed under it, so hosts should cancel and
+  await outstanding downloads before disposing. The "disposal does not fail an in-flight download"
+  guarantee therefore applies to a downloader using a caller-supplied client (whose lifetime the
+  caller owns); with a downloader-owned client, disposal releases that client and an in-flight transfer
+  may fail, which is a documented limitation rather than a defect.
+- **Helpers**: `ComputeDirectorySizeBytes(directory)` sums the file sizes of the staging tree after the
+  install hook (used for the manifest's `TotalSizeBytes`), and `VerifyChecksumAsync(path, expected)` hashes
+  the staged file with SHA-256 and compares it to the declared checksum case-insensitively (the hash is
+  rendered as lower-case hex and the comparison ignores case, so an upper-case declared checksum matches).
+
+**Error Handling**: Every `DownloadAsync` overload throws `ArgumentNullException` for a null
+descriptor or model, `ArgumentException` for a null, empty or invalid model id (validated through
+`SpeechModelStore.GetModelDirectory` before the call is queued, so it fails fast without touching the
+network or the disk), and `ObjectDisposedException` once the
+downloader has been disposed. A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
 `Error` populated with a descriptive `InvalidOperationException` naming the model id and the
 offending file's relative install path. Any other exception - raised either by the transport fetch
 or by a model's own `InstallAsync` hook - is first checked by a guarded
 `catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)` clause that
 rethrows a genuine *caller* cancellation completely unchanged, never folding it into a result; only
-once that guard has ruled out caller cancellation is every other exception passed to a dedicated,
-directly unit-testable `ClassifyFailure(exception)` helper, which maps it to the most specific
+once that guard has ruled out caller cancellation is every other exception passed to a dedicated private
+`ClassifyFailure(exception)` helper (exercised through `DownloadAsync`), which maps it to the most specific
 outcome it recognizes: `HttpError` for an `HttpRequestException` with a non-null `StatusCode` (a
 real HTTP response was received, e.g. 404/403/5xx); `NetworkBlocked` for an `HttpRequestException`
 wrapping an `AuthenticationException` (a TLS/certificate failure - the shape produced by
@@ -108,8 +148,7 @@ unreachable), or for a private `HttpFetchTimeoutException` (an internal HTTP req
 see below); `IoFailure` for an `IOException` or `UnauthorizedAccessException` (disk full,
 permission denied, path too long); and `Failed` as the final generic fallback for anything else,
 with the original exception always attached. Classification itself never throws - an unrecognized
-exception type simply falls through to `Failed`, exactly as every exception did before this
-feature existed.
+exception type simply falls through to `Failed`.
 
 `FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync`
 call in a private `HttpFetchTimeoutException` only when all three guard conditions hold: the
@@ -146,3 +185,14 @@ normal (non-crashed) failure path always cleans up.
 
 **Callers**: Hosts that need to download and install a model; `SpeechModelCatalog` (via the
 `ISpeechModel`-aware overload).
+
+**Requirement mapping**: the unit requirements state the observable behavior only (validation,
+serialization, verification and all-or-nothing install, mirror addressing and credentials, outcome
+classification, install-step handling, disposal); the two constructor overloads, the three
+`DownloadAsync` overloads, the internal `ResolveEffectiveUri`/`RelayProgress`/`ClassifyFailure`
+helpers, the SHA-256 algorithm choice, the `HttpFetchTimeoutException` wrapper, and the
+`SpeechModelStore` staging/`CompleteInstall` collaboration are design detail documented above.
+`SpeechModelDownloaderOptions` (a record with a single optional `Mirror`, default `null`) and
+`SpeechModelDownloadProgress` (a record of `FileIndex`, `FileCount`, `BytesTransferred`, `TotalBytes`
+with a computed `FractionComplete`) are declared alongside this unit and described in their own
+design documents.

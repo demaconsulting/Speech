@@ -44,6 +44,23 @@ public class SpeechModelDownloadFileTests
     }
 
     /// <summary>
+    ///     Proves that a relative (non-absolute) URI is rejected, naming the URI argument.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloadFile_Constructor_RelativeUri_ThrowsArgumentException()
+    {
+        // Arrange
+        var uri = new Uri("models/model.onnx", UriKind.Relative);
+
+        // Act
+        var ex = Record.Exception(() => new SpeechModelDownloadFile(uri, ValidChecksum, "model.onnx"));
+
+        // Assert
+        var argumentException = Assert.IsType<ArgumentException>(ex);
+        Assert.Equal("Uri", argumentException.ParamName);
+    }
+
+    /// <summary>
     ///     Proves that a checksum which is not a 64-character hexadecimal string is rejected.
     /// </summary>
     [Theory]
@@ -73,6 +90,8 @@ public class SpeechModelDownloadFileTests
     [InlineData(".")]
     [InlineData("./model.onnx")]
     [InlineData("tokens/./vocab.txt")]
+    [InlineData("/")]
+    [InlineData("//")]
     [InlineData(@"\\")] // Two literal backslashes: rooted on Windows, but on Linux (where only
                         // a leading '/' is rooted) this normalizes to zero segments instead -
                         // either way it must be rejected, never silently resolved to the staging

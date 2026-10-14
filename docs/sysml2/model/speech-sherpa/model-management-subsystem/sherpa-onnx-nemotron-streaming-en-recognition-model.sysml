@@ -4,7 +4,7 @@ package SpeechSherpa {
              * cache-aware FastConformer-RNNT streaming transducer model
              * nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25, under the NVIDIA Open
              * Model License (a custom, non-OSI license, visibly distinct from every other
-             * model in this pass). Structurally near-identical to
+             * model in this set). Structurally near-identical to
              * SherpaOnnxZipformerEnRecognitionModel: same Transducer config shape, same
              * TarBz2ArchiveExtractor-based InstallAsync; deliberately leaves ModelType unset
              * since the native library auto-detects the decoding path from the decoder file

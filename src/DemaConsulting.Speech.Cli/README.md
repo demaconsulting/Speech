@@ -30,6 +30,8 @@ runtime, and local model store are all in a healthy state on the current machine
 | `download <modelId> [<modelId>...]` | Download one or more models (`--force` to re-download) |
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
 | `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
+| `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
+| `voices packs\|install [--no-emotions]\|uninstall` | List, download, or remove the optional reference-voice pack |
 | `list-devices` | List capture and/or playback audio devices (`--direction input\|output`) |
 | `devices test` | Play or record a short test tone/clip (`--device <name>`, `--direction input\|output`) |
 | `doctor` | Report overall environment health |
@@ -37,7 +39,37 @@ runtime, and local model store are all in a healthy state on the current machine
 | `recognize --stt-model <id>` | Recognize speech from a WAV file or the microphone - see [Flags](#recognize-flags) below |
 | `ask --tts-model <id> --stt-model <id>` | Speak a prompt, then listen for the reply - see [Flags](#ask-flags) below |
 
-Global options (`--models-dir`, `--mirror-url <url>`, `--mirror-user <user>`,
+## Reference voices (Chatterbox Turbo)
+
+The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
+least one voice to speak. Voices come from three places, all listed by `list-voices`:
+
+- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download; about 44 MiB
+  installed for the base voices, about 572 MiB with the 13 emotion variants per voice, which are
+  included by default): `speech-cli voices install voice-zero-1.0` (add `--no-emotions` for the base
+  voices only; installing with emotions over a voices-only install removes and downloads the pack
+  again; `voices packs` shows its sizes and state, `voices uninstall voice-zero-1.0` removes it;
+  `list-voices` shows a Moods column). Installation honors `--models-dir` and
+  `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
+- the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
+- any folder given with `--voices-dir <path>` (must exist)
+
+Each voice file must be 1-30 seconds of clean speech; the file name (without extension) is the
+voice id. Choose a voice with `--tts-param voice=<id>`:
+
+```bash
+speech-cli voices install voice-zero-1.0
+speech-cli list-voices
+speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
+```
+
+Newly installed voices appear on the next invocation. An undecodable file in `--voices-dir` makes
+every command fail until it is removed, because that folder is read when the catalog is built.
+
+> **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
+> `voices install`, and `--help` all repeat this note.
+
+Global options (`--models-dir`, `--voices-dir <path>`, `--mirror-url <url>`, `--mirror-user <user>`,
 `--mirror-password <pass>`, `--mirror-bearer-token <token>`, `--verbose`/`--diagnostics`,
 `--silent`, `--log <file>`, `--results <file>`, `--depth <#>`, `-v`/`--version`, `-h`/`-?`/`--help`,
 `--validate`) are recognized regardless of where they appear on the command line relative to the
@@ -53,6 +85,24 @@ adds bearer-token authentication instead (mutually exclusive with the Basic cred
 credentialed mirror must use `https://`, unless its host is loopback (`localhost` or a loopback IP
 literal). Any of `--mirror-user`, `--mirror-password`, or `--mirror-bearer-token` supplied without
 `--mirror-url` is rejected as a configuration error rather than silently ignored.
+
+The mirror can also be configured through the environment variables `DEMASPEECH_MIRROR_URL`,
+`DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN`, which keeps
+secrets off the command line (where other local users can see them in process listings and shell
+history). An explicit option always takes precedence: `--mirror-url` overrides `DEMASPEECH_MIRROR_URL`, and
+supplying any of `--mirror-user`, `--mirror-password` or `--mirror-bearer-token` makes the tool ignore all
+credential environment variables, so the two sources are never mixed. Empty variables are treated as unset,
+and an environment credential without a mirror URL is rejected like its option counterpart. Secret values and
+rejected URL values are never printed in help or error messages. Still prefer a short-lived bearer token over
+a long-lived user and password.
+
+### Flag values
+
+A flag that takes a value (for example `--text`, `--file`, `--tts-model`, `--playback-device`,
+`--capture-device`, `--device`, `--start-timeout`) rejects the next argument when it is another
+option token, and reports the flag as missing its value, rather than silently using the option as the
+value. The `--start-timeout` and `--silence-timeout` values must be finite numbers; `NaN` and
+infinity are rejected.
 
 ### `speak` flags
 

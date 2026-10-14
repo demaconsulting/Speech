@@ -15,11 +15,25 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
                     title: >-
-                      The PortAudioApi class shall bridge PortAudioSharp2-managed calls and the
-                      supplementary native host-API bindings behind the IPortAudioApi seam.
+                      The native runtime adapter shall translate native host-API metadata,
+                      sample rates, counts, format-probe results and audio blocks into their
+                      managed equivalents, and shall stop a stream rather than let a handler
+                      fault reach the native runtime.
                     justification: |
-                      The public audio-device layer must consume one coherent managed adapter,
-                      not a mixture of direct PortAudioSharp2 and raw P/Invoke calls.
+                      Native values and faults must not leak into managed logic. How the adapter
+                      combines the managed bindings with raw native calls is described in the
+                      PortAudio design document.
                     tests:
+                      - PortAudioApi_ConvertHostApiInfo_NativeBlock_ReturnsManagedMetadata
+                      - PortAudioApi_ConvertHostApiInfo_NullName_ReturnsEmptyName
+                      - PortAudioApi_ConvertSampleRate_FractionalRate_RoundsToWholeHertz
+                      - PortAudioApi_NormalizeCount_NegativeCount_ThrowsWithContext
+                      - PortAudioApi_CaptureCallback_NativeInput_DeliversManagedSamples
+                      - PortAudioApi_CaptureCallback_NullInputAfterData_DeliversSilence
+                      - PortAudioApi_CaptureCallback_HandlerThrows_ReturnsAbort
+                      - PortAudioApi_PlaybackCallback_ProvidedSamples_AreWrittenToNativeOutput
+                      - PortAudioApi_PlaybackCallback_ProviderThrows_ReturnsAbort
+                      - PortAudioApi_IsFormatSupported_NativeResult_MapsToSupport
+                      - PortAudioApi_IsFormatSupported_NativeCallThrows_ReturnsFalse
                       - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
                       - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance

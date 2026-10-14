@@ -36,13 +36,32 @@ handshake) that decodes to the exact configured username/password, sent through 
 in-scope mirror request leaves the mirror's authorization header on the initial request, but
 the follow-up (redirected) request carries no authorization header at all, confirming
 `HttpClient`'s own redirect handling - not this class - is what prevents the mirror's secret from
-ever reaching a redirect target.
+ever reaching a redirect target. A request to a URI outside the mirror's base, and a mirror whose
+base URI differs from the request only by a trailing slash, are likewise classified correctly: the
+former carries no authorization header, the latter does. Also verified: a successful download leaves
+the caller-owned destination stream open, and an already-canceled token surfaces as an
+operation-canceled failure with nothing written to the destination.
 
 #### Test Scenarios
 
 ##### Download: Stubbed Server Downloads Exact Bytes With Progress
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
+
+Also asserts every progress report describes a single-file transfer (file index 0 of 1).
+
+##### Download: Successful Download Leaves Destination Open
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen`
+
+Verifies the caller-owned destination stream is still usable after a successful download.
+
+##### Download: Already-Canceled Token Throws OperationCanceledException
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException`
+
+Verifies cancellation surfaces as an operation-canceled failure and nothing is written to the
+destination.
 
 ##### Download: Non-Success Response Throws HttpRequestException
 
@@ -63,3 +82,15 @@ ever reaching a redirect target.
 ##### Download: Mirror Redirect Strips Authorization Header On Redirected Request
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest`
+
+##### Download: Non-Mirror URI With Mirror Configured Sends No Authorization Header
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_NonMirrorUriWithMirrorConfigured_SendsNoAuthorizationHeader`
+
+Verifies the mirror's secret is never sent to a URI that is not under the mirror's base.
+
+##### Download: Mirror Base URI Trailing Slash Mismatch Still Sends Authorization Header
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_MirrorBaseUriTrailingSlashMismatch_SendsAuthorizationHeader`
+
+Verifies the in-scope check is insensitive to a trailing slash on the configured base URI.

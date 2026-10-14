@@ -235,7 +235,7 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     mirror based at <c>https://mirror/models</c> would incorrectly be considered a base of
     ///     <c>https://mirror/modelsEvil/file.bin</c>, since <c>"models"</c> is a literal string
     ///     prefix of <c>"modelsEvil"</c> even though it is not a nested path segment. Both paths
-    ///     have exactly one trailing slash trimmed before comparison, so a mirror configured with
+    ///     have all trailing slashes trimmed before comparison, so a mirror configured with
     ///     a trailing slash (<c>https://mirror/models/</c>) is recognized as the base of a request
     ///     spelled without one (<c>https://mirror/models</c>), and vice versa.
     /// </remarks>
@@ -248,7 +248,7 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
             return false;
         }
 
-        // Normalize away exactly one trailing slash from both paths before comparing, so
+        // Normalize away all trailing slashes from both paths before comparing, so
         // "https://host/models/" and "https://host/models" are recognized as the same base path
         // (matching ResolveEffectiveUri's own equivalent trailing-slash trim) rather than only
         // one spelling satisfying the equality check below.

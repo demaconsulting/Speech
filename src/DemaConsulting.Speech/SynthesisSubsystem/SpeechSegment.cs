@@ -32,8 +32,71 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     record is immutable and safe to share across threads. Public, mirroring
 ///     <see cref="SpeechPlan"/>'s public visibility.
 /// </remarks>
+/// <exception cref="ArgumentNullException"><paramref name="Text"/> is null.</exception>
+/// <exception cref="ArgumentOutOfRangeException">
+///     <paramref name="PreSilenceMs"/> or <paramref name="PostSilenceMs"/> is negative.
+/// </exception>
 public sealed record SpeechSegment(
     string Text,
     int PreSilenceMs,
     int PostSilenceMs,
-    IReadOnlyDictionary<string, object>? ParameterOverrides);
+    IReadOnlyDictionary<string, object>? ParameterOverrides)
+{
+    private readonly string _text = RequireText(Text);
+    private readonly int _preSilenceMs = RequireNonNegative(PreSilenceMs, nameof(PreSilenceMs));
+    private readonly int _postSilenceMs = RequireNonNegative(PostSilenceMs, nameof(PostSilenceMs));
+
+    /// <summary>
+    ///     Gets the text to synthesize for this segment; never null, may be empty.
+    /// </summary>
+    public string Text
+    {
+        get => _text;
+        init => _text = RequireText(value);
+    }
+
+    /// <summary>
+    ///     Gets the real silence, in milliseconds, inserted immediately before this segment's audio.
+    /// </summary>
+    public int PreSilenceMs
+    {
+        get => _preSilenceMs;
+        init => _preSilenceMs = RequireNonNegative(value, nameof(PreSilenceMs));
+    }
+
+    /// <summary>
+    ///     Gets the real silence, in milliseconds, inserted immediately after this segment's audio.
+    /// </summary>
+    public int PostSilenceMs
+    {
+        get => _postSilenceMs;
+        init => _postSilenceMs = RequireNonNegative(value, nameof(PostSilenceMs));
+    }
+
+    /// <summary>
+    ///     Rejects a null text.
+    /// </summary>
+    /// <param name="text">The candidate text.</param>
+    /// <returns>The validated text.</returns>
+    private static string RequireText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text;
+    }
+
+    /// <summary>
+    ///     Rejects a negative silence duration.
+    /// </summary>
+    /// <param name="value">The candidate duration in milliseconds.</param>
+    /// <param name="paramName">The name of the offending member.</param>
+    /// <returns>The validated duration.</returns>
+    private static int RequireNonNegative(int value, string paramName)
+    {
+        if (value < 0)
+        {
+            throw new ArgumentOutOfRangeException(paramName, value, "Silence must not be negative.");
+        }
+
+        return value;
+    }
+}

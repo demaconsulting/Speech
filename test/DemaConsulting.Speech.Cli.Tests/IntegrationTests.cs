@@ -18,24 +18,39 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
+
 namespace DemaConsulting.Speech.Cli.Tests;
 
 /// <summary>
-///     System-level integration tests that run the Speech CLI application via <c>dotnet</c>.
+///     System-level integration tests that run the Speech CLI application via <c>dotnet</c>, plus
+///     deterministic in-process system scenarios for the successful <c>speak</c> and <c>ask</c>
+///     paths that drive the real command entry points against fake models and fake audio devices.
 /// </summary>
 /// <remarks>
-///     Covers the CI-safe scaffold subset (dispatch, help/version/self-test, a clean error for an
-///     unrecognized subcommand) plus the five model-management subcommands implemented in Pass 3
-///     (<c>list-models</c>, <c>model-info</c>, <c>download</c>, <c>uninstall</c>, <c>clean</c>),
-///     the three device-related subcommands implemented in Pass 4 (<c>list-devices</c>,
-///     <c>devices</c>, <c>doctor</c>), the <c>speak</c> subcommand implemented in Pass 5, and the
-///     <c>recognize</c> subcommand implemented in this pass - the last of all 10 subcommands -
+///     Covers dispatch, help/version/self-test, a clean error for an unrecognized subcommand, and the
+///     model-management subcommands (<c>list-models</c>, <c>model-info</c>, <c>download</c>,
+///     <c>uninstall</c>, <c>clean</c>), the device-related subcommands (<c>list-devices</c>,
+///     <c>devices</c>, <c>doctor</c>), the voice commands (<c>list-voices</c>, <c>voices</c>),
+///     <c>speak</c>, <c>recognize</c>, and <c>ask</c>,
 ///     each exercised against an isolated, empty <c>--models-dir</c> so no test ever touches the
 ///     real per-user model store or performs a real network access. <c>speak</c>'s and
 ///     <c>recognize</c>'s error paths (missing model, unknown/wrong-role/not-downloaded model id,
-///     conflicting input/text sources) are covered here; a real, downloaded-model
-///     <c>speak --output-audio</c>/<c>recognize --input</c> end-to-end run is a manual verification
-///     step only - see each subsystem's verification document for why.
+///     conflicting input/text sources) are covered here, and the successful <c>speak</c> and <c>ask</c> paths
+///     (including piped standard input) run in-process against fake models and fake audio devices; a real,
+///     downloaded-model <c>speak --output-audio</c>/<c>recognize --input</c> end-to-end run is a manual
+///     verification step only - see each subsystem's verification document for why.
 /// </remarks>
 [Collection("Sequential")]
 public class IntegrationTests
@@ -94,17 +109,15 @@ public class IntegrationTests
         Assert.Contains("Commands:", output);
         Assert.Contains("--version", output);
         Assert.Contains("--help", output);
-        Assert.Contains("list-models", output);
-        Assert.Contains("model-info", output);
-        Assert.Contains("download", output);
-        Assert.Contains("uninstall", output);
-        Assert.Contains("clean", output);
-        Assert.Contains("list-devices", output);
-        Assert.Contains("devices", output);
-        Assert.Contains("doctor", output);
-        Assert.Contains("speak", output);
-        Assert.Contains("recognize", output);
-        Assert.Contains("ask", output);
+        foreach (var name in new[]
+                 {
+                     "list-models", "model-info", "download", "uninstall", "clean", "list-voices", "voices",
+                     "list-devices", "devices", "doctor", "speak", "recognize", "ask"
+                 })
+        {
+            // Anchored to the start of a Commands entry so "devices" cannot be satisfied by "list-devices"
+            Assert.Matches($@"(?m)^  {System.Text.RegularExpressions.Regex.Escape(name)}(\s|$)", output);
+        }
     }
 
     /// <summary>
@@ -133,18 +146,35 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateFlag_Provided_RunsValidation()
     {
-        // Act: run the tool with validate flag
-        var exitCode = Runner.Run(
-            out var output,
-            "dotnet",
-            _dllPath,
-            "--validate");
+        // Arrange: an isolated, empty model store so self-validation does not depend on ambient state
+        var modelsDir = CreateTempModelsDir();
 
-        // Assert: validation summary is present; exit code is success (no failed self-tests)
-        Assert.Equal(0, exitCode);
-        Assert.Contains("Total Tests:", output);
-        Assert.Contains("Passed:", output);
-        Assert.Contains("Failed: 0", output);
+        try
+        {
+            // Act: run the tool with validate flag
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--validate",
+                "--models-dir",
+                modelsDir);
+
+            // Assert: validation summary is present; exit code is success (no failed self-tests)
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Total Tests:", output);
+            Assert.Contains("Passed:", output);
+            Assert.Contains("Failed: 0", output);
+            Assert.Contains("SpeechCli_ModelStoreRootWritable - Passed", output);
+            Assert.Contains("SpeechCli_AudioBackendProbe - Passed", output);
+        }
+        finally
+        {
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
+            }
+        }
     }
 
     /// <summary>
@@ -153,8 +183,9 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile()
     {
-        // Arrange: temporary TRX results file path
+        // Arrange: temporary TRX results file path and an isolated, empty model store
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_integration_test_{Guid.NewGuid()}.trx");
+        var modelsDir = CreateTempModelsDir();
 
         try
         {
@@ -164,22 +195,38 @@ public class IntegrationTests
                 "dotnet",
                 _dllPath,
                 "--validate",
+                "--models-dir",
+                modelsDir,
                 "--results",
                 resultsFile);
 
-            // Assert: results file is created with valid TRX structure
+            // Assert: results file is created and parses as TRX XML holding the self-validation results
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(resultsFile), "Results file was not created");
 
-            var trxContent = File.ReadAllText(resultsFile);
-            Assert.Contains("<TestRun", trxContent);
-            Assert.Contains("</TestRun>", trxContent);
+            var document = System.Xml.Linq.XDocument.Load(resultsFile);
+            Assert.NotNull(document.Root);
+            Assert.Equal("TestRun", document.Root.Name.LocalName);
+            var resultNames = document.Descendants()
+                .Where(e => e.Name.LocalName == "UnitTestResult")
+                .Select(e => (string?)e.Attribute("testName"))
+                .ToList();
+            Assert.Contains("SpeechCli_VersionDisplay", resultNames);
+            Assert.Equal(5, resultNames.Count);
+            Assert.All(
+                document.Descendants().Where(e => e.Name.LocalName == "UnitTestResult"),
+                e => Assert.Equal("Passed", (string?)e.Attribute("outcome")));
         }
         finally
         {
             if (File.Exists(resultsFile))
             {
                 File.Delete(resultsFile);
+            }
+
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
             }
         }
     }
@@ -666,6 +713,180 @@ public class IntegrationTests
     }
 
     /// <summary>
+    ///     Test that <c>ask</c> without <c>--tts-model</c> and <c>--stt-model</c> returns a clean,
+    ///     non-zero-exit error naming the missing option, rather than a stack trace.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError()
+    {
+        // Act
+        var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "ask", "--text", "hello");
+
+        // Assert
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("--tts-model", output);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> naming an unknown synthesis model returns a clean, non-zero-exit
+    ///     error naming that model id, against an isolated, empty <c>--models-dir</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithUnknownModel_Invoked_ReturnsCleanError()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "ask",
+                "--tts-model",
+                "does-not-exist-tts",
+                "--stt-model",
+                "does-not-exist-stt",
+                "--text",
+                "hello");
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("does-not-exist-tts", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> given both <c>--text</c> and <c>--file</c> returns a clean,
+    ///     non-zero-exit error rather than speaking an ambiguous prompt.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithConflictingTextSources_Invoked_ReturnsCleanError()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "ask",
+                "--tts-model",
+                "tts-model",
+                "--stt-model",
+                "stt-model",
+                "--text",
+                "hello",
+                "--file",
+                "prompt.txt");
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--text", output);
+            Assert.Contains("--file", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>list-voices</c> exits cleanly against an isolated models directory and
+    ///     always prints the consent note, whether or not any voices are present.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "--models-dir", modelsDir, "list-voices");
+
+            // Assert
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>list-voices --format json</c> emits a JSON array.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "list-voices",
+                "--format",
+                "json");
+
+            // Assert: the banner precedes the array, so parse from the first '[' to the last ']'
+            Assert.Equal(0, exitCode);
+            var start = output.IndexOf('[', StringComparison.Ordinal);
+            var end = output.LastIndexOf(']');
+            Assert.True(start >= 0 && end > start, $"Expected a JSON array in: {output}");
+            using var document = System.Text.Json.JsonDocument.Parse(output[start..(end + 1)]);
+            Assert.Equal(System.Text.Json.JsonValueKind.Array, document.RootElement.ValueKind);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>voices packs</c> lists the installable voice packs and the consent note
+    ///     against an isolated models directory, without downloading anything.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "--models-dir", modelsDir, "voices", "packs");
+
+            // Assert
+            Assert.Equal(0, exitCode);
+            Assert.Contains("License", output);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Test that <c>speak --tts-model &lt;recognitionModel&gt;</c> returns a clean, non-zero-exit
     ///     error reporting the wrong role, rather than attempting to load it as a synthesizer.
     /// </summary>
@@ -969,6 +1190,196 @@ public class IntegrationTests
     }
 
     /// <summary>
+    ///     Test that a successful <c>speak --text</c> synthesizes and plays the text and exits with success,
+    ///     running fully in-process against a fake model and fake playback device (no skip, no hardware).
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithFakeModel_TextProvided_SpeaksTextAndSucceeds()
+    {
+        // Arrange: a fake synthesis model and a fake playback device
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var session = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(session));
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1", "--text", "Hello there."]);
+
+        // Act
+        await SpeakCommand.RunAsync(context, catalog, devices, CancellationToken.None);
+
+        // Assert: the text was spoken once and the run succeeded
+        Assert.Equal("Hello there.", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>speak</c> with text piped on standard input speaks the piped text and exits with
+    ///     success; the redirected standard input is simulated so the test never depends on the host's stdin.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithPipedStdin_NoTextOrFile_SpeaksPipedTextAndSucceeds()
+    {
+        // Arrange: a fake synthesis model, a fake playback device, and simulated piped input
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var session = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(session));
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, devices, CancellationToken.None, () => true, new StringReader("piped narration"));
+
+        // Assert: the piped text was spoken and the run succeeded
+        Assert.Equal("piped narration", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>speak</c> given no text source and no piped input fails with an error naming the
+    ///     accepted sources, deterministically regardless of the host's standard input.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources()
+    {
+        // Arrange: simulated interactive (non-redirected) standard input
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, devices, CancellationToken.None, () => false, TextReader.Null));
+
+        // Assert
+        Assert.Contains("--text, --file, or piped stdin", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that a complete <c>ask</c> turn speaks the prompt, listens, and exits with success,
+    ///     running fully in-process against fake models and fake audio devices.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithFakeModels_TextProvided_CompletesTurnAndSucceeds()
+    {
+        // Arrange: fake synthesis and recognition models, fake playback and capture devices
+        var (catalog, synthesisSession) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "How are you?"]);
+
+        // Act
+        var output = await RunCapturingConsoleAsync(
+            () => AskCommand.RunAsync(context, catalog, playback, capture));
+
+        // Assert: the prompt was spoken, the reply was printed, and the run succeeded
+        Assert.Equal("How are you?", Assert.Single(synthesisSession.SpeakAsyncCalls));
+        Assert.Contains("reply", output);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> with a prompt piped on standard input speaks the piped prompt and exits with
+    ///     success; the redirected standard input is simulated so the test never depends on the host's stdin.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithPipedStdin_NoTextOrFile_SpeaksPipedPromptAndSucceeds()
+    {
+        // Arrange: fake models and devices plus simulated piped input
+        var (catalog, synthesisSession) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        var pipedInput = new AskCommand.StandardInputSource(IsRedirected: true, new StringReader("piped prompt"));
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        // Act
+        await RunCapturingConsoleAsync(() => AskCommand.RunAsync(context, catalog, playback, capture, pipedInput));
+
+        // Assert
+        Assert.Equal("piped prompt", Assert.Single(synthesisSession.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> given no text source and no piped input fails with an error naming the
+    ///     accepted sources, deterministically regardless of the host's standard input.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources()
+    {
+        // Arrange: simulated interactive (non-redirected) standard input
+        var (catalog, _) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        var interactiveInput = new AskCommand.StandardInputSource(IsRedirected: false, TextReader.Null);
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, playback, capture, interactiveInput));
+
+        // Assert
+        Assert.Contains("--text", exception.Message);
+        Assert.Contains("--file", exception.Message);
+    }
+
+    /// <summary>
+    ///     Creates a fake catalog holding one downloaded synthesis and one downloaded recognition model, wired
+    ///     so the recognizer immediately reports a final result of <c>reply</c>.
+    /// </summary>
+    private static (FakeCliModelCatalog Catalog, FakeSynthesisSession SynthesisSession) CreateAskCatalog()
+    {
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        catalog.WithModel(new FakeSpeechModel("stt-model-1", role: SpeechModelRole.Recognition), SpeechModelState.Downloaded);
+
+        var synthesisSession = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(synthesisSession));
+
+        var recognitionSession = new FakeRecognitionSession
+        {
+            OnStart = self => self.RaiseResult("reply", isFinal: true)
+        };
+        catalog.CreateRecognizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechRecognizerEngine>(new FakeSpeechRecognizerEngine(recognitionSession));
+        return (catalog, synthesisSession);
+    }
+
+    /// <summary>
+    ///     Runs an asynchronous action while capturing everything it writes to the console, restoring the
+    ///     original console writer afterwards.
+    /// </summary>
+    private static async Task<string> RunCapturingConsoleAsync(Func<Task> action)
+    {
+        var originalOut = Console.Out;
+        var captured = new StringWriter();
+        Console.SetOut(captured);
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        return captured.ToString();
+    }
+
+    private static readonly AudioDeviceDescription FakeSpeakers =
+        new("Fake Speakers", AudioDeviceDirection.Playback, 2, 48000);
+
+    private static readonly AudioDeviceDescription FakeMicrophone =
+        new("Fake Microphone", AudioDeviceDirection.Capture, 1, 16000);
+
+    /// <summary>
     ///     Test that <c>recognize --stt-model &lt;realSttModel&gt; --input &lt;fixture&gt;.wav</c>
     ///     produces non-empty recognized text, using a real, already-downloaded speech-to-text
     ///     model (skipped when none is available, e.g. in a network-isolated CI environment - see
@@ -994,9 +1405,9 @@ public class IntegrationTests
         var downloadedModelId = ExtractFirstDownloadedJsonId(listOutput);
         if (downloadedModelId is null)
         {
-            // No real, downloaded speech-to-text model is available in this environment; this
-            // scenario is a documented manual verification gap, not a fabricated pass.
-            return;
+            // No real, downloaded speech-to-text model is available in this environment; report the
+            // scenario as skipped (visible in the results) rather than as a silent pass.
+            Assert.Skip("No downloaded speech-to-text model is available in the per-user model store.");
         }
 
         var fixturePath = FindRepositoryTestFixturePath("crossing-the-bar-16k-mono.wav");
@@ -1108,17 +1519,32 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel()
     {
-        // Act: run validation with heading depth 3
-        var exitCode = Runner.Run(
-            out var output,
-            "dotnet",
-            _dllPath,
-            "--validate",
-            "--depth",
-            "3");
+        // Arrange: an isolated, empty model store
+        var modelsDir = CreateTempModelsDir();
 
-        // Assert: output contains level-3 markdown headings
-        Assert.Equal(0, exitCode);
-        Assert.Contains("###", output);
+        try
+        {
+            // Act: run validation with heading depth 3
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--validate",
+                "--models-dir",
+                modelsDir,
+                "--depth",
+                "3");
+
+            // Assert: output contains level-3 markdown headings
+            Assert.Equal(0, exitCode);
+            Assert.Contains("###", output);
+        }
+        finally
+        {
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
+            }
+        }
     }
 }

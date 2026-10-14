@@ -14,6 +14,25 @@ language: en
 
 # Project-specific technical terms and tool names
 words:
+  - uncancelable
+  - Unlistable
+  - Parameterless
+  - nolicense
+  - mklink
+  - flink
+  - Alsa
+  - portaudio
+  - seekable
+  - ADPCM
+  - decorrelation
+  - Decorrelate
+  - libsndfile
+  - soundfile
+  - STREAMINFO
+  - subframe
+  - subframes
+  - syncsafe
+  - VORBIS
   - Damerau
   - logit
   - logits
@@ -24,6 +43,7 @@ words:
   - buildmark
   - chokepoint
   - Conv
+  - unpenalized
   - unprobed
   - DEMA
   - NTLM
@@ -136,6 +156,21 @@ words:
   - tvjf
   - Kokoro
   - kokoro
+  - KSDATAFORMAT
+  - Chatterbox
+  - chatterbox
+  - ResembleAI
+  - OwenTyme
+  - voicezero
+  - paralinguistic
+  - paralinguistics
+  - chatterboxturbo
+  - embedder
+  - autoregressively
+  - argmax
+  - endoftext
+  - Efmt
+  - matmul
   - jieba
   - USTAR
   - libritts
@@ -230,3 +265,7 @@ ignorePaths:
   - "**/kokoro-v1.0-tokenizer.json"
   - tools/KokoroSpike/models/**
   - tools/NemotronSpike/**
+  # Chatterbox Turbo spike scratch area and embedded/golden tokenizer data (token tables, not prose)
+  - tools/ChatterboxTurboSpike/**
+  - "**/chatterbox-turbo-tokenizer-golden.json"
+  - "**/chatterbox-turbo-tokenizer.json.gz"

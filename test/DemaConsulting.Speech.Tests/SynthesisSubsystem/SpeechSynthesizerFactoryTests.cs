@@ -179,11 +179,11 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an already-cancelled token throws <see cref="OperationCanceledException"/>
+    ///     Proves that an already-canceled token throws <see cref="OperationCanceledException"/>
     ///     synchronously from composition, rather than composing anyway.
     /// </summary>
     [Fact]
-    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException()
     {
         // Arrange
         var backendFactory = new FakeSynthesisEngineFactory();
@@ -349,6 +349,30 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a non-bool value for a declared <see cref="BooleanParameter"/> throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws()
+    {
+        // Arrange
+        var backendFactory = new FakeSynthesisEngineFactory();
+        const string parameterId = "emphasis";
+        var model = new FakeSynthesisModel(
+            parameters: [new BooleanParameter(parameterId, "Emphasis", "Emphasis flag.", false)]);
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
+        {
+            [parameterId] = "yes",
+        };
+
+        // Act / Assert
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
+        Assert.Contains(parameterId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, backendFactory.CreateCallCount);
+    }
+
+    /// <summary>
     ///     Proves that a model not yet installed in the store composes to the honest unavailable
     ///     engine, and that the backend is never loaded.
     /// </summary>
@@ -481,11 +505,11 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     ///     Proves that when <see cref="ISynthesisBackendFactory.Create"/> ignores cancellation but
     ///     still finishes within the dedicated worker's abandon grace period - so the worker
     ///     genuinely completes rather than being abandoned - <c>LoadAsync</c> still honors the
-    ///     cancellation request (finding 31) rather than reporting a loaded engine, and disposes
+    ///     cancellation request rather than reporting a loaded engine, and disposes
     ///     the backend that was created so it does not leak.
     /// </summary>
     [Fact(Timeout = 10000)]
-    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
+    public async Task SpeechSynthesizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
     {
         // Arrange: a backend factory whose Create blocks until released, then succeeds, ignoring
         // cancellation entirely - exactly like the real native binding, which has no in-flight

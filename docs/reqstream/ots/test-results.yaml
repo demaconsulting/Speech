@@ -1,0 +1,31 @@
+---
+# DemaConsulting.TestResults OTS Software Requirements
+#
+# Requirements for the DemaConsulting.TestResults package used to serialize self-validation results.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: DemaConsulting.TestResults Requirements
+        requirements:
+          - id: Speech-OTS-TestResults-TrxSerialization
+            title: >-
+              DemaConsulting.TestResults shall serialize test results as a TRX
+              document.
+            justification: |
+              Qualification evidence is consumed by test-result tooling that reads TRX, and the
+              package avoids hand-rolling that format.
+            tags: [ots]
+            tests:
+              - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
+
+          - id: Speech-OTS-TestResults-JUnitSerialization
+            title: >-
+              DemaConsulting.TestResults shall serialize test results as a JUnit XML
+              document.
+            justification: |
+              Qualification evidence is also consumed by tooling that reads JUnit XML, and the
+              package avoids hand-rolling that format.
+            tags: [ots]
+            tests:
+              - Program_Main_ValidateWithXmlResults_WritesJUnitFile
