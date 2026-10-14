@@ -26,7 +26,8 @@ hostile declared length cannot force a large allocation; samples are scaled by `
 once per decode, shared with `IsFlac`. `verifyChecksums` is the unit's form of the
   `AudioFileReadOptions.VerifyChecksums` option
 - **Metadata walk**: after the `fLaC` marker, STREAMINFO must be the first block and exactly 34
-  bytes long; every later block is skipped by its length, and a block running past the end of the
+  bytes long and may appear only once; every later block is skipped by its length, a second
+  STREAMINFO block is rejected, and a block running past the end of the
   data is rejected. STREAMINFO is validated: sample rate 1 to 655350 Hz, bit depth at least 4 and
   maximum block size at least 1.
 - **FlacFrameDecoder.Decode(reader, info, verify, buffers)**: parse the frame header (block size,
@@ -56,7 +57,7 @@ STREAMINFO MD5 is not verified and damaged frames are not skipped.
 predictor parameters - including a negative linear-predictor right shift, which RFC 9639 section 9.2.6
 and Appendix B.4 forbid - more samples than `maxSamples` or than `Array.MaxLength`, a frame larger than
 the samples remaining of a known STREAMINFO total, a damaged ID3v2 prefix (including a size field
-that is not syncsafe), or a frame that
+that is not syncsafe), a second STREAMINFO block, or a frame that
 disagrees with STREAMINFO) throws `InvalidDataException`, with the byte offset of the problem
 where applicable.
 

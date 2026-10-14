@@ -165,13 +165,14 @@ sections:
 
               - id: Speech-Audio-FlacDecoder-InvalidStreamInfoRejection
                 title: >-
-                  The FlacDecoder shall reject invalid STREAMINFO values with
-                  InvalidDataException.
+                  The FlacDecoder shall reject invalid STREAMINFO values, or more than one
+                  STREAMINFO block, with InvalidDataException.
                 justification: |
                   STREAMINFO drives every later decoding decision, so invalid values must fail
-                  clearly.
+                  clearly. RFC 9639 allows exactly one STREAMINFO block per stream.
                 tests:
                   - FlacDecoder_Decode_InvalidStreamInfoValues_Throw
+                  - FlacDecoder_Decode_DuplicateStreamInfo_Throws
 
               - id: Speech-Audio-FlacDecoder-InvalidFrameFieldRejection
                 title: >-

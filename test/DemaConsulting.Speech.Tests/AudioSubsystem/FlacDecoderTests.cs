@@ -413,6 +413,25 @@ public sealed class FlacDecoderTests
         Assert.Throws<InvalidDataException>(() => Decode(Tamper(FirstFrameOffset + 4, 0xFF), lenient));
     }
 
+    /// <summary>Proves a second STREAMINFO block is rejected because RFC 9639 allows exactly one.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_DuplicateStreamInfo_Throws()
+    {
+        // Arrange: copy the single STREAMINFO block (4-byte header + 34-byte body) in as a second block
+        var good = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+        const int blockLength = 38;
+        var duplicate = new byte[good.Length + blockLength];
+        Array.Copy(good, 0, duplicate, 0, 4 + blockLength);
+        Array.Copy(good, 4, duplicate, 4 + blockLength, good.Length - 4);
+        duplicate[4] &= 0x7F;
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => Decode(duplicate));
+
+        // Assert
+        Assert.Contains("more than one STREAMINFO", exception.Message);
+    }
+
     /// <summary>Proves a frame larger than the STREAMINFO maximum is rejected.</summary>
     [Fact]
     public void FlacDecoder_Decode_BlockLargerThanMaximum_Throws()

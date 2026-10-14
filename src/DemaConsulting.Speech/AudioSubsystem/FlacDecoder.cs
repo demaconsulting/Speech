@@ -128,6 +128,11 @@ internal static class FlacDecoder
 
                 info = ParseStreamInfo(new FlacBitReader(data, body));
             }
+            else if (type == 0)
+            {
+                // RFC 9639 allows exactly one STREAMINFO block
+                throw new InvalidDataException($"The FLAC stream has more than one STREAMINFO block (byte {position}).");
+            }
 
             position = body + length;
         }
