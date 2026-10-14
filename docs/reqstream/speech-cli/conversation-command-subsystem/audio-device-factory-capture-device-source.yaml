@@ -37,6 +37,17 @@ sections:
                 tests:
                   - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_UnknownName_ReturnsUnavailableDevice
 
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-KnownDeviceForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall resolve a named capture device that is among
+                  the enumerated capture devices exactly as the factory it was composed with does.
+                justification: |
+                  The source adds no behavior of its own: a name the operator picked from the list must produce
+                  the same device (or the same honest unavailable result) as the real factory, so a command
+                  behaves identically with and without this adapter.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_KnownName_MatchesFactoryResolution
+
               - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DefaultDeviceUnavailable
                 title: >-
                   The AudioDeviceFactoryCaptureDeviceSource shall return an unavailable capture device, without

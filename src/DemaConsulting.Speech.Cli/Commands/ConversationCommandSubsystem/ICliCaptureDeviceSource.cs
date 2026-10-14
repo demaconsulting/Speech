@@ -43,6 +43,13 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     every call unchanged to a real <see cref="AudioDeviceFactory"/>; it adds no public API to
 ///     <c>DemaConsulting.Speech</c> and does not change <see cref="AudioDeviceFactory"/>'s own
 ///     hardware-detection behavior in any way.
+///     <para>
+///     <b>Thread safety.</b> Implementations are not required to be thread-safe. <see cref="AskCommand"/>
+///     calls <see cref="CaptureProbe"/> and <see cref="CreateCaptureDevice"/> sequentially from a
+///     single logical flow (never concurrently with each other for one command invocation), so
+///     callers must not invoke members of one instance concurrently unless the implementation
+///     documents otherwise.
+///     </para>
 /// </remarks>
 internal interface ICliCaptureDeviceSource
 {

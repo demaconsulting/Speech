@@ -19,7 +19,8 @@ _ConversationCommandSubsystem Verification_).
 #### Acceptance Criteria
 
 The unit passes when its capture probe enumerates the injected probe's devices, a named device the probe does not
-know and the default selection with no devices both resolve to an unavailable device without throwing, and
+know and the default selection with no devices both resolve to an unavailable device without throwing, a named device
+the probe does know resolves exactly as the composed factory resolves it, and
 construction without a factory is rejected.
 
 #### Test Scenarios
@@ -36,6 +37,15 @@ is read.
 **Scenario**: A device is requested by a name the fake probe does not know.
 
 **Expected**: A device whose `IsAvailable` is false is returned; nothing is thrown.
+
+##### AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_KnownName_MatchesFactoryResolution
+
+**Scenario**: A device is requested by a name the fake probe enumerates, through both the source and the factory it
+was composed with.
+
+**Expected**: The source's device reports the same availability as the factory's device, so the adapter adds no
+behavior of its own. When audio hardware is present both are usable devices; without hardware both are unavailable,
+so the assertion holds on any machine.
 
 ##### AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice
 

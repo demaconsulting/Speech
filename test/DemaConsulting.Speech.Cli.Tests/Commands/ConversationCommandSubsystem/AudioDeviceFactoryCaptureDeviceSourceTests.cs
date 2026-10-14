@@ -32,9 +32,11 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 /// <remarks>
 ///     Every test injects a fake probe into the factory. With an injected probe, a selection the
 ///     probe does not know resolves to the honestly unavailable device whether or not PortAudio is
-///     initialized, so the assertions hold on any machine. The "known device resolves to a
-///     usable device" behavior needs real hardware and is covered through
-///     <see cref="FakeCaptureDeviceSource"/> in <see cref="ICliCaptureDeviceSource"/> contract tests.
+///     initialized, so the assertions hold on any machine. A known device resolves to a usable device
+///     only when real hardware is present, so the known-name test asserts the source matches the
+///     composed factory rather than a fixed availability, and the "known device resolves to a usable
+///     device" contract is covered through <see cref="FakeCaptureDeviceSource"/> in
+///     <see cref="ICliCaptureDeviceSource"/> contract tests.
 /// </remarks>
 public sealed class AudioDeviceFactoryCaptureDeviceSourceTests
 {
@@ -136,5 +138,43 @@ public sealed class AudioDeviceFactoryCaptureDeviceSourceTests
 
         // Assert
         Assert.Throws<ArgumentNullException>(Act);
+    }
+
+    /// <summary>Test that the fake capture source rejects an unavailable device for known selections.</summary>
+    [Fact]
+    public void FakeCaptureDeviceSource_Constructor_UnavailableDevice_ThrowsArgumentException()
+    {
+        // Arrange
+        var probe = new FakeAudioCaptureDeviceProbe([Microphone]);
+
+        // Act
+        void Act() => _ = new FakeCaptureDeviceSource(probe, UnavailableAudioCaptureDevice.Instance);
+
+        // Assert
+        Assert.Throws<ArgumentException>(Act);
+    }
+
+    /// <summary>
+    ///     Test that a named device the probe knows resolves through the production source exactly as
+    ///     it does through the composed factory.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_KnownName_MatchesFactoryResolution()
+    {
+        // Arrange
+        var factory = new AudioDeviceFactory(new FakeAudioCaptureDeviceProbe([Microphone]));
+        var source = new AudioDeviceFactoryCaptureDeviceSource(factory);
+        var selection = new AudioDeviceSelection("Fake Microphone");
+
+        // Act
+        var viaSource = source.CreateCaptureDevice(selection);
+        var viaFactory = factory.CreateCaptureDevice(selection);
+
+        // Assert
+        Assert.NotNull(viaSource);
+        Assert.Equal(viaFactory.IsAvailable, viaSource.IsAvailable);
+        Assert.Equal(viaFactory.GetType(), viaSource.GetType());
+        (viaSource as IDisposable)?.Dispose();
+        (viaFactory as IDisposable)?.Dispose();
     }
 }

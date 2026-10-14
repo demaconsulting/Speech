@@ -32,5 +32,7 @@ The scenarios that verify this interface are:
   implementation returns an unavailable device for an unknown name without throwing.
 - `AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice`: the
   production implementation returns an unavailable device for the default selection when no devices exist.
+- `FakeCaptureDeviceSource_Constructor_UnavailableDevice_ThrowsArgumentException`: the in-memory implementation
+  refuses an unavailable device, so a known selection always resolves to a usable device.
 - `AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult`: a complete turn runs through the interface when a
   test double supplies the device.

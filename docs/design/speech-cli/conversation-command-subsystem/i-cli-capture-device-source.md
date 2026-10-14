@@ -21,6 +21,10 @@ the library and leaves the library's own hardware detection as it is.
 
 **Error Handling**: The interface raises nothing of its own; an unavailable device is a normal return value.
 
+**Thread Safety**: Implementations are not required to be thread-safe. `AskCommand` calls `CaptureProbe` and
+`CreateCaptureDevice` sequentially from a single logical flow, so callers must not use one instance concurrently
+unless the implementation documents otherwise.
+
 **Dependencies**: The library's `IAudioCaptureDeviceProbe`, `IAudioCaptureDevice`, and `AudioDeviceSelection`
 types.
 
