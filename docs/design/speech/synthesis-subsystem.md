@@ -100,8 +100,10 @@ Text flows through four stages, each owned by one unit:
    turn through the _ISynthesisBackend_ seam (see _SynthesisBackend_), running each native
    call on a _DedicatedWorker_.
 4. **Playback**: for `SpeakAsync` only, each segment is converted by _PlaybackAudioResampler_ and written to the bound
-   playback device before the next segment is synthesized, so synthesis and playback of different
-   segments are never overlapped by separate threads.
+   playback device and the next segment is then synthesized. Synthesis never runs ahead of the
+   segments already handed to the device (no synthesis queue), but the device plays already-written
+   audio concurrently, so playback of the first segment begins while later segments are still being
+   synthesized.
 
 #### Layer 3/Layer 5 Vocabulary: Engine, Session, and the Lifecycle State Machine
 

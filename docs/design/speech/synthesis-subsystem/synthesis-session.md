@@ -13,12 +13,13 @@ the engine's exclusivity lease, and a `_syncRoot` lock guarding its `SynthesisSe
 current operation's `CancellationTokenSource`, its fault (if any), and disposal/lease-released
 flags. `IsAvailable` is `true` unless disposed or `Faulted`.
 
-The session never synthesizes ahead of playback: each segment is synthesized, then
-(for `SpeakAsync`) immediately written to the playback device, before the next segment's
+The session never synthesizes ahead of playback across a queue: each segment is synthesized,
+then (for `SpeakAsync`) immediately written to the playback device, before the next segment's
 synthesis begins. This keeps the per-call state machine simple - exactly one backend call in
-flight at a time - and playback of an early segment begins after only that segment has been
-synthesized, without waiting for the whole plan. Synthesis of one segment never overlaps
-synthesis of another.
+flight at a time. The playback device plays written audio asynchronously, so playback of an
+early segment begins after only that segment has been synthesized and continues while the next
+segment is synthesized, without waiting for the whole plan. Synthesis of one segment never
+overlaps synthesis of another.
 
 Additional private state tracks native-call completion: `_operationTask` is the in-flight
 operation's abandon-aware task; `_pendingNativeCompletion` is the raw completion of the most

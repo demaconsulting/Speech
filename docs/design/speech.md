@@ -188,7 +188,7 @@ The system exposes the following public API to external consumers:
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
 | `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
-| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Unavailable-only; no overlap |
+| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Available-session operation; throws on overlapping calls, a faulted session, or disposal |
 | `ISynthesisSession.DisposeAsync()` | Inbound | Method call | Idempotent |
 
 `CreateSessionAsync` on an unavailable engine returns the unavailable session instead of throwing;
@@ -296,7 +296,8 @@ direct safety impact is introduced.
 
 1. **Input**: A caller supplies a `SpeechModelDownloadDescriptor` (HTTPS URL(s) + SHA-256
    checksums) to `SpeechModelDownloader.DownloadAsync(...)`
-2. **Fetch**: The downloader serializes concurrent requests to one at a time, fetches each file
+2. **Fetch**: The downloader serializes concurrent requests for the same model ID (different models
+   download concurrently), fetches each file
    via the injected `IModelDownloadClient` (`HttpModelDownloadClient` by default) into a
    `.tmp/{guid}` staging directory, and forwards progress with file index/count rewritten to the
    model's overall position
