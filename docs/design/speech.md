@@ -188,7 +188,7 @@ The system exposes the following public API to external consumers:
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
 | `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
-| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Available-session operation; throws on overlapping calls, a faulted session, or disposal |
+| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Throws on overlap/fault/dispose |
 | `ISynthesisSession.DisposeAsync()` | Inbound | Method call | Idempotent |
 
 `CreateSessionAsync` on an unavailable engine returns the unavailable session instead of throwing;
