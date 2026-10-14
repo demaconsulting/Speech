@@ -195,10 +195,11 @@ sections:
               - id: Speech-Recognition-IRecognitionSession-ProvisionalCoalescing
                 title: >-
                   When a consumer of a session's results is slower than the recognizer, the
-                  session may replace unread provisional results with the latest one.
+                  session shall deliver only the latest of the unread provisional results
+                  (coalescing the superseded ones).
                 justification: |
                   A provisional result is superseded by the next one, so only the latest needs to
-                  survive.
+                  be delivered; coalescing the rest keeps the behavior deterministic and bounded.
                 tests:
                   - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
 

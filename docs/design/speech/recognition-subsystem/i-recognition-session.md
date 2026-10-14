@@ -37,8 +37,8 @@ wraps one result as the value yielded by `GetResultsAsync` (a null result is rej
   can no longer be guaranteed for that one call. Idempotent once stopped or faulted.
 - **GetResultsAsync(CancellationToken cancellationToken = default)**: Returns an
   `IAsyncEnumerable<SpeechRecognitionEvent>` of results in the order they were produced. Final
-  results are always delivered; an unread provisional result may be replaced by a newer one
-  (provisional coalescing), so a slow consumer never stalls recognition.
+  results are always delivered; of the unread provisional results only the latest is delivered, the
+  superseded ones being dropped (provisional coalescing), so a slow consumer never stalls recognition.
   Single-consumer: throws `InvalidOperationException` if called again while a previous
   enumeration of the same session is still active. A session fault during enumeration surfaces as
   `RecognitionSessionFaultedException` thrown from the enumerator, never silently.
