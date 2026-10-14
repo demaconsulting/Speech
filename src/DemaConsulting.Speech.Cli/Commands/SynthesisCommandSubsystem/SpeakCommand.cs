@@ -104,6 +104,14 @@ internal static class SpeakCommand
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress speak session.</param>
+    /// <param name="isInputRedirected">
+    ///     Optional seam reporting whether standard input is redirected; defaults to the console's
+    ///     own state. Lets tests exercise the piped-stdin and no-text-source paths deterministically.
+    /// </param>
+    /// <param name="standardInput">
+    ///     Optional seam supplying the piped text when standard input is redirected; defaults to
+    ///     the console's standard input.
+    /// </param>
     /// <returns>A task that completes once the speak session has finished, failed, or been canceled.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
@@ -111,14 +119,17 @@ internal static class SpeakCommand
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
-    ///     or missing text source, malformed/invalid <c>--tts-param</c> value, or unknown <c>--playback-device</c>.
+    ///     or missing text source, empty or whitespace-only text, malformed/invalid <c>--tts-param</c>
+    ///     value, or unknown <c>--playback-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real playback device is available and <c>--output-audio</c> was not given.</exception>
     internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         ICliPlaybackDeviceSource deviceSource,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<bool>? isInputRedirected = null,
+        TextReader? standardInput = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -129,10 +140,17 @@ internal static class SpeakCommand
         // Text-source resolution runs before model resolution: a usage error like conflicting
         // --text/--file is a cheap, model-independent input mistake that should be reported
         // immediately, not masked by an unrelated "unknown model id" error.
-        var text = ResolveText(options);
+        var text = ResolveText(options, isInputRedirected ?? (() => Console.IsInputRedirected), standardInput);
         if (options.NoTags)
         {
             text = StripAudioTags(text);
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException(
+                "speak requires non-empty text; the supplied text is empty or whitespace only.",
+                nameof(context));
         }
 
         var descriptor = ResolveModel(catalog, options.ModelId);
@@ -233,11 +251,14 @@ internal static class SpeakCommand
     ///     Resolves the text to speak from exactly one of <c>--text</c>, <c>--file</c>, or a
     ///     redirected stdin stream.
     /// </summary>
+    /// <param name="options">The parsed <c>speak</c> flags.</param>
+    /// <param name="isInputRedirected">Reports whether standard input is redirected.</param>
+    /// <param name="standardInput">The piped-text reader, or <see langword="null"/> for the console's input.</param>
     /// <exception cref="ArgumentException">
     ///     Thrown when more than one text source was given, or when none was given and stdin is
     ///     not redirected.
     /// </exception>
-    private static string ResolveText(SpeakOptions options)
+    private static string ResolveText(SpeakOptions options, Func<bool> isInputRedirected, TextReader? standardInput)
     {
         var sourceCount = (options.Text is not null ? 1 : 0) +
             (options.FilePath is not null ? 1 : 0);
@@ -266,14 +287,14 @@ internal static class SpeakCommand
             }
         }
 
-        if (!Console.IsInputRedirected)
+        if (!isInputRedirected())
         {
             throw new ArgumentException(
                 "speak requires text from --text, --file, or piped stdin.",
                 nameof(options));
         }
 
-        return Console.In.ReadToEnd();
+        return (standardInput ?? Console.In).ReadToEnd();
     }
 
     /// <summary>

@@ -20,7 +20,7 @@ non-zero-exit error rather than a stack trace.
 Automated tests do not exercise a real, downloaded synthesis model's `--output-audio` WAV-writing
 path end to end: CI has no cached synthesis model, and downloading one needs network access and a
 multi-hundred-megabyte transfer that is unsuitable for every test run. That path is verified
-manually (see _Manual Verification_ below), following the repository's convention for genuinely
+manually (see _Manual-Only Verification_ below), following the repository's convention for genuinely
 environment-dependent behavior.
 
 ### Test Environment
@@ -53,6 +53,33 @@ verification documents is also reported cleanly by the built tool with a non-zer
 **Scenario/Expected**: A malformed or undeclared `--tts-param` for `speak` and `--stt-param` for
 `recognize` is rejected with an `ArgumentException` whose message names the invoking flag verbatim
 (`--tts-param` or `--stt-param`), so the operator sees the flag they typed.
+
+#### SpeakCommand_RunAsync_TextFlag_SynthesizesText
+
+**Scenario**: `speak --text` runs end to end over a fake catalog, device source, engine and session.
+
+**Expected**: The session receives exactly the given text and the exit code is zero.
+
+#### SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents
+
+**Scenario**: `speak --file` names a readable temporary file.
+
+**Expected**: The session receives the file's exact contents.
+
+#### SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText
+
+**Scenario**: `speak` has neither `--text` nor `--file` and the stdin seam supplies piped text.
+
+**Expected**: The session receives the piped text.
+
+#### SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+
+**Tests**: `SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException`,
+`SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException`,
+`SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint`
+
+**Scenario/Expected**: An unknown, wrong-role or not-downloaded `--tts-model` is refused with an
+`ArgumentException` whose message names the model id, and nothing is synthesized.
 
 #### SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
 
@@ -97,10 +124,10 @@ and the exit code is zero.
 
 **Expected**: The dispatch reports the missing option as an `ArgumentException`.
 
-### Manual Verification
+### Manual-Only Verification (Hardware and Real Model)
 
 The following is verified manually, because it needs a real, downloaded synthesis model and audio
-hardware that CI does not have:
+hardware that CI does not have. It is the only behavior not covered by automated evidence:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- speak --tts-model <id> --text "hello world"
   --output-audio <path>.wav`, against a downloaded synthesis model, produces a valid, non-trivial WAV
@@ -110,6 +137,6 @@ hardware that CI does not have:
 
 ### Known Gaps
 
-No automated test covers `speak --file` with a readable, missing or unreadable file, `speak` fed from
-piped stdin, or empty or whitespace-only text; the model-error tests do not assert the suggested
-remedy text for an unknown or wrong-role model.
+None beyond the manual-only items above. The `--file` (readable, missing), piped stdin, and empty or
+whitespace-only text cases, and the remedy text of the model errors, are automated by the `SpeakCommand`
+unit tests listed in `synthesis-command-subsystem/speak-command.md`.

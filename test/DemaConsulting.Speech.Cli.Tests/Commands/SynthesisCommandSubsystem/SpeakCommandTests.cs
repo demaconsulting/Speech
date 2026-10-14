@@ -227,22 +227,170 @@ public sealed class SpeakCommandTests
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
     }
 
+    /// <summary>Test that --text is synthesized verbatim through the resolved model.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_TextFlag_SynthesizesText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "Hello there."]);
+
+        // Act
+        await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("Hello there.", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
     /// <summary>Test that neither --text nor --file given, with stdin not redirected, throws.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException()
     {
-        // This test specifically covers the "no source available" branch, so it cannot run when
-        // stdin actually is redirected (e.g. under some CI/test-runner harnesses).
-        Assert.SkipWhen(Console.IsInputRedirected, "Standard input is redirected, so the no-text-source branch is unreachable.");
-
-        // Arrange
+        // Arrange - the stdin seam reports "not redirected" explicitly, so the test never depends on the host's stdin.
         var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1"]);
 
-        // Act / Assert
-        await Assert.ThrowsAsync<ArgumentException>(
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => false, new StringReader("ignored")));
+
+        // Assert
+        Assert.Contains("--text, --file, or piped stdin", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    /// <summary>Test that, with no --text or --file and redirected stdin, the piped text is synthesized.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, factory, CancellationToken.None, () => true, new StringReader("piped narration"));
+
+        // Assert
+        Assert.Equal("piped narration", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>Test that --text wins over stdin: redirected stdin is not read when --text is given.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_TextWithRedirectedStdin_SynthesizesTextNotStdin()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "from flag"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, factory, CancellationToken.None, () => true, new StringReader("from stdin"));
+
+        // Assert
+        Assert.Equal("from flag", Assert.Single(session.SpeakAsyncCalls));
+    }
+
+    /// <summary>Test that a readable --file has its exact contents synthesized.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var filePath = Path.Join(Path.GetTempPath(), $"speak-input-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(filePath, "Text from a file.\nSecond line.", TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var context = Context.Create(["speak", "--tts-model", "model-1", "--file", filePath]);
+
+            // Act
+            await SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => false, new StringReader(string.Empty));
+
+            // Assert
+            Assert.Equal("Text from a file.\nSecond line.", Assert.Single(session.SpeakAsyncCalls));
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    /// <summary>Test that empty or whitespace-only text is rejected before any model or engine work.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(" \t\r\n ")]
+    public async Task SpeakCommand_RunAsync_EmptyOrWhitespaceText_ThrowsArgumentException(string text)
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", text]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(catalog.CreateSynthesizerParameterValueCalls);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    /// <summary>Test that redirected stdin carrying only whitespace is rejected as empty text.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_WhitespaceOnlyStdin_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, factory, CancellationToken.None, () => true, new StringReader("\r\n")));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
+    }
+
+    /// <summary>Test that text consisting only of audio tags is rejected as empty once --no-tags strips it.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_OnlyTagsWithNoTags_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireSynthesizer(catalog);
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "[laughs]", "--no-tags"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("non-empty text", exception.Message);
+        Assert.Empty(session.SpeakAsyncCalls);
     }
 
     // --- Text file and model resolution error paths ---
@@ -316,6 +464,24 @@ public sealed class SpeakCommandTests
 
         // Assert
         Assert.Contains("download model-1", exception.Message);
+    }
+
+    /// <summary>Test that the unknown-model error names the id and suggests list-models.</summary>
+    [Fact]
+    public async Task SpeakCommand_RunAsync_UnknownModelId_SuggestsListModels()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        using var context = Context.Create(["speak", "--tts-model", "nope", "--text", "hi"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
+
+        // Assert
+        Assert.Contains("'nope'", exception.Message);
+        Assert.Contains("list-models", exception.Message);
     }
 
     // --- --tts-param validation wiring ---

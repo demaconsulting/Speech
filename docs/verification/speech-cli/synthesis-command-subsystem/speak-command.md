@@ -31,11 +31,10 @@ engine and the device, and rejects a missing dependency.
 
 #### Known Gaps
 
-No test covers a readable `--file`, text read from piped stdin (the one stdin test is skipped
-whenever stdin is redirected), or empty and whitespace-only text. The unknown-model and wrong-role
-tests assert that the message names the model, but no test asserts the suggested remedy text
-(`list-models`, `list-models --role tts`). A `--file` naming a missing file is covered by
-`SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException`.
+None for `speak`'s text-source and model-error behavior: a readable `--file`, piped stdin, empty and
+whitespace-only text, and the suggested remedy text of the model errors are all automated. The only
+unautomated behavior is the real-model and real-hardware path, which is manual-only and is recorded
+in the subsystem verification document.
 
 #### Test Scenarios
 
@@ -105,12 +104,55 @@ tests assert that the message names the model, but no test asserts the suggested
 
 **Expected**: `ArgumentException`.
 
+##### SpeakCommand_RunAsync_TextFlag_SynthesizesText
+
+**Scenario**: `--text "Hello there."` is given with a valid fake model.
+
+**Expected**: The session receives exactly `Hello there.` and the exit code is 0.
+
 ##### SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
 
-**Scenario**: No text source is given and stdin is not redirected. The test returns without
-asserting when the test host does redirect stdin.
+**Scenario**: No text source is given and the stdin seam reports that input is not redirected.
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` naming the three text sources; nothing is spoken. The test never
+depends on the host's real stdin.
+
+##### SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText
+
+**Scenario**: No `--text` or `--file` is given and the stdin seam supplies `piped narration`.
+
+**Expected**: The session receives exactly `piped narration` and the exit code is 0.
+
+##### SpeakCommand_RunAsync_TextWithRedirectedStdin_SynthesizesTextNotStdin
+
+**Scenario**: `--text` is given while the stdin seam reports redirected input with different text.
+
+**Expected**: The session receives the `--text` value, not the piped text.
+
+##### SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents
+
+**Scenario**: `--file` names a temporary file holding two lines of text.
+
+**Expected**: The session receives the file's exact contents and the exit code is 0.
+
+##### SpeakCommand_RunAsync_EmptyOrWhitespaceText_ThrowsArgumentException
+
+**Scenario**: `--text` is empty, spaces only, or mixed whitespace (theory).
+
+**Expected**: `ArgumentException` saying non-empty text is required; no engine is created and
+nothing is spoken.
+
+##### SpeakCommand_RunAsync_WhitespaceOnlyStdin_ThrowsArgumentException
+
+**Scenario**: Redirected stdin carries only a line break.
+
+**Expected**: `ArgumentException` saying non-empty text is required; nothing is spoken.
+
+##### SpeakCommand_RunAsync_OnlyTagsWithNoTags_ThrowsArgumentException
+
+**Scenario**: `--text "[laughs]"` is given with `--no-tags`, leaving nothing after stripping.
+
+**Expected**: `ArgumentException` saying non-empty text is required; nothing is spoken.
 
 ##### SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
 
@@ -118,11 +160,18 @@ asserting when the test host does redirect stdin.
 
 **Expected**: `ArgumentException` whose message contains the id.
 
+##### SpeakCommand_RunAsync_UnknownModelId_SuggestsListModels
+
+**Scenario**: `--tts-model nope` names an id the catalog does not list.
+
+**Expected**: The message contains `'nope'` and the remedy `list-models`.
+
 ##### SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
 
 **Scenario**: `--tts-model` names a recognition-role model.
 
-**Expected**: `ArgumentException` whose message contains the model id.
+**Expected**: `ArgumentException` whose message contains the model id and the remedy
+`list-models --role tts`.
 
 ##### SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
 

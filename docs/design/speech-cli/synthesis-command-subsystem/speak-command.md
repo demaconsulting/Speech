@@ -24,10 +24,15 @@ in the order given.
   2. Resolve the text source, before the model is looked up. Exactly one of `--text`, `--file`, or a
      redirected stdin stream supplies the text. Supplying both `--text` and `--file`, or none while
      stdin is not redirected, is rejected immediately. A text-source mistake is cheap and
-     model-independent, so it is reported ahead of an unrelated "unknown model" error.
+     model-independent, so it is reported ahead of an unrelated "unknown model" error. Whether stdin
+     is redirected, and the reader that supplies piped text, come from two optional trailing
+     parameters of the full `RunAsync` overload that default to the console's own state and input;
+     tests substitute them so the stdin paths run deterministically on any host.
   3. When `--no-tags` is given, strip every Natural Language Audio Tag unconditionally by parsing
      the text with `AudioTagParser` and keeping only the plain-text spans, whatever audio-tag support
      the model declares. An operator who asks for tags to be stripped wants literal narration only.
+     Text that is empty or whitespace-only at this point (including text that held only tags and
+     was stripped) is rejected with an `ArgumentException` before any model or engine work.
   4. Resolve the model by looking `--tts-model` up in the catalog's enumeration. Three distinct
      failures each carry an actionable message: an id absent from the catalog (suggests
      `list-models`), an id with the wrong role (names the model and its actual role, and suggests
@@ -63,8 +68,9 @@ A null context, catalog or device source is rejected with `ArgumentNullException
 Two text-source situations are handled as follows. A `--file` that names a missing or unreadable
 file is reported as an `InvalidOperationException` wrapping the file-system failure, so `Program`
 prints a clean one-line error naming the file and returns a non-zero exit code; a test covers it.
-Empty or whitespace-only text is passed to the session unchanged, so the outcome is the engine's
-own behavior.
+Empty or whitespace-only text is rejected with an `ArgumentException` (reported as a one-line error
+and a non-zero exit code) rather than being passed to the session, so a scripting mistake such as an
+empty variable does not silently "succeed".
 
 **Value-taking flags.** `--tts-model`, `--text`, `--file`, `--output-audio`, `--playback-device`
 and `--tts-param` each require a value. If the next token is absent, or is one of `speak`'s own

@@ -6,7 +6,8 @@
 #
 # The requirements are grouped by concern, one criterion each:
 #   - Flags (ModelValidation, ArgumentValidation, ValueFlagOptionRejection)
-#   - Text source (TextSourceValidation, TextSourceMissing, TextFileUnreadable)
+#   - Text source (TextSourceValidation, TextSourceMissing, TextFileUnreadable, TextFileSource,
+#     TextStdinSource, TextEmptyRejection)
 #   - Model resolution (ModelUnknown, ModelWrongRole, ModelNotDownloaded)
 #   - Parameters and tags (ParamApplication, ParamInvalidRejection, NoTags)
 #   - Output and device (OutputDispatch, PlaybackDeviceDispatch, PlaybackDeviceUnavailable)
@@ -15,9 +16,6 @@
 # The model-commands requirement SpeechCli-ModelCommands-SynthesisSeamRoleValidation covers only the
 # catalog's refusal to create an engine for a model of the wrong role, naming the model by id. The
 # user-facing `speak` message for a wrong-role model is owned by ModelWrongRole below.
-#
-# Not covered by any requirement because no test proves it: text from piped stdin, and empty or
-# whitespace-only text.
 
 sections:
   - title: SpeechCli Requirements
@@ -47,6 +45,7 @@ sections:
                   An id typo must fail with an actionable next step.
                 tests:
                   - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_UnknownModelId_SuggestsListModels
                   - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
 
               - id: SpeechCli-SynthesisCommands-ModelWrongRole
@@ -96,6 +95,37 @@ sections:
                   waits on input that never arrives.
                 tests:
                   - SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-TextFileSource
+                title: >-
+                  The tool shall synthesize the exact contents of a readable file named by
+                  `--file` when `speak` is invoked.
+                justification: |
+                  A file source must speak what the file holds, unaltered.
+                tests:
+                  - SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents
+
+              - id: SpeechCli-SynthesisCommands-TextStdinSource
+                title: >-
+                  The tool shall synthesize the text piped to standard input when `speak` is
+                  invoked with neither `--text` nor `--file`.
+                justification: |
+                  A script feeding text through a pipe must have that text spoken.
+                tests:
+                  - SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText
+                  - SpeakCommand_RunAsync_TextWithRedirectedStdin_SynthesizesTextNotStdin
+
+              - id: SpeechCli-SynthesisCommands-TextEmptyRejection
+                title: >-
+                  The tool shall reject `speak` invoked with text that is empty or only whitespace
+                  with a clean, non-zero-exit-code error before any synthesis is attempted.
+                justification: |
+                  Silent success on nothing to say would hide a scripting mistake such as an empty
+                  variable or file.
+                tests:
+                  - SpeakCommand_RunAsync_EmptyOrWhitespaceText_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_WhitespaceOnlyStdin_ThrowsArgumentException
+                  - SpeakCommand_RunAsync_OnlyTagsWithNoTags_ThrowsArgumentException
 
               - id: SpeechCli-SynthesisCommands-ArgumentValidation
                 title: >-

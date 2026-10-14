@@ -25,16 +25,48 @@ sections:
         requirements:
           - id: SpeechCli-SynthesisCommands-Speak
             title: >-
-              The tool shall synthesize speech from text supplied via `--text <string>`,
-              `--file <path>`, or piped stdin, through a known, downloaded synthesis model named
-              by `--tts-model <id>`, when invoked with `speak`.
+              The tool shall synthesize the text given by `--text <string>` when invoked with
+              `speak`.
             tags: [subsystem]
             justification: |
               An operator or script needs one command that turns arbitrary text into speech
               without needing to know which library types compose a synthesizer.
             tests:
-              - SpeakCommand_ParseArguments_TextFlag_ParsesText
+              - SpeakCommand_RunAsync_TextFlag_SynthesizesText
               - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
+
+          - id: SpeechCli-SynthesisCommands-SpeakFile
+            title: >-
+              The tool shall synthesize the contents of the file named by `--file <path>` when
+              invoked with `speak`.
+            tags: [subsystem]
+            justification: |
+              Long passages are easier to keep in a file than on a command line.
+            tests:
+              - SpeakCommand_RunAsync_ReadableFile_SynthesizesFileContents
+
+          - id: SpeechCli-SynthesisCommands-SpeakStdin
+            title: >-
+              The tool shall synthesize text piped to standard input when invoked with `speak`
+              and neither `--text` nor `--file`.
+            tags: [subsystem]
+            justification: |
+              A script needs to feed generated text to speech through a pipe.
+            tests:
+              - SpeakCommand_RunAsync_RedirectedStdin_SynthesizesPipedText
+
+          - id: SpeechCli-SynthesisCommands-SpeakKnownModel
+            title: >-
+              The tool shall refuse to synthesize, naming the model, when invoked with `speak`
+              and a `--tts-model <id>` that is not a known, downloaded synthesis model.
+            tags: [subsystem]
+            justification: |
+              Speech from an unknown or missing model cannot be produced, so the operator needs
+              to be told which model id is unusable.
+            tests:
+              - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+              - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
+              - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
 
           - id: SpeechCli-SynthesisCommands-ParamFlagNameReported
             title: >-
