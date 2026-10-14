@@ -12,8 +12,8 @@ sections:
             requirements:
               - id: Speech-Audio-AudioFileReader-DetectsContainer
                 title: >-
-                  The AudioFileReader class shall choose the WAV or FLAC decoder from the file content
-                  rather than the file extension.
+                  The AudioFileReader class shall decode a WAV or FLAC file by its content regardless
+                  of its file extension.
                 justification: |
                   Files are often renamed or extension-less; the content is the reliable signal.
                 tests:
@@ -22,12 +22,19 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-DecodesFileOrStream
                 title: >-
-                  The AudioFileReader class shall decode a WAV or FLAC file path or a stream into an
-                  AudioClip.
+                  The AudioFileReader class shall decode a WAV or FLAC file path into an AudioClip.
                 justification: |
-                  Hosts hold audio either on disk or in memory, including non-seekable sources.
+                  Hosts commonly hold audio on disk.
                 tests:
                   - AudioFileReader_Read_DetectsContainerByContent
+
+              - id: Speech-Audio-AudioFileReader-DecodesStream
+                title: >-
+                  The AudioFileReader class shall decode a WAV or FLAC stream, including a
+                  non-seekable one, into an AudioClip.
+                justification: |
+                  Hosts also hold audio in memory or on network sources that cannot seek.
+                tests:
                   - AudioFileReader_Read_NonSeekableStream_Decodes
                   - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
 
@@ -105,15 +112,21 @@ sections:
               - id: Speech-Audio-AudioFileReader-NamesPathInFailures
                 title: >-
                   The AudioFileReader class shall name the file path in the message of a path-based
-                  read's InvalidDataException or NotSupportedException, and shall add no path to a
-                  stream-based read's message.
+                  read's InvalidDataException or NotSupportedException.
                 justification: |
-                  A failure among many voice or audio files must be attributable to its file; a
-                  stream has no path to name.
+                  A failure among many voice or audio files must be attributable to its file.
                 tests:
                   - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
                   - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
                   - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
+
+              - id: Speech-Audio-AudioFileReader-NoPathForStreamFailures
+                title: >-
+                  The AudioFileReader class shall add no file path to the message of a
+                  stream-based read's InvalidDataException or NotSupportedException.
+                justification: |
+                  A stream has no path to name, and an invented one would mislead.
+                tests:
                   - AudioFileReader_Read_UnrecognizedStream_ThrowsInvalidDataWithoutPath
                   - AudioFileReader_Read_UnsupportedWavStream_ThrowsNotSupportedWithoutPath
 
@@ -127,18 +140,25 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-RejectsBlankPath
                 title: >-
-                  The AudioFileReader class shall reject a null path with ArgumentNullException and
-                  an empty or blank path with ArgumentException.
+                  The AudioFileReader class shall reject an empty or blank path with
+                  ArgumentException.
                 justification: |
                   Caller mistakes must fail at the call site with a conventional exception type.
                 tests:
                   - AudioFileReader_Read_BlankPath_ThrowsArgumentException
 
+              - id: Speech-Audio-AudioFileReader-RejectsNullPath
+                title: >-
+                  The AudioFileReader class shall reject a null path with ArgumentNullException.
+                justification: |
+                  Caller mistakes must fail at the call site with a conventional exception type.
+                tests:
+                  - AudioFileReader_Read_NullPath_ThrowsArgumentNullException
+
               - id: Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
                 title: >-
                   The AudioFileReader class shall reject a negative MaxSamples option with
-                  ArgumentOutOfRangeException whose parameter name is options.MaxSamples, after
-                  reporting a missing file for a path-based read.
+                  ArgumentOutOfRangeException whose parameter name is options.MaxSamples.
                 justification: |
                   Caller mistakes must fail at the call site with a conventional exception type.
                 tests:

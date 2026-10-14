@@ -8,8 +8,8 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// </summary>
 /// <remarks>
 ///     A small chunk walker: unknown chunks (for example <c>LIST</c>) are skipped, chunks are word aligned, and a
-///     <c>data</c> size that overstates the file (streamed writers, including 0xFFFFFFFF) is clamped to the bytes actually present;
-///     when several <c>fmt </c> chunks appear the last one before <c>data</c> wins.
+///     <c>data</c> size that overstates the file (streamed writers, including 0xFFFFFFFF) is clamped to the bytes
+///     actually present; when several <c>fmt </c> chunks appear the last one before <c>data</c> wins.
 ///     8-bit PCM is unsigned per the WAV convention. 32-bit float samples are passed through as stored, so a
 ///     NaN or out-of-range value in the file reaches the clip unchanged. Stateless and thread-safe.
 /// </remarks>
@@ -84,8 +84,13 @@ internal static class WavDecoder
     /// <param name="data">The file bytes.</param>
     /// <param name="body">The offset of the chunk body.</param>
     /// <param name="size">The declared chunk size (clamped to <see cref="int.MaxValue"/>).</param>
-    /// <returns>The validated format. Fields beyond the format tag, channels, rate and bit depth (byte rate, block align, extensible channel mask) are ignored.</returns>
-    /// <exception cref="InvalidDataException">Thrown when the chunk is truncated or declares no channels or an unusable sample rate.</exception>
+    /// <returns>
+    ///     The validated format. Fields beyond the format tag, channels, rate and bit depth (byte rate, block align,
+    ///     extensible channel mask) are ignored.
+    /// </returns>
+    /// <exception cref="InvalidDataException">
+    ///     Thrown when the chunk is truncated or declares no channels or an unusable sample rate.
+    /// </exception>
     /// <exception cref="NotSupportedException">Thrown when the format tag or bit depth is not supported.</exception>
     private static WavFormat ParseFormat(byte[] data, int body, int size)
     {
@@ -117,14 +122,16 @@ internal static class WavDecoder
 
         if (rate > int.MaxValue)
         {
-            throw new InvalidDataException($"The WAV file declares a sample rate of {rate} Hz, above the supported maximum of {int.MaxValue} Hz.");
+            throw new InvalidDataException(
+                $"The WAV file declares a sample rate of {rate} Hz, above the supported maximum of {int.MaxValue} Hz.");
         }
 
         var supported = (tag == FormatPcm && bits is 8 or 16 or 24 or 32) || (tag == FormatFloat && bits == 32);
         if (!supported)
         {
             throw new NotSupportedException(
-                $"WAV format tag {tag} with {bits} bits per sample is not supported; use PCM (8/16/24/32-bit) or 32-bit float.");
+                $"WAV format tag {tag} with {bits} bits per sample is not supported; " +
+                "use PCM (8/16/24/32-bit) or 32-bit float.");
         }
 
         return new WavFormat(tag == FormatFloat, channels, (int)rate, bits);
@@ -137,7 +144,9 @@ internal static class WavDecoder
     /// <param name="format">The validated format.</param>
     /// <param name="maxSamples">The most samples (across channels) the clip may contain.</param>
     /// <returns>The decoded clip; a trailing partial frame is dropped.</returns>
-    /// <exception cref="InvalidDataException">Thrown when the data holds more than <paramref name="maxSamples"/> samples.</exception>
+    /// <exception cref="InvalidDataException">
+    ///     Thrown when the data holds more than <paramref name="maxSamples"/> samples.
+    /// </exception>
     private static AudioClip DecodeSamples(byte[] data, int start, int available, WavFormat format, long maxSamples)
     {
         var bytesPerSample = format.Bits / 8;

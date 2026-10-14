@@ -32,7 +32,8 @@ sections:
 
               - id: Speech-Audio-AudioClip-ToPcm16
                 title: >-
-                  The AudioClip record shall convert to 16-bit PCM, scaling by 32768 with rounding.
+                  The AudioClip record shall convert its samples to 16-bit PCM so that the nominal
+                  [-1, 1] sample range maps onto the 16-bit sample range.
                 justification: |
                   Playback and file writers need 16-bit PCM.
                 tests:

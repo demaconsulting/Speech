@@ -72,7 +72,8 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 ##### Sample-rate codes
 
-**Test**: `FlacDecoder_Decode_SampleRateCodes_ReportRate`
+**Test**: `FlacDecoder_Decode_SampleRateCodes_ReportRate` (standard rates from 8 kHz to 192 kHz, explicit
+kHz/Hz/tens-of-Hz forms, and the as-STREAMINFO form)
 
 ##### Block-size codes
 
@@ -82,9 +83,13 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 **Test**: `FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers`
 
-##### ID3, extra metadata and many channels
+##### Up to eight channels
 
-**Test**: `FlacDecoder_Decode_ContainerVariants_RoundTrip`
+**Test**: `FlacDecoder_Decode_ManyChannels_RoundTrip`
+
+##### Extra metadata blocks
+
+**Test**: `FlacDecoder_Decode_ExtraMetadataBlocks_AreIgnored`
 
 ##### ID3v2-prefixed FLAC with a non-.flac extension, read by path
 

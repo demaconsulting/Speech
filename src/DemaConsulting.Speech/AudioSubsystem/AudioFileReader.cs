@@ -90,7 +90,7 @@ public static class AudioFileReader
     /// <summary>
     ///     Reads audio from a stream and down-mixes it to mono.
     /// </summary>
-    /// <param name="stream">A readable stream positioned at the start of the file.</param>
+    /// <param name="stream">A readable stream; reading starts at its current position.</param>
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
     /// <returns>The mono samples and their sample rate.</returns>
     /// <inheritdoc cref="Read(Stream, AudioFileReadOptions?)" path="/exception"/>

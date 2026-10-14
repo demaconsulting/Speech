@@ -2,8 +2,9 @@
 
 #### Verification Approach
 
-Verified by `WavDecoderTests.cs` (`test/DemaConsulting.Speech.Tests/AudioSubsystem`) through
-`AudioFileReader`, using WAV images built in memory with small helper builders.
+Verified by `WavDecoderTests.cs` (`test/DemaConsulting.Speech.Tests/AudioSubsystem`), which calls the decoder
+directly, using WAV images built in memory with small helper builders. Container dispatch from `AudioFileReader`
+is verified in the reader tests.
 
 #### Test Environment
 

@@ -185,18 +185,27 @@ public sealed class AudioFileReaderTests
         Assert.IsType<ArgumentNullException>(error);
     }
 
-    /// <summary>Proves null, empty and blank paths are reported with <see cref="ArgumentException"/>.</summary>
+    /// <summary>Proves empty and blank paths are reported with <see cref="ArgumentException"/>.</summary>
     [Fact]
     public void AudioFileReader_Read_BlankPath_ThrowsArgumentException()
     {
         // Act
         var emptyError = Record.Exception(() => AudioFileReader.Read(string.Empty));
         var blankError = Record.Exception(() => AudioFileReader.Read("   "));
-        var nullError = Record.Exception(() => AudioFileReader.Read((string)null!));
 
         // Assert
         Assert.IsType<ArgumentException>(emptyError);
         Assert.IsType<ArgumentException>(blankError);
+    }
+
+    /// <summary>Proves a null path is reported with <see cref="ArgumentNullException"/>.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NullPath_ThrowsArgumentNullException()
+    {
+        // Act
+        var nullError = Record.Exception(() => AudioFileReader.Read((string)null!));
+
+        // Assert
         Assert.IsType<ArgumentNullException>(nullError);
     }
 
@@ -275,6 +284,11 @@ public sealed class AudioFileReaderTests
         Assert.Equal(rate, streamRate);
         Assert.Equal(clip.FrameCount, samples.Length);
         Assert.Equal(samples, streamSamples);
+        for (var frame = 0; frame < clip.FrameCount; frame++)
+        {
+            var expected = (clip.Samples[frame * 2] + clip.Samples[(frame * 2) + 1]) / 2f;
+            Assert.Equal(expected, samples[frame], 1e-6f);
+        }
     }
 
     /// <summary>Proves an oversized file is rejected from its length alone, naming the file.</summary>

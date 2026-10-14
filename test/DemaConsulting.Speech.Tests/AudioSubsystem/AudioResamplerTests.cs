@@ -33,7 +33,24 @@ public sealed class AudioResamplerTests
         Assert.Equal([0.5f], mixed);
     }
 
-    /// <summary>Proves Resample preserves the length ratio and a 440 Hz tone's frequency when changing rate.</summary>
+    /// <summary>Proves Resample keeps the clip duration to within one sample when changing rate.</summary>
+    [Theory]
+    [InlineData(44100, 24000)]
+    [InlineData(16000, 24000)]
+    [InlineData(48000, 16000)]
+    public void AudioResampler_Resample_ChangesRate_PreservesDuration(int inputRate, int outputRate)
+    {
+        // Arrange
+        var tone = Tone(inputRate, 0.5, 440);
+
+        // Act
+        var result = AudioResampler.Resample(tone, inputRate, outputRate);
+
+        // Assert
+        Assert.InRange(result.Length, (int)(0.5 * outputRate) - 1, (int)(0.5 * outputRate) + 1);
+    }
+
+    /// <summary>Proves Resample preserves a 440 Hz tone's frequency and amplitude when changing rate.</summary>
     [Theory]
     [InlineData(44100, 24000)]
     [InlineData(16000, 24000)]
@@ -46,8 +63,7 @@ public sealed class AudioResamplerTests
         // Act
         var result = AudioResampler.Resample(tone, inputRate, outputRate);
 
-        // Assert: length and a close match to the ideal tone away from the edges
-        Assert.InRange(result.Length, (int)(0.5 * outputRate) - 1, (int)(0.5 * outputRate) + 1);
+        // Assert: a close match to the ideal tone away from the edges
         var worst = 0.0;
         for (var i = result.Length / 4; i < result.Length * 3 / 4; i++)
         {
@@ -55,6 +71,29 @@ public sealed class AudioResamplerTests
         }
 
         Assert.True(worst < 0.02, $"max error {worst}");
+    }
+
+    /// <summary>
+    ///     Proves a 20 kHz tone, which a 16 kHz output cannot represent, is attenuated by at least 40 dB
+    ///     when 48 kHz audio is down-sampled to 16 kHz (it must not alias into the passband).
+    /// </summary>
+    [Fact]
+    public void AudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated()
+    {
+        // Arrange: a 0.5-amplitude 20 kHz tone at 48 kHz
+        var tone = Tone(48000, 0.5, 20000);
+
+        // Act
+        var result = AudioResampler.Resample(tone, 48000, 16000);
+
+        // Assert: away from the edges the peak output is more than 40 dB below the 0.5 input peak
+        var peak = 0.0;
+        for (var i = result.Length / 4; i < result.Length * 3 / 4; i++)
+        {
+            peak = Math.Max(peak, Math.Abs(result[i]));
+        }
+
+        Assert.True(peak < 0.5 / 100.0, $"peak {peak} is not at least 40 dB below 0.5");
     }
 
     /// <summary>
@@ -166,7 +205,11 @@ public sealed class AudioResamplerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.ToMonoResampled(clip, -1));
     }
 
-    /// <summary>Generates a sine tone.</summary>
+    /// <summary>Generates a sine tone of amplitude 0.5.</summary>
+    /// <param name="rate">The sample rate in hertz.</param>
+    /// <param name="seconds">The tone duration in seconds.</param>
+    /// <param name="frequency">The tone frequency in hertz.</param>
+    /// <returns>The tone samples.</returns>
     private static float[] Tone(int rate, double seconds, double frequency) =>
         [.. Enumerable.Range(0, (int)(rate * seconds)).Select(i => (float)(0.5 * Math.Sin(2 * Math.PI * frequency * i / rate)))];
 }

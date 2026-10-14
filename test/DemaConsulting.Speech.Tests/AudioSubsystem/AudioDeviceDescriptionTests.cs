@@ -8,6 +8,22 @@ namespace DemaConsulting.Speech.Tests.AudioSubsystem;
 public sealed class AudioDeviceDescriptionTests
 {
     /// <summary>
+    ///     Proves that a description exposes the name, direction, channel count and sample rate it was built with.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceDescription_Constructor_ExposesAllFields()
+    {
+        // Arrange / Act
+        var description = new AudioDeviceDescription("Mic", AudioDeviceDirection.Playback, 6, 44100);
+
+        // Assert
+        Assert.Equal("Mic", description.Name);
+        Assert.Equal(AudioDeviceDirection.Playback, description.Direction);
+        Assert.Equal(6, description.ChannelCount);
+        Assert.Equal(44100, description.SampleRate);
+    }
+
+    /// <summary>
     ///     Proves that two descriptions with identical property values compare equal.
     /// </summary>
     [Fact]

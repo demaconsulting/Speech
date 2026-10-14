@@ -18,6 +18,13 @@ differing property compare unequal (compiler-generated record semantics); both c
 
 #### Test Scenarios
 
+##### Fields: Constructed Values Are Exposed
+
+Verifies that an `AudioDeviceDescription` exposes the `Name`, `Direction`, `ChannelCount`, and
+`SampleRate` it was constructed with.
+
+**Test**: `AudioDeviceDescription_Constructor_ExposesAllFields`
+
 ##### Equality: Identical Values Compare Equal
 
 Verifies that two `AudioDeviceDescription` instances constructed with the same `Name`,

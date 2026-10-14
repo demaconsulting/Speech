@@ -91,11 +91,20 @@ sections:
 
               - id: Speech-Audio-FlacDecoder-ContainerLayouts
                 title: >-
-                  The FlacDecoder shall handle up to eight channels and extra metadata blocks.
+                  The FlacDecoder shall decode streams with up to eight channels.
                 justification: |
-                  Real FLAC files vary in container layout.
+                  Real FLAC files include multichannel layouts.
                 tests:
-                  - FlacDecoder_Decode_ContainerVariants_RoundTrip
+                  - FlacDecoder_Decode_ManyChannels_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-ExtraMetadataBlocks
+                title: >-
+                  The FlacDecoder shall ignore metadata blocks other than the stream information
+                  block without affecting the decoded audio.
+                justification: |
+                  Real FLAC files commonly carry tags, seek tables and padding.
+                tests:
+                  - FlacDecoder_Decode_ExtraMetadataBlocks_AreIgnored
 
               - id: Speech-Audio-FlacDecoder-Id3Prefix
                 title: >-

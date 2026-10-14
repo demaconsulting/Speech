@@ -13,13 +13,21 @@ sections:
             requirements:
               - id: Speech-Audio-AudioDeviceDescription-NameIdentity
                 title: >-
-                  The AudioDeviceDescription record shall carry the device's name as its sole
-                  stable identity field, alongside direction, channel count, and sample rate
-                  metadata.
+                  The AudioDeviceDescription record shall expose a device's name, direction,
+                  channel count, and sample rate.
                 justification: |
-                  Consumers (probes, selections, and hosts building device pickers) need a
-                  single, well-known field to treat as identity, plus enough descriptive
-                  metadata to present a device meaningfully without querying the backend again.
+                  Hosts building device pickers need enough descriptive metadata to present a
+                  device meaningfully without querying the backend again.
+                tests:
+                  - AudioDeviceDescription_Constructor_ExposesAllFields
+
+              - id: Speech-Audio-AudioDeviceDescription-ValueEquality
+                title: >-
+                  The AudioDeviceDescription record shall compare equal exactly when all of its
+                  name, direction, channel count, and sample rate match.
+                justification: |
+                  Consumers (probes, selections, and hosts) compare descriptions by value, and
+                  a difference in any one field must make two descriptions distinct.
                 tests:
                   - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
                   - AudioDeviceDescription_Equality_IdenticalValues_AreEqual

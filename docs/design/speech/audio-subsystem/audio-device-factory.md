@@ -22,7 +22,8 @@ successfully, and `_diagnostics` records structural selection and fallback event
 - **CreatePlaybackDevice(...)**: Accepts an optional preferred `AudioFormat` and returns a real
   `PortAudioPlaybackDevice` when PortAudio initialized successfully **and** the requested
   selection (or, when omitted, at least one device) is known to `PlaybackProbe`'s enumeration;
-  otherwise `UnavailableAudioPlaybackDevice.Instance`.
+  otherwise `UnavailableAudioPlaybackDevice.Instance`. Each unavailable fallback (runtime not
+  initialized, or selection unknown to the probe) reports a diagnostic event through the sink.
 - **IsSelectionKnownToProbe(...)** (private, shared by both create methods): Checks a requested
   selection's device name against a probe's enumerated devices, or, for the default selection,
   that the probe enumerates at least one device. This keeps device creation consistent with

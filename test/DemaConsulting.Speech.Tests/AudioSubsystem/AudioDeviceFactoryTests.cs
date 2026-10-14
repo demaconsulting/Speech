@@ -437,6 +437,63 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that both unavailable-device fallbacks report a diagnostic event: the
+    ///     not-initialized fallback and the selection-unknown-to-probe fallback, for capture and
+    ///     playback.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateDevices_UnavailableFallbacks_ReportDiagnostics()
+    {
+        // Arrange: one factory whose PortAudio initialization fails, and one initialized factory
+        // whose injected probes know no devices; both share one diagnostics sink
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var failedEnvironment = new PortAudioEnvironment(
+            new FakePortAudioApi([], new InvalidOperationException("PortAudio init failed.")),
+            OSPlatform.Windows);
+        var failedFactory = new AudioDeviceFactory(null, null, diagnostics, failedEnvironment);
+        var readyEnvironment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 1, 16000, 0.01, 0.01)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, 0)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([]);
+        var readyFactory = new AudioDeviceFactory(captureProbe, playbackProbe, diagnostics, readyEnvironment);
+        diagnostics.ClearReceivedCalls();
+
+        // Act: request every device kind from both factories
+        failedFactory.CreateCaptureDevice();
+        failedFactory.CreatePlaybackDevice();
+        readyFactory.CreateCaptureDevice();
+        readyFactory.CreatePlaybackDevice();
+
+        // Assert: each of the four fallbacks reported exactly one diagnostic event
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Warning,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Capture device unavailable: PortAudio", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Warning,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Playback device unavailable: PortAudio", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Capture device unavailable: the requested selection", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Playback device unavailable: the requested selection", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     Proves that a PortAudio initialization failure returns the honest unavailable fallback device.
     /// </summary>
     [Fact]

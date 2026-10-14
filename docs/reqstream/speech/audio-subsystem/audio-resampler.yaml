@@ -36,16 +36,35 @@ sections:
 
               - id: Speech-Audio-AudioResampler-Resample
                 title: >-
-                  The AudioResampler class shall resample mono audio between sample rates while
-                  preserving duration (within one sample) and tone content (within 0.02 of the
-                  ideal tone away from the clip edges), without introducing aliasing.
+                  The AudioResampler class shall resample mono audio between sample rates so that
+                  the output duration matches the input duration to within one sample.
                 justification: |
-                  Models need audio at a fixed rate; band-limited interpolation avoids aliasing.
-                  The filtering technique is described in the AudioResampler design document.
+                  Models need audio at a fixed rate without the clip being stretched or shortened.
+                tests:
+                  - AudioResampler_Resample_ChangesRate_PreservesDuration
+
+              - id: Speech-Audio-AudioResampler-ResampleTonePreserved
+                title: >-
+                  The AudioResampler class shall preserve a tone below the output Nyquist frequency
+                  to within 0.02 of the ideal tone away from the clip edges, and the level of a
+                  constant signal at every output sample.
+                justification: |
+                  Content within the target band must reach the model undistorted.
                 tests:
                   - AudioResampler_Resample_ChangesRateKeepingTone
                   - AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel
                   - AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges
+
+              - id: Speech-Audio-AudioResampler-ResampleAntiAliasing
+                title: >-
+                  The AudioResampler class shall attenuate a tone above the output Nyquist
+                  frequency by at least 40 dB when down-sampling.
+                justification: |
+                  Content the target rate cannot represent must not fold back into the passband as
+                  aliasing. The filtering technique is described in the AudioResampler design
+                  document.
+                tests:
+                  - AudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
 
               - id: Speech-Audio-AudioResampler-ResampleEqualRates
                 title: >-

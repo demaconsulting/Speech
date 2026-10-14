@@ -98,7 +98,7 @@ so a change is noticed).
 
 **Test**: `AudioClip_ToPcm16_ClampsOutOfRangeSamples`
 
-##### PCM16 conversion scales by 32768 with rounding
+##### PCM16 conversion maps the nominal range onto the 16-bit range
 
 **Stimulus**: A mono clip `[1, -1, 0.5, 1/65536, -1/65536]`; call `ToPcm16()`.
 

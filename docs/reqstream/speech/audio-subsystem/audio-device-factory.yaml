@@ -50,13 +50,55 @@ sections:
 
               - id: Speech-Audio-AudioDeviceFactory-InjectableProbes
                 title: >-
-                  The AudioDeviceFactory class shall accept injected capture/playback probes and
-                  a diagnostics sink, falling back to safe defaults when none are supplied.
+                  The AudioDeviceFactory class shall use a capture probe supplied by the caller
+                  when enumerating capture devices.
                 justification: |
-                  Constructor injection lets tests substitute mock probes while the production
-                  path still exposes the real PortAudio-backed defaults.
+                  Constructor injection lets tests substitute a capture probe while the production
+                  path still exposes the real PortAudio-backed default.
                 tests:
                   - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
+
+              - id: Speech-Audio-AudioDeviceFactory-InjectablePlaybackProbe
+                title: >-
+                  The AudioDeviceFactory class shall use a playback probe supplied by the caller
+                  when enumerating playback devices.
+                justification: |
+                  Constructor injection lets tests substitute a playback probe while the
+                  production path still exposes the real PortAudio-backed default.
+                tests:
+                  - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
+
+              - id: Speech-Audio-AudioDeviceFactory-DiagnosticsSink
+                title: >-
+                  The AudioDeviceFactory class shall deliver its structural selection and fallback
+                  events to a diagnostics sink supplied by the caller.
+                justification: |
+                  Hosts need to observe why a device fell back to unavailable without the factory
+                  throwing.
+                tests:
+                  - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+                  - AudioDeviceFactory_CreateDevices_UnavailableFallbacks_ReportDiagnostics
+
+              - id: Speech-Audio-AudioDeviceFactory-DefaultProbesWhenNoneInjected
+                title: >-
+                  The AudioDeviceFactory class shall provide default capture and playback probes
+                  when the caller supplies none.
+                justification: |
+                  Hosts that do no custom wiring must still get working enumeration.
+                tests:
+                  - AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes
+                  - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+
+              - id: Speech-Audio-AudioDeviceFactory-UnavailableFallbackReported
+                title: >-
+                  The AudioDeviceFactory class shall report a diagnostic event whenever it returns
+                  an unavailable device because the audio runtime failed to initialize or the
+                  requested selection is unknown to the probe in use.
+                justification: |
+                  An unavailable device is otherwise indistinguishable from a quiet success, so
+                  hosts need the reason to diagnose a missing device.
+                tests:
+                  - AudioDeviceFactory_CreateDevices_UnavailableFallbacks_ReportDiagnostics
 
               - id: Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
                 title: >-
@@ -84,8 +126,8 @@ sections:
               - id: Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
                 title: >-
                   The AudioDeviceFactory class shall accept an optional preferred AudioFormat
-                  for capture and playback device creation, forwarding it to the concrete
-                  PortAudio-backed device implementation.
+                  for capture and playback device creation, and a device it creates shall use
+                  that preferred format when it opens its audio stream.
                 justification: |
                   A caller composing devices around a speech model should be able to request the
                   model's preferred format at the public factory boundary, without knowing any

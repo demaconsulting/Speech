@@ -2,8 +2,10 @@
 
 **Purpose**: Carry decoded audio as plain library-owned data.
 
-**Data Model**: An immutable sealed record of interleaved `float` `Samples` in [-1, 1], the
-`SampleRate`, the `ChannelCount` and the source `BitsPerSample`. `FrameCount` and `Duration` are
+**Data Model**: A sealed value record of interleaved `float` `Samples` in [-1, 1], the
+`SampleRate`, the `ChannelCount` and the source `BitsPerSample`. The record is read-only by
+contract rather than deeply immutable: its properties cannot be reassigned after construction, but
+the `Samples` array is shared and mutable. `FrameCount` and `Duration` are
 derived. `BitsPerSample` is informational only: it is neither validated nor used by any member.
 `FrameCount` is `Samples.Length / ChannelCount` with integer division, so a sample count that is not a
 multiple of the channel count truncates: the stray trailing samples are not counted in `FrameCount`
@@ -24,7 +26,8 @@ compiler-generated positional property would accept any value in a `with` expres
   yields a copy, and a NaN sample makes the mono frame that contains it NaN (incidental, not a
   guaranteed contract)
 - **ToPcm16()**: convert to signed 16-bit samples by scaling by 32768 and rounding to nearest
-  (ties to even), clamping to [-32768, 32767] so +1.0 becomes 32767, and mapping NaN to zero
+  (ties to even), clamping to [-32768, 32767] so +1.0 becomes 32767, and mapping NaN to zero. This
+  algorithm is a design detail; the requirements state only the observable mapping and saturation.
 
 **Error Handling**: The constructor and `with` expressions validate: `Samples` null throws
 `ArgumentNullException`; `SampleRate` or `ChannelCount` of zero or less throws

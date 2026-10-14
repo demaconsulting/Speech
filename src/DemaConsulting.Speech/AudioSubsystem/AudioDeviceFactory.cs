@@ -287,11 +287,20 @@ public sealed class AudioDeviceFactory
     {
         if (!_environment.IsInitialized)
         {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                "AudioSubsystem",
+                "Capture device unavailable: PortAudio is not initialized; using the unavailable capture device.");
             return UnavailableAudioCaptureDevice.Instance;
         }
 
         if (!IsSelectionKnownToProbe(CaptureProbe.Enumerate(), selection))
         {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "AudioSubsystem",
+                "Capture device unavailable: the requested selection is not known to the capture probe; " +
+                "using the unavailable capture device.");
             return UnavailableAudioCaptureDevice.Instance;
         }
 
@@ -330,11 +339,20 @@ public sealed class AudioDeviceFactory
     {
         if (!_environment.IsInitialized)
         {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                "AudioSubsystem",
+                "Playback device unavailable: PortAudio is not initialized; using the unavailable playback device.");
             return UnavailableAudioPlaybackDevice.Instance;
         }
 
         if (!IsSelectionKnownToProbe(PlaybackProbe.Enumerate(), selection))
         {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "AudioSubsystem",
+                "Playback device unavailable: the requested selection is not known to the playback probe; " +
+                "using the unavailable playback device.");
             return UnavailableAudioPlaybackDevice.Instance;
         }
 

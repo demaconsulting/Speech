@@ -11,7 +11,8 @@ sections:
       - title: AudioSubsystem Requirements
         requirements:
           - id: Speech-Audio-NameOnlyIdentity
-            title: The AudioSubsystem shall identify audio devices by name alone.
+            title: >-
+              The AudioSubsystem shall resolve a persisted device selection by the saved device name.
             justification: |
               This library's "single preferred host API per platform, name-only device
               identity" decision removes device-index instability across reboots and hot-plug
@@ -19,6 +20,7 @@ sections:
               accepted for the desktop use case.
             children:
               - Speech-Audio-AudioDeviceDescription-NameIdentity
+              - Speech-Audio-AudioDeviceDescription-ValueEquality
               - Speech-Audio-AudioDeviceSelection-ExactNameMatch
             tests:
               - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
@@ -49,6 +51,10 @@ sections:
               implementation or an honest unavailable fallback.
             children:
               - Speech-Audio-AudioDeviceFactory-InjectableProbes
+              - Speech-Audio-AudioDeviceFactory-InjectablePlaybackProbe
+              - Speech-Audio-AudioDeviceFactory-DiagnosticsSink
+              - Speech-Audio-AudioDeviceFactory-DefaultProbesWhenNoneInjected
+              - Speech-Audio-AudioDeviceFactory-UnavailableFallbackReported
               - Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
               - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
               - Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
@@ -133,9 +139,9 @@ sections:
 
           - id: Speech-Audio-MockableContracts
             title: >-
-              The AudioSubsystem shall expose mockable capture/playback device and probe
-              interfaces so hosts and tests can depend on audio behavior without any real
-              hardware in automated test environments.
+              The AudioSubsystem shall report an unavailable state, rather than throwing, when
+              no audio hardware or runtime is available, so hosts and tests can run without
+              real hardware.
             justification: |
               This library's "own interfaces over direct OTS types" decision requires
               library-owned abstractions so hosts can supply mocks in tests and the backend can
@@ -153,11 +159,14 @@ sections:
             tests:
               - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
               - AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured
+              - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
+              - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
+              - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
+              - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
 
           - id: Speech-Audio-PreferredHostApiEnumeration
             title: >-
-              The AudioSubsystem shall enumerate only devices that belong to one preferred
-              PortAudio host API per supported platform.
+              The AudioSubsystem shall list each physical audio device once per enumeration.
             justification: |
               Restricting enumeration to one host API avoids duplicate listings of the same
               physical device under multiple PortAudio backends.
@@ -172,6 +181,9 @@ sections:
               - PortAudioCaptureDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredInputDevices
               - PortAudioPlaybackDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredOutputDevices
               - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+              - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+              - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+              - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
 
           - id: Speech-Audio-RealCaptureDevice
             title: >-
@@ -212,8 +224,9 @@ sections:
               - Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
               - Speech-Audio-PortAudioPlaybackDevice-StartFailureDisposesStream
               - Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
-              - Speech-Audio-PortAudioPlaybackDevice-StopFailureStillDisposesStream
-              - Speech-Audio-PortAudioPlaybackDevice-StopFailureDisposeFaultLogged
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureKeepsStreamActive
+              - Speech-Audio-PortAudioPlaybackDevice-StartRejectedAfterStopFailure
+              - Speech-Audio-PortAudioPlaybackDevice-StopRetryReleasesStream
               - Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
               - Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
@@ -279,20 +292,18 @@ sections:
 
           - id: Speech-Audio-PortAudioInterop
             title: >-
-              The AudioSubsystem shall allow host-API selection and device-resolution logic to be
-              exercised without real audio hardware or the native PortAudio library.
+              The AudioSubsystem shall degrade gracefully, enumerating no devices, when the
+              native audio runtime is unavailable.
             justification: |
-              CI cannot assume access to a microphone or speaker, so PortAudio selection and
-              degradation logic must be verifiable in pure managed tests. The isolation
-              mechanism is described in the AudioSubsystem design document.
+              A machine without the native audio runtime is an ordinary deployment state, and
+              hosts and CI must still be able to enumerate (an empty list) without failure. How
+              the native runtime is isolated for testing is described in the AudioSubsystem
+              design document.
             children:
               - Speech-Audio-PortAudio-Seam
             tests:
-              - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-              - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-              - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
               - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
-              - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+              - PortAudioCaptureDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
 
           - id: Speech-Audio-CaptureFormatDisclosure
             title: >-
@@ -369,8 +380,8 @@ sections:
 
           - id: Speech-Audio-DeviceRefresh
             title: >-
-              The AudioSubsystem shall allow a caller to force the PortAudio device table to be
-              re-scanned on demand.
+              The AudioSubsystem shall make newly attached or removed audio devices visible to a
+              caller on demand, without recomposing the factory.
             justification: |
               Audio devices are hot-pluggable; a host application that has already composed an
               AudioDeviceFactory needs a way to make newly attached or removed hardware visible
@@ -422,16 +433,16 @@ sections:
 
           - id: Speech-Audio-AudioFileReading
             title: >-
-              The AudioSubsystem shall decode WAV and FLAC audio files into floating-point clips
-              using only managed code.
+              The AudioSubsystem shall decode WAV and FLAC audio files into floating-point clips.
             justification: |
-              Hosts keep reference clips and test audio as WAV or FLAC files. A managed decoder
-              adds no native dependency, so it behaves identically on every supported platform
-              and keeps the library trim- and AOT-friendly. This is a deliberate grouping parent:
+              Hosts keep reference clips and test audio as WAV or FLAC files. That decoding is
+              managed-only, behaving identically on every platform, is a design detail described
+              in the AudioSubsystem design document. This is a deliberate grouping parent:
               each child requirement states one criterion.
             children:
               - Speech-Audio-AudioFileReader-DetectsContainer
               - Speech-Audio-AudioFileReader-DecodesFileOrStream
+              - Speech-Audio-AudioFileReader-DecodesStream
               - Speech-Audio-AudioFileReader-ReadsFromCurrentStreamPosition
               - Speech-Audio-AudioFileReader-DecodesId3PrefixedFlac
               - Speech-Audio-AudioFileReader-ListsSupportedExtensions
@@ -440,8 +451,10 @@ sections:
               - Speech-Audio-AudioFileReader-ReportsMalformedFile
               - Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
               - Speech-Audio-AudioFileReader-NamesPathInFailures
+              - Speech-Audio-AudioFileReader-NoPathForStreamFailures
               - Speech-Audio-AudioFileReader-RejectsNullStream
               - Speech-Audio-AudioFileReader-RejectsBlankPath
+              - Speech-Audio-AudioFileReader-RejectsNullPath
               - Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
               - Speech-Audio-AudioFileReader-ByteCap
               - Speech-Audio-AudioFileReader-MaxSamples
@@ -489,6 +502,7 @@ sections:
               - Speech-Audio-FlacDecoder-BlockSizeCodes
               - Speech-Audio-FlacDecoder-MultiByteFrameNumbers
               - Speech-Audio-FlacDecoder-ContainerLayouts
+              - Speech-Audio-FlacDecoder-ExtraMetadataBlocks
               - Speech-Audio-FlacDecoder-Id3Prefix
               - Speech-Audio-FlacDecoder-UnknownLength
               - Speech-Audio-FlacDecoder-MarkerDetection
@@ -516,6 +530,8 @@ sections:
               - Speech-Audio-AudioResampler-DownMixChannelCountValidation
               - Speech-Audio-AudioResampler-DownMixPartialFrame
               - Speech-Audio-AudioResampler-Resample
+              - Speech-Audio-AudioResampler-ResampleTonePreserved
+              - Speech-Audio-AudioResampler-ResampleAntiAliasing
               - Speech-Audio-AudioResampler-ResampleEqualRates
               - Speech-Audio-AudioResampler-ResampleRateValidation
               - Speech-Audio-AudioResampler-ToMonoResampled

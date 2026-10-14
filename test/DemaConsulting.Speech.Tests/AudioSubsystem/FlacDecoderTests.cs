@@ -229,6 +229,16 @@ public sealed class FlacDecoderTests
     [InlineData(50000, true)]
     [InlineData(12345, true)]
     [InlineData(100000, true)]
+    [InlineData(16000, true)]
+    [InlineData(22050, true)]
+    [InlineData(24000, true)]
+    [InlineData(32000, true)]
+    [InlineData(48000, true)]
+    [InlineData(96000, true)]
+    [InlineData(176400, true)]
+    [InlineData(192000, true)]
+    [InlineData(176400, false)]
+    [InlineData(192000, false)]
     [InlineData(37000, false)]
     public void FlacDecoder_Decode_SampleRateCodes_ReportRate(int rate, bool explicitCodes)
     {
@@ -279,22 +289,36 @@ public sealed class FlacDecoderTests
         AssertMatches(signal, clip, 16);
     }
 
-    /// <summary>Proves an ID3 tag, extra metadata blocks and many channels are handled.</summary>
+    /// <summary>Proves up to eight channels decode.</summary>
     [Theory]
-    [InlineData(1, true, true)]
-    [InlineData(3, false, false)]
-    [InlineData(8, true, false)]
-    public void FlacDecoder_Decode_ContainerVariants_RoundTrip(int channels, bool id3, bool extraMetadata)
+    [InlineData(3)]
+    [InlineData(8)]
+    public void FlacDecoder_Decode_ManyChannels_RoundTrip(int channels)
     {
         // Arrange
         var signal = Signal(channels, 300, 16);
-        var encoder = new TestFlacEncoder { Id3Prefix = id3, ExtraMetadata = extraMetadata, BlockSize = 150 };
+        var encoder = new TestFlacEncoder { BlockSize = 150 };
 
         // Act
         var clip = Decode(encoder.Encode(signal));
 
         // Assert
         Assert.Equal(channels, clip.ChannelCount);
+        AssertMatches(signal, clip, 16);
+    }
+
+    /// <summary>Proves metadata blocks other than STREAMINFO are skipped without affecting the audio.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_ExtraMetadataBlocks_AreIgnored()
+    {
+        // Arrange
+        var signal = Signal(1, 300, 16);
+        var encoder = new TestFlacEncoder { ExtraMetadata = true, BlockSize = 150 };
+
+        // Act
+        var clip = Decode(encoder.Encode(signal));
+
+        // Assert
         AssertMatches(signal, clip, 16);
     }
 

@@ -4,7 +4,7 @@ using DemaConsulting.Speech.AudioSubsystem;
 namespace DemaConsulting.Speech.Tests.AudioSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="WavDecoder"/>, driven through <see cref="AudioFileReader"/>.
+///     Unit tests for <see cref="WavDecoder"/>, calling the decoder directly with in-memory WAV images.
 /// </summary>
 public sealed class WavDecoderTests
 {
@@ -25,7 +25,7 @@ public sealed class WavDecoderTests
         }
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, bits, 1, data.ToArray())));
+        var clip = WavDecoder.Decode(Wav(1, 8000, bits, 1, data.ToArray()), long.MaxValue);
 
         // Assert
         Assert.Equal([-1f, 0f, 0.25f], clip.Samples);
@@ -43,7 +43,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(4), -2f);
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(3, 16000, 32, 2, data)));
+        var clip = WavDecoder.Decode(Wav(3, 16000, 32, 2, data), long.MaxValue);
 
         // Assert
         Assert.Equal([0.5f, -2f], clip.Samples);
@@ -65,7 +65,7 @@ public sealed class WavDecoderTests
         var image = Riff(("LIST", new byte[] { 1, 2, 3 }), ("fmt ", fmt), ("data", new byte[] { 0x00, 0x40 }));
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(image));
+        var clip = WavDecoder.Decode(image, long.MaxValue);
 
         // Assert
         Assert.Equal([0.5f], clip.Samples);
@@ -81,7 +81,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(40), 1_000_000);
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(image));
+        var clip = WavDecoder.Decode(image, long.MaxValue);
 
         // Assert
         Assert.Equal([0f, 0.5f], clip.Samples);
@@ -98,7 +98,7 @@ public sealed class WavDecoderTests
         var image = Wav(tag, 8000, bits, 1, new byte[8]);
 
         // Act
-        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image)));
+        var error = Record.Exception(() => WavDecoder.Decode(image, long.MaxValue));
 
         // Assert
         Assert.IsType<NotSupportedException>(error);
@@ -128,7 +128,7 @@ public sealed class WavDecoderTests
         };
 
         // Act
-        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(image, long.MaxValue));
 
         // Assert
         Assert.Contains(fragment, ex.Message);
@@ -140,10 +140,9 @@ public sealed class WavDecoderTests
     {
         // Arrange
         var image = Wav(1, 8000, 16, 1, new byte[100]);
-        var options = new AudioFileReadOptions { MaxSamples = 10 };
 
         // Act
-        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image), options));
+        var error = Record.Exception(() => WavDecoder.Decode(image, 10));
 
         // Assert
         Assert.IsType<InvalidDataException>(error);
@@ -157,11 +156,11 @@ public sealed class WavDecoderTests
         var image = Wav(1, 8000, 16, 1, new byte[20]);
 
         // Act
-        var atCap = AudioFileReader.Read(new MemoryStream(image), new AudioFileReadOptions { MaxSamples = 10 });
+        var atCap = WavDecoder.Decode(image, 10);
 
         // Assert
         Assert.Equal(10, atCap.Samples.Length);
-        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image), new AudioFileReadOptions { MaxSamples = 9 }));
+        Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(image, 9));
     }
 
     /// <summary>Proves the largest positive PCM value of each depth stays below full scale and the extreme negative is exactly -1.</summary>
@@ -173,7 +172,7 @@ public sealed class WavDecoderTests
     public void WavDecoder_Decode_ExtremePcmValues_ScaleAsExpected(int bits, byte[] sample, float expected)
     {
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, bits, 1, sample)));
+        var clip = WavDecoder.Decode(Wav(1, 8000, bits, 1, sample), long.MaxValue);
 
         // Assert
         Assert.Equal([expected], clip.Samples);
@@ -184,7 +183,7 @@ public sealed class WavDecoderTests
     public void WavDecoder_Decode_ZeroLengthData_YieldsEmptyClip()
     {
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 16, 1, [])));
+        var clip = WavDecoder.Decode(Wav(1, 8000, 16, 1, []), long.MaxValue);
 
         // Assert
         Assert.Empty(clip.Samples);
@@ -199,7 +198,7 @@ public sealed class WavDecoderTests
         var data = new byte[] { 0x00, 0x00, 0x40, 0x00, 0x00, 0xC0 };
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 24, 2, data)));
+        var clip = WavDecoder.Decode(Wav(1, 8000, 24, 2, data), long.MaxValue);
 
         // Assert
         Assert.Equal([0.5f, -0.5f], clip.Samples);
@@ -215,7 +214,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteSingleLittleEndian(data, float.NaN);
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(3, 8000, 32, 1, data)));
+        var clip = WavDecoder.Decode(Wav(3, 8000, 32, 1, data), long.MaxValue);
 
         // Assert
         Assert.True(float.IsNaN(clip.Samples[0]));
@@ -230,7 +229,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteUInt32LittleEndian(fmt.AsSpan(4), 0x80000000u);
 
         // Act
-        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(Riff(("fmt ", fmt), ("data", new byte[2])))));
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(Riff(("fmt ", fmt), ("data", new byte[2])), long.MaxValue));
 
         // Assert
         Assert.Contains("above the supported maximum", ex.Message);
@@ -246,7 +245,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(40), 0xFFFFFFFFu);
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(image));
+        var clip = WavDecoder.Decode(image, long.MaxValue);
 
         // Assert
         Assert.Equal([0f, 0.5f], clip.Samples);
@@ -260,7 +259,7 @@ public sealed class WavDecoderTests
     public void WavDecoder_Decode_EightBitExtremes_ScaleAsExpected(int value, float expected)
     {
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 8, 1, new[] { (byte)value })));
+        var clip = WavDecoder.Decode(Wav(1, 8000, 8, 1, new[] { (byte)value }), long.MaxValue);
 
         // Assert
         Assert.Equal([expected], clip.Samples);
@@ -274,7 +273,7 @@ public sealed class WavDecoderTests
         var image = Riff(("fmt ", Format(1, 8000, 16, 1)), ("fmt ", Format(1, 44100, 8, 1)), ("data", new byte[] { 255 }));
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(image));
+        var clip = WavDecoder.Decode(image, long.MaxValue);
 
         // Assert
         Assert.Equal(8, clip.BitsPerSample);
@@ -308,7 +307,7 @@ public sealed class WavDecoderTests
         var image = Riff(("fmt ", Format(1, 8000, 16, 1))).Concat("LIST"u8.ToArray()).Concat(BitConverter.GetBytes(100u)).Concat(new byte[2]).ToArray();
 
         // Act
-        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(image, long.MaxValue));
 
         // Assert
         Assert.Contains("no 'data' chunk", ex.Message);
@@ -323,7 +322,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteSingleLittleEndian(data, -0.25f);
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(Riff(("fmt ", Extensible(3, 32, 1)), ("data", data))));
+        var clip = WavDecoder.Decode(Riff(("fmt ", Extensible(3, 32, 1)), ("data", data)), long.MaxValue);
 
         // Assert
         Assert.Equal([-0.25f], clip.Samples);
@@ -341,7 +340,7 @@ public sealed class WavDecoderTests
         var image = Riff(("fmt ", Extensible(subFormat, bits, 1)), ("data", new byte[8]));
 
         // Act
-        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(image)));
+        var error = Record.Exception(() => WavDecoder.Decode(image, long.MaxValue));
 
         // Assert
         Assert.IsType<NotSupportedException>(error);
@@ -355,7 +354,7 @@ public sealed class WavDecoderTests
         var image = Wav(1, 8000, 16, 2, new byte[] { 0, 0, 0, 0x40, 0, 0x20 });
 
         // Act
-        var clip = AudioFileReader.Read(new MemoryStream(image));
+        var clip = WavDecoder.Decode(image, long.MaxValue);
 
         // Assert
         Assert.Equal([0f, 0.5f], clip.Samples);

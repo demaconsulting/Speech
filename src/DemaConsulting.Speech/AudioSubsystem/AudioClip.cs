@@ -1,8 +1,9 @@
 namespace DemaConsulting.Speech.AudioSubsystem;
 
 /// <summary>
-///     An immutable, fully decoded audio clip: interleaved floating-point samples plus the format they were
-///     decoded from.
+///     A read-only-by-contract, fully decoded audio clip: interleaved floating-point samples plus the format they
+///     were decoded from. The record's properties cannot be reassigned, but the <see cref="Samples"/> array is
+///     shared and must not be modified.
 /// </summary>
 /// <remarks>
 ///     Produced by <see cref="AudioFileReader"/>. Samples are scaled to the range [-1, 1]. The sample array is
