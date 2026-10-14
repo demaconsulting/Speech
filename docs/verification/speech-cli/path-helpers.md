@@ -4,7 +4,8 @@
 
 `PathHelpers` is verified with unit tests that call `SafePathCombine` with relative and absolute
 bases and with escaping, rooted and null components, asserting the returned path or the exception
-thrown. The method does no file-system I/O, so no test creates a file or directory.
+thrown. The link tests create real temporary directories and symbolic links, and skip when the environment
+does not allow creating a link.
 
 ### Test Environment
 
@@ -17,7 +18,8 @@ thrown. The method does no file-system I/O, so no test creates a file or directo
 
 The unit passes when a safe component yields the fully qualified path that matches what the
 containment check validated (for relative and absolute bases), an escaping or rooted component is
-rejected with `ArgumentException`, and null arguments are rejected with `ArgumentNullException`.
+rejected with `ArgumentException`, a path through an existing symbolic link is rejected with `ArgumentException`, and null arguments are rejected
+with `ArgumentNullException`.
 
 ### Test Scenarios
 
@@ -57,6 +59,30 @@ rejected with `ArgumentException`, and null arguments are rejected with `Argumen
 **Scenario**: A null base, then a null component.
 
 **Expected**: `ArgumentNullException` for each.
+
+#### PathHelpers_SafePathCombine_DirectorySymbolicLinkComponent_ThrowsArgumentException
+
+**Scenario**: A directory symbolic link inside the base points outside it; a file below the link is requested.
+
+**Expected**: `ArgumentException` with parameter name `relativePath`; skipped when links cannot be created.
+
+#### PathHelpers_SafePathCombine_JunctionComponent_ThrowsArgumentException
+
+**Scenario**: On Windows, a directory junction inside the base points outside it; a file below it is requested.
+
+**Expected**: `ArgumentException`; skipped on other platforms.
+
+#### PathHelpers_SafePathCombine_FileSymbolicLinkComponent_ThrowsArgumentException
+
+**Scenario**: A file symbolic link inside the base points to a file outside it.
+
+**Expected**: `ArgumentException`; skipped when links cannot be created.
+
+#### PathHelpers_SafePathCombine_PlainExistingDirectory_ReturnsCombinedPath
+
+**Scenario**: A plain existing subdirectory is traversed to a file that does not exist.
+
+**Expected**: The fully qualified combined path is returned.
 
 ### Not Covered By A Dedicated Test
 

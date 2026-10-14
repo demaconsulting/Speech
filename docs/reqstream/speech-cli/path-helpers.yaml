@@ -47,3 +47,15 @@ sections:
               A null argument is a programming error that must not become a path.
             tests:
               - PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException
+
+          - id: SpeechCli-PathHelpers-LinkRejected
+            title: >-
+              The PathHelpers unit shall reject, with an ArgumentException, a component whose path passes
+              through an existing symbolic link or reparse point below the base path.
+            justification: |
+              A link inside the base directory can point outside it, so a lexically contained path could
+              still reach files outside the intended folder.
+            tests:
+              - PathHelpers_SafePathCombine_DirectorySymbolicLinkComponent_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_JunctionComponent_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_FileSymbolicLinkComponent_ThrowsArgumentException
