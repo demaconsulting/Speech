@@ -9,9 +9,10 @@ descriptor's file list), `FileCount` (total files for this model), `BytesTransfe
 
 **Key Methods**:
 
-- **FractionComplete** (computed property): Returns `BytesTransferred / TotalBytes` in the range
-  `[0, 1]` when `TotalBytes` is known and non-zero, `1.0` when `TotalBytes` is exactly zero
-  (rather than dividing by zero), and `null` when `TotalBytes` is unknown.
+- **FractionComplete** (computed property): Returns `BytesTransferred / TotalBytes` clamped to the range
+  `[0, 1]` (more bytes than the total reads `1.0`, a negative count reads `0.0`) when `TotalBytes` is known and
+  non-zero, `1.0` when `TotalBytes` is exactly zero (rather than dividing by zero), and `null` when `TotalBytes`
+  is unknown.
 
 **Error Handling**: None - a pure, side-effect-free value type; `FractionComplete` never throws
 for any combination of its inputs.

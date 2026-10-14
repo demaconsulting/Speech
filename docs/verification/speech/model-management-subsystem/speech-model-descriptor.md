@@ -51,6 +51,13 @@ the descriptor's public properties have no setters and its state is unaffected b
 
 Two distinct but identically named fake models are wrapped with the same state; equality is by model instance.
 
+##### Distinct models that report themselves equal are still not equal
+
+**Test**: `SpeechModelDescriptor_DistinctModelsThatAreAlwaysEqual_AreNotEqual`
+
+Two distinct substitute models whose own `Equals` always returns `true` yield unequal descriptors; the same
+instance and state yield equal descriptors with consistent hash codes.
+
 ##### Immutability: no public setters
 
 **Test**: `SpeechModelDescriptor_Snapshot_PublicProperties_HaveNoSetters`

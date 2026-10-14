@@ -155,6 +155,30 @@ public class SpeechModelDescriptorTests
     }
 
     /// <summary>
+    ///     Proves that descriptors for two distinct model instances are not equal even when the models' own equality
+    ///     reports them equal, because descriptor equality is defined on model identity.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_DistinctModelsThatAreAlwaysEqual_AreNotEqual()
+    {
+        // Arrange
+        var firstModel = new AlwaysEqualModel();
+        var secondModel = new AlwaysEqualModel();
+        var first = new SpeechModelDescriptor(firstModel, SpeechModelState.Downloaded);
+        var sameAsFirst = new SpeechModelDescriptor(firstModel, SpeechModelState.Downloaded);
+
+        // Act
+        var second = new SpeechModelDescriptor(secondModel, SpeechModelState.Downloaded);
+
+        // Assert
+        Assert.False(first.Equals(second));
+        Assert.True(first != second);
+        Assert.True(first.Equals(sameAsFirst));
+        Assert.Equal(first.GetHashCode(), sameAsFirst.GetHashCode());
+        Assert.False(first.Equals(null));
+    }
+
+    /// <summary>
     ///     Proves that the descriptor offers no way to change its model or state after construction.
     /// </summary>
     [Fact]
@@ -189,5 +213,33 @@ public class SpeechModelDescriptorTests
         // Assert
         Assert.Equal(SpeechModelState.Downloaded, descriptor.State);
         Assert.Same(model, descriptor.Model);
+    }
+
+    /// <summary>A model whose <see cref="Equals(object)"/> reports every other model as equal.</summary>
+    private sealed class AlwaysEqualModel : ISpeechModel
+    {
+        /// <inheritdoc/>
+        public string Id => "always-equal";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Always Equal";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Synthesis;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor => FakeModelDescriptors.SingleFileDescriptor("always-equal");
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj) => true;
+
+        /// <inheritdoc/>
+        public override int GetHashCode() => 1;
     }
 }

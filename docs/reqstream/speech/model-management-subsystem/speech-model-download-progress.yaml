@@ -38,3 +38,13 @@ sections:
                   A genuinely empty file must report as complete rather than dividing by zero.
                 tests:
                   - SpeechModelDownloadProgress_FractionComplete_ZeroTotalBytes_ReturnsOne
+
+              - id: Speech-Models-SpeechModelDownloadProgress-FractionBounds
+                title: >-
+                  A progress report shall never expose a completed fraction below zero or above one.
+                justification: |
+                  A host progress bar must stay within its range even when a transfer reports more
+                  bytes than the declared total or a nonsensical count.
+                tests:
+                  - SpeechModelDownloadProgress_FractionComplete_BytesOverTotal_ClampsToOne
+                  - SpeechModelDownloadProgress_FractionComplete_NegativeBytes_ClampsToZero

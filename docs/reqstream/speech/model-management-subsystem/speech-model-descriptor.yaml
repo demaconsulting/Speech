@@ -47,6 +47,7 @@ sections:
                 tests:
                   - SpeechModelDescriptor_SameModelAndState_AreEqual
                   - SpeechModelDescriptor_DifferentModelInstance_SameState_AreNotEqual
+                  - SpeechModelDescriptor_DistinctModelsThatAreAlwaysEqual_AreNotEqual
 
               - id: Speech-Models-SpeechModelDescriptor-StateInequality
                 title: >-
