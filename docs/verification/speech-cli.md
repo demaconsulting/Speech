@@ -53,8 +53,9 @@ The SpeechCli system is accepted when all of the following hold (IEC 62304 §5.7
 
 - Every test linked to a SpeechCli system requirement in `docs/reqstream/speech-cli.yaml`, and
   every test linked to a requirement of the five command subsystems or of a unit, passes in the CI test run on
-  every supported platform with no failing result. The only permitted skip is the real speech-to-text
-  integration test, which skips dynamically when no speech-to-text model is downloaded in the per-user model
+  every supported platform with no failing result. No `speak` or `ask` system test may skip: those run in-process
+  against fakes. The only permitted skip is the supplemental real speech-to-text integration test, which skips
+  dynamically when no speech-to-text model is downloaded in the per-user model
   store; it is then reported as skipped and verified manually against a downloaded model before release
 - `speech-cli --validate` reports `Failed: 0`, with every self-test check passing
 - `--version` and `--help` exit `0`, and `--help` lists all thirteen subcommands and every global
@@ -118,6 +119,22 @@ Verification_, _SpeechCli DeviceCommandsSubsystem Verification_, _SpeechCli
 SynthesisCommandSubsystem Verification_, _SpeechCli RecognitionCommandSubsystem Verification_,
 and _SpeechCli ConversationCommandSubsystem Verification_ for the subcommands' own detailed test
 scenarios.
+
+### Successful Speak and Ask Runs
+
+**Tests**: `SpeechCli_SpeakCommandWithFakeModel_TextProvided_SpeaksTextAndSucceeds`,
+`SpeechCli_SpeakCommandWithPipedStdin_NoTextOrFile_SpeaksPipedTextAndSucceeds`,
+`SpeechCli_SpeakCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources`,
+`SpeechCli_AskCommandWithFakeModels_TextProvided_CompletesTurnAndSucceeds`,
+`SpeechCli_AskCommandWithPipedStdin_NoTextOrFile_SpeaksPipedPromptAndSucceeds`,
+`SpeechCli_AskCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources`
+
+Verifies, in-process and deterministically, that `speak` speaks the supplied or piped text and exits `0`, that
+`ask` speaks its prompt (supplied or piped), listens, prints the reply, and exits `0`, and that omitting every
+text source with no piped input fails naming the accepted sources. The tests run against fake models and fake
+playback and capture devices, and simulate redirected or interactive standard input, so they never skip and never
+depend on the host's standard input, audio hardware, or model store. A real downloaded-model run remains a
+supplemental manual check.
 
 ### Global Options Recognized Regardless of Position
 
@@ -204,9 +221,9 @@ variables but never prints their values.
 Verifies that `--validate` runs all five self-test checks (version display, help display,
 the subcommand registration being well formed, audio-backend probe composition, the model-store root being
 writable) to completion without throwing regardless of the host machine's audio hardware or
-installed models, and reports a pass/fail summary. The version and help checks run their inner
-invocation with the process environment hidden, so an ambient `DEMASPEECH_MIRROR_*` variable cannot
-change the self-test outcome.
+installed models, and reports a pass/fail summary. The system test runs against an isolated, empty
+`--models-dir` (no installed model) and asserts the audio-backend probe and model-store checks still pass, showing
+the self-validation does not depend on ambient models. The version and help checks run their inner
 
 ### Self-Validation Results File
 

@@ -260,6 +260,9 @@ directory.
 - **CI-safe self-validation**: No self-test check may depend on a real, multi-hundred-megabyte
   model download or physical audio hardware being present, mirroring the same constraint the
   Speech library's own `SpeechModelCatalog`/`AudioDeviceFactory` composition guarantees satisfy
+- **Deterministic command tests**: `speak` and `ask` resolve piped standard input through an injectable
+  "is redirected" check and reader (defaulting to the console), alongside the catalog and device-source seams, so
+  system tests exercise piped-input and success paths against fakes without depending on the host's stdin
 
 ### Platform Support
 
