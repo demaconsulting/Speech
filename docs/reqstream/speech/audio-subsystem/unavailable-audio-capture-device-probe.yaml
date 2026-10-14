@@ -12,7 +12,7 @@ sections:
           - title: UnavailableAudioCaptureDeviceProbe Requirements
             requirements:
               - id: Speech-Audio-UnavailableAudioCaptureDeviceProbe-EmptyEnumeration
-                title: The UnavailableAudioCaptureDeviceProbe class shall always enumerate zero devices.
+                title: The unavailable audio capture device probe shall always report zero devices.
                 justification: |
                   A probe with no real backend must report "no devices" rather than throwing, so
                   callers can treat "no devices" and "backend unavailable" identically.
