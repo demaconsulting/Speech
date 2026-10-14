@@ -89,6 +89,9 @@ public class RecognitionResultBufferTests
         }
     }
 
+    /// <summary>Reads every result from the buffer until it completes.</summary>
+    /// <param name="buffer">The completed buffer to drain.</param>
+    /// <returns>All delivered events, in delivery order.</returns>
     private static async Task<List<SpeechRecognitionEvent>> CollectAsync(RecognitionResultBuffer buffer)
     {
         var results = new List<SpeechRecognitionEvent>();
@@ -100,6 +103,9 @@ public class RecognitionResultBufferTests
         return results;
     }
 
+    /// <summary>Reads exactly one result from the buffer, then disposes the enumerator.</summary>
+    /// <param name="buffer">The buffer to read from.</param>
+    /// <returns>The first delivered result.</returns>
     private static async Task<SpeechRecognitionResult> CollectOneAsync(RecognitionResultBuffer buffer)
     {
         await using var enumerator = buffer.ReadAllAsync(TestContext.Current.CancellationToken).GetAsyncEnumerator();

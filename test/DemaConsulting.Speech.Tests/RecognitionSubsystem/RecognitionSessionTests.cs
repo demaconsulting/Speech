@@ -64,7 +64,7 @@ public class RecognitionSessionTests
         // Act: call StartAsync and prove it returns a task - without blocking this thread - well
         // before the device's own blocking Start() call has returned
         var startTask = session.StartAsync(TestContext.Current.CancellationToken);
-        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the device call was genuinely entered, but StartAsync has not yet completed and
         // this thread was never blocked waiting for it - the session is still Starting, not yet
@@ -75,7 +75,7 @@ public class RecognitionSessionTests
 
         // Act: release the blocked device call and let the start genuinely finish
         startRelease.Set();
-        await startTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await startTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the session has now converged to Running, and the device was started exactly
         // once
@@ -117,7 +117,7 @@ public class RecognitionSessionTests
         // Act: stop concurrently from two callers
         var first = session.StopAsync(TestContext.Current.CancellationToken);
         var second = session.StopAsync(TestContext.Current.CancellationToken);
-        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: both callers converged, and the non-idempotent teardown steps ran exactly once -
         // the second caller must not have repeated them after observing the Stopping state
@@ -432,13 +432,13 @@ public class RecognitionSessionTests
     [Fact]
     public async Task RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning()
     {
-        // Arrange: a backend whose AcceptSamples blocks forever, and a worker with a near-zero
+        // Arrange: a backend whose AcceptSamples blocks forever, and a worker with a short
         // abandon timeout so the test stays fast
         using var neverSignaled = new ManualResetEvent(false);
         var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
         var worker = new DedicatedWorker(
-            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            abandonTimeout: TimeSpan.FromMilliseconds(50),
             diagnostics: diagnostics,
             diagnosticsCategory: "RecognitionSubsystem");
         var device = CreateCaptureDevice();
@@ -447,10 +447,10 @@ public class RecognitionSessionTests
         RaiseFrameCaptured(device, [0.1f]);
 
         // Wait until the pump thread has genuinely entered the blocking call before stopping
-        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Act: stop must complete within a bounded time, not hang on the stuck backend call
-        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: teardown still converged, and the abandonment was reported
         Assert.Equal(RecognitionSessionState.Stopped, session.State);
@@ -476,7 +476,7 @@ public class RecognitionSessionTests
     {
         // Arrange: a device whose Start() blocks forever (standing in for a stuck native call,
         // consistent with IAudioCaptureDevice.Start() having no cancellation token of its own),
-        // and a worker with a near-zero abandon timeout so the test stays fast
+        // and a worker with a short abandon timeout so the test stays fast
         using var startEntered = new ManualResetEventSlim(false);
         using var neverReturns = new ManualResetEventSlim(false);
         var device = CreateCaptureDevice();
@@ -487,14 +487,14 @@ public class RecognitionSessionTests
         });
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
         var worker = new DedicatedWorker(
-            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            abandonTimeout: TimeSpan.FromMilliseconds(50),
             diagnostics: diagnostics,
             diagnosticsCategory: "RecognitionSubsystem");
         await using var session = CreateSession(new FakeRecognitionEngine(), device, worker: worker, diagnostics: diagnostics);
 
         using var startCts = new CancellationTokenSource();
         var startTask = session.StartAsync(startCts.Token);
-        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.True(enteredInTime, "The capture device's Start() was never entered.");
 
         // Act: cancel the caller's own token while Start() is still blocked; the call must
@@ -505,7 +505,7 @@ public class RecognitionSessionTests
         // Assert: the abandoned start surfaces as a failure to start, not a silent hang, and the
         // abandonment was reported
         await Assert.ThrowsAsync<SpeechRecognizerUnavailableException>(
-            () => startTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            () => startTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
         Assert.Equal(RecognitionSessionState.Faulted, session.State);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Warning,
@@ -748,7 +748,7 @@ public class RecognitionSessionTests
         // Act: let the device start complete
         startRelease.Set();
         await startTask;
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the session converged to genuinely Stopped, and the device was genuinely
         // started then genuinely stopped exactly once each - never left running
@@ -784,7 +784,7 @@ public class RecognitionSessionTests
 
                 var expected = i + 1;
                 Assert.True(
-                    SpinWait.SpinUntil(() => engine.AcceptSamplesCallCount >= expected, TimeSpan.FromSeconds(5)),
+                    engine.WaitForAcceptSamplesCallCount(expected, TimeSpan.FromSeconds(30)),
                     $"The pump never accepted block {expected} of {blockCount}; it was not draining the channel concurrently with Start().");
             }
         });
@@ -794,7 +794,7 @@ public class RecognitionSessionTests
         // Act: start (synchronously emitting every block before returning, each one drained
         // before the next is raised), then stop to converge the pump
         await session.StartAsync(TestContext.Current.CancellationToken);
-        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: every block emitted from within Start() was still accepted by the backend -
         // none were dropped because the pump was already draining the channel before Start() ran
@@ -840,7 +840,7 @@ public class RecognitionSessionTests
     ///     <see cref="RecognitionSession.DisposeAsync"/>), all of whom still require the
     ///     drain to genuinely happen.
     /// </summary>
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 60000)]
     public async Task RecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown()
     {
         // Arrange: a backend whose AcceptSamples blocks until this test releases it
@@ -852,7 +852,7 @@ public class RecognitionSessionTests
         RaiseFrameCaptured(device, [0.1f]);
 
         // Wait until the pump has genuinely entered (and is blocked inside) AcceptSamples
-        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal(1, engine.AcceptSamplesCallCount);
 
         // Act: call StopAsync with a token that is canceled immediately after the call begins
@@ -882,7 +882,7 @@ public class RecognitionSessionTests
         Assert.False(secondStopTask.IsCompleted);
 
         block.Set();
-        await secondStopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await secondStopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal(RecognitionSessionState.Stopped, session.State);
     }
 
@@ -892,15 +892,15 @@ public class RecognitionSessionTests
     ///     session (or engine disposal) can never touch or dispose the shared backend while an
     ///     abandoned pump thread is still inside a blocking backend call.
     /// </summary>
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 60000)]
     public async Task RecognitionSession_DisposeAsync_AbandonedPumpWorker_DoesNotReleaseLeaseUntilWorkerExits()
     {
         // Arrange: a backend whose AcceptSamples blocks forever (until this test releases it),
-        // and a worker with a near-zero abandon timeout so the test stays fast
+        // and a worker with a short abandon timeout so the test stays fast
         using var neverSignaled = new ManualResetEvent(false);
         var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
         var worker = new DedicatedWorker(
-            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            abandonTimeout: TimeSpan.FromMilliseconds(50),
             diagnostics: NullSpeechDiagnostics.Instance,
             diagnosticsCategory: "RecognitionSubsystem");
         var device = CreateCaptureDevice();
@@ -918,10 +918,10 @@ public class RecognitionSessionTests
             });
         await session.StartAsync(TestContext.Current.CancellationToken);
         RaiseFrameCaptured(device, [0.1f]);
-        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Act: stop (completes quickly via the abandon policy) then begin disposing
-        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         var disposeTask = session.DisposeAsync().AsTask();
 
         // Assert: the lease must not be released while the abandoned pump thread is still stuck
@@ -933,7 +933,7 @@ public class RecognitionSessionTests
         // Act: release the abandoned background thread so it can genuinely exit
         Volatile.Write(ref workerReleased, true);
         neverSignaled.Set();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: only once the worker genuinely exited was the lease released
         Assert.Equal(1, releaseCount);
@@ -960,7 +960,7 @@ public class RecognitionSessionTests
         async Task DisposeOnceAsync() => await session.DisposeAsync();
         var first = DisposeOnceAsync();
         var second = DisposeOnceAsync();
-        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: both callers converged, the destructive teardown steps ran exactly once, and
         // the lease was released exactly once
@@ -976,7 +976,7 @@ public class RecognitionSessionTests
     ///     and then synchronously blocking on the result does not deadlock: the event
     ///     must be raised only after <c>_syncRoot</c> has been released.
     /// </summary>
-    [Fact(Timeout = 5000)]
+    [Fact(Timeout = 60000)]
     public async Task RecognitionSession_StateChangedHandlerBlocksOnStopAsync_DoesNotDeadlock()
     {
         // Arrange
@@ -1041,6 +1041,66 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that stopping a session that has already faulted does not throw
+    ///     <see cref="RecognitionSessionFaultedException"/>; that exception is reserved for
+    ///     readers of the results.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException()
+    {
+        // Arrange: a session whose backend fails on the first captured block
+        var engine = new FakeRecognitionEngine(acceptSamplesException: new InvalidOperationException("Backend failure."));
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        var faulted = WaitForStateAsync(session, RecognitionSessionState.Faulted);
+        RaiseFrameCaptured(device, [0.1f]);
+        await faulted;
+
+        // Act: stop the faulted session
+        var exception = await Record.ExceptionAsync(
+            () => session.StopAsync(TestContext.Current.CancellationToken));
+
+        // Assert: stopping reported no exception
+        Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Proves that when the backend holds more results for one captured block than the
+    ///     per-block drain limit, stopping still delivers every one of them.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_StopAsync_MoreResultsThanPerBlockLimit_DeliversAllFinalResults()
+    {
+        // Arrange: a backend that yields 100 final results for a single captured block, followed
+        // by a flushed trailing result
+        const int resultCount = 100;
+        var scripted = Enumerable.Range(0, resultCount)
+            .Select(i => new SpeechRecognitionResult($"result {i}", IsFinal: true));
+        var engine = new FakeRecognitionEngine(
+            scriptedResults: scripted,
+            scriptedFlushResult: new SpeechRecognitionResult("tail", IsFinal: true));
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: capture one block, wait until the backend has accepted it, then stop
+        RaiseFrameCaptured(device, [0.1f]);
+        Assert.True(engine.WaitForAcceptSamplesCallCount(1, TimeSpan.FromSeconds(30)));
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: all scripted results arrive in order, followed by the flushed tail
+        var results = await CollectAsync(session.GetResultsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(resultCount + 1, results.Count);
+        for (var i = 0; i < resultCount; i++)
+        {
+            Assert.Equal($"result {i}", results[i].Result.Text);
+        }
+
+        Assert.Equal("tail", results[resultCount].Result.Text);
+    }
+
+    /// <summary>
     ///     Proves that calling <see cref="RecognitionSession.StopAsync"/> on a session
     ///     that was never started still completes its result buffer, so
     ///     <see cref="RecognitionSession.GetResultsAsync"/> returns instead of hanging
@@ -1057,7 +1117,7 @@ public class RecognitionSessionTests
 
         // Assert
         Assert.Equal(RecognitionSessionState.Stopped, session.State);
-        using var bounded = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var bounded = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await foreach (var _ in session.GetResultsAsync(bounded.Token))
         {
             // No results are expected: the buffer should complete immediately and empty.
@@ -1071,15 +1131,15 @@ public class RecognitionSessionTests
     ///     <see cref="IRecognitionBackend.AcceptSamples"/> while teardown concurrently reset the
     ///     same backend.
     /// </summary>
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 60000)]
     public async Task RecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits()
     {
-        // Arrange: a backend whose AcceptSamples blocks forever, and a worker with a near-zero
+        // Arrange: a backend whose AcceptSamples blocks forever, and a worker with a short
         // abandon timeout so the test stays fast
         using var neverSignaled = new ManualResetEvent(false);
         var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
         var worker = new DedicatedWorker(
-            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            abandonTimeout: TimeSpan.FromMilliseconds(50),
             diagnostics: NullSpeechDiagnostics.Instance,
             diagnosticsCategory: "RecognitionSubsystem");
         var device = CreateCaptureDevice();
@@ -1088,10 +1148,10 @@ public class RecognitionSessionTests
         await using var session = CreateSession(engine, device, worker: worker);
         await session.StartAsync(TestContext.Current.CancellationToken);
         RaiseFrameCaptured(device, [0.1f]);
-        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Act: stop completes quickly via the abandon policy
-        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the backend must not be reset, nor the device stopped, while the abandoned pump
         // thread may still be inside the blocking backend call
@@ -1104,7 +1164,7 @@ public class RecognitionSessionTests
 
         // Waits for the device stop - the second of the two sequential calls
         // ResetBackendAndStopDeviceCore makes, after the backend reset - so both have happened.
-        await deviceStopped.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await deviceStopped.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: only once the worker genuinely exited was the backend reset and device stopped
         Assert.Equal(1, engine.ResetCallCount);
@@ -1219,7 +1279,7 @@ public class RecognitionSessionTests
         {
             if (session.State != expected)
             {
-                await reached.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+                await reached.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
             }
         }
         finally

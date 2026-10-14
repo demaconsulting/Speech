@@ -5,9 +5,10 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     <see cref="IRecognitionSession"/>.
 /// </summary>
 /// <param name="Text">
-///     The recognized text for the current utterance. Never <see langword="null"/>; may be an
-///     empty string only when a caller constructs the record directly, since the recognizer
-///     suppresses empty results rather than raising them.
+///     The recognized text for the current utterance. Must not be <see langword="null"/>; the constructor throws
+///     <see cref="ArgumentNullException"/> otherwise. May be an empty string only when a caller
+///     constructs the record directly, since the recognizer suppresses empty results rather than
+///     raising them.
 /// </param>
 /// <param name="IsFinal">
 ///     <see langword="true"/> when the recognizer has decided the utterance is complete and the
@@ -22,4 +23,15 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     host can render it directly without accumulating fragments itself. The type is an
 ///     immutable record and is therefore safe to share across threads.
 /// </remarks>
-public sealed record SpeechRecognitionResult(string Text, bool IsFinal);
+public sealed record SpeechRecognitionResult(string Text, bool IsFinal)
+{
+    /// <summary>Backing field for <see cref="Text"/>; guaranteed non-null.</summary>
+    private readonly string _text = Text ?? throw new ArgumentNullException(nameof(Text));
+
+    /// <summary>Gets the recognized text for the current utterance; never <see langword="null"/>.</summary>
+    public string Text
+    {
+        get => _text;
+        init => _text = value ?? throw new ArgumentNullException(nameof(value));
+    }
+}

@@ -37,40 +37,42 @@ public class UnavailableRecognitionSessionTests
     }
 
     /// <summary>
-    ///     Proves that enumerating <see cref="UnavailableRecognitionSession.GetResultsAsync"/>
-    ///     throws <see cref="SpeechRecognizerUnavailableException"/>.
+    ///     Proves that invoking <see cref="UnavailableRecognitionSession.GetResultsAsync"/>
+    ///     throws <see cref="SpeechRecognizerUnavailableException"/> immediately, before any
+    ///     enumeration begins.
     /// </summary>
     [Fact]
-    public async Task UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException()
+    public void UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException()
     {
         // Arrange: the shared unavailable session
         var session = UnavailableRecognitionSession.Instance;
 
-        // Act & Assert: enumerating the (lazily-evaluated) sequence surfaces the exception
-        await Assert.ThrowsAsync<SpeechRecognizerUnavailableException>(async () =>
-        {
-            await foreach (var _ in session.GetResultsAsync(TestContext.Current.CancellationToken))
-            {
-                // No iterations are expected: the exception is thrown before the first result.
-            }
-        });
+        // Act & Assert: the call itself throws, without enumerating the returned sequence
+        Assert.Throws<SpeechRecognizerUnavailableException>(
+            () => session.GetResultsAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="UnavailableRecognitionSession.StopAsync"/> is a safe
-    ///     no-op that never throws, since this session was never running.
+    ///     Proves that calling <see cref="UnavailableRecognitionSession.StopAsync"/> repeatedly is
+    ///     a safe no-op that never throws, since this session was never running.
     /// </summary>
     [Fact]
     public async Task UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp()
     {
         // Arrange: the shared unavailable session
         var session = UnavailableRecognitionSession.Instance;
+        var exceptions = new List<Exception?>();
 
-        // Act
-        var exception = await Record.ExceptionAsync(() => session.StopAsync(TestContext.Current.CancellationToken));
+        // Act: stop three times in a row
+        for (var i = 0; i < 3; i++)
+        {
+            exceptions.Add(await Record.ExceptionAsync(
+                () => session.StopAsync(TestContext.Current.CancellationToken)));
+        }
 
-        // Assert: nothing threw
-        Assert.Null(exception);
+        // Assert: no call threw and the session is still in its idle state
+        Assert.All(exceptions, Assert.Null);
+        Assert.Equal(RecognitionSessionState.Created, session.State);
     }
 
     /// <summary>
@@ -96,7 +98,7 @@ public class UnavailableRecognitionSessionTests
 
         // Assert: nothing throws and the shared instance is still usable
         Assert.Null(exception);
-        Assert.False(UnavailableRecognitionSession.Instance.IsAvailable);
-        Assert.Equal(RecognitionSessionState.Created, UnavailableRecognitionSession.Instance.State);
+        Assert.False(session.IsAvailable);
+        Assert.Equal(RecognitionSessionState.Created, session.State);
     }
 }

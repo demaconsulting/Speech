@@ -97,7 +97,41 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     public IReadOnlyList<float> AcceptedSamples => _acceptedSamples;
 
     /// <summary>Gets the number of <see cref="AcceptSamples"/> calls this engine has received.</summary>
-    public int AcceptSamplesCallCount { get; private set; }
+    public int AcceptSamplesCallCount
+    {
+        get { lock (_countLock) { return _acceptSamplesCallCount; } }
+    }
+
+    /// <summary>Guards the <see cref="AcceptSamples"/> call counter and signals waiters when it changes.</summary>
+    private readonly object _countLock = new();
+
+    /// <summary>The number of <see cref="AcceptSamples"/> calls received so far; guarded by <see cref="_countLock"/>.</summary>
+    private int _acceptSamplesCallCount;
+
+    /// <summary>
+    ///     Blocks until <see cref="AcceptSamples"/> has been called at least
+    ///     <paramref name="expected"/> times, signaled by the call itself rather than polling.
+    /// </summary>
+    /// <param name="expected">The call count to wait for.</param>
+    /// <param name="timeout">The longest time to wait; a failure guard only.</param>
+    /// <returns><see langword="true"/> when the count was reached; otherwise <see langword="false"/>.</returns>
+    public bool WaitForAcceptSamplesCallCount(int expected, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        lock (_countLock)
+        {
+            while (_acceptSamplesCallCount < expected)
+            {
+                var remaining = deadline - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero || !Monitor.Wait(_countLock, remaining))
+                {
+                    return _acceptSamplesCallCount >= expected;
+                }
+            }
+
+            return true;
+        }
+    }
 
     /// <summary>
     ///     Gets a task that completes once the first <see cref="AcceptSamples"/> call has been
@@ -120,8 +154,13 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <inheritdoc/>
     public void AcceptSamples(ReadOnlySpan<float> monoSamples)
     {
-        AcceptSamplesCallCount++;
         _acceptedSamples.AddRange(monoSamples.ToArray());
+        lock (_countLock)
+        {
+            _acceptSamplesCallCount++;
+            Monitor.PulseAll(_countLock);
+        }
+
         _acceptSamplesEntered.TrySetResult();
 
         // Deliberately blocks after recording the samples and before observing any fault, mirroring

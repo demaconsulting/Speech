@@ -48,6 +48,13 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </summary>
     private const int MaxResultsPerFrame = 32;
 
+    /// <summary>
+    ///     The maximum number of results drained from the backend at teardown, before the final
+    ///     flush, so that results left over by the per-block cap are still delivered while a
+    ///     faulty backend that always reports a result still cannot livelock the pump thread.
+    /// </summary>
+    private const int MaxResultsAtFinalDrain = 1024;
+
     /// <summary>The diagnostics category used for every event this session reports.</summary>
     private const string DiagnosticsCategory = "RecognitionSubsystem";
 
@@ -1039,6 +1046,18 @@ internal sealed class RecognitionSession : IRecognitionSession
     {
         try
         {
+            // Results beyond MaxResultsPerFrame for the last block(s) are still queued in the
+            // backend; drain them (bounded) before finalizing so none is lost at stop.
+            for (var i = 0; i < MaxResultsAtFinalDrain; i++)
+            {
+                if (!_backend.TryDecode(out var pending) || pending is null)
+                {
+                    break;
+                }
+
+                BufferResult(pending);
+            }
+
             if (!_backend.TryFlush(out var result) || result is null)
             {
                 return;
