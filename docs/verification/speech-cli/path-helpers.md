@@ -18,8 +18,8 @@ does not allow creating a link.
 
 The unit passes when a safe component yields the fully qualified path that matches what the
 containment check validated (for relative and absolute bases), an escaping or rooted component is
-rejected with `ArgumentException`, a path through an existing symbolic link is rejected with `ArgumentException`, and null arguments are rejected
-with `ArgumentNullException`.
+rejected with `ArgumentException`, a path through an existing symbolic link is rejected with `ArgumentException`, and
+null arguments are rejected with `ArgumentNullException`.
 
 ### Test Scenarios
 

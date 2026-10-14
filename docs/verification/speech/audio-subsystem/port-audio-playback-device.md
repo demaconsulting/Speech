@@ -46,7 +46,7 @@ Tests pass when all of the following hold:
 
 The tests mark intent with one Arrange/Act/Assert comment per phase; each scenario below names
 its expected outcome. Threads and sleeps are avoided: the fake stream lets a test invoke the
-playback callback explicitly, so the callback-versus-`Stop` interleavings are exercised
+playback callback explicitly, so the callback-versus-`Stop` orderings are exercised
 deterministically (a callback firing after a failed native stop, and a write after a stop). The
 `Write`-versus-`Stop` counter race is covered by per-block subtraction in the queue clear and the
 sequential write-after-stop scenario below.

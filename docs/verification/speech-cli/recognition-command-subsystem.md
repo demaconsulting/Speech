@@ -63,7 +63,7 @@ file-recognition integration test passes only when it runs against a downloaded 
 skipped for lack of a downloaded model, the real-model recognition scenario is **unverified in
 that environment**: the run does not claim that scenario as passed, and it is verified only by the
 manual verification below. The skip is deliberate: the model store is per-user and may be empty
-on build agents, so the test is not made unskippable. Acceptance of the scenario therefore rests
+on build agents, so the test is not made mandatory. Acceptance of the scenario therefore rests
 on a recorded manual result, never on an unrecorded one.
 
 ### Manual / Build-Time Verification

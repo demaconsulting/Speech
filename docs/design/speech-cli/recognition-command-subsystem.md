@@ -54,7 +54,7 @@ behavior) and the capture device, session and engine are then released.
 
 **Cancellation in file mode.** When `Ctrl+C` lands while a file is being processed, the drain
 `StopAsync` that honors the canceled token may itself throw a cancellation. `RecognizeCommand`
-catches that and stops the session again with an uncancelable token, so the session always reaches
+catches that and stops the session again with a non-cancelable token, so the session always reaches
 a terminal state, the result pump ends, and the command completes gracefully rather than
 surfacing an unhandled cancellation.
 

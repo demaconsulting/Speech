@@ -278,7 +278,7 @@ sections:
           - SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
 
       - id: Quality-DemoCommands
-        title: The repository shall provide the demo view models with invokable commands.
+        title: The repository shall provide the demo view models with invocable commands.
         tags: [quality]
         justification: |
           The SpeechDemo view models depend on CommunityToolkit.Mvvm for generated commands.

@@ -33,7 +33,7 @@ engine and the device, and rejects a missing dependency.
 
 None for `speak`'s text-source and model-error behavior: a readable `--file`, piped stdin, empty and
 whitespace-only text, and the suggested remedy text of the model errors are all automated. The only
-unautomated behavior is the real-model and real-hardware path, which is manual-only and is recorded
+non-automated behavior is the real-model and real-hardware path, which is manual-only and is recorded
 in the subsystem verification document.
 
 #### Test Scenarios

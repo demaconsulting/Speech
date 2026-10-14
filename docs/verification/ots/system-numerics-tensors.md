@@ -16,13 +16,14 @@ Automated verification exercises the Speech library code paths that call the pac
 deterministic synthetic signals and small fixtures so no hardware or network is involved. Each
 requirement's observable numeric result is the result demonstrated by the test that asserts it:
 
-| Requirement | Test | Asserted numeric outcome |
-| :---------- | :--- | :----------------------- |
-| SampleConversion | `WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats` | PCM values 0, 32767, -32767, 16384 become those same values as floats before scaling |
-| SampleDivision | `WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats` | each delivered sample equals the PCM value divided by 32767 |
-| SampleMultiplication | `SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples` | each in-range sample equals the input times the volume ratio |
-| SampleClamping | `SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples` | each scaled sample beyond full scale is limited to the -1 to 1 range |
-| DotProduct | `WindowedSincLowpassFilter_ApplyLowpassFilter_InteriorSample_EqualsKernelDotProduct` | an interior filter output equals the hand-summed product of kernel and signal window |
+- **SampleConversion**: `WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats` shows PCM
+  values 0, 32767, -32767, and 16384 become the same values as floats before scaling.
+- **SampleDivision**: the same test shows each delivered sample equals the PCM value divided by 32767.
+- **SampleMultiplication**: `SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples` shows each
+  in-range sample equals the input times the volume ratio.
+- **SampleClamping**: the same test shows each scaled sample beyond full scale is limited to the -1 to 1 range.
+- **DotProduct**: `WindowedSincLowpassFilter_ApplyLowpassFilter_InteriorSample_EqualsKernelDotProduct` shows an
+  interior filter output equals the hand-summed product of the kernel and the signal window.
 
 ### Test Scenarios
 

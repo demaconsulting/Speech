@@ -93,7 +93,7 @@ as the value.
 over a fake session whose `StopAsync` throws when given a canceled token.
 
 **Expected**: No exception escapes, the exit code is `0`, `StopAsync` was called twice (the second
-with an uncancelable token) and the session and engine are disposed.
+with a non-cancelable token) and the session and engine are disposed.
 
 ##### RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException
 

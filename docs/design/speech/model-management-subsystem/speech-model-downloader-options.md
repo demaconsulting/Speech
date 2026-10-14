@@ -14,7 +14,7 @@ configured authentication to requests sent to it.
 eagerly in `DownloadMirror`'s own constructor, never in this options type itself.
 
 **Thread Safety**: Instances are immutable after initialization, so one instance can be shared freely between
-threads and downloaders. The mirror's optional `NetworkCredential` is mutable and owned by the caller, who must not
+threads and download clients. The mirror's optional `NetworkCredential` is mutable and owned by the caller, who must not
 modify it after supplying it.
 
 **Dependencies**: `DownloadMirror`.
