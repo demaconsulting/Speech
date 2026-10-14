@@ -18,10 +18,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
+
 namespace DemaConsulting.Speech.Cli.Tests;
 
 /// <summary>
-///     System-level integration tests that run the Speech CLI application via <c>dotnet</c>.
+///     System-level integration tests that run the Speech CLI application via <c>dotnet</c>, plus
+///     deterministic in-process system scenarios for the successful <c>speak</c> and <c>ask</c>
+///     paths that drive the real command entry points against fake models and fake audio devices.
 /// </summary>
 /// <remarks>
 ///     Covers dispatch, help/version/self-test, a clean error for an unrecognized subcommand, and the
@@ -32,9 +47,10 @@ namespace DemaConsulting.Speech.Cli.Tests;
 ///     each exercised against an isolated, empty <c>--models-dir</c> so no test ever touches the
 ///     real per-user model store or performs a real network access. <c>speak</c>'s and
 ///     <c>recognize</c>'s error paths (missing model, unknown/wrong-role/not-downloaded model id,
-///     conflicting input/text sources) are covered here; a real, downloaded-model
-///     <c>speak --output-audio</c>/<c>recognize --input</c> end-to-end run is a manual verification
-///     step only - see each subsystem's verification document for why.
+///     conflicting input/text sources) are covered here, and the successful <c>speak</c> and <c>ask</c> paths
+///     (including piped standard input) run in-process against fake models and fake audio devices; a real,
+///     downloaded-model <c>speak --output-audio</c>/<c>recognize --input</c> end-to-end run is a manual
+///     verification step only - see each subsystem's verification document for why.
 /// </remarks>
 [Collection("Sequential")]
 public class IntegrationTests
@@ -150,6 +166,7 @@ public class IntegrationTests
             Assert.Contains("Passed:", output);
             Assert.Contains("Failed: 0", output);
             Assert.Contains("SpeechCli_ModelStoreRootWritable - Passed", output);
+            Assert.Contains("SpeechCli_AudioBackendProbe - Passed", output);
         }
         finally
         {
@@ -1171,6 +1188,196 @@ public class IntegrationTests
         Assert.Contains("--input", output);
         Assert.Contains("--mic", output);
     }
+
+    /// <summary>
+    ///     Test that a successful <c>speak --text</c> synthesizes and plays the text and exits with success,
+    ///     running fully in-process against a fake model and fake playback device (no skip, no hardware).
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithFakeModel_TextProvided_SpeaksTextAndSucceeds()
+    {
+        // Arrange: a fake synthesis model and a fake playback device
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var session = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(session));
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1", "--text", "Hello there."]);
+
+        // Act
+        await SpeakCommand.RunAsync(context, catalog, devices, CancellationToken.None);
+
+        // Assert: the text was spoken once and the run succeeded
+        Assert.Equal("Hello there.", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>speak</c> with text piped on standard input speaks the piped text and exits with
+    ///     success; the redirected standard input is simulated so the test never depends on the host's stdin.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithPipedStdin_NoTextOrFile_SpeaksPipedTextAndSucceeds()
+    {
+        // Arrange: a fake synthesis model, a fake playback device, and simulated piped input
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var session = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(session));
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1"]);
+
+        // Act
+        await SpeakCommand.RunAsync(
+            context, catalog, devices, CancellationToken.None, () => true, new StringReader("piped narration"));
+
+        // Assert: the piped text was spoken and the run succeeded
+        Assert.Equal("piped narration", Assert.Single(session.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>speak</c> given no text source and no piped input fails with an error naming the
+    ///     accepted sources, deterministically regardless of the host's standard input.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_SpeakCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources()
+    {
+        // Arrange: simulated interactive (non-redirected) standard input
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        var devices = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        using var context = Context.Create(["speak", "--tts-model", "tts-model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => SpeakCommand.RunAsync(
+                context, catalog, devices, CancellationToken.None, () => false, TextReader.Null));
+
+        // Assert
+        Assert.Contains("--text, --file, or piped stdin", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that a complete <c>ask</c> turn speaks the prompt, listens, and exits with success,
+    ///     running fully in-process against fake models and fake audio devices.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithFakeModels_TextProvided_CompletesTurnAndSucceeds()
+    {
+        // Arrange: fake synthesis and recognition models, fake playback and capture devices
+        var (catalog, synthesisSession) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "How are you?"]);
+
+        // Act
+        var output = await RunCapturingConsoleAsync(
+            () => AskCommand.RunAsync(context, catalog, playback, capture));
+
+        // Assert: the prompt was spoken, the reply was printed, and the run succeeded
+        Assert.Equal("How are you?", Assert.Single(synthesisSession.SpeakAsyncCalls));
+        Assert.Contains("reply", output);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> with a prompt piped on standard input speaks the piped prompt and exits with
+    ///     success; the redirected standard input is simulated so the test never depends on the host's stdin.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithPipedStdin_NoTextOrFile_SpeaksPipedPromptAndSucceeds()
+    {
+        // Arrange: fake models and devices plus simulated piped input
+        var (catalog, synthesisSession) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        var pipedInput = new AskCommand.StandardInputSource(IsRedirected: true, new StringReader("piped prompt"));
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        // Act
+        await RunCapturingConsoleAsync(() => AskCommand.RunAsync(context, catalog, playback, capture, pipedInput));
+
+        // Assert
+        Assert.Equal("piped prompt", Assert.Single(synthesisSession.SpeakAsyncCalls));
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> given no text source and no piped input fails with an error naming the
+    ///     accepted sources, deterministically regardless of the host's standard input.
+    /// </summary>
+    [Fact]
+    public async Task SpeechCli_AskCommandWithNoTextSource_NoPipedInput_ReportsAcceptedSources()
+    {
+        // Arrange: simulated interactive (non-redirected) standard input
+        var (catalog, _) = CreateAskCatalog();
+        var playback = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([FakeSpeakers]));
+        var capture = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([FakeMicrophone]));
+        var interactiveInput = new AskCommand.StandardInputSource(IsRedirected: false, TextReader.Null);
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, playback, capture, interactiveInput));
+
+        // Assert
+        Assert.Contains("--text", exception.Message);
+        Assert.Contains("--file", exception.Message);
+    }
+
+    /// <summary>
+    ///     Creates a fake catalog holding one downloaded synthesis and one downloaded recognition model, wired
+    ///     so the recognizer immediately reports a final result of <c>reply</c>.
+    /// </summary>
+    private static (FakeCliModelCatalog Catalog, FakeSynthesisSession SynthesisSession) CreateAskCatalog()
+    {
+        var catalog = new FakeCliModelCatalog();
+        catalog.WithModel(new FakeSpeechModel("tts-model-1", role: SpeechModelRole.Synthesis), SpeechModelState.Downloaded);
+        catalog.WithModel(new FakeSpeechModel("stt-model-1", role: SpeechModelRole.Recognition), SpeechModelState.Downloaded);
+
+        var synthesisSession = new FakeSynthesisSession();
+        catalog.CreateSynthesizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(new FakeSpeechSynthesizerEngine(synthesisSession));
+
+        var recognitionSession = new FakeRecognitionSession
+        {
+            OnStart = self => self.RaiseResult("reply", isFinal: true)
+        };
+        catalog.CreateRecognizerEngineOverride =
+            (_, _, _) => Task.FromResult<ISpeechRecognizerEngine>(new FakeSpeechRecognizerEngine(recognitionSession));
+        return (catalog, synthesisSession);
+    }
+
+    /// <summary>
+    ///     Runs an asynchronous action while capturing everything it writes to the console, restoring the
+    ///     original console writer afterwards.
+    /// </summary>
+    private static async Task<string> RunCapturingConsoleAsync(Func<Task> action)
+    {
+        var originalOut = Console.Out;
+        var captured = new StringWriter();
+        Console.SetOut(captured);
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        return captured.ToString();
+    }
+
+    private static readonly AudioDeviceDescription FakeSpeakers =
+        new("Fake Speakers", AudioDeviceDirection.Playback, 2, 48000);
+
+    private static readonly AudioDeviceDescription FakeMicrophone =
+        new("Fake Microphone", AudioDeviceDirection.Capture, 1, 16000);
 
     /// <summary>
     ///     Test that <c>recognize --stt-model &lt;realSttModel&gt; --input &lt;fixture&gt;.wav</c>
