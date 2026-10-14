@@ -59,8 +59,8 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves this model declares its expected, stable catalog identity, and its one
-    ///     voice-selection <see cref="ChoiceParameter"/> with all 29 declared English voices.
+    ///     Proves this model declares its expected, stable catalog identity: id, display name,
+    ///     synthesis role, and no audio-tag support.
     /// </summary>
     [Fact]
     public void OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues()
@@ -74,9 +74,33 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         Assert.Equal("Kokoro ONNX v1.0 English (int8, 29 voices)", model.DisplayName);
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
+    }
+
+    /// <summary>
+    ///     Proves this model declares its Apache-2.0 license name and canonical license URL.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_License_DeclaresApache2()
+    {
+        // Arrange
+        var model = new OnnxKokoroEnglishSynthesisModel();
+
+        // Act & Assert
         Assert.Equal("Apache-2.0", model.LicenseName);
         Assert.Equal(new Uri("https://www.apache.org/licenses/LICENSE-2.0"), model.LicenseUrl);
+    }
 
+    /// <summary>
+    ///     Proves this model declares its one voice-selection <see cref="ChoiceParameter"/> with
+    ///     all 29 declared English voices, in declaration order, and the expected default.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_VoiceParameter_Declares29VoicesWithDefault()
+    {
+        // Arrange
+        var model = new OnnxKokoroEnglishSynthesisModel();
+
+        // Act
         var parameter = Assert.Single(model.Parameters);
         var choice = Assert.IsType<ChoiceParameter>(parameter);
         Assert.Equal(OnnxKokoroEnglishSynthesisModel.VoiceParameterId, choice.Id);
@@ -86,14 +110,12 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that this model declares exactly 30 HTTPS download files (one ONNX model graph
-    ///     plus 29 voice style-vector files), each with a well-formed 64-character hexadecimal
-    ///     SHA-256 checksum and a unique relative install path, and that the model file and every
-    ///     voice file land at the paths <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/>
-    ///     resolves.
+    ///     Proves that this model declares exactly 30 download files (one ONNX model graph plus
+    ///     29 voice style-vector files) at the paths
+    ///     <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/> resolves.
     /// </summary>
     [Fact]
-    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles()
+    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresModelGraphAndEveryVoiceFile()
     {
         // Arrange
         var model = new OnnxKokoroEnglishSynthesisModel();
@@ -103,6 +125,27 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Equal(30, files.Count);
+        Assert.Contains(files, file => file.RelativeInstallPath == "onnx/model_quantized.onnx");
+        foreach (var voice in ExpectedVoiceOrder)
+        {
+            Assert.Contains(files, file => file.RelativeInstallPath == $"voices/{voice}.bin");
+        }
+    }
+
+    /// <summary>
+    ///     Proves that every declared download file uses HTTPS, carries a well-formed
+    ///     64-character hexadecimal SHA-256 checksum, and has a unique relative install path.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_FilesHaveHttpsChecksumAndUniquePaths()
+    {
+        // Arrange
+        var model = new OnnxKokoroEnglishSynthesisModel();
+
+        // Act
+        var files = model.DownloadDescriptor.Files;
+
+        // Assert
         foreach (var file in files)
         {
             Assert.Equal("https", file.Uri.Scheme);
@@ -111,11 +154,6 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         }
 
         Assert.Equal(files.Count, files.Select(file => file.RelativeInstallPath).Distinct(StringComparer.Ordinal).Count());
-        Assert.Contains(files, file => file.RelativeInstallPath == "onnx/model_quantized.onnx");
-        foreach (var voice in ExpectedVoiceOrder)
-        {
-            Assert.Contains(files, file => file.RelativeInstallPath == $"voices/{voice}.bin");
-        }
     }
 
     /// <summary>

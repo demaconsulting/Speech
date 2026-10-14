@@ -151,122 +151,14 @@ internal static class AskCommand
     private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
-    ///     Runs the <c>ask</c> subcommand against a real, composed
-    ///     <see cref="SpeechModelCatalogAdapter"/>, <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>,
-    ///     and <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, wiring <c>Ctrl+C</c> to
-    ///     cooperative cancellation for the duration of the call.
+    ///     Every option token <c>ask</c> recognizes. A value-taking flag never accepts one of these as
+    ///     its value.
     /// </summary>
-    /// <param name="context">The invocation context. Must not be null.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        using var catalog = CliModelCatalogFactory.Create(context);
-        var factory = new AudioDeviceFactory();
-        var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(factory);
-        var captureSource = new AudioDeviceFactoryCaptureDeviceSource(factory);
-        Run(context, catalog, deviceSource, captureSource);
-    }
-
-    /// <summary>
-    ///     Runs the <c>ask</c> subcommand against an injected catalog seam, playback-device
-    ///     source, and capture-device source, for unit testing without a real model catalog,
-    ///     network access, or audio hardware.
-    /// </summary>
-    /// <param name="context">The invocation context. Must not be null.</param>
-    /// <param name="catalog">The catalog seam to resolve both models through. Must not be null.</param>
-    /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
-    /// <param name="captureSource">The capture-device seam to resolve a real capture device through. Must not be null.</param>
-    /// <exception cref="ArgumentNullException">
-    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
-    ///     <paramref name="deviceSource"/>, or <paramref name="captureSource"/> is <see langword="null"/>.
-    /// </exception>
-    /// <exception cref="ArgumentException">
-    ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
-    ///     or missing text source, malformed/invalid <c>--tts-param</c>/<c>--stt-param</c> value,
-    ///     or unknown <c>--playback-device</c>/<c>--capture-device</c>.
-    /// </exception>
-    /// <exception cref="InvalidOperationException">
-    ///     Thrown when no real playback device or no real capture device is available.
-    /// </exception>
-    internal static void Run(
-        Context context,
-        ICliModelCatalog catalog,
-        ICliPlaybackDeviceSource deviceSource,
-        ICliCaptureDeviceSource captureSource)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(deviceSource);
-        ArgumentNullException.ThrowIfNull(captureSource);
-
-        using var cancellationSource = new CancellationTokenSource();
-        using var stopSignal = new ManualResetEventSlim(initialState: false);
-
-        // Tracks the live session (once Phase 2 has constructed one) so a Ctrl+C landing
-        // during listening can stop it; guarded because the session is created on this same
-        // thread but a Ctrl+C handler runs on a separate thread and could otherwise observe a
-        // torn/stale reference.
-        IRecognitionSession? session = null;
-        var sessionGate = new object();
-
-        // Ask an in-flight speak/listen session to cancel cooperatively rather than letting the
-        // runtime kill the process outright, so partially-played audio, an in-flight capture, and
-        // any open output file are still disposed cleanly. Whether Ctrl+C lands during Phase 1 or
-        // Phase 2, both cancellation paths are armed for the whole call.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-
-            // Fire-and-forget: this handler must stay synchronous. StopAsync is idempotent and
-            // safe to call concurrently per IRecognitionSession's own contract. The lock is only
-            // used to read the torn/stale-reference-safe snapshot; the async call itself is
-            // started outside the lock.
-            IRecognitionSession? currentSession;
-            lock (sessionGate)
-            {
-                currentSession = session;
-            }
-
-            if (currentSession is not null)
-            {
-                // Intentional fire-and-forget: this handler must stay synchronous (the
-                // ConsoleCancelEventHandler delegate signature is non-async), and StopAsync is
-                // idempotent and safe to call concurrently per IRecognitionSession's own
-                // contract, so neither the result nor any exception needs to be observed here.
-#pragma warning disable S1854
-                _ = currentSession.StopAsync(CancellationToken.None);
-#pragma warning restore S1854
-            }
-
-            stopSignal.Set();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(
-                context,
-                catalog,
-                deviceSource,
-                captureSource,
-                stopSignal,
-                s =>
-                {
-                    lock (sessionGate)
-                    {
-                        session = s;
-                    }
-                },
-                cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
-    }
+    private static readonly string[] RecognizedOptions =
+    [
+        "--tts-model", "--stt-model", "--text", "--file", "--playback-device", "--capture-device",
+        TtsParamFlag, SttParamFlag, "--silence-timeout", "--start-timeout", "--output-text"
+    ];
 
     /// <summary>
     ///     Bundles the invocation-scoped dependencies shared by both Phase 1 (speak) and Phase 2
@@ -290,7 +182,134 @@ internal static class AskCommand
     /// </summary>
     /// <param name="Engine">The loaded recognition engine. Owned by <c>RunAsync</c> once adopted.</param>
     /// <param name="Session">The session created from <paramref name="Engine"/>, bound to the resolved capture device.</param>
-    private readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
+    internal readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
+
+    /// <summary>
+    ///     Describes the standard-input stream <c>ask</c> reads its prompt from when neither
+    ///     <c>--text</c> nor <c>--file</c> is given, so tests can supply a deterministic stream
+    ///     instead of depending on the real process stdin.
+    /// </summary>
+    /// <param name="IsRedirected">Whether input is piped or redirected rather than interactive.</param>
+    /// <param name="Reader">The reader to read the piped prompt from.</param>
+    internal sealed record StandardInputSource(bool IsRedirected, TextReader Reader)
+    {
+        /// <summary>
+        ///     Gets the real process standard input, evaluated at the time of the call.
+        /// </summary>
+        public static StandardInputSource Console => new(System.Console.IsInputRedirected, System.Console.In);
+    }
+
+    /// <summary>
+    ///     Runs the <c>ask</c> subcommand against a real, composed
+    ///     <see cref="SpeechModelCatalogAdapter"/>, <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>,
+    ///     and <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, wiring <c>Ctrl+C</c> to
+    ///     cooperative cancellation for the duration of the call.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>ask</c> subcommand has finished.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
+    public static async Task RunAsync(Context context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        using var catalog = CliModelCatalogFactory.Create(context);
+        var factory = new AudioDeviceFactory();
+        var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(factory);
+        var captureSource = new AudioDeviceFactoryCaptureDeviceSource(factory);
+        await RunAsync(context, catalog, deviceSource, captureSource).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Runs the <c>ask</c> subcommand against an injected catalog seam, playback-device
+    ///     source, and capture-device source, for unit testing without a real model catalog,
+    ///     network access, or audio hardware.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="catalog">The catalog seam to resolve both models through. Must not be null.</param>
+    /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
+    /// <param name="captureSource">The capture-device seam to resolve a real capture device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>ask</c> subcommand has finished.</returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
+    ///     <paramref name="deviceSource"/>, or <paramref name="captureSource"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
+    ///     or missing text source, malformed/invalid <c>--tts-param</c>/<c>--stt-param</c> value,
+    ///     or unknown <c>--playback-device</c>/<c>--capture-device</c>.
+    /// </exception>
+    /// <param name="standardInput">
+    ///     The standard-input source to read a piped prompt from, or <see langword="null"/> to use
+    ///     the real process standard input.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when no real playback device or no real capture device is available.
+    /// </exception>
+    internal static async Task RunAsync(
+        Context context,
+        ICliModelCatalog catalog,
+        ICliPlaybackDeviceSource deviceSource,
+        ICliCaptureDeviceSource captureSource,
+        StandardInputSource? standardInput = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(deviceSource);
+        ArgumentNullException.ThrowIfNull(captureSource);
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        // Tracks the live session (once Phase 2 has constructed one) so a Ctrl+C landing
+        // during listening can stop it; guarded because the session is created on this same
+        // thread but a Ctrl+C handler runs on a separate thread and could otherwise observe a
+        // torn/stale reference.
+        IRecognitionSession? session = null;
+        var sessionGate = new object();
+
+        // Ask an in-flight speak/listen session to cancel cooperatively rather than letting the
+        // runtime kill the process outright, so partially-played audio, an in-flight capture, and
+        // any open output file are still disposed cleanly. Whether Ctrl+C lands during the speak
+        // phase or the listen phase, both cancellation paths are armed for the whole call.
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource, () =>
+        {
+            // Fire-and-forget: this callback must stay synchronous. StopAsync is idempotent and
+            // safe to call concurrently per IRecognitionSession's own contract. The lock is only
+            // used to read the torn/stale-reference-safe snapshot; the async call itself is
+            // started outside the lock.
+            IRecognitionSession? currentSession;
+            lock (sessionGate)
+            {
+                currentSession = session;
+            }
+
+            if (currentSession is not null)
+            {
+                // Fire-and-forget, but the helper observes any failure of the stop so it never
+                // becomes an unobserved task exception; Listen's own StopAsync call still reports
+                // the authoritative outcome on the normal path.
+                _ = StopSessionObservedAsync(currentSession);
+            }
+
+            stopSignal.Set();
+        });
+
+        await RunAsync(
+            context,
+            catalog,
+            deviceSource,
+            captureSource,
+            stopSignal,
+            s =>
+            {
+                lock (sessionGate)
+                {
+                    session = s;
+                }
+            },
+            cancellationSource.Token,
+            standardInput).ConfigureAwait(false);
+    }
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand's full text-source resolution, model resolution,
@@ -306,6 +325,17 @@ internal static class AskCommand
     ///     <see cref="Console.CancelKeyPress"/> handler produces, without depending on a real
     ///     console signal.
     /// </remarks>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="catalog">The catalog seam to resolve both models through. Must not be null.</param>
+    /// <param name="deviceSource">The playback-device seam. Must not be null.</param>
+    /// <param name="captureSource">The capture-device seam. Must not be null.</param>
+    /// <param name="stopSignal">The signal the listen phase waits on and that ends it. Must not be null.</param>
+    /// <param name="onRecognizerCreated">Called with the live session once created, and with null afterward. Must not be null.</param>
+    /// <param name="cancellationToken">The cooperative-cancellation token spanning both phases.</param>
+    /// <param name="standardInput">
+    ///     The standard-input source to read a piped prompt from, or <see langword="null"/> to use
+    ///     the real process standard input.
+    /// </param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
     ///     <paramref name="deviceSource"/>, <paramref name="captureSource"/>,
@@ -319,7 +349,8 @@ internal static class AskCommand
         ICliCaptureDeviceSource captureSource,
         ManualResetEventSlim stopSignal,
         Action<IRecognitionSession?> onRecognizerCreated,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        StandardInputSource? standardInput = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -333,7 +364,7 @@ internal static class AskCommand
         // Text-source resolution runs before model resolution, mirroring SpeakCommand's own
         // verified ordering: a usage error like conflicting --text/--file is a cheap,
         // model-independent input mistake that should be reported immediately.
-        var text = ResolveText(options);
+        var text = ResolveText(options, standardInput ?? StandardInputSource.Console);
 
         var ttsDescriptor = ResolveTtsModel(catalog, options.TtsModelId);
         var sttDescriptor = ResolveSttModel(catalog, options.SttModelId);
@@ -361,6 +392,7 @@ internal static class AskCommand
             CancellationToken.None);
 
         PrewarmedRecognizer prewarmed;
+        var prewarmAdopted = false;
         try
         {
             // Phase 1: speak the prompt through a real playback device and wait for it to finish.
@@ -369,14 +401,9 @@ internal static class AskCommand
 
             if (wasCanceled)
             {
-                // Phase 1 was canceled, so Phase 2 never runs: the concurrently pre-warmed
-                // engine/session (whether already constructed, still in flight, or never going
-                // to succeed) must still eventually be disposed, but RunAsync must not block its
-                // own return on the (possibly still-loading) model finishing - that would delay
-                // Ctrl+C responsiveness for exactly the scenario where instant feedback matters
-                // most. Hand it off fire-and-forget: DisposePrewarmedRecognizerAsync's own
-                // continuation disposes it once construction eventually completes.
-                _ = DisposePrewarmedRecognizerAsync(prewarmTask);
+                // Phase 1 was canceled, so Phase 2 never runs; the finally block below hands the
+                // concurrently pre-warmed engine/session off for background disposal without
+                // blocking this return on the (possibly still-loading) model.
                 return;
             }
 
@@ -386,26 +413,32 @@ internal static class AskCommand
             // etc. - at Phase 2's start, exactly as a synchronous call to the same logic would
             // have. Once assigned here, Listen's own finally block takes ownership of disposing
             // this session exactly once; the engine is disposed by RunAsync itself afterward.
-            prewarmed = await prewarmTask.ConfigureAwait(false);
+            try
+            {
+                prewarmed = await prewarmTask.ConfigureAwait(false);
+                prewarmAdopted = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Ctrl+C landed while the recognizer was still loading: report the same clean
+                // cancellation as every other cancellation exit point.
+                context.WriteError(SpeechCanceledMessage);
+                return;
+            }
         }
-        // Intentionally broad: this is the command-level fail-fast boundary around Phase 1 and
-        // recognizer pre-warm adoption, so any exception must preserve its original type/message
-        // while still handing off the concurrently created engine/session for asynchronous
-        // cleanup.
-        catch (Exception)
+        finally
         {
-            // SpeakPromptAsync (or any resolution logic reachable above, e.g. an unknown
-            // --playback-device, or PrewarmRecognizerAsync's own failure surfacing when its
-            // result is adopted) threw instead of returning a normal wasCanceled result: the
-            // pre-warmed engine/session - whether already constructed, still in flight, or never
-            // going to succeed - must still eventually be disposed and prewarmTask's
-            // result/exception must still eventually be observed, but RunAsync must not block
-            // this fast-failure exit on the (possibly still-loading) model finishing. Hand it off
-            // fire-and-forget, same as the Phase 1 cancellation path above; this is a no-op once
-            // it runs if prewarmTask never produces an engine/session. Rethrow immediately to
-            // preserve the original exception's type, message, and stack trace unchanged.
-            _ = DisposePrewarmedRecognizerAsync(prewarmTask);
-            throw;
+            if (!prewarmAdopted)
+            {
+                // Phase 1 was canceled or threw (or anything before adopting the pre-warm result
+                // failed): the pre-warmed engine/session - whether already constructed, still in
+                // flight, or never going to succeed - must still eventually be disposed and
+                // prewarmTask's result/exception must still eventually be observed, but RunAsync
+                // must not block this exit on the (possibly still-loading) model finishing. Hand
+                // it off fire-and-forget; a failed pre-warm is a no-op there. Any exception in
+                // flight propagates unchanged with its original type, message, and stack trace.
+                _ = DisposePrewarmedRecognizerAsync(prewarmTask);
+            }
         }
 
         await using var engineLease = prewarmed.Engine;
@@ -476,6 +509,27 @@ internal static class AskCommand
     }
 
     /// <summary>
+    ///     Stops <paramref name="session"/> on behalf of the <c>Ctrl+C</c> handler and observes any
+    ///     failure, so a failing stop is never left as an unobserved faulted task and never throws
+    ///     into the console signal thread.
+    /// </summary>
+    /// <param name="session">The session to stop.</param>
+    /// <returns>A task that always completes without throwing once the stop has finished.</returns>
+    internal static async Task StopSessionObservedAsync(IRecognitionSession session)
+    {
+        try
+        {
+            await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        // Intentionally broad: this runs only from the Ctrl+C handler, where the turn is already
+        // being abandoned and Listen's own stop reports the authoritative outcome.
+        catch (Exception)
+        {
+            // Observed and intentionally ignored.
+        }
+    }
+
+    /// <summary>
     ///     Runs Phase 1: synthesizes and plays <paramref name="text"/> through a real playback
     ///     device resolved from <paramref name="deviceSource"/> (honoring <c>--playback-device</c>),
     ///     waiting for playback to finish (or be canceled) before returning.
@@ -505,12 +559,17 @@ internal static class AskCommand
         }
 
         using var playbackDeviceLease = playbackDevice as IDisposable;
-        await using var engine = await catalog.CreateSynthesizerEngineAsync(ttsDescriptor, parameterValues, cancellationToken)
-            .ConfigureAwait(false);
-        await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(false);
 
+        // Engine and session creation observe the same token as playback, so a Ctrl+C landing
+        // during synthesizer setup is reported as the same clean cancellation as one landing
+        // during playback. The nested await-using scopes dispose the session and engine before
+        // the handler below runs.
         try
         {
+            await using var engine = await catalog.CreateSynthesizerEngineAsync(ttsDescriptor, parameterValues, cancellationToken)
+                .ConfigureAwait(false);
+            await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(false);
+
             await session.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
             return false;
         }
@@ -586,22 +645,35 @@ internal static class AskCommand
     ///     produced and observing (via the <see langword="catch"/> below) any exception it
     ///     raised, so <paramref name="prewarmTask"/> is never left as an unobserved faulted
     ///     <see cref="Task"/> and a successfully constructed engine/session is never leaked - just
-    ///     disposed asynchronously in the background instead of before the caller returns.
+    ///     disposed asynchronously in the background instead of before the caller returns. The
+    ///     session and the engine are disposed independently: the engine is always disposed even
+    ///     when the session's disposal throws, and the first disposal exception is the one the
+    ///     returned task faults with (the fire-and-forget caller never observes it).
     /// </remarks>
-    private static async Task DisposePrewarmedRecognizerAsync(Task<PrewarmedRecognizer> prewarmTask)
+    /// <param name="prewarmTask">The pre-warm task whose result, if any, must be released.</param>
+    /// <returns>A task that completes once any produced session and engine have been disposed.</returns>
+    internal static async Task DisposePrewarmedRecognizerAsync(Task<PrewarmedRecognizer> prewarmTask)
     {
+        PrewarmedRecognizer prewarmed;
         try
         {
-            var prewarmed = await prewarmTask.ConfigureAwait(false);
-            await prewarmed.Session.DisposeAsync().ConfigureAwait(false);
-            await prewarmed.Engine.DisposeAsync().ConfigureAwait(false);
+            prewarmed = await prewarmTask.ConfigureAwait(false);
         }
         // Intentionally broad: this asynchronous cleanup boundary exists only to observe the
-        // pre-warm task and dispose any successful engine/session result after the command has
-        // already decided to exit, so a failed pre-warm is non-actionable noise here.
+        // pre-warm task after the command has already decided to exit, so a failed pre-warm is
+        // non-actionable noise here and there is nothing to dispose.
         catch (Exception)
         {
-            // No engine/session was produced, so there is nothing to dispose.
+            return;
+        }
+
+        try
+        {
+            await prewarmed.Session.DisposeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            await prewarmed.Engine.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -661,48 +733,74 @@ internal static class AskCommand
 
             timeoutSession.TimedOut += (_, _) => stopSignal.Set();
 
-            // StartAsync blocks the calling thread until the session stops (it drives the real
-            // microphone capture loop), so it is started as a background Task here rather than
-            // awaited directly - mirroring RecognizeCommand's own mic-mode pump-before-start
-            // ordering - letting this method concurrently pump GetResultsAsync below.
-            var startTask = session.StartAsync(cancellationToken);
+            // StartAsync may block the calling thread until the session stops (it can drive the
+            // real microphone capture loop synchronously), so it is started on a thread-pool task
+            // - mirroring RecognizeCommand's own mic-mode pump-before-start ordering - letting
+            // this method concurrently pump GetResultsAsync below even when StartAsync never
+            // yields. A failed start stops the session so the pump below ends promptly instead of
+            // waiting for a timeout; the start failure itself is observed on every exit path.
+            var startTask = Task.Run(() => session.StartAsync(cancellationToken), CancellationToken.None);
+            _ = startTask.ContinueWith(
+                _ => StopSessionObservedAsync(session),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+            var startObserved = false;
             try
             {
-                await foreach (var result in timeoutSession.GetResultsAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    if (!result.Result.IsFinal)
+                    await foreach (var result in timeoutSession.GetResultsAsync(cancellationToken).ConfigureAwait(false))
                     {
-                        continue;
-                    }
+                        if (!result.Result.IsFinal)
+                        {
+                            continue;
+                        }
 
-                    // "ask" models a single bounded question/answer turn: the first final result
-                    // is always enough to end the turn, unlike "recognize --mic"'s open-ended
-                    // listening.
-                    recognizedText = result.Result.Text;
-                    stopSignal.Set();
-                    break;
+                        // "ask" models a single bounded question/answer turn: the first final result
+                        // is always enough to end the turn, unlike "recognize --mic"'s open-ended
+                        // listening.
+                        recognizedText = result.Result.Text;
+                        stopSignal.Set();
+                        break;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ctrl+C canceled the shared token while pumping results; cancellationToken's own
+                    // IsCancellationRequested below is what distinguishes this from a legitimate
+                    // empty result.
+                }
+
+                // StopAsync is idempotent and always called here - whether the loop ended because of
+                // a final result, a silence/start timeout (which already called it internally inside
+                // timeoutSession), or Ctrl+C - so this is always safe, including the already-stopped
+                // case.
+                await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+
+                startObserved = true;
+                try
+                {
+                    await startTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ctrl+C canceled the shared token passed into StartAsync; already handled above.
                 }
             }
-            catch (OperationCanceledException)
+            finally
             {
-                // Ctrl+C canceled the shared token while pumping results; cancellationToken's own
-                // IsCancellationRequested below is what distinguishes this from a legitimate
-                // empty result.
-            }
-
-            // StopAsync is idempotent and always called here - whether the loop ended because of
-            // a final result, a silence/start timeout (which already called it internally inside
-            // timeoutSession), or Ctrl+C - so this is always safe, including the already-stopped
-            // case.
-            await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
-
-            try
-            {
-                await startTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // Ctrl+C canceled the shared token passed into StartAsync; already handled above.
+                if (!startObserved)
+                {
+                    // An exception is already propagating (results pump or StopAsync failed):
+                    // observe the start task's outcome without awaiting it, so a blocked or
+                    // faulted start never masks that exception or goes unobserved.
+                    _ = startTask.ContinueWith(
+                        static t => _ = t.Exception,
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted,
+                        TaskScheduler.Default);
+                }
             }
 
             // The loop above can end identically for a final result, a silence/start timeout, or
@@ -806,7 +904,7 @@ internal static class AskCommand
     ///     Thrown when more than one text source was given, or when none was given and stdin is
     ///     not redirected.
     /// </exception>
-    private static string ResolveText(AskOptions options)
+    private static string ResolveText(AskOptions options, StandardInputSource standardInput)
     {
         var sourceCount = (options.Text is not null ? 1 : 0) +
             (options.FilePath is not null ? 1 : 0);
@@ -825,17 +923,24 @@ internal static class AskCommand
 
         if (options.FilePath is not null)
         {
-            return File.ReadAllText(options.FilePath);
+            try
+            {
+                return File.ReadAllText(options.FilePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Cannot read the text file '{options.FilePath}': {ex.Message}", ex);
+            }
         }
 
-        if (!Console.IsInputRedirected)
+        if (!standardInput.IsRedirected)
         {
             throw new ArgumentException(
                 "ask requires text from --text, --file, or piped stdin.",
                 nameof(options));
         }
 
-        return Console.In.ReadToEnd();
+        return standardInput.Reader.ReadToEnd();
     }
 
     /// <summary>
@@ -949,15 +1054,38 @@ internal static class AskCommand
     ///     Gets the value following a flag, throwing a clean <see cref="ArgumentException"/> when
     ///     none was supplied.
     /// </summary>
+    /// <remarks>
+    ///     A value that equals a recognized <c>ask</c> option token (or begins with one followed by
+    ///     <c>=</c>) is rejected as a missing value, so a forgotten value never silently swallows the next
+    ///     option. Values that merely start with <c>-</c> but are not recognized options (for example a
+    ///     negative number or a prompt text) are accepted.
+    /// </remarks>
+    /// <param name="args">The command arguments.</param>
+    /// <param name="index">The index of the value; advanced past it on success.</param>
+    /// <param name="flag">The flag whose value is being read, used in the error message.</param>
+    /// <returns>The flag's value.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when no value follows the flag or the next argument is a recognized option token.
+    /// </exception>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || IsRecognizedOption(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     Determines whether a token is one of <c>ask</c>'s recognized option tokens.
+    /// </summary>
+    /// <param name="token">The token to test.</param>
+    /// <returns><see langword="true"/> when the token is a recognized option; otherwise <see langword="false"/>.</returns>
+    private static bool IsRecognizedOption(string token) =>
+        RecognizedOptions.Any(option =>
+            string.Equals(token, option, StringComparison.Ordinal) ||
+            token.StartsWith(option + "=", StringComparison.Ordinal));
 
     /// <summary>
     ///     Gets the value following a flag, parsed as a positive <see cref="double"/>, throwing a
@@ -967,6 +1095,7 @@ internal static class AskCommand
     {
         var value = RequireValue(args, ref index, flag);
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ||
+            !double.IsFinite(parsed) ||
             parsed <= 0.0)
         {
             throw new ArgumentException($"{flag} requires a positive number of seconds, not '{value}'.", nameof(args));

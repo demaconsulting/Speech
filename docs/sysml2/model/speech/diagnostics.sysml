@@ -9,5 +9,6 @@ package Speech {
 
         part iSpeechDiagnostics : ISpeechDiagnostics;
         part nullSpeechDiagnostics : NullSpeechDiagnostics;
+        part speechDiagnosticLevel : SpeechDiagnosticLevel;
     }
 }

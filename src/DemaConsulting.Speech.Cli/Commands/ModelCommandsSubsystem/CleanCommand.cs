@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 ///     or staging directories left behind by a prior interrupted download/install for one model.
 /// </summary>
 /// <remarks>
-///     Per <see cref="SpeechModelStore.CleanUpLeftovers"/>'s own documented behavior, this never
+///     Per <see cref="SpeechModelStore.CleanUpLeftoversAsync"/>'s own documented behavior, this never
 ///     throws for a deletion that still fails (for example an open file handle); the leftover
 ///     directory is simply left in place for a future call to retry. It is always safe to call,
 ///     including for a model with nothing left to clean up.
@@ -40,14 +40,18 @@ internal static class CleanCommand
     ///     <see cref="SpeechModelCatalogAdapter"/>.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the cleanup pass has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument (or more than one) is given.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        Run(context, catalog);
+        using var cancellationSource = new CancellationTokenSource();
+
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -56,9 +60,11 @@ internal static class CleanCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to clean up through. Must not be null.</param>
+    /// <param name="cancellationToken">A token observed before the cleanup starts.</param>
+    /// <returns>A task that completes once the cleanup pass has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> or <paramref name="catalog"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument (or more than one) is given.</exception>
-    internal static void Run(Context context, ICliModelCatalog catalog)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -66,16 +72,26 @@ internal static class CleanCommand
         var args = context.CommandArgs;
         if (args.Count == 0)
         {
-            throw new ArgumentException("clean requires a <modelId> argument.", nameof(context));
+            throw new ArgumentException("clean requires a <modelId> argument.");
         }
 
         if (args.Count > 1)
         {
-            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'clean'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{args[1]}' for 'clean'.");
         }
 
         var modelId = args[0];
-        catalog.CleanUpLeftovers(modelId);
+        try
+        {
+            await catalog.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ctrl+C before the cleanup started: report it cleanly instead of crashing
+            context.WriteError($"Cleaning up model '{modelId}' was canceled.");
+            return;
+        }
+
         context.WriteLine($"Cleaned up leftover files for model '{modelId}' (if any were present).");
     }
 }

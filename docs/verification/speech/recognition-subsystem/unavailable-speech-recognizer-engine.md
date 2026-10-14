@@ -14,9 +14,30 @@ dependencies to mock.
 
 The unit is considered verified when the shared instance reports `false` availability, always
 returns the shared `UnavailableRecognitionSession.Instance` from `CreateSessionAsync` regardless
-of the supplied device, rejects a null device with `ArgumentNullException`, and treats repeated
+of the supplied device, rejects a null device with `ArgumentNullException`, rejects an already-canceled token with
+`OperationCanceledException`, and treats repeated
 disposal as a safe no-op.
 
 #### Test Scenarios
 
-See the RecognitionSubsystem-level scenario "Unavailable Fallback: Honest Degradation".
+##### Unavailable Fallback: Availability and Session Creation
+
+**Tests**: `UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`
+
+The engine reports unavailable, always returns the shared unavailable session, and rejects only
+a null device.
+
+##### Unavailable Fallback: Canceled Token Is a Caller Error
+
+**Test**: `UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException`
+
+An already-canceled token still throws `OperationCanceledException`, honoring the
+`ISpeechRecognizerEngine.CreateSessionAsync` contract.
+
+##### Unavailable Fallback: Safe Disposal
+
+**Test**: `UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`
+
+Repeated disposal is a no-op that never invalidates the shared instance.

@@ -81,7 +81,7 @@ fails that parameter's own validation (wrong CLR type, a `NumericParameter` valu
 `[Minimum, Maximum]` or - when `IsInteger` is `true` - a non-integral value, an unrecognized
 `ChoiceParameter` option, or a non-`bool` for a `BooleanParameter`) faults the returned task with
 `ArgumentException` naming the parameter id, model id, and the reason the value is invalid, via the
-shared `SpeechModelParameterDiagnostics.ValidateAndReport` helper. A `cancellationToken` cancelled
+shared `SpeechModelParameterDiagnostics.ValidateAndReport` helper. A `cancellationToken` canceled
 before loading completes faults the returned task with `OperationCanceledException`.
 
 **Dependencies**: `IRecognitionModel`, `SpeechModelRole`, `SpeechModelStore`,

@@ -25,8 +25,8 @@ sections:
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-Identity
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare a stable
-                  catalog identity (Id equal to the download mirror's folder name, DisplayName,
-                  Role = Recognition, AudioTagSupport = None, a mono 16000 Hz audio format).
+                  catalog identity: an Id equal to the download mirror's folder name, a
+                  non-empty DisplayName, and Role = Recognition.
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/IRecognitionModel contract; this model must honestly declare its
@@ -35,12 +35,30 @@ sections:
                 tests:
                   - Metadata_IsDeclared
 
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-AudioFormat
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare a mono
+                  16000 Hz audio format.
+                justification: |
+                  The Speech library resamples captured audio to the format the model declares;
+                  the Nemotron front end consumes 16 kHz mono audio.
+                tests:
+                  - Metadata_IsDeclared
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-AudioTagSupport
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare
+                  AudioTagSupport = None.
+                justification: |
+                  A recognition model produces no audio tags; it must honestly declare that.
+                tests:
+                  - Metadata_IsDeclared
+
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-License
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare
-                  LicenseName = "MIT and NVIDIA Open Model License" (the model is dual-licensed
-                  and both licenses apply) with the NVIDIA Open Model License URL as its
-                  LicenseUrl.
+                  LicenseName = "MIT and NVIDIA Open Model License", the model being
+                  dual-licensed with both licenses applying.
                 justification: |
                   This model's license must be discoverable programmatically, not only via
                   DisplayName prose or XML documentation. The upstream model is dual-licensed
@@ -48,13 +66,21 @@ sections:
                 tests:
                   - Metadata_IsDeclared
 
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LicenseUrl
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare the NVIDIA
+                  Open Model License URL as its LicenseUrl.
+                justification: |
+                  A host must be able to link to the full license text that governs the model.
+                tests:
+                  - Metadata_IsDeclared
+
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
                 title: >-
-                  The OnnxNemotronMultilingualRecognitionModel class shall declare eleven
-                  individual validated HTTPS download files (the encoder, decoder, and joint
-                  graphs with their external-data files, the vocabulary, and the tokenizer and
-                  configuration files), each with a well-formed SHA-256 checksum and its own
-                  relative install path, requiring no post-download archive extraction.
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare a download
+                  descriptor naming each of the model's eleven files (the encoder, decoder, and
+                  joint graphs with their external-data files, the vocabulary, and the tokenizer
+                  and configuration files), each with its own relative install path.
                 justification: |
                   SpeechModelDownloader depends only on the generic ISpeechModel download
                   descriptor; this model must honestly declare every individual file its engine
@@ -63,11 +89,31 @@ sections:
                 tests:
                   - DownloadDescriptor_ListsElevenFiles
 
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadChecksums
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare a well-formed
+                  SHA-256 checksum for each of its download files.
+                justification: |
+                  The downloader verifies every file against its checksum, so an installation is
+                  known to be the exact file the model was validated with.
+                tests:
+                  - DownloadDescriptor_ListsElevenFiles
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadUris
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare an HTTPS
+                  download URI for each of its download files, requiring no post-download
+                  archive extraction.
+                justification: |
+                  Each file is fetched individually over a secure transport from the model's
+                  upstream repository.
+                tests:
+                  - DownloadDescriptor_ListsElevenFiles
+
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageParameter
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare exactly one
-                  tunable parameter, a language ChoiceParameter with the options en-US
-                  (default) and en-GB.
+                  tunable parameter, a language ChoiceParameter.
                 justification: |
                   Every locale shares the same model files and the download mirror is keyed by
                   model id, so one catalog entry with a language choice avoids installing the
@@ -75,17 +121,43 @@ sections:
                 tests:
                   - Parameters_LanguageChoice
 
-              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-CreateBackendValidation
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageOptions
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall offer the language
+                  options en-US and en-GB, with en-US as the default.
+                justification: |
+                  A host must be able to choose between the supported locales and get a sensible
+                  default without configuring anything.
+                tests:
+                  - Parameters_LanguageChoice
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-EmptyDirectoryRejected
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class's CreateBackend method
-                  shall throw when the installed model directory is empty, when required model
-                  files are missing, or when the vocabulary does not declare the selected
-                  locale, rather than returning a partially built backend.
+                  shall throw when the installed model directory is empty.
                 justification: |
                   A host must learn about an unusable installation at backend construction so
                   the Speech library's factory can degrade it to the honest unavailable
                   recognizer, instead of failing later during recognition.
                 tests:
                   - CreateBackend_EmptyDirectory_Throws
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-MissingFilesRejected
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class's CreateBackend method
+                  shall throw when required model files are missing from the model directory.
+                justification: |
+                  A partial installation must be reported at backend construction rather than
+                  returning a partially built backend.
+                tests:
                   - CreateBackend_MissingFiles_Throws
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-UnsupportedLocaleRejected
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class's CreateBackend method
+                  shall throw when the vocabulary does not declare the selected locale.
+                justification: |
+                  Running the encoder with an undeclared locale would silently degrade
+                  recognition, so it must fail before any session is created.
+                tests:
                   - CreateBackend_VocabularyWithoutLocale_Throws

@@ -39,16 +39,12 @@ and a known-bad model fixture as part of its built-in self-test suite.
 **Expected**: Exits 0 with no reported syntax or reference errors for the valid fixture, and
 correctly reports an error for the invalid fixture.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Lint`.
-
 #### SysML2Tools_RenderSvgSelfTest
 
 **Scenario**: SysML2Tools is invoked with `--validate`, which exercises `render --format svg`
 against a known-good model fixture as part of its built-in self-test suite.
 
 **Expected**: Exits 0 and produces a non-empty SVG file for the fixture's declared view.
-
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_SoftwareStructureViewSvg
 
@@ -59,8 +55,6 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
-
 #### SysML2Tools_SpeechViewSvg
 
 **Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
@@ -69,8 +63,6 @@ model, then FileAssert checks the resulting file at
 
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
-
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_DiagnosticsViewSvg
 
@@ -81,8 +73,6 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
-
 #### SysML2Tools_AudioSubsystemViewSvg
 
 **Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
@@ -91,8 +81,6 @@ model, then FileAssert checks the resulting file at
 
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
-
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_PortAudioViewSvg
 
@@ -103,8 +91,6 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
-
 #### SysML2Tools_RecognitionSubsystemViewSvg
 
 **Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
@@ -113,13 +99,3 @@ model, then FileAssert checks the resulting file at
 
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
-
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
-
-### Requirements Coverage
-
-- **`Template-OTS-SysML2Tools-Lint`**: SysML2Tools_LintSelfTest
-- **`Template-OTS-SysML2Tools-Render`**: SysML2Tools_RenderSvgSelfTest,
-  SysML2Tools_SoftwareStructureViewSvg, SysML2Tools_SpeechViewSvg,
-  SysML2Tools_DiagnosticsViewSvg, SysML2Tools_AudioSubsystemViewSvg,
-  SysML2Tools_PortAudioViewSvg, SysML2Tools_RecognitionSubsystemViewSvg

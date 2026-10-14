@@ -5,7 +5,10 @@ one playback device for its entire life, cheap to obtain from
 `ISpeechSynthesizerEngine.CreateSessionAsync` and safely reusable across many
 `SpeakAsync`/`SynthesizeAsync` calls without reconstruction.
 
-**Data Model**: `IsAvailable` reflects disposal/fault status (`false` once disposed or `Faulted`).
+**Data Model**: `IsAvailable` reflects disposal/fault status (`false` once disposed or `Faulted`);
+a placeholder session reports `false` from creation and its operations throw
+`SpeechSynthesizerUnavailableException`, a faulted session throws `SynthesisSessionFaultedException`,
+and a disposed session throws `ObjectDisposedException`.
 `State` exposes the current `SynthesisSessionState` (`Created`, `Starting`, `Running`,
 `Stopping`, `Stopped`, `Disposing`, `Disposed`, `Faulted`); `StateChanged` reports every
 transition via a `SessionStateChangedEventArgs` carrying the previous and current state. Unlike
@@ -28,7 +31,7 @@ document for the full state diagram.
   behavior as `SpeakAsync`.
 - **StopAsync(cancellationToken)**: Requests cooperative cancellation of whichever operation is
   currently in flight, by cancelling that operation's own linked cancellation source. A safe
-  no-op when no operation is in flight. The cancelled operation unwinds to `Stopped`, not
+  no-op when no operation is in flight. The canceled operation unwinds to `Stopped`, not
   `Faulted` - a caller-requested stop is an ordinary, successful outcome.
 - **DisposeAsync()**: Cancels any in-flight operation, transitions through `Disposing` to
   `Disposed`, and releases the owning engine's exclusivity lease exactly once. Idempotent.

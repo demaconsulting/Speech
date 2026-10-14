@@ -7,7 +7,7 @@
 # and demonstrates it, but ships and is versioned as part of this repository.
 
 sections:
-  - title: Demo Application
+  - title: SpeechDemo Requirements
     requirements:
       - id: SpeechDemo-Shell-CapabilityNavigation
         title: >-
@@ -17,19 +17,18 @@ sections:
         justification: |
           The demo application design requires a single application that
           exercises the library's capabilities. Grouping each capability into its own named
-          panel lets a user find the capability they want to try, and lets later phases add
-          further capabilities without redesigning the application shell.
+          panel lets a user find the capability they want to try, and lets further capabilities
+          be added without redesigning the application shell.
         children:
-          - SpeechDemo-Shell-PanelCatalog
-          - SpeechDemo-Shell-DefaultPanel
-          - SpeechDemo-Shell-PanelTitles
+          - SpeechDemo-Shell-CapabilityNavigation-ShellSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
 
       - id: SpeechDemo-Shell-LibraryComposition
         title: >-
-          The demo application shall compose itself over the library's real public entry
-          points without ever throwing at start-up.
+          When the demo starts, it shall open its main window with every panel available on any
+          ordinary machine state - including no audio backend and no installed model - without
+          a start-up failure.
         tags: [system]
         justification: |
           The demo's primary evidence value is that the library is genuinely consumable by a
@@ -37,10 +36,79 @@ sections:
           model would contradict the library's own "nothing throws at composition" guarantee,
           so the demo must survive every ordinary machine state.
         children:
-          - SpeechDemo-Shell-CompositionRoot
-          - SpeechDemo-Shell-PanelRefreshNeverThrows
+          - SpeechDemo-Shell-EmptyEnvironmentComposition
+          - SpeechDemo-App-ShellComposition
+          - SpeechDemo-App-AvaloniaApplication
+          - SpeechDemo-App-ShutdownContainment
+          - SpeechDemo-App-ShutdownFailureContained
+          - SpeechDemo-App-CatalogRegistration
+          - SpeechDemo-App-CompositionFailureReleasesCatalog
+          - SpeechDemo-App-ShutdownDeferral
+          - SpeechDemo-App-ShutdownRepeatedRequest
+          - SpeechDemo-App-MirrorPrePopulation
+          - SpeechDemo-Program-AvaloniaApp
+          - SpeechDemo-Program-StartsApplication
         tests:
-          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+          - SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh
+
+      - id: SpeechDemo-Shell-LaunchOptions
+        title: >-
+          The demo application shall accept a launch-time option that relocates the model
+          store.
+        tags: [system]
+        justification: |
+          A developer starting the demo from a shell or script needs a discoverable, scriptable
+          way to point it at a different model store, matching the option speech-cli already
+          offers.
+        children:
+          - SpeechDemo-LaunchOptions-Parsing
+          - SpeechDemo-LaunchOptions-StoreFolder
+          - SpeechDemo-LaunchOptions-StoreFolderDefault
+          - SpeechDemo-LaunchOptions-HyphenValueAccepted
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_RelocateModelStore
+
+      - id: SpeechDemo-Shell-LaunchOptionRejection
+        title: >-
+          The demo application shall reject an unrecognized or incomplete launch-time option
+          with an explained error.
+        tags: [system]
+        justification: |
+          Failing fast on a mistyped option prevents a user believing a setting is in effect
+          when it is not.
+        children:
+          - SpeechDemo-LaunchOptions-RejectUnrecognized
+          - SpeechDemo-LaunchOptions-UnrecognizedNotEchoed
+          - SpeechDemo-LaunchOptions-RepeatedOptionLastWins
+          - SpeechDemo-LaunchOptions-RejectMissingValue
+          - SpeechDemo-LaunchOptions-RejectOptionAsValue
+          - SpeechDemo-Program-OptionValueRequired
+          - SpeechDemo-LaunchOptions-RejectNullArguments
+          - SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
+          - SpeechDemo-Program-FailFast
+          - SpeechDemo-Program-FailFastUsage
+          - SpeechDemo-Program-ErrorNoEcho
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation
+
+      - id: SpeechDemo-Shell-HelpRequest
+        title: >-
+          The demo application shall print its usage text and exit successfully, without
+          starting the user interface, when launched with the help option.
+        tags: [system]
+        justification: |
+          A user needs a discoverable way to learn the launch options; help must win over any
+          other (even invalid) option so it is always reachable.
+        children:
+          - SpeechDemo-LaunchOptions-HelpRequest
+          - SpeechDemo-LaunchOptions-HelpText
+          - SpeechDemo-LaunchOptions-HelpSkipsVoicesDirCheck
+          - SpeechDemo-LaunchOptions-HelpTextNullWriter
+          - SpeechDemo-Program-HelpExitCode
+          - SpeechDemo-Program-HelpWinsOverInvalidMirror
+          - SpeechDemo-Program-HelpRequest
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_HelpPrintsUsageAndExits
 
       - id: SpeechDemo-Devices-Selection
         title: >-
@@ -52,13 +120,15 @@ sections:
           must do, and it is the demonstrable proof that the library's device enumeration and
           name-based selection contracts are usable from a host application.
         children:
-          - SpeechDemo-Devices-Enumeration
-          - SpeechDemo-Devices-DefaultSelection
-          - SpeechDemo-Devices-NameBasedSelection
-          - SpeechDemo-Devices-Refresh
-          - SpeechDemo-Devices-LibraryProbeDelegation
+          - SpeechDemo-DeviceSelection-PanelListsLibraryDevices
+          - SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
+          - SpeechDemo-DeviceSelection-RefreshKeepsSelection
+          - SpeechDemo-DeviceSelection-RefreshFailureExplained
+          - SpeechDemo-DeviceSelection-RefreshFailureKeepsState
+          - SpeechDemo-DeviceSelection-RefreshFailureKeepsSelections
+          - SpeechDemo-DeviceSelection-RefreshReachesLibrary
         tests:
-          - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
+          - SpeechDemo_SystemIntegration_DevicePanel_ListsDevicesAndSelectionChanges
 
       - id: SpeechDemo-Devices-HonestEmptyState
         title: >-
@@ -70,8 +140,9 @@ sections:
           initialize. An empty picker with no explanation reads to a user as a broken
           application, so the demo must say what happened and remain usable.
         children:
-          - SpeechDemo-Devices-EmptyStateExplanation
-          - SpeechDemo-Devices-EmptySelectionFallback
+          - SpeechDemo-Devices-HonestEmptyState-DeviceSelectionSubsystem
+          - SpeechDemo-DeviceSelection-EmptyPanelExplained
+          - SpeechDemo-DeviceSelection-EmptyPanelDefaultSelections
         tests:
           - SpeechDemo_SystemIntegration_UnavailableAudioBackend_DevicePanelExplainsAbsence
 
@@ -86,84 +157,285 @@ sections:
           a complete model-management page against the library's generic catalog contract
           alone, with no knowledge of any specific model.
         children:
-          - SpeechDemo-Models-Enumeration
-          - SpeechDemo-Models-StatePresentation
-          - SpeechDemo-Models-Refresh
-          - SpeechDemo-Models-LibraryCatalogDelegation
+          - SpeechDemo-ModelCatalog-PanelRefresh
+          - SpeechDemo-ModelCatalog-PanelRefreshFaultContained
+          - SpeechDemo-ModelCatalog-PanelOperation
         tests:
-          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+          - SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh
+          - SpeechDemo_SystemIntegration_CatalogPanel_ShowsInstalledAndNotInstalledModels
 
       - id: SpeechDemo-Models-Download
         title: >-
-          The demo application shall let a user download a listed model and shall report that
-          download's progress and final outcome, including failure.
+          The demo application shall let a user download a listed model and shall show it as
+          installed once the download succeeds.
         tags: [system]
         justification: |
-          Downloading is the only way a user obtains a model, and the library treats a failed
-          or checksum-mismatched download as an ordinary outcome rather than an exception. The
-          demo must therefore surface both progress and honest failure in the list rather than
-          crashing or silently doing nothing.
+          Downloading is the only way a user obtains a model, so the list must reflect a
+          successful download as an installed model.
 
-          This requirement is verified against controlled catalog data rather than a real
+          This requirement is verified against a controlled catalog service rather than a real
           multi-hundred-megabyte download, since automated tests must not depend on network
-          access (see SpeechDemo-Models-RealCatalogReporting for the real-catalog enumeration
-          proof).
+          access.
         children:
-          - SpeechDemo-Models-DownloadProgress
-          - SpeechDemo-Models-DownloadOutcomes
-          - SpeechDemo-Models-DownloadRetry
-          - SpeechDemo-Models-DownloadGuard
-          - SpeechDemo-Models-InstallNotification
+          - SpeechDemo-ModelCatalog-ModelDownload
         tests:
-          - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
+          - SpeechDemo_SystemIntegration_DownloadListedModel_ShowsInstalledOutcome
+
+      - id: SpeechDemo-Models-DownloadProgressReporting
+        title: >-
+          The demo application shall report a running download's progress on the downloading
+          model's row.
+        tags: [system]
+        justification: |
+          A model download can be hundreds of megabytes, so a user needs to see that it is
+          running and how far it has progressed rather than an unchanging list.
+        children:
+          - SpeechDemo-Models-DownloadProgressReporting-ModelCatalogSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgress
+
+      - id: SpeechDemo-Models-DownloadFailureReporting
+        title: >-
+          The demo application shall explain a failed or checksum-mismatched model download
+          on that model's row rather than crashing or silently doing nothing.
+        tags: [system]
+        justification: |
+          The library treats a failed or checksum-mismatched download as an ordinary outcome
+          rather than an exception, so the demo must surface honest failure in the list.
+        children:
+          - SpeechDemo-ModelCatalog-DownloadOutcomeOnRow
+        tests:
+          - SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReported
+
+      - id: SpeechDemo-Models-FailedDownloadRetry
+        title: >-
+          The demo application shall let a user retry a failed model download and shall clear
+          the earlier failure explanation when the retry succeeds.
+        tags: [system]
+        justification: |
+          A transient network failure should not leave a user stuck with a model they cannot
+          obtain, nor with a stale error beside a model that is now installed.
+        children:
+          - SpeechDemo-Models-FailedDownloadRetry-ModelCatalogSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_DownloadListedModel_FailedDownloadIsRetryable
 
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
-          The demo application shall report exactly what the library's host-populated model
-          catalog contains, whether that is the six real models (three recognition, three
-          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels(),
-          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels(), and
-          the NemotronStt package's AddNemotronSttModels() extensions, or an empty registry
-          for a caller-supplied catalog with none.
+          The demo application shall list every recognition and synthesis model the shipped
+          model packages provide.
         tags: [system]
         justification: |
-          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa,
-          DemaConsulting.Speech.Onnx.Kokoro, and DemaConsulting.Speech.Onnx.NemotronStt packages'
-          production models into its
-          SpeechModelCatalog via AddSherpaModels(), AddKokoroModels(), and AddNemotronSttModels() - core
-          DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
-          surface those real models rather than continuing to assert emptiness as the expected
-          state. The underlying "explain an empty catalog plainly" capability remains a real,
-          separately-tested feature for any caller-supplied catalog that genuinely has none (see
-          SpeechDemo-Models-EmptyCatalogExplanation).
+          The demo's composition root registers the sibling packages' production models into
+          its SpeechModelCatalog - core DemaConsulting.Speech ships zero built-in models - so
+          the demo's catalog panel must surface those real models.
         children:
-          - SpeechDemo-Models-EmptyCatalogExplanation
+          - SpeechDemo-App-CatalogRegistration
         tests:
           - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+      - id: SpeechDemo-Models-EmptyCatalogReporting
+        title: >-
+          The demo application shall explain an empty catalog, rather than silently show
+          nothing, when a caller-supplied catalog has no models.
+        tags: [system]
+        justification: |
+          A caller-supplied catalog can genuinely have no models; an unexplained blank list
+          reads to a user as a broken application.
+        children:
+          - SpeechDemo-Models-EmptyCatalogReporting-ModelCatalogSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_EmptyCatalog_ModelPanelExplainsEmptiness
 
       - id: SpeechDemo-Models-MirrorRedirection
         title: >-
           The demo application shall let a user redirect every subsequent model download to an
-          internal mirror (or back to each model's own public URI), both at launch and while the
-          application is running, through launch-time arguments and through the model catalog
-          panel's own mirror-settings fields.
+          internal mirror named in launch-time arguments.
         tags: [system]
         justification: |
           A user whose network policy blocks a model's public download host (for example
           huggingface.co) needs a way to redirect downloads to an internal mirror, matching the
-          capability SpeechCli already offers via its own --mirror-* global options. Offering it
-          both at launch (AppLaunchOptions) and from the running application (the model catalog
-          panel) covers both a scripted/CI launch and interactive use without requiring a
-          restart for the latter.
+          capability SpeechCli already offers via its own --mirror-* global options. A launch
+          option covers a scripted/CI launch.
         children:
-          - SpeechDemo-Models-MirrorRebuild
-          - SpeechDemo-Models-MirrorRequiresFactory
-          - SpeechDemo-Models-MirrorCatalogOwnership
-          - SpeechDemo-Models-MirrorSettingsUi
-          - SpeechDemo-Models-MirrorBlockedDuringDownload
+          - SpeechDemo-Models-MirrorRedirection-ModelCatalogSubsystem
+          - SpeechDemo-LaunchOptions-MirrorConfiguration
+          - SpeechDemo-LaunchOptions-NoMirror
+          - SpeechDemo-LaunchOptions-MirrorRejection
+          - SpeechDemo-LaunchOptions-MirrorHalfCredentialRejection
+          - SpeechDemo-LaunchOptions-MirrorPasswordWithoutUserRejection
+          - SpeechDemo-LaunchOptions-MirrorCredentialWithoutUrlRejection
+          - SpeechDemo-LaunchOptions-MirrorBasicAndBearerRejection
+          - SpeechDemo-LaunchOptions-MirrorInsecureBasicRejection
+          - SpeechDemo-LaunchOptions-MirrorMixedSourcesRejection
+          - SpeechDemo-LaunchOptions-MirrorEmptyOptionIgnored
+          - SpeechDemo-LaunchOptions-MirrorSecretsNotInErrors
+          - SpeechDemo-MirrorOptions-Validation
+          - SpeechDemo-MirrorOptions-BlankUrlNoMirror
+          - SpeechDemo-MirrorOptions-CredentialWithoutUrl
+          - SpeechDemo-MirrorOptions-HalfCredentialPair
+          - SpeechDemo-MirrorOptions-PasswordWithoutUser
+          - SpeechDemo-MirrorOptions-InvalidUrl
+          - SpeechDemo-MirrorOptions-InsecureCredentialRejected
+          - SpeechDemo-MirrorOptions-EmptyCredentialIsUnset
+          - SpeechDemo-MirrorOptions-WhitespaceCredentialIsUnset
+          - SpeechDemo-MirrorOptions-NonHttpSchemeRejected
+          - SpeechDemo-MirrorOptions-BasicAndBearerRejected
         tests:
-          - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
-          - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+          - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch
+          - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesThroughComposition
+
+      - id: SpeechDemo-Models-MirrorEnvironmentInputs
+        title: >-
+          The demo application shall accept the model-download mirror URL and credentials from
+          DEMASPEECH_MIRROR_* environment variables, with launch options taking precedence.
+        tags: [system]
+        justification: |
+          Credentials passed as command-line arguments leak into process listings and shell
+          history; environment variables let a scripted or CI launch supply them safely.
+        children:
+          - SpeechDemo-LaunchOptions-MirrorUrlEnvironment
+          - SpeechDemo-LaunchOptions-MirrorUrlOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorBasicCredentialsEnvironment
+          - SpeechDemo-LaunchOptions-MirrorBearerTokenEnvironment
+          - SpeechDemo-LaunchOptions-MirrorCredentialOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentHelp
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_MirrorEnvironmentAppliesAtLaunch
+
+      - id: SpeechDemo-Models-MirrorRuntimeRedirection
+        title: >-
+          The demo application shall let a user redirect every subsequent model download to an
+          internal mirror while the application is running, through the model catalog panel's
+          mirror-settings fields, without a restart.
+        tags: [system]
+        justification: |
+          Interactive use needs the same mirror redirection as a scripted launch without
+          requiring the application to be restarted.
+        children:
+          - SpeechDemo-Models-MirrorRuntimeRedirection-ModelCatalogSubsystem
+          - SpeechDemo-ModelCatalog-MirrorRedirection
+          - SpeechDemo-ModelCatalog-MirrorApplyConfirmation
+          - SpeechDemo-ModelCatalog-MirrorBlockedDuringTransfer
+        tests:
+          - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesWhileRunning
+
+      - id: SpeechDemo-Models-MirrorRevert
+        title: >-
+          The demo application shall let a user revert every subsequent model download to each
+          model's own public URI by clearing the mirror while the application is running.
+        tags: [system]
+        justification: |
+          A user who no longer needs a mirror must be able to return to each model's own
+          public download location without restarting the application.
+        children:
+          - SpeechDemo-Models-MirrorRevert-ModelCatalogSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_MirrorRedirection_ClearingMirrorRevertsToPublicUris
+
+      - id: SpeechDemo-Voices-ReferenceVoicePacks
+        title: >-
+          The demo application shall let a user install and remove the optional reference
+          voice pack from the model catalog panel.
+        tags: [system]
+        justification: |
+          Chatterbox Turbo clones a voice from a short reference recording. Without a voice
+          the model has nothing to imitate, so the demo must make voices installable and
+          removable from the same place models are managed. SpeechCli offers the same
+          capability through its own voices commands.
+        children:
+          - SpeechDemo-ModelCatalog-VoicePackChangeRebuild
+          - SpeechDemo-ModelCatalog-VoicePackChangeNotification
+          - SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
+          - SpeechDemo-ModelCatalog-VoicePackRemovedNotification
+          - SpeechDemo-ModelCatalog-MirrorChangedRebuild
+          - SpeechDemo-ModelCatalog-MirrorChangedRowsShown
+          - SpeechDemo-ModelCatalog-MirrorChangedNotification
+          - SpeechDemo-ModelCatalog-VoicePackRollbackFailureExplained
+          - SpeechDemo-ModelCatalog-VoicePackRemovalCanceledExplained
+          - SpeechDemo-ModelCatalog-VoicePackRemovalFailureNoRebuild
+          - SpeechDemo-ModelCatalog-VoicePackSectionHidden
+          - SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
+          - SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
+          - SpeechDemo-ModelCatalog-VoicePackRemovalFailureExplained
+        tests:
+          - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallAndRemoveFromCatalogPanel
+
+      - id: SpeechDemo-Voices-VoiceChoice
+        title: >-
+          The demo application shall offer the voices of a newly installed reference voice
+          pack for Chatterbox Turbo synthesis immediately, keeping the voice the user already
+          chose.
+        tags: [system]
+        justification: |
+          Without a voice the model has nothing to imitate, so installing or removing a pack
+          must refresh the voice choice at once without discarding what the user selected.
+        children:
+          - SpeechDemo-Voices-VoiceChoice-ModelSettingsSubsystem
+          - SpeechDemo-Voices-VoiceChoice-SelectionRetained-ModelSettingsSubsystem
+          - SpeechDemo-SynthesisPanel-ReferenceVoiceChangeHandling
+          - SpeechDemo-SynthesisPanel-ReferenceVoiceChoiceKept
+        tests:
+          - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstalledVoicesOfferedAndChoiceKept
+
+      - id: SpeechDemo-Voices-OwnVoicesFolder
+        title: >-
+          The demo application shall let a user add their own reference voices from a folder
+          given at launch with --voices-dir.
+        tags: [system]
+        justification: |
+          A user with their own recordings needs a way to use them without installing the
+          pack. SpeechCli offers the same capability through its --voices-dir option.
+        children:
+          - SpeechDemo-LaunchOptions-VoicesDir
+          - SpeechDemo-LaunchOptions-VoicesDirHelp
+          - SpeechDemo-LaunchOptions-VoicesDirValueRequired
+          - SpeechDemo-LaunchOptions-VoicesDirMustExist
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_VoicesDirOptionRecordsVoicesFolder
+
+      - id: SpeechDemo-Voices-ConsentNote
+        title: >-
+          The demo application shall show the voice-cloning consent note in the model catalog
+          panel where reference voice packs are managed.
+        tags: [system]
+        justification: |
+          Cloning a real person's voice raises consent questions, so the note must be visible
+          where a user chooses to install voices.
+        children:
+          - SpeechDemo-Voices-ConsentNote-ModelCatalogSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_ReferenceVoicePack_CatalogPanelShowsConsentNote
+
+      - id: SpeechDemo-Voices-SynthesisConsentNote
+        title: >-
+          The demo application shall show the voice-cloning consent note in the synthesis
+          panel when the Chatterbox Turbo model is selected.
+        tags: [system]
+        justification: |
+          Consent must be stated where the voice is chosen and used, not only where it is
+          installed.
+        children:
+          - SpeechDemo-Voices-SynthesisConsentNote-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-VoiceNotice
+          - SpeechDemo-SynthesisPanel-VoiceNoticeOtherModels
+        tests:
+          - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentNote
+
+      - id: SpeechDemo-Voices-SynthesisAttribution
+        title: >-
+          The demo application shall show the license attribution of the installed reference
+          voice pack in the synthesis panel when the Chatterbox Turbo model is selected.
+        tags: [system]
+        justification: |
+          The pack's license requires attribution where its voices are used.
+        children:
+          - SpeechDemo-Voices-SynthesisAttribution-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-VoiceAttribution
+        tests:
+          - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsPackAttribution
 
       - id: SpeechDemo-Settings-PerModelParameters
         title: >-
@@ -179,98 +451,266 @@ sections:
           can build such a page against the library's generic parameter contract alone.
         children:
           - SpeechDemo-Settings-GenericParameterRendering
+          - SpeechDemo-Settings-GenericParameterRenderingOrder
+          - SpeechDemo-Settings-GenericParameterRenderingKind
           - SpeechDemo-Settings-ValueBag
-          - SpeechDemo-Settings-ParameterConstructionGuards
+          - SpeechDemo-Settings-CapturedValuesRestored
+          - SpeechDemo-Settings-EmptyStateExplained
+          - SpeechDemo-Settings-UnrecognizedParameterTolerated
+          - SpeechDemo-Settings-NumericPresenter-WholeNumberControl
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis
 
       - id: SpeechDemo-Settings-EmptyStateExplanation
         title: >-
           The demo application shall explain, rather than silently show nothing, when no model
-          is selected or the selected model declares no tunable parameters.
+          is selected.
         tags: [system]
         justification: |
           Consistent with the honest-empty-state precedent this demo already established for an
           empty known-model registry, an unexplained blank settings panel reads to a user as a
           broken application rather than an expected state.
         children:
-          - SpeechDemo-Settings-HonestEmptyState
+          - SpeechDemo-Settings-EmptyStateExplanation-ModelSettingsSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Settings-NoParametersExplanation
+        title: >-
+          The demo application shall explain, rather than silently show nothing, when the
+          selected model declares no tunable parameters.
+        tags: [system]
+        justification: |
+          A model with nothing to tune is an ordinary state; a blank settings panel beside it
+          reads to a user as a broken application.
+        children:
+          - SpeechDemo-Settings-NoParametersExplanation-ModelSettingsSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_ModelWithoutParameters_SettingsPanelExplainsNoParameters
 
       - id: SpeechDemo-Synthesis-TextToSpeech
         title: >-
           The demo application shall let a user enter text - optionally containing inline
           Natural Language Audio Tags - and speak it through the selected playback device using
-          a chosen installed synthesis model, reporting playback status and letting the user
-          stop it.
+          a chosen installed synthesis model.
         tags: [system]
         justification: |
           Text-to-speech is one of the two capabilities this demo exists to prove is usable from
-          a real host application. Showing example tags and reporting each lifecycle transition
-          is what turns the library's synthesis contract into a usable demonstration rather than
-          an opaque one-shot call.
+          a real host application.
         children:
-          - SpeechDemo-Synthesis-ModelSelection
-          - SpeechDemo-Synthesis-AudioTagHints
-          - SpeechDemo-Synthesis-PlayLifecycle
-          - SpeechDemo-Synthesis-StopControl
-          - SpeechDemo-Synthesis-SessionSeam
-          - SpeechDemo-Synthesis-EngineSessionReuse
-          - SpeechDemo-Synthesis-VoiceSelectionForwarding
-          - SpeechDemo-Synthesis-AutoRefreshOnInstall
-          - SpeechDemo-Synthesis-ResourceLifetime
-          - SpeechDemo-Synthesis-ModelSwitchGuard
+          - SpeechDemo-Synthesis-TextToSpeech-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
+          - SpeechDemo-SynthesisPanel-LifecycleThroughSeams
+          - SpeechDemo-SynthesisPanel-ExternalChangeHandling
+          - SpeechDemo-SynthesisPanel-DeviceRefreshCoordination
+          - SpeechDemo-SynthesisPanel-SetupFaultReporting
+          - SpeechDemo-SynthesisPanel-ModelChangeGuard
+          - SpeechDemo-SynthesisPanel-EngineSessionReuse
+          - SpeechDemo-Synthesis-TextToSpeech-ModelChoice-SynthesisPanelSubsystem
+          - SpeechDemo-Synthesis-TextToSpeech-Device-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-ModelSettings
+          - SpeechDemo-SynthesisPanel-DependencyValidation
+          - SpeechDemo-SynthesisPanel-ModelValidation
+          - SpeechDemo-SynthesisPanel-ChangedVoiceRespected
+          - SpeechDemo-SynthesisPanel-DeviceChangeRespected
+          - SpeechDemo-SynthesisPanel-ShutdownReleasesPlayback
+          - SpeechDemo-SynthesisPanel-ShutdownStopsCatalogReaction
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_TextToSpeech_SpeaksEnteredText
+
+      - id: SpeechDemo-Synthesis-PlaybackStatus
+        title: >-
+          The demo application shall report the speech lifecycle - synthesizing, then playing,
+          then idle - to the user while text is spoken.
+        tags: [system]
+        justification: |
+          Reporting each lifecycle transition turns the library's synthesis contract into a
+          usable demonstration rather than an opaque one-shot call.
+        children:
+          - SpeechDemo-Synthesis-PlaybackStatus-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-LifecycleStatusCleared
+        tests:
+          - SpeechDemo_SystemIntegration_TextToSpeech_ReportsLifecycleStatus
+
+      - id: SpeechDemo-Synthesis-StopPlayback
+        title: >-
+          The demo application shall let a user stop speech that is in progress and shall say
+          that it was stopped.
+        tags: [system]
+        justification: |
+          A long or mistaken utterance must be interruptible, and the panel must confirm the
+          interruption rather than silently going quiet.
+        children:
+          - SpeechDemo-SynthesisPanel-StopPlayback
+        tests:
+          - SpeechDemo_SystemIntegration_TextToSpeech_StopEndsUtteranceWithExplanation
+
+      - id: SpeechDemo-Synthesis-AudioTagExamples
+        title: >-
+          The demo application shall show example Natural Language Audio Tags beside the text
+          input.
+        tags: [system]
+        justification: |
+          The tag vocabulary is closed and published by the library; showing examples lets a
+          user discover what can be written without reading documentation.
+        children:
+          - SpeechDemo-Synthesis-AudioTagExamples-SynthesisPanelSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_TextToSpeech_ShowsExampleAudioTags
 
       - id: SpeechDemo-Synthesis-UnavailableExplanation
         title: >-
           The demo application shall report an honest, explanatory outcome, rather than a crash,
-          when no synthesis model is installed or no playback device is available.
+          when no synthesis model is installed.
         tags: [system]
         justification: |
           A developer evaluating the library frequently runs the demo before downloading any
-          model or connecting a speaker; the synthesis panel must say so plainly rather than
-          fail silently or crash the application.
+          model; the synthesis panel must say so plainly rather than fail silently or crash
+          the application.
         children:
-          - SpeechDemo-Synthesis-HonestEmptyCatalogState
-          - SpeechDemo-Synthesis-HonestUnavailableStates
+          - SpeechDemo-Synthesis-UnavailableExplanation-SynthesisPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
+      - id: SpeechDemo-Synthesis-NoPlaybackDeviceExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when no playback device is available and the user asks to speak text.
+        tags: [system]
+        justification: |
+          A developer evaluating the library frequently runs the demo before connecting a
+          speaker; the synthesis panel must say so plainly rather than fail silently.
+        children:
+          - SpeechDemo-SynthesisPanel-UnavailableDeviceReporting
+        tests:
+          - SpeechDemo_SystemIntegration_TextToSpeech_NoPlaybackDeviceIsExplained
+
+      - id: SpeechDemo-Synthesis-EngineFailureExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when the selected model's synthesizer engine is unavailable on the machine.
+        tags: [system]
+        justification: |
+          An installed model can still be unusable on a machine, for example when its runtime
+          is missing; the panel must say so plainly rather than crash.
+        children:
+          - SpeechDemo-Synthesis-EngineFailureExplanation-SynthesisPanelSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_TextToSpeech_UnavailableEngineIsExplained
+
       - id: SpeechDemo-Recognition-SpeechToText
         title: >-
-          The demo application shall let a user start and stop a live streaming transcription
-          session through the selected capture device using a chosen installed recognition
-          model, showing the progressive partial and committed final transcript as it streams.
+          The demo application shall let a user start a live streaming transcription session
+          through the selected capture device using a chosen installed recognition model.
         tags: [system]
         justification: |
           Speech-to-text is the other capability this demo exists to prove is usable from a real
-          host application. Rendering the progressive partial-then-final sequence is what proves
-          the library's streaming recognition contract is genuinely usable from a UI thread.
+          host application.
         children:
-          - SpeechDemo-Recognition-ModelSelection
+          - SpeechDemo-Recognition-SpeechToText-RecognitionPanelSubsystem
           - SpeechDemo-Recognition-StartStopLifecycle
-          - SpeechDemo-Recognition-TranscriptSequencing
-          - SpeechDemo-Recognition-ResourceLifetime
           - SpeechDemo-Recognition-SessionSeam
-          - SpeechDemo-Recognition-AutoRefreshOnInstall
-          - SpeechDemo-Recognition-ModelSwitchGuard
+          - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
+          - SpeechDemo-Recognition-IdleDeviceRefreshInert
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_SpeechToText_StartsStreaming
+
+      - id: SpeechDemo-Recognition-PartialTranscript
+        title: >-
+          The demo application shall show each provisional transcript result as it streams,
+          replacing the previous provisional text.
+        tags: [system]
+        justification: |
+          Rendering the progressive partial result is what proves the library's streaming
+          recognition contract is genuinely usable from a UI thread.
+        children:
+          - SpeechDemo-Recognition-PartialTranscript-RecognitionPanelSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_ShowsPartialResult
+
+      - id: SpeechDemo-Recognition-FinalTranscript
+        title: >-
+          The demo application shall commit each final transcript result as a finished line
+          and clear the provisional text.
+        tags: [system]
+        justification: |
+          A committed final line is the durable outcome of recognition; it must stay visible
+          once the provisional text it replaces is gone.
+        children:
+          - SpeechDemo-Recognition-FinalTranscript-RecognitionPanelSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_CommitsFinalResult
+
+      - id: SpeechDemo-Recognition-StopListening
+        title: >-
+          The demo application shall let a user stop a live transcription session and return to
+          the idle state.
+        tags: [system]
+        justification: |
+          A user must be able to end listening, releasing the capture device for other uses.
+        children:
+          - SpeechDemo-Recognition-StopLifecycle
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_StopEndsSession
 
       - id: SpeechDemo-Recognition-UnavailableExplanation
         title: >-
           The demo application shall report an honest, explanatory outcome, rather than a crash,
-          when no recognition model is installed or no capture device is available.
+          when no recognition model is installed.
         tags: [system]
         justification: |
           A developer evaluating the library frequently runs the demo before downloading any
-          model or connecting a microphone; the recognition panel must say so plainly rather
-          than fail silently or crash the application.
+          model; the recognition panel must say so plainly rather than fail silently or crash
+          the application.
         children:
-          - SpeechDemo-Recognition-HonestEmptyCatalogState
-          - SpeechDemo-Recognition-HonestUnavailableStates
+          - SpeechDemo-Recognition-UnavailableExplanation-RecognitionPanelSubsystem
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Recognition-NoCaptureDeviceExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when no capture device is available and the user starts listening.
+        tags: [system]
+        justification: |
+          A developer evaluating the library frequently runs the demo before connecting a
+          microphone; the recognition panel must say so plainly rather than fail silently.
+        children:
+          - SpeechDemo-Recognition-NoCaptureDeviceExplanation-RecognitionPanelSubsystem
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_NoCaptureDeviceIsExplained
+
+      - id: SpeechDemo-Recognition-EngineFailureExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when the selected model's recognizer engine is unavailable on the machine.
+        tags: [system]
+        justification: |
+          An installed model can still be unusable on a machine, for example when its runtime
+          is missing; the panel must say so plainly rather than crash.
+        children:
+          - SpeechDemo-Recognition-SessionSeamUnavailableEngine
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_UnavailableEngineIsExplained
+
+      - id: SpeechDemo-Recognition-CaptureDebugRecording
+        title: >-
+          The demo application shall record the raw captured microphone audio to a WAV file only
+          when the developer opts in through the capture-debug environment variable.
+        tags: [system]
+        justification: |
+          A developer diagnosing poor recognition needs to hear exactly what the capture device
+          delivered, but a normal run must never write audio to disk, so the diagnostic is
+          strictly opt-in. The facility is a temporary diagnostic aid.
+        children:
+          - SpeechDemo-Recognition-CaptureDebugOptIn
+          - SpeechDemo-Recognition-CaptureDebugWavOutput
+          - SpeechDemo-Recognition-CaptureDebugFailureContained
+          - SpeechDemo-Recognition-CaptureDebugFinalizationFailureContained
+          - SpeechDemo-Recognition-CaptureDebugLateFrameDiscarded
+          - SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
+          - SpeechDemo-Recognition-CaptureDebugInvalidArgumentsRejected
+          - SpeechDemo-Recognition-CaptureDebugBoundedMemory
+          - SpeechDemo-Recognition-CaptureDebugNeverDelaysCapture
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled

@@ -57,24 +57,32 @@ sections:
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-ArgumentValidation
                 title: >-
                   The SherpaOnnxSynthesisEngine class's Generate method shall throw
-                  ArgumentNullException for a null text argument and ObjectDisposedException
-                  after the engine has been disposed.
+                  ArgumentNullException for a null text argument.
                 justification: |
-                  A programming error (null text or use after disposal) should surface
-                  immediately with a clear exception, matching this repository's existing
-                  argument-validation convention, rather than an opaque failure inside the
-                  native engine.
+                  A programming error (null text) should surface immediately with a clear
+                  exception, matching this repository's existing argument-validation
+                  convention, rather than an opaque failure inside the native engine.
                 tests:
                   - SherpaOnnxSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
-                  - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
 
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Dispose
                 title: >-
                   The SherpaOnnxSynthesisEngine class shall release the loaded native engine on
-                  Dispose, and a second Dispose call shall be a no-op.
+                  Dispose, after which its Generate method throws ObjectDisposedException.
                 justification: |-
                   The loaded engine holds native memory sized to a multi-hundred-megabyte model,
                   so it must be released deterministically when the owning synthesizer engine is
-                  disposed, and idempotent disposal keeps teardown paths safe.
+                  disposed, and a disposed engine must refuse further use rather than touch
+                  released native memory.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
+
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-DisposeIdempotent
+                title: >-
+                  The SherpaOnnxSynthesisEngine class shall treat a second Dispose call as a
+                  no-op.
+                justification: |-
+                  Idempotent disposal keeps teardown paths safe when more than one owner
+                  disposes the engine.
                 tests:
                   - SherpaOnnxSynthesisEngine_Dispose_CalledTwice_IsIdempotent

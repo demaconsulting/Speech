@@ -6,7 +6,8 @@ This document provides the system-level design for the SpeechOnnx library.
 
 ## Architecture
 
-SpeechOnnx is a thin, dependency-free .NET library, published as the `DemaConsulting.Speech.Onnx`
+SpeechOnnx is a thin .NET library, independent of the Speech library (its only dependency is
+`Microsoft.ML.OnnxRuntime`), published as the `DemaConsulting.Speech.Onnx`
 NuGet package, that supplies shared ONNX Runtime infrastructure reusable by any ONNX-Runtime-backed
 model package - today, execution-provider probing and selection. It is a sibling system to Speech
 rather than a subsystem of it, for the same reasons SpeechSherpa is: it is a separately built,
@@ -14,12 +15,14 @@ separately packaged software item with its own dependencies, and the Speech libr
 depend on it. Unlike SpeechSherpa, this package's one shipped unit also does not depend on Speech
 at all: `OnnxExecutionProviderSelector` references only the `Microsoft.ML.OnnxRuntime` package and
 names no Speech type, since it is purely an ONNX Runtime helper with no knowledge of Speech's
-model/catalog contracts. (The project file still carries a `ProjectReference` to the Speech
-library, left over for the currently-empty `SynthesisSubsystem` folder this pass does not cover -
-see the Scope note below.) SpeechOnnx declares zero models itself; each concrete model family (for
-example the sibling `DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.NemotronStt`
-packages) reference this package and add
-its own `AddXxxModels()` extension method and model classes.
+model/catalog contracts. The project therefore carries no project reference to the Speech library.
+SpeechOnnx declares zero
+models itself; each concrete model family (the sibling `DemaConsulting.Speech.Onnx.Kokoro`,
+`DemaConsulting.Speech.Onnx.NemotronStt`, and `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
+packages) references this package or the same ONNX Runtime package and adds its own
+`AddXxxModels()` extension method and model classes. A model package decides whether to opt in to
+accelerated providers: for example `AddKokoroModels` takes an optional
+`preferredExecutionProviderNames` list, and `null` keeps CPU-only inference.
 
 The library consists of one subsystem:
 
@@ -28,7 +31,8 @@ The library consists of one subsystem:
   execution provider names before falling back to the always-available CPU provider - see
   _SpeechOnnx OnnxRuntimeSubsystem Design_
 
-**Scope note**: the project also has an empty `SynthesisSubsystem` folder with no source files.
+**Scope note**: a local, empty `SynthesisSubsystem` folder with no source files may exist in the
+project directory (git does not track empty folders).
 It is out of scope for this design document - it has no implementation to describe - and is
 documented only once it ships a unit.
 
@@ -39,9 +43,14 @@ and its `DefaultProviderNames`/`Create` members.
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
-| `DefaultProviderNames` | Outbound | Public static property | Read-only; empty (CPU-only Stage 1) |
-| `Create(modelPath, providerNames, validateSession)` | Inbound/Outbound | Static method | Never throws |
+| `DefaultProviderNames` | Outbound | Public static property | Read-only; empty (CPU-only by default) |
+| `Create(modelPath, providerNames, validateSession)` | Inbound/Outbound | Static method | Errors: see below |
 | ONNX Runtime managed API | Outbound | Method call/return | Accelerated provider needs its own runtime from consumer |
+
+**Create exception contract**: `Create` throws `ArgumentException` (`ArgumentNullException` for
+null) for a null or empty `modelPath`; `OnnxRuntimeException` for a missing, unreadable, or
+malformed model; and propagates any unexpected exception from `validateSession`. Only a
+provider's _unavailability_ is swallowed into the CPU fallback.
 
 ## Dependencies
 
@@ -85,7 +94,8 @@ clinical or safety role.
    native shared library is unavailable in this process, or the probe inference itself failed)
    is abandoned and the next candidate is tried. The CPU fallback candidate is never probed - it
    is trusted unconditionally, matching this class's existing guarantee that CPU always succeeds
-   for a well-formed model
+   for a well-formed model. A null or empty `modelPath` is rejected up front with
+   `ArgumentException` before any candidate is attempted
 3. **Disposal**: every candidate's `SessionOptions` is disposed immediately after its own
    construction attempt, whether that attempt succeeds or fails, so a failed candidate never
    leaves a native handle behind and never carries configuration into the next candidate. Each
@@ -96,7 +106,9 @@ clinical or safety role.
    silently swallowed, propagating to the caller after that candidate's session is disposed
 4. **Fallback**: if every preferred candidate fails, the method constructs an `InferenceSession`
    with default `SessionOptions` (no explicit provider), which always uses the CPU provider
-   shipped inside the base package and is guaranteed to succeed for a well-formed model
+   shipped inside the base package and is guaranteed to succeed for a well-formed model; a
+   missing, unreadable, or malformed model therefore surfaces here as `OnnxRuntimeException`
+   (earlier candidates' `OnnxRuntimeException`s are only ever treated as "provider unavailable")
 5. **Output**: the first successfully loaded (and, if a probe was supplied, successfully probed)
    `InferenceSession` is returned to the caller, which owns its disposal; the method itself never
    disposes the session it returns
@@ -111,11 +123,17 @@ clinical or safety role.
   `InferenceSession` it returns on success, which remains the caller's responsibility. Each
   candidate's `InferenceSession` is likewise disposed on every non-winning path, including an
   unexpected exception type from a caller-supplied probe
-- **Never fails for an unavailable or non-functional accelerated provider**: the CPU fallback
-  candidate is always attempted last and always succeeds for a well-formed model, so this unit's
-  own logic never turns a missing or construction-only-functional accelerated runtime into an
-  exception; a caller-supplied `validateSession` probe is what catches a provider that loads and
-  constructs a session but fails on the actual graph at `Run()` time
+- **Create exception contract**: only a provider's _unavailability_ is swallowed into the CPU
+  fallback. The CPU fallback candidate is always attempted last and always succeeds for a
+  well-formed model, so this unit's own logic never turns a missing or construction-only-functional
+  accelerated runtime into an exception; a caller-supplied `validateSession` probe is what catches
+  a provider that loads and constructs a session but fails on the actual graph at `Run()` time.
+  Documented argument errors (`ArgumentException`/`ArgumentNullException` for a null or empty
+  `modelPath`), a missing/unreadable/malformed model (`OnnxRuntimeException` from the final CPU
+  attempt), and any unexpected exception from `validateSession` (anything other than
+  `OnnxRuntimeException`/`DllNotFoundException`) propagate to the caller
+- **Packaging constraint (design, not a requirement)**: no provider-specific native runtime is
+  referenced at compile time; the dependency on the Speech library is likewise absent
 - **Declares zero models**: this package owns no model identity, download descriptor, or catalog
   registration; that responsibility belongs entirely to each sibling model package
 - **Compliance**: all functionality must be traceable to requirements

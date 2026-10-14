@@ -3,7 +3,7 @@ package SpeechSherpa {
         doc /* Real, concrete ISynthesisModel backing sherpa-onnx's VITS/Piper text-to-speech
              * voice vits-piper-en_US-libritts_r-medium (CC BY 4.0, confirmed directly from this
              * model's own MODEL_CARD). Declares a single .tar.bz2 download, delegates
-             * InstallAsync to the shared TarBz2ArchiveExtractor built in Phase 7a, builds the
+             * InstallAsync to the shared TarBz2ArchiveExtractor, builds the
              * proven VITS offline text-to-speech configuration for this model, and owns a plain
              * numeric speaker-index NumericParameter (0-903) plus a matching
              * ISynthesisModel.ResolveSpeakerId override, since LibriTTS-R's 904 speaker

@@ -5,8 +5,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceUnavailableException.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs */
-        comment designRef /* Design: docs/design/speech/audio-subsystem.md (documented as a supporting fallback type) */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem.md (documented as a supporting fallback type) */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/unavailable-fallbacks.yaml */
+        comment designRef /* Design: docs/design/speech/audio-subsystem/audio-device-unavailable-exception.md */
+        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/audio-device-unavailable-exception.md */
+        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml */
     }
 }

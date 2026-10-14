@@ -9,8 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelStore"/> and <see cref="SpeechModelDownloader"/>.
 /// </summary>
 /// <remarks>
-///     Per this library's "model catalog and download are new capabilities" decision, this
-///     type composes the storage/download machinery from Sub-phase 2a with a mutable,
+///     This type composes the storage/download machinery with a mutable,
 ///     host-populated list of known models. This catalog ships with zero built-in models: core
 ///     has no reference to any concrete model implementation, and a host appends models via
 ///     <see cref="AddModels"/> (or an extension method such as the sibling
@@ -271,7 +270,7 @@ public sealed class SpeechModelCatalog : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, and atomically installs a known model, tracking its state as
+    ///     Downloads, verifies, and installs a known model, tracking its state as
     ///     <see cref="SpeechModelState.Downloading"/> for the duration of the call.
     /// </summary>
     /// <param name="modelId">
@@ -311,7 +310,7 @@ public sealed class SpeechModelCatalog : IDisposable
         {
             // Use the ISpeechModel-aware overload (not the bare modelId/descriptor form) so the
             // model's own InstallAsync hook genuinely runs on its verified staged files before
-            // the atomic swap - required for any model whose declared payload is an archive.
+            // the install - required for any model whose declared payload is an archive.
             var result = await _downloader
                 .DownloadAsync(model, progress, cancellationToken)
                 .ConfigureAwait(false);

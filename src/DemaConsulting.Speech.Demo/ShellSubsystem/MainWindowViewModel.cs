@@ -17,7 +17,7 @@ namespace DemaConsulting.Speech.Demo.ShellSubsystem;
 ///     composition root - so the window can be created and exercised in tests without an audio
 ///     backend, an installed model, or a running Avalonia application.
 ///     <para>
-///     The panel list covers this phase's four capabilities: Audio Devices, Model Catalog, Text
+///     The panel list covers four capabilities: Audio Devices, Model Catalog, Text
 ///     to Speech, and Speech to Text. The per-model settings panel is not a top-level entry here;
 ///     it is embedded directly in the Text to Speech and Speech to Text panels.
 ///     </para>

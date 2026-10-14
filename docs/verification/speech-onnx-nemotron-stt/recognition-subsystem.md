@@ -6,20 +6,25 @@ The SpeechOnnxNemotronStt RecognitionSubsystem is verified through deterministic
 `test/DemaConsulting.Speech.Onnx.NemotronStt.Tests` that use managed fakes (`Fakes.cs`) in place of
 the ONNX-backed encoder and prediction networks, so no test depends on model files:
 
-- **`SilenceRunLimiter` and `DitherNoise`**: truncation, speech preservation, adaptive threshold,
-  streaming equivalence, and deterministic noise - see _SpeechOnnxNemotronStt SilenceRunLimiter
+- **`SilenceRunLimiter`**: truncation, speech preservation, adaptive threshold, and streaming
+  equivalence - see _SpeechOnnxNemotronStt SilenceRunLimiter Verification_
+- **`DitherNoise`**: deterministic, resettable, amplitude-matched noise - see _DitherNoise
   Verification_
 - **`NemotronFeatureExtractor`**: golden log-mel values, chunked equals one-shot, flush behavior -
   see _SpeechOnnxNemotronStt NemotronFeatureExtractor Verification_
+- **`NemotronEncoder`**: ONNX encoder wiring and cache feedback over a synthetic model - see
+  _SpeechOnnxNemotronStt NemotronEncoder Verification_
 - **`NemotronRnntGreedyDecoder`**: greedy search over a scripted network - see _SpeechOnnxNemotronStt
   NemotronRnntGreedyDecoder Verification_
+- **`NemotronRnntNetwork`**: ONNX prediction and joint wiring and the blank penalty over synthetic
+  models - see _SpeechOnnxNemotronStt NemotronRnntNetwork Verification_
 - **`OnnxNemotronRecognitionEngine`**: chunking, provisional and final results, endpointing,
   reset, and disposal - see _SpeechOnnxNemotronStt OnnxNemotronRecognitionEngine Verification_
 
-The ONNX Runtime-backed `NemotronEncoder` and `NemotronRnntNetwork` are exercised in CI by
-`NemotronEncoderTests` and `NemotronRnntNetworkTests` against tiny synthetic ONNX models that
-honor the real tensor contracts, and end to end by the self-skipping real-model test and the
-manual real-model run described in _SpeechOnnxNemotronStt System Verification_.
+The ONNX Runtime-backed `NemotronEncoder` and `NemotronRnntNetwork` are exercised in CI against
+tiny synthetic ONNX models that honor the real tensor contracts, and end to end by the
+self-skipping real-model test and the manual real-model run described in _SpeechOnnxNemotronStt
+System Verification_.
 
 ### Test Environment
 
@@ -39,4 +44,5 @@ and resets and disposes correctly.
 ### Test Scenarios
 
 See each unit's own verification document: `onnx-nemotron-recognition-engine.md`,
-`nemotron-feature-extractor.md`, `nemotron-rnnt-greedy-decoder.md`, and `silence-run-limiter.md`.
+`nemotron-feature-extractor.md`, `nemotron-encoder.md`, `nemotron-rnnt-greedy-decoder.md`,
+`nemotron-rnnt-network.md`, `silence-run-limiter.md`, and `dither-noise.md`.

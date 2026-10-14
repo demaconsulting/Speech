@@ -5,7 +5,7 @@
 # These requirements describe the design-level behavior of the common per-model contract and its
 # two role-specific marker interfaces, decomposing the parent ModelManagementSubsystem
 # requirements. The three interfaces are documented together since the two role markers carry no
-# independent behavior beyond ISpeechModel in this pass.
+# independent behavior beyond ISpeechModel.
 
 sections:
   - title: Speech Requirements
@@ -16,14 +16,12 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelContract-RoleMarkerInterfaces
                 title: >-
-                  IRecognitionModel and ISynthesisModel shall each extend ISpeechModel with no
-                  additional members in this pass, letting a model's role be determined by a type
-                  check while remaining usable through the common ISpeechModel contract.
+                  A speech model shall identify itself as either a recognition model or a synthesis
+                  model.
                 justification: |
-                  The design defers real recognition/synthesis engine-construction methods
-                  to Phase 3/4; defining the role markers as empty now means adding those members
-                  later is a new-member addition, not a breaking change to any contract defined
-                  in this pass.
+                  Role-specific engine-construction members live on the two role
+                  interfaces, while the common ISpeechModel contract stays role-neutral so a
+                  catalog can handle every model uniformly.
                 tests:
                   - IRecognitionModel_Role_IsRecognition
                   - ISynthesisModel_Role_IsSynthesis
@@ -53,75 +51,80 @@ sections:
 
               - id: Speech-Models-SpeechModelContract-InstallHook
                 title: >-
-                  ISpeechModel shall declare an InstallAsync(stagedFilesDirectory, cancellationToken)
-                  hook, defaulting to a no-op, that a model overrides only when its declared
-                  download payload is an archive or otherwise needs post-download processing
-                  before use.
+                  A model shall be able to declare post-download processing of its downloaded
+                  files (for example unpacking an archive payload) that runs on the staged files
+                  before installation, and a model that declares none shall leave the staged files
+                  unchanged.
                 justification: |
                   The design lists "own archive unpacking" as a per-model responsibility
-                  alongside a model's download URL(s)/checksum. Without this hook, no model whose
-                  DownloadDescriptor names a zip/tar payload (the normal packaging for sherpa-onnx
-                  models) could ever be installed by SpeechModelDownloader/SpeechModelStore. A
-                  no-op default means a model whose payload is already directly usable (the
-                  common single-file case) needs to write zero code to get correct behavior.
+                  alongside a model's download URL(s)/checksum. Without this capability, no model
+                  whose download payload is a zip/tar archive (a common packaging for speech
+                  models) could ever be installed. A model whose payload is already directly
+                  usable (the common single-file case) needs to write zero code to get correct
+                  behavior.
                 tests:
                   - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
                   - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
 
               - id: Speech-Models-SpeechModelContract-NormalizeTextHook
                 title: >-
-                  ISpeechModel shall declare a NormalizeText(text) hook, defaulting to the
-                  identity function, that a model overrides to apply its own text
-                  normalization/correction before inference.
+                  A model shall be able to declare its own normalization or correction of text
+                  before inference, and a model that declares none shall leave text unchanged.
                 justification: |
                   The design lists "own text-normalization / correction (e.g. punctuation
                   restoration)" as a per-model responsibility alongside a model's declared
-                  parameters and audio-tag support. This pass defines only the hook's existence
-                  and identity default; the actual normalization content for any real model is a
-                  Phase 4 synthesis concern, per this library's synthesis-subsystem scope.
+                  parameters and audio-tag support. The contract defines only that the capability
+                  exists and that the default leaves text unchanged; the actual normalization
+                  content for any real model is a concern of that model's own package.
                 tests:
                   - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
 
               - id: Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
                 title: >-
-                  IRecognitionModel shall declare a recognition-only NormalizeText(text,
-                  isFinal) hook, distinct from ISpeechModel.NormalizeText(text), defaulting to
-                  forwarding to ISpeechModel.NormalizeText(text), that a recognition model
-                  overrides to restore/correct its own raw recognition output, with isFinal
-                  distinguishing a still-forming provisional result from a committed final one.
+                  A recognition model shall be able to declare its own correction of recognition
+                  output text, distinct from the text normalization applied before inference,
+                  distinguishing a still-forming provisional result from a committed final result,
+                  and a model that declares none shall leave recognized text unchanged (subject to
+                  any shared normalization the model declares).
                 justification: |
-                  Some sherpa-onnx streaming transducer models (empirically confirmed for
-                  SherpaOnnxZipformerEnRecognitionModel) produce UPPERCASE, unpunctuated raw
-                  output; RecognitionSession needs a per-model hook it can call on every
-                  decoded result's text without knowing which model produced it, mirroring the
-                  existing synthesis-side NormalizeText hook but kept distinct because the two
+                  Some streaming recognition engines (a transducer model, for example) produce
+                  UPPERCASE, unpunctuated raw output; recognition needs a per-model correction it
+                  can apply to every decoded result's text without knowing which model produced
+                  it, mirroring the synthesis-side normalization but kept distinct because the two
                   directions correct fundamentally different things (input text vs. recognized
                   output text) and must not be confused or merged.
                 tests:
                   - IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+                  - IRecognitionModel_NormalizeText_OverriddenSharedNormalizer_IsAppliedForBothResultKinds
 
               - id: Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
                 title: >-
-                  A recognition model shall declare the mono AudioFormat its recognition engine
-                  requires, and shall build that engine's configuration from the directory its
-                  verified files were installed into.
+                  A recognition model shall declare the mono audio format its recognition requires.
+                justification: |
+                  Declaring the required input format as a model-owned fact is what lets the
+                  library either request a matching capture device up front or resample audio
+                  captured at any device rate into the one rate that specific model can actually
+                  use.
+                tests:
+                  - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+
+              - id: Speech-Models-SpeechModelContract-RecognitionBackendCreation
+                title: >-
+                  A recognition model shall create its recognition engine from the directory its
+                  verified files were installed into, and shall reject an empty directory.
                 justification: |
                   The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, so that adding a model is a
-                  self-contained, reviewable unit of work. Declaring the required input format as
-                  a model-owned fact is what lets the library either request a matching capture
-                  device up front or resample audio captured at any device rate into the one
-                  rate that specific model can actually use.
+                  self-contained, reviewable unit of work.
                 tests:
-                  - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
                   - IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend
                   - IRecognitionModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
                 title: >-
-                  A synthesis model shall declare a mono PreferredAudioFormat that is only a
+                  A synthesis model shall declare a mono preferred audio format that is only a
                   best-effort hint for playback-device composition, not the authoritative sample
-                  rate of the native engine's generated output.
+                  rate of the engine's generated output.
                 justification: |
                   The library cannot know a synthesis engine's true output rate authoritatively
                   until the native engine has been loaded and queried, but hosts still benefit
@@ -133,8 +136,8 @@ sections:
 
               - id: Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
                 title: >-
-                  A synthesis model shall build its offline text-to-speech engine's configuration
-                  from the directory its verified files were installed into.
+                  A synthesis model shall create its text-to-speech engine from the directory its
+                  verified files were installed into, and shall reject an empty directory.
                 justification: |
                   The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, mirroring the recognition-side
@@ -146,11 +149,11 @@ sections:
 
               - id: Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
                 title: >-
-                  A synthesis model shall expose a Layer 2 tag-rendering strategy that defaults
-                  to a generically-correct implementation driven purely by the model's own
-                  declared audio-tag support and parameters.
+                  A synthesis model shall provide a tag-rendering strategy that defaults to a
+                  generically-correct implementation driven purely by the model's own declared
+                  audio-tag support and parameters.
                 justification: |
-                  The default-hook CapabilityProfile member means a model needs zero code to get
+                  A default capability profile means a model needs zero code to get
                   generically correct Natural Language Audio Tag rendering, and may override it
                   only for bespoke, non-generic behavior.
                 tests:
@@ -173,3 +176,33 @@ sections:
                   example "Apache-2.0 (likely)"), never silently upgraded to a certain claim.
                 tests:
                   - ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl
+
+              - id: Speech-Models-SpeechModelContract-PostEndpointWarmupDefault
+                title: >-
+                  A recognition model that declares no post-endpoint warm-up shall report a window of
+                  zero milliseconds.
+                justification: |
+                  Most engines need no warm-up after an endpoint; the zero default lets such models
+                  avoid any extra code and lets recognition skip the warm-up behavior.
+                tests:
+                  - IRecognitionModel_PostEndpointWarmupWindowMs_DefaultImplementation_ReturnsZero
+
+              - id: Speech-Models-SpeechModelContract-RecognitionParameterizedBackendDefault
+                title: >-
+                  A recognition model that declares no parameter-dependent engine configuration shall
+                  create the same kind of engine whether or not parameter values are supplied.
+                justification: |
+                  Existing models must keep working when a host supplies parameter values; the
+                  default ignores them so no model needs code unless it uses them.
+                tests:
+                  - IRecognitionModel_CreateBackendWithParameters_DefaultImplementation_ForwardsToParameterlessCreation
+
+              - id: Speech-Models-SpeechModelContract-SynthesisSpeakerDefault
+                title: >-
+                  A synthesis model that declares no speaker selection shall use the first speaker
+                  regardless of the parameter values supplied.
+                justification: |
+                  Single-speaker models need no selection logic; a stable default of the first speaker
+                  keeps synthesis deterministic for hosts that supply no speaker choice.
+                tests:
+                  - ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker

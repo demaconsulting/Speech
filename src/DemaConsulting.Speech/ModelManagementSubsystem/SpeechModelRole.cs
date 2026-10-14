@@ -7,8 +7,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     In this library, this is the seam <see cref="IRecognitionModel"/> and
 ///     <see cref="ISynthesisModel"/> let <see cref="SpeechModelCatalog"/> report and filter
 ///     models by role without knowing anything about a model's engine-specific configuration -
-///     Phase 3/4 add real recognition/synthesis construction behind those role-specific
-///     interfaces without changing this enum.
+///     the real recognition/synthesis construction lives behind those role-specific
+///     interfaces, so this enum never needs to change.
 /// </remarks>
 public enum SpeechModelRole
 {

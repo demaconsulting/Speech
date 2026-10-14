@@ -15,18 +15,26 @@ sections:
                 title: >-
                   The TarBz2ArchiveExtractor helper shall extract every file entry of a
                   .tar.bz2 archive into a destination directory, preserving the archive's
-                  own relative folder structure, and shall delete the archive file only
-                  after every entry extracts successfully.
+                  own relative folder structure.
                 justification: |
-                  Both new recognition models declare their downloadable payload as a
+                  Every sherpa-onnx model declares its downloadable payload as a
                   single .tar.bz2 archive matching the exact file sherpa-onnx itself
                   publishes; their InstallAsync overrides need a shared, correctly-behaving
                   extraction routine so the archive's files exist at the paths
-                  BuildEngineConfig expects, with no leftover archive file cluttering the
-                  installed model's directory.
+                  BuildEngineConfig expects.
                 tests:
                   - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
                   - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_MultiEntryArchive_ExtractsEveryEntry
+
+              - id: SpeechSherpa-Models-TarBz2ArchiveExtractor-DeleteArchive
+                title: >-
+                  The TarBz2ArchiveExtractor helper shall delete the archive file after every
+                  entry extracts successfully.
+                justification: |
+                  No leftover archive file should clutter the installed model's directory once
+                  its files have been extracted.
+                tests:
+                  - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
 
               - id: SpeechSherpa-Models-TarBz2ArchiveExtractor-ArgumentValidation
                 title: >-

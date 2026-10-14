@@ -56,13 +56,13 @@ internal sealed class SherpaOnnxSynthesisEngine : ISynthesisBackend
 
     /// <inheritdoc/>
     /// <exception cref="ObjectDisposedException">Thrown when the engine has been disposed.</exception>
-    public EngineAudio Generate(string text, float speed, int speakerId)
+    public BackendAudio Generate(string text, float speed, int speakerId)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ArgumentNullException.ThrowIfNull(text);
 
         var generated = _tts.Generate(text, speed, speakerId);
-        return new EngineAudio(generated.Samples, generated.SampleRate);
+        return new BackendAudio(generated.Samples, generated.SampleRate);
     }
 
     /// <inheritdoc/>

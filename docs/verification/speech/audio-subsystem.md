@@ -7,7 +7,9 @@ The AudioSubsystem is verified primarily through deterministic unit tests that s
 `IPortAudioApi` and `IPortAudioStream` implementations behind `PortAudioEnvironment`. This makes
 preferred-host selection, name-based device matching, fallback to host-API defaults,
 preferred-format forwarding and clamping, queue behavior, and native-fault degradation fully
-testable without requiring physical audio hardware.
+testable without requiring physical audio hardware. The file-backed WAV devices and
+`AudioDeviceSelection` are verified directly against files and in-memory device lists, and the
+public contracts are verified by substituting mocks.
 
 Automated coverage **does not** include true end-to-end hardware I/O. Actually opening a real
 microphone or speaker and moving audio through it requires manual/local verification on a machine
@@ -30,6 +32,8 @@ An AudioSubsystem test run passes when:
 - Preferred-format hints are forwarded by the factory and resolved by PortAudio-backed devices
   without ever requesting more channels than a device exposes
 - Real PortAudio-backed devices report `IsAvailable` honestly
+- A preferred sample rate the host API cannot open falls back to the device default sample rate
+  with a diagnostic, for both capture and playback
 - Capture frame delivery and playback queue draining work through the seam
 - PortAudio initialization failures and stream-open failures degrade to the documented fallback
   behavior and `AudioDeviceUnavailableException`
@@ -37,6 +41,15 @@ An AudioSubsystem test run passes when:
   refused with `AudioDeviceInUseException` (without terminating the native runtime) while any
   capture/playback device has an active stream, and succeeds again once every active stream is
   unregistered
+- The file-backed WAV playback device round-trips written samples, and the file-backed WAV capture
+  device delivers a file's contents, signals end-of-file once and rejects an unsupported format
+- A name-only `AudioDeviceSelection` resolves a present device by exact name and resolves to no
+  device (so the default is used) when the name is absent or the selection is the system default
+- A playback device created before a successful device-table refresh refuses to start afterwards
+  with `AudioDeviceUnavailableException`, without opening a native stream
+- The device and probe contracts can be substituted with mocks
+- WAV and FLAC files decode through `AudioFileReader` (FLAC bit-exactly against libFLAC fixtures)
+  and are down-mixed and resampled by `AudioResampler`, with malformed input rejected
 - The automated verification boundary remains honest about the absence of hardware I/O coverage
 
 ### Test Scenarios
@@ -85,14 +98,17 @@ Verifies capture-device default fallback, honest availability reporting, sample 
 
 **Tests**: `PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`,
 `PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`,
+`PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`,
 `PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`,
 `PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`,
 `PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount`,
 `UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount`
 
 Verifies that a resolved capture device reports the requested capture format actually opened on
-the resolved device, honors an in-range preferred format, clamps an excessive preferred channel
-count down to device capability, falls back to the device default when no preference is supplied,
+the resolved device, honors an in-range preferred format, falls back to the device's default
+sample rate with a diagnostic when the preferred rate cannot be opened, clamps an excessive
+preferred channel count down to device capability, falls back to the device default when no
+preference is supplied,
 and that both an unresolved real device and the shared unavailable fallback report zero for both
 values rather than a plausible-looking default.
 
@@ -110,14 +126,17 @@ consumption, underrun zero-fill, and first-use failure wrapping.
 
 **Tests**: `PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`,
 `PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`,
+`PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`,
 `PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`,
 `PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`,
 `PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount`,
 `UnavailableAudioPlaybackDevice_PlaybackFormat_Read_ReturnsZeroRateAndChannelCount`
 
 Verifies that a resolved playback device reports the requested playback format actually opened on
-the resolved device, honors an in-range preferred format, clamps an excessive preferred channel
-count down to device capability, falls back to the device default when no preference is supplied,
+the resolved device, honors an in-range preferred format, falls back to the device's default
+sample rate with a diagnostic when the preferred rate cannot be opened, clamps an excessive
+preferred channel count down to device capability, falls back to the device default when no
+preference is supplied,
 and that both an unresolved real device and the shared unavailable fallback report zero for both
 values rather than a plausible-looking default, mirroring the identical capture-direction
 scenario above.
@@ -131,10 +150,9 @@ scenario above.
 Verifies that `PendingSampleCount` increases as samples are written, decreases by exactly the
 number of samples a callback genuinely dequeues (never by a zero-fill shortfall), resets to zero
 once `Stop` clears the queue, and honestly reports zero both for an unresolved real device and
-the shared unavailable fallback - fixing a bug where `SynthesisSession`
-had no way to observe genuine hardware-drain progress and so stopped the device (discarding
-whatever was still queued) as soon as every segment was enqueued, cutting audio off almost
-instantly.
+the shared unavailable fallback, so a consumer such as `SynthesisSession` can observe genuine
+hardware-drain progress rather than stopping the device (discarding whatever was still queued)
+as soon as every segment is enqueued.
 
 #### PortAudio Environment: Platform Mapping and Initialization Caching
 
@@ -203,24 +221,46 @@ Verifies that a started capture or playback device registers itself with the env
 active-stream tracking (causing a concurrent `Refresh()` to throw `AudioDeviceInUseException`),
 and that `Stop()` unregisters it so a subsequent `Refresh()` succeeds.
 
-#### AudioDeviceInUseException: Standard Exception Conformance
+#### Playback Device: Start After a Device-Table Refresh
 
-**Tests**: `AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage`,
-`AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth`,
-`AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage`
+**Tests**: `PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException`
 
-Verifies the standard three-constructor exception pattern (default, message, message with inner
-exception), mirroring `AudioDeviceUnavailableException`'s identical test shape.
+Verifies the refresh-generation invalidation: after a successful `Refresh()` a playback device
+created earlier throws `AudioDeviceUnavailableException` from `Start()` and opens no native stream.
 
-#### Unavailable Fallbacks: Honest Degradation
+#### Mockable Contracts: Device and Probe Substitution
 
-**Tests**: `UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse`,
-`UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse`,
-`UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList`,
-`UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList`
+**Tests**: `AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured`,
+`AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes`
 
-Verifies the shared unavailable fallbacks remain honest and usable as the last-resort
-composition path.
+Verifies that the capture and playback device interfaces and both probe interfaces can be
+substituted with mocks that return configured values and record calls, and that a factory exposes
+injected probes unchanged, so hosts and tests need no real audio hardware.
+
+#### Unit-Level Coverage of Supporting Types
+
+The `UnavailableAudioCaptureDevice`, `UnavailableAudioPlaybackDevice`,
+`UnavailableAudioCaptureDeviceProbe`, `UnavailableAudioPlaybackDeviceProbe`,
+`AudioDeviceUnavailableException`, `AudioDeviceInUseException`, and `WindowedSincLowpassFilter`
+units are verified by their own unit verification documents under this subsystem; this document
+does not duplicate their scenarios. The subsystem-level behaviors that involve them (initialization
+fallback, reported formats, pending sample count, and refresh refusal) remain covered by the
+scenarios above.
+
+#### File Readers and Resampler: Unit-Level Coverage
+
+The managed WAV/FLAC decoding, `AudioFileReader` container detection and size caps,
+`AudioClip`, and `AudioResampler` are verified by their own unit verification documents
+(_AudioFileReader_, _WavDecoder_, _FlacDecoder_, _AudioClip_, and _AudioResampler_ under this
+subsystem); this subsystem document does not duplicate their scenarios. The subsystem-level
+behaviors they provide are exercised by these parent-level tests:
+`AudioFileReader_Read_DetectsContainerByContent` and
+`FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact` (managed decoding),
+`AudioResampler_DownMix_AveragesChannels` and
+`AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate` (clip conversion),
+`UnavailableAudioCaptureDevice_*` / `UnavailableAudioPlaybackDevice_*` (honest fallbacks) and
+`WavFileAudioCaptureDevice_IsAvailable_Always_ReturnsTrue` (file-backed devices), each described in
+the corresponding unit verification document.
 
 #### File-Backed Playback Device: Round Trip, Format Disclosure, and Argument Validation
 

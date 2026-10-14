@@ -1,0 +1,125 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Onnx.ChatterboxTurbo</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Onnx.ChatterboxTurbo</AssemblyName>
+
+    <!-- NuGet Package Configuration -->
+    <PackageId>DemaConsulting.Speech.Onnx.ChatterboxTurbo</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+    <Description>Chatterbox Turbo (ResembleAI/chatterbox-turbo-ONNX) text-to-speech with voice cloning for DemaConsulting.Speech, run directly through ONNX Runtime on the CPU with no bundled native inference engine. This package owns the full pipeline for this one model family itself - byte-level BPE tokenization (embedded), reference-voice conditioning, autoregressive speech-token generation and waveform decoding - installed into a SpeechModelCatalog via the AddChatterboxTurboModels() extension method. Voices are cloned from reference clips (WAV or FLAC): the caller can supply them, drop them into the per-user reference-voices folder, or install the model-agnostic CC0 voice-zero reference-voice pack that DemaConsulting.Speech downloads on request; no audio is bundled in the package.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageTags>speech;speech-to-text;text-to-speech;stt;tts;offline;audio;onnx;onnxruntime;chatterbox;voice-cloning</PackageTags>
+    <Copyright>Copyright DEMA Consulting</Copyright>
+    <Title>DemaConsulting.Speech.Onnx.ChatterboxTurbo</Title>
+    <Product>DemaConsulting.Speech.Onnx.ChatterboxTurbo</Product>
+
+    <!-- Symbol Package Configuration -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Code Quality Configuration -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- SBOM Configuration -->
+    <GenerateSBOM>true</GenerateSBOM>
+    <SBOMPackageName>$(PackageId)</SBOMPackageName>
+    <SBOMPackageVersion>$(Version)</SBOMPackageVersion>
+    <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
+  </PropertyGroup>
+
+  <!-- Build Tool Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <!-- Managed ONNX Runtime API only; this package runs on the CPU and never references an
+         accelerated execution-provider package itself. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <!-- Embedded Resources -->
+  <ItemGroup>
+    <!-- The model family's byte-level BPE tokenizer.json (MIT, from ResembleAI/chatterbox-turbo-ONNX), gzip-compressed and embedded verbatim so no separate download is needed for it. Its SHA-256 is pinned by a unit test. -->
+    <EmbeddedResource Include="Resources\chatterbox-turbo-tokenizer.json.gz" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:
+         - PrivateAssets="all" prevents these build-time analyzers from becoming transitive dependencies
+           in packages that consume this library.
+         - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
+           Roslyn analyzers and MSBuild targets are fully activated during the build. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- API documentation generation -->
+  <PropertyGroup>
+    <!-- Run API documentation generation only for this framework in multi-targeted builds -->
+    <ApiDocsTargetFramework>net8.0</ApiDocsTargetFramework>
+    <!-- Configuration-specific output so Debug and Release docs do not overwrite each other -->
+    <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
+    <!-- Pack generated API docs into the NuGet package under api/ -->
+    <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
+    <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
+    <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
+    <!-- Report (but do not yet fail the build on) any public API surface missing an XML doc
+         <summary>, so gaps are visible before this is tightened to Error. -->
+    <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
+    <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+    <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech.Onnx.ChatterboxTurbo supplies a production, raw-ONNX-Runtime-backed Chatterbox Turbo English
+      text-to-speech model with reference-clip voice cloning for DemaConsulting.Speech, run on the CPU with no bundled
+      native inference engine.
+
+      Start here: `catalog.AddChatterboxTurboModels(options)`, an extension method on
+      `DemaConsulting.Speech.ModelManagementSubsystem.SpeechModelCatalog` that registers this model so it appears in
+      `Enumerate()` and can be downloaded/loaded exactly like any other catalog model. Voices come from
+      `ChatterboxTurboModelOptions` (explicit `ChatterboxTurboReferenceVoice` instances or a voice directory) and from
+      the core `ReferenceVoiceLibrary` (the user folder and installed reference-voice packs).
+
+      See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
+      [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)
+      for a full walkthrough.</ApiMarkLibraryDescription>
+  </PropertyGroup>
+
+</Project>

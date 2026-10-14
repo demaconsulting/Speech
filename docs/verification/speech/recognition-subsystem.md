@@ -12,12 +12,12 @@ platform-specific native speech-inference runtime.
 
 Determinism is structural rather than timing-based: `StopAsync` completes its internal queue and
 awaits its pump task, so every result derived from a frame raised before the call has been
-delivered or accounted for by the time it returns; cancellation/abandon-timeout behavior is
+delivered by the time it returns; cancellation/abandon-timeout behavior is
 verified with an injectable abandon-timeout override rather than real multi-second waits.
 
 Automated coverage **does not** include recognizing real speech. Proving that real audio from a
 real microphone produces correct text through a real model requires both a downloaded production
-model (which this phase deliberately does not ship) and audio hardware, so it remains a
+model (which this library deliberately does not ship) and audio hardware, so it remains a
 manual/local verification activity. The real, native-backed `IRecognitionBackend`
 implementation, `SherpaOnnxRecognitionEngine`, is no longer part of this subsystem: it ships in the
 sibling SpeechSherpa library, and its bookkeeping and accuracy against real installed models (when
@@ -61,11 +61,11 @@ A RecognitionSubsystem test run passes when:
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered through `GetResultsAsync`, in order, with its
   provisional/final flag preserved, subject to the documented backpressure policy (coalesced
-  provisionals, byte-capped finals)
+  provisionals may be coalesced; finals are never dropped)
 - The session's `RecognitionSessionState` machine only ever makes forward-only, documented
   transitions, raising `StateChanged` for each one
-- `StartAsync`/`StopAsync`/`DisposeAsync` behave idempotently, drain queued audio, and release
-  backend/lease resources
+- `StartAsync` is single-use (a second start throws `InvalidOperationException`); `StopAsync` and
+  `DisposeAsync` are idempotent, drain queued audio, and release backend/lease resources
 - `StopAsync`/`DisposeAsync` flush trailing audio the backend had accepted but not yet decoded -
   the tail of an utterance released with no trailing silence - as one last final result before
   resetting the backend for the next session, so no accepted audio is silently lost
@@ -110,11 +110,15 @@ an earlier check already failed.
 `SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException`,
 `SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException`,
 `SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException`,
-`SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException`
+`SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException`
 
 Verifies that a null model, store, or catalog faults the returned task with
-`ArgumentNullException`, and that a cancellation token already cancelled before loading completes
+`ArgumentNullException`, and that a cancellation token already canceled before loading completes
 faults it with `OperationCanceledException`, distinguishing both from an ordinary machine state.
+The test `SpeechRecognizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
+additionally verifies that a cancellation arriving after the backend was created, but within the
+abandon grace window, still faults the task with `OperationCanceledException` and disposes the
+created backend rather than leaking it.
 
 #### Composition: Parameter Value Bag Forwarding
 
@@ -172,36 +176,94 @@ device going unavailable mid-session transitions the session to `Faulted`.
 
 **Tests**: `RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
 `RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
-`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
+`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`,
+`RecognitionSession_StopAsync_MoreResultsThanPerBlockLimit_DeliversAllFinalResults`
 
-Verifies that `StopAsync` flushes trailing audio the backend had accepted but not yet decoded as
-one last final result before completing, that two concurrent `StopAsync` callers both complete
+Verifies that `StopAsync` first drains any results the per-block limit left in the backend (100
+final results scripted for one block are all delivered, in order), then flushes trailing audio the
+backend had accepted but not yet decoded as one last final result before completing, that two concurrent `StopAsync`
+callers both complete
 only once the session has actually stopped, and that a backend reset failure during `StopAsync` is
 reported rather than thrown while teardown still completes.
+
+#### Session Lifecycle: Concurrent Start/Stop/Dispose Convergence
+
+**Tests**: `RecognitionSession_StartAsync_SlowDeviceStart_DoesNotBlockCaller`,
+`RecognitionSession_StateChanged_StoppingAlwaysPrecedesStoppedAcrossManyIterations`,
+`RecognitionSession_StopAsync_ConcurrentWithStartAsync_DeviceEndsGenuinelyStopped`,
+`RecognitionSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown`,
+`RecognitionSession_StateChangedHandlerBlocksOnStopAsync_DoesNotDeadlock`
+
+Verifies that a slow capture-device start does not block the `StartAsync` caller, that `Stopping`
+always precedes `Stopped` across many repeated iterations, that a `StopAsync` racing a
+`StartAsync` leaves the device genuinely stopped, that two concurrent `DisposeAsync` callers both
+complete after a single teardown, and that a `StateChanged` handler which blocks on `StopAsync`
+does not deadlock the session.
+
+#### Session Lifecycle: Stop Before Start and Pre-Canceled or Canceled Callers
+
+**Tests**: `RecognitionSession_StopAsync_BeforeStartAsync_CompletesResultBuffer`,
+`RecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown`,
+`RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges`
+
+Verifies that `StopAsync` before `StartAsync` completes the result buffer so a consumer is not left
+waiting, that a caller whose token is canceled mid-stop returns early without aborting the
+teardown shared with other callers, and that a pre-canceled token throws while teardown still
+converges.
+
+#### Session Lifecycle: Fault Containment and Device Loss
+
+**Tests**: `RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer`,
+`RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException`,
+`RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice`
+
+Verifies that a backend exception from `AcceptSamples` is terminal by design - it faults the
+session and completes the result buffer - that stopping the faulted session afterward does not
+throw the session-faulted exception, and that after a mid-session device loss `DisposeAsync` still tears down the
+backend and the device.
+
+#### Session Pipeline: Synchronous Burst Not Dropped
+
+**Test**: `RecognitionSession_StartAsync_DeviceEmitsManyBlocksSynchronouslyFromStart_NoneAreDropped`
+
+Verifies that a device which raises many blocks synchronously from inside `Start` has every block
+delivered to the backend, none dropped.
+
+#### Cooperative-Cancel-Then-Abandon: Lease and Reset Ordering
+
+**Tests**: `RecognitionSession_StartAsync_CanceledWhileDeviceStarting_AbandonsWithinTimeout`,
+`RecognitionSession_DisposeAsync_AbandonedPumpWorker_DoesNotReleaseLeaseUntilWorkerExits`,
+`RecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits`
+
+Verifies that cancellation during a device start is abandoned within the configured timeout, and
+that when the pump worker is abandoned the engine lease is not released, and the backend is not
+reset, until the worker has actually exited.
 
 #### Session Pipeline: Capture Format Conversion and Text Normalization
 
 **Tests**: `RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
+`RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend`,
 `RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
 
 Verifies that a stereo block reaches the backend as downmixed mono at the model's declared rate,
-and that a final result's text has passed through the owning model's
+that a mono block captured at twice the model's rate reaches the backend resampled to half as many
+samples, and that a final result's text has passed through the owning model's
 `IRecognitionModel.NormalizeText(text, isFinal: true)` before being buffered.
 
 #### Session Pipeline: Result Delivery and Backpressure
 
 **Tests**: `RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
-`RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession`,
+`RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession`,
 `RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
 `RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
-`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults`
 
 Verifies that `GetResultsAsync` is single-consumer (a concurrent second enumeration throws
 `InvalidOperationException`), that cancelling the consumer's token ends its enumeration without
 stopping the session itself, that a faulted session surfaces
 `RecognitionSessionFaultedException` from the active enumeration, that a slow consumer only ever
 sees the latest coalesced provisional rather than a queue of stale ones, and that final results
-are never dropped while the byte cap is not exceeded.
+are never dropped, however many are buffered.
 
 #### Cooperative-Cancel-Then-Abandon Policy
 
@@ -249,6 +311,7 @@ intermediate downmix, and rejection of non-positive rates and channel counts.
 **Tests**: `UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse`,
 `UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
 `UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException`,
 `UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`,
 `UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse`,
 `UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException`,
@@ -264,3 +327,35 @@ repeatedly, that `UnavailableSpeechRecognizerEngine.CreateSessionAsync` always r
 unavailable session rather than throwing, that operational misuse of the unavailable session
 throws the documented exception, and that the exception type conforms to the standard
 three-constructor pattern.
+
+#### Subsystem-Level Scenarios
+
+**Tests**: `RecognitionSubsystem_Contract_SubstitutedByHost_HostReceivesResults`,
+`RecognitionSubsystem_PublicApi_NamesNoConcreteInferenceEngine`,
+`RecognitionSubsystem_Pipeline_StereoAudioAtModelRate_DeliversFinalResult`,
+`RecognitionSubsystem_ResultDelivery_SlowConsumer_NeverLosesFinalResults`,
+`RecognitionSubsystem_EngineExclusivity_SecondSession_RejectedUntilFirstDisposed`,
+`RecognitionSubsystem_Composition_InstalledAndMissingModel_NeverFails`,
+`RecognitionSubsystem_UnavailableFallback_ThrowsOnlyWhenOperated`,
+`RecognitionSubsystem_FaultContainment_DeviceLost_ReaderReceivesFaultedException`
+
+These tests (in `RecognitionSubsystemTests.cs`) drive the subsystem only through its public
+engine and session surface over fakes: a host can substitute the contracts with test doubles;
+no public type or referenced assembly names a concrete inference engine; the pipeline converts
+audio and delivers results; a slow consumer never loses a final result; an engine permits one
+active session at a time and accepts a new one after disposal; composition never fails for an
+installed or missing model; the unavailable fallback throws only when operated; and a lost
+device is contained and surfaces to a reader as the faulted-session exception.
+
+#### Fallback Versus Fault Decision Table
+
+| Situation | Outcome |
+| --------- | ------- |
+| Model not installed, wrong role, or recognizer cannot load (no native runtime) | Unavailable engine; no exception |
+| Capture device reports itself unavailable when a session is requested | Unavailable session; Warning diagnostic |
+| Unrecognized parameter id supplied | Ignored; Info diagnostic; real engine composed |
+| Invalid parameter value, null model/store/catalog, null device | Argument error (caller error) |
+| Already-canceled token | Cancellation outcome |
+| Second session requested while one is active | Busy exception |
+| Start or read results on an unavailable session | Unavailable exception |
+| Capture device lost or recognizer fault mid-session | Session faulted; reader receives faulted-session exception |

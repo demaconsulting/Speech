@@ -71,7 +71,7 @@
        library directly. -->
   <ItemGroup>
     <!-- Keep sherpa-onnx's libonnxruntime; Microsoft's native copy would overwrite it (see the Cli project). -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" ExcludeAssets="native" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
     <!-- Needed only so SpeechDemoTests can compose the catalog exactly as the demo's own
@@ -79,6 +79,7 @@
          model count the demo reports includes the Kokoro ONNX synthesis model, not merely the
          Sherpa models. -->
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
   </ItemGroup>
 

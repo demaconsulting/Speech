@@ -18,10 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// cspell:ignore NOSONAR
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics.Tensors;
-using System.Runtime.InteropServices;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 
@@ -64,6 +63,12 @@ internal static class DevicesTestCommand
 
     /// <summary>The fixed capture-clip duration, in seconds, used by the input test.</summary>
     private const double CaptureDurationSeconds = 2.0;
+
+    /// <summary>The margin, in seconds, beyond the tone duration allowed for the playback queue to drain.</summary>
+    private const double PlaybackDrainMarginSeconds = 5.0;
+
+    /// <summary>Every option token <c>devices test</c> recognizes; a value-taking flag never accepts one as its value.</summary>
+    private static readonly string[] RecognizedOptions = ["--device", "--direction"];
 
     /// <summary>
     ///     Runs the <c>devices</c> subcommand (currently only the <c>test</c> sub-action) against
@@ -164,11 +169,12 @@ internal static class DevicesTestCommand
 
     /// <summary>
     ///     Gets the value following a flag, throwing a clean <see cref="ArgumentException"/> when
-    ///     none was supplied.
+    ///     none was supplied or the next argument is one of this command's recognized options
+    ///     (so a forgotten value never silently swallows the next option).
     /// </summary>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || RecognizedOptions.Contains(args[index], StringComparer.Ordinal))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
@@ -267,25 +273,113 @@ internal static class DevicesTestCommand
         var knownDevices = factory.PlaybackProbe.Enumerate();
         var selection = ResolveDeviceSelectionOrThrow(knownDevices, deviceName, "playback");
 
-        var device = factory.CreatePlaybackDevice(selection);
+        var device = RequireAvailable(factory.CreatePlaybackDevice(selection));
+        PlayTestTone(context, device);
+    }
+
+    /// <summary>
+    ///     Returns <paramref name="device"/> when it is available, otherwise throws a clean error.
+    /// </summary>
+    /// <param name="device">The resolved playback device. Must not be null.</param>
+    /// <returns>The same device, known to be available.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the device reports <c>IsAvailable == false</c>.</exception>
+    internal static IAudioPlaybackDevice RequireAvailable(IAudioPlaybackDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
         if (!device.IsAvailable)
         {
             throw new InvalidOperationException(
                 "No audio playback device is available on this machine; cannot run 'devices test'.");
         }
 
+        return device;
+    }
+
+    /// <summary>
+    ///     Returns <paramref name="device"/> when it is available, otherwise throws a clean error.
+    /// </summary>
+    /// <param name="device">The resolved capture device. Must not be null.</param>
+    /// <returns>The same device, known to be available.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the device reports <c>IsAvailable == false</c>.</exception>
+    internal static IAudioCaptureDevice RequireAvailable(IAudioCaptureDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (!device.IsAvailable)
+        {
+            throw new InvalidOperationException(
+                "No audio capture device is available on this machine; cannot run 'devices test'.");
+        }
+
+        return device;
+    }
+
+    /// <summary>
+    ///     Plays the fixed test tone on an already resolved, available playback device and reports it.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="device">The available playback device to play the tone on. Must not be null.</param>
+    /// <param name="drainLimit">
+    ///     The total time allowed, measured from before the device is started, for starting,
+    ///     writing, and draining before reporting a failure;
+    ///     <see langword="null"/> uses the built-in limit (the tone duration plus
+    ///     <see cref="PlaybackDrainMarginSeconds"/> seconds).
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when starting, writing or draining does not complete within the total limit.
+    /// </exception>
+    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainLimit = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(device);
+
         var samples = GenerateToneSamples(device.SampleRate, device.ChannelCount, ToneDurationSeconds, ToneFrequencyHz);
 
-        device.Start();
+        // The total-time limit covers starting the device, writing the tone, and draining it, so a
+        // slow Start or Write counts against the same bound as a stalled drain.
+        var totalClock = Stopwatch.StartNew();
+        var limit = drainLimit ?? TimeSpan.FromSeconds(ToneDurationSeconds + PlaybackDrainMarginSeconds);
+
         try
         {
-            device.Write(samples);
+            // Start and Write run on a worker task so a call that blocks inside the device cannot
+            // outlive the total limit; the caller waits for the worker only up to that limit.
+            var worker = Task.Run(() =>
+            {
+                device.Start();
+                device.Write(samples);
+            });
+
+            // The wait handle (rather than Task.Wait) is used so a faulted worker is not wrapped in an
+            // AggregateException before its original exception is rethrown below.
+            if (!((IAsyncResult)worker).AsyncWaitHandle.WaitOne(limit > TimeSpan.Zero ? limit : TimeSpan.Zero))
+            {
+                throw CreateTimeoutException();
+            }
+
+            // Surface the worker's original exception (not an AggregateException) when it faulted.
+            worker.GetAwaiter().GetResult();
 
             // Write is fire-and-forget: poll PendingSampleCount until the hardware has actually
-            // consumed the queued tone, per IAudioPlaybackDevice's own documented contract.
+            // consumed the queued tone, per IAudioPlaybackDevice's own documented contract. The wait
+            // is bounded (tone duration plus a fixed 5-second margin by default, measured from
+            // before Start) so a stalled device is reported as a failure instead of hanging forever.
             while (device.PendingSampleCount > 0)
             {
+                if (totalClock.Elapsed > limit)
+                {
+                    throw CreateTimeoutException();
+                }
+
                 Thread.Sleep(50);
+            }
+
+            // A slow Start or Write that returned late with nothing left queued is still a failure:
+            // success is never reported after the total limit has passed.
+            if (totalClock.Elapsed > limit)
+            {
+                throw CreateTimeoutException();
             }
         }
         finally
@@ -294,10 +388,19 @@ internal static class DevicesTestCommand
         }
 
         context.WriteLine(
-            $"Played a {ToneDurationSeconds:0.#}-second {ToneFrequencyHz:0} Hz test tone " +
+            $"Played a {ToneDurationSeconds.ToString("0.#", CultureInfo.InvariantCulture)}-second {ToneFrequencyHz.ToString("0", CultureInfo.InvariantCulture)} Hz test tone " +
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
     }
+
+    /// <summary>
+    ///     Creates the error reported when the playback device exceeds the total time limit.
+    /// </summary>
+    /// <returns>The exception to throw.</returns>
+    private static InvalidOperationException CreateTimeoutException() =>
+        new(
+            "The playback device did not finish playing the test tone in time; " +
+            "check that the output device is connected, enabled, and not stalled.");
 
     /// <summary>
     ///     Records a short clip from the resolved capture device and reports basic statistics
@@ -308,45 +411,73 @@ internal static class DevicesTestCommand
         var knownDevices = factory.CaptureProbe.Enumerate();
         var selection = ResolveDeviceSelectionOrThrow(knownDevices, deviceName, "capture");
 
-        var device = factory.CreateCaptureDevice(selection);
-        if (!device.IsAvailable)
-        {
-            throw new InvalidOperationException(
-                "No audio capture device is available on this machine; cannot run 'devices test'.");
-        }
+        var device = RequireAvailable(factory.CreateCaptureDevice(selection));
+        RecordTestClip(context, device, TimeSpan.FromSeconds(CaptureDurationSeconds));
+    }
+
+    /// <summary>
+    ///     Records a clip from an already resolved, available capture device for the given duration and
+    ///     reports its basic statistics (sample count and peak amplitude).
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="device">The available capture device to record from. Must not be null.</param>
+    /// <param name="duration">How long to record for.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the device delivered no samples during <paramref name="duration"/>, because a capture
+    ///     test that captured nothing has not proven that capture works.
+    /// </exception>
+    internal static void RecordTestClip(Context context, IAudioCaptureDevice device, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(device);
 
         var samples = new List<float>();
-        void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e) => samples.AddRange(e.Samples);
+        var gate = new object();
+        void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e)
+        {
+            lock (gate)
+            {
+                samples.AddRange(e.Samples);
+            }
+        }
 
         device.FrameCaptured += OnFrameCaptured;
         try
         {
             device.Start();
-            Thread.Sleep(TimeSpan.FromSeconds(CaptureDurationSeconds));
-            device.Stop();
+            Thread.Sleep(duration);
         }
         finally
         {
+            // Always stop, even when Start partially succeeded or the wait was interrupted
+            device.Stop();
             device.FrameCaptured -= OnFrameCaptured;
         }
 
-        // NOSONAR (S2583): SonarQube's flow analysis cannot see that OnFrameCaptured mutates
-        // `samples` via the FrameCaptured event subscription above, so it believes the list can
-        // never be non-empty and reports the "samples.Count == 0" branch as always true. At
-        // runtime the capture device populates `samples` through the event before this line is
-        // reached, so both branches are genuinely reachable; the guard is required to avoid
-        // MaxMagnitude() throwing on an empty span when the device delivers no frames in time.
-        // CollectionsMarshal.AsSpan exposes the list's backing array with no copy, and
-        // TensorPrimitives.MaxMagnitude finds the largest-magnitude element in one vectorized
-        // pass instead of LINQ's Max(Math.Abs) invoking a delegate per element.
-        var sampleSpan = CollectionsMarshal.AsSpan(samples);
-        var peakAmplitude = sampleSpan.IsEmpty ? 0.0f : Math.Abs(TensorPrimitives.MaxMagnitude(sampleSpan)); // NOSONAR
+        float[] captured;
+        lock (gate)
+        {
+            captured = [.. samples];
+        }
+
+        // A capture test that recorded nothing has not proven capture works, so it is reported as a failure
+        // (non-zero exit code) rather than as a successful run with a zero peak amplitude.
+        if (captured.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "The capture device delivered no audio samples during the test recording; " +
+                "check that the microphone is connected, enabled, and not muted.");
+        }
+
+        // TensorPrimitives.MaxMagnitude finds the largest-magnitude element in one vectorized pass instead of
+        // LINQ's Max(Math.Abs) invoking a delegate per element.
+        var peakAmplitude = Math.Abs(TensorPrimitives.MaxMagnitude(captured));
 
         context.WriteLine(
-            $"Recorded {CaptureDurationSeconds:0.#} second(s) from the resolved capture device " +
+            $"Recorded {duration.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} second(s) from the resolved capture device " +
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
-        context.WriteLine($"Samples captured: {samples.Count.ToString(CultureInfo.InvariantCulture)}");
+        context.WriteLine($"Samples captured: {captured.Length.ToString(CultureInfo.InvariantCulture)}");
         context.WriteLine($"Peak amplitude: {peakAmplitude.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 

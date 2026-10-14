@@ -31,6 +31,10 @@ Compliance evidence is generated automatically on every CI run, following the
 
 ## Installation
 
+Prerequisites: a .NET SDK that targets .NET 8, 9, or 10 (the packages multi-target all three), and
+for live audio a machine with a capture or playback device. Without a device or a runtime, the
+library still composes and reports the affected capability as unavailable.
+
 Install the core library and the sherpa-onnx-backed models package using the .NET CLI:
 
 ```bash
@@ -45,7 +49,9 @@ sibling package supplying the four sherpa-onnx-backed models used by this README
 `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
 `DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
 `.AddKokoroModels()`, and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime
-streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. A host that only needs the
+streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. The optional
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning
+TTS model via `.AddChatterboxTurboModels(options)`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -60,17 +66,18 @@ packages transitively at restore time:
 - `org.k2fsa.portaudio.runtime.osx-x64`
 - `org.k2fsa.portaudio.runtime.osx-arm64`
 
-No `win-arm64` PortAudio runtime package is available through this dependency chain as of this
-phase. On an unsupported RID, or if PortAudio fails to initialize on a machine, the library
+No `win-arm64` PortAudio runtime package is available through this dependency chain. On an unsupported RID, or
+if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
-### Combining the raw ONNX packages (Kokoro, Nemotron STT) with sherpa-onnx
+### Combining the raw ONNX packages (Kokoro, Nemotron STT, Chatterbox Turbo) with sherpa-onnx
 
-`DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.NemotronStt` both use
+`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.NemotronStt` and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
 Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
 and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
-with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references either
-package together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
+with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references any of these
+packages together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
 Microsoft's copy can
 overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
 reference so only sherpa's native runtime is used (the managed APIs run against it):
@@ -79,8 +86,8 @@ reference so only sherpa's native runtime is used (the managed APIs run against 
 <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
 ```
 
-Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro or
-Nemotron STT without sherpa-onnx needs no override and gets Microsoft's native runtime
+Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro,
+Nemotron STT or Chatterbox Turbo without sherpa-onnx needs no override and gets Microsoft's native runtime
 transitively. To use an
 accelerated provider (for example DirectML or CUDA), reference the matching
 `Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
@@ -100,14 +107,19 @@ composition still succeeds and the factory reports the engine as unavailable ins
 None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
 fetches each one on demand and verifies its SHA-256 checksum before installing it. It's safe to
 call on every launch: for an already-installed model it's a cheap no-op, returning an `Installed`
-result without touching the network. On first download it can instead return `Failed` (a
-transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
-`ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
+result without touching the network. On first download it can instead return `ChecksumMismatch`,
+`NetworkBlocked` (TLS interception, DNS or connection failure, or a timeout that was not caused by
+your own cancellation), `HttpError` (the server answered with a failure status code), `IoFailure`
+(a local file-system failure), or `Failed` (the generic fallback for any other failure), with the
+underlying exception in `SpeechModelDownloadResult.Error`; an unrecognized model id throws
+`ArgumentException`.
 
-This release ships six models through three packages. `DemaConsulting.Speech.Sherpa`
+This release ships seven models through four packages. `DemaConsulting.Speech.Sherpa`
 (`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
 (`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.NemotronStt`
-(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model:
+(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model; and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels(options)`) supplies the
+Chatterbox Turbo voice-cloning model:
 
 | Model | Role | License |
 | --- | --- | --- |
@@ -117,6 +129,7 @@ This release ships six models through three packages. `DemaConsulting.Speech.She
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 | `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
 | `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | MIT and NVIDIA Open Model License |
+| `OnnxChatterboxTurboEnglishSynthesisModel` | TTS, voice cloning from your reference clip | MIT |
 
 The Nemotron 3.5 model (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`) is an int4-quantized ONNX
 export of about 790 MB. It runs on the CPU by default, with the encoder optionally accelerated
@@ -125,11 +138,58 @@ accelerated provider cannot run the model. The model is dual-licensed under the 
 the NVIDIA Open Model License, and both apply; review the NVIDIA license's terms before
 redistributing the model. To select the spoken
 language, pass the `language` parameter (`en-US` by default, or `en-GB`), for example
-`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB --input speech.wav`.
+`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB
+--input speech.wav`.
 When a download mirror is used, files are fetched from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`.
 The engine shortens any run of near-silence longer than 400 ms (leading silence or low-level
 noise would otherwise make the model emit nothing), calibrates its quiet threshold from the first
 400 ms of audio, and ends an utterance after 2.5 seconds of quiet following speech.
+
+The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
+model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
+(`chatterbox-turbo-onnx-en`, the ONNX export of ResembleAI's Chatterbox Turbo, 24,000 Hz, licensed
+**MIT**). The model has no built-in voices: you supply one or
+more short reference clips (1 to 30 seconds of clean speech, WAV or FLAC of any sample rate and
+channel count, or in-memory samples) and the model speaks in that voice. The first voice is the
+default and the `voice` choice parameter selects among them. You are responsible for having the
+right to clone any voice you use. WAV and FLAC files are decoded by the core package's managed
+`AudioFileReader` (no native decoder), which you can also use directly:
+`AudioFileReader.Read("clip.flac")` returns an `AudioClip` of float samples, and `AudioResampler`
+down-mixes and resamples it.
+
+```csharp
+using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
+
+var options = new ChatterboxTurboModelOptions
+{
+    ReferenceVoices =
+    [
+        ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),
+    ],
+    // Or load every .wav and .flac file in a folder as a voice named after the file:
+    // ReferenceVoiceDirectory = "voices",
+};
+
+using var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
+```
+
+The package bundles no voice audio, but the core package can download an optional **reference-voice
+pack** and keeps a folder for your own clips, and the model lists all of them as voices
+automatically when registered through `AddChatterboxTurboModels(options)` (set `IncludeStoreVoices = false`
+to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
+[source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
+
+```csharp
+using var voices = new ReferenceVoiceLibrary(catalog.Store);
+// ~570 MiB download, ~572 MiB installed with emotions
+await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);
+// Base voices only (about 44 MiB installed): InstallPackAsync(id, includeEmotions: false)
+// Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
+```
+
+See the [user guide][link-user-guide] for the pack contents, mood tags, model variants and generation limits.
 
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via
@@ -251,7 +311,7 @@ device from the factory is currently active.
 `SpeakAsync` recognizes Natural Language Audio Tags (such as `[whispers]`, `[short pause]`, or
 `[excited]`), renders each one per the model's own declared capability, chunks narration into
 sentence-sized pieces, and pipelines synthesis with playback - an earlier chunk plays while a
-later chunk is still synthesizing. Passing a cancelled `CancellationToken` to `SpeakAsync` cancels
+later chunk is still synthesizing. Passing a canceled `CancellationToken` to `SpeakAsync` cancels
 an in-flight call deterministically.
 
 For a model that declares tunable parameters - such as Kokoro's `voice` choice or VITS/Piper's
@@ -305,11 +365,23 @@ playing, so you can't switch models mid-session.
 The demo accepts the same `--models-dir <path>` and `--mirror-url <url>`/`--mirror-user
 <user>`/`--mirror-password <pass>`/`--mirror-bearer-token <token>` launch options as
 `speech-cli` (see `speech-cli`'s own
-[Downloading from an internal mirror](src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
+[Downloading from an internal mirror](https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
 section for their validation rules), read once at start-up before the main window opens; run
 `dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the full list. The Model
 Catalog panel's mirror-settings fields also let you change the mirror from the running
 application - no restart required - using the same validation rules.
+
+The demo also hosts the Chatterbox Turbo voice-cloning model. Its Model Catalog tab has a
+**Reference voices** section where you can install or remove the optional `voice-zero-1.0` pack
+(about 570 MiB download, about 572 MiB installed with emotion variants or about 44 MiB without; an
+**Include emotion variants** checkbox chooses, and **Add emotions** upgrades a voices-only install;
+CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
+folder for your own `.wav`/`.flac` voices; `--voices-dir <path>` (an existing folder) adds your
+own voices at launch. Installing or removing a pack refreshes the Text-to-Speech voice dropdown
+immediately, keeping your other settings (the pack row itself also refreshes after every install
+outcome, including failures and cancellations), and the Text-to-Speech tab shows the consent note
+(only clone voices you have permission to use) and the pack's attribution under the voice
+dropdown.
 
 ## SpeechCli
 
@@ -331,6 +403,8 @@ and `osx-arm64` only.
 | `download <modelId> [<modelId>...]` | Download one or more models |
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
 | `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
+| `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
+| `voices packs\|install [--no-emotions]\|uninstall` | List, download, or remove the optional reference-voice pack |
 | `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
 | `speak` | Synthesize text to a real playback device or a WAV file |
 | `recognize` | Recognize speech from a WAV file or the microphone |
@@ -344,6 +418,37 @@ speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --input meeti
 Run `speech-cli --help` for the full flag reference. See the
 [CLI package README][link-cli-readme] and [user guide][link-user-guide] for install details, the
 full command reference, and worked examples.
+
+### Reference voices (Chatterbox Turbo)
+
+The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
+least one voice to speak. Voices come from three places, all listed by `list-voices`:
+
+- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download; about 44 MiB
+  installed for the base voices, about 572 MiB with the 13 emotion variants per voice, which are
+  included by default): `speech-cli voices install voice-zero-1.0` (add `--no-emotions` for the base
+  voices only; installing with emotions over a voices-only install removes and downloads the pack
+  again; `voices packs` shows its sizes and state, `voices uninstall voice-zero-1.0` removes it;
+  `list-voices` shows a Moods column). Installation honors `--models-dir` and
+  `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
+- the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
+- any folder given with `--voices-dir <path>` (must exist)
+
+Each voice file must be 1-30 seconds of clean speech; the file name (without extension) is the
+voice id. Choose a voice with `--tts-param voice=<id>`:
+
+```bash
+speech-cli voices install voice-zero-1.0
+speech-cli list-voices
+speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
+```
+
+Newly installed voices appear on the next invocation. Voice files in `--voices-dir` are decoded
+only when a voice is used, so an undecodable file does not break other commands: `list-voices`
+still runs and lists it, and synthesizing with that voice fails with an error naming the file.
+
+> **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
+> `voices install`, and `--help` all repeat this note.
 
 ### Voice Conversation Example
 
@@ -366,7 +471,8 @@ speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model stream
 
 ## Documentation
 
-Generated documentation includes:
+Generated documentation is published as release artifacts on the
+[GitHub Releases page][link-releases] and includes:
 
 - **API Reference**: Gradual-disclosure Markdown API docs (index → namespace → type), packed
   into the NuGet package's `api/` folder for downstream tools and agents to consume
@@ -411,8 +517,10 @@ By contributing to this project, you agree that your contributions will be licen
 [link-nuget]: https://www.nuget.org/packages/DemaConsulting.Speech
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
-[link-user-guide]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md
+[link-user-guide]: https://github.com/demaconsulting/Speech/tree/main/docs/user_guide
+[link-releases]: https://github.com/demaconsulting/Speech/releases
 [link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
 
 <!-- Image References -->
-[image-demo-audio-devices]: docs/images/demo-audio-devices.png
+[image-demo-audio-devices]:
+  https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/demo-audio-devices.png

@@ -11,6 +11,7 @@ package Speech {
         expose SpeechSherpa;
         expose SpeechOnnx;
         expose SpeechOnnxKokoro;
+        expose SpeechOnnxChatterboxTurbo;
         expose SpeechOnnxNemotronStt;
     }
 
@@ -81,6 +82,26 @@ package SpeechCli {
     view SpeechCliView {
         expose SpeechCliSystem;
     }
+
+    view ModelCommandsSubsystemView {
+        expose ModelCommandsSubsystem;
+    }
+
+    view DeviceCommandsSubsystemView {
+        expose DeviceCommandsSubsystem;
+    }
+
+    view SynthesisCommandSubsystemView {
+        expose SynthesisCommandSubsystem;
+    }
+
+    view RecognitionCommandSubsystemView {
+        expose RecognitionCommandSubsystem;
+    }
+
+    view ConversationCommandSubsystemView {
+        expose ConversationCommandSubsystem;
+    }
 }
 
 // SpeechSherpa views. Declared in their own package so each 'expose' statement can reference
@@ -135,6 +156,22 @@ package SpeechOnnxKokoro {
     }
 }
 
+// SpeechOnnxChatterboxTurbo views. Declared in their own package so each 'expose' statement can
+// reference its target part def directly. The subsystem views carry a 'ChatterboxTurbo' prefix
+// because rendered SVG filenames are keyed by bare view name.
+package SpeechOnnxChatterboxTurbo {
+    view SpeechOnnxChatterboxTurboView {
+        expose SpeechOnnxChatterboxTurboSystem;
+    }
+
+    view ChatterboxTurboModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view ChatterboxTurboSynthesisSubsystemView {
+        expose SynthesisSubsystem;
+    }
+}
 // SpeechOnnxNemotronStt views. Declared in their own package so each 'expose' statement can reference
 // its target part def directly, exactly as the Speech views above do. The subsystem views carry
 // a 'Nemotron' prefix because rendered SVG filenames are keyed by bare view name, so reusing the

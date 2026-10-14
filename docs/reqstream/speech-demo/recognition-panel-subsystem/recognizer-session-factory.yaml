@@ -1,0 +1,58 @@
+---
+# Software Unit Requirements for the SpeechDemo RecognizerSessionFactory
+#
+# These requirements describe the design-level behavior of the IRecognizerSessionFactory /
+# RecognizerSessionFactory unit - the demo-owned recognizer-engine composition seam over the
+# library's SpeechModelStore and SpeechRecognizerFactory - decomposing the parent
+# RecognitionPanelSubsystem requirements. IRecognizerSessionFactory and RecognizerSessionFactory
+# are treated as one unit because the interface has no independently observable behavior of its
+# own; every test exercises it through RecognizerSessionFactory, its sole implementation.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: RecognitionPanelSubsystem Requirements
+        sections:
+          - title: RecognizerSessionFactory Requirements
+            requirements:
+              - id: SpeechDemo-Recognition-SessionSeamWrongRole
+                title: >-
+                  The RecognizerSessionFactory shall report a model that does not implement the
+                  recognition role as an unavailable engine rather than throwing.
+                justification: |
+                  A user can choose an installed model of the wrong role; reporting the mismatch
+                  as an unavailable engine, the same honest way the library reports an
+                  uninstalled model, keeps the panel's unavailable-state handling uniform.
+                tests:
+                  - RecognizerSessionFactory_LoadAsync_ModelNotRecognitionRole_ReturnsUnavailableEngine
+
+              - id: SpeechDemo-Recognition-SessionSeamRecognitionModel
+                title: >-
+                  The RecognizerSessionFactory shall return a recognizer engine for the given
+                  recognition model, using the installed model files, when the model implements
+                  the recognition role.
+                justification: |
+                  The normal outcome of choosing an installed recognition model is an engine that
+                  transcribes with that model.
+                tests:
+                  - RecognizerSessionFactory_LoadAsync_RecognitionModel_ReturnsEngineForThatModel
+
+              - id: SpeechDemo-Recognition-SessionSeamArgumentValidation
+                title: >-
+                  The RecognizerSessionFactory shall reject a missing model store with an
+                  argument-null error.
+                justification: |
+                  A missing store is a composition mistake that must surface at the call site
+                  instead of as a later, unrelated failure.
+                tests:
+                  - RecognizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Recognition-SessionSeamModelValidation
+                title: >-
+                  The RecognizerSessionFactory shall reject a missing model with an
+                  argument-null error.
+                justification: |
+                  A missing model is a caller mistake that must surface at the call site instead
+                  of as a later, unrelated failure.
+                tests:
+                  - RecognizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException

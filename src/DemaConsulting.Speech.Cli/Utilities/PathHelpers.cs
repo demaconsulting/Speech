@@ -33,11 +33,14 @@ internal static class PathHelpers
     /// <returns>The combined, fully-qualified absolute path.</returns>
     /// <remarks>
     ///     Provides a security boundary for caller-supplied path components. Stateless and thread-safe.
-    ///     Performs no file-system I/O; only string-level path normalization is applied.
+    ///     Besides string-level normalization, it queries the attributes of existing components below the
+    ///     base directory so that symbolic links and reparse points are rejected.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="basePath"/> or <paramref name="relativePath"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when the resolved combined path escapes the base directory, or when a supplied path is invalid.
+    ///     Thrown when <paramref name="relativePath"/> is rooted (even if it lies inside the base
+    ///     directory), when the resolved combined path escapes the base directory, when an existing
+    ///     component below the base is a symbolic link or reparse point, or when a supplied path is invalid.
     /// </exception>
     /// <exception cref="NotSupportedException">Thrown when a supplied path contains an unsupported format.</exception>
     /// <exception cref="PathTooLongException">Thrown when the combined or resolved path exceeds the system-defined maximum length.</exception>
@@ -47,10 +50,15 @@ internal static class PathHelpers
         ArgumentNullException.ThrowIfNull(basePath);
         ArgumentNullException.ThrowIfNull(relativePath);
 
-        // Combine the paths using Path.Combine (not Path.Join): a rooted relativePath must
-        // replace basePath entirely so the containment check below can detect and reject it.
-        // Path.Join would instead glue the rooted segment onto basePath, silently defeating
-        // this method's security boundary.
+        // Reject every rooted component outright, including one that happens to lie inside the
+        // base directory: a component is documented as relative, and accepting an absolute one
+        // would let the caller bypass the relative-component contract.
+        if (Path.IsPathRooted(relativePath))
+        {
+            throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePath));
+        }
+
+        // Combine the paths using Path.Combine; the rooted case is already rejected above.
         var combinedPath = Path.Combine(basePath, relativePath);
 
         // Security check: resolve both paths to absolute form and verify the combined
@@ -68,10 +76,54 @@ internal static class PathHelpers
             throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePath));
         }
 
+        // Lexical containment is not enough: an existing symbolic link, junction or other reparse
+        // point below the base can redirect a contained path to a location outside it.
+        RejectLinkedComponents(absoluteBase, checkRelative, relativePath);
+
         // Return the already-validated absolute path rather than the unnormalized combined
         // path: when basePath is relative, combinedPath could later resolve against a
         // different working directory than the one this containment check just validated,
         // silently weakening the security boundary this method exists to enforce.
         return absoluteCombined;
+    }
+
+    /// <summary>
+    ///     Walks each component of the contained relative path from the base downward and rejects the
+    ///     path when an existing component is a symbolic link or reparse point.
+    /// </summary>
+    /// <param name="absoluteBase">The fully qualified base directory (itself not inspected).</param>
+    /// <param name="containedRelative">The lexically contained path relative to the base.</param>
+    /// <param name="relativePath">The original component, used for the exception.</param>
+    /// <exception cref="ArgumentException">Thrown when an existing component is a link or reparse point.</exception>
+    private static void RejectLinkedComponents(string absoluteBase, string containedRelative, string relativePath)
+    {
+        var current = absoluteBase;
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        foreach (var part in containedRelative.Split(separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            // The base itself is the trusted root; "." contributes nothing.
+            if (part == ".")
+            {
+                continue;
+            }
+
+            current = Path.Combine(current, part);
+
+            FileAttributes attributes;
+            try
+            {
+                attributes = File.GetAttributes(current);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                // Nothing exists here, so nothing deeper can be a link either.
+                return;
+            }
+
+            if (attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePath));
+            }
+        }
     }
 }

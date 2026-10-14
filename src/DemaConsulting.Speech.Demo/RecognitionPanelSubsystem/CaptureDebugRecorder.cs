@@ -23,6 +23,13 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     a slow or failing disk can never block or throw into the audio capture callback; any
 ///     writer failure is caught, logged, and otherwise ignored so live recognition is unaffected.
 ///     </para>
+///     <para>
+///     The queue is bounded (<see cref="DefaultQueueCapacity"/> frames by default). When a slow
+///     or stalled writer lets it fill, the capture callback never waits: the newest frame is
+///     dropped and counted in <see cref="DroppedFrameCount"/> (reported once when the
+///     recording is finalized), so memory use stays bounded and the recording simply has a
+///     gap - consistent with the rule that this diagnostic can never affect live recognition.
+///     </para>
 /// </remarks>
 internal sealed class CaptureDebugRecorder : IDisposable
 {
@@ -35,17 +42,33 @@ internal sealed class CaptureDebugRecorder : IDisposable
     /// <summary>The capture device this recorder is independently listening to.</summary>
     private readonly IAudioCaptureDevice _device;
 
-    /// <summary>The queue handing captured frames from the audio callback to the writer thread.</summary>
-    private readonly BlockingCollection<IReadOnlyList<float>> _queue = [];
+    /// <summary>
+    ///     The default maximum number of captured frames waiting for the writer thread. Capture
+    ///     frames are typically tens of milliseconds long, so this tolerates a writer stall of
+    ///     tens of seconds before frames start being dropped.
+    /// </summary>
+    internal const int DefaultQueueCapacity = 2000;
+
+    /// <summary>The bounded queue handing captured frames from the audio callback to the writer thread.</summary>
+    private readonly BlockingCollection<IReadOnlyList<float>> _queue;
+
+    /// <summary>The maximum time <see cref="Dispose"/> waits for the writer thread to drain.</summary>
+    private readonly TimeSpan _drainTimeout;
+
+    /// <summary>The number of frames discarded because the queue was full.</summary>
+    private long _droppedFrames;
 
     /// <summary>The thread that owns the writer and performs all file I/O.</summary>
     private readonly Thread _writerThread;
 
-    /// <summary>The writer used exclusively by <see cref="_writerThread"/>.</summary>
-    private readonly WavFileWriter _writer;
+    /// <summary>Appends one frame of samples to the output; used exclusively by the writer thread (or a timed-out <see cref="Dispose"/>).</summary>
+    private readonly Action<IReadOnlyList<float>> _writeSamples;
+
+    /// <summary>Finalizes and closes the output; called at most once, under <see cref="_writerLock"/>.</summary>
+    private readonly Action _closeWriter;
 
     /// <summary>
-    ///     Guards every access to <see cref="_writer"/> so <see cref="WriterThreadMain"/> and a
+    ///     Guards every access to the writer so <see cref="WriterThreadMain"/> and a
     ///     timed-out <see cref="Dispose"/> can never touch it concurrently - whichever of the two
     ///     acquires this lock first is the one that finalizes the file (see both methods' own
     ///     remarks).
@@ -54,13 +77,13 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
     /// <summary>
     ///     Set, under <see cref="_writerLock"/>, by whichever of <see cref="WriterThreadMain"/> or
-    ///     <see cref="Dispose"/> disposes <see cref="_writer"/> first. Once set, the other backs
+    ///     <see cref="Dispose"/> disposes the writer first. Once set, the other backs
     ///     off instead of touching the now-disposed writer.
     /// </summary>
     private bool _writerFinalized;
 
-    /// <summary>Guards <see cref="Dispose"/> against running more than once.</summary>
-    private bool _disposed;
+    /// <summary>Guards <see cref="Dispose"/> against running more than once (1 once disposal has started).</summary>
+    private int _disposed;
 
     /// <summary>
     ///     The maximum time <see cref="Dispose"/> waits for the writer thread to drain queued
@@ -68,7 +91,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     but bounded so a stalled disk cannot hang the caller (typically a UI-thread command)
     ///     indefinitely.
     /// </summary>
-    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DefaultDrainTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="CaptureDebugRecorder"/> class and starts
@@ -78,15 +101,42 @@ internal sealed class CaptureDebugRecorder : IDisposable
     /// <param name="device">The capture device to independently listen to.</param>
     /// <param name="writer">The already-created writer to append captured frames to.</param>
     private CaptureDebugRecorder(IAudioCaptureDevice device, WavFileWriter writer)
+        : this(device, writer.WriteSamples, writer.Dispose)
     {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="CaptureDebugRecorder"/> class from write and close
+    ///     delegates and starts its writer thread. Internal so tests can substitute a failing output.
+    /// </summary>
+    /// <param name="device">The capture device to independently listen to.</param>
+    /// <param name="writeSamples">Appends one captured frame to the output.</param>
+    /// <param name="closeWriter">Finalizes and closes the output; invoked once.</param>
+    /// <param name="queueCapacity">The maximum number of frames waiting for the writer; must be positive.</param>
+    /// <param name="drainTimeout">
+    ///     The maximum time <see cref="Dispose"/> waits for the writer thread, or <see langword="null"/> for the
+    ///     default.
+    /// </param>
+    internal CaptureDebugRecorder(
+        IAudioCaptureDevice device,
+        Action<IReadOnlyList<float>> writeSamples,
+        Action closeWriter,
+        int queueCapacity = DefaultQueueCapacity,
+        TimeSpan? drainTimeout = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queueCapacity);
+
+        _queue = new BlockingCollection<IReadOnlyList<float>>(queueCapacity);
+        _drainTimeout = drainTimeout ?? DefaultDrainTimeout;
         _device = device;
-        _writer = writer;
+        _writeSamples = writeSamples;
+        _closeWriter = closeWriter;
 
         _writerThread = new Thread(WriterThreadMain)
         {
             // A background thread: correctness no longer depends on the CLR waiting for this
             // thread at process exit, because Dispose() itself force-finalizes the header (see
-            // its own remarks) if the writer thread hasn't drained within DrainTimeout. Keeping
+            // its own remarks) if the writer thread hasn't drained within _drainTimeout. Keeping
             // this a background thread instead means a stalled disk can never block process
             // shutdown, regardless of how long the stall lasts.
             IsBackground = true,
@@ -147,6 +197,12 @@ internal sealed class CaptureDebugRecorder : IDisposable
     }
 
     /// <summary>
+    ///     Gets the number of captured frames discarded because the writer could not keep up and
+    ///     the bounded queue was full.
+    /// </summary>
+    internal long DroppedFrameCount => Interlocked.Read(ref _droppedFrames);
+
+    /// <summary>
     ///     Enqueues one captured frame for the writer thread. Runs on the capture device's own
     ///     callback thread, so this must never block or throw.
     /// </summary>
@@ -158,12 +214,18 @@ internal sealed class CaptureDebugRecorder : IDisposable
         {
             // Copy the samples: the event argument is not guaranteed to outlive this handler, and
             // the writer thread will read this list at an arbitrary later time
-            _queue.Add(e.Samples.ToArray());
+            // When the queue is full the frame is dropped and counted: the callback must never wait.
+            if (_queue.Count >= _queue.BoundedCapacity || !_queue.TryAdd(e.Samples.ToArray()))
+            {
+                Interlocked.Increment(ref _droppedFrames);
+            }
         }
         catch (InvalidOperationException)
         {
-            // The queue has already been marked complete by Dispose - a frame arriving after Stop
-            // was requested is simply discarded rather than treated as an error
+            // The queue has already been marked complete (by Dispose or a failed writer) or disposed
+            // (ObjectDisposedException derives from InvalidOperationException) - a frame arriving
+            // after that is simply discarded rather than treated as an error, never thrown into
+            // the audio callback
         }
     }
 
@@ -188,15 +250,18 @@ internal sealed class CaptureDebugRecorder : IDisposable
                         break;
                     }
 
-                    _writer.WriteSamples(frame);
+                    _writeSamples(frame);
                 }
             }
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException
+            or NotSupportedException or InvalidOperationException or ArgumentException)
         {
-            // A failing disk during an in-progress recording must not crash the writer thread or
-            // propagate anywhere near the audio pipeline - just stop writing and report why
+            // A failing disk (or an unexpectedly closed writer) during an in-progress recording must
+            // not crash the writer thread or propagate anywhere near the audio pipeline - stop
+            // accepting frames (so the queue cannot grow without bound) and report why
             Console.WriteLine($"[CaptureDebug] Capture debug write failed: {ex.Message}");
+            CompleteQueueQuietly();
         }
         finally
         {
@@ -205,14 +270,45 @@ internal sealed class CaptureDebugRecorder : IDisposable
                 if (!_writerFinalized)
                 {
                     _writerFinalized = true;
-                    _writer.Dispose();
+                    CloseWriterQuietly();
                 }
             }
         }
     }
 
     /// <summary>
-    ///     Stops listening for captured frames, waits (up to <see cref="DrainTimeout"/>) for the
+    ///     Closes the output, containing any failure: this runs on a background thread (or in a
+    ///     diagnostic Dispose), where an escaping exception would terminate the process.
+    /// </summary>
+    private void CloseWriterQuietly()
+    {
+        try
+        {
+            _closeWriter();
+        }
+#pragma warning disable CA1031 // Diagnostic tooling must never fault the host; the failure is reported instead.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            Console.WriteLine($"[CaptureDebug] Failed to finalize the capture debug file: {ex.Message}");
+        }
+    }
+
+    /// <summary>Marks the queue complete so later frames are rejected, ignoring a queue that is already disposed.</summary>
+    private void CompleteQueueQuietly()
+    {
+        try
+        {
+            _queue.CompleteAdding();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed by Dispose; nothing left to complete
+        }
+    }
+
+    /// <summary>
+    ///     Stops listening for captured frames, waits (up to <see cref="_drainTimeout"/>) for the
     ///     writer thread to fully drain any queued frames, and finalizes the <c>.wav</c> file
     ///     header. Idempotent: a second call does nothing.
     /// </summary>
@@ -229,7 +325,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     too. When it does not finish in time, this method attempts to force-finalize the
     ///     header itself with whatever samples were already written - synchronized against
     ///     <see cref="WriterThreadMain"/> via <see cref="_writerLock"/> so the two can never
-    ///     touch <see cref="_writer"/> concurrently - so the file is normally left as a valid,
+    ///     touch the writer concurrently - so the file is normally left as a valid,
     ///     playable <c>.wav</c> rather than one with a never-finalized header. That attempt itself
     ///     uses a short, separately-bounded <see cref="Monitor.TryEnter(object, TimeSpan)"/>
     ///     rather than a blocking <see langword="lock"/>, because the one case this cannot solve
@@ -237,26 +333,31 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     genuinely stalled disk while already holding <see cref="_writerLock"/> - a blocking
     ///     <see langword="lock"/> here would wait for that call to return, which could once again
     ///     be indefinite. In that one pathological case, this method still returns promptly
-    ///     (never waiting longer than <see cref="DrainTimeout"/> plus that short attempt) but the
+    ///     (never waiting longer than <see cref="_drainTimeout"/> plus that short attempt) but the
     ///     header is left never finalized, the same fundamentally unavoidable trade-off as leaving a
-    ///     synchronous file API call unable to be cancelled. The queue itself is intentionally
+    ///     synchronous file API call unable to be canceled. The queue itself is intentionally
     ///     left undisposed whenever the writer thread has not confirmed it is done, since it may
     ///     still be between <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/>
     ///     iterations, and is instead left to the garbage collector.
     /// </remarks>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
-
         _device.FrameCaptured -= OnFrameCaptured;
-        _queue.CompleteAdding();
+        CompleteQueueQuietly();
 
-        if (_writerThread.Join(DrainTimeout))
+        if (DroppedFrameCount > 0)
+        {
+            Console.WriteLine(
+                $"[CaptureDebug] The writer could not keep up; {DroppedFrameCount} captured frame(s) " +
+                "were dropped from the recording.");
+        }
+
+        if (_writerThread.Join(_drainTimeout))
         {
             _queue.Dispose();
             return;
@@ -278,7 +379,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
             }
 
             _writerFinalized = true;
-            _writer.Dispose();
+            CloseWriterQuietly();
         }
         finally
         {

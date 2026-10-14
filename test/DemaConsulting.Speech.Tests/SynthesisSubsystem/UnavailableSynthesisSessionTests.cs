@@ -156,4 +156,24 @@ public class UnavailableSynthesisSessionTests
         // Assert
         Assert.Null(exception);
     }
+
+    /// <summary>
+    ///     Proves that disposing the shared fallback session leaves it a valid, unchanged
+    ///     unavailable session for other holders.
+    /// </summary>
+    [Fact]
+    public async Task UnavailableSynthesisSession_DisposeAsync_ThenRead_SharedFallbackRemainsValid()
+    {
+        // Arrange
+        var session = UnavailableSynthesisSession.Instance;
+
+        // Act
+        await session.DisposeAsync();
+        var other = UnavailableSynthesisSession.Instance;
+
+        // Assert
+        Assert.Same(session, other);
+        Assert.False(other.IsAvailable);
+        Assert.Equal(SynthesisSessionState.Created, other.State);
+    }
 }

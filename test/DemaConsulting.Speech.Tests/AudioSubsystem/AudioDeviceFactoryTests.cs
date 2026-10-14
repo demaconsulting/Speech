@@ -88,6 +88,40 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that all four device and probe contracts can be substituted with mocks, so hosts
+    ///     can depend on audio behavior without real hardware.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured()
+    {
+        // Arrange: mocks of every device and probe contract, configured with distinct values
+        var captureDevice = Substitute.For<IAudioCaptureDevice>();
+        captureDevice.IsAvailable.Returns(true);
+        captureDevice.SampleRate.Returns(16000);
+        var playbackDevice = Substitute.For<IAudioPlaybackDevice>();
+        playbackDevice.IsAvailable.Returns(true);
+        playbackDevice.ChannelCount.Returns(2);
+        playbackDevice.PendingSampleCount.Returns(7L);
+        var description = new AudioDeviceDescription("Mock", AudioDeviceDirection.Playback, 2, 48000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([description]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([description]);
+
+        // Act: drive the mocks through their contract members
+        playbackDevice.Write([0.1f]);
+
+        // Assert: every mock returns its configured values and records the call
+        Assert.True(captureDevice.IsAvailable);
+        Assert.Equal(16000, captureDevice.SampleRate);
+        Assert.Equal(2, playbackDevice.ChannelCount);
+        Assert.Equal(7L, playbackDevice.PendingSampleCount);
+        Assert.Same(description, Assert.Single(captureProbe.Enumerate()));
+        Assert.Same(description, Assert.Single(playbackProbe.Enumerate()));
+        playbackDevice.Received(1).Write(Arg.Any<IReadOnlyList<float>>());
+    }
+
+    /// <summary>
     ///     Proves that a successful PortAudio initialization returns a real capture-device implementation.
     /// </summary>
     [Fact]
@@ -121,25 +155,27 @@ public class AudioDeviceFactoryTests
     public void AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
     {
         // Arrange: a fake PortAudio environment with a higher-capability default capture device
-        var environment = new PortAudioEnvironment(
-            new FakePortAudioApi(
-            [
-                new PortAudioDeviceInfo("Mic", 5, 4, 0, 48000, 0.01, 0.0)
-            ])
-            {
-                FindHostApiIndexResult = 5,
-                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
-            },
-            OSPlatform.Windows);
+        var api = new FakePortAudioApi(
+        [
+            new PortAudioDeviceInfo("Mic", 5, 4, 0, 48000, 0.01, 0.0)
+        ])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var preferredFormat = new AudioFormat(16000, 2);
 
-        // Act
+        // Act: create the device with the preferred format and open its stream
         var device = factory.CreateCaptureDevice(preferredFormat: preferredFormat);
+        device.Start();
 
-        // Assert
+        // Assert: the device reports the format and the requested format reached the PortAudio API
         Assert.Equal(16000, device.SampleRate);
         Assert.Equal(2, device.ChannelCount);
+        Assert.Equal((2, 16000), api.LastOpenedFormat);
+        device.Stop();
     }
 
     /// <summary>
@@ -176,25 +212,27 @@ public class AudioDeviceFactoryTests
     public void AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
     {
         // Arrange: a fake PortAudio environment with a higher-capability default playback device
-        var environment = new PortAudioEnvironment(
-            new FakePortAudioApi(
-            [
-                new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)
-            ])
-            {
-                FindHostApiIndexResult = 5,
-                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
-            },
-            OSPlatform.Windows);
+        var api = new FakePortAudioApi(
+        [
+            new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)
+        ])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var preferredFormat = new AudioFormat(24000, 2);
 
-        // Act
+        // Act: create the device with the preferred format and open its stream
         var device = factory.CreatePlaybackDevice(preferredFormat: preferredFormat);
+        device.Start();
 
-        // Assert
+        // Assert: the device reports the format and the requested format reached the PortAudio API
         Assert.Equal(24000, device.SampleRate);
         Assert.Equal(2, device.ChannelCount);
+        Assert.Equal((2, 24000), api.LastOpenedFormat);
+        device.Stop();
     }
 
     /// <summary>
@@ -403,6 +441,63 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that both unavailable-device fallbacks report a diagnostic event: the
+    ///     not-initialized fallback and the selection-unknown-to-probe fallback, for capture and
+    ///     playback.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateDevices_UnavailableFallbacks_ReportDiagnostics()
+    {
+        // Arrange: one factory whose PortAudio initialization fails, and one initialized factory
+        // whose injected probes know no devices; both share one diagnostics sink
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var failedEnvironment = new PortAudioEnvironment(
+            new FakePortAudioApi([], new InvalidOperationException("PortAudio init failed.")),
+            OSPlatform.Windows);
+        var failedFactory = new AudioDeviceFactory(null, null, diagnostics, failedEnvironment);
+        var readyEnvironment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 1, 16000, 0.01, 0.01)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, 0)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([]);
+        var readyFactory = new AudioDeviceFactory(captureProbe, playbackProbe, diagnostics, readyEnvironment);
+        diagnostics.ClearReceivedCalls();
+
+        // Act: request every device kind from both factories
+        failedFactory.CreateCaptureDevice();
+        failedFactory.CreatePlaybackDevice();
+        readyFactory.CreateCaptureDevice();
+        readyFactory.CreatePlaybackDevice();
+
+        // Assert: each of the four fallbacks reported exactly one diagnostic event
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Warning,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Capture device unavailable: PortAudio", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Warning,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Playback device unavailable: PortAudio", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Capture device unavailable: the requested selection", StringComparison.Ordinal)));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.StartsWith("Playback device unavailable: the requested selection", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     Proves that a PortAudio initialization failure returns the honest unavailable fallback device.
     /// </summary>
     [Fact]
@@ -441,6 +536,36 @@ public class AudioDeviceFactoryTests
         // Assert: the underlying PortAudio runtime was terminated and reinitialized
         Assert.Equal(1, api.TerminateCallCount);
         Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="AudioDeviceFactory.RefreshDevices"/> makes a changed device table
+    ///     visible: a device added after the refresh is enumerated and a removed one is not.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_DeviceListChanges_EnumerationReflectsNewDevices()
+    {
+        // Arrange: a factory over a fake runtime that initially exposes one microphone
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Old Mic", 5, 1, 0, 16000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        var namesBefore = factory.CaptureProbe.Enumerate().Select(d => d.Name).ToArray();
+
+        // Act: swap the device table and refresh
+        api.Devices = [new PortAudioDeviceInfo("New Mic", 5, 2, 0, 48000, 0.01, 0.0)];
+        factory.RefreshDevices();
+        var namesAfter = factory.CaptureProbe.Enumerate().Select(d => d.Name).ToArray();
+        var device = factory.CreateCaptureDevice();
+
+        // Assert: enumeration and created devices reflect only the new table
+        Assert.Equal(["Old Mic"], namesBefore);
+        Assert.Equal(["New Mic"], namesAfter);
+        Assert.Equal(48000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
     }
 
     /// <summary>
@@ -509,9 +634,24 @@ public class AudioDeviceFactoryTests
     ///     Minimal fake PortAudio seam used by the factory tests.
     /// </summary>
     private sealed class FakePortAudioApi(
-        IReadOnlyList<PortAudioDeviceInfo> devices,
+        IReadOnlyList<PortAudioDeviceInfo> initialDevices,
         Exception? initializeException = null) : IPortAudioApi
     {
+        /// <summary>
+        ///     Gets or sets the device table, reassignable so tests can change it between refreshes.
+        /// </summary>
+        internal IReadOnlyList<PortAudioDeviceInfo> Devices { get; set; } = initialDevices;
+
+        /// <summary>
+        ///     Gets the (channelCount, sampleRate) most recently requested from an opened stream.
+        /// </summary>
+        internal (int ChannelCount, int SampleRate)? LastOpenedFormat { get; private set; }
+
+        /// <summary>
+        ///     Gets the device index most recently requested from an opened stream.
+        /// </summary>
+        internal int? LastOpenedDeviceIndex { get; private set; }
+
         /// <summary>
         ///     Gets or sets the host-API index returned by <see cref="FindHostApiIndex"/>.
         /// </summary>
@@ -544,7 +684,7 @@ public class AudioDeviceFactoryTests
         public int HostApiCount => 1;
 
         /// <inheritdoc/>
-        public int DeviceCount => devices.Count;
+        public int DeviceCount => Devices.Count;
 
         /// <inheritdoc/>
         public void Initialize()
@@ -578,7 +718,7 @@ public class AudioDeviceFactoryTests
         /// <inheritdoc/>
         public PortAudioDeviceInfo GetDeviceInfo(int deviceIndex)
         {
-            return devices[deviceIndex];
+            return Devices[deviceIndex];
         }
 
         /// <inheritdoc/>
@@ -601,7 +741,9 @@ public class AudioDeviceFactoryTests
             uint framesPerBuffer,
             Action<IReadOnlyList<float>> onSamplesCaptured)
         {
-            throw new NotSupportedException("Stream opening is outside this test scope.");
+            LastOpenedDeviceIndex = deviceIndex;
+            LastOpenedFormat = (channelCount, sampleRate);
+            return new StubStream();
         }
 
         /// <inheritdoc/>
@@ -612,7 +754,30 @@ public class AudioDeviceFactoryTests
             uint framesPerBuffer,
             Func<int, float[]> provideSamples)
         {
-            throw new NotSupportedException("Stream opening is outside this test scope.");
+            LastOpenedDeviceIndex = deviceIndex;
+            LastOpenedFormat = (channelCount, sampleRate);
+            return new StubStream();
+        }
+    }
+
+    /// <summary>
+    ///     A stream stub that accepts every lifecycle call.
+    /// </summary>
+    private sealed class StubStream : IPortAudioStream
+    {
+        /// <inheritdoc/>
+        public void Start()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Stop()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
         }
     }
 }

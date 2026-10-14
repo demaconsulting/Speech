@@ -26,16 +26,23 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 ///     Minimal, deterministic <see cref="ISpeechModel"/> fake for CLI command unit tests.
 /// </summary>
 /// <remarks>
-///     Implements the shared <see cref="ISpeechModel"/> contract directly (never
-///     <see cref="IRecognitionModel"/>/<see cref="ISynthesisModel"/>, which restrict
-///     implementation to assemblies granted <c>InternalsVisibleTo</c>), since the
+///     Implements only the shared <see cref="ISpeechModel"/> contract, since the
 ///     model-management commands under test only ever consume the common, role-agnostic surface.
+///     <see cref="FakeSynthesisModel"/> and <see cref="FakeRecognitionModel"/> cover the public
+///     role interfaces for the seam adapter tests.
 /// </remarks>
 internal sealed class FakeSpeechModel : ISpeechModel
 {
     /// <summary>
     ///     Initializes a new instance of the <see cref="FakeSpeechModel"/> class.
     /// </summary>
+    /// <param name="id">The model id.</param>
+    /// <param name="displayName">The human-readable model name.</param>
+    /// <param name="role">The role the model fills (recognition by default).</param>
+    /// <param name="parameters">The parameters the model exposes, or <see langword="null"/> for none.</param>
+    /// <param name="audioTagSupport">The audio-tag support the model advertises.</param>
+    /// <param name="licenseName">The license name the model reports.</param>
+    /// <param name="licenseUrl">The license URL the model reports, or <see langword="null"/> when absent.</param>
     public FakeSpeechModel(
         string id,
         string displayName = "Fake Model",

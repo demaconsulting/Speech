@@ -25,6 +25,24 @@ public class UnavailableSpeechSynthesizerEngineTests
     }
 
     /// <summary>
+    ///     Proves that obtaining and reading the shared fallback engine repeatedly never throws.
+    /// </summary>
+    [Fact]
+    public void UnavailableSpeechSynthesizerEngine_Instance_ObtainedRepeatedly_DoesNotThrowAndIsShared()
+    {
+        // Act
+        var exception = Record.Exception(() =>
+        {
+            _ = UnavailableSpeechSynthesizerEngine.Instance.IsAvailable;
+            _ = UnavailableSpeechSynthesizerEngine.Instance.IsAvailable;
+        });
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, UnavailableSpeechSynthesizerEngine.Instance);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/> always succeeds,
     ///     returning <see cref="UnavailableSynthesisSession.Instance"/> rather than throwing.
     /// </summary>

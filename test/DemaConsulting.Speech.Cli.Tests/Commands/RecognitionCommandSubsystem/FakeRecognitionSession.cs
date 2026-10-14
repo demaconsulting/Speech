@@ -39,6 +39,9 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     /// <summary>The channel backing <see cref="GetResultsAsync"/>; results are written via <see cref="RaiseResult"/>.</summary>
     private readonly Channel<SpeechRecognitionEvent> _channel = Channel.CreateUnbounded<SpeechRecognitionEvent>();
 
+    /// <summary>Completed the first time <see cref="DisposeAsync"/> is called.</summary>
+    private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>Gets the number of times <see cref="StartAsync"/> was called.</summary>
     public int StartCallCount { get; private set; }
 
@@ -47,6 +50,9 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
 
     /// <summary>Gets the number of times <see cref="DisposeAsync"/> was called.</summary>
     public int DisposeCallCount { get; private set; }
+
+    /// <summary>Gets a task that completes the first time <see cref="DisposeAsync"/> is called.</summary>
+    public Task Disposed => _disposed.Task;
 
     /// <summary>Gets or sets an exception to throw from <see cref="StartAsync"/>, or <see langword="null"/> for none.</summary>
     public Exception? StartException { get; set; }
@@ -68,6 +74,14 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     /// </summary>
     public Action<FakeRecognitionSession>? OnStop { get; set; }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether <see cref="StopAsync"/> throws
+    ///     <see cref="OperationCanceledException"/> when given an already-canceled token (before
+    ///     completing the results channel), like a real session whose drain honors cancellation.
+    ///     Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool ObserveStopCancellation { get; set; }
+
     /// <inheritdoc/>
     public bool IsAvailable { get; set; } = true;
 
@@ -82,6 +96,8 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     ///     recognized result without a real engine. Safe to call from any thread, including
     ///     reentrantly from <see cref="OnStart"/>/<see cref="OnStop"/>.
     /// </summary>
+    /// <param name="text">The recognized text.</param>
+    /// <param name="isFinal">Whether the result is final (<see langword="true"/>) or interim.</param>
     public void RaiseResult(string text, bool isFinal) =>
         _channel.Writer.TryWrite(new SpeechRecognitionEvent(new SpeechRecognitionResult(text, isFinal)));
 
@@ -105,6 +121,11 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         StopCallCount++;
+        if (ObserveStopCancellation)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         OnStop?.Invoke(this);
         SetState(RecognitionSessionState.Stopped);
         _channel.Writer.TryComplete();
@@ -120,10 +141,12 @@ internal sealed class FakeRecognitionSession : IRecognitionSession
     {
         DisposeCallCount++;
         _channel.Writer.TryComplete();
+        _disposed.TrySetResult();
         return ValueTask.CompletedTask;
     }
 
     /// <summary>Updates <see cref="State"/> and raises <see cref="StateChanged"/>.</summary>
+    /// <param name="newState">The state to transition to.</param>
     private void SetState(RecognitionSessionState newState)
     {
         var previous = State;

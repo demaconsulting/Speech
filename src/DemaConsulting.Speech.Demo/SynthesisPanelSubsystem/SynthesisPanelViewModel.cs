@@ -6,6 +6,7 @@ using DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 using DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 using DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
@@ -204,12 +205,41 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     /// <remarks>
     ///     Mirrors <see cref="CanPlay"/>'s own state test: <see langword="false"/> while
     ///     <see cref="SynthesisPlaybackState.Synthesizing"/> or <see cref="SynthesisPlaybackState.Playing"/>
-    ///     (both are treated as one "busy" band, since <c>Synthesizing</c> is the ramp-up phase of
+    ///     (both are treated as one "busy" band, since <c>Synthesizing</c> is the ramp-up stage of
     ///     the same active session), so a user cannot switch the selected voice/model or its
     ///     tunable parameters mid-playback; <see langword="true"/> at
     ///     <see cref="SynthesisPlaybackState.Idle"/> and <see cref="SynthesisPlaybackState.Error"/>.
     /// </remarks>
     public bool CanChangeModel => State is SynthesisPlaybackState.Idle or SynthesisPlaybackState.Error;
+
+    /// <summary>
+    ///     Gets the consent note and voice attribution shown under the voice dropdown when the
+    ///     selected model is a voice-cloning model, or <see langword="null"/> when it is not.
+    /// </summary>
+    /// <remarks>
+    ///     Always contains <see cref="ReferenceVoiceLibrary.ConsentNotice"/>, followed by the
+    ///     attribution and license of every installed reference-voice pack (for example the CC0
+    ///     "voice-zero" pack), so a user sees whose voices they may be cloning.
+    /// </remarks>
+    public string? VoiceNotice
+    {
+        get
+        {
+            if (SelectedModel is not OnnxChatterboxTurboEnglishSynthesisModel)
+            {
+                return null;
+            }
+
+            var lines = new List<string> { ReferenceVoiceLibrary.ConsentNotice };
+            lines.AddRange(_catalogService.ReferenceVoicePacks
+                .Where(pack => _catalogService.GetReferenceVoicePackState(pack.Id) == SpeechModelState.Downloaded)
+                .Select(static pack => $"Voices from {pack.DisplayName}: {pack.Attribution} ({pack.LicenseName})."));
+            return string.Join(" ", lines);
+        }
+    }
+
+    /// <summary>Gets a value indicating whether <see cref="VoiceNotice"/> has content to show.</summary>
+    public bool HasVoiceNotice => VoiceNotice is not null;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SynthesisPanelViewModel"/> class and loads
@@ -237,6 +267,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
         _sessionFactory = sessionFactory;
 
         _catalogService.ModelInstalled += OnModelInstalled;
+        _catalogService.ReferenceVoicesChanged += OnReferenceVoicesChanged;
 
         _preRefreshHook = StopBeforeDeviceRefreshAsync;
         _deviceSelection.RegisterPreRefreshHook(_preRefreshHook);
@@ -280,7 +311,12 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     detects the model change lazily on its next call (see the "Engine/session reuse"
     ///     remarks above) by comparing against <see cref="_engineModel"/>.
     /// </remarks>
-    partial void OnSelectedModelChanged(ISpeechModel? value) => Settings.Model = value;
+    partial void OnSelectedModelChanged(ISpeechModel? value)
+    {
+        Settings.Model = value;
+        OnPropertyChanged(nameof(VoiceNotice));
+        OnPropertyChanged(nameof(HasVoiceNotice));
+    }
 
     /// <summary>
     ///     Maps a <see cref="SynthesisSessionState"/> to the corresponding
@@ -301,17 +337,17 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     Marshals one <see cref="ISynthesisSession.StateChanged"/> event onto the UI thread and
     ///     applies <see cref="MapSessionState"/>.
     /// </summary>
-    /// <param name="sender">The raising session. Unused.</param>
+    /// <param name="sender">The raising session.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
     private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs e)
     {
         if (_uiContext is null)
         {
-            ApplySessionStateChanged(e);
+            ApplySessionStateChanged(sender, e);
         }
         else
         {
-            _uiContext.Post(state => ApplySessionStateChanged((SessionStateChangedEventArgs)state!), e);
+            _uiContext.Post(state => ApplySessionStateChanged(sender, (SessionStateChangedEventArgs)state!), e);
         }
     }
 
@@ -319,9 +355,17 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     Applies one session state transition to <see cref="State"/>, additionally reporting
     ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
     /// </summary>
+    /// <param name="sender">The raising session; a transition from any session other than the cached one is ignored.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
-    private void ApplySessionStateChanged(SessionStateChangedEventArgs e)
+    private void ApplySessionStateChanged(object? sender, SessionStateChangedEventArgs e)
     {
+        // A transition queued to the UI thread before its session was released (or replaced) must not alter the
+        // state afterwards.
+        if (!ReferenceEquals(sender, _session))
+        {
+            return;
+        }
+
         State = MapSessionState(e.Current);
 
         if (e.Current == SynthesisSessionState.Faulted)
@@ -376,6 +420,36 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     /// <returns>A task that completes once playback finishes, is stopped, or faults.</returns>
     [RelayCommand(CanExecute = nameof(CanPlay))]
     private async Task PlayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await PlayCoreAsync(cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped while the engine was loading or the session was being created (a stop during
+            // playback is handled inside PlayCoreAsync); nothing is playing.
+            State = SynthesisPlaybackState.Idle;
+            StatusMessage = StoppedMessage;
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // Any other fault from the engine/session seams (for example an invalid parameter value) is reported
+            // honestly; the session's state is unknown, so it is released and the next Play creates a fresh one.
+            State = SynthesisPlaybackState.Error;
+            StatusMessage = ex.Message;
+            await ReleaseSessionAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    ///     Performs one Play attempt; faults not handled here are contained by <see cref="PlayAsync"/>.
+    /// </summary>
+    /// <param name="cancellationToken">The token that stops the attempt.</param>
+    /// <returns>A task that completes once playback finishes, is stopped, or faults.</returns>
+    private async Task PlayCoreAsync(CancellationToken cancellationToken)
     {
         var selectedModel = SelectedModel;
         if (selectedModel is null)
@@ -475,6 +549,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
             // Faulted is terminal for a session (see ISynthesisSession's remarks): release it so
             // the next Play creates a fresh one against the still-cached engine.
             await ReleaseSessionAsync().ConfigureAwait(true);
+            State = SynthesisPlaybackState.Error;
             StatusMessage = ex.Message;
         }
     }
@@ -528,6 +603,13 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
         }
 
         await ReleaseSessionAsync().ConfigureAwait(true);
+
+        // Late transitions of the released session are ignored (see OnSessionStateChanged), so nothing can be
+        // playing any more.
+        if (State is SynthesisPlaybackState.Synthesizing or SynthesisPlaybackState.Playing)
+        {
+            State = SynthesisPlaybackState.Idle;
+        }
     }
 
     /// <summary>
@@ -598,6 +680,38 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     }
 
     /// <summary>
+    ///     Marshals a <see cref="IModelCatalogService.ReferenceVoicesChanged"/> event onto the UI
+    ///     thread and re-reads the catalog so the voice dropdown offers the current voices.
+    /// </summary>
+    /// <param name="sender">The raising catalog service. Unused.</param>
+    /// <param name="e">The event arguments. Unused.</param>
+    private void OnReferenceVoicesChanged(object? sender, EventArgs e)
+    {
+        if (_catalogEventUiContext is null)
+        {
+            RefreshKeepingSettings();
+        }
+        else
+        {
+            _catalogEventUiContext.Post(_ => RefreshKeepingSettings(), null);
+        }
+    }
+
+    /// <summary>
+    ///     Refreshes the model list after a catalog rebuild, then re-applies the user's previous
+    ///     parameter choices (for example the selected voice) where the rebuilt model still offers
+    ///     them, instead of silently reverting every control to its default.
+    /// </summary>
+    private void RefreshKeepingSettings()
+    {
+        var previousValues = Settings.BuildValueBag();
+        Refresh();
+        Settings.RestoreValues(previousValues);
+        OnPropertyChanged(nameof(VoiceNotice));
+        OnPropertyChanged(nameof(HasVoiceNotice));
+    }
+
+    /// <summary>
     ///     Stops any in-flight Play, unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/>
     ///     and the device-selection panel's pre-refresh hook, and releases the cached session and
     ///     engine, if any.
@@ -605,6 +719,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     public async ValueTask DisposeAsync()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
+        _catalogService.ReferenceVoicesChanged -= OnReferenceVoicesChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
         if (PlayCommand.IsRunning)

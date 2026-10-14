@@ -34,7 +34,7 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     <see cref="Phonemize"/> return value so a caller can detect it. This is a deliberate,
 ///     honestly-documented simplification, not a hidden defect: guessing a pronunciation for a
 ///     word with no near match risks producing confidently wrong speech, which is worse than
-///     omitting the word. A later pass may add a real fallback G2P (for example invoking
+///     omitting the word. A real fallback G2P (for example invoking
 ///     <c>espeak-ng</c> the same way misaki itself optionally does) without changing this class's
 ///     public contract.
 ///     </para>

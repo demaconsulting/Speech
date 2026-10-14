@@ -1,0 +1,49 @@
+---
+# Software Unit Requirements for the SpeechCli AudioDeviceFactoryPlaybackDeviceSource
+#
+# These requirements describe the behavior of the AudioDeviceFactoryPlaybackDeviceSource unit - the
+# production ICliPlaybackDeviceSource backed by the library's AudioDeviceFactory - decomposing the
+# parent SynthesisCommandSubsystem requirements.
+#
+# Every test below is an AudioDeviceFactoryPlaybackDeviceSourceTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        sections:
+          - title: AudioDeviceFactoryPlaybackDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceSelection
+                title: >-
+                  The AudioDeviceFactoryPlaybackDeviceSource shall list exactly the playback
+                  devices the library reports as available.
+                justification: |
+                  An operator choosing an output device expects `speak` to offer exactly the
+                  devices the rest of the tool and the library know about, with no filtering or
+                  additions of its own.
+                tests:
+                  - AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ReturnsInjectedProbeIdentity
+
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceCreation
+                title: >-
+                  The AudioDeviceFactoryPlaybackDeviceSource shall create, for a requested
+                  selection, the same playback device the library creates for that selection,
+                  yielding an unavailable device when no matching device is known.
+                justification: |
+                  An operator expects a named or default output device to resolve exactly as it
+                  does everywhere else in the tool, and a selection that matches nothing must be
+                  reported honestly as unavailable rather than substituted.
+                tests:
+                  - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_EmptyProbeDefault_ReturnsUnavailable
+                  - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_UnknownNamedSelection_ReturnsUnavailable
+                  - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_MatchesFactoryResult
+
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceSourceFactoryRequired
+                title: >-
+                  The AudioDeviceFactoryPlaybackDeviceSource shall reject a missing factory.
+                justification: |
+                  A source with no factory could never resolve a device, so the mistake is a
+                  programming error to surface at creation.
+                tests:
+                  - AudioDeviceFactoryPlaybackDeviceSource_NullFactory_ThrowsArgumentNullException

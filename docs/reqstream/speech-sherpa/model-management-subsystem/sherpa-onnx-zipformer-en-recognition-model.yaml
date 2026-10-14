@@ -16,15 +16,23 @@ sections:
                 title: >-
                   The SherpaOnnxZipformerEnRecognitionModel class shall declare a stable
                   catalog identity (Id, DisplayName, Role = Recognition, no tunable
-                  Parameters, AudioTagSupport = None), and declare LicenseName =
-                  "Apache-2.0 (likely)" with a canonical LicenseUrl to the Apache-2.0 full
-                  text, preserving the "LIKELY, not independently confirmed" uncertainty
-                  rating verbatim in the declared LicenseName value.
+                  Parameters, AudioTagSupport = None).
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/IRecognitionModel contract; this model must honestly declare
                   its own fixed identity for the catalog and downloader to enumerate and
-                  fetch it correctly. This model's Apache-2.0 license rating was never
+                  fetch it correctly.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-License
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall declare LicenseName =
+                  "Apache-2.0 (likely)" with a canonical LicenseUrl to the Apache-2.0 full
+                  text, preserving the "LIKELY, not independently confirmed" uncertainty
+                  rating verbatim in the declared LicenseName value.
+                justification: |
+                  This model's Apache-2.0 license rating was never
                   independently confirmed against an explicit model-specific LICENSE/model-card
                   file (see the class's own remarks), so LicenseName must carry that
                   uncertainty in the value itself rather than overstate it as certain.
@@ -42,12 +50,22 @@ sections:
                 tests:
                   - SherpaOnnxZipformerEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
 
-              - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
+              - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-AudioFormat
                 title: >-
                   The SherpaOnnxZipformerEnRecognitionModel class shall report a mono 16 kHz
-                  AudioFormat and build an OnlineRecognizerConfig wiring its int8-quantized
-                  encoder/decoder/joiner/tokens files, ModelType "zipformer2",
-                  DecodingMethod "greedy_search", and EnableEndpoint 1.
+                  AudioFormat.
+                justification: |
+                  The model expects 16 kHz mono input; the RecognitionSubsystem converts
+                  captured audio to the format the model reports.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
+
+              - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall build an
+                  OnlineRecognizerConfig wiring its int8-quantized encoder/decoder/joiner/tokens
+                  files, ModelType "zipformer2", DecodingMethod "greedy_search", and
+                  EnableEndpoint 1.
                 justification: |
                   This exact int8 configuration was proven end-to-end in this project's
                   development sandbox against a real WAV file and the model's own ground
@@ -55,7 +73,6 @@ sections:
                   being wired correctly and consistently for every installed-directory
                   argument it may be given.
                 tests:
-                  - SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
                   - SherpaOnnxZipformerEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig
 
               - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfigArgumentValidation
@@ -88,8 +105,7 @@ sections:
                 title: >-
                   The SherpaOnnxZipformerEnRecognitionModel class shall restore casing,
                   contractions, and terminal punctuation on final recognition results via
-                  the shared UppercaseTranscriptRestorer, and apply only cheap casing to
-                  provisional results.
+                  the shared UppercaseTranscriptRestorer.
                 justification: |
                   This model's raw recognition output was empirically confirmed - by
                   synthesizing real audio with the shipped LibriTTS voice and feeding it
@@ -99,6 +115,16 @@ sections:
                   readable prose.
                 tests:
                   - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Final_RestoresCasingContractionsAndPunctuation
+
+              - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-NormalizeTextProvisional
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall apply only cheap casing
+                  to provisional recognition results via the shared UppercaseTranscriptRestorer.
+                justification: |
+                  A provisional hypothesis may still be revised many times before it settles, so
+                  only cheap casing is applied; full restoration would misleadingly imply the
+                  sentence has ended.
+                tests:
                   - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Provisional_AppliesCheapCasingOnly
 
               - id: SpeechSherpa-Models-SherpaOnnxZipformerEnRecognitionModel-PostEndpointWarmupWindow

@@ -3,8 +3,8 @@
 #
 # These requirements describe the design-level behavior of the NemotronRnntGreedyDecoder unit,
 # decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements. The unit's
-# ONNX-backed collaborator NemotronRnntNetwork is documented inside the unit's design document
-# rather than as a separate unit; this unit is verified over the IRnntNetwork seam with a fake.
+# ONNX-backed collaborator NemotronRnntNetwork has its own unit requirement file
+# (nemotron-rnnt-network.yaml); this unit is verified over the IRnntNetwork seam with a fake.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
 # NemotronRnntGreedyDecoderTests.cs.
@@ -18,16 +18,30 @@ sections:
             requirements:
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
                 title: >-
-                  The NemotronRnntGreedyDecoder class shall run RNN-T greedy search over each
-                  encoder frame through an IRnntNetwork seam, collecting every non-blank token
-                  into the caller's token list, emitting nothing for blank-only output, and
-                  advancing the prediction state once per emitted token.
+                  The NemotronRnntGreedyDecoder class shall collect every non-blank token the
+                  network predicts for each encoder frame into the caller's token list.
                 justification: |
-                  Greedy search is the decoding policy of the model's reference pipeline; the
-                  prediction state must advance only on emitted tokens so later frames condition
-                  on the transcript so far.
+                  Greedy search is the decoding policy of the model's reference pipeline.
+                tests:
+                  - Decode_Tokens_AreCollectedAndAdvanced
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankOnly
+                title: >-
+                  The NemotronRnntGreedyDecoder class shall emit nothing for an encoder frame
+                  whose network output is blank.
+                justification: |
+                  Blank means "no token for this frame"; emitting anything would invent text.
                 tests:
                   - Decode_AllBlank_EmitsNothing
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-StateAdvance
+                title: >-
+                  The NemotronRnntGreedyDecoder class shall advance the prediction state once per
+                  emitted token and only for emitted tokens.
+                justification: |
+                  Later frames must condition on the transcript so far, which blank output does
+                  not extend.
+                tests:
                   - Decode_Tokens_AreCollectedAndAdvanced
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
@@ -40,48 +54,24 @@ sections:
                 tests:
                   - Decode_NeverBlank_StopsAtTenSymbolsPerFrame
 
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Reset
                 title: >-
                   The NemotronRnntGreedyDecoder class's Reset method shall reset the underlying
-                  network's prediction state, and Dispose shall dispose the network.
+                  network's prediction state.
                 justification: |
-                  A new utterance must start from the initial prediction state, and the decoder
-                  owns the network's native resources.
+                  A new utterance must start from the initial prediction state.
                 tests:
                   - Reset_ResetsNetwork
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Dispose
+                title: >-
+                  The NemotronRnntGreedyDecoder class's Dispose method shall dispose the
+                  underlying network.
+                justification: |
+                  The decoder owns the network's native resources and must release them
+                  deterministically.
+                tests:
                   - Dispose_DisposesNetwork
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
-                title: >-
-                  The NemotronRnntNetwork collaborator shall select the joint network's arg-max
-                  token after subtracting a fixed penalty of 3.0 from the blank token's score.
-                justification: |
-                  The model is under-confident on quiet, isolated words and otherwise emits
-                  blank for them; the penalty recovers those words.
-                tests:
-                  - SelectToken_BlankWithinPenalty_PrefersNonBlank
-                  - SelectToken_BlankBeyondPenalty_ReturnsBlank
-                  - SelectToken_NonBlankIds_AreNotPenalized
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkWiring
-                title: >-
-                  The NemotronRnntNetwork collaborator shall feed the target token and recurrent
-                  states to the decoder session and each call's new states back as the next call's
-                  states, shall pass the decoder output and the encoder frame to the joint session
-                  and select from its scores, shall restore zero states on Reset, and shall reject
-                  use after disposal.
-                justification: |
-                  The production tensor and state wiring cannot be exercised by the managed fake,
-                  and the real model is too large for CI, so tiny synthetic ONNX models with the
-                  same tensor contracts verify the wiring.
-                tests:
-                  - Reset_PredictToken_UsesPrimedDecoderOutput
-                  - Advance_FeedsTokenAndRecurrentState
-                  - Reset_AfterAdvance_ClearsRecurrentState
-                  - PredictToken_UsesEncoderFrame
-                  - PredictToken_ScoreEqualsBlank_AppliesPenalty
-                  - Dispose_BlocksFurtherUse
-                  - Constructor_NullSessions_Throw
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
                 title: >-

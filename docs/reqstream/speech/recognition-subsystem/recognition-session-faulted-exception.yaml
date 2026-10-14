@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for RecognitionSessionFaultedException
+#
+# These requirements describe the exception surfaced to a GetResultsAsync consumer when a recognition
+# session faults, decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: RecognitionSessionFaultedException Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionSessionFaultedException-Thrown
+                title: >-
+                  A reader of a session's results shall receive a documented session-faulted
+                  exception when the session faults while the results are being read.
+                justification: |
+                  A consumer enumerating results needs an unambiguous, typed signal that the
+                  session itself has failed, distinct from an ordinary end of enumeration or a
+                  caller-initiated cancellation, so it can decide whether to recreate a session
+                  rather than silently treating a faulted session as merely finished.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+
+              - id: Speech-Recognition-RecognitionSessionFaultedException-OnlyFromResults
+                title: >-
+                  The session-faulted exception shall be raised only to a reader of a session's
+                  results, never from starting, stopping, or disposing a session.
+                justification: |
+                  Teardown paths must stay safe to call on a faulted session, so the fault is
+                  surfaced in one predictable place.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+                  - RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice
+                  - RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException

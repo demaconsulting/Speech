@@ -7,7 +7,7 @@
 # OnnxKokoroSynthesisEngine, the real raw-ONNX implementation of the Speech library's public
 # ISynthesisBackend seam; all synthesis policy above that seam (Layer 2 rendering, chunking,
 # session state machine, cancellation, fault containment) remains in the Speech library's own
-# SynthesisSubsystem.
+# SynthesisSubsystem. Each requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
 # OnnxKokoroSynthesisEngineTests.cs; unit-level requirements for OnnxKokoroSynthesisEngine live in
@@ -21,28 +21,65 @@ sections:
           - id: SpeechOnnxKokoro-Synthesis-OnnxBackend
             title: >-
               The SpeechOnnxKokoro SynthesisSubsystem shall implement the Speech library's
-              ISynthesisBackend seam over Kokoro v1.0's bare ONNX graph run through ONNX Runtime,
-              owning phonemization entirely in managed code, reporting its true fixed output
-              sample rate, and generating audio for a given text, speed, and speaker id.
+              ISynthesisBackend seam so that, for a given text and speaker id, it returns audio
+              samples synthesized by the Kokoro v1.0 ONNX graph, returning empty audio for text
+              that produces no phonemes and rejecting invalid arguments.
             justification: |
-              The Speech library confines every speech-synthesis interop call behind
-              its public ISynthesisBackend seam so its own synthesis policy is verifiable
-              without a native runtime. A real, ONNX-Runtime-backed implementation of that seam
-              is what turns that policy into audible speech for the Kokoro synthesis model this
-              package ships, and unlike sherpa-onnx, this engine must own phonemization itself
-              since the bare ONNX graph performs only the waveform-generation forward pass.
+              The Speech library confines every speech-synthesis interop call behind its public
+              ISynthesisBackend seam so its own synthesis policy is verifiable without a native
+              runtime. A real, ONNX-Runtime-backed implementation of that seam is what turns that
+              policy into audible speech for the Kokoro synthesis model this package ships.
             children:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Construction
-              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionNullArguments
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionEmptyVoiceStyles
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
-              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
+
+          - id: SpeechOnnxKokoro-Synthesis-OnnxBackendSampleRate
+            title: >-
+              The SynthesisSubsystem shall report the model's true fixed output sample rate
+              (24000 Hz) to the Speech library.
+            justification: |
+              The Speech library's synthesis session must resample from the backend's actual
+              rate, not a hint.
+            children:
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
+
+          - id: SpeechOnnxKokoro-Synthesis-OnnxBackendVoiceSelection
+            title: >-
+              The SynthesisSubsystem shall synthesize with the style vector of the requested
+              voice, chosen by the utterance's length, and fall back to the first available
+              voice for an unrecognized speaker id.
+            justification: |
+              Kokoro's voices are style vectors indexed by utterance length, and a host-selected
+              voice must be audibly honored without failing on stale selections.
+            children:
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-VoiceSelection
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorRowClamp
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-UnknownSpeakerFallback
+
+          - id: SpeechOnnxKokoro-Synthesis-OnnxBackendLifecycle
+            title: >-
+              The SynthesisSubsystem shall release the loaded ONNX Runtime session when the
+              backend is disposed, tolerate repeated disposal, and reject use after disposal.
+            justification: |
+              The session holds native memory sized to a multi-hundred-megabyte model, so it must
+              be released deterministically and safely.
+            children:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-DisposeIdempotent
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-UseAfterDispose
+
+          - id: SpeechOnnxKokoro-Synthesis-OnnxBackendProbe
+            title: >-
+              The SynthesisSubsystem shall provide a probe inference that confirms an ONNX
+              Runtime session can run the Kokoro graph, so an unusable accelerated execution
+              provider can be rejected before real synthesis.
+            justification: |
+              Some execution providers load a Kokoro session yet fail at Run() time; session
+              construction alone cannot detect that.
+            children:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
-            tests:
-              - SampleRate_IsAlways24000
-              - Generate_ZeroTokenText_ReturnsEmptyAudio
-              - Generate_AfterDispose_ThrowsObjectDisposedException
-              - Dispose_CalledTwice_DoesNotThrow
-              - RunProbeInference_RunnableSession_DoesNotThrow

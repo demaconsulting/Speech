@@ -53,6 +53,8 @@ independently re-verified here.
 
 **Test**: `AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat`
 
+The created device reports the preferred format, and starting it opens the stream with that rate and channel count.
+
 ##### Creation: PortAudio Initialized Returns the Real Playback Device
 
 **Test**: `AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice`
@@ -60,6 +62,8 @@ independently re-verified here.
 ##### Creation: Preferred Playback Format Is Forwarded
 
 **Test**: `AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat`
+
+The created device reports the preferred format, and starting it opens the stream with that rate and channel count.
 
 ##### Creation: Omitting Preferred Format Preserves Device Defaults
 
@@ -96,9 +100,24 @@ the real environment could otherwise resolve a device by that name.
 Proves the fix does not regress the common case where the injected probe agrees with the real
 environment: a selection the probe does know about still resolves to a real, available device.
 
+##### Creation: Empty Device Name Is Treated As No Preference
+
+**Test**: `AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice`
+
+##### Contracts: Substituted With Mocks Behave As Configured
+
+**Test**: `AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured`
+
 ##### RefreshDevices: Delegates to the Environment's Refresh
 
 **Test**: `AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh`
+
+##### RefreshDevices: Changed Device List Is Reflected After Refresh
+
+**Test**: `AudioDeviceFactory_RefreshDevices_DeviceListChanges_EnumerationReflectsNewDevices`
+
+After the fake runtime's device table changes and the factory refreshes, the probe enumerates only the new
+device and a created device uses its format.
 
 ##### RefreshDevices: Active-Stream In Use Propagates AudioDeviceInUseException
 

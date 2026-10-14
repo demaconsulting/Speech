@@ -2,7 +2,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
 ///     Splits one run of plain synthesis text into sentence/clause-sized chunks, so no single
-///     synthesis call is so long that streaming, pipelined playback loses its low-latency feel.
+///     synthesis call is so long that streaming playback loses its low-latency feel.
 /// </summary>
 /// <remarks>
 ///     Splits primarily on sentence-ending punctuation (<c>.</c>, <c>!</c>, <c>?</c>). A maximal
@@ -25,16 +25,15 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     by a letter (e.g. after an abbreviation-like word, as in <c>"Wait.5 more."</c>) does not
 ///     qualify for this exception and still splits as an ordinary sentence boundary. A piece
 ///     still too long after both punctuation passes is
-///     split further on whitespace boundaries so no chunk exceeds the budget by more than one
-///     word. Finally, a piece produced by either punctuation pass whose trimmed text contains no
+///     split further on whitespace boundaries so no chunk exceeds the budget unless it is a single
+///     word longer than the budget, which is emitted unsplit. Finally, a piece produced by either punctuation pass whose trimmed text contains no
 ///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
 ///     lone comma or a whitespace-spaced run of dots) is never emitted as its own chunk: its
 ///     punctuation is instead appended to the immediately preceding non-empty chunk, or dropped
 ///     entirely if there is no preceding chunk (a degenerate run at the very start of the text).
 ///     This is a best-effort UX quality heuristic, not a correctness requirement: an oversized or
 ///     undersized chunk still synthesizes and plays correctly.
-/// </remarks>
-/// <remarks>
+///     <para>
 ///     The numeral exceptions above assume English/US-style numeral punctuation, where <c>,</c>
 ///     is the thousands separator and <c>.</c> is the decimal point (e.g. <c>"1,000.5"</c>).
 ///     Locales that swap these roles (e.g. many European locales, where <c>.</c> is the
@@ -47,6 +46,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     future non-English model or locale-aware caller would need to adjust these rules (e.g.
 ///     swap which of <c>,</c>/<c>.</c> gets the one-sided, no-leading-digit exception) rather
 ///     than assuming this class's heuristics generalize as-is.
+///     </para>
 /// </remarks>
 internal static class SentenceChunker
 {

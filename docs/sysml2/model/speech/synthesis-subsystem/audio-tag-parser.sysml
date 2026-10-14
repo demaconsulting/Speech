@@ -7,7 +7,7 @@ package Speech {
              * NaturalLanguageAudioTagKind vocabulary and its AudioTagCatalog lookup table, since
              * neither has behavior independent of the parser that consumes them. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/AudioTagParser.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/AudioTagParser.cs, src/DemaConsulting.Speech/SynthesisSubsystem/TaggedTextSpan.cs, src/DemaConsulting.Speech/SynthesisSubsystem/TaggedTextSpanKind.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/AudioTagParserTests.cs */
         comment designRef /* Design: docs/design/speech/synthesis-subsystem/audio-tag-parser.md */
         comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/audio-tag-parser.md */

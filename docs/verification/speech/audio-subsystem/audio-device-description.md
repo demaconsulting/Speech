@@ -2,10 +2,9 @@
 
 #### Verification Approach
 
-Verified indirectly through unit tests that construct instances and rely on the
+Verified directly in `AudioDeviceDescriptionTests.cs` by constructing instances and asserting the
 compiler-generated record equality; no mocking is applicable since the type has no dependencies.
-No dedicated `AudioDeviceDescriptionTests` file exists — the only current evidence is the
-equal-values comparisons exercised by `AudioDeviceSelectionTests` assertions.
+`AudioDeviceSelectionTests` additionally compares resolved descriptions by value.
 
 #### Test Environment
 
@@ -15,19 +14,29 @@ equal-values comparisons exercised by `AudioDeviceSelectionTests` assertions.
 #### Acceptance Criteria
 
 Two records constructed with identical property values compare equal, and records with any
-differing property compare unequal (compiler-generated record semantics); only the equal-values
-case currently has test evidence.
+differing property compare unequal (compiler-generated record semantics); both cases have direct test evidence.
 
 #### Test Scenarios
+
+##### Fields: Constructed Values Are Exposed
+
+Verifies that an `AudioDeviceDescription` exposes the `Name`, `Direction`, `ChannelCount`, and
+`SampleRate` it was constructed with.
+
+**Test**: `AudioDeviceDescription_Constructor_ExposesAllFields`
 
 ##### Equality: Identical Values Compare Equal
 
 Verifies that two `AudioDeviceDescription` instances constructed with the same `Name`,
-`Direction`, `ChannelCount`, and `SampleRate` are equal, exercised indirectly through
-`AudioDeviceSelectionTests` assertions that compare resolved descriptions by value.
+`Direction`, `ChannelCount`, and `SampleRate` are equal and share a hash code. Also exercised
+indirectly through `AudioDeviceSelectionTests` assertions that compare resolved descriptions by
+value.
+
+**Test**: `AudioDeviceDescription_Equality_IdenticalValues_AreEqual`
 
 ##### Inequality: Differing Values Compare Unequal
 
-Not currently exercised by a direct test; compiler-generated record equality guarantees this
-behavior, but no `AudioDeviceDescriptionTests` case asserts it directly. Tracked as a
-verification gap rather than claimed as covered.
+Verifies that changing any one of `Name`, `Direction`, `ChannelCount`, or `SampleRate` yields a
+description that is not equal to the original.
+
+**Test**: `AudioDeviceDescription_Equality_AnyDifferingValue_AreNotEqual`

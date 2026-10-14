@@ -1,0 +1,59 @@
+---
+# Software Unit Requirements for the SpeechCli CleanCommand
+#
+# These requirements describe the `clean` command, decomposing the system-level
+# SpeechCli-ModelClean requirement.
+# Tests named CleanCommand_* are CleanCommandTests; SpeechCli_* tests are out-of-process tests in
+# IntegrationTests.cs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: CleanCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-Clean
+                title: >-
+                  The tool shall remove any partial or stale download artifacts left behind for a
+                  model when invoked with `clean <modelId>`.
+                justification: |
+                  A prior interrupted or failed download can leave scratch files behind; an
+                  operator needs a way to reclaim that space without needing to know the model
+                  store's internal layout.
+                tests:
+                  - CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess
+                  - CleanCommand_Run_RealStoreWithPartialArtifact_RemovesArtifactAndSucceeds
+
+              - id: SpeechCli-ModelCommands-CleanNothingToClean
+                title: >-
+                  The tool shall succeed without error when `clean <modelId>` is invoked for a
+                  model with nothing to clean up.
+                justification: |
+                  A routine "clean up after every attempt" script must never be broken by a model
+                  that already has nothing to clean.
+                tests:
+                  - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
+
+              - id: SpeechCli-ModelCommands-CleanCancellation
+                title: >-
+                  The tool shall report a clean error with a non-zero exit code, rather than an
+                  unhandled exception, when the operator interrupts (`Ctrl+C`) a `clean` before
+                  or during the cleanup, naming the model that was being cleaned.
+                justification: |
+                  An interrupted cleanup is a deliberate operator action and must end predictably
+                  for a calling script.
+                tests:
+                  - CleanCommand_Run_Canceled_ReportsErrorExitCode
+                  - CleanCommand_Run_CanceledDuringCleanup_ReportsErrorExitCode
+
+              - id: SpeechCli-ModelCommands-CleanArgumentValidation
+                title: >-
+                  The tool shall reject `clean` invoked without a model id, or with more than one
+                  argument, with a clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A missing or extra id must fail predictably, so a script never cleans the wrong
+                  model.
+                tests:
+                  - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+                  - CleanCommand_Run_ExtraArgument_ThrowsArgumentException

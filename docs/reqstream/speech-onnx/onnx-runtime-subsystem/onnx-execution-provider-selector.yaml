@@ -1,16 +1,18 @@
 ---
 # Software Unit Requirements for OnnxExecutionProviderSelector
 #
-# These requirements describe the design-level behavior of the OnnxExecutionProviderSelector
-# unit, decomposing the parent SpeechOnnx OnnxRuntimeSubsystem requirements.
+# These requirements describe the observable behavior of the OnnxExecutionProviderSelector
+# unit's Create operation, decomposing the parent SpeechOnnx OnnxRuntimeSubsystem requirements.
+# Mechanisms (which ONNX Runtime types are used, how resources are disposed, which exception
+# classes are caught) are documented in the unit design, not here.
 #
 # test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs
 # automates these requirements against a tiny, hand-built ONNX test fixture and the
 # always-available CPU execution provider (no accelerated provider can be genuinely exercised in
-# this repository's CI - see that test class's own remarks). SessionOptions disposal, otherwise
-# unobservable from outside the class, is proven via the internal
-# OnnxExecutionProviderSelector.OnCandidateOptionsCreated test-only hook, which exposes each
-# candidate's own SafeHandle-inherited IsClosed property to the test.
+# this repository's CI - see that test class's own remarks). Native option-resource release,
+# otherwise unobservable from outside the unit, is proven via the internal test-only hook
+# described in the unit verification document; the tests that use it run in a serialized xUnit
+# collection with a disposable scope that restores the previous hook.
 
 sections:
   - title: SpeechOnnx Requirements
@@ -21,88 +23,150 @@ sections:
             requirements:
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
                 title: >-
-                  The OnnxExecutionProviderSelector class shall try each preferred execution
-                  provider name, in the caller-supplied order, by constructing a real
-                  InferenceSession for the given model path with that provider appended to a
-                  fresh SessionOptions, returning the session from the first candidate that both
-                  constructs successfully and - when a validateSession probe was supplied -
-                  passes that probe.
+                  Create shall return a session that uses the first preferred execution
+                  provider, in the caller-supplied order, that is available and accepted.
                 justification: |
                   A caller may supply more than one accelerated provider in priority order (for
-                  example a preferred GPU provider followed by a secondary one); this unit must
+                  example a preferred GPU provider followed by a secondary one); the unit must
                   honor that order rather than picking an arbitrary available candidate, so a
-                  caller's own prioritization is respected. A candidate that merely constructs is
-                  not necessarily usable - some execution providers (notably DirectML) construct
-                  a session successfully yet fail on the first Run() because a graph operator is
-                  unsupported for the model's shapes - so "successfully" must account for a
-                  supplied probe, not construction alone.
+                  caller's own prioritization is respected.
                 tests:
-                  - Create_NoPreferredProviders_CreatesWorkingCpuSession
-                  - Create_UnknownProviderName_FallsBackToCpuSession
-                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
+                title: >-
+                  When a verification inference is supplied, Create shall not return a session for
+                  a preferred provider whose verification inference fails with an ONNX Runtime
+                  error.
+                justification: |
+                  A candidate that merely constructs is not necessarily usable - some execution
+                  providers (notably DirectML) construct a session successfully yet fail on the
+                  first run because a graph operator is unsupported for the model's shapes - so
+                  acceptance must account for a supplied verification, not construction alone.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbeAcceptedCandidateReturned
+                title: >-
+                  When a preferred provider's verification inference succeeds, Create shall
+                  return the very session that passed verification.
+                justification: |
+                  The caller verified a specific session; returning any other session would
+                  defeat the purpose of the verification.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
                 title: >-
-                  The OnnxExecutionProviderSelector class shall fall back to the built-in CPU
-                  provider, with no explicit execution provider appended, when every preferred
-                  candidate fails to construct or fails its probe, and this CPU fallback shall
-                  never itself throw due to an unavailable accelerated provider, nor ever be
-                  passed to a caller-supplied validateSession probe.
+                  When no preferred execution provider is supplied, Create shall return a
+                  session that runs on the CPU.
                 justification: |
-                  A model package must still load and run correctly on a machine with no
-                  accelerated execution provider installed at all, or where none of the
-                  accelerated providers can actually run this model; the CPU provider ships
-                  inside the base Microsoft.ML.OnnxRuntime package this library references and is
-                  therefore always available as a guaranteed-success final candidate. Probing it
-                  would be redundant and would remove the one candidate this unit's entire
-                  fallback design depends on always succeeding.
+                  A model package must load and run correctly on a machine with no accelerated
+                  execution provider installed; the CPU provider ships inside the base
+                  Microsoft.ML.OnnxRuntime package and is therefore always available.
                 tests:
-                  - Create_UnknownProviderName_FallsBackToCpuSession
-                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
-                  - Create_EmptyPreferredProviders_NeverInvokesProbe
+                  - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnavailableProviderFallsBack
+                title: >-
+                  When every preferred execution provider is unavailable or fails verification,
+                  Create shall return a session that runs on the CPU without reporting an error
+                  for the unavailable providers.
+                justification: |
+                  Where none of the accelerated providers can actually run this model, the
+                  caller still needs a working session; provider unavailability is an expected
+                  condition, not a failure.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-MissingProviderLibraryFallsBack
+                title: >-
+                  When a preferred execution provider's native library is missing, Create shall
+                  treat that provider as unavailable and continue with the next candidate or the
+                  CPU.
+                justification: |
+                  Some provider native libraries report a missing dependency as a missing-library
+                  error rather than an ONNX Runtime error; it signals unavailability just the
+                  same.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsDllNotFoundException_FallsBackToCpuSession
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
+                title: >-
+                  Create shall not apply the caller-supplied verification inference to the CPU
+                  session it returns as the fallback.
+                justification: |
+                  Verifying the CPU fallback would be redundant and would remove the one
+                  candidate the fallback design depends on always succeeding.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
                 title: >-
-                  The OnnxExecutionProviderSelector class shall dispose each candidate's
-                  SessionOptions immediately after that candidate's own InferenceSession
-                  construction attempt completes, whether the attempt succeeds or throws, and
-                  shall not dispose the InferenceSession it returns on success.
+                  By the time Create returns, the native configuration resources created for
+                  every provider attempt, whether it succeeded or failed, shall be released.
                 justification: |
-                  SessionOptions owns a native OrtSessionOptions handle that InferenceSession
-                  does not take ownership of; failing to dispose it after a failed or successful
-                  construction attempt leaks a native resource for every candidate tried. The
-                  returned InferenceSession remains the caller's own responsibility to dispose,
-                  since the caller - not this method - owns its lifetime.
+                  Each provider attempt allocates native configuration that the created session
+                  does not take ownership of; failing to release it leaks a native resource for
+                  every candidate tried.
                 tests:
-                  - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+                  - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
+                title: >-
+                  The session Create returns shall remain usable for inference, with its
+                  lifetime owned by the caller.
+                justification: |
+                  The caller, not Create, owns the returned session's lifetime.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
                 title: >-
-                  The OnnxExecutionProviderSelector class shall dispose a candidate's
-                  InferenceSession on every path except the one that returns it to the caller,
-                  including when its construction or validateSession probe throws an exception
-                  type other than OnnxRuntimeException or DllNotFoundException, and shall let
-                  that exception propagate to the caller afterward rather than treating it as
-                  "try the next candidate".
+                  Create shall release every session it created for a candidate that it does not
+                  return, including when that candidate's verification fails unexpectedly.
                 justification: |
-                  Only OnnxRuntimeException and DllNotFoundException are the documented signals
-                  that a provider is unavailable or cannot run this model; any other exception
-                  type indicates a different, unexpected failure that a caller needs to see, not
-                  one this unit should silently convert into "move on to the next candidate".
-                  Disposing the session regardless of which exception type propagates prevents a
-                  native handle leak on that less-common path too.
+                  Leaving an abandoned candidate's session unreleased leaks a native handle, on
+                  the unexpected-failure path as much as on the expected fallback path.
                 tests:
-                  - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+                  - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnexpectedVerificationFailurePropagates
+                title: >-
+                  When a preferred provider's verification inference fails for a reason that
+                  does not indicate an unavailable or unsuitable provider, Create shall report
+                  that failure to the caller unchanged instead of trying another provider.
+                justification: |
+                  Only an ONNX Runtime error or a missing native library signals that a provider
+                  cannot run this model; any other failure is unexpected and the caller needs
+                  to see it rather than have it converted into a silent fallback.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ModelErrorReported
+                title: >-
+                  When the model file is missing, unreadable, or malformed, Create shall report
+                  the ONNX Runtime error to the caller, even when preferred providers were
+                  supplied.
+                justification: |
+                  A genuine model-file problem is not a provider-availability problem; it must
+                  surface exactly as a direct session construction would report it rather than
+                  being absorbed by the provider fallback.
+                tests:
+                  - OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException
+                  - OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
                 title: >-
-                  The OnnxExecutionProviderSelector class's Create method shall throw
-                  ArgumentException for a null or empty model path, before attempting any
-                  execution provider.
+                  Create shall report an argument error, naming the model path, for a null or
+                  empty model path before attempting any execution provider.
                 justification: |-
                   A programming error (null or empty model path) should surface immediately with
                   a clear, cheap-to-diagnose exception rather than an opaque native-layer failure
                   from attempting to load a non-existent model.
                 tests:
-                  - Create_NullModelPath_ThrowsArgumentNullException
-                  - Create_EmptyModelPath_ThrowsArgumentException
+                  - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
+                  - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException

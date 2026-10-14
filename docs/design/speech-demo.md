@@ -12,11 +12,11 @@ and uses only its public API. It is a sibling system to Speech rather than a sub
 because it is a separately built, separately run software item with its own externally visible
 behavior and its own users, and because the library must never depend on it.
 
-In this phase the application consists of six subsystems:
+The application consists of six subsystems and four units that sit directly under the system:
 
-- **ShellSubsystem**: the manual composition root and the window shell — it constructs the
-  library entry points and the demo's service adapters, injects them into the panel view
-  models, and presents one titled, selectable panel per demonstrated capability — see
+- **ShellSubsystem**: the window shell and the panel wiring — it holds the demo's service adapters,
+  injects them into the panel view models, and presents one titled, selectable panel per
+  demonstrated capability; the composition root itself is `App` — see
   _SpeechDemo ShellSubsystem Design_
 - **DeviceSelectionSubsystem**: the capture and playback device pickers — a demo-owned
   enumeration seam over the library's `AudioDeviceFactory` probes, plus the presentation state
@@ -28,7 +28,7 @@ In this phase the application consists of six subsystems:
   _SpeechDemo ModelCatalogSubsystem Design_
 - **ModelSettingsSubsystem**: the generic per-model tunable-parameter settings panel — presenters
   for the library's numeric, choice, and boolean parameter kinds chosen by concrete type alone,
-  embedded within the synthesis and recognition panels for whichever model is selected there —
+  embedded within the synthesis panel for whichever model is selected there —
   see _SpeechDemo ModelSettingsSubsystem Design_
 - **SynthesisPanelSubsystem**: the text-to-speech panel — a demo-owned synthesizer composition
   seam over the library's `SpeechSynthesizerFactory`, a text input with example Natural Language
@@ -38,10 +38,18 @@ In this phase the application consists of six subsystems:
   seam over the library's `SpeechRecognizerFactory`, and the Start/Stop streaming lifecycle with
   progressive partial-then-final transcript rendering and honest unavailable-state reporting —
   see _SpeechDemo RecognitionPanelSubsystem Design_
+- **App**: the Avalonia application object and the manual composition root; it also sequences
+  the deferred asynchronous shutdown — see _SpeechDemo App Design_
+- **AppLaunchOptions**: the parser and holder of the demo's launch-time command-line options —
+  see _SpeechDemo AppLaunchOptions Design_
+- **MirrorOptionsFactory**: the shared validator that builds a `DownloadMirror` from raw strings
+  for both launch-time and in-app mirror configuration — see _SpeechDemo MirrorOptionsFactory
+  Design_
+- **Program**: the process entry point, which fails fast on invalid launch options and
+  configures the Avalonia application builder — see _SpeechDemo Program Design_
 
-This phase completes the three capabilities in the demo application's design:
-text-to-speech, speech-to-text, and per-model settings all now have working panels
-alongside the device and model-catalog panels from the previous phase.
+Together the panels cover text-to-speech, speech-to-text, per-model settings, device selection
+and the model catalog.
 
 ## External Interfaces
 
@@ -55,29 +63,42 @@ external interfaces are its user interface and the interfaces it consumes.
 | Model settings panel | Inbound/Outbound | User interface | Renders generic controls; explains empty state |
 | Text-to-speech panel | Inbound/Outbound | User interface | Text input, tag hints, Play/Stop, playback status |
 | Speech-to-text panel | Inbound/Outbound | User interface | Start/Stop, live partial/final transcript |
+| Command-line launch options | Inbound | Arguments | `--models-dir`, `--voices-dir`, `--mirror-*`, `--help`/`-h`/`-?` |
+| `DEMASPEECH_MIRROR_*` variables | Inbound | Environment variables | URL, user, password, bearer-token defaults |
+| Mirror and voice-pack controls | Inbound/Outbound | User interface | Validated locally; honest failures |
+| `DEMASPEECH_CAPTURE_DEBUG_DIR` | Inbound | Environment variable | Opt-in raw capture recording; off by default |
 | Refresh commands | Inbound | User interface | Never throw |
 | Download command | Inbound/Outbound | User interface | Reports progress and honest failure |
-| `AudioDeviceFactory` | Outbound | Constructor/property | Consumed; never throws |
+| `AudioDeviceFactory` | Outbound | Members | Probe access never throws; `RefreshDevices()` faults become a status |
 | `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `AudioDeviceSelection` | Outbound | Value construction | Name-only device identity |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Outbound | Method call/return | Throws for unknown model id |
-| `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
-| `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
+| `SpeechModelCatalog` mirror/voice-pack members | Outbound | Method call/return | Mirror and voice-pack calls |
+| File system | Outbound | Files | Model store, voices folder and optional capture recording |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call | Invalid parameters give a failure status |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call | Invalid parameters give a failure status |
 | `ISynthesisSession.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
-| `IRecognitionSession.Start/Stop/GetResultsAsync()` | Outbound | `IAsyncEnumerable` | UI-marshaled via `StateChanged` |
+| `IRecognitionSession.Start/Stop/GetResultsAsync()` | Outbound | `IAsyncEnumerable` | Events marshaled to UI thread |
 
 ## Dependencies
 
-SpeechDemo has three project dependencies — the Speech library; the SpeechSherpa library whose
-`AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
-the demo composes (see _SpeechSherpa Design_); and the `DemaConsulting.Speech.Onnx.Kokoro`
-library whose `AddKokoroModels()` extension method registers the shipped Kokoro ONNX
-text-to-speech model alongside the SpeechSherpa models in that same catalog (see
-_SpeechOnnxKokoro Design_); and the `DemaConsulting.Speech.Onnx.NemotronStt` library whose
-`AddNemotronSttModels()` extension method registers the shipped Nemotron ONNX speech-recognition
-model in that same catalog (see _SpeechOnnxNemotronStt Design_) — and the following NuGet dependencies:
+SpeechDemo has the following project dependencies:
+
+- **Speech**: the core library (see _Speech Design_)
+- **SpeechSherpa**: `AddSherpaModels()` registers the shipped sherpa-onnx models with the
+  catalog the demo composes (see _SpeechSherpa Design_)
+- **SpeechOnnxKokoro**: `AddKokoroModels()` registers the shipped Kokoro ONNX text-to-speech
+  model (see _SpeechOnnxKokoro Design_)
+- **SpeechOnnxNemotronStt**: `AddNemotronSttModels()` registers the shipped Nemotron ONNX
+  speech-recognition model (see _SpeechOnnxNemotronStt Design_)
+- **SpeechOnnxChatterboxTurbo**: `AddChatterboxTurboModels()` registers the Chatterbox Turbo
+  voice-cloning synthesis model, which consumes the core Speech library's shared
+  `ReferenceVoiceLibrary` for the optional reference voice pack (see _SpeechOnnxChatterboxTurbo
+  Design_)
+
+SpeechDemo also depends on the following NuGet packages:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -107,12 +128,14 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application parses `AppLaunchOptions` and
    constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
-   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and SpeechOnnxNemotronStt's
-   `AddNemotronSttModels()` (see _Launch Options and
-   Mirror Configuration_), wraps each in its demo-owned service
+   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxNemotronStt's
+   `AddNemotronSttModels()`, and SpeechOnnxChatterboxTurbo's `AddChatterboxTurboModels()` over one
+   shared `ReferenceVoiceLibrary` (see _Launch Options and
+   Mirror Configuration_ and _Reference Voices_), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
-3. **Output**: The main window opens on its first panel; the catalog is disposed when the
-   desktop lifetime signals shutdown
+3. **Output**: The main window opens on its first panel. On shutdown the `App` unit defers the
+   shutdown, disposes the synthesis panel, the recognition panel and then the catalog service in
+   that order (a teardown fault is swallowed), and finally resumes the shutdown
 
 **Device enumeration path:**
 
@@ -137,7 +160,7 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 
 **Model settings path:**
 
-1. **Input**: The synthesis or recognition panel assigns a newly selected model to the embedded
+1. **Input**: The synthesis panel assigns a newly selected model to the embedded
    settings panel's `Model` property
 2. **Presentation**: One presenter is built per declared parameter, chosen by the parameter's
    concrete type alone
@@ -173,13 +196,18 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 ## Launch Options and Mirror Configuration
 
 `AppLaunchOptions` parses this demo's own small set of launch-time command-line arguments
-(`--models-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
+(`--models-dir`, `--voices-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
 and `--help`/`-h`/`-?`), mirroring `DemaConsulting.Speech.Cli`'s global options of the same name
 so a user behind a network policy that blocks a model's public download host can redirect every
-model download to an internal mirror the same way with either tool. `Program.Main` parses
+model download to an internal mirror the same way with either tool. Each mirror setting can also
+come from a `DEMASPEECH_MIRROR_URL`, `_USER`, `_PASSWORD` or `_BEARER_TOKEN` environment
+variable: an explicit `--mirror-url` wins over the URL variable, any credential option on the
+command line disables all credential variables, and an empty variable counts as unset.
+`Program.Main` parses
 `args` into an `AppLaunchOptions` before Avalonia's lifetime starts and publishes it through the
 static `App.LaunchOptions` property, since the demo's composition root (`App`) has no
-constructor parameters of its own to carry it through. Launch-time arguments are the
+constructor parameters of its own to carry it through. `Program.Run` is the testable seam for this
+step and `App.Compose` for the composition that follows. Launch-time arguments are the
 scriptable complement to the in-app mirror-settings panel: they are discoverable (via `--help`)
 and let a shell or script configure the demo before it starts.
 
@@ -195,12 +223,46 @@ enforced once, by `DownloadMirror`'s own constructor, rather than duplicated in 
 point.
 
 `App`'s composition root threads these options through a `CatalogFactory` local function —
-capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`
+capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`/`AddChatterboxTurboModels()`
 composition — that `ModelCatalogService` (see _SpeechDemo ModelCatalogSubsystem Design_) calls
 again, with freshly resolved downloader options, whenever the user applies new mirror settings
 from the catalog panel. This is what lets the mirror be reconfigured from the running
 application instead of only at launch, without the library's own `SpeechModelCatalog` needing to
 support in-place reconfiguration.
+
+## Reference Voices
+
+Chatterbox Turbo clones a voice from a short reference recording, so the demo lets the user
+supply voices in two ways: an optional downloadable reference voice pack (`voice-zero-1.0`,
+CC0 1.0 Universal, attributed to voice-zero by OwenTyme), and their own recordings placed in
+the folder named by `--voices-dir` (`AppLaunchOptions.VoicesDir`, which `Parse` validates as an
+existing directory and rejects otherwise, like the CLI).
+
+`App`'s `CatalogFactory` therefore returns a `ModelCatalogComposition` — a catalog and the one
+`ReferenceVoiceLibrary` built over that catalog's store — and chains
+`AddChatterboxTurboModels` over that same library, exactly as the CLI shares a library between
+its model catalog and its voice commands. `ModelCatalogService` owns the pair. Because the
+Chatterbox voice list is read when the model is constructed, installing or removing a pack (and
+re-applying a mirror) rebuilds the pair through the factory, disposes the old one, and raises
+`IModelCatalogService.ReferenceVoicesChanged`; `SynthesisPanelViewModel` reacts by re-reading
+the catalog, restoring the user's chosen parameter values (including the selected voice), so the
+voice dropdown immediately offers the new voices. The model catalog panel hosts the install and
+remove controls, the consent note and the user voices folder; the synthesis panel shows the
+consent note and each installed pack's attribution under the voice dropdown when Chatterbox
+Turbo is selected.
+
+## Error Handling
+
+The demo never lets an expected failure reach the user as a crash. Launch-time failures (an
+unrecognized or incomplete option, an invalid mirror configuration) are reported by `Program` as
+an explained error plus the usage text with exit code 1, before any window opens, and never echo
+the offending argument or any credential. Composition failures after the catalog has been built
+release the catalog before the exception propagates (`App.BuildOrDispose`, and the guarded
+`CatalogFactory`). Run-time failures inside a panel (a refused or failed device refresh, a failed
+download, a missing capture or playback device, an unavailable engine, a faulted session) are
+converted by the owning view model into an explained panel state. The optional capture-debug
+recorder is a temporary diagnostic whose failures are contained and never affect listening. The
+details of each rule live in the unit and subsystem designs.
 
 ## Design Constraints
 
@@ -221,8 +283,8 @@ support in-place reconfiguration.
   produce a working window, matching the library's own composition guarantee
 - **Honest empty states**: An empty device list, an empty catalog, no installed synthesis or
   recognition model, and no selected model in the settings panel are all explained in their
-  panel. The library ships no downloadable model in this phase, so every "no installed model"
-  state is expected, not a defect
+  panel. A "no installed model" state is expected until the user downloads a model from the
+  catalog, so it is reported, not treated as a defect
 - **No UI automation tests**: Verification is at the view-model level. Driving a real window on
   a CI runner with no display would add fragility without adding evidence
 

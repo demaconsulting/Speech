@@ -68,7 +68,7 @@ constructing the vocabulary/phonemizer fails - the only way to avoid leaking the
 handle, since the `OnnxKokoroSynthesisEngine` that would otherwise own its lifetime is never
 constructed on that failure path.
 
-**Voice Subset (Stage 2)**: this release ships 54 named voices across multiple languages; this
+**Voice Subset**: this release ships 54 named voices across multiple languages; this
 class declares only its 29 American/British English voices, because its embedded
 `KokoroLexiconPhonemizer` only converts English text to phonemes - feeding the model's Japanese or
 Mandarin voices through an English-only phonemizer would mispronounce their own language's text.

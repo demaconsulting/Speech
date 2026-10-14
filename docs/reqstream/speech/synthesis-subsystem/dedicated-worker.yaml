@@ -4,7 +4,7 @@
 # Describes the design-level behavior of the internal DedicatedWorker helper that runs a native
 # synthesis call on a dedicated, long-running thread and applies a cooperative-cancel-then-abandon
 # policy, so a native call that ignores its cancellation token can never hang the caller
-# indefinitely. This is synthesis's own copy of the identical recognition-direction helper, kept
+# indefinitely. This is synthesis's own copy of the recognition-direction helper, kept
 # as a separate, independently testable type per this library's internal-class-per-subsystem
 # convention rather than a shared cross-subsystem dependency.
 
@@ -30,28 +30,36 @@ sections:
 
               - id: Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment
                 title: >-
-                  The DedicatedWorker class shall abandon a non-cooperative delegate - one that
-                  ignores its supplied cancellation token - once a configurable abandon timeout
-                  elapses, reporting a Warning-level diagnostic naming the abandonment, and shall
-                  still return control to its caller as cancelled rather than hanging
-                  indefinitely.
+                  The DedicatedWorker class shall return control to its caller as canceled once a
+                  configurable abandon timeout elapses after cancellation without a
+                  non-cooperative delegate - one that ignores its supplied cancellation token -
+                  having returned.
                 justification: |
                   A native call is not guaranteed to honor .NET cancellation tokens at all; the
-                  worker must bound how long a caller can be blocked by such a call, trading an
-                  orphaned background thread (reported so a host can investigate/monitor it) for
-                  guaranteed forward progress of the caller, per this library's fault-containment
-                  requirements.
+                  worker must bound how long a caller can be blocked by such a call, abandoning
+                  the delegate (an orphaned background thread) for guaranteed forward progress of
+                  the caller rather than hanging indefinitely, per this library's
+                  fault-containment requirements.
+                tests:
+                  - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
+
+              - id: Speech-Synthesis-DedicatedWorker-AbandonmentDiagnostic
+                title: >-
+                  The DedicatedWorker class shall report a Warning-level diagnostic naming the
+                  abandonment when it abandons a non-cooperative delegate.
+                justification: |
+                  An abandoned delegate leaves an orphaned background thread; reporting it lets a
+                  host investigate and monitor the condition.
                 tests:
                   - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 
               - id: Speech-Synthesis-DedicatedWorker-LongRunningExecution
                 title: >-
-                  The DedicatedWorker class shall always execute its delegate on a
-                  TaskCreationOptions.LongRunning task, never on a pooled thread-pool thread.
+                  The DedicatedWorker class shall run its delegate without occupying a pooled
+                  thread-pool thread.
                 justification: |
                   A native synthesis call can legitimately run for a long time (an entire
                   utterance's inference); running it on a pooled thread risks starving the
-                  thread pool for every other unrelated piece of work sharing it, so the worker
-                  must always request a dedicated, long-running thread instead.
+                  thread pool for every other unrelated piece of work sharing it.
                 tests:
                   - DedicatedWorker_Run_UsesLongRunningTaskCreationOption

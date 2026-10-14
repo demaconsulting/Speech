@@ -72,7 +72,7 @@ deliberately leaves `ModelType` unset; an empty installed directory throws `Argu
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity, declaring its license via LicenseName/LicenseUrl
+##### The model declares its expected, stable catalog identity and its license via LicenseName/LicenseUrl
 
 **Test**: `SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues`
 

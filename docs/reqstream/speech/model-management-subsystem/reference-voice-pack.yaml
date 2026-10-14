@@ -1,0 +1,242 @@
+---
+# Software Unit Requirements for ReferenceVoicePack
+#
+# Unit-level behavior of the ReferenceVoicePack descriptor (with the ReferenceVoiceInfo and
+# ReferenceVoiceSource value types that travel with it), decomposing the parent
+# ModelManagementSubsystem requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackTests.cs.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ReferenceVoicePack Requirements
+            requirements:
+              - id: Speech-Models-ReferenceVoicePack-PublishedMetadata
+                title: >-
+                  The ReferenceVoicePack unit shall expose a built-in voice-zero 1.0 descriptor
+                  carrying the published archive URL, size, SHA-256 checksum, CC0 license and
+                  attribution.
+                justification: |
+                  The pack is downloaded whole and verified against a fixed checksum, so the
+                  published values must be exact.
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
+                  - ReferenceVoicePack_Constructor_ValidArguments_ExposesValues
+
+              - id: Speech-Models-ReferenceVoicePack-KnownPacksListing
+                title: >-
+                  The ReferenceVoicePack unit shall list the built-in voice-zero 1.0 descriptor in
+                  its set of known packs.
+                justification: |
+                  A host discovers available packs without hard-coding them.
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
+
+              - id: Speech-Models-ReferenceVoicePack-HttpsUriRequired
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  URL that is not HTTPS.
+                justification: |
+                  The archive is fetched over the network, so a descriptor must be unable to
+                  describe an insecure transfer.
+                tests:
+                  - ReferenceVoicePack_Constructor_NonHttpsUri_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-ChecksumShapeValidation
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a SHA-256
+                  checksum that is not 64 hexadecimal characters (including an empty one).
+                justification: |
+                  The archive is verified against the checksum, so a malformed value could never
+                  verify any download.
+                tests:
+                  - ReferenceVoicePack_Constructor_BadChecksum_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-PositiveSizeRequired
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  size that is zero or negative.
+                justification: |
+                  The size drives progress and warnings, so a non-positive value is never
+                  meaningful.
+                tests:
+                  - ReferenceVoicePack_Constructor_NonPositiveSize_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-NullOrBlankArguments
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a
+                  missing (null) required value.
+                justification: |
+                  Every descriptor field is required to download, show and attribute the voices, so
+                  a missing value must fail at creation rather than later.
+                tests:
+                  - ReferenceVoicePack_Constructor_NullArguments_ThrowArgumentNull
+                  - ReferenceVoicePack_Constructor_NullTextArguments_ThrowArgumentNullNamingTheArgument
+
+              - id: Speech-Models-ReferenceVoicePack-BlankArgumentRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, a blank
+                  or empty text value.
+                justification: |
+                  A blank name, file name, license or attribution cannot be shown or used, so it
+                  must fail at creation rather than later.
+                tests:
+                  - ReferenceVoicePack_Constructor_BlankArguments_ThrowArgument
+
+              - id: Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an id that
+                  is not a single safe path segment.
+                justification: |
+                  The id becomes a directory name, so a descriptor must be unable to describe a path
+                  that escapes the store. What makes a segment unsafe (separators, a drive colon, a
+                  rooted path, "." or "..", leading or trailing whitespace, a trailing dot and a
+                  Windows reserved device name, on every platform) is defined in the unit design.
+                tests:
+                  - ReferenceVoicePack_Constructor_UnsafeId_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-UnsafeArchiveFileNameRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  file name that is not a single safe path segment.
+                justification: |
+                  The archive file name becomes a file name in the staging area, so a descriptor
+                  must be unable to describe a path that escapes it.
+                tests:
+                  - ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-ReservedArchiveFileNameRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  file name equal, ignoring letter case, to the name of a file or directory that an
+                  installed pack contains at its root.
+                justification: |
+                  The archive is staged beside the installed content, so a colliding name would
+                  overwrite the pack metadata or block creation of a content directory. Comparison
+                  ignores case so the outcome is the same on every platform.
+                tests:
+                  - ReferenceVoicePack_Constructor_ReservedArchiveFileName_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-UnsafeRootFolderRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  root folder that is not a single safe path segment, including a rooted or
+                  drive-qualified one.
+                justification: |
+                  The root folder names the archive folder whose content is installed, so a
+                  descriptor must be unable to describe a path that escapes the archive.
+                tests:
+                  - ReferenceVoicePack_Constructor_RootedRootFolder_Throws
+                  - ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-SizeMetadata
+                title: >-
+                  The ReferenceVoicePack unit shall expose the measured installed size of its base
+                  voices and of its emotion variants, and the combined installed size for a chosen
+                  variant selection.
+                justification: |
+                  Hosts show the download and installed sizes before the user commits to a large
+                  download, so the sizes must be the real measured values of the built-in pack
+                  (checked by the linked test).
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
+
+              - id: Speech-Models-ReferenceVoicePack-InstalledSizeSelection
+                title: >-
+                  The ReferenceVoicePack unit shall report as installed size the base voices size,
+                  plus the emotion size only when emotions are included.
+                justification: |
+                  A host shows the disk size of whichever install variant the user chooses.
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
+
+              - id: Speech-Models-ReferenceVoicePack-InstalledSizeValidation
+                title: >-
+                  The ReferenceVoicePack unit shall report a zero installed size when none is
+                  given and reject negative installed sizes.
+                justification: |
+                  An unknown size must read as zero rather than a bogus value, and a negative size
+                  is never meaningful.
+                tests:
+                  - ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipLookup
+                title: >-
+                  The ReferenceVoiceInfo type shall find a mood clip regardless of the case and
+                  surrounding whitespace of the requested mood name.
+                justification: |
+                  Mood names reach consumers from tags and options in varying case and spacing, and
+                  must resolve to the same clip.
+                tests:
+                  - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipNoMatch
+                title: >-
+                  The ReferenceVoiceInfo type shall report no match for a null, blank or unknown
+                  mood name.
+                justification: |
+                  A lookup that finds nothing must say so rather than return an unrelated clip,
+                  including for a voice that has no mood clips.
+                tests:
+                  - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
+
+              - id: Speech-Models-ReferenceVoicePack-KnownMoods
+                title: >-
+                  The ReferenceVoiceInfo type shall list the thirteen mood names that a pack's
+                  emotion clips use.
+                justification: |
+                  Hosts offer the moods without hard-coding them.
+                tests:
+                  - ReferenceVoiceInfo_KnownMoods_ListsThirteenDistinctLowerCaseMoods
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipsImmutable
+                title: >-
+                  The ReferenceVoiceInfo type shall keep a voice's mood clips unchanged when the
+                  caller later changes a collection supplied to create the voice or to change its clips.
+                justification: |
+                  Voice descriptions are shared between consumers, so a change made by the caller
+                  who created one must not alter the clips other consumers see.
+                tests:
+                  - ReferenceVoiceInfo_MoodClips_CallerChangesAfterCreation_DoNotAlterClips
+                  - ReferenceVoiceInfo_MoodClips_WithExpressionThenCallerChanges_DoNotAlterClips
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipsReadOnly
+                title: >-
+                  The ReferenceVoiceInfo type shall not allow a consumer to modify the mood clips
+                  it exposes.
+                justification: |
+                  One consumer must not be able to change another's clips.
+                tests:
+                  - ReferenceVoiceInfo_MoodClips_ConsumerModification_IsRejected
+
+              - id: Speech-Models-ReferenceVoicePack-ReferenceIdentity
+                title: >-
+                  The ReferenceVoicePack unit shall compare by reference, so two descriptors
+                  built from equal values are distinct.
+                justification: |
+                  A pack is a singleton description; value equality would let a look-alike
+                  descriptor stand in for a built-in one.
+                tests:
+                  - ReferenceVoicePack_Equals_SameValuesDifferentInstances_AreNotEqual
+
+              - id: Speech-Models-ReferenceVoicePack-VoiceSources
+                title: >-
+                  The ReferenceVoiceSource unit shall distinguish voices from a named
+                  directory, the user folder and an installed pack.
+                justification: |
+                  Hosts show and filter voices by where they came from.
+                tests:
+                  - ReferenceVoiceSource_Values_AreDirectoryUserAndPack
+
+              - id: Speech-Models-ReferenceVoicePack-DownloadDescriptor
+                title: >-
+                  The ReferenceVoicePack unit shall provide what the verified model download path
+                  needs to retrieve its archive: the archive address, the SHA-256 checksum to verify
+                  it against and the file name to save it under.
+                justification: |
+                  The pack is installed through the same verified download path as models. How the
+                  information is handed to the downloader is a design decision.
+                tests:
+                  - ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive

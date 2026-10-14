@@ -42,7 +42,7 @@ namespace DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 ///     consistent with this library's designed graceful-degradation philosophy: missing audio
 ///     hardware or an unresolvable native inference runtime does not prevent the tool itself
 ///     from running, and every command that actually needs one of them (<c>devices test</c>,
-///     and the <c>speak</c>/<c>recognize</c> commands added in later passes) already reports its
+///     and the <c>speak</c>/<c>recognize</c> commands) already reports its
 ///     own clean, specific error at the point of use. The model store, in contrast, is
 ///     infrastructure this tool itself owns and depends on for every model-management command
 ///     to function at all, and its writability depends only on file system permissions, not on
@@ -53,8 +53,8 @@ namespace DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 ///     <b>SherpaOnnx resolvability scope</b>: this check attempts to load the native
 ///     <c>sherpa-onnx-c-api</c> shared library, which only proves the native binary for the
 ///     current platform/architecture is present and loadable - it does not construct a
-///     recognizer or synthesizer, which requires an installed model and is out of scope until
-///     the <c>speak</c>/<c>recognize</c> passes. This is a necessary-but-not-sufficient signal,
+///     recognizer or synthesizer, which requires an installed model and is outside what a
+///     model-independent health check can verify. This is a necessary-but-not-sufficient signal,
 ///     documented here rather than presented as a full inference-path verification.
 ///     </para>
 ///     <para>
@@ -133,7 +133,7 @@ internal static class DoctorCommand
 
         if (context.CommandArgs.Count > 0)
         {
-            throw new ArgumentException($"Unsupported argument '{context.CommandArgs[0]}' for 'doctor'.", nameof(context));
+            throw new ArgumentException($"Unsupported argument '{context.CommandArgs[0]}' for 'doctor'.");
         }
 
         context.WriteLine("Speech CLI environment health check");
@@ -379,13 +379,26 @@ internal static class DoctorCommand
     /// </summary>
     private static void CheckAudioDevices(Context context, IAudioCaptureDeviceProbe captureProbe, IAudioPlaybackDeviceProbe playbackProbe)
     {
-        var inputCount = captureProbe.Enumerate().Count;
-        var outputCount = playbackProbe.Enumerate().Count;
-
         context.WriteLine("Audio devices:");
-        context.WriteLine($"  Input devices detected: {inputCount.ToString(CultureInfo.InvariantCulture)}");
-        context.WriteLine($"  Output devices detected: {outputCount.ToString(CultureInfo.InvariantCulture)}");
+        context.WriteLine($"  Input devices detected: {CountDevices(() => captureProbe.Enumerate().Count)}");
+        context.WriteLine($"  Output devices detected: {CountDevices(() => playbackProbe.Enumerate().Count)}");
         context.WriteLine("");
+    }
+
+    /// <summary>
+    ///     Evaluates one informational device count, degrading to a placeholder when the probe throws.
+    /// </summary>
+    private static string CountDevices(Func<int> count)
+    {
+        try
+        {
+            return count().ToString(CultureInfo.InvariantCulture);
+        }
+        // Intentionally broad: an informational probe failure must never crash the health check.
+        catch (Exception)
+        {
+            return "(could not be determined)";
+        }
     }
 
     /// <summary>
@@ -394,10 +407,21 @@ internal static class DoctorCommand
     /// </summary>
     private static void CheckModels(Context context, ICliModelCatalog catalog)
     {
-        var descriptors = catalog.Enumerate();
-        var installedCount = descriptors.Count(descriptor => descriptor.State == SpeechModelState.Downloaded);
-
         context.WriteLine("Models:");
+
+        IReadOnlyList<SpeechModelDescriptor> descriptors;
+        try
+        {
+            descriptors = catalog.Enumerate();
+        }
+        // Intentionally broad: an informational catalog failure must never crash the health check.
+        catch (Exception)
+        {
+            context.WriteLine("  Installed: (could not be determined)");
+            return;
+        }
+
+        var installedCount = descriptors.Count(descriptor => descriptor.State == SpeechModelState.Downloaded);
         context.WriteLine($"  Installed: {installedCount.ToString(CultureInfo.InvariantCulture)} / {descriptors.Count.ToString(CultureInfo.InvariantCulture)} known");
     }
 }

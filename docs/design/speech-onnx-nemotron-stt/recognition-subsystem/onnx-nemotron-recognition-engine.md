@@ -5,8 +5,8 @@ streaming ONNX model, run directly through ONNX Runtime with no bundled native i
 It owns the whole streaming pipeline - leading-silence limiting, dither, feature extraction,
 chunked cache-aware encoding, greedy decoding, detokenization, and endpointing - and reports
 provisional and final text. This package's `NemotronEncoder` and `NemotronRnntNetwork` are the
-only types that run ONNX Runtime inference; both are documented here and in the
-`NemotronRnntGreedyDecoder` unit rather than as separate units.
+only types that run ONNX Runtime inference; they are documented as their own units
+(`nemotron-encoder.md` and `nemotron-rnnt-network.md`).
 
 **Data Model**: Holds an `INemotronEncoder`, a `NemotronRnntGreedyDecoder`, a
 `NemotronVocabulary`, a `NemotronEngineOptions`, a `SilenceRunLimiter`, a `DitherNoise`, a
@@ -64,27 +64,20 @@ is kept. A stream of only silence never endpoints, because nothing has made the 
 but keep the model state so decoding continues seamlessly; this is the fallback for steady noise
 that never reads as quiet.
 
-**NemotronEncoder (internal collaborator)**: the ONNX Runtime implementation of the
-`INemotronEncoder` seam (`HiddenSize` 1024, `Encode`, `Reset`), which exists so this engine's
-chunking, endpointing, and flush logic can be unit tested with a managed fake. `Encode` feeds six
-inputs - `audio_signal` [1, 65, 128], `length`, `cache_last_channel` [1, 24, 56, 1024],
-`cache_last_time` [1, 24, 1024, 8], `cache_last_channel_len`, and `lang_id` - and reads five
-outputs: the encoder frames, their length, and the three `*_next` caches. The caches stay in
-native `OrtValue`s and are fed back as the next call's inputs without copying; the previous
-call's outputs are released only after the next call has consumed them. `Reset` returns to
-zero-initialized caches. The static `RunProbeInference(session)` runs one representative
-inference so `OnnxExecutionProviderSelector.Create` can reject an accelerated candidate that
-loads but cannot run the graph.
+**NemotronEncoder (collaborator)**: the engine drives the encoder only through the
+`INemotronEncoder` seam (`HiddenSize`, `Encode`, `Reset`), which exists so this engine's
+chunking, endpointing, and flush logic can be unit tested with a managed fake. The ONNX Runtime
+implementation, `NemotronEncoder`, is documented in `nemotron-encoder.md`.
 
 **Error Handling**: construction throws `ArgumentNullException` for a null required argument;
 every operational member throws `ObjectDisposedException` after disposal; ONNX Runtime exceptions
 from the encoder or decoder propagate to Speech's dedicated worker, which converts them into a
 faulted recognition session.
 
-**Dependencies**: `Microsoft.ML.OnnxRuntime` (`InferenceSession`, `OrtValue`, through
-`NemotronEncoder`); `NemotronFeatureExtractor`, `NemotronRnntGreedyDecoder`, `SilenceRunLimiter`,
-and `DitherNoise` from this subsystem; `NemotronVocabulary` from the ModelManagementSubsystem;
-and the core library's `IRecognitionBackend` and `SpeechRecognitionResult`.
+**Dependencies**: `NemotronFeatureExtractor`, `NemotronEncoder` (through `INemotronEncoder`),
+`NemotronRnntGreedyDecoder`, `SilenceRunLimiter`, and `DitherNoise` from this subsystem;
+`NemotronVocabulary` from the ModelManagementSubsystem; and the core library's
+`IRecognitionBackend` and `SpeechRecognitionResult`.
 
 **Callers**: `OnnxNemotronMultilingualRecognitionModel` constructs the engine from its
 `CreateBackend` implementation; the core library's recognition engine owns it and passes it to

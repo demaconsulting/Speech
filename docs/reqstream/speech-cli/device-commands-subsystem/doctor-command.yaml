@@ -1,0 +1,124 @@
+---
+# Software Unit Requirements for the SpeechCli DoctorCommand
+#
+# These requirements describe the behavior of the DoctorCommand unit (`doctor`), decomposing the
+# system-level requirement SpeechCli-DeviceDoctor in docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Model store (DeviceCommands-Doctor, -DoctorDiskSpace)
+#   - Native runtimes (DeviceCommands-DoctorNativeRuntimes, -DoctorPortAudioRuntime)
+#   - Audio devices and models (DeviceCommands-DoctorAudioDevices, -DoctorModelCounts)
+#   - Exit code (DeviceCommands-DoctorExitCode)
+# The DoctorCommand_ tests are in DoctorCommandTests; SpeechCli_ tests are in IntegrationTests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: DeviceCommandsSubsystem Requirements
+        sections:
+          - title: DoctorCommand Requirements
+            requirements:
+              - id: SpeechCli-DeviceCommands-Doctor
+                title: >-
+                  The DoctorCommand shall report the model store's root path and writability as
+                  a pass/fail checklist when invoked with `doctor`.
+                tags: [unit]
+                justification: |
+                  An operator setting up this tool on a new machine needs one command that
+                  surfaces the most likely cause of trouble with model downloads: a model store
+                  that is missing or unwritable.
+                tests:
+                  - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+                  - DoctorCommand_Run_ReportsModelStoreRootPath
+                  - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
+
+              - id: SpeechCli-DeviceCommands-DoctorDiskSpace
+                title: >-
+                  The DoctorCommand shall report the available disk space at the model store's
+                  root.
+                tags: [unit]
+                justification: |
+                  A model store that is out of space is a likely cause of failed model
+                  downloads.
+                tests:
+                  - DoctorCommand_Run_ReportsAvailableDiskSpace
+
+              - id: SpeechCli-DeviceCommands-DoctorNativeRuntimes
+                title: >-
+                  The DoctorCommand shall report whether the native SherpaOnnx runtime is
+                  resolvable.
+                tags: [unit]
+                justification: |
+                  A missing native runtime is a common cause of recognition failures. The native-library test
+                  deliberately exercises the real load path and is skipped on a platform with no supported
+                  runtime identifier.
+                tests:
+                  - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
+                  - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
+                  - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull
+
+              - id: SpeechCli-DeviceCommands-DoctorPortAudioRuntime
+                title: >-
+                  The DoctorCommand shall report an unavailable native PortAudio runtime as an
+                  informational note rather than a failure.
+                tags: [unit]
+                justification: |
+                  A missing native audio runtime is a normal, gracefully degraded condition this
+                  library already handles at the point of use, so `doctor` reports it without
+                  failing a healthy headless or CI machine.
+                tests:
+                  - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
+
+              - id: SpeechCli-DeviceCommands-DoctorAudioDevices
+                title: >-
+                  The DoctorCommand shall report the number of detected input and output audio
+                  devices.
+                tags: [unit]
+                justification: |
+                  No audio hardware is a likely cause of a failed `speak` or `recognize`, and an
+                  operator needs to see that without running each narrower command individually.
+                tests:
+                  - DoctorCommand_Run_ReportsAudioDeviceCounts
+                  - DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy
+
+              - id: SpeechCli-DeviceCommands-DoctorModelCounts
+                title: >-
+                  The DoctorCommand shall report the number of installed models against the
+                  number of known models.
+                tags: [unit]
+                justification: |
+                  An operator needs to see at a glance whether any model has been downloaded
+                  yet.
+                tests:
+                  - DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts
+                  - DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy
+
+              - id: SpeechCli-DeviceCommands-DoctorExitCode
+                title: >-
+                  The DoctorCommand shall exit non-zero only when the model store is not
+                  writable, treating every other check as informational.
+                tags: [unit]
+                justification: |
+                  Only the model store's writability is a hard failure because it is
+                  infrastructure this tool itself owns and depends on for every model-management
+                  command; missing audio hardware, an unresolvable native runtime, or a failing
+                  device or model enumeration must not fail a perfectly healthy headless or CI
+                  machine. There is exactly one failing branch, so one test proves the non-zero
+                  exit; the remaining tests prove that each informational condition leaves the
+                  exit code at zero.
+                tests:
+                  - DoctorCommand_Run_UnwritableModelStore_ReportsUnhealthyAndNonZeroExitCode
+                  - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+                  - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
+                  - DoctorCommand_Run_ThrowingAudioProbes_DegradesGracefullyAndStaysHealthy
+                  - DoctorCommand_Run_ThrowingCatalog_DegradesGracefullyAndStaysHealthy
+
+              - id: SpeechCli-DeviceCommands-DoctorArgumentValidation
+                title: >-
+                  The DoctorCommand shall reject any extra argument given to `doctor` with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `doctor` takes no options, so a mistyped one must fail predictably instead of being ignored.
+                tests:
+                  - DoctorCommand_Run_ExtraArgument_ThrowsArgumentException

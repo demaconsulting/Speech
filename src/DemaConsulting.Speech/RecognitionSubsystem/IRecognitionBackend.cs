@@ -5,8 +5,8 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     audio samples and reports the recognition results decoded from them.
 /// </summary>
 /// <remarks>
-///     This seam exists for the same reason as <c>IPortAudioApi</c> (Phase 1b) and
-///     <c>IModelDownloadClient</c> (Phase 2a): it confines every native interop call behind a
+///     This seam exists for the same reason as <c>IPortAudioApi</c> and
+///     <c>IModelDownloadClient</c>: it confines every native interop call behind a
 ///     seam that names no inference-engine type, so <see cref="RecognitionSession"/>'s
 ///     threading, resampling, and event-emission logic is fully unit-testable with a pure
 ///     managed fake. No native sherpa-onnx runtime binary and no downloaded model are ever

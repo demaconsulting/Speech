@@ -5,7 +5,7 @@
 Verified through direct unit tests in `SpeechModelDownloaderTests.cs` against a fake
 `IModelDownloadClient` (`FakeModelDownloadClient`, `BarrierModelDownloadClient`,
 `OrderTrackingModelDownloadClient`, and `ThrowingModelDownloadClient`), so every scenario -
-concurrency, checksum verification, atomic swap, the already-installed fast path, mirror URI
+concurrency, checksum verification, installation, the already-installed fast path, mirror URI
 resolution/forwarding, and honest failure classification - runs deterministically with no real
 network access. `ThrowingModelDownloadClient` throws an exact, caller-chosen exception shape
 (including a wrapped `AuthenticationException`/`SocketException`, a bare `TaskCanceledException`,
@@ -22,8 +22,11 @@ itself is exercised directly (it is `internal`, reachable via this project's
 `InternalsVisibleTo` grant from the core project) across trailing-slash, subdirectory, and
 URL-unsafe-character edge cases. Cross-model concurrency and same-model-id serialization are both
 proven with deterministic synchronization primitives (a `TaskCompletionSource`-based arrival
-barrier and an explicit release gate, respectively) rather than timing-based delays, so a
-regression back to a global single-flight lock fails these tests with a bounded timeout instead
+barrier and an explicit release gate, respectively) rather than timing-based waits for the
+positive outcome; the only bounded delay is the same-model negative assertion (the second call
+has not reached the client and has not completed), which can only let a regression pass, never
+fail a correct implementation. A
+regression back to a global single-flight lock fails the cross-model test with a bounded timeout instead
 of passing by coincidence or hanging indefinitely. Progress is observed via a hand-written
 synchronous `IProgress<T>` test double rather than `System.Progress<T>`, since `Progress<T>`
 posts each report independently (via a captured `SynchronizationContext` or the thread pool) with
@@ -55,7 +58,12 @@ already-installed model id returns `Installed` immediately without ever invoking
 client, reporting an `Info` diagnostic, regardless of what descriptor or model it is supplied
 (including one whose checksum would mismatch, or whose `InstallAsync` hook would throw), leaving
 the prior successful install completely untouched; cancellation mid-download throws
-`OperationCanceledException` and installs nothing; two concurrent download requests for different
+`OperationCanceledException` and installs nothing (leaving no staging files behind); disposing the
+downloader while a download using a caller-supplied client is in flight does not fail that download
+(a downloader-owned client is released by dispose and gives no such guarantee; hosts cancel and await
+outstanding downloads first); a credentialed mirror combined with a caller-supplied client is rejected at
+construction, while a credentialed loopback mirror with the downloader's own client sends the mirror's
+`Authorization` header and installs the model; two concurrent download requests for different
 model ids both complete successfully having genuinely run concurrently; two concurrent download
 requests for the same, not-yet-installed model id serialize (the second never reaches the client
 until the first completes), with the second then observing the already-installed fast path once
@@ -64,7 +72,10 @@ verified staged files before `current/` exists; a zip-archive model's `current/`
 up containing the archive's extracted entry rather than the archive itself, whether reached
 through the downloader directly or through `SpeechModelCatalog.DownloadAsync`; and an
 `InstallAsync` failure of a listed or unlisted exception type on a fresh (not-yet-installed)
-model reports `Failed` with `Error` populated and installs nothing. With no mirror configured,
+model reports `Failed` with `Error` populated and installs nothing; an install-hook delegate that
+throws `InvalidDataException` reports `Failed`, one that throws `IOException` reports
+`IoFailure`, and caller cancellation inside the hook propagates, each installing nothing; a
+multi-file descriptor reports each file's own `FileIndex` and the shared `FileCount`. With no mirror configured,
 `ResolveEffectiveUri` returns a file's own declared `Uri` unchanged (including across
 trailing-slash and URL-unsafe-character variations in the no-mirror case, where those values are
 simply never consulted) and `DownloadAsync` forwards the original URI unchanged to the download
@@ -93,25 +104,44 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress`
 
+**Scenario**: A payload served in small chunks is downloaded, its checksum verifies, the model installs, and progress
+reports are monotonically increasing.
+
 ##### Download: Checksum Mismatch Reports Mismatch, Populates Error, and Installs Nothing
 
 **Test**: `SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing`
+
+**Scenario**: The client serves bytes that do not match the declared checksum; the outcome is `ChecksumMismatch`,
+`Error` names the model and file, and the model is not installed.
 
 ##### Download: Already Installed Returns Installed Without Fetching or Staging
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging`
 
+**Scenario**: A model is installed once, then a second downloader with a client that must never be called is asked to
+download it; the outcome is `Installed`, the client is not invoked, an `Info` diagnostic is reported, and no `.tmp`
+staging directory is created.
+
 ##### Download: Already Installed Cleans Up Leftover Staging Directory
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover`
+
+**Scenario**: A model is installed and a leftover staging directory exists; a second call returns `Installed` and
+removes the leftover.
 
 ##### Download: Second Call After Prior Success Takes Fast Path and Leaves Prior Install Intact
 
 **Test**: `SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact`
 
+**Scenario**: A second call whose descriptor has a wrong checksum still returns `Installed` (the fast path never
+inspects it) and the first install's bytes are unchanged.
+
 ##### Download: Canceled Mid-Download Throws and Installs Nothing
 
 **Test**: `SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing`
+
+**Scenario**: The client cancels the caller's token after two chunks; `OperationCanceledException` propagates,
+the model is not installed, and no staging files remain under the store root.
 
 ##### Download: Two Concurrent Requests For Different Models Run Concurrently
 
@@ -120,6 +150,72 @@ reclassified as `NetworkBlocked`.
 ##### Download: Two Concurrent Requests For The Same Model Id Are Serialized
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
+
+##### Download: Canceled While Queued Never Reaches the Client
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient`
+
+##### Download: After Dispose Throws ObjectDisposedException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed`
+
+**Scenario**: After disposing twice (idempotent), the string, delegate-hook and `ISpeechModel` overloads of
+`DownloadAsync` all throw `ObjectDisposedException`.
+
+##### Download: Disposed While In Flight Still Completes
+
+**Test**: `SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes`
+
+**Scenario**: The downloader (using a caller-supplied client) is disposed while a download is held open in the
+client; once released, the download still reports `Installed` (the lock release swallows the
+`ObjectDisposedException`).
+
+##### Download: Null Descriptor or Model Throws ArgumentNullException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_NullDescriptorOrModel_ThrowsArgumentNullException`
+
+**Scenario**: Each of the string, delegate-hook and `ISpeechModel` overloads is called with a null descriptor
+or model and throws `ArgumentNullException`; nothing is installed.
+
+##### Download: Invalid Model Id Throws ArgumentException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InvalidModelId_ThrowsArgumentException`
+
+**Scenario**: Each overload is called with a null, empty or dot-segment model id and throws `ArgumentException`
+before any download is attempted.
+
+##### Download: Install-Hook Delegate Overload Runs the Hook Before the Swap
+
+**Test**: `SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput`
+
+**Scenario**: A caller-supplied install hook runs on the verified staging directory before the model is
+installed, and the content it leaves behind is what gets installed.
+
+##### Download: Throwing Install-Hook Delegate Reports Failure and Installs Nothing
+
+**Test**: `SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing`
+
+##### Download: Install-Hook IOException Reports IoFailure
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InstallHookThrowsIOException_ReportsIoFailure`
+
+**Scenario**: An install hook throws `IOException`; the outcome is `IoFailure` and nothing is installed.
+
+##### Download: Install-Hook Cancellation Propagates and Installs Nothing
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InstallHookCanceled_ThrowsAndInstallsNothing`
+
+##### Download: Multiple Files Report FileIndex and FileCount
+
+**Test**: `SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount`
+
+##### Download: Foreign Path Separator in RelativeInstallPath Stages Under a Nested Subdirectory
+
+**Arrange**: A descriptor whose `RelativeInstallPath` uses the other platform's directory separator.
+
+**Expected**: The file is staged under the corresponding nested subdirectory and installs normally.
+
+**Test**: `SpeechModelDownloader_DownloadAsync_RelativeInstallPathWithForeignSeparator_StagesUnderNestedSubdirectory`
 
 ##### Download: Model-Aware Overload Invokes InstallAsync Before CompleteInstall
 
@@ -135,7 +231,8 @@ reclassified as `NetworkBlocked`.
 
 ##### Download: Model-Aware Overload's Second Call After Prior Success Takes Fast Path and Never Invokes InstallAsync
 
-**Test**: `SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook`
+**Test**:
+`SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook`
 
 ##### Catalog: Zip-Archive Model Installs Extracted Content and Reports Downloaded
 
@@ -173,17 +270,36 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException`
 
+##### Download: Credentialed Loopback Mirror With Owned Client Sends Authorization and Installs
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CredentialedLoopbackMirrorWithOwnedClient_SendsAuthorizationAndInstalls`
+
+**Scenario**: A bearer-token mirror whose base location is a loopback WireMock.Net server is configured with no
+caller-supplied client, so the downloader creates and owns its HTTP client. The server serves the payload at the
+mirror-relative path; the model installs and the single recorded request carries the bearer `Authorization`
+header. This is the end-to-end evidence that the supported credentialed-mirror form actually authenticates.
+
 ##### Download: HttpRequestException With Status Code Reports HttpError
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError`
 
+**Scenario**: The client throws an `HttpRequestException` carrying a status code; the outcome is `HttpError`, and
+an `Error` diagnostic naming the model id is reported.
+
 ##### Download: HttpRequestException Wrapping AuthenticationException Reports NetworkBlocked
 
-**Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
+**Test**:
+`SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
+
+**Scenario**: The client throws an `HttpRequestException` wrapping an `AuthenticationException`; the outcome is
+`NetworkBlocked` and nothing is installed.
 
 ##### Download: HttpRequestException Wrapping SocketException Reports NetworkBlocked
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked`
+
+**Scenario**: The client throws an `HttpRequestException` wrapping a `SocketException`; the outcome is
+`NetworkBlocked` and nothing is installed.
 
 ##### Download: TaskCanceledException From Injected Client Reports Failed
 
@@ -193,6 +309,9 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`
 
+**Scenario**: The concrete `HttpModelDownloadClient` hits its own internal request timeout while the caller's
+token is not canceled; the outcome is `NetworkBlocked` and nothing is installed.
+
 ##### Download: HttpModelDownloadClient Non-Timeout Cancellation Reports Failed
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed`
@@ -201,9 +320,22 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure`
 
+**Scenario**: The client throws `IOException`; the outcome is `IoFailure` with the exception in `Error`, and nothing
+is installed.
+
 ##### Download: UnauthorizedAccessException Reports IoFailure
 
 **Test**: `SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure`
+
+**Scenario**: The client throws `UnauthorizedAccessException`; the outcome is `IoFailure` with the exception in
+`Error`, and nothing is installed.
+
+##### Download: Staging Creation Failure Reports IoFailure
+
+**Test**: `SpeechModelDownloader_DownloadAsync_StagingCreationFails_ReportsIoFailure`
+
+**Scenario**: A file occupies the model's `.tmp` path so the staging directory cannot be created; the outcome is
+`IoFailure`, an `Error` diagnostic is reported, and the download client is never invoked.
 
 ##### Download: Unmatched Exception Type Reports Failed
 

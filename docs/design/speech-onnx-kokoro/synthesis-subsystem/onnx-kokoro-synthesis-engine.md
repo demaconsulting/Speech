@@ -31,7 +31,7 @@ differently from each other.
   ids, pads with `KokoroPhonemeVocabulary.PadTokenId` at both ends, selects the requested voice's
   style-vector row via `SelectStyleVector`, and runs a single ONNX Runtime forward pass over the
   shared `InputIdsTensorName`/`StyleTensorName`/`SpeedTensorName` tensors, returning the raw
-  waveform output wrapped in an `EngineAudio`. Short-circuits to an empty `EngineAudio` without
+  waveform output wrapped in an `BackendAudio`. Short-circuits to an empty `BackendAudio` without
   running the graph when phonemization produces zero tokens (empty text, or text whose every word
   is out of vocabulary). The model is the int8 (`model_quantized`) graph because the fp16 graph
   overflows to NaN (heard as silence) for roughly one in ten inputs on the CPU execution provider,
@@ -77,7 +77,7 @@ for the benefit of simpler, deterministic synthesis.
 
 **Dependencies**: `Microsoft.ML.OnnxRuntime` (`InferenceSession`, `DenseTensor<T>`,
 `NamedOnnxValue`); `KokoroPhonemeVocabulary` and `KokoroLexiconPhonemizer` from the
-ModelManagementSubsystem; the core library's `ISynthesisBackend` and `EngineAudio` from the
+ModelManagementSubsystem; the core library's `ISynthesisBackend` and `BackendAudio` from the
 *Speech SynthesisSubsystem Design*.
 
 **Callers**: `OnnxKokoroEnglishSynthesisModel` constructs the engine from its `CreateBackend`

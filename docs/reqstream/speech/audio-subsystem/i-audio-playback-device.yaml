@@ -22,19 +22,36 @@ sections:
                   - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
                   - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
 
-              - id: Speech-Audio-IAudioPlaybackDevice-StartStopWrite
+              - id: Speech-Audio-IAudioPlaybackDevice-Start
                 title: >-
-                  The IAudioPlaybackDevice interface shall define Start/Stop lifecycle methods
-                  and a Write method for submitting audio for playback.
+                  The IAudioPlaybackDevice interface shall define a Start lifecycle method that
+                  begins playback.
                 justification: |
                   A mockable playback-device contract lets hosts and tests depend on playback
                   behavior without tying themselves to native PortAudio types.
                 tests:
                   - UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioPlaybackDevice-Stop
+                title: >-
+                  The IAudioPlaybackDevice interface shall define a Stop lifecycle method that
+                  ends playback.
+                justification: |
+                  Callers must be able to release the playback stream deterministically.
+                tests:
                   - UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioPlaybackDevice-Write
+                title: >-
+                  The IAudioPlaybackDevice interface shall define a Write method for submitting
+                  audio for playback.
+                justification: |
+                  Hosts feed synthesized audio to the device through one fire-and-forget method.
+                tests:
                   - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
                   - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
-                  - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
 
               - id: Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
                 title: >-
@@ -44,8 +61,8 @@ sections:
                 justification: |
                   Synthesized audio carries no format metadata of its own until it is converted,
                   so a consumer that must resample and upmix it before playback - speech
-                  synthesis, added in Sub-phase 4b - has no other way to learn the device's
-                  resolved format. Mirroring IAudioCaptureDevice's identical Sub-phase 3 addition
+                  synthesis - has no other way to learn the device's
+                  resolved format. Mirroring IAudioCaptureDevice's identical members
                   keeps both capture and playback format contracts consistent, and reporting zero
                   rather than a plausible default when no device was resolved keeps the contract
                   honest and consistent with the availability flag.
@@ -56,7 +73,7 @@ sections:
 
               - id: Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
                 title: >-
-                  The IAudioPlaybackDevice interface shall expose a non-throwing, non-blocking
+                  The IAudioPlaybackDevice interface shall expose a non-throwing
                   PendingSampleCount reporting how many samples passed to Write the playback
                   hardware has not yet actually rendered, reported as zero when the device is
                   unavailable.
@@ -65,11 +82,10 @@ sections:
                   rendering and returns immediately regardless of how much audio is still
                   pending. Without an honest way to observe real hardware-drain progress, a
                   caller (SynthesisSession) could only ever observe
-                  that samples had been handed off, not that they had actually played - the
-                  confirmed root cause of a bug where the TTS panel's status flashed back to idle
-                  and cut audio off almost instantly, because playback was stopped (discarding
-                  whatever was still queued) as soon as every segment was enqueued.
+                  that samples had been handed off, not that they had actually played, and would
+                  stop playback, discarding whatever was still queued, as soon as every segment
+                  was enqueued.
                 tests:
                   - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
-                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
                   - UnavailableAudioPlaybackDevice_PendingSampleCount_Read_ReturnsZero

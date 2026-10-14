@@ -5,8 +5,8 @@
 `IRecognitionSession` is verified indirectly through both shipped implementations:
 `UnavailableRecognitionSession` proves the honest-unavailable path, and
 `RecognitionSession` proves state-machine transitions, lifecycle behavior, and delivery
-of provisional and final results. The result and event value types are verified through the
-results observed at `GetResultsAsync`, since they carry no behavior of their own.
+of provisional and final results. The result and event value types are additionally verified
+directly (`SpeechRecognitionRecordTests`), because they validate their arguments.
 
 #### Test Environment
 
@@ -30,3 +30,14 @@ single-use and single-consumer by contract.
 See the RecognitionSubsystem-level scenarios "Session Lifecycle: State Machine Transitions",
 "Session Lifecycle: Stop, Dispose, and Draining", "Session Pipeline: Result Delivery and
 Backpressure", and "Unavailable Fallback: Honest Degradation".
+
+##### Result and event value invariants
+
+**Tests**: `SpeechRecognitionResult_Constructor_NullText_ThrowsArgumentNullException`,
+`SpeechRecognitionResult_Constructor_ValidText_ExposesValues`,
+`SpeechRecognitionResult_WithExpression_NullText_ThrowsArgumentNullException`,
+`SpeechRecognitionEvent_Constructor_NullResult_ThrowsArgumentNullException`,
+`SpeechRecognitionEvent_Constructor_ValidResult_ExposesResult`
+
+Verifies that a result rejects null text (including through a with-expression copy), that an event
+rejects a null result, and that valid values are exposed unchanged.

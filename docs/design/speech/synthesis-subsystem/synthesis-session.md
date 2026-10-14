@@ -1,16 +1,9 @@
 ### SynthesisSession
 
-This chapter covers the real session implementation together with the units it exists to
-coordinate - the Layer 2 rendering strategy, the sentence chunker, the synthesis-backend seam,
-the dedicated-worker cancellation policy, and the playback-format converter - because none can be
-reviewed meaningfully in isolation: the session's whole job is to move text through rendering and
-chunking, into the backend (via a dedicated worker), and the resulting audio through resampling
-onto its bound playback device.
-
 **Purpose**: Chunk, render, and synthesize text into speech through a synthesis backend, bound to
 exactly one playback device for the session's entire life, without ever performing synthesis or
-inference work on the caller's UI thread, and without pipelining synthesis ahead of playback
-across an unbounded queue.
+inference work on the caller's UI thread, and without synthesizing ahead of playback across an
+unbounded queue.
 
 **Data Model**: Holds the owned `ISynthesisBackend`, the `IAudioPlaybackDevice` it plays through,
 the `ISynthesisModel` supplying `NormalizeText`/`CapabilityProfile`/`ResolveSpeakerId`, an
@@ -20,12 +13,21 @@ the engine's exclusivity lease, and a `_syncRoot` lock guarding its `SynthesisSe
 current operation's `CancellationTokenSource`, its fault (if any), and disposal/lease-released
 flags. `IsAvailable` is `true` unless disposed or `Faulted`.
 
-Unlike the former streaming synthesizer's pending-segment channel, this session does not
-pipeline synthesis ahead of playback: each segment is synthesized, then (for `SpeakAsync`)
-immediately written to the playback device, before the next segment's synthesis begins. This
-keeps the per-call state machine simple - exactly one backend call in flight at a time - while
-still overlapping this call's own synthesis-then-playback work normally, since playback of one
-segment proceeds without the caller waiting for the whole plan up front.
+The session never synthesizes ahead of playback across a queue: each segment is synthesized,
+then (for `SpeakAsync`) immediately written to the playback device, before the next segment's
+synthesis begins. This keeps the per-call state machine simple - exactly one backend call in
+flight at a time. The playback device plays written audio asynchronously, so playback of an
+early segment begins after only that segment has been synthesized and continues while the next
+segment is synthesized, without waiting for the whole plan. Synthesis of one segment never
+overlaps synthesis of another.
+
+Additional private state tracks native-call completion: `_operationTask` is the in-flight
+operation's abandon-aware task; `_pendingNativeCompletion` is the raw completion of the most
+recently started native call (a backend `Generate` or the playback device's `Start`), which
+completes only when that call genuinely returns even if the dedicated worker abandoned it;
+`_disposeTask` is the single-flight disposal operation shared by every `DisposeAsync` caller and
+doubles as the disposed flag. The session does not own or dispose the backend; the creating
+`SpeechSynthesizerEngine` does.
 
 `DrainPollInterval` (15ms) and `DrainTailMargin` (40ms) are fixed constants governing
 `WaitForPlaybackDrainAsync`'s post-loop wait in `GenerateAndOptionallyPlayAsync` (see below):
@@ -37,30 +39,49 @@ thread can change.
 
 - **SpeakAsync(text, cancellationToken)** / **SynthesizeAsync(text, cancellationToken)**: Both
   validate `text` eagerly, then delegate to the shared `RunOperationAsync(text,
-  playAfterSynthesis, cancellationToken)`, which validates the overlap rule and current state
-  under the lock, transitions `Starting` → `Running`, runs
+  playAfterSynthesis, cancellationToken)`. `StartOperation` validates the overlap rule and current
+  state under the lock, sets `Starting` and registers the operation task there, then (after the lock
+  is released, so `StateChanged` handlers never run under it) raises `Starting` and runs the operation,
+  which transitions `Starting` → `Running`, runs
   `GenerateAndOptionallyPlayAsync`, then transitions `Stopping` → `Stopped` on success or
   cancellation, or to `Faulted` (reporting the fault via diagnostics) on any other exception. A
   second call while an operation is already `Starting`/`Running`/`Stopping` throws
   `InvalidOperationException`; a call while `Faulted` throws `SynthesisSessionFaultedException`
-  wrapping the original fault; a call after disposal throws `ObjectDisposedException`.
+  wrapping the original fault; a call after disposal throws `ObjectDisposedException`. A
+  cancellation that the native call honored promptly unwinds to `Stopped`. A cancellation
+  that the native call did not honor within the dedicated worker's abandon timeout also returns
+  to the caller promptly (as an `OperationCanceledException`), but moves the session to
+  `Faulted` with a `TimeoutException` fault, because the abandoned call is still running against
+  the shared backend; `_pendingNativeCompletion` is left set so `StopAsync`/`DisposeAsync` still
+  wait for it. An `OperationCanceledException` thrown by the backend when no cancellation was
+  requested is treated as an ordinary fault.
 - **StopAsync(cancellationToken)**: Cancels the current operation's `CancellationTokenSource`
-  under the lock, if one exists, then awaits that same tracked operation task (abandoning the
-  wait, but not the operation itself, past the dedicated worker's abandon timeout) so the
-  returned task completes only once the in-flight operation has genuinely stopped; a safe no-op
-  otherwise. The cancelled operation still unwinds through the normal `Stopping` → `Stopped`
-  path, not `Faulted`.
+  under the lock, if one exists, awaits that tracked operation task, and then re-reads and awaits
+  `_pendingNativeCompletion` (even when the operation task is already cleared by an abandon
+  fault), so the returned task completes only once every native call the operation started has
+  genuinely returned; a safe no-op when idle. The `cancellationToken` bounds only the caller's own
+  wait: a canceled token makes the returned task throw, but the underlying cancel-and-await work
+  still runs to completion for other callers and for `DisposeAsync`. A canceled operation whose
+  native call stopped promptly unwinds through `Stopping` → `Stopped`; one whose native call
+  was abandoned leaves the session `Faulted` (see Error Handling).
 - **GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, cancellationToken)**: Normalizes the
   text via `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, renders it via
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, then synthesizes each
   `SpeechSegment` in turn via `GenerateSegmentAsync`. When `playAfterSynthesis` is `false`
   (`SynthesizeAsync`), simply collects every segment's `SynthesizedSpeech` into the returned list.
-  When `true` (`SpeakAsync`), starts the playback device, builds one `PlaybackAudioResampler` for
-  the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced, and
+  When `true` (`SpeakAsync`), starts the playback device through `DedicatedWorker.Start` (so a
+  stuck device-open call is bounded by the same cancel-then-abandon policy, and its raw
+  completion is published as `_pendingNativeCompletion`), builds one `PlaybackAudioResampler` for
+  the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced
+  (silence is written as zero samples in chunks of at most one second, with the frame count
+  computed in 64-bit arithmetic so very long pauses cannot overflow or allocate one huge buffer), and
   once every segment has been written, awaits `WaitForPlaybackDrainAsync` before a `finally` block
   stops the device - reporting (but not rethrowing) a failure to stop, so the device is never left
   running regardless of whether the loop, the drain wait, or neither completed, faulted, or was
-  cancelled.
+  canceled. When the device-start call was abandoned and is still running, the device stop is
+  deferred to a background continuation that awaits the start call's genuine completion first
+  (never running `Start` and `Stop` concurrently); that continuation becomes the pending native
+  completion.
 - **GenerateSegmentAsync(segment, cancellationToken)**: An empty-text segment (a rendered pause)
   skips the backend entirely and returns a pure-silence `SynthesizedSpeech` built directly from
   the segment's declared silence durations. Otherwise resolves speed/volume overrides against the
@@ -72,8 +93,9 @@ thread can change.
   session-level voice selection), and calls `_backend.Generate(text, speedRatio, speakerId)`
   through `DedicatedWorker.Run` - so a non-cooperative native call is bounded by the
   cooperative-cancel-then-abandon policy rather than awaited indefinitely - applying any volume
-  override as post-hoc amplitude scaling (sherpa-onnx's offline TTS API has no native gain input),
-  clamped to `[-1.0, 1.0]`.
+  override as post-hoc amplitude scaling (backends have no native gain input),
+  clamped to `[-1.0, 1.0]`. A speed or volume override whose resolved ratio is not a positive
+  finite number is ignored.
 - **WaitForPlaybackDrainAsync(cancellationToken)**: Polls `_device.PendingSampleCount` every
   `DrainPollInterval` (15ms) until it reaches zero - i.e. until the playback hardware has
   genuinely rendered every sample this operation wrote, not merely until every segment was handed
@@ -81,9 +103,15 @@ thread can change.
   residual internal host buffering (e.g. PortAudio's own ring buffer) that has already left the
   managed queue but has not yet actually reached the speakers. Honors `cancellationToken`: a
   cancellation during either wait ends it immediately via `Task.Delay`'s own cancellation.
-- **DisposeAsync()**: Cancels any in-flight operation's `CancellationTokenSource`, transitions
-  `Disposing` → `Disposed`, and releases the owning engine's exclusivity lease exactly once (via
-  the constructor-supplied release callback). Idempotent.
+- **DisposeAsync()**: Under `_syncRoot` it only publishes one single-flight completion
+  (`_disposeTask`, backed by a `TaskCompletionSource`) shared by every caller, then starts the
+  teardown after the lock is released, so no state-change handler or other thread reading `State`
+  can block on, or deadlock with, teardown. The teardown cancels any in-flight operation, awaits
+  the operation task and then `_pendingNativeCompletion`
+  (so an abandoned native call has genuinely returned), transitions `Disposing` → `Disposed`
+  (raising events outside the lock), and only then releases the owning engine's exclusivity lease
+  exactly once (via the constructor-supplied release callback). Idempotent; concurrent callers all
+  complete after the same teardown.
 
 **Error Handling**: A fault raised synthesizing or playing a segment transitions the session to
 `Faulted` and is reported through `ISpeechDiagnostics` before being rethrown to the caller of the
@@ -91,234 +119,21 @@ operation that faulted; every subsequent `SpeakAsync`/`SynthesizeAsync` call the
 `SynthesisSessionFaultedException` wrapping that original fault, until the session is disposed. A
 playback-device write failure still stops the device via the `finally` block before propagating.
 A cancellation while `WaitForPlaybackDrainAsync` is polling ends the wait immediately via
-`Task.Delay`'s own cancellation, while `finally` still stops the device; the operation unwinds to
-`Stopped`, not `Faulted`, since cancellation is an ordinary, successful outcome. An unavailable
-playback device throws promptly rather than hanging. Calling an operational member after
+`Task.Delay`'s own cancellation, while `finally` still stops the device; when no native call was
+abandoned, the operation unwinds to `Stopped`, not `Faulted`, since cancellation is then an
+ordinary outcome. A failure to start the playback device (for example an unavailable device)
+propagates promptly, bounded by the abandon timeout, rather than hanging, and faults the session.
+Calling an operational member after
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
 same session throws `InvalidOperationException`.
 
-**Dependencies**: `ISynthesisBackend`, `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
+**Dependencies**: `ISynthesisBackend` (whose `Generate` returns the plain-data `BackendAudio`
+record: mono samples plus sample rate), `ISynthesisModel` (`NormalizeText`, `CapabilityProfile`,
+`ResolveSpeakerId`), `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
 `PlaybackAudioResampler`, `SynthesizedSpeech`, `SynthesisSessionState`,
-`SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker`,
-`SpeechSynthesizerUnavailableException`, `AudioTagParser` from this subsystem's unchanged units,
-`IAudioPlaybackDevice` from the AudioSubsystem, and `ISpeechDiagnostics` from the Diagnostics
-subsystem.
+`SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker` and
+`DedicatedWorkerRun<T>`, `AudioTagParser` from this
+subsystem's other units, `IAudioPlaybackDevice` from the AudioSubsystem, and `ISpeechDiagnostics`
+from the Diagnostics subsystem.
 
 **Callers**: `SpeechSynthesizerEngine.CreateSessionAsync(device, cancellationToken)`.
-
-#### ISynthesisBackend and ISynthesisBackendFactory
-
-**Purpose**: Confine every speech-synthesis interop call behind one mockable boundary, so the
-session's chunking, Layer 2 rendering, per-segment synthesis, and fault-containment logic is
-verifiable with pure managed fakes - no downloaded model and no platform-specific native binary
-are ever required in CI. This mirrors the `IRecognitionBackend`/`IRecognitionBackendFactory` seam
-used for recognition. Renamed from `ISynthesisEngine`/`ISynthesisEngineFactory` so the "engine"
-vocabulary is reserved for the public Layer 3 `ISpeechSynthesizerEngine` contract; members are
-unchanged by the rename.
-
-**Data Model**: N/A (interfaces only).
-
-**Key Methods**:
-
-- **ISynthesisBackend.SampleRate**: The fixed rate this backend's `Generate(...)` output is
-  produced at.
-- **ISynthesisBackend.Generate(text, speed, speakerId)**: Synthesizes one chunk of text at the
-  given speed multiplier and speaker id, returning an `EngineAudio` (samples plus the rate they
-  were produced at).
-- **ISynthesisBackendFactory.Create(ISynthesisModel, string installedModelDirectory)**: Loads a
-  backend for the model; the real implementation asks the model to construct its own backend via
-  the internal `ISynthesisModel.CreateBackend`.
-
-**Error Handling**: Implementations are not thread-safe by contract; a session calls `Generate`
-from exactly one `DedicatedWorker` call at a time. Load failures surface as exceptions from
-`Create(...)`, which `SpeechSynthesizerFactory` converts into the honest unavailable fallback.
-
-**Dependencies**: `EngineAudio`; `ISynthesisModel` from the ModelManagementSubsystem.
-
-**Callers**: `SynthesisSession` (backend) and `SpeechSynthesizerFactory`/
-`SpeechSynthesizerEngine` (factory).
-
-#### DefaultSynthesisBackendFactory
-
-**Purpose**: Provide the one real `ISynthesisBackendFactory` implementation, replacing the former
-`SherpaOnnxSynthesisEngineFactory`. It holds no engine-specific knowledge at all: the design makes
-each model's backing class responsible for constructing its own backend, so adding a synthesis
-model, or an entire model-supplying extension package, never requires changing this factory.
-
-**Data Model**: Stateless; no fields.
-
-**Key Methods**:
-
-- **Create(ISynthesisModel, string installedModelDirectory)**: Validates its arguments and
-  forwards to the model's own internal `ISynthesisModel.CreateBackend(installedModelDirectory)`,
-  returning the loaded backend unchanged.
-
-**Error Handling**: Throws `ArgumentNullException` for a null model and `ArgumentException` for a
-null or empty directory. Any exception the model's `CreateBackend` raises - for example a missing
-native runtime or unusable model files - propagates unchanged to `SpeechSynthesizerFactory`, which
-converts it into the honest unavailable fallback.
-
-**Dependencies**: `ISynthesisModel` from the ModelManagementSubsystem.
-
-**Callers**: `SpeechSynthesizerFactory`'s public `LoadAsync(...)` overloads.
-
-The real sherpa-onnx `ISynthesisBackend` implementation, `SherpaOnnxSynthesisEngine`, is no longer
-part of this subsystem: it moved, together with the concrete sherpa-onnx models that construct it,
-to the sibling `SpeechSherpa` system. See _SherpaOnnxSynthesisEngine_ in _SpeechSherpa
-SynthesisSubsystem Design_.
-
-#### IModelCapabilityProfile and DefaultModelCapabilityProfile
-
-**Purpose**: Decide, per Layer 1 span, how a Natural Language Audio Tag is realized for a
-specific model - pass-through, approximation, or strip - turning a model-independent span
-sequence into an ordered, model-appropriate `SpeechPlan`.
-
-**Data Model**: `IModelCapabilityProfile` declares one method,
-`Render(IReadOnlyList<TaggedTextSpan> spans, ISpeechModel model)`, returning a `SpeechPlan` (an
-ordered `IReadOnlyList<SpeechSegment>`). Each `SpeechSegment` carries the text to synthesize (or
-empty, for a pure-silence pause segment), the pre/post silence durations to play alongside it,
-and any numeric parameter overrides (speed/volume) to apply when synthesizing it.
-`DefaultModelCapabilityProfile` is a stateless singleton (`Instance`) requiring no per-model
-configuration, since every decision it makes is read from the `model` argument at call time.
-
-**Key Methods**:
-
-- **Render(spans, model)**: For each `TaggedTextSpanKind.Tag` span: if the tag is a pause, always
-  renders a silence-only `SpeechSegment` (300ms short / 900ms long) regardless of
-  `model.AudioTagSupport`. Otherwise, if `model.AudioTagSupport` is `Native`, passes the tag
-  through as its canonical bracket text so the model's own inference sees the control token. If
-  `ParameterMapped`, consults `SpeechParameterConventions` for a matching numeric parameter on
-  `model.Parameters` and attaches it as an override on the surrounding segment when one exists,
-  otherwise strips the tag. If `None`, strips every non-pause tag. For each
-  `TaggedTextSpanKind.PlainText` span, delegates to `SentenceChunker.ChunkWithMetadata(...)` and
-  emits one `SpeechSegment` per resulting chunk, setting that segment's `PostSilenceMs` to a new
-  `EllipsisPauseMilliseconds` constant (500ms) when the chunk's `EndsWithEllipsis` flag is set, or
-  `0` otherwise - a chunk-boundary-triggered pause distinct from, and never reusing, the
-  tag-triggered short/long pause durations above.
-
-**Error Handling**: Rejects a null `spans` or `model` with `ArgumentNullException`. Every other
-input - any tag, any support level, any parameter set - is handled without throwing, per this
-library's "never worse than plain narration" guarantee extended to Layer 2.
-
-**Dependencies**: `TaggedTextSpan`, `TaggedTextSpanKind`, `NaturalLanguageAudioTagKind` from this
-subsystem's unchanged units; `SentenceChunker`; `SpeechParameterConventions`; `SpeechSegment`,
-`SpeechPlan`; `ISpeechModel`, `SpeechModelAudioTagSupport`, `NumericParameter` from the
-ModelManagementSubsystem.
-
-**Callers**: `SynthesisSession.GenerateAndOptionallyPlayAsync(...)` via
-`ISynthesisModel.CapabilityProfile`.
-
-#### SentenceChunker
-
-**Purpose**: Split synthesis-ready plain text into sentence/clause-sized chunks so chunked
-synthesis has natural-sounding boundaries and no chunk exceeds a length a synthesis call can
-reasonably handle.
-
-**Data Model**: A stateless static class; `Chunk(text, maxLength)`/`ChunkWithMetadata(text,
-maxLength)` take no configuration beyond their two arguments. `ChunkWithMetadata` returns a
-`SentenceChunk` record struct per chunk (`Text`, `EndsWithEllipsis`); `Chunk` is a pure projection
-of `ChunkWithMetadata`'s chunk text.
-
-**Key Methods**:
-
-- **Chunk(text, maxLength)** / **ChunkWithMetadata(text, maxLength)**: Splits on primary
-  sentence-ending punctuation (`.`, `!`, `?`) first, then **unconditionally** splits every
-  resulting piece further on secondary clause punctuation (`,`, `;`, `:`) - not only when the
-  piece is still over `maxLength` - so every clause becomes its own chunk. A punctuation
-  character embedded in a numeral is never treated as a boundary at either pass: a digit both
-  immediately before and after (e.g. the `:` in `"12:30"`, the `,` in `"1,000"`, or a decimal
-  point such as `"0.5"`) is always kept attached, and a decimal point specifically is also kept
-  attached when a digit follows immediately but none precedes, as long as the character before it
-  (if any) is not a letter - e.g. a leading fraction such as `".5"`, `"$.99"`, or `".5 units"` at
-  start-of-text/after whitespace/a sign/a currency symbol. A genuine sentence-ending period
-  directly followed by a digit after a letter (e.g. `"Wait.5 more."`) still splits normally, since
-  the numeral exception only applies when no letter precedes the period. A piece still longer
-  than `maxLength` after both punctuation passes is split on a whitespace budget; a single word
-  that alone exceeds `maxLength` is returned whole, never split mid-word. Any resulting piece
-  whose trimmed text contains no letter or digit at all (just punctuation and/or whitespace, e.g.
-  a lone comma or a whitespace-spaced ellipsis like `". . ."`) is then merged onto the end of the
-  immediately preceding non-empty chunk (joined by a single space), or dropped if there is no
-  preceding chunk. `ChunkWithMetadata` additionally flags a chunk whose final text ends in three
-  or more consecutive `.` characters (with or without interspersed whitespace) as
-  `EndsWithEllipsis`. These numeral exceptions assume English/US-style numeral punctuation (`,`
-  as thousands separator, `.` as decimal point); locales that swap the two roles (e.g.
-  `"1.000,5"`) are not specially handled - every model in this library's current catalog is
-  English-only, so this is not currently a defect, but a future non-English model would need
-  these rules adjusted rather than assuming they generalize as-is.
-
-**Error Handling**: Rejects a non-positive `maxLength` with `ArgumentOutOfRangeException` and a
-null `text` with `ArgumentNullException`, since neither describes a meaningful chunking request.
-Empty and whitespace-only text return no chunks rather than throwing.
-
-**Dependencies**: None beyond the Base Class Library.
-
-**Callers**: `DefaultModelCapabilityProfile.Render(...)`.
-
-#### PlaybackAudioResampler
-
-**Purpose**: Convert one synthesized segment's mono audio, produced at a synthesis backend's
-fixed rate, into the format a playback device requires - its resolved rate and channel count.
-Keeping this conversion in a pure, dependency-free type mirrors `AudioFrameResampler`'s
-recognition direction role and makes it exhaustively testable with plain float arrays.
-
-**Data Model**: Immutable: the backend sample rate, the target (device) sample rate, and the
-target channel count, all validated as positive at construction. No per-call state, so one
-instance serves a whole operation.
-
-**Key Methods**:
-
-- **Resample(samples, sourceSampleRate, targetSampleRate)**: Produces
-  `floor(length * target / source)` samples via linear interpolation, clamped to the last input
-  sample at the boundary. Equal rates copy the input unchanged, so the identity case introduces no
-  error at all. When downsampling, a small Hamming-windowed sinc lowpass filter runs first to
-  attenuate above-target-Nyquist energy before decimation.
-- **UpmixToChannels(samples, channelCount)**: Replicates each mono sample across every output
-  channel, interleaved. A single required channel copies the input unchanged.
-- **Convert(samples)**: Composes `Resample` then `UpmixToChannels` into the single operation the
-  session needs for every segment it plays. When the target channel count is 1,
-  `UpmixToChannels` is skipped entirely and the resampled result is returned directly, since
-  `UpmixToChannels`'s own single-channel case would only make a redundant copy of an array
-  `Convert` already owns exclusively.
-
-**Error Handling**: A non-positive sample rate or channel count throws
-`ArgumentOutOfRangeException`. Empty input returns an empty result rather than throwing, since a
-pure-silence segment legitimately has no samples to convert.
-
-**Dependencies**: `AudioSubsystem.WindowedSincLowpassFilter` for the downsampling anti-aliasing
-lowpass stage, shared with `AudioFrameResampler`'s identical need in the recognition subsystem;
-otherwise none beyond the Base Class Library.
-
-**Callers**: `SynthesisSession.PlaySegment(...)` (via `GenerateAndOptionallyPlayAsync`).
-
-#### DedicatedWorker
-
-**Purpose**: Run one native synthesis call on a dedicated, long-running background thread,
-applying a cooperative-cancel-then-abandon policy so a non-cooperative native call cannot hang a
-caller's awaited task indefinitely. `SynthesisSubsystem`'s own duplicated copy of
-`RecognitionSubsystem`'s identically-shaped internal utility.
-
-**Data Model**: A stateless static class. `Run(delegate, cancellationToken, diagnostics,
-diagnosticsCategory, abandonTimeout = null)` takes no instance state; `abandonTimeout` defaults
-to `DefaultAbandonTimeout` (2 seconds) when omitted/`null`, and is injectable for deterministic
-test coverage of the abandon path.
-
-**Key Methods**:
-
-- **Run(delegate, cancellationToken, diagnostics, diagnosticsCategory, abandonTimeout)**: Starts
-  `delegate` on a `TaskCreationOptions.LongRunning` task. On normal completion, returns its
-  result. On cancellation, awaits the task for up to `abandonTimeout`; if it completes
-  cooperatively within that window, the cancellation propagates normally. If it does not, reports
-  a `Warning` diagnostic, detaches the still-running task (attaching a continuation that observes,
-  rather than propagates, whatever it eventually produces, so it can never become an
-  unobserved-exception crash), and throws `OperationCanceledException` to its own caller anyway -
-  the caller must not be held open indefinitely by a native call that refuses to stop.
-
-**Error Handling**: A genuine (non-cancellation) fault from `delegate` propagates normally from
-the awaited task. The abandon path above is the sole case where this method returns/throws before
-`delegate` has actually finished running.
-
-**Dependencies**: `ISpeechDiagnostics` from the Diagnostics subsystem.
-
-**Callers**: `SynthesisSession.GenerateSegmentAsync(...)` for every native
-`ISynthesisBackend.Generate(...)` call, and `SpeechSynthesizerFactory.LoadAsync(...)` for the
-blocking native model load.

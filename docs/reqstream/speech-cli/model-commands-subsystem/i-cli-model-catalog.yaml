@@ -1,0 +1,125 @@
+---
+# Software Unit Requirements for the SpeechCli ICliModelCatalog
+#
+# These requirements describe the observable behavior of the ICliModelCatalog seam when used for
+# engine loading: which engine a model yields, which audio format it reports, and which models
+# the catalog refuses. They decompose the system-level SpeechCli-ModelManagement requirement.
+#
+# The user-facing wrong-role message (naming the model and suggesting `list-models --role tts|stt`)
+# is owned by the command-level requirements of the Synthesis and Recognition command subsystems
+# (SpeechCli-SynthesisCommands-ModelWrongRole and its recognition counterpart); the requirements
+# here cover only the catalog's refusal. Null-descriptor guards are verified in the verification
+# document and are not requirements.
+# Every test below is a SpeechModelCatalogAdapterTests test, the production implementation of the
+# seam.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: ICliModelCatalog Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-SynthesisModelEngine
+                title: >-
+                  The model catalog shall provide the synthesis engine that belongs to a
+                  synthesis-role model.
+                justification: |
+                  `speak` must produce speech with the engine of the model the operator chose,
+                  which is only meaningful for a synthesis model.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
+
+              - id: SpeechCli-ModelCommands-SynthesisModelAudioFormat
+                title: >-
+                  The model catalog shall report the audio format a synthesis-role model produces.
+                justification: |
+                  Audio written or played in a different format than the model produces would
+                  play back at the wrong speed or pitch.
+                tests:
+                  - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
+
+              - id: SpeechCli-ModelCommands-SynthesisModelRoleRefusal
+                title: >-
+                  The model catalog shall refuse to create a synthesis engine for a model that is
+                  not a synthesis model, with an error that identifies the model by id.
+                justification: |
+                  A wrong-role model must never yield an engine; identifying the model lets the
+                  calling command build its own actionable message instead of crashing.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-SynthesisModelAudioFormatRoleRefusal
+                title: >-
+                  The model catalog shall refuse to report an audio format for a model that is
+                  not a synthesis model, with an error that identifies the model by id.
+                justification: |
+                  A recognition model has no output format; reporting one would let a caller
+                  write audio in a meaningless format.
+                tests:
+                  - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-ModelEnumeration
+                title: >-
+                  The model catalog shall enumerate every known model with its id, role, and
+                  install state.
+                justification: |
+                  Every model command starts from the list of models the catalog offers.
+                tests:
+                  - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+
+              - id: SpeechCli-ModelCommands-DownloadUnknownModelRefused
+                title: >-
+                  The model catalog shall refuse to download a model id it does not know, with an
+                  argument error.
+                justification: |
+                  A mistyped id must fail visibly rather than silently download nothing.
+                tests:
+                  - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-NeverInstalledModelNoOp
+                title: >-
+                  The model catalog shall uninstall and clean up a model that was never installed
+                  without error.
+                justification: |
+                  Idempotent removal lets scripts remove a model without checking it first.
+                tests:
+                  - SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow
+
+              - id: SpeechCli-ModelCommands-VoiceEnumeration
+                title: >-
+                  The model catalog shall enumerate the reference voices from the per-user folder
+                  and the `--voices-dir` folder.
+                justification: |
+                  The voice commands list exactly the voices the catalog enumerates.
+                tests:
+                  - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
+
+              - id: SpeechCli-ModelCommands-VoicePackStateQuery
+                title: >-
+                  The model catalog shall report the install state of a known reference-voice pack
+                  and refuse an unknown pack id with an argument error.
+                justification: |
+                  Pack commands need the state of a known pack and a clear refusal of a mistyped id.
+                tests:
+                  - SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly
+
+              - id: SpeechCli-ModelCommands-RecognitionModelEngine
+                title: >-
+                  The model catalog shall provide the recognition engine that belongs to a
+                  recognition-role model.
+                justification: |
+                  `recognize` must transcribe with the engine of the model the operator chose,
+                  which is only meaningful for a recognition model.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
+
+              - id: SpeechCli-ModelCommands-RecognitionModelRoleRefusal
+                title: >-
+                  The model catalog shall refuse to create a recognition engine for a model that is
+                  not a recognition model, with an error that identifies the model by id.
+                justification: |
+                  A wrong-role model must never yield an engine; identifying the model lets the
+                  calling command build its own actionable message instead of crashing.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException

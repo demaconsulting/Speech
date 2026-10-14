@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     this library defines for the closed Natural Language Audio Tag vocabulary.
 /// </summary>
 /// <remarks>
-///     Grouping tags by kind lets Layer 2 per-model rendering (a later phase) and host UI code
+///     Grouping tags by kind lets Layer 2 per-model rendering and host UI code
 ///     (for example a demo application's "example tags" hint) reason about a tag's broad
 ///     category without hard-coding the full tag list. This enum carries no rendering behavior
 ///     itself; see <see cref="AudioTagCatalog"/> for the tag-to-kind mapping.

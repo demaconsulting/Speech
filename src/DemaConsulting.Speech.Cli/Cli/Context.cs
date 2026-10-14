@@ -32,12 +32,41 @@ namespace DemaConsulting.Speech.Cli.Cli;
 ///     <see cref="Command"/> is resolved from the first argument that is not one of the global
 ///     options below, and every argument that follows it (other than further global options) is
 ///     collected, unparsed, into <see cref="CommandArgs"/> for the subcommand's own handler to
-///     interpret in a later implementation pass. Global options (<see cref="ModelsDir"/>,
+///     interpret. Global options (<see cref="ModelsDir"/>,
 ///     <see cref="Diagnostics"/>, <see cref="Silent"/>, log file, version, help) are recognized
 ///     regardless of where they appear relative to the subcommand name.
 /// </remarks>
 internal sealed class Context : IDisposable
 {
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror base URL when <c>--mirror-url</c> is absent.
+    /// </summary>
+    public const string MirrorUrlEnvironmentVariable = "DEMASPEECH_MIRROR_URL";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror HTTP Basic username.
+    /// </summary>
+    public const string MirrorUserEnvironmentVariable = "DEMASPEECH_MIRROR_USER";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror HTTP Basic password.
+    /// </summary>
+    public const string MirrorPasswordEnvironmentVariable = "DEMASPEECH_MIRROR_PASSWORD";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror bearer token.
+    /// </summary>
+    public const string MirrorBearerTokenEnvironmentVariable = "DEMASPEECH_MIRROR_BEARER_TOKEN";
+
+    /// <summary>
+    ///     Reads an environment variable, treating an empty value as unset.
+    /// </summary>
+    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name)
+    {
+        var value = getEnvironmentVariable(name);
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
     /// <summary>
     ///     Log file stream writer (if logging is enabled).
     /// </summary>
@@ -64,6 +93,12 @@ internal sealed class Context : IDisposable
     public bool Silent { get; private init; }
 
     /// <summary>
+    ///     Gets a value indicating whether <c>--no-emotions</c> was specified, which makes <c>voices install</c> extract
+    ///     only the base voices of a pack and skip its emotion (mood) clips. It has no effect on other commands.
+    /// </summary>
+    public bool NoEmotions { get; private init; }
+
+    /// <summary>
     ///     Gets a value indicating whether the validate flag was specified.
     /// </summary>
     public bool Validate { get; private init; }
@@ -79,6 +114,12 @@ internal sealed class Context : IDisposable
     ///     <see langword="null"/> to use the library's default per-user model store location.
     /// </summary>
     public string? ModelsDir { get; private init; }
+
+    /// <summary>
+    ///     Gets the extra reference-voice directory supplied via <c>--voices-dir</c>, or
+    ///     <see langword="null"/> when none was given. When set, it is guaranteed to exist.
+    /// </summary>
+    public string? VoicesDir { get; private init; }
 
     /// <summary>
     ///     Gets the internal download mirror base URL supplied via <c>--mirror-url</c>, or
@@ -133,9 +174,10 @@ internal sealed class Context : IDisposable
             if (MirrorUser is not null || MirrorPassword is not null || MirrorBearerToken is not null)
             {
                 throw new ArgumentException(
-                    "--mirror-user, --mirror-password, and --mirror-bearer-token require " +
-                    "--mirror-url; none of them has any effect without a mirror URL to apply " +
-                    "them to.");
+                    "--mirror-user, --mirror-password, and --mirror-bearer-token (and their " +
+                    "DEMASPEECH_MIRROR_* environment variables) require a mirror URL " +
+                    "(--mirror-url or DEMASPEECH_MIRROR_URL); none of them has any effect " +
+                    "without a mirror URL to apply them to.");
             }
 
             return null;
@@ -143,7 +185,8 @@ internal sealed class Context : IDisposable
 
         if (!Uri.TryCreate(MirrorUrl, UriKind.Absolute, out var baseUri))
         {
-            throw new ArgumentException($"--mirror-url '{MirrorUrl}' is not a valid absolute URL.");
+            // The rejected value is deliberately not echoed: a mistyped URL can still carry a pasted credential.
+            throw new ArgumentException("The mirror URL is not a valid absolute URL.");
         }
 
         if (MirrorUser is null != MirrorPassword is null)
@@ -175,7 +218,7 @@ internal sealed class Context : IDisposable
     /// <summary>
     ///     Gets the raw, unparsed arguments that followed <see cref="Command"/> on the command
     ///     line (excluding any recognized global option and its value). Each subcommand's own
-    ///     handler is responsible for parsing these in the pass that implements it.
+    ///     handler is responsible for parsing these.
     /// </summary>
     public IReadOnlyList<string> CommandArgs { get; private init; } = [];
 
@@ -192,32 +235,69 @@ internal sealed class Context : IDisposable
     }
 
     /// <summary>
-    ///     Creates a Context instance from command-line arguments.
+    ///     Creates a Context instance from command-line arguments, reading the mirror settings'
+    ///     environment-variable fallbacks from the process environment.
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
     /// <returns>A new Context instance.</returns>
     /// <exception cref="ArgumentException">Thrown when arguments are invalid.</exception>
     /// <exception cref="InvalidOperationException">Thrown when the specified log file cannot be opened.</exception>
-    public static Context Create(string[] args)
+    public static Context Create(string[] args) => Create(args, Environment.GetEnvironmentVariable);
+
+    /// <summary>
+    ///     Creates a Context instance from command-line arguments, reading the mirror settings'
+    ///     environment-variable fallbacks through <paramref name="getEnvironmentVariable"/>.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>--mirror-*</c> option given on the command line always takes precedence over its
+    ///     environment variable: <see cref="MirrorUrlEnvironmentVariable"/> applies only when
+    ///     <c>--mirror-url</c> is absent, and the credential variables
+    ///     (<see cref="MirrorUserEnvironmentVariable"/>, <see cref="MirrorPasswordEnvironmentVariable"/>,
+    ///     <see cref="MirrorBearerTokenEnvironmentVariable"/>) apply only when none of
+    ///     <c>--mirror-user</c>, <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given, so
+    ///     a command-line credential is never mixed with an environment one. An empty variable is
+    ///     treated as unset. A variable's value is never written to any output or error message.
+    /// </remarks>
+    /// <param name="args">Command-line arguments.</param>
+    /// <param name="getEnvironmentVariable">
+    ///     Reads an environment variable by name, returning <see langword="null"/> when it is unset.
+    /// </param>
+    /// <returns>A new Context instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when arguments are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the specified log file cannot be opened.</exception>
+    public static Context Create(string[] args, Func<string, string?> getEnvironmentVariable)
     {
         // Validate input
         ArgumentNullException.ThrowIfNull(args);
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         var parser = new ArgumentParser();
         parser.ParseArguments(args);
+
+        // Explicit command-line options win; credentials come from one source only, never a mixture.
+        var credentialsOnCommandLine =
+            parser.MirrorUser is not null || parser.MirrorPassword is not null || parser.MirrorBearerToken is not null;
 
         var result = new Context
         {
             Version = parser.Version,
             Help = parser.Help,
             Silent = parser.Silent,
+            NoEmotions = parser.NoEmotions,
             Validate = parser.Validate,
             Diagnostics = parser.Diagnostics,
             ModelsDir = parser.ModelsDir,
-            MirrorUrl = parser.MirrorUrl,
-            MirrorUser = parser.MirrorUser,
-            MirrorPassword = parser.MirrorPassword,
-            MirrorBearerToken = parser.MirrorBearerToken,
+            VoicesDir = parser.VoicesDir,
+            MirrorUrl = parser.MirrorUrl ?? ReadEnvironment(getEnvironmentVariable, MirrorUrlEnvironmentVariable),
+            MirrorUser = credentialsOnCommandLine
+                ? parser.MirrorUser
+                : ReadEnvironment(getEnvironmentVariable, MirrorUserEnvironmentVariable),
+            MirrorPassword = credentialsOnCommandLine
+                ? parser.MirrorPassword
+                : ReadEnvironment(getEnvironmentVariable, MirrorPasswordEnvironmentVariable),
+            MirrorBearerToken = credentialsOnCommandLine
+                ? parser.MirrorBearerToken
+                : ReadEnvironment(getEnvironmentVariable, MirrorBearerTokenEnvironmentVariable),
             ResultsFile = parser.ResultsFile,
             HeadingDepth = parser.HeadingDepth,
             Command = parser.Command,
@@ -226,6 +306,12 @@ internal sealed class Context : IDisposable
 
         // Validate mirror options up front so every invocation (including --help/--version) rejects bad combinations
         _ = result.CreateMirror();
+
+        // Validate --voices-dir up front so a mistyped folder fails fast rather than silently listing no voices
+        if (result.VoicesDir is not null && !Directory.Exists(result.VoicesDir))
+        {
+            throw new ArgumentException($"--voices-dir '{result.VoicesDir}' is not an existing directory.");
+        }
 
         // Open log file if specified
         if (parser.LogFile != null)
@@ -278,6 +364,11 @@ internal sealed class Context : IDisposable
         public bool Silent { get; private set; }
 
         /// <summary>
+        ///     Gets a value indicating whether the no-emotions flag was specified.
+        /// </summary>
+        public bool NoEmotions { get; private set; }
+
+        /// <summary>
         ///     Gets a value indicating whether the validate flag was specified.
         /// </summary>
         public bool Validate { get; private set; }
@@ -291,6 +382,11 @@ internal sealed class Context : IDisposable
         ///     Gets the models directory override.
         /// </summary>
         public string? ModelsDir { get; private set; }
+
+        /// <summary>
+        ///     Gets the extra reference-voice directory.
+        /// </summary>
+        public string? VoicesDir { get; private set; }
 
         /// <summary>
         ///     Gets the internal download mirror base URL.
@@ -384,6 +480,10 @@ internal sealed class Context : IDisposable
                     Silent = true;
                     return index;
 
+                case "--no-emotions":
+                    NoEmotions = true;
+                    return index;
+
                 case "--validate":
                     Validate = true;
                     return index;
@@ -395,6 +495,10 @@ internal sealed class Context : IDisposable
 
                 case "--models-dir":
                     ModelsDir = GetRequiredStringArgument(arg, args, index, "a directory path argument");
+                    return index + 1;
+
+                case "--voices-dir":
+                    VoicesDir = GetRequiredStringArgument(arg, args, index, "a directory path argument");
                     return index + 1;
 
                 case "--mirror-url":
@@ -448,7 +552,7 @@ internal sealed class Context : IDisposable
             {
                 if (CommandDispatch.Find(arg) == null)
                 {
-                    throw new ArgumentException($"Unsupported argument '{arg}'", nameof(arg));
+                    throw new ArgumentException($"Unsupported argument '{arg}'");
                 }
 
                 Command = arg;
@@ -471,7 +575,7 @@ internal sealed class Context : IDisposable
         {
             if (index >= args.Length)
             {
-                throw new ArgumentException($"{arg} requires {description}", nameof(args));
+                throw new ArgumentException($"{arg} requires {description}");
             }
 
             return args[index];
@@ -492,7 +596,7 @@ internal sealed class Context : IDisposable
             var value = GetRequiredStringArgument(arg, args, index, description);
             if (!int.TryParse(value, out var result) || result < min || result > max)
             {
-                throw new ArgumentException($"{arg} requires an integer between {min} and {max} for {description}", nameof(args));
+                throw new ArgumentException($"{arg} requires an integer between {min} and {max} for {description}");
             }
 
             return result;
@@ -539,8 +643,14 @@ internal sealed class Context : IDisposable
         {
             var previousColor = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine(message);
-            Console.ForegroundColor = previousColor;
+            try
+            {
+                Console.Error.WriteLine(message);
+            }
+            finally
+            {
+                Console.ForegroundColor = previousColor;
+            }
         }
 
         // Write to log file if logging is enabled

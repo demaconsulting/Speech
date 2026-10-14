@@ -15,13 +15,14 @@ internal static class MirrorOptionsFactory
     /// <summary>
     ///     Builds a <see cref="DownloadMirror"/> from the given raw values.
     /// </summary>
-    /// <param name="url">The mirror's base URL, or <see langword="null"/>/empty for no mirror.</param>
-    /// <param name="user">The HTTP Basic username, or <see langword="null"/>.</param>
-    /// <param name="password">The HTTP Basic password, or <see langword="null"/>.</param>
-    /// <param name="bearerToken">The bearer token, or <see langword="null"/>.</param>
+    /// <param name="url">The mirror's base URL, or <see langword="null"/>/empty/whitespace for no mirror.</param>
+    /// <param name="user">The HTTP Basic username, or <see langword="null"/>/empty/whitespace for none.</param>
+    /// <param name="password">The HTTP Basic password, or <see langword="null"/>/empty/whitespace for none.</param>
+    /// <param name="bearerToken">The bearer token, or <see langword="null"/>/empty/whitespace for none.</param>
     /// <returns>
-    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> was supplied; otherwise
-    ///     <see langword="null"/> (every model downloads from its own declared public URI).
+    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> is not blank (null, empty,
+    ///     or whitespace-only); otherwise <see langword="null"/> (every model downloads from its
+    ///     own declared public URI).
     /// </returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="user"/>, <paramref name="password"/>, or
@@ -35,13 +36,20 @@ internal static class MirrorOptionsFactory
     /// </exception>
     public static DownloadMirror? Create(string? url, string? user, string? password, string? bearerToken)
     {
-        if (string.IsNullOrEmpty(url))
+        // A blank field (empty or whitespace-only, for example a cleared text box) is the same as
+        // no value for every field.
+        user = string.IsNullOrWhiteSpace(user) ? null : user;
+        password = string.IsNullOrWhiteSpace(password) ? null : password;
+        bearerToken = string.IsNullOrWhiteSpace(bearerToken) ? null : bearerToken;
+
+        if (string.IsNullOrWhiteSpace(url))
         {
             if (user is not null || password is not null || bearerToken is not null)
             {
                 throw new ArgumentException(
-                    "Mirror user, mirror password, and mirror bearer token require a mirror " +
-                    "URL; none of them has any effect without a mirror URL to apply them to.");
+                    "Mirror user, mirror password, and mirror bearer token (and their " +
+                    "DEMASPEECH_MIRROR_* environment variables) require a mirror URL; none of " +
+                    "them has any effect without a mirror URL to apply them to.");
             }
 
             return null;
@@ -49,10 +57,18 @@ internal static class MirrorOptionsFactory
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var baseUri))
         {
-            throw new ArgumentException($"Mirror URL '{url}' is not a valid absolute URL.");
+            // The rejected value is deliberately not echoed: a mistyped URL can still carry a pasted credential.
+            throw new ArgumentException("The mirror URL is not a valid absolute URL.");
         }
 
-        if (user is null != password is null)
+        // Checked here rather than left to DownloadMirror, whose message quotes the scheme: a
+        // pasted "user:password@host" parses with the user name as its scheme.
+        if (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new ArgumentException("The mirror URL must use the http or https scheme.");
+        }
+
+        if ((user is null) != (password is null))
         {
             throw new ArgumentException("Mirror user and mirror password must both be supplied together.");
         }

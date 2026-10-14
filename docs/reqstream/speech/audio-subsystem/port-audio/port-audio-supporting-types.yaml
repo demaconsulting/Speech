@@ -17,9 +17,8 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
                     title: >-
-                      The PortAudio supporting types shall carry managed metadata describing
-                      PortAudio devices and host APIs without exposing PortAudioSharp2 structs to
-                      higher-level logic.
+                      The subsystem shall describe audio devices and host APIs to higher-level
+                      logic using managed metadata only.
                     justification: |
                       Mockable managed metadata lets unit tests drive selection logic without
                       loading the native PortAudio runtime.
@@ -30,23 +29,25 @@ sections:
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
                     title: >-
-                      The PortAudioHostApiType type shall declare the stable PortAudio host-API
-                      identifiers used by the platform-mapping policy.
+                      The subsystem shall identify each supported host API by its stable
+                      PortAudio type identifier.
                     justification: |
                       The runtime host-API index is machine-specific, so the platform policy must
                       begin from PortAudio's stable host-API type identifiers.
                     tests:
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-                      - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                      - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                      - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                      - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
                     title: >-
-                      The PortAudioNativeMethods type shall expose the native host-API functions
-                      missing from PortAudioSharp2 so the subsystem can resolve preferred host APIs.
+                      The subsystem shall expose the host-API type, name and device count of the
+                      preferred host API, or report it as missing when it is absent.
                     justification: |
-                      PortAudioSharp2 exposes device enumeration but not host-API enumeration,
-                      leaving a gap the library must bridge itself.
+                      The managed bindings expose device enumeration but not host-API
+                      enumeration, leaving a gap the library must bridge itself. The native
+                      binding mechanism is described in the PortAudio design document.
                     tests:
+                      - PortAudioApi_ConvertHostApiInfo_NativeBlock_ReturnsManagedMetadata
                       - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                       - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

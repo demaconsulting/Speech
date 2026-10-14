@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 
 /// <summary>
 ///     Presentation state for the demo's per-model tunable-parameter settings, embedded within
-///     the synthesis and recognition panels for whichever model is currently selected there.
+///     the synthesis panel for whichever model is currently selected there.
 /// </summary>
 /// <remarks>
 ///     This ViewModel proves that a host can build a completely generic parameter-settings UI
@@ -23,7 +23,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 ///     <para>
 ///     <see cref="BuildValueBag"/> assembles the untyped key-value bag this library uses
 ///     as the interface between a host's settings UI and per-model synthesis/recognition
-///     parameter handling. As of this pass, the synthesis panel's
+///     parameter handling. The synthesis panel's
 ///     <c>SynthesisPanelViewModel.PlayAsync</c> passes this bag to
 ///     <c>ISynthesizerSessionFactory.LoadAsync</c>, which forwards it to the library's
 ///     <c>SpeechSynthesizerFactory.LoadAsync</c> and, from there, to a multi-speaker model's own
@@ -124,12 +124,67 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
     ///     selected or the selected model declares no parameters.
     /// </returns>
     /// <remarks>
-    ///     See the type-level remarks: as of this pass, the synthesis panel forwards this bag to
+    ///     See the type-level remarks: the synthesis panel forwards this bag to
     ///     a real synthesis call (via <c>ISynthesizerSessionFactory.LoadAsync</c>); the recognition
-    ///     panel still has no such consumer.
+    ///     panel still has no such consumer. The library's parameter descriptors already guarantee a
+    ///     choice default that is one of its options and finite numeric bounds; should a model
+    ///     declare the same parameter id twice, the later presenter's value wins rather than the
+    ///     panel failing.
     /// </remarks>
-    public IReadOnlyDictionary<string, object> BuildValueBag() =>
-        Parameters.ToDictionary(parameter => parameter.Id, parameter => parameter.BoxedValue);
+    public IReadOnlyDictionary<string, object> BuildValueBag()
+    {
+        var bag = new Dictionary<string, object>(StringComparer.Ordinal);
+        foreach (var parameter in Parameters)
+        {
+            bag[parameter.Id] = parameter.BoxedValue;
+        }
+
+        return bag;
+    }
+
+    /// <summary>
+    ///     Re-applies previously captured parameter values (see <see cref="BuildValueBag"/>) to the
+    ///     currently presented parameters, for example after a catalog rebuild produced a new model
+    ///     instance with the same parameter ids.
+    /// </summary>
+    /// <param name="values">
+    ///     The values to restore, keyed by parameter id. Entries with no matching parameter, a
+    ///     mismatched value type, or (for a choice) an option the parameter no longer offers are
+    ///     ignored, leaving that control at its default.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="values"/> is <see langword="null"/>.</exception>
+    public void RestoreValues(IReadOnlyDictionary<string, object> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        foreach (var parameter in Parameters)
+        {
+            if (!values.TryGetValue(parameter.Id, out var value))
+            {
+                continue;
+            }
+
+            switch (parameter)
+            {
+                case ChoiceParameterViewModel choice when value is string text:
+                    var option = choice.Options.FirstOrDefault(o => string.Equals(o.Value, text, StringComparison.Ordinal));
+                    if (option is not null)
+                    {
+                        choice.SelectedOption = option;
+                    }
+
+                    break;
+                case NumericParameterViewModel numeric when value is double number:
+                    numeric.Value = number;
+                    break;
+                case BooleanParameterViewModel boolean when value is bool flag:
+                    boolean.Value = flag;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
     /// <summary>
     ///     Rebuilds <see cref="Parameters"/> from <see cref="Model"/>'s currently declared

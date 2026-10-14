@@ -5,7 +5,7 @@
 # from the perspective of its consumers, without specifying implementation details.
 
 sections:
-  - title: Library API
+  - title: Speech Requirements
     requirements:
       - id: Speech-Diagnostics-StructuralSink
         title: >-
@@ -46,10 +46,14 @@ sections:
           device is an ordinary machine state, not a programming error.
         children:
           - Speech-Audio-Factory
+          - Speech-Audio-FactoryNeverThrows
           - Speech-Audio-FormatValue
+          - Speech-Audio-PreferredFormat
           - Speech-Audio-NameOnlyIdentity
           - Speech-Audio-SelectionFallback
           - Speech-Audio-DeviceRefresh
+          - Speech-Audio-DeviceRefreshInvalidation
+          - Speech-Audio-DeviceRefreshRefusal
           - Speech-Audio-MockableContracts
           - Speech-Audio-PreferredHostApiEnumeration
           - Speech-Audio-RealCaptureDevice
@@ -60,21 +64,47 @@ sections:
 
       - id: Speech-Audio-FileBackedDevices
         title: >-
-          The library shall provide file-backed capture and playback device implementations
-          that let a host drive speech synthesis and recognition from, and to, a WAV file
-          instead of real audio hardware.
+          The library shall provide a file-backed playback device implementation that lets a host
+          synthesize speech to a WAV file instead of real audio hardware.
         tags: [system]
         justification: |
           A host application - not only a command-line tool - needs a deterministic,
-          hardware-independent way to synthesize speech to a file and to recognize speech from
-          a pre-recorded file, for example for its own automated tests or for offline batch
-          processing.
+          hardware-independent way to synthesize speech to a file, for example for its own
+          automated tests or for offline batch processing.
         children:
           - Speech-Audio-FileBackedPlaybackDevice
+        tests:
+          - Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile
+          - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+
+      - id: Speech-Audio-FileBackedCapture
+        title: >-
+          The library shall provide a file-backed capture device implementation that lets a host
+          recognize speech from a pre-recorded WAV file instead of real audio hardware.
+        tags: [system]
+        justification: |
+          A host application needs a deterministic, hardware-independent way to recognize
+          speech from a pre-recorded file, for example for its own automated tests or for
+          offline batch processing.
+        children:
           - Speech-Audio-FileBackedCaptureDevice
         tests:
-          - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+          - Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile
           - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+
+      - id: Speech-Audio-ManagedAudioFileDecoding
+        title: >-
+          The library shall read WAV and FLAC audio files into floating-point clips without a
+          native decoder dependency.
+        tags: [system]
+        justification: |
+          Hosts store reference clips and recordings as WAV or FLAC. Decoding them in managed
+          code removes any native decoder dependency and works on every supported platform.
+        children:
+          - Speech-Audio-AudioFileReading
+          - Speech-Audio-ClipConversion
+        tests:
+          - Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent
 
       - id: Speech-Audio-InitializationFailureFallback
         title: >-
@@ -85,7 +115,7 @@ sections:
           A machine missing compatible native audio support is an expected deployment state.
           The library must degrade predictably rather than failing during composition.
         children:
-          - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+          - Speech-Audio-InitializationFallback
         tests:
           - Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices
 
@@ -100,56 +130,226 @@ sections:
           operational member anyway has made a programming error that must surface immediately.
         children:
           - Speech-Audio-UnavailableFallbacks
+          - Speech-Audio-UnavailableFallbackOperationsThrow
         tests:
           - Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException
 
       - id: Speech-Models-DownloadAndInstall
         title: >-
-          The library shall download, verify, and atomically install speech models so that an
-          in-use model is never disturbed by a download in progress and a corrupted, partial, or
-          checksum-mismatched download is never installed.
+          The library shall install a downloaded speech model only after verifying it against
+          its declared checksum.
         tags: [system]
         justification: |
-          The download-while-in-use concern and "download integrity and
-          progress" decision require that model downloads never disturb an in-use model and
-          never install unverified content, while still letting a host observe download progress
-          and explicitly manage installed models. This pass (Sub-phase 2a) covers only the
-          storage and download machinery; the model catalog/contract types land in Sub-phase 2b.
+          The "download integrity and progress" decision requires that models download through
+          one verified path with an explicit, hash-checked descriptor, so a host never installs
+          unverified content. This requirement covers the download orchestration, the model
+          descriptors, and the mockable HTTP seam.
         children:
-          - Speech-Models-AtomicInstall
-          - Speech-Models-InstallStateQuery
-          - Speech-Models-ConfigurableRoot
-          - Speech-Models-Uninstall
           - Speech-Models-DownloadOrchestration
-          - Speech-Models-HonestFailureStates
+          - Speech-Models-PerModelDownloadSerialization
+          - Speech-Models-CrossModelDownloadConcurrency
           - Speech-Models-DownloadDescriptors
-          - Speech-Models-DownloadProgress
+          - Speech-Models-DownloadDescriptorInstallPaths
           - Speech-Models-MockableHttpSeam
-          - Speech-Models-MirrorRedirect
-          - Speech-Models-RicherFailureClassification
         tests:
           - Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel
+
+      - id: Speech-Models-InUseModelProtection
+        title: >-
+          The library shall never disturb an in-use model's current installation while a
+          replacement download is in progress.
+        tags: [system]
+        justification: |
+          The download-while-in-use concern requires that an in-use model is untouched until
+          a verified replacement is fully staged, then swapped in atomically.
+        children:
+          - Speech-Models-AtomicInstall
+          - Speech-Models-AtomicInstallFailureSafety
+          - Speech-Models-LeftoverCleanup
+        tests:
+          - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
+          - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
+
+      - id: Speech-Models-CorruptDownloadRejection
+        title: >-
+          The library shall never install a corrupted, partial, or checksum-mismatched
+          download.
+        tags: [system]
+        justification: |
+          Never installing unverified content requires that a failed download leaves nothing
+          installed and leaves any prior installation intact.
+        children:
+          - Speech-Models-PriorInstallProtected
+        tests:
+          - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+          - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+
+      - id: Speech-Models-DownloadFailureReporting
+        title: >-
+          The library shall report the reason a download did not install a model.
+        tags: [system]
+        justification: |
+          A host must be able to distinguish a blocked network path, an HTTP error response,
+          and a local disk failure, rather than seeing a single undifferentiated failure.
+        children:
+          - Speech-Models-HonestFailureStates
+          - Speech-Models-DownloadFailureDiagnostics
+          - Speech-Models-RicherFailureClassification
+          - Speech-Models-FailureErrorPopulated
+          - Speech-Models-CallerCancellationNotAFailure
+        tests:
+          - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+          - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+          - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
+
+      - id: Speech-Models-DownloadProgressReporting
+        title: >-
+          The library shall let a host observe a model download's progress.
+        tags: [system]
+        justification: |
+          A host builds progress UI from the reported progress without depending on a concrete
+          download implementation.
+        children:
+          - Speech-Models-DownloadProgress
+        tests:
+          - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+          - SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction
+
+      - id: Speech-Models-InstalledModelManagement
+        title: >-
+          The library shall let a host query whether a model is installed, cheaply and without
+          throwing.
+        tags: [system]
+        justification: |
+          A host model-settings page needs an honest, inexpensive installed/not-installed
+          answer that never reports a half-installed model as installed.
+        children:
+          - Speech-Models-InstallStateQuery
+        tests:
+          - SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse
+          - SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse
+
+      - id: Speech-Models-ConfigurableStorageRoot
+        title: >-
+          The library shall store models under a per-user location by default and under an
+          explicit host-configured path when one is supplied.
+        tags: [system]
+        justification: |
+          Hosts differ in where they allow large per-user data, so the storage root must be
+          overridable while defaulting to a sensible per-user location.
+        children:
+          - Speech-Models-ConfigurableRoot
+        tests:
+          - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
+          - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
+
+      - id: Speech-Models-ExplicitUninstall
+        title: >-
+          The library shall let a host explicitly uninstall an installed model.
+        tags: [system]
+        justification: |
+          A host model-settings page must be able to reclaim the disk space of a model the
+          user no longer wants.
+        children:
+          - Speech-Models-Uninstall
+        tests:
+          - SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest
+
+      - id: Speech-Models-DownloadMirror
+        title: >-
+          The library shall let a host redirect every model download through a single,
+          optionally authenticated internal HTTP(S) mirror.
+        tags: [system]
+        justification: |
+          Enterprise hosts often cannot reach public download hosts directly, so one mirror
+          setting must apply uniformly to every model without changing any model's own
+          declared download descriptor.
+        children:
+          - Speech-Models-MirrorRedirect
+          - Speech-Models-MirrorAuthentication
+          - Speech-Models-MirrorAuthenticationRedirectStripping
+          - Speech-Models-MirrorAuthenticationTransportPolicy
+        tests:
+          - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
+          - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
+
+      - id: Speech-Models-ReferenceVoiceLibrary
+        title: >-
+          The library shall provide a model-agnostic reference-voice library that downloads a
+          verified, licensed voice pack.
+        tags: [system]
+        justification: |
+          Voice-cloning synthesis models need reference clips, and a hundred-plus permissively
+          licensed clips are far more useful as an optional, verified download than as
+          something every host must source itself.
+        children:
+          - Speech-Models-ReferenceVoicePack
+          - Speech-Models-ReferenceVoicePackDescriptor
+          - Speech-Models-ReferenceVoicePackInstall
+          - Speech-Models-ReferenceVoicePackInstallSafety
+          - Speech-Models-ReferenceVoicePackInstallSizeCaps
+          - Speech-Models-ReferenceVoicePackUninstall
+          - Speech-Models-ReferenceVoiceEmotionInstall
+          - Speech-Models-ReferenceVoiceEmotionUpgrade
+          - Speech-Models-ReferenceVoiceMoodClips
+          - Speech-Models-ReferenceVoiceConsentNotice
+        tests:
+          - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+
+      - id: Speech-Models-ReferenceVoiceMergedListing
+        title: >-
+          The library shall list all available reference voices merged and de-duplicated.
+        tags: [system]
+        justification: |
+          A host voice picker needs one list covering the downloaded pack and the user's own
+          voice folder, with a single deterministic winner when identifiers collide.
+        children:
+          - Speech-Models-ReferenceVoiceUserFolder
+          - Speech-Models-ReferenceVoiceListing
+        tests:
+          - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
 
       - id: Speech-Models-CatalogAndContract
         title: >-
           The library shall describe each known model through a common, role-tagged contract
           (identity, declared tunable parameters, declared audio-tag support, download
-          descriptor) and enumerate every known model alongside its current install state through
-          a catalog that never throws.
+          descriptor).
         tags: [system]
         justification: |
           This library's model-catalog decision requires a typed, self-describing model
           contract so a host can build UI (parameter controls, model lists) without knowing a
-          specific model in advance, and an enumerable catalog exposing install state so a host
-          can build a model-settings page. This pass (Sub-phase 2b) ships the generic
-          contract/catalog machinery with zero real, production model classes; Phase 3/4 add
-          real recognition/synthesis models on top of it.
+          specific model in advance. The library ships the generic contract machinery with
+          zero built-in models; concrete recognition and synthesis models are supplied by
+          separate packages that plug in through it.
         children:
           - Speech-Models-ContractDeclaration
           - Speech-Models-TunableParameters
           - Speech-Models-TunableParameterValueValidation
+          - Speech-Models-TunableParameterUnrecognizedIdTolerance
+          - Speech-Models-ContractParameterDeclaration
+          - Speech-Models-ContractAudioTagAndDownloadDeclaration
+          - Speech-Models-ContractLicenseDeclaration
+          - Speech-Models-ContractHooks
+          - Speech-Models-ContractRoleMembers
+          - Speech-Models-TunableParameterDescriptorValidation
+          - Speech-Models-TunableParameterArgumentValidation
+        tests:
+          - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
+          - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
+
+      - id: Speech-Models-InstallStateCatalog
+        title: >-
+          The library shall enumerate every known model alongside its current install state
+          through a catalog that never throws.
+        tags: [system]
+        justification: |
+          An enumerable catalog exposing install state lets a host build a model-settings
+          page. The library ships the generic catalog machinery with zero built-in models;
+          concrete models are registered by separate packages.
+        children:
           - Speech-Models-CatalogEnumeration
           - Speech-Models-CatalogStoreComposition
+          - Speech-Models-CatalogStateReporting
         tests:
           - Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState
 
@@ -157,84 +357,196 @@ sections:
         title: >-
           The library shall recognize speech from a configured audio input device using an
           installed recognition model, emitting progressive provisional and final text results
-          while audio is arriving, and shall compose without ever throwing when recognition is
-          not possible on the machine.
+          while audio is arriving.
         tags: [system]
         justification: |
           This library's core promise includes "streaming speech-to-text, emitting progressive
           provisional and final results as audio arrives", built on the already-shipped audio
-          capture and model management capabilities. Because a model that has not been downloaded
-          yet, a machine with no microphone, and a machine without the speech engine's native
-          runtime are all ordinary deployment states, composition must degrade honestly rather
-          than failing application start-up. This pass (Phase 3) ships the recognition
-          infrastructure and the model-to-engine contract; no real, production recognition model
-          class ships yet, so end-to-end behavior is proven against a test model.
+          capture and model management capabilities. The library ships the recognition
+          infrastructure and the model-to-engine contract; concrete recognition models are
+          supplied by separate packages, so system-level behavior is proven against a test
+          model.
         children:
           - Speech-Recognition-MockableContract
+          - Speech-Recognition-BackendIsolation
           - Speech-Recognition-EngineExclusivity
-          - Speech-Recognition-Composition
           - Speech-Recognition-StreamingPipeline
+          - Speech-Recognition-StreamingResultDelivery
           - Speech-Recognition-FaultContainment
-          - Speech-Recognition-UnavailableFallback
-          - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+          - Speech-Recognition-FaultedSessionSurfacing
           - Speech-Audio-CaptureFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults
 
+      - id: Speech-Recognition-HonestComposition
+        title: >-
+          The library shall compose a recognizer without ever throwing when recognition is not
+          possible on the machine.
+        tags: [system]
+        justification: |
+          A model that has not been downloaded yet, a machine with no microphone, and a machine
+          without the speech engine's native runtime are all ordinary deployment states, so
+          composition must degrade honestly rather than failing application start-up.
+        children:
+          - Speech-Recognition-Composition
+          - Speech-Recognition-UnrecognizedParameterIgnored
+          - Speech-Recognition-InvalidParameterValueRejected
+          - Speech-Recognition-UnavailableFallback
+          - Speech-Recognition-UnavailableOperationsThrow
+        tests:
+          - SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
+          - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
+
       - id: Speech-Synthesis-AudioTagVocabulary
         title: >-
           The library shall recognize a closed, fixed vocabulary of inline Natural Language
-          Audio Tags in text intended for text-to-speech, grouped into kinds, and shall pass any
-          unrecognized or malformed bracket content through as plain narration text rather than
-          dropping or rejecting it.
+          Audio Tags in text intended for text-to-speech, grouped into kinds.
         tags: [system]
         justification: |
-          This library's "Natural Language Audio Tags replace SSML" decision and its "never
-          worse than plain narration" reasoning require a fixed, model-independent vocabulary
-          that a host can rely on across every model, and require that text a host did not
-          intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is never
-          silently dropped or rejected. This requirement covers the closed vocabulary and the
-          model-independent Layer 1 parser; Layer 2 per-model rendering and the public
-          ISynthesisSession streaming/playback pipeline are described by
+          This library's "Natural Language Audio Tags replace SSML" decision requires a fixed,
+          model-independent vocabulary that a host can rely on across every model. This
+          requirement covers the closed vocabulary; Layer 2 per-model rendering and the public
+          ISynthesisSession chunked synthesis and playback are described by
           Speech-Synthesis-StreamingSynthesizer below.
         children:
           - Speech-Synthesis-ClosedVocabulary
-          - Speech-Synthesis-Layer1Parsing
+          - Speech-Synthesis-ClosedVocabularyAliasCanonicalization
+          - Speech-Synthesis-ClosedVocabularyAliasUniqueness
+          - Speech-Synthesis-ClosedVocabularyKindGrouping
         tests:
-          - AudioTagParser_Parse_EveryDocumentedAlias_ResolvesToItsCanonicalTagSpan
-          - AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText
+          - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
+
+      - id: Speech-Synthesis-UnrecognizedBracketPassThrough
+        title: >-
+          The library shall pass any unrecognized or malformed bracket content through as plain
+          narration text rather than dropping or rejecting it.
+        tags: [system]
+        justification: |
+          The "never worse than plain narration" reasoning requires that text a host did not
+          intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is
+          never silently dropped or rejected. This is delivered by the model-independent Layer 1
+          parser.
+        children:
+          - Speech-Synthesis-Layer1Parsing
+          - Speech-Synthesis-Layer1AliasResolution
+          - Speech-Synthesis-Layer1AliasNullRejection
+          - Speech-Synthesis-Layer1LiteralPassthrough
+        tests:
+          - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
+          - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
 
       - id: Speech-Synthesis-StreamingSynthesizer
         title: >-
           The library shall synthesize speech for text containing Natural Language Audio Tags,
-          using an installed synthesis model and a configured audio output device, rendering each
-          tag according to that model's own declared capabilities, chunking and pipelining
-          synthesis with playback for low latency, and shall compose without ever throwing when
-          synthesis is not possible on the machine.
+          using an installed synthesis model and a configured audio output device.
         tags: [system]
         justification: |
-          This library's core promise includes chunked, low-latency streaming synthesis and
-          playback of text containing Natural Language Audio Tags, built on the already-shipped
-          audio playback, model management, and Layer 1 tag-parsing capabilities. Because a model
-          that has not been downloaded yet, a machine with no speakers, and a machine without the
-          speech engine's native runtime are all ordinary deployment states, composition must
-          degrade honestly rather than failing application start-up. This pass (Sub-phase 4b)
-          ships the Layer 2 rendering, chunked pipeline, and the mockable native-backend seam;
-          the real sherpa-onnx synthesis backend is supplied by the sibling
-          DemaConsulting.Speech.Sherpa package; end-to-end behavior is proven against a test
-          model per the fakeable engine seam.
+          This library's core promise includes synthesis and playback of text containing
+          Natural Language Audio Tags, built on the already-shipped audio playback, model
+          management, and Layer 1 tag-parsing capabilities. The library provides the mockable
+          backend seam; real synthesis backends are supplied by sibling packages (for example
+          DemaConsulting.Speech.Sherpa and the DemaConsulting.Speech.Onnx.* packages);
+          end-to-end behavior is proven against a test model per the fakeable engine seam.
         children:
-          - Speech-Synthesis-Layer2Rendering
           - Speech-Synthesis-MockableContract
+          - Speech-Synthesis-MockableContractAvailability
+          - Speech-Synthesis-MockableContractUnavailableOperations
+          - Speech-Synthesis-MockableSynthesisPlaybackContract
+          - Speech-Synthesis-MockableSynthesisOneShot
+          - Speech-Synthesis-MockableSynthesisStreaming
+          - Speech-Synthesis-MockableSynthesisPlayback
+          - Speech-Synthesis-MockableSynthesisSessionReuse
+          - Speech-Synthesis-MockableSynthesisSessionDisposal
+          - Speech-Synthesis-MockableCancellationContract
+          - Speech-Synthesis-MockableCancellationIdleNoOp
           - Speech-Synthesis-EngineExclusivity
-          - Speech-Synthesis-Composition
+          - Speech-Synthesis-EngineDisposalOrdering
+          - Speech-Synthesis-EngineBackendDisposedOnce
           - Speech-Synthesis-VoiceSelection
-          - Speech-Synthesis-ChunkedPipeline
+          - Speech-Synthesis-SpeakerIdResolution
+          - Speech-Synthesis-VoiceSelectionIndependentOfTagOverrides
           - Speech-Synthesis-SessionOverlapAndLifecycle
+          - Speech-Synthesis-SessionStateMachine
+          - Speech-Synthesis-FaultedSessionTerminal
           - Speech-Synthesis-FaultContainment
-          - Speech-Synthesis-UnavailableFallback
-          - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
-          - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
+          - Speech-Synthesis-FaultContainmentPlaybackDevice
+          - Speech-Synthesis-FaultContainmentBoundedCompletion
+          - Speech-Synthesis-FaultContainmentAbandonedCall
+          - Speech-Synthesis-FaultContainmentDisposal
+          - Speech-Synthesis-SessionAvailabilityAfterEnd
+          - Speech-Synthesis-DeterministicCancellation
+          - Speech-Synthesis-CancellationStopsOperation
+          - Speech-Synthesis-CancellationCallerTokenScope
+          - Speech-Synthesis-NonCooperativeCallAbandonment
+          - Speech-Synthesis-NativeCallThreadIsolation
+          - Speech-Synthesis-NoSynthesizedTextInDiagnostics
           - Speech-Audio-PlaybackFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio
+
+      - id: Speech-Synthesis-PerModelTagRendering
+        title: >-
+          The library shall render each Natural Language Audio Tag according to the synthesis
+          model's own declared capabilities.
+        tags: [system]
+        justification: |
+          Models differ in which tags they can express, so rendering must follow each model's
+          declared capability profile, never worse than plain narration.
+        children:
+          - Speech-Synthesis-Layer2Rendering
+          - Speech-Synthesis-Layer2RenderingApproximation
+          - Speech-Synthesis-Layer2RenderingStrip
+          - Speech-Synthesis-Layer2RenderingPlainTextChunking
+          - Speech-Synthesis-Layer2RenderingPause
+          - Speech-Synthesis-Layer2RenderingEllipsisPause
+          - Speech-Synthesis-Layer2RenderingPlanValidity
+          - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
+          - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
+        tests:
+          - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
+
+      - id: Speech-Synthesis-ChunkedLowLatencyPlayback
+        title: >-
+          The library shall begin playing the first synthesized text chunk while later chunks are
+          still being synthesized.
+        tags: [system]
+        justification: |
+          Low-latency playback requires beginning playback of the first chunk while later
+          chunks are still being synthesized.
+        children:
+          - Speech-Synthesis-StreamedPlayback
+        tests:
+          - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+
+      - id: Speech-Synthesis-ChunkedSynthesis
+        title: >-
+          The library shall split input text into chunks and synthesize them sequentially in
+          order.
+        tags: [system]
+        justification: |
+          Chunking is what makes early playback possible; sequential in-order synthesis keeps
+          the spoken output faithful to the input text.
+        children:
+          - Speech-Synthesis-ChunkedPipeline
+          - Speech-Synthesis-SequentialSynthesis
+        tests:
+          - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+
+      - id: Speech-Synthesis-HonestComposition
+        title: >-
+          The library shall compose a synthesizer without ever throwing when synthesis is not
+          possible on the machine.
+        tags: [system]
+        justification: |
+          A model that has not been downloaded yet, a machine with no speakers, and a machine
+          without the speech engine's native runtime are all ordinary deployment states, so
+          composition must degrade honestly rather than failing application start-up.
+        children:
+          - Speech-Synthesis-Composition
+          - Speech-Synthesis-CompositionIgnoresUnrecognizedParameter
+          - Speech-Synthesis-CompositionRejectsInvalidParameterValue
+          - Speech-Synthesis-UnavailableFallback
+          - Speech-Synthesis-UnavailableFallbackOperationsThrow
+          - Speech-Synthesis-UnavailableSessionOperationsThrow
+        tests:
+          - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine

@@ -34,8 +34,14 @@ public class SpeechModelDownloadDescriptorTests
     [Fact]
     public void SpeechModelDownloadDescriptor_Constructor_EmptyFileList_ThrowsArgumentException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new SpeechModelDownloadDescriptor([]));
+        // Arrange
+        IReadOnlyList<SpeechModelDownloadFile> files = [];
+
+        // Act
+        var act = () => new SpeechModelDownloadDescriptor(files);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
     }
 
     /// <summary>
@@ -44,8 +50,14 @@ public class SpeechModelDownloadDescriptorTests
     [Fact]
     public void SpeechModelDownloadDescriptor_Constructor_NullFileList_ThrowsArgumentNullException()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new SpeechModelDownloadDescriptor(null!));
+        // Arrange
+        IReadOnlyList<SpeechModelDownloadFile> files = null!;
+
+        // Act
+        var act = () => new SpeechModelDownloadDescriptor(files);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(act);
     }
 
     /// <summary>
@@ -59,8 +71,11 @@ public class SpeechModelDownloadDescriptorTests
         var first = new SpeechModelDownloadFile(new Uri("https://example.test/a.onnx"), ValidChecksum, "model.onnx");
         var second = new SpeechModelDownloadFile(new Uri("https://example.test/b.onnx"), ValidChecksum, "model.onnx");
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new SpeechModelDownloadDescriptor([first, second]));
+        // Act
+        var act = () => new SpeechModelDownloadDescriptor([first, second]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
     }
 
     /// <summary>
@@ -77,8 +92,11 @@ public class SpeechModelDownloadDescriptorTests
         var first = new SpeechModelDownloadFile(new Uri("https://example.test/a.onnx"), ValidChecksum, "tokens/vocab.txt");
         var second = new SpeechModelDownloadFile(new Uri("https://example.test/b.onnx"), ValidChecksum, "tokens\\vocab.txt");
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new SpeechModelDownloadDescriptor([first, second]));
+        // Act
+        var act = () => new SpeechModelDownloadDescriptor([first, second]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
     }
 
     /// <summary>
@@ -92,8 +110,11 @@ public class SpeechModelDownloadDescriptorTests
         // Arrange
         var first = new SpeechModelDownloadFile(new Uri("https://example.test/a.onnx"), ValidChecksum, "a.onnx");
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new SpeechModelDownloadDescriptor([first, null!]));
+        // Act
+        var act = () => new SpeechModelDownloadDescriptor([first, null!]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
     }
 
     /// <summary>

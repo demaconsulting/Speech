@@ -1,0 +1,48 @@
+### AudioClip
+
+**Purpose**: Carry decoded audio as plain library-owned data.
+
+**Data Model**: A sealed value record of interleaved `float` `Samples` in [-1, 1], the
+`SampleRate`, the `ChannelCount` and the source `BitsPerSample`. The record is read-only by
+contract rather than deeply immutable: its properties cannot be reassigned after construction, but
+the `Samples` array is shared and mutable. `FrameCount` and `Duration` are
+derived. `BitsPerSample` is informational only: it is neither validated nor used by any member.
+`FrameCount` is `Samples.Length / ChannelCount` with integer division, so a sample count that is not a
+multiple of the channel count truncates: the stray trailing samples are not counted in `FrameCount`
+or `Duration` and are dropped by `ToMono` (but still converted by `ToPcm16`). Because `BitsPerSample`
+is not validated, a `with { BitsPerSample = ... }` expression accepts any value; only `Samples`,
+`SampleRate` and `ChannelCount` are guarded.
+The `Samples` array is shared, not copied, so callers must not modify it and thread safety depends
+on callers (the clip is safe to share while nobody writes to the array).
+
+The record declares explicit properties backed by private fields, initialized from the primary
+constructor parameters through validating helpers, with validating `init` accessors. A
+compiler-generated positional property would accept any value in a `with` expression; the explicit
+`init` accessors make a `with` expression run the same validation as the constructor.
+
+**Key Methods**:
+
+- **FrameCount**: the number of whole frames, `Samples.Length / ChannelCount` with integer division.
+  Precondition: the clip is constructed, so `ChannelCount` is positive. Postcondition: the value is
+  never negative, is zero for an empty clip, and ignores any stray trailing samples.
+- **Duration**: the clip length in seconds as a `double`, `FrameCount` divided by `SampleRate`.
+  Precondition: the clip is constructed, so `SampleRate` is positive. Postcondition: the value is
+  never negative, is zero for an empty clip, and never throws.
+- **ToMono()**: down-mix by averaging channels through `AudioResampler.DownMix`; a mono clip
+  yields a copy, and a NaN sample makes the mono frame that contains it NaN (incidental, not a
+  guaranteed contract). Precondition: the clip is constructed. Postcondition: the result is a new
+  array of `FrameCount` samples and the clip is unchanged.
+- **ToPcm16()**: convert to signed 16-bit samples by scaling by 32768 and rounding to nearest
+  (ties to even), clamping to [-32768, 32767] so +1.0 becomes 32767, and mapping NaN to zero. This
+  algorithm is a design detail; the requirements state only the observable mapping and saturation.
+  Precondition: the clip is constructed. Postcondition: the result is a new array with one value
+  per entry of `Samples` (including stray trailing samples) and the clip is unchanged.
+
+**Error Handling**: The constructor and `with` expressions validate: `Samples` null throws
+`ArgumentNullException`; `SampleRate` or `ChannelCount` of zero or less throws
+`ArgumentOutOfRangeException` (so `Duration` and `ToMono` cannot divide by zero). An empty sample
+array is valid and has zero duration. The record keeps reference equality for `Samples`.
+
+**Dependencies**: `AudioResampler`.
+
+**Callers**: `AudioFileReader`, `WavDecoder`, `FlacDecoder`, `AudioResampler`.

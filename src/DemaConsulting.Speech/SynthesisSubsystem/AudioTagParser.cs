@@ -13,8 +13,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     narration" reasoning, any bracket content this parser cannot resolve against
 ///     <see cref="AudioTagCatalog"/> - an unknown word, an unclosed bracket, or empty brackets -
 ///     is emitted as literal <see cref="TaggedTextSpanKind.PlainText"/> (including the brackets
-///     themselves) rather than thrown away or raised as an error. Layer 2 per-model rendering (a
-///     later phase) consumes this parser's output to build a <c>SpeechPlan</c>.
+///     themselves) rather than thrown away or raised as an error. Layer 2 per-model rendering
+///     (implemented by each synthesis model) consumes this parser's output to build a <c>SpeechPlan</c>.
 /// </remarks>
 public static class AudioTagParser
 {
@@ -50,17 +50,31 @@ public static class AudioTagParser
                 continue;
             }
 
-            // Found a potential tag opener - look for its matching closing bracket
-            var closeIndex = text.IndexOf(']', i + 1);
-            if (closeIndex < 0)
+            // Found a potential tag opener - look for the nearest bracket of either kind. No
+            // vocabulary alias contains a bracket, so a candidate can only be a tag when the
+            // very next bracket is its closing ']'. Stopping at the next '[' keeps every scan
+            // bounded by the distance to the next bracket, so the whole parse is linear even for
+            // adversarial input such as thousands of consecutive '[' characters.
+            var nextBracket = text.IndexOfAny(['[', ']'], i + 1);
+            if (nextBracket < 0)
             {
-                // Unbalanced bracket: no closing ']' exists anywhere in the remainder of the
+                // Unbalanced bracket: no further bracket exists anywhere in the remainder of the
                 // text, so nothing here can ever resolve to a tag - pass the rest through as
                 // literal text rather than dropping or throwing
                 plain.Append(text, i, text.Length - i);
                 break;
             }
 
+            if (text[nextBracket] == '[')
+            {
+                // A nested opener means this candidate is unclosed; emit its '[' literally and
+                // let the nested opener be examined on its own (as in "[ [fast]")
+                plain.Append('[');
+                i++;
+                continue;
+            }
+
+            var closeIndex = nextBracket;
             var content = text.Substring(i + 1, closeIndex - i - 1);
             if (AudioTagCatalog.TryResolve(content, out var tag, out _))
             {
@@ -71,10 +85,13 @@ public static class AudioTagParser
             }
             else
             {
-                // Unknown tag name or empty brackets: malformed/unrecognized bracket content
-                // passes through literally, brackets included, per the "never worse than plain
-                // narration" guarantee
-                plain.Append(text, i, closeIndex - i + 1);
+                // Unknown tag name or empty brackets: emit only the opening bracket literally and
+                // resume scanning just after it, so a nested '[' inside the candidate (as in
+                // "[ [fast]") can still open a valid tag; the "never worse than plain
+                // narration" guarantee is preserved because all text is still passed through
+                plain.Append('[');
+                i++;
+                continue;
             }
 
             i = closeIndex + 1;

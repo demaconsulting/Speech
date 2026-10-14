@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
@@ -49,8 +49,13 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue()
     {
-        var (key, value) = ParameterBagParser.ParseToken("rate=1.2", "--stt-param");
+        // Arrange
+        const string token = "rate=1.2";
 
+        // Act
+        var (key, value) = ParameterBagParser.ParseToken(token, "--stt-param");
+
+        // Assert
         Assert.Equal("rate", key);
         Assert.Equal("1.2", value);
     }
@@ -59,24 +64,65 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException()
     {
-        var exception = Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("rate", "--stt-param"));
+        // Arrange
+        const string token = "rate";
 
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken(token, "--stt-param"));
+
+        // Assert
         Assert.Contains("--stt-param", exception.Message);
+        Assert.Contains("'rate'", exception.Message);
+    }
+
+    /// <summary>Test that a null token is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_ParseToken_NullToken_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string token = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.ParseToken(token, "--stt-param"));
+    }
+
+    /// <summary>Test that a null flag name is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_ParseToken_NullFlagName_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string flagName = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.ParseToken("rate=1.2", flagName));
     }
 
     /// <summary>Test that a token with an empty key throws.</summary>
     [Fact]
     public void ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("=1.2", "--stt-param"));
+        // Arrange
+        const string token = "=1.2";
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken(token, "--tts-param"));
+
+        // Assert
+        Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains("'=1.2'", exception.Message);
     }
 
     /// <summary>Test that a value with an empty half (trailing '=') is accepted as an empty value string.</summary>
     [Fact]
     public void ParameterBagParser_ParseToken_EmptyValueHalf_ReturnsEmptyValue()
     {
-        var (key, value) = ParameterBagParser.ParseToken("rate=", "--stt-param");
+        // Arrange
+        const string token = "rate=";
 
+        // Act
+        var (key, value) = ParameterBagParser.ParseToken(token, "--stt-param");
+
+        // Assert
         Assert.Equal("rate", key);
         Assert.Equal(string.Empty, value);
     }
@@ -85,8 +131,13 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NumericInRange_ResolvesBoxedDouble()
     {
-        var result = ParameterBagParser.Resolve([("rate", "1.5")], [RateParameter], "--stt-param");
+        // Arrange
+        var raw = new[] { ("rate", "1.5") };
 
+        // Act
+        var result = ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param");
+
+        // Assert
         Assert.Equal(1.5, Assert.IsType<double>(result["rate"]));
     }
 
@@ -94,30 +145,103 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "5.0")], [RateParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("rate", "5.0") };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("--stt-param", exception.Message);
+        Assert.Contains("rate", exception.Message);
+        Assert.Contains("'5.0'", exception.Message);
     }
 
     /// <summary>Test that a malformed numeric value throws.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "not-a-number")], [RateParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("rate", "not-a-number") };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("not a valid number", exception.Message);
+        Assert.Contains("'not-a-number'", exception.Message);
+    }
+
+    /// <summary>
+    ///     Regression test: non-finite numbers (NaN, Infinity, -Infinity) must be rejected as
+    ///     malformed numbers rather than slipping through the range comparison (NaN compares false
+    ///     against every bound) or the integer check.
+    /// </summary>
+    [Theory]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public void ParameterBagParser_Resolve_NumericNonFinite_ThrowsArgumentException(string value)
+    {
+        // Arrange
+        var raw = new[] { ("rate", value) };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [RateParameter], "--tts-param"));
+
+        // Assert
+        Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains($"'{value}'", exception.Message);
+    }
+
+    /// <summary>Regression test: non-finite numbers are also rejected for integer-only parameters.</summary>
+    [Theory]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public void ParameterBagParser_Resolve_IntegerParameterNonFinite_ThrowsArgumentException(string value)
+    {
+        // Arrange
+        var raw = new[] { ("speakerIndex", value) };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [SpeakerIndexParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("not a valid number", exception.Message);
     }
 
     /// <summary>Test that a fractional value for an integer-only parameter throws.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() =>
-            ParameterBagParser.Resolve([("speakerIndex", "1.5")], [SpeakerIndexParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("speakerIndex", "1.5") };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [SpeakerIndexParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("whole number", exception.Message);
+        Assert.Contains("'1.5'", exception.Message);
     }
 
     /// <summary>Test that a whole-number value for an integer-only parameter resolves.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_IntegerParameterWholeValue_ResolvesBoxedDouble()
     {
-        var result = ParameterBagParser.Resolve([("speakerIndex", "3")], [SpeakerIndexParameter], "--stt-param");
+        // Arrange
+        var raw = new[] { ("speakerIndex", "3") };
 
+        // Act
+        var result = ParameterBagParser.Resolve(raw, [SpeakerIndexParameter], "--stt-param");
+
+        // Assert
         Assert.Equal(3.0, Assert.IsType<double>(result["speakerIndex"]));
     }
 
@@ -125,8 +249,13 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_ValidChoiceValue_ResolvesBoxedString()
     {
-        var result = ParameterBagParser.Resolve([("voice", "bob")], [VoiceParameter], "--stt-param");
+        // Arrange
+        var raw = new[] { ("voice", "bob") };
 
+        // Act
+        var result = ParameterBagParser.Resolve(raw, [VoiceParameter], "--stt-param");
+
+        // Assert
         Assert.Equal("bob", Assert.IsType<string>(result["voice"]));
     }
 
@@ -134,7 +263,16 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("voice", "carol")], [VoiceParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("voice", "carol") };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [VoiceParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("does not match any declared option", exception.Message);
+        Assert.Contains("'carol'", exception.Message);
     }
 
     /// <summary>Test that a valid boolean value resolves to a boxed bool.</summary>
@@ -144,8 +282,13 @@ public sealed class ParameterBagParserTests
     [InlineData("True", true)]
     public void ParameterBagParser_Resolve_ValidBooleanValue_ResolvesBoxedBool(string input, bool expected)
     {
-        var result = ParameterBagParser.Resolve([("denoise", input)], [DenoiseParameter], "--stt-param");
+        // Arrange
+        var raw = new[] { ("denoise", input) };
 
+        // Act
+        var result = ParameterBagParser.Resolve(raw, [DenoiseParameter], "--stt-param");
+
+        // Assert
         Assert.Equal(expected, Assert.IsType<bool>(result["denoise"]));
     }
 
@@ -153,16 +296,48 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("denoise", "maybe")], [DenoiseParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("denoise", "maybe") };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [DenoiseParameter], "--stt-param"));
+
+        // Assert
+        Assert.Contains("--stt-param", exception.Message);
+        Assert.Contains("'maybe'", exception.Message);
+    }
+
+    /// <summary>Test that a declared parameter of an unsupported kind is rejected, naming flag, id and value.</summary>
+    [Fact]
+    public void ParameterBagParser_Resolve_UnrecognizedParameterKind_ThrowsArgumentExceptionNamingValue()
+    {
+        // Arrange
+        var raw = new[] { ("custom", "xyz") };
+        var declared = new ISpeechModelParameter[] { new UnsupportedKindParameter() };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, declared, "--tts-param"));
+
+        // Assert
+        Assert.Contains("--tts-param", exception.Message);
+        Assert.Contains("'custom'", exception.Message);
+        Assert.Contains("'xyz'", exception.Message);
     }
 
     /// <summary>Test that an unrecognized key throws a clean ArgumentException naming the key.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException()
     {
-        var exception = Assert.Throws<ArgumentException>(() =>
-            ParameterBagParser.Resolve([("bogus", "1")], [RateParameter], "--stt-param"));
+        // Arrange
+        var raw = new[] { ("bogus", "1") };
 
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() =>
+            ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param"));
+
+        // Assert
         Assert.Contains("bogus", exception.Message);
         Assert.Contains("--stt-param", exception.Message);
     }
@@ -171,8 +346,13 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag()
     {
-        var result = ParameterBagParser.Resolve([], [RateParameter], "--stt-param");
+        // Arrange
+        var raw = Array.Empty<(string Key, string Value)>();
 
+        // Act
+        var result = ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param");
+
+        // Assert
         Assert.Empty(result);
     }
 
@@ -180,13 +360,45 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NullRawValues_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve(null!, [RateParameter], "--stt-param"));
+        // Arrange
+        IReadOnlyList<(string Key, string Value)> raw = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve(raw, [RateParameter], "--stt-param"));
     }
 
     /// <summary>Test that a null declared parameters list is rejected.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], null!, "--stt-param"));
+        // Arrange
+        IReadOnlyList<ISpeechModelParameter> declared = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], declared, "--stt-param"));
+    }
+
+    /// <summary>Test that a null flag name is rejected.</summary>
+    [Fact]
+    public void ParameterBagParser_Resolve_NullFlagName_ThrowsArgumentNullException()
+    {
+        // Arrange
+        string flagName = null!;
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], [RateParameter], flagName));
+    }
+
+    /// <summary>A parameter of a kind the parser does not support.</summary>
+    private sealed class UnsupportedKindParameter : ISpeechModelParameter
+    {
+        /// <inheritdoc/>
+        public string Id => "custom";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Custom";
+
+        /// <inheritdoc/>
+        public string Description => "Unsupported kind";
     }
 }

@@ -38,7 +38,7 @@ internal static class DownloadCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument is given, or an unsupported flag is given.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -48,21 +48,8 @@ internal static class DownloadCommand
         // Ask the in-progress download to cancel cooperatively rather than letting the runtime
         // kill the process outright, so a partially-staged download is cleaned up honestly by
         // the store's own staging/abandon logic instead of leaving orphaned scratch files.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -106,6 +93,11 @@ internal static class DownloadCommand
     ///     Parses <c>download</c>'s own arguments: one or more positional <c>&lt;modelId&gt;</c>
     ///     values and the optional <c>--force</c> flag, in any order.
     /// </summary>
+    /// <param name="args">The subcommand arguments following <c>download</c>.</param>
+    /// <returns>The requested model ids in order, and whether <c>--force</c> was given.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when an unsupported flag is given or no model id is present.
+    /// </exception>
     private static (List<string> ModelIds, bool Force) ParseArguments(IReadOnlyList<string> args)
     {
         var modelIds = new List<string>();
@@ -140,6 +132,11 @@ internal static class DownloadCommand
     ///     model first (<see cref="SpeechModelCatalog.DownloadAsync"/> is otherwise a no-op for an
     ///     already-installed model).
     /// </summary>
+    /// <param name="context">The invocation context that receives progress and error lines.</param>
+    /// <param name="catalog">The catalog seam to download through.</param>
+    /// <param name="modelId">The model id to download.</param>
+    /// <param name="force">Whether to uninstall an already-downloaded model first.</param>
+    /// <param name="cancellationToken">A token that, when canceled, aborts the download.</param>
     /// <returns>
     ///     <see langword="true"/> when the download attempt completed (successfully or not,
     ///     already reported via <see cref="Context.WriteLine"/>/<see cref="Context.WriteError"/>);
@@ -161,12 +158,14 @@ internal static class DownloadCommand
                 if (existing?.State == SpeechModelState.Downloaded)
                 {
                     context.WriteLine($"Uninstalling existing '{modelId}' before forced re-download...");
-                    catalog.Uninstall(modelId);
+                    await catalog.UninstallAsync(modelId, cancellationToken).ConfigureAwait(false);
                 }
             }
 
             context.WriteLine($"Downloading model '{modelId}'...");
-            var progress = CreateProgressReporter(context, modelId);
+            var progress = DownloadProgressReporter.Create(
+                context,
+                p => $"'{modelId}' file {p.FileIndex + 1}/{p.FileCount}");
             var result = await catalog.DownloadAsync(modelId, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
@@ -185,50 +184,13 @@ internal static class DownloadCommand
             context.WriteError($"Download of '{modelId}' was canceled.");
             return false;
         }
-        // Intentionally broad: this is the per-model CLI error-isolation boundary, so any
-        // failure while attempting one requested model must be reported cleanly and must not
-        // crash or abort later requested models in the same batch.
-        catch (Exception ex)
+        // Only the documented operator-facing errors are isolated per model (an unknown model
+        // id surfaces as ArgumentException; a store state problem as InvalidOperationException).
+        // Any other exception is unexpected and propagates instead of being masked.
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             context.WriteError($"Model '{modelId}' failed: {ex.Message}");
             return true;
         }
-    }
-
-    /// <summary>
-    ///     Creates a progress reporter that prints a throttled live progress line for one
-    ///     model's download to the context's output.
-    /// </summary>
-    private static Progress<SpeechModelDownloadProgress> CreateProgressReporter(Context context, string modelId)
-    {
-        var lastReportedPercent = -1;
-        var lastReportedKilobytes = -1L;
-        return new Progress<SpeechModelDownloadProgress>(progress =>
-        {
-            if (progress.FractionComplete is { } fraction)
-            {
-                var percent = (int)(fraction * 100);
-                if (percent == lastReportedPercent)
-                {
-                    return;
-                }
-
-                lastReportedPercent = percent;
-                context.WriteLine($"  '{modelId}' file {progress.FileIndex + 1}/{progress.FileCount}: {percent}%");
-            }
-            else
-            {
-                // TotalBytes is unknown (no Content-Length reported); report by whole kilobytes
-                // transferred instead, throttled the same way.
-                var kilobytes = progress.BytesTransferred / 1024;
-                if (kilobytes == lastReportedKilobytes)
-                {
-                    return;
-                }
-
-                lastReportedKilobytes = kilobytes;
-                context.WriteLine($"  '{modelId}' file {progress.FileIndex + 1}/{progress.FileCount}: {kilobytes:N0} KB");
-            }
-        });
     }
 }

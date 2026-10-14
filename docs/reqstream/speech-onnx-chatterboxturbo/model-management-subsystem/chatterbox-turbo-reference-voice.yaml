@@ -1,0 +1,222 @@
+---
+# Software Unit Requirements for ChatterboxTurboReferenceVoice
+#
+# Unit-level behavior of the ChatterboxTurboReferenceVoice unit (audio decoding and resampling
+# come from the core AudioSubsystem), decomposing the parent SpeechOnnxChatterboxTurbo
+# ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# ChatterboxTurboReferenceVoiceTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ChatterboxTurboReferenceVoice Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FromSamples
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall create a voice from in-memory
+                  samples with a given sample rate and channel count.
+                justification: |
+                  Hosts that already hold decoded audio must not need a file.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_Mono24k_KeepsSamples
+                  - ChatterboxTurboReferenceVoice_FromSamples_Stereo48k_IsDownMixedAndResampled
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall keep mono 24 kHz samples as
+                  supplied.
+                justification: |
+                  The speech encoder requires mono 24 kHz audio, so audio already in that form
+                  must not be altered.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_Mono24k_KeepsSamples
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-DownMix
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall turn multi-channel audio into mono
+                  audio of equal duration.
+                justification: |
+                  Hosts hold clips in whatever channel layout they were recorded in.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_Stereo48k_IsDownMixedAndResampled
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Resampling
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall resample audio of any other sample
+                  rate to 24 kHz while preserving the audio content.
+                justification: |
+                  Hosts hold clips at whatever sample rate they were recorded in.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_Stereo48k_IsDownMixedAndResampled
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MaximumLength
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall trim clips longer than 30 seconds
+                  to 30 seconds.
+                justification: |
+                  The speech encoder is only specified for clips of bounded length.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_TooLong_IsTrimmed
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall load WAV and FLAC files of any
+                  channel count.
+                justification: |
+                  Hosts hold clips as WAV or FLAC files.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFile_Pcm16Wav_LoadsVoice
+                  - ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice
+                  - ChatterboxTurboReferenceVoice_FromFile_Float32Wav_LoadsVoice
+                  - ChatterboxTurboReferenceVoice_FromFile_Flac_LoadsVoice
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileErrors
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall report a missing file, an
+                  unsupported audio encoding and a non-audio file as three different failures.
+                justification: |
+                  A caller needs to tell a missing file from an unsupported format and from a
+                  damaged file.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFile_MissingFile_ThrowsFileNotFound
+                  - ChatterboxTurboReferenceVoice_FromFile_UnsupportedEncoding_ThrowsNotSupported
+                  - ChatterboxTurboReferenceVoice_FromFile_NonAudioFile_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject clips shorter than one
+                  second.
+                justification: |
+                  A too-short clip cannot condition the model and would produce poor speech.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_TooShort_Throws
+                  - ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject a null or blank id and a
+                  null sample or file path argument.
+                justification: |
+                  Programming errors must surface with a clear failure.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_NullOrBlankArguments_Throw
+                  - ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidAudioFormat
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject a sample rate or channel
+                  count that is not positive.
+                justification: |
+                  Audio without a valid rate or channel layout cannot be interpreted.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_NonPositiveRateOrChannels_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidMoodArguments
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject a blank mood name or mood
+                  path.
+                justification: |
+                  Programming errors must surface with a clear failure.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-NullMoodMap
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall ignore a null mood map.
+                justification: |
+                  A voice without mood clips is the common case and must not need a special
+                  call.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall support a file-backed voice whose
+                  audio is decoded on first use only.
+                justification: |
+                  A library of over a hundred clips must list instantly.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse
+                  - ChatterboxTurboReferenceVoice_FromLoader_DecodesOnlyOnFirstUseAndOnlyOnce
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-ConcurrentFirstUse
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall decode a file-backed voice only
+                  once when it is first used concurrently, sharing the decoded clip.
+                justification: |
+                  Concurrent first use must not decode the same clip repeatedly or yield
+                  different clips.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromLoader_ConcurrentFirstUse_DecodesOnceAndSharesClip
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall report a decoding failure of a
+                  file-backed voice, at its first use, with an exception that names the file.
+                justification: |
+                  One damaged clip must fail only when chosen, with a message that identifies it.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall accept optional per-mood clip
+                  files and report the mood names it has clips for.
+                justification: |
+                  The engine needs to know which moods a voice can speak.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodMissing
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall report a mood it has no clip for
+                  as missing.
+                justification: |
+                  The engine needs a clean missing-mood answer to fall back to the base clip.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClipLoading
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall decode a mood clip only on first
+                  use, applying the same validation as the base clip.
+                justification: |
+                  Emotion variants of a voice must list instantly and fail only when used.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_SameNameAgain_ReplacesEarlierClip
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodNames
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall trim and lower-case the mood names
+                  it is given.
+                justification: |
+                  Mood lookup is by lower-case name, so supplied names must be normalized once.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased
+                  - ChatterboxTurboReferenceVoice_WithMoodSamples_NormalizesClipAndTrimsName
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodListing
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall list the mood names it has clips
+                  for in ordinal ascending order.
+                justification: |
+                  A stable order keeps listings and diagnostics deterministic.
+                tests:
+                  - ChatterboxTurboReferenceVoice_Moods_AreListedInOrdinalAscendingOrder
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall match a mood name case-insensitively
+                  after trimming it when reporting or returning a mood clip, and shall treat a null
+                  or blank mood name as absent.
+                justification: |
+                  Mood names reach the voice from tags, caller options and file names in varying
+                  case and spacing, and must resolve to the same clip.
+                tests:
+                  - ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed

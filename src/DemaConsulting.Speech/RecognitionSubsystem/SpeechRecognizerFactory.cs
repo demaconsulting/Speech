@@ -92,7 +92,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -149,7 +149,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -203,7 +203,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -340,7 +340,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     internal static async Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -431,7 +431,7 @@ public static class SpeechRecognizerFactory
 
         if (cancellationToken.IsCancellationRequested)
         {
-            // Finding 30: the worker's delegate finished within the abandon grace period - so
+            // The worker's delegate finished within the abandon grace period - so
             // RunAsync above returned normally with no exception and backend creation may have
             // genuinely succeeded - but cancellation was still requested before that happened.
             // The caller must not receive a loaded engine for a call it asked to cancel; dispose

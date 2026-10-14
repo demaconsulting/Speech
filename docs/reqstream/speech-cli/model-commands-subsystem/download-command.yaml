@@ -1,0 +1,132 @@
+---
+# Software Unit Requirements for the SpeechCli DownloadCommand
+#
+# These requirements describe the `download` command, decomposing the system-level
+# SpeechCli-ModelDownload requirements. They are grouped by concern, one criterion each:
+#   - Download and progress (Download, DownloadProgress)
+#   - Failure handling (DownloadContinueOnFailure, DownloadFailureExitCode)
+#   - `--force` (DownloadForce, DownloadForceNotDownloaded)
+#   - Argument validation and cancellation
+# The live-progress line formatting itself is specified by the DownloadProgressReporter unit.
+# Tests named DownloadCommand_* are DownloadCommandTests; SpeechCli_* tests are out-of-process tests
+# in IntegrationTests.cs; ConsoleCancellation_* tests are ConsoleCancellationTests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: DownloadCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-Download
+                title: >-
+                  The tool shall download one or more models given by id when invoked with
+                  `download <modelId> [<modelId>...]`, in the order given.
+                justification: |
+                  An operator cannot use any speech capability without a model on disk.
+                tests:
+                  - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+
+              - id: SpeechCli-ModelCommands-DownloadInstalled
+                title: >-
+                  The tool shall leave each successfully downloaded model installed and report it
+                  as installed.
+                justification: |
+                  A model that downloaded but is not usable would defeat the command; the
+                  operator needs the confirmation that it is ready to use.
+                tests:
+                  - DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled
+
+              - id: SpeechCli-ModelCommands-DownloadProgress
+                title: >-
+                  The tool shall report live progress for the in-progress model while `download`
+                  runs.
+                justification: |
+                  A large download needs visible progress so the operator can tell it is working.
+                tests:
+                  - DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine
+
+              - id: SpeechCli-ModelCommands-DownloadContinueOnFailure
+                title: >-
+                  The tool shall attempt every model requested by `download` even when an earlier
+                  one fails with a reportable error (an invalid model id, a checksum mismatch, or
+                  another invalid operation).
+                justification: |
+                  A single failed model (checksum mismatch, network fault, unknown id) in a
+                  multi-model request must not silently abandon the remaining requested models,
+                  so a script requesting several models learns the true outcome of every one of
+                  them rather than stopping at the first failure.
+                tests:
+                  - DownloadCommand_RunAsync_ChecksumMismatch_ReportsErrorAndContinues
+                  - DownloadCommand_RunAsync_UnknownModelId_ReportsErrorAndContinues
+
+              - id: SpeechCli-ModelCommands-DownloadUnexpectedFailure
+                title: >-
+                  The tool shall surface an unexpected failure (for example an I/O error) of a
+                  `download` as an error rather than reporting it as a per-model failure and
+                  continuing.
+                justification: |
+                  A disk or I/O fault affects every remaining model; continuing would hide the real
+                  cause and produce misleading per-model messages.
+                tests:
+                  - DownloadCommand_RunAsync_UnexpectedException_Propagates
+
+              - id: SpeechCli-ModelCommands-DownloadFailureExitCode
+                title: >-
+                  The tool shall exit non-zero if any model requested by `download` fails to
+                  download.
+                justification: |
+                  A script must be able to detect that at least one requested model is not
+                  installed.
+                tests:
+                  - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
+
+              - id: SpeechCli-ModelCommands-DownloadForce
+                title: >-
+                  The tool shall uninstall an already-downloaded model before downloading it
+                  again when `download` is given `--force`.
+                justification: |
+                  `--force` gives an operator a way to recover from a suspected-corrupt local copy
+                  without manually deleting files.
+                tests:
+                  - DownloadCommand_RunAsync_ForceOnDownloadedModel_UninstallsFirst
+
+              - id: SpeechCli-ModelCommands-DownloadForceNotDownloaded
+                title: >-
+                  The tool shall not uninstall anything for a model that is not downloaded when
+                  `download` is given `--force`.
+                justification: |
+                  `--force` must never remove anything when there is nothing to replace.
+                tests:
+                  - DownloadCommand_RunAsync_ForceOnMissingModel_DoesNotUninstall
+
+              - id: SpeechCli-ModelCommands-DownloadArgumentValidation
+                title: >-
+                  The tool shall reject a `download` invocation that names no model id, or that
+                  carries an unsupported flag, with a clear, non-zero-exit-code error rather than
+                  a stack trace.
+                justification: |
+                  A mistyped or incomplete download command must fail predictably so a script can
+                  detect it, instead of silently downloading nothing.
+                tests:
+                  - DownloadCommand_RunAsync_NoModelIds_ThrowsArgumentException
+                  - DownloadCommand_RunAsync_UnsupportedFlag_ThrowsArgumentException
+                  - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-ModelCommands-DownloadCancellation
+                title: >-
+                  The tool shall stop the remaining `download` batch, without attempting further
+                  requested models, when the operator interrupts the process (`Ctrl+C`),
+                  reporting which model was in progress when canceled, as a clean message rather
+                  than an exception.
+                justification: |
+                  A large multi-model download can take a long time; an operator who interrupts it
+                  is asking the whole operation to stop, not just the current file, so continuing
+                  to attempt further models after a deliberate interruption would be surprising
+                  and wasteful.
+                tests:
+                  - DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch
+                  - DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch
+                  - DownloadCommand_RunAsync_CancellationFromCatalog_ReportsCleanMessageAndStops
+                  - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+                  - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination

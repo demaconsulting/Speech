@@ -1,0 +1,55 @@
+---
+# Software Unit Requirements for SpeechRecognizerEngine
+#
+# These requirements describe the single-active-session lease policy of SpeechRecognizerEngine (the
+# ISpeechRecognizerEngine implementation): at most one live session at a time, fail-fast rather
+# than queued session creation, and disposal of an active session before the engine's own
+# resources, decomposing the parent RecognitionSubsystem requirements. RecognitionEngineBusyException,
+# the signal for a concurrent session request, has its own file
+# (recognition-engine-busy-exception.yaml).
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: SpeechRecognizerEngine Requirements
+            requirements:
+              - id: Speech-Recognition-EngineExclusivity-SingleActiveSession
+                title: >-
+                  A speech recognizer engine shall permit at most one active session at a time, and
+                  shall create a new session once the prior session has been fully disposed.
+                justification: |
+                  The recognition backend an engine owns is not safe for two sessions to drive
+                  concurrently; reuse across sequential sessions is still required to keep the
+                  expensive model-load step amortized across many turns. Hosts that need two
+                  simultaneous sessions load two engines.
+                tests:
+                  - SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+                  - SpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
+
+              - id: Speech-Recognition-EngineExclusivity-FailFastNotQueued
+                title: >-
+                  A speech recognizer engine shall immediately reject, with a documented busy
+                  exception and without waiting, a request for a second session while a prior
+                  session has not yet been fully disposed.
+                justification: |
+                  A caller that requests a second session before releasing the first has made a
+                  sequencing error; silently queuing the request would hide that bug behind an
+                  unpredictable delay instead of surfacing it immediately. The prior session
+                  counts as active for its whole disposal, because disposal itself still drives
+                  the recognition backend.
+                tests:
+                  - SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+                  - SpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+
+              - id: Speech-Recognition-EngineExclusivity-DisposalOwnsSession
+                title: >-
+                  Disposing a speech recognizer engine shall first dispose any session that is still
+                  active before releasing the engine's own resources.
+                justification: |
+                  A host that disposes the engine without first disposing an active session it
+                  created must not leak that session's resources or leave the engine permanently
+                  exclusive with no way to release it.
+                tests:
+                  - SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst

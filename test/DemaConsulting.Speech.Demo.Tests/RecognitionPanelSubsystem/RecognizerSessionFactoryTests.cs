@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -9,12 +10,8 @@ namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 ///     Unit tests for <see cref="RecognizerSessionFactory"/>.
 /// </summary>
 /// <remarks>
-///     The "correct role composes a working engine" path delegates to the library's own
-///     <see cref="SpeechRecognizerFactory"/>, which requires an <see cref="IRecognitionModel"/> -
-///     an interface only the library's own assemblies can implement (see the type's remarks).
-///     That path is therefore outside this test project's reach and remains covered by the
-///     library's own recognition-subsystem tests; these tests cover every path this project can
-///     reach: argument validation and the honest "wrong role" outcome.
+///     The correct-role path uses a deterministic public <see cref="IRecognitionModel"/> test
+///     double and a fake backend, so no downloaded model or native runtime is needed.
 /// </remarks>
 public class RecognizerSessionFactoryTests
 {
@@ -70,5 +67,99 @@ public class RecognizerSessionFactoryTests
         // Assert: the honest unavailable fallback, not a real engine or an exception
         Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
         Assert.False(engine.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that LoadAsync returns a real engine, built from the installed model files, for
+    ///     a model that implements the recognition role.
+    /// </summary>
+    [Fact]
+    public async Task RecognizerSessionFactory_LoadAsync_RecognitionModel_ReturnsEngineForThatModel()
+    {
+        // Arrange
+        var store = IsolatedStore();
+        var model = new RecognitionModelDouble();
+        var installed = store.GetCurrentDirectory(model.Id);
+        Directory.CreateDirectory(installed);
+        var factory = new RecognizerSessionFactory(store);
+
+        // Act
+        var engine = await factory.LoadAsync(model, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotSame(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(installed, model.BackendDirectory);
+        await engine.DisposeAsync();
+    }
+
+    /// <summary>
+    ///     Deterministic public recognition-role model double.
+    /// </summary>
+    private sealed class RecognitionModelDouble : IRecognitionModel
+    {
+        private readonly FakeSpeechModel _inner = new("recognition-double", "Recognition Double");
+
+        /// <summary>Gets the directory the backend was created for.</summary>
+        public string? BackendDirectory { get; private set; }
+
+        /// <inheritdoc/>
+        public string Id => _inner.Id;
+
+        /// <inheritdoc/>
+        public string DisplayName => _inner.DisplayName;
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Recognition;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => _inner.Parameters;
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => _inner.AudioTagSupport;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor => _inner.DownloadDescriptor;
+
+        /// <inheritdoc/>
+        public AudioFormat AudioFormat => AudioFormat.Mono(16000);
+
+        /// <inheritdoc/>
+        public IRecognitionBackend CreateBackend(string installedModelDirectory)
+        {
+            BackendDirectory = installedModelDirectory;
+            return new BackendDouble();
+        }
+    }
+
+    /// <summary>
+    ///     Backend that never recognizes anything.
+    /// </summary>
+    private sealed class BackendDouble : IRecognitionBackend
+    {
+        /// <inheritdoc/>
+        public void AcceptSamples(ReadOnlySpan<float> monoSamples)
+        {
+        }
+
+        /// <inheritdoc/>
+        public bool TryDecode(out SpeechRecognitionResult? result)
+        {
+            result = null;
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public bool TryFlush(out SpeechRecognitionResult? result) => TryDecode(out result);
+
+        /// <inheritdoc/>
+        public void Reset()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+        }
     }
 }

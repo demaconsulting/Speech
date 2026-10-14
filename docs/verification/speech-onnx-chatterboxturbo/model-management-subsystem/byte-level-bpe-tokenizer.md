@@ -1,0 +1,106 @@
+### ByteLevelBpeTokenizer Verification
+
+#### Verification Approach
+
+Verified by `ByteLevelBpeTokenizerTests.cs` against
+`TestData/chatterbox-turbo-tokenizer-golden.json`, which holds 39 cases of text and expected ids
+generated from the real Hugging Face tokenizer by the committed script
+`TestData/generate_golden_ids.py`. A test also pins the SHA-256 of the upstream
+`tokenizer.json` the embedded resource was derived from.
+
+#### Test Environment
+
+- **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
+- **Isolation**: no network; only the embedded resource and the golden file
+
+#### Acceptance Criteria
+
+Every golden case matches exactly; empty text yields only the trailing ids; tags are atomic; zero
+trailing ids appends no end-of-text id; a custom end-of-text token present in the vocabulary is appended; an
+added token that prefixes another never shadows it (longest wins); an earlier-listed merge applies before a
+later one; a duplicate merge keeps its first rank;
+invalid or malformed documents, an empty vocabulary, null or empty added-token content, a missing
+end-of-text token and non-gzip input throw `InvalidDataException`; a negative
+trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabulary entry throws
+`InvalidOperationException`; null arguments throw.
+
+#### Test Scenarios
+
+##### Golden texts match the reference ids
+
+**Test**: `ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds`
+
+##### The golden set is broad
+
+**Test**: `ByteLevelBpeTokenizer_GoldenCases_ContainManyCases`
+
+##### Empty text yields only the trailing pair
+
+**Test**: `ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair`
+
+##### The embedded resource matches the pinned upstream hash
+
+**Test**: `ByteLevelBpeTokenizer_EmbeddedResource_MatchesPinnedUpstreamHash`
+
+##### Tags are atomic
+
+**Test**: `ByteLevelBpeTokenizer_Encode_Tag_IsAtomicAndSpaceIsSeparate`
+
+##### Zero trailing ids adds no end-of-text
+
+**Test**: `ByteLevelBpeTokenizer_FromGzipStream_ZeroTrailing_AddsNoEndOfText`
+
+##### An invalid document throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData`
+
+##### Malformed merges throw (including array entries without exactly two pieces)
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData`
+
+##### A missing end-of-text token throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData`
+
+##### A negative trailing count throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange`
+
+##### A piece without a vocabulary entry throws
+
+**Test**: `ByteLevelBpeTokenizer_Encode_PieceWithoutVocabularyEntry_ThrowsInvalidOperation`
+
+##### A duplicate merge keeps its first rank
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_DuplicateMerge_KeepsFirstRank`
+
+##### An earlier merge wins over a later one
+
+**Test**: `ByteLevelBpeTokenizer_Encode_EarlierMergeWins_OverLaterMerge`
+
+##### A non-gzip stream throws
+
+**Test**: `ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData`
+
+##### An empty vocabulary throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData`
+
+##### Null added-token content throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_NullAddedTokenContent_ThrowsInvalidData` and
+`ByteLevelBpeTokenizer_Constructor_EmptyAddedTokenContent_ThrowsInvalidData` (an empty added token would
+match at every position)
+
+##### A custom end-of-text token found in the vocabulary is appended
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_CustomEndOfTextInVocabulary_IsAppended`
+
+##### The longest added token wins over a prefix
+
+**Test**: `ByteLevelBpeTokenizer_Encode_AddedTokenPrefixingAnother_LongestWins`
+
+##### Null arguments throw
+
+**Test**: `ByteLevelBpeTokenizer_NullArguments_Throw` covers a null stream, a null end-of-text token and a null
+text for `Encode`.

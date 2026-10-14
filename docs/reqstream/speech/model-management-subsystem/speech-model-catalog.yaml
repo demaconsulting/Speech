@@ -1,8 +1,10 @@
 ---
 # Software Unit Requirements for SpeechModelCatalog
 #
-# These requirements describe the design-level behavior of the SpeechModelCatalog unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable behavior of the SpeechModelCatalog unit,
+# decomposing the parent ModelManagementSubsystem requirements. Registration signatures, the
+# in-memory tracking structures, the composed store/downloader, and option forwarding are design
+# decisions documented in docs/design/speech/model-management-subsystem/speech-model-catalog.md.
 
 sections:
   - title: Speech Requirements
@@ -13,8 +15,8 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelCatalog-ModelRegistration
                 title: >-
-                  The SpeechModelCatalog class shall start with an empty known-model list,
-                  enumerating it to an empty descriptor list without throwing.
+                  The SpeechModelCatalog class shall initially know no models, enumerating to an
+                  empty list without throwing.
                 justification: |
                   The core library ships no concrete, engine-backed models of its own; concrete
                   models are supplied by separate model packages (for example SpeechSherpa) or by
@@ -25,65 +27,91 @@ sections:
 
               - id: Speech-Models-SpeechModelCatalog-AddModels
                 title: >-
-                  The SpeechModelCatalog class shall expose a public AddModels(params
-                  ISpeechModel[]) method that appends the supplied models to its known-model
-                  list, so they appear in subsequent enumeration, and returns the same catalog
-                  instance so registration calls can be chained.
+                  The SpeechModelCatalog class shall let a host register one or more models so
+                  that every registered model appears in subsequent enumeration.
                 justification: |
-                  Removing the compiled-in KnownModels registry, so that the core library carries
-                  no sherpa-onnx dependency, requires a public registration seam through which a
-                  host or a model package's own registration extension (such as SpeechSherpa's
-                  AddSherpaModels) can populate the catalog. Returning the same instance lets a
-                  host compose a catalog fluently from several model packages in one expression.
+                  The core library carries no model-engine dependency, so a host or a model
+                  package's own registration helper (such as SpeechSherpa's) must be able to
+                  populate the catalog with the models it supplies.
                 tests:
                   - SpeechModelCatalog_AddModels_Called_AppearsInEnumerate
+
+              - id: Speech-Models-SpeechModelCatalog-AddModelsChaining
+                title: >-
+                  The SpeechModelCatalog class shall let registration calls be chained, each
+                  registration continuing to operate on the same catalog.
+                justification: |
+                  Chaining lets a host compose a catalog fluently from several model packages in
+                  one expression.
+                tests:
                   - SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance
 
               - id: Speech-Models-SpeechModelCatalog-StateResolution
                 title: >-
-                  The SpeechModelCatalog class shall resolve a known model's state to
-                  NotDownloaded, Downloading, Downloaded, or FailedOrCorrupt by combining the
-                  underlying store's installed-state query with in-memory tracking of in-flight
-                  and most-recently-failed download attempts.
+                  The SpeechModelCatalog class shall report each known model as NotDownloaded,
+                  Downloading, Downloaded, or FailedOrCorrupt according to whether it is
+                  installed, a download of it is in progress, or its most recent download attempt
+                  failed.
                 justification: |
-                  SpeechModelStore alone only distinguishes installed/not-installed;
-                  the fixed four-state model additionally requires an honest
-                  in-progress and failed signal, which only the catalog (as the caller of
-                  DownloadAsync) can observe.
+                  Installed/not-installed alone cannot distinguish an in-progress or failed
+                  download; the fixed four-state model needs an honest in-progress and failed
+                  signal, which only the catalog (as the initiator of downloads) can observe.
                 tests:
                   - SpeechModelCatalog_Enumerate_NeverDownloaded_ReportsNotDownloaded
                   - SpeechModelCatalog_GetState_DownloadInFlight_ReportsDownloading
 
               - id: Speech-Models-SpeechModelCatalog-DownloadOrchestration
                 title: >-
-                  The SpeechModelCatalog class shall download a known model by its declared
-                  download descriptor, correctly reflecting Downloaded on success and
-                  FailedOrCorrupt on a checksum mismatch, and shall throw when asked to download
-                  a model id absent from its known-model list.
+                  The SpeechModelCatalog class shall download a known model, identified by its id
+                  alone, using that model's own declared files, and report it as Downloaded on
+                  success.
                 justification: |
-                  A host driving a model-settings page calls DownloadAsync by model id alone;
-                  the catalog must translate that into the model's own declared descriptor and
-                  honestly reflect the real outcome, while an unknown model id is a caller
-                  programming error that must surface immediately as an explicit, user-invoked
-                  action (not composition or enumeration).
+                  A host driving a model-settings page requests a download by model id alone; the
+                  catalog must translate that into the model's own declared download and honestly
+                  reflect the real outcome.
                 tests:
                   - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
+
+              - id: Speech-Models-SpeechModelCatalog-DownloadFailureState
+                title: >-
+                  The SpeechModelCatalog class shall report FailedOrCorrupt for a model whose
+                  download fails its checksum verification.
+                justification: |
+                  A failed download must be reported honestly, never as Downloaded.
+                tests:
                   - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
+
+              - id: Speech-Models-SpeechModelCatalog-UnknownModelDownloadThrows
+                title: >-
+                  The SpeechModelCatalog class shall reject a download request for a model id
+                  that was never registered.
+                justification: |
+                  An unknown model id is a caller programming error that must surface immediately
+                  as an explicit, user-invoked action (not composition or enumeration).
+                tests:
                   - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelCatalog-StoreExposure
                 title: >-
-                  The SpeechModelCatalog class shall expose the SpeechModelStore instance it
-                  composes internally through a public Store property, so a host can resolve an
-                  installed model's directory, or compose a recognizer or synthesizer, through
-                  the same catalog instance used for enumeration and download.
+                  The SpeechModelCatalog class shall let a host reach the same model storage the
+                  catalog itself uses for installed-state queries and downloads, so a recognizer
+                  or synthesizer composed from the catalog's models reads the same storage.
                 justification: |
-                  Phase 3 added SpeechModelStore-accepting Create overloads on
-                  SpeechRecognizerFactory/SpeechSynthesizerFactory, but a host still had to
-                  construct a second, independent SpeechModelStore to use them, risking silent
-                  divergence from the catalog's own store (for example, a custom
-                  SpeechModelStoreOptions root passed to one but not the other). Exposing the
-                  catalog's own store as Store closes that gap and is the composition seam the
-                  new SpeechModelCatalog-accepting Create overloads use internally.
+                  Recognizer and synthesizer factories need the model storage; a second,
+                  independent storage could silently diverge from the catalog's own (for example,
+                  a custom storage root passed to one but not the other). Reaching the catalog's
+                  own storage removes that risk.
                 tests:
                   - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance
+
+              - id: Speech-Models-SpeechModelCatalog-MirrorComposition
+                title: >-
+                  The SpeechModelCatalog class shall download its models through a host-configured
+                  download mirror, when one is configured, so that catalog downloads are fetched
+                  from the mirror location.
+                justification: |
+                  A host that configures a mirror still wants the catalog's install-step
+                  orchestration rather than a hand-built download pipeline.
+                tests:
+                  - SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughCatalog
+                  - SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor

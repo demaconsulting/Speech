@@ -1,0 +1,76 @@
+---
+# Software Unit Requirements for NemotronEncoder
+#
+# These requirements describe the design-level behavior of the NemotronEncoder unit, the ONNX
+# Runtime implementation of the cache-aware streaming encoder seam used by
+# OnnxNemotronRecognitionEngine, decomposing the parent SpeechOnnxNemotronStt
+# RecognitionSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# NemotronEncoderTests.cs, against a tiny synthetic ONNX model that honors the real encoder's
+# tensor contract (NemotronEncoderFixture.cs).
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: NemotronEncoder Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Inputs
+                title: >-
+                  The NemotronEncoder class shall feed the audio features, length, caches, and
+                  language id to the encoder session by the model's tensor names and report the
+                  encoded frame count.
+                justification: |
+                  The production tensor wiring cannot be exercised by the managed fakes, and the
+                  real model is too large for CI, so a tiny synthetic ONNX model with the same
+                  tensor contract verifies the wiring.
+                tests:
+                  - NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-CacheFeedback
+                title: >-
+                  The NemotronEncoder class shall feed each call's cache outputs back as the next
+                  call's cache inputs.
+                justification: |
+                  The cache-aware encoder depends on the previous chunks' context; without the
+                  feedback each chunk would be encoded in isolation.
+                tests:
+                  - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Reset
+                title: >-
+                  The NemotronEncoder class's Reset method shall restore zero caches.
+                justification: |
+                  A new utterance must not inherit the previous utterance's context.
+                tests:
+                  - NemotronEncoder_Reset_AfterEncoding_RestartsCaches
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Probe
+                title: >-
+                  The NemotronEncoder class shall run a probe inference on a session without
+                  taking ownership of the session or disturbing its later use.
+                justification: |
+                  A probe lets construction learn the encoder's tensor contract before first use
+                  while the encoder remains usable.
+                tests:
+                  - NemotronEncoder_RunProbeInference_ValidSession_LeavesSessionUsable
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Dispose
+                title: >-
+                  The NemotronEncoder class shall reject use after disposal with
+                  ObjectDisposedException.
+                justification: |
+                  Use of a released native session must fail clearly rather than crash.
+                tests:
+                  - NemotronEncoder_Encode_AfterDispose_Throws
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEncoder-ArgumentValidation
+                title: >-
+                  The NemotronEncoder class shall throw ArgumentNullException for a null
+                  session.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - NemotronEncoder_Constructor_NullSession_Throws

@@ -3,7 +3,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <summary>
 ///     Mockable seam for fetching one downloadable file's bytes to a local destination stream,
 ///     isolating <see cref="SpeechModelDownloader"/> from any real HTTP client so its
-///     queueing/verification/atomic-swap orchestration logic can be unit tested without any real
+///     queueing/verification/install orchestration logic can be unit tested without any real
 ///     network access.
 /// </summary>
 /// <remarks>
@@ -21,11 +21,14 @@ public interface IModelDownloadClient
     /// <param name="sourceUri">
     ///     The absolute HTTP(S) location to download from. Production model downloads always use
     ///     HTTPS; the seam itself is scheme-agnostic so tests can exercise it against a loopback
-    ///     HTTP server.
+    ///     HTTP server. A relative URI or a non-HTTP(S) scheme is not a valid source: an implementation
+    ///     rejects it by throwing rather than downloading; the exception type is implementation-defined.
     /// </param>
     /// <param name="destination">
     ///     The stream to write downloaded bytes to. The caller owns this stream's lifetime; this
-    ///     method writes to it but does not dispose it.
+    ///     method writes to it but never closes, seeks or disposes it. It must be non-null and writable
+    ///     (<see cref="Stream.CanWrite"/>); bytes are appended sequentially from its current position. After
+    ///     a failure or cancellation it may hold a partial prefix of the file.
     /// </param>
     /// <param name="progress">
     ///     An optional progress sink invoked as bytes arrive. Implementations report
@@ -39,6 +42,15 @@ public interface IModelDownloadClient
     ///     without waiting for the whole transfer to complete.
     /// </param>
     /// <returns>A task that completes when the entire file has been written to <paramref name="destination"/>.</returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="sourceUri"/> or <paramref name="destination"/> is
+    ///     <see langword="null"/>; <paramref name="progress"/> alone may be <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="HttpRequestException">
+    ///     Thrown by an HTTP-based implementation on a non-success response or a transport failure.
+    ///     Other implementations throw their own failure exception (for example <see cref="IOException"/>)
+    ///     rather than completing normally.
+    /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown when <paramref name="cancellationToken"/> is canceled before the transfer
     ///     completes.

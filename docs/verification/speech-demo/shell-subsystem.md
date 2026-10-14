@@ -2,13 +2,16 @@
 
 ### Verification Approach
 
-The ShellSubsystem is verified through deterministic unit tests over `MainWindowViewModel` and
-`DemoPanelViewModel`, composed with panel view models built over NSubstitute fakes of the demo's
-service seams. Because the shell touches neither the library nor Avalonia, every navigation
-behavior is verifiable with no audio hardware, no installed model, and no running UI toolkit.
+The ShellSubsystem is verified at subsystem level by composing the shell over the four panel view
+models, each built over NSubstitute fakes of the demo's service seams. Unit-level behavior is
+verified in the unit verification documents for MainWindowViewModel and DemoPanelViewModel.
 
-The composition root in `App.axaml.cs` is verified indirectly, by the system-level tests that
-construct the same object graph over the real library entry points.
+Because the shell touches neither the library nor Avalonia, every navigation behavior is
+verifiable with no audio hardware, no installed model, and no running UI toolkit.
+
+The composition root in the `App` unit is verified indirectly, by the system-level tests that
+construct the same object graph over the real library entry points (see _SpeechDemo App
+Verification_).
 
 ### Test Environment
 
@@ -18,151 +21,54 @@ construct the same object graph over the real library entry points.
 - **Test doubles**: NSubstitute fakes of `IAudioDeviceService`, `IModelCatalogService`,
   `ISynthesizerSessionFactory`, and `IRecognizerSessionFactory`
 
+### Acceptance Criteria
+
+A ShellSubsystem test run passes when: the shell composes successfully over an environment that
+reports nothing at all - no audio devices and no known models - with all four panels still
+present (each panel's own empty-state wording is verified by the owning subsystem); the navigation
+list offers exactly four panels in the order device selection, model catalog, text-to-speech,
+speech-to-text; every entry has a non-blank title and hosts the injected panel; the first panel is
+selected initially; a selection change is announced; and re-selecting the current panel is not
+announced.
+
+The shell has no failure path of its own: it performs no I/O and raises no errors of its own, so
+there is no error scenario to run here. Faults (a missing audio backend, a failed refresh, an
+unavailable model) are handled and reported by the panel that owns them, and are verified in the
+DeviceSelectionSubsystem, ModelCatalogSubsystem and session-owning panel verification documents.
+Invalid shell inputs (a blank title, a missing content object) are covered by the
+DemoPanelViewModel unit verification.
+
 ### Test Scenarios
 
-#### MainWindowViewModel_Constructor_NullDeviceSelection_ThrowsArgumentNullException
+#### MainWindowViewModel_Constructor_EmptyEnvironment_ComposesAllPanelsWithEmptyStates
 
-**Scenario**: The shell is constructed with no device panel.
+**Scenario**: The shell is composed over seams that report no devices and no models (boundary:
+nothing available).
 
-**Expected**: `ArgumentNullException`, so a half-composed window never reaches a user.
-
-**Requirement coverage**: `SpeechDemo-Shell-CompositionRoot`.
-
-#### MainWindowViewModel_Constructor_NullModelCatalog_ThrowsArgumentNullException
-
-**Scenario**: The shell is constructed with no catalog panel.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Shell-CompositionRoot`.
-
-#### MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException
-
-**Scenario**: The shell is constructed with no text-to-speech panel.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Shell-CompositionRoot`.
-
-#### MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException
-
-**Scenario**: The shell is constructed with no speech-to-text panel.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Shell-CompositionRoot`.
+**Expected**: Composition succeeds, all four panels are present, and each panel reports an empty
+state.
 
 #### MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
 
-**Scenario**: The shell is constructed with all four panels (device selection, model catalog,
-text-to-speech, speech-to-text).
+**Scenario**: The shell is composed over the four real panel view models.
 
-**Expected**: Exactly four navigable entries, in order, titled "Audio Devices", "Model Catalog",
-"Text to Speech", and "Speech to Text".
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelCatalog`.
-
-#### MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances
-
-**Scenario**: The shell is constructed with all four panels.
-
-**Expected**: Each entry's content is the exact injected instance, proving the shell hosts panels
-rather than constructing its own.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelCatalog`.
+**Expected**: The navigation list offers all four panels, in the order device selection, model
+catalog, text-to-speech, speech-to-text.
 
 #### MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
 
-**Scenario**: The shell is constructed.
+**Scenario**: The shell is composed and nothing has been navigated yet.
 
-**Expected**: The first entry is selected, so the window never opens with a blank content area.
-
-**Requirement coverage**: `SpeechDemo-Shell-DefaultPanel`.
+**Expected**: The first panel is the selected panel.
 
 #### MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
 
-**Scenario**: The selected panel is changed.
+**Scenario**: The selected panel is changed to a different panel.
 
-**Expected**: Change notification is raised, which is what lets the bound view swap panels with
-no code-behind.
+**Expected**: `SelectedPanel` changes and a property-changed notification is raised for it.
 
-**Requirement coverage**: `SpeechDemo-Shell-DefaultPanel`.
+#### MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify
 
-#### MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
+**Scenario**: The already-selected panel is assigned again.
 
-**Scenario**: The window title is read.
-
-**Expected**: It names the capabilities this build actually implements, rather than promising
-capabilities that arrive in a later phase.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`.
-
-#### MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState
-
-**Scenario**: The shell is composed over seams that report no devices and no models.
-
-**Expected**: Composition succeeds and each panel reports its own honest empty state.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelRefreshNeverThrows`.
-
-#### DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
-
-**Scenario**: A navigation entry is built from a title and a panel view model.
-
-**Expected**: Both are carried unchanged.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`.
-
-#### DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
-
-**Scenario**: A navigation entry is built with an empty or whitespace title.
-
-**Expected**: `ArgumentException`, because an untitled navigation entry is unusable.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`.
-
-#### DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException
-
-**Scenario**: A navigation entry is built with no title.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`.
-
-#### DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException
-
-**Scenario**: A navigation entry is built with no content.
-
-**Expected**: `ArgumentNullException`.
-
-**Requirement coverage**: `SpeechDemo-Shell-PanelTitles`.
-
-### Requirements Coverage
-
-- **`SpeechDemo-Shell-PanelCatalog`**:
-  `MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels`,
-  `MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances`
-- **`SpeechDemo-Shell-DefaultPanel`**:
-  `MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel`,
-  `MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel`
-- **`SpeechDemo-Shell-PanelTitles`**:
-  `DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent`,
-  `DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException`,
-  `DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException`,
-  `DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException`,
-  `MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities`
-- **`SpeechDemo-Shell-CompositionRoot`**:
-  `MainWindowViewModel_Constructor_NullDeviceSelection_ThrowsArgumentNullException`,
-  `MainWindowViewModel_Constructor_NullModelCatalog_ThrowsArgumentNullException`,
-  `MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException`,
-  `MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException`
-- **`SpeechDemo-Shell-PanelRefreshNeverThrows`**:
-  `MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState`
-
-### Acceptance Criteria
-
-A ShellSubsystem test run passes when: the shell rejects any missing panel (device selection,
-model catalog, text-to-speech, or speech-to-text); it offers exactly one titled entry per
-injected panel and hosts those exact four instances; it opens on the first entry and announces
-every selection change; and it composes successfully over an environment that reports nothing at
-all.
+**Expected**: No property-changed notification is raised.

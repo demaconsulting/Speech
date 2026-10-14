@@ -133,7 +133,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
 
     /// <summary>
     ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> short-circuits to an empty
-    ///     <see cref="EngineAudio"/>, never running the ONNX graph at all, when every word of
+    ///     <see cref="BackendAudio"/>, never running the ONNX graph at all, when every word of
     ///     <paramref name="text"/> is absent from the embedded lexicon and so produces zero
     ///     phoneme tokens.
     /// </summary>
@@ -243,37 +243,100 @@ public sealed class OnnxKokoroSynthesisEngineTests
 
     /// <summary>
     ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> selects the style-vector row
-    ///     indexed by the utterance's phoneme-token count, and clamps to the last row when the
-    ///     utterance is longer than the voice's row count. The fixture model forwards the style
+    ///     indexed by the utterance's phoneme-token count. The fixture model forwards the style
     ///     input as its output, and each synthetic row is filled with its own row index.
     /// </summary>
     [Fact]
-    public void Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow()
+    public void Generate_MultiRowVoice_SelectsRowByTokenCount()
     {
         // Arrange
         var vocabulary = new KokoroPhonemeVocabulary();
         var phonemizer = new KokoroLexiconPhonemizer();
         var tokenCount = vocabulary.ToTokenIds(phonemizer.Phonemize("cat").Phonemes).Count;
         Assert.True(tokenCount > 0);
-
-        // Voice A has enough rows that the token count indexes a middle row; voice B has too few
-        // rows, forcing the clamp to its last row.
-        var wideVoice = BuildRowIndexedVoice(rowCount: tokenCount + 3);
-        var narrowVoice = BuildRowIndexedVoice(rowCount: tokenCount);
         using var session = new InferenceSession(FixtureModelPath);
         using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
             session,
             vocabulary,
             phonemizer,
-            new Dictionary<int, float[]> { [0] = wideVoice, [1] = narrowVoice });
+            new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: tokenCount + 3) });
 
         // Act
-        var wide = engine.Generate("cat", 1.0f, speakerId: 0);
-        var narrow = engine.Generate("cat", 1.0f, speakerId: 1);
+        var audio = engine.Generate("cat", 1.0f, speakerId: 0);
 
         // Assert
-        Assert.All(wide.Samples, sample => Assert.Equal((float)tokenCount, sample));
-        Assert.All(narrow.Samples, sample => Assert.Equal((float)(tokenCount - 1), sample));
+        Assert.All(audio.Samples, sample => Assert.Equal((float)tokenCount, sample));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> clamps to the voice's last
+    ///     style-vector row when the utterance is longer than the voice's row count.
+    /// </summary>
+    [Fact]
+    public void Generate_ShortVoice_ClampsToLastRow()
+    {
+        // Arrange
+        var vocabulary = new KokoroPhonemeVocabulary();
+        var phonemizer = new KokoroLexiconPhonemizer();
+        var tokenCount = vocabulary.ToTokenIds(phonemizer.Phonemize("cat").Phonemes).Count;
+        Assert.True(tokenCount > 0);
+        using var session = new InferenceSession(FixtureModelPath);
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
+            session,
+            vocabulary,
+            phonemizer,
+            new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: tokenCount) });
+
+        // Act
+        var audio = engine.Generate("cat", 1.0f, speakerId: 0);
+
+        // Assert
+        Assert.All(audio.Samples, sample => Assert.Equal((float)(tokenCount - 1), sample));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> falls back to the first
+    ///     available voice, rather than throwing, for an unrecognized speaker id.
+    /// </summary>
+    [Fact]
+    public void Generate_UnknownSpeakerId_FallsBackToFirstVoice()
+    {
+        // Arrange
+        using var session = new InferenceSession(FixtureModelPath);
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
+            session,
+            new KokoroPhonemeVocabulary(),
+            new KokoroLexiconPhonemizer(),
+            new Dictionary<int, float[]> { [3] = Enumerable.Repeat(7.0f, 256).ToArray() });
+
+        // Act
+        var audio = engine.Generate("cat", 1.0f, speakerId: 99);
+
+        // Assert
+        Assert.NotEmpty(audio.Samples);
+        Assert.All(audio.Samples, sample => Assert.Equal(7.0f, sample));
+    }
+
+    /// <summary>
+    ///     Proves that disposing the engine releases its ONNX Runtime session, so the session can
+    ///     no longer be used.
+    /// </summary>
+    [Fact]
+    public void Dispose_ReleasesSession()
+    {
+        // Arrange
+        var session = new InferenceSession(FixtureModelPath);
+        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
+            session,
+            new KokoroPhonemeVocabulary(),
+            new KokoroLexiconPhonemizer(),
+            SingleVoiceStyles());
+
+        // Act
+        engine.Dispose();
+
+        // Assert
+        Assert.ThrowsAny<Exception>(() => OnnxKokoroSynthesisEngine.RunProbeInference(session));
     }
 
     /// <summary>Builds a voice of <paramref name="rowCount"/> 256-float rows, each filled with its own row index.</summary>

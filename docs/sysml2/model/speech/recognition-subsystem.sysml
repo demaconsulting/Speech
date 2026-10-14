@@ -14,7 +14,7 @@ package Speech {
         part iSpeechRecognizerEngine : ISpeechRecognizerEngine;
         part iRecognitionSession : IRecognitionSession;
         part recognitionSessionState : RecognitionSessionState;
-        part sessionStateChangedEventArgs : SessionStateChangedEventArgs;
+        part sessionStateChangedEventArgs : RecognitionSessionStateChangedEventArgs;
         part recognitionSessionFaultedException : RecognitionSessionFaultedException;
         part recognitionEngineBusyException : RecognitionEngineBusyException;
         part speechRecognizerFactory : SpeechRecognizerFactory;
@@ -22,10 +22,11 @@ package Speech {
         part speechRecognizerEngine : SpeechRecognizerEngine;
         part recognitionBackend : RecognitionBackend;
         part recognitionResultBuffer : RecognitionResultBuffer;
-        part dedicatedWorker : DedicatedWorker;
+        part dedicatedWorker : RecognitionDedicatedWorker;
         part audioFrameResampler : AudioFrameResampler;
         part unavailableSpeechRecognizerEngine : UnavailableSpeechRecognizerEngine;
         part unavailableRecognitionSession : UnavailableRecognitionSession;
         part speechRecognizerUnavailableException : SpeechRecognizerUnavailableException;
+        part speechRecognitionResult : SpeechRecognitionResult;
     }
 }

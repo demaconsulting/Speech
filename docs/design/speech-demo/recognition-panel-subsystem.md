@@ -5,193 +5,61 @@
 ### Overview
 
 The RecognitionPanelSubsystem provides the demo's speech-to-text panel. It contains the
-following units:
+following units, each documented in its own file:
 
-- **IRecognizerSessionFactory** / **RecognizerSessionFactory**: the demo-owned recognizer-engine
-  composition seam and its real implementation over the library's `SpeechModelStore` and
-  `SpeechRecognizerFactory`
+- **RecognizerSessionFactory** (with `IRecognizerSessionFactory`): the demo-owned
+  recognizer-engine composition seam and its real implementation over the library's
+  `SpeechModelStore` and `SpeechRecognizerFactory` — see _RecognizerSessionFactory Design_
+  (`recognition-panel-subsystem/recognizer-session-factory.md`)
 - **RecognitionPanelViewModel**: the panel's presentation state — the installed recognition
   models, the async Start/Stop streaming lifecycle over an `ISpeechRecognizerEngine` and an
-  `IRecognitionSession`, and the progressive partial-then-final transcript
-- **CaptureDebugRecorder** / **WavFileWriter**: internal, opt-in, TEMPORARY diagnostic
+  `IRecognitionSession`, and the progressive partial-then-final transcript — see
+  _RecognitionPanelViewModel Design_ (`recognition-panel-subsystem/recognition-panel-view-model.md`)
+- **CaptureDebugRecorder** / **WavFileWriter**: internal, opt-in diagnostic
   instrumentation (off by default) that records raw captured audio to a `.wav` file for offline
   investigation of a reported live-microphone bug; see "Capture Debug Recording" below
 
 ### Interfaces
 
 The subsystem exposes one presentation surface, `RecognitionPanelViewModel`, consumed by
-`RecognitionPanelView.axaml`; no other subsystem depends on it. It consumes:
+`RecognitionPanelView.axaml`; the ShellSubsystem (`MainWindowViewModel`) holds and hosts it, and
+`App` constructs it. It consumes:
 
 - `IModelCatalogService` and `IAudioDeviceService` — the shell-provided demo services for
   listing installed models and creating capture devices
 - the shared `DeviceSelectionViewModel` — the capture-device picker's presentation state
-- `IRecognizerSessionFactory` (below) — the demo-owned recognizer-engine composition seam
-
-The library composes a recognizer engine through the static
-`SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelStore, ISpeechDiagnostics?,
-IReadOnlyDictionary<string,object>?, CancellationToken)`
-method, which requires an `IRecognitionModel`. `IRecognitionModel` is a fully public interface
-(any assembly, including a third-party one, may implement it), but a demo-owned seam still
-accepts the common `ISpeechModel` contract instead and performs the narrowing itself, so a panel's
-unit tests can depend on the simpler, role-agnostic contract rather than committing every fake
-model double to the recognition-specific shape:
-
-| Member | Returns | Behavior |
-| --- | --- | --- |
-| `LoadAsync(model, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | Never throws |
-
-This is what lets a demo test substitute a plain, publicly implementable fake model for every
-scenario — including "wrong role" — with no `InternalsVisibleTo` grant from the library, and
-works around the static factory method itself not being substitutable in a ViewModel unit test.
-Only the engine is composed through this seam; a capture device is bound later, per run, through
-`ISpeechRecognizerEngine.CreateSessionAsync` directly against the returned engine.
+- `IRecognizerSessionFactory` — the demo-owned recognizer-engine composition seam
 
 ### Design
 
-`RecognizerSessionFactory` resolves the model's installed-files directory from the shared
-`SpeechModelStore`, narrows the model to `IRecognitionModel`, and forwards to
-`SpeechRecognizerFactory.LoadAsync`, inheriting that factory's "nothing throws at composition"
-contract. A model that declares a role other than recognition — and is therefore not an
-`IRecognitionModel` — returns the library's own `UnavailableSpeechRecognizerEngine.Instance`,
-exactly like a model that is not installed, rather than throwing: a host that lets a user choose
-an installed model with the wrong role must still get a working, if unavailable, engine back.
+`RecognitionPanelViewModel` drives the streaming lifecycle and obtains every engine through
+`IRecognizerSessionFactory`, never through the library's recognition concretes directly. The
+recognition panel does not embed the `ModelSettingsSubsystem` panel: `IRecognitionSession`'s
+contract accepts no per-call parameter bag, so there is nothing for a settings panel to feed (see
+_SpeechDemo ModelSettingsSubsystem Design_). Only the engine is composed through the seam; a
+capture device is bound per run, through `ISpeechRecognizerEngine.CreateSessionAsync` directly
+against the returned engine.
 
-#### RecognitionPanelViewModel
+**Deterministic operation without a model or runtime** (`SpeechDemo-Recognition-SessionSeam`): the
+observable guarantee is realized by the injectable `IRecognizerSessionFactory` seam. The library's
+recognizer factory is a static method and so cannot be substituted in a panel unit test; the
+demo-owned seam accepts the common `ISpeechModel` contract and returns an `ISpeechRecognizerEngine`,
+so tests (and an installation with no downloaded model) can drive Start/Stop with a deterministic
+engine or with the library's unavailable engine, without a native runtime.
 
-| Member | Type | Purpose |
-| --- | --- | --- |
-| `NoModelsMessage` etc. | `const string` | Honest-outcome text (no models/selection/device, unavailable, faulted) |
-| `AvailableModels` | `ObservableCollection<ISpeechModel>` | The installed recognition models |
-| `SelectedModel` | `ISpeechModel?` | The chosen model |
-| `State` | `RecognitionStreamingState` | The current lifecycle state: `Idle`, `Listening`, `Error` |
-| `StatusMessage` | `string?` | The current or most recently failed attempt's explanation |
-| `Partial` | `string` | The trailing provisional (not-yet-final) transcript text |
-| `Finals` | `ObservableCollection<string>` | The ordered committed final transcript lines |
-| `HasModels` / `CanStart` / `CanStop` | `bool` | Derived enablement values |
-| `CanChangeModel` | `bool` | `true` only when `State != Listening` |
-| `RefreshCommand` | generated command | Re-reads the catalog |
-| `StartCommand` | generated async command | Begins a streaming session |
-| `StopCommand` | generated async command (`AllowConcurrentExecutions`) | Ends the in-flight session |
+### Interactions with Other Units
 
-Implements `IAsyncDisposable`: disposing stops and releases an active session and the cached
-engine, and unsubscribes from `IModelCatalogService.ModelInstalled` and the shared
-`DeviceSelectionViewModel`'s property-change notifications and pre-refresh hook (both registered
-in the constructor - see below), all idempotently, so a shell shutting down never leaks unmanaged
-inference resources, a live capture device, or a stale event subscription.
-
-**Model filtering and refresh.** `Refresh()` lists only descriptors whose role is `Recognition`
-and whose state is `Downloaded`, mirroring the synthesis panel's own filtering and refresh
-algorithm, for the same reason: a model of the wrong role or one not yet downloaded cannot
-honestly transcribe audio.
-
-**Auto-refresh on install.** The constructor subscribes to
-`IModelCatalogService.ModelInstalled`. The handler ignores any event whose
-`ModelInstalledEventArgs.Role` is not `SpeechModelRole.Recognition`, and otherwise calls
-`Refresh()` marshaled onto the UI thread through a `SynchronizationContext` captured at
-construction (falling back to calling `Refresh()` synchronously when none was captured). This is
-what lets a newly downloaded recognition model completed from the Model Catalog panel appear in
-`AvailableModels` automatically, without a manual Refresh click or app restart. `DisposeAsync()`
-unsubscribes this handler.
-
-**Engine/session reuse.** Per `ISpeechRecognizerEngine`'s own reuse guidance, this ViewModel
-loads an engine at most once per selected model and reuses it across many Start/Stop cycles,
-instead of reloading its model on every click. Because an `IRecognitionSession` is single-use, a
-fresh session is created from the cached engine for every Start and released (via
-`InvalidateSessionAsync`) before the next one is created. The cached engine is invalidated (via
-`InvalidateEngineAsync` - which first releases the session, then disposes and clears the engine)
-only when the selected model changes; the cached session alone is invalidated (released, keeping
-the engine) whenever the selected capture device changes or the shared device-selection panel
-forces a device refresh - a session, not an engine, is bound to a capture device.
-
-Both `OnSelectedModelChanged` and `OnDeviceSelectionChanged` call `StopAsync()` first when
-`CanStop` is `true`, before invalidating - defensively, not merely for tidiness: `SelectedModel`
-and the shared `DeviceSelectionViewModel.SelectedCaptureDevice`/`CaptureSelection` both have
-public setters and are only *disabled in the view* while listening (`CanChangeModel` for the
-model picker; the capture picker is never disabled at all), so either change can genuinely arrive
-while a session is active - not just programmatically, but from the capture picker, which has no
-`Listening` guard. Disposing a session without stopping it first would leave `State` stuck at
-`Listening` forever.
-
-**Stops deterministically before a shared device refresh.** The constructor also registers a
-pre-refresh hook (`StopBeforeDeviceRefreshAsync`) with the shared `DeviceSelectionViewModel` via
-`RegisterPreRefreshHook`, mirroring the `ModelInstalled` subscription precedent above. The hook
-delegates to the same stop-then-invalidate-session path used for a capture-device change, so an
-actively listening session is stopped and released before the shared device table is re-scanned
-
-- its bound capture device would otherwise become stale the instant the refresh completes. This
-is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices" button
-stop an actively listening session deterministically, rather than relying on the
-`AudioDeviceInUseException` fallback. `DisposeAsync()` unregisters this hook.
-
-**State derivation.** `RecognitionStreamingState` is never assigned ad hoc at each call site;
-`MapSessionState` is the single, pure mapping from `RecognitionSessionState` (`Starting`,
-`Running`, `Stopping` map to `Listening`; `Faulted` maps to `Error`; anything else maps to
-`Idle`), applied every time `IRecognitionSession.StateChanged` raises. Because `StateChanged` and
-the results pumped from `GetResultsAsync` are documented to raise/resume from the session's own
-background thread, `StartAsync` captures the UI thread's `SynchronizationContext` before the
-session starts, and `OnSessionStateChanged` posts every transition through it (falling back to
-applying it synchronously when none was captured) before `ApplySessionStateChanged` touches
-`State`; a session reporting `Faulted` additionally sets `StatusMessage` to
-`SessionFaultedMessage`.
-
-**Start algorithm.** `StartAsync()`:
-
-1. Reports `NoModelSelectedMessage` and enters `Error` when no model is selected
-2. Creates the capture device through `IAudioDeviceService` before paying for the comparatively
-   expensive async engine load, so an honest "no device" outcome does not depend on what the
-   engine-loading seam happens to return for this combination; reports `NoCaptureDeviceMessage`
-   and enters `Error` when it is unavailable
-3. When no engine is cached for the selected model: invalidates any stale engine, then loads one
-   through `IRecognizerSessionFactory.LoadAsync`; disposes it and reports
-   `RecognizerUnavailableMessage` and enters `Error` when it honestly reports itself unavailable
-4. Otherwise reuses the cached engine unchanged, skipping the load entirely
-5. Releases any previous (single-use) session via `InvalidateSessionAsync`, then creates a fresh
-   session through `engine.CreateSessionAsync(captureDevice, ...)`; on
-   `RecognitionEngineBusyException`, reports the exception's message and enters `Error`
-6. Clears `Finals`, `Partial`, and `StatusMessage`; captures the current
-   `SynchronizationContext`; subscribes `StateChanged`; and calls `session.StartAsync()`
-7. On `SpeechRecognizerUnavailableException` from `StartAsync()`, unsubscribes, disposes the
-   session, reports the exception's message, and enters `Error`
-8. On success, starts a background pump task (`PumpResultsAsync`) over
-   `session.GetResultsAsync`, stored for later awaiting/canceling on Stop, invalidation, or
-   disposal
-
-**Transcript sequencing.** `PumpResultsAsync` runs an `await foreach` over
-`session.GetResultsAsync(cancellationToken)`, relying on each continuation naturally resuming on
-the UI thread context captured by `StartAsync` rather than explicit marshaling, and applies each
-result via `ApplyResult`: a final result is committed to `Finals` and `Partial` is cleared; a
-provisional result replaces `Partial`. This is exactly the sequencing a live captioning display
-depends on, so the trailing guess is replaced rather than accumulated as noise, and a finished
-utterance becomes a stable committed line the instant the recognizer considers it final. The
-pump's own `cancellationToken` ends only the enumeration (not the session) when the session is
-released while still producing results; `OperationCanceledException` from that is swallowed as
-expected invalidation, while `RecognitionSessionFaultedException`/
-`SpeechRecognizerUnavailableException` are reported through `StatusMessage`.
-`BuildTranscriptText()` renders every committed line followed by any in-progress partial.
-
-**Stop algorithm.** `StopAsync()` (`AllowConcurrentExecutions = true`, so a concurrent second
-call completes without racing to double-dispose) is a safe no-op when nothing is cached.
-Otherwise it calls `session.StopAsync()`, awaits the pump task to fully drain, finalizes any
-diagnostic capture recording, clears the captured UI context, and - if not already in `Error` -
-reports `StoppedMessage`; the session itself remains cached (released only by the next
-invalidation), so a subsequent Start reuses it only implicitly through the still-cached engine
-(a fresh session is always created on the next Start, since a session is single-use).
-
-**Model-switch guard.** `CanChangeModel` is `true` only when `State != RecognitionStreamingState.Listening`,
-computed via `[NotifyPropertyChangedFor(nameof(CanChangeModel))]` on the generated `State`
-partial property (the same pattern `CanStart`/`CanStop` already use), so it recomputes on every
-state transition with no manual notification code. `RecognitionPanelView.axaml` binds the
-model-selection `ComboBox`'s `IsEnabled` to it, so a user cannot switch the selected recognition
-model through the view while a streaming session is active. This is a view-level convenience, not
-the sole safeguard: `SelectedModel`'s setter remains public, so `OnSelectedModelChanged` (see
-"Engine/session reuse" above) still stops an active session defensively before invalidating,
-rather than assuming the view's guard makes a mid-session change unreachable.
+`RecognitionPanelViewModel` calls `IRecognizerSessionFactory.LoadAsync` (implemented by
+`RecognizerSessionFactory`) once per selected model and reuses the returned engine across Start/Stop
+cycles. A model of the wrong role yields the library's unavailable engine from the seam, which the
+view model reports as an explanatory error state rather than an exception. The view model attaches
+`CaptureDebugRecorder` to the capture device when diagnostic recording is enabled.
 
 #### Capture Debug Recording (diagnostic instrumentation)
 
-**`CaptureDebugRecorder`** and **`WavFileWriter`** are internal, opt-in, TEMPORARY diagnostic
-instrumentation added to investigate a reported live-microphone bug (a long mid-sentence pause
-sometimes dropping the first word(s) spoken right after the pause). They are not part of this
+**`CaptureDebugRecorder`** and **`WavFileWriter`** are internal, opt-in diagnostic
+instrumentation for investigating live-microphone issues such as a long mid-sentence pause
+dropping the first word(s) spoken right after the pause. They are not part of this
 subsystem's public presentation surface and are off by default. When the
 `DEMASPEECH_CAPTURE_DEBUG_DIR` environment variable names a writable directory,
 `RecognitionPanelViewModel`'s Start algorithm calls `CaptureDebugRecorder.TryStart(captureDevice)`
@@ -200,20 +68,32 @@ event the real recognizer subscribes to, writing every captured frame - in the c
 own native sample rate and channel count, before any resampling the recognizer applies - to a
 session-scoped `.wav` file via `WavFileWriter`, on a dedicated writer thread fed by a
 producer/consumer queue so a slow or failing disk can never block or throw into the audio capture
-callback. The Stop algorithm finalizes (disposes) any active recording before clearing the
+callback. The queue is bounded (2000 frames by default, tens of seconds of typical capture
+frames): the capture callback never waits, and when the queue is full the newest frame is
+dropped and counted, with the total reported to the console when the recording is finalized.
+Memory use is therefore bounded and a stalled writer produces a gap in the recording instead of
+affecting listening. The Stop algorithm finalizes (disposes) any active recording before clearing the
 captured UI context. A recorder that fails to start (for example, an inaccessible directory)
-logs the failure to the console and live recognition proceeds completely unaffected; this
-instrumentation is intended to be removed once the investigation concludes.
+logs the failure to the console and live recognition proceeds completely unaffected.
 
-#### Testability
+**Containment of diagnostic failures.** The recorder must never affect listening:
 
-`RecognitionPanelViewModel` depends on `IModelCatalogService`, `IAudioDeviceService`, the shared
-`DeviceSelectionViewModel`, and `IRecognizerSessionFactory` — never on the library's recognition
-concretes directly. This is what allows the whole Start/Stop lifecycle, the partial-then-final
-transcript sequencing, state derivation from `IRecognitionSession.StateChanged`, every
-unavailable-state path, and the auto-refresh-on-install behavior to be verified with no
-downloaded model, no native runtime, and no real microphone. `RefreshCommand` is not bound to a
-visible button in `RecognitionPanelView.axaml` - it exists solely for the auto-refresh-on-install
-path above and is not a user-facing control, since a manually clickable refresh beside
-Start/Stop/the model dropdown proved to be a redundant, confusingly placed control once
-auto-refresh-on-install existed.
+- _Coordinated disposal and callback admission_: disposal is claimed atomically (an interlocked
+  flag), and the frame callback checks it and catches `InvalidOperationException` and
+  `ObjectDisposedException` from the queue, so a frame that is already in flight when the recorder
+  is disposed is silently discarded rather than throwing into the audio callback. Disposal
+  unsubscribes from `FrameCaptured`, completes the queue, waits a bounded time for the writer
+  thread, and finalizes under a writer lock shared with the writer thread so the file is finalized
+  exactly once.
+- _Writer failure containment_: the writer loop catches `IOException`,
+  `UnauthorizedAccessException`, `ObjectDisposedException`, `NotSupportedException`,
+  `InvalidOperationException`, and `ArgumentException`, logs the failure to the console, and stops
+  accepting further frames (the queue is completed so producers are discarded) instead of retrying
+  against a failed disk; recognition continues unaffected.
+- _Finalization failure containment_: finalizing the WAV file (flush, header patch, close) can
+  itself throw; that failure is caught and logged by both the writer thread and disposal, so it can
+  neither escape the writer thread and terminate the process nor propagate out of `Dispose()`.
+- _Backpressure_: the bounded queue never blocks the producer; overflow frames are dropped and
+  counted rather than queued, so a stalled writer can neither delay capture nor grow memory.
+- _Start failure_: an inaccessible directory or invalid path is caught in `TryStart`, logged, and
+  results in no recorder.

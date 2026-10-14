@@ -1,0 +1,100 @@
+### ChatterboxTurboTokenSelector Verification
+
+#### Verification Approach
+
+Verified by `ChatterboxTurboTokenSelectorTests.cs` with hand-computed logits.
+
+#### Test Environment
+
+- **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
+- **Isolation**: pure functions; no files or network
+
+#### Acceptance Criteria
+
+Without history the argmax wins; repeated positive logits are divided and repeated negative logits
+multiplied; ties resolve to the lowest id; empty logits and a null history are rejected with exceptions; NaN and
+negative-infinity logits yield a valid token without recursion; a blocked token is skipped (even when it
+is in the history), the stop token is never blocked, and a single blocked id is returned.
+
+#### Test Scenarios
+
+The repetition penalty is 1.2. Each scenario lists the logits, the history (generated ids) and the
+hand-computed expected id.
+
+##### No history returns the argmax
+
+**Test**: `ChatterboxTurboTokenSelector_Select_NoHistory_ReturnsArgmax`
+
+Logits `[0.1, 2, 1]`, empty history: id 1.
+
+##### A repeated positive logit is penalized
+
+**Test**: `ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized`
+
+Logits `[0, 2, 1.8]`, history `{1}`: id 1 scores 2 / 1.2 = 1.67, below 1.8, so id 2.
+
+##### A repeated negative logit is pushed down
+
+**Test**: `ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown`
+
+Logits `[-1, -1.1]`, history `{0}`: id 0 scores -1 x 1.2 = -1.2, below -1.1, so id 1.
+
+##### Ties resolve to the lowest id
+
+**Test**: `ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId`
+
+Logits `[1, 1, 1]`, empty history: id 0. With `[1, 1, 1]` and history `{0, 1, 99}`
+(`ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`) ids 0 and 1
+are penalized to 0.83 and the out-of-range id 99 is ignored: id 2.
+
+##### Invalid input is rejected
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_EmptyLogits_ThrowsArgumentException` (empty logits
+throw `ArgumentException`) and `ChatterboxTurboTokenSelector_Select_NullHistory_ThrowsArgumentNullException`
+(null history throws `ArgumentNullException`).
+
+##### Non-finite logits terminate
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId` (three NaN logits: id 0),
+`ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId` (three negative-infinity
+logits with id 0 blocked: id 1),
+`ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen` (`[NaN, -5, NaN]`: id 1),
+`ChatterboxTurboTokenSelector_Select_NaNWithHistoryId_IsNeverChosen` (`[NaN, -5]`, history `{0}`: id 1),
+`ChatterboxTurboTokenSelector_Select_PositiveInfinity_IsChosen` (`[1, +Inf, 100]`: id 1),
+`ChatterboxTurboTokenSelector_Select_PositiveInfinityWithHistoryId_IsChosen` (same logits, history `{1}`:
+id 1) and `ChatterboxTurboTokenSelector_Select_NegativeInfinityWithHistoryId_IsNotChosen`
+(`[-Inf, -50]`, history `{0}`: id 1).
+
+##### Selection is deterministic and the penalty is mild
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_SameInputs_ChooseSameTokenEveryTime` (logits
+`[0.5, 2, 1.9, -1]`, history `{1}`, five calls: id 2 every time) and
+`ChatterboxTurboTokenSelector_Select_RepeatedTokenFarAhead_StillWins` (`[1, 5]`, history `{1}`:
+5 / 1.2 = 4.17 still beats 1, so id 1).
+
+##### A blocked token is skipped
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped` (logits `[0.1, 2, 1]`, block id 1:
+id 2) and `ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped` (logits `[5, 1, 0.5]`,
+history `{0}`, block id 0: id 1).
+
+##### The stop token is never blocked
+
+**Test**: `ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored`
+
+Only the stop-token logit is 5 and the stop token is passed as the blocked id: the stop token is returned.
+
+##### A single blocked id is returned
+
+**Test**: `ChatterboxTurboTokenSelector_Select_SingleIdBlocked_ReturnsOnlyId`
+
+Logits `[3]`, block id 0: id 0.
+
+##### A blocked id outside the vocabulary is ignored
+
+**Test**: `ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored`
+
+A blocked id beyond the logits changes nothing; the argmax is returned. A negative blocked id other than the
+none value (`ChatterboxTurboTokenSelector_Select_NegativeBlockedIdOtherThanNone_BlocksNothing`, logits
+`[0.1, 2, 1]`, block -5: id 1) also blocks nothing. A NaN blocked id is not representable
+(the blocked token is an integer), so the NaN case applies only to logits and is covered above.

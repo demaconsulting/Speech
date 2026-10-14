@@ -107,7 +107,7 @@ public sealed record NumericParameter : ISpeechModelParameter
         {
             throw new ArgumentException(
                 "Minimum, maximum, step, and default must all be whole numbers when isInteger is true.",
-                nameof(isInteger));
+                nameof(bounds));
         }
 
         Id = id;

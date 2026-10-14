@@ -9,12 +9,11 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 /// <remarks>
 ///     The library exposes engine composition through the static
 ///     <see cref="SpeechSynthesizerFactory.LoadAsync(ISynthesisModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>
-///     method, which requires an <see cref="ISynthesisModel"/> - an interface whose members are
-///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
-///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract
-///     instead and performs the narrowing itself, which is what lets a demo test substitute a
-///     plain, publicly implementable fake model for every scenario (including "wrong role") with
-///     no <c>InternalsVisibleTo</c> grant from the library. This method also cannot be
+///     method, which requires an <see cref="ISynthesisModel"/>. This seam instead accepts the
+///     common <see cref="ISpeechModel"/> contract and performs the narrowing itself, which is
+///     what lets a demo test substitute a plain, publicly implementable fake model for every
+///     scenario (including "wrong role") without implementing the synthesis-specific members.
+///     This method also cannot be
 ///     substituted directly in a ViewModel unit test because it is static; the production
 ///     implementation supplies the shared <see cref="SpeechModelStore"/> itself and delegates
 ///     straight to that factory, which resolves the model's installed-files directory
@@ -46,7 +45,15 @@ public interface ISynthesizerSessionFactory
     ///     the library's synthesis role; otherwise an honest <c>IsAvailable == false</c> engine.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="model"/> is <see langword="null"/>.</exception>
-    /// <remarks>Never throws for an ordinary unavailable state; every such state is reported through <c>IsAvailable</c>.</remarks>
+    /// <exception cref="ArgumentException">
+    ///     Thrown by the library's engine composition when <paramref name="parameterValues"/> holds an
+    ///     invalid value (wrong type, out of range, or not one of the offered choices) for a parameter
+    ///     the model declares. Unrecognized keys are ignored.
+    /// </exception>
+    /// <remarks>
+    ///     Never throws for an ordinary unavailable state (not installed, wrong role, missing runtime); every such
+    ///     state is reported through <c>IsAvailable</c>. The only exceptions are the argument errors above.
+    /// </remarks>
     Task<ISpeechSynthesizerEngine> LoadAsync(
         ISpeechModel model,
         IReadOnlyDictionary<string, object>? parameterValues,

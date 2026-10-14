@@ -20,11 +20,13 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using ChatterboxTurboModels = DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 
@@ -34,7 +36,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 /// </summary>
 /// <remarks>
 ///     This adapter forwards every call to the library catalog (and, for the store-only
-///     operations <see cref="Uninstall"/>/<see cref="CleanUpLeftovers"/>, to
+///     operations <see cref="UninstallAsync"/>/<see cref="CleanUpLeftoversAsync"/>, to
 ///     <see cref="SpeechModelCatalog.Store"/>) unchanged. Owns the composed catalog and disposes
 ///     it when this adapter is disposed.
 /// </remarks>
@@ -42,6 +44,12 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
 {
     /// <summary>The real library catalog every call is forwarded to.</summary>
     private readonly SpeechModelCatalog _catalog;
+
+    /// <summary>The reference-voice library shared by the Chatterbox model and the voice commands.</summary>
+    private readonly ReferenceVoiceLibrary _voiceLibrary;
+
+    /// <summary>The extra <c>--voices-dir</c> folder, or <see langword="null"/>.</summary>
+    private readonly string? _voicesDir;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelCatalogAdapter"/> class,
@@ -57,15 +65,78 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     ///     <c>--mirror-*</c> overrides), or <see langword="null"/> to download every model from
     ///     its own declared public URI.
     /// </param>
+    /// <param name="voicesDir">
+    ///     Optional extra reference-voice directory (the CLI's <c>--voices-dir</c>), or
+    ///     <see langword="null"/> for only the user folder and installed packs.
+    /// </param>
     public SpeechModelCatalogAdapter(
         SpeechModelStoreOptions? options = null,
-        SpeechModelDownloaderOptions? downloaderOptions = null)
+        SpeechModelDownloaderOptions? downloaderOptions = null,
+        string? voicesDir = null)
     {
-        _catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
-            .AddSherpaModels()
-            .AddKokoroModels()
-            .AddNemotronSttModels();
+        _voicesDir = voicesDir;
+        var catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null);
+        ReferenceVoiceLibrary? voiceLibrary = null;
+
+        try
+        {
+            // Every registration happens inside the try block so a failure in any of them
+            // releases the catalog (and voice library) built so far.
+            catalog
+                .AddSherpaModels()
+                .AddKokoroModels()
+                .AddNemotronSttModels();
+
+            // One library instance serves both the Chatterbox model (voice list read now) and the
+            // voice commands (install/uninstall/enumerate), so they share the same store and mirror.
+            voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, downloaderOptions);
+            catalog.AddChatterboxTurboModels(new ChatterboxTurboModels.ChatterboxTurboModelOptions
+            {
+                ReferenceVoiceDirectory = voicesDir,
+                ReferenceVoiceLibrary = voiceLibrary
+            });
+
+            _catalog = catalog;
+            _voiceLibrary = voiceLibrary;
+        }
+        catch
+        {
+            // Composition failed part-way: release what was built, since no caller will receive
+            // this instance to dispose
+            voiceLibrary?.Dispose();
+            catalog.Dispose();
+            throw;
+        }
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoicePack> VoicePacks => ReferenceVoiceLibrary.Packs;
+
+    /// <inheritdoc/>
+    public string UserVoicesDirectory => _voiceLibrary.UserDirectory;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoiceInfo> EnumerateVoices() =>
+        _voiceLibrary.EnumerateVoices(string.IsNullOrEmpty(_voicesDir) ? null : [_voicesDir]);
+
+    /// <inheritdoc/>
+    public SpeechModelState GetVoicePackState(string packId) => _voiceLibrary.GetPackState(packId);
+
+    /// <inheritdoc/>
+    public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
+        _voiceLibrary.PackHasEmotionsAsync(packId, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
+        string packId,
+        bool includeEmotions,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken) =>
+        _voiceLibrary.InstallPackAsync(packId, includeEmotions, progress, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken) =>
+        _voiceLibrary.UninstallPackAsync(packId, cancellationToken);
 
     /// <inheritdoc/>
     public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
@@ -78,10 +149,12 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
         _catalog.DownloadAsync(modelId, progress, cancellationToken);
 
     /// <inheritdoc/>
-    public void Uninstall(string modelId) => _catalog.Store.Uninstall(modelId);
+    public Task UninstallAsync(string modelId, CancellationToken cancellationToken) =>
+        _catalog.Store.UninstallAsync(modelId, cancellationToken);
 
     /// <inheritdoc/>
-    public void CleanUpLeftovers(string modelId) => _catalog.Store.CleanUpLeftovers(modelId);
+    public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken) =>
+        _catalog.Store.CleanUpLeftoversAsync(modelId, cancellationToken);
 
     /// <inheritdoc/>
     public AudioFormat GetPreferredAudioFormat(SpeechModelDescriptor descriptor)
@@ -127,14 +200,6 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     }
 
     /// <inheritdoc/>
-    public AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor)
-    {
-        ArgumentNullException.ThrowIfNull(descriptor);
-
-        return RequireRecognitionModel(descriptor).AudioFormat;
-    }
-
-    /// <inheritdoc/>
     public Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
@@ -172,5 +237,9 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     /// <summary>
     ///     Disposes the underlying <see cref="SpeechModelCatalog"/>.
     /// </summary>
-    public void Dispose() => _catalog.Dispose();
+    public void Dispose()
+    {
+        _voiceLibrary.Dispose();
+        _catalog.Dispose();
+    }
 }

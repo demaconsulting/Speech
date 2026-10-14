@@ -128,7 +128,7 @@ role.
 1. **Input**: Speech's `SynthesisSession` passes one rendered text chunk, speed, and the
    model-resolved speaker id to `SherpaOnnxSynthesisEngine.Generate`
 2. **Inference**: The engine calls sherpa-onnx's offline text-to-speech
-3. **Output**: Samples and their sample rate are returned to Speech as `EngineAudio`, which
+3. **Output**: Samples and their sample rate are returned to Speech as `BackendAudio`, which
    Speech resamples to the playback device's format when needed
 
 ## Design Constraints

@@ -1,0 +1,166 @@
+---
+# Software Unit Requirements for ByteLevelBpeTokenizer
+#
+# Unit-level behavior of the ByteLevelBpeTokenizer unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# ByteLevelBpeTokenizerTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ByteLevelBpeTokenizer Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
+                title: >-
+                  The ByteLevelBpeTokenizer class shall encode text into exactly the ids the
+                  reference tokenizer produces for a broad set of golden cases.
+                justification: |
+                  Any id deviation changes the speech the model produces.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds
+                  - ByteLevelBpeTokenizer_GoldenCases_ContainManyCases
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall return only the post-processor trailing
+                  ids for empty text.
+                justification: |
+                  Empty input must still yield the sequence the language model expects.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmbeddedDocument
+                title: >-
+                  The ByteLevelBpeTokenizer class shall load from a tokenizer document embedded in
+                  the package whose content is identical to the upstream document it was taken
+                  from.
+                justification: |
+                  A silently altered vocabulary would change every produced id; an integrity check
+                  keeps the embedded copy faithful to the reference.
+                tests:
+                  - ByteLevelBpeTokenizer_EmbeddedResource_MatchesPinnedUpstreamHash
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
+                title: >-
+                  The ByteLevelBpeTokenizer class shall keep added special tokens such as audio
+                  tags atomic.
+                justification: |
+                  Tags must map to their single dedicated ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_Tag_IsAtomicAndSpaceIsSeparate
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-TrailingEndOfText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall append the configured number of
+                  end-of-text tokens.
+                justification: |
+                  The language model expects the trailing end-of-text ids.
+                tests:
+                  - ByteLevelBpeTokenizer_FromGzipStream_ZeroTrailing_AddsNoEndOfText
+                  - ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that is not a valid tokenizer.
+                justification: |
+                  A corrupt resource must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyAddedToken
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that declares an added token with empty content.
+                justification: |
+                  An empty added token would match at every position and insert its id between
+                  every character, corrupting every encoding.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_EmptyAddedTokenContent_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidGzip
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that is not valid gzip.
+                justification: |
+                  A corrupt resource must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MalformedMerges
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  with malformed merges.
+                justification: |
+                  A corrupt merge list would silently change the produced ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MissingEndOfText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that lacks the end-of-text token.
+                justification: |
+                  Without the end-of-text token the trailing ids cannot be produced.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyVocabulary
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  with an empty vocabulary.
+                justification: |
+                  An empty vocabulary cannot encode any text.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-UnknownPiece
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidOperationException when the
+                  vocabulary cannot represent a piece of the text being encoded.
+                justification: |
+                  An incomplete vocabulary must fail loudly rather than yield wrong ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_PieceWithoutVocabularyEntry_ThrowsInvalidOperation
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidArguments
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw ArgumentOutOfRangeException for a
+                  negative trailing count.
+                justification: |
+                  Programming errors must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-NullArguments
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw ArgumentNullException for null
+                  arguments.
+                justification: |
+                  Programming errors must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_NullArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks
+                title: >-
+                  The ByteLevelBpeTokenizer class shall ignore a repeated merge entry, so the
+                  pair keeps the precedence of its first listing.
+                justification: |
+                  The reference implementation ranks merges by first occurrence; a later duplicate
+                  must not change the merge order and so the produced ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_DuplicateMerge_KeepsFirstRank
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeOrder
+                title: >-
+                  The ByteLevelBpeTokenizer class shall prefer a merge listed earlier in the
+                  document over one listed later when both apply to the same text.
+                justification: |
+                  Byte-pair encoding applies merges in priority order; a different order yields
+                  different ids than the reference tokenizer.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_EarlierMergeWins_OverLaterMerge

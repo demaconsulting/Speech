@@ -109,9 +109,19 @@ internal static class ListModelsCommand
                     switch (stateValue)
                     {
                         case "downloaded":
+                            if (missingOnly)
+                            {
+                                throw new ArgumentException("--state 'downloaded' conflicts with the earlier --state 'missing'.", nameof(args));
+                            }
+
                             downloadedOnly = true;
                             break;
                         case "missing":
+                            if (downloadedOnly)
+                            {
+                                throw new ArgumentException("--state 'missing' conflicts with the earlier --state 'downloaded'.", nameof(args));
+                            }
+
                             missingOnly = true;
                             break;
                         default:

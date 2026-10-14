@@ -1,0 +1,59 @@
+---
+# Software Unit Requirements for the SpeechCli UninstallCommand
+#
+# These requirements describe the `uninstall` command, decomposing the system-level
+# SpeechCli-ModelUninstall requirement.
+# Tests named UninstallCommand_* are UninstallCommandTests; SpeechCli_* tests are out-of-process
+# tests in IntegrationTests.cs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: UninstallCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-Uninstall
+                title: >-
+                  The tool shall remove a downloaded model's installed files when invoked with
+                  `uninstall <modelId>`.
+                justification: |
+                  Freeing disk space is the sole purpose of this command.
+                tests:
+                  - UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess
+                  - UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException
+
+              - id: SpeechCli-ModelCommands-UninstallNeverInstalled
+                title: >-
+                  The tool shall treat `uninstall <modelId>` of a model that has nothing installed
+                  as a safe, successful no-op rather than an error.
+                justification: |
+                  A model with nothing installed already satisfies the goal of freeing its space,
+                  so reporting it as an error would make a defensive "uninstall it if present"
+                  script exit non-zero for no real problem.
+                tests:
+                  - UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp
+                  - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
+
+              - id: SpeechCli-ModelCommands-UninstallCancellation
+                title: >-
+                  The tool shall report a clean error with a non-zero exit code, rather than an
+                  unhandled exception, when the operator interrupts (`Ctrl+C`) an `uninstall`
+                  before or during the removal, naming the model that was being removed and
+                  leaving it installed when the removal never started.
+                justification: |
+                  An interrupted removal is a deliberate operator action and must end predictably
+                  for a calling script.
+                tests:
+                  - UninstallCommand_Run_Canceled_ReportsErrorExitCode
+
+              - id: SpeechCli-ModelCommands-UninstallArgumentValidation
+                title: >-
+                  The tool shall reject `uninstall` invoked without a model id, or with more than
+                  one argument, with a clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A missing or extra id must fail predictably, so a script never removes the
+                  wrong model.
+                tests:
+                  - UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+                  - UninstallCommand_Run_ExtraArgument_ThrowsArgumentException

@@ -1,0 +1,69 @@
+---
+# Software Unit Requirements for the SpeechCli AudioDeviceFactoryCaptureDeviceSource
+#
+# These requirements describe the observable behavior of the AudioDeviceFactoryCaptureDeviceSource unit - the
+# production ICliCaptureDeviceSource - decomposing the parent ConversationCommandSubsystem requirements.
+# Every test below is an AudioDeviceFactoryCaptureDeviceSourceTests test and runs deterministically on any
+# machine, because each injects a fake probe: a selection the probe does not know resolves to the honestly
+# unavailable device whether or not audio hardware is present.
+#
+# The requirement IDs ending in ProbeForwarding, DeviceForwarding and FactoryRequired are kept stable for
+# traceability; their titles state the observable behavior only.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConversationCommandSubsystem Requirements
+        sections:
+          - title: AudioDeviceFactoryCaptureDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-ProbeForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall enumerate the same capture devices as the
+                  probe it was composed with.
+                justification: |
+                  The devices a command lists and validates names against must be the devices the source can
+                  resolve, or a name accepted by the list could fail when the device is requested.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ExposesInjectedProbe
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DeviceForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall return an unavailable capture device, without
+                  throwing, when asked for a named device that is not among the enumerated capture devices.
+                justification: |
+                  An unknown name must degrade to the honest unavailable device that callers already handle,
+                  never to an exception or to a different device than the one requested.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_UnknownName_ReturnsUnavailableDevice
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-KnownDeviceForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall resolve a named capture device that is among
+                  the enumerated capture devices exactly as the factory it was composed with does.
+                justification: |
+                  The source adds no behavior of its own: a name the operator picked from the list must produce
+                  the same device (or the same honest unavailable result) as the real factory, so a command
+                  behaves identically with and without this adapter.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_KnownName_MatchesFactoryResolution
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DefaultDeviceUnavailable
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall return an unavailable capture device, without
+                  throwing, when the default device is requested and no capture devices are present.
+                justification: |
+                  A machine without a microphone must produce a clear unavailable result that the caller can
+                  report, not a crash.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-FactoryRequired
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall reject construction without a factory with an
+                  ArgumentNullException.
+                justification: |
+                  A source with no factory could only fail later, far from the cause, so a missing factory
+                  must be reported where it is passed.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_NullFactory_ThrowsArgumentNullException

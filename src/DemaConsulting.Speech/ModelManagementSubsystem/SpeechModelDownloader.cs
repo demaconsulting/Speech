@@ -9,23 +9,23 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <summary>
 ///     Orchestrates a single model's download: fetching its declared file(s) through an
 ///     <see cref="IModelDownloadClient"/>, verifying each against its declared SHA-256 checksum,
-///     and handing a fully verified result to <see cref="SpeechModelStore"/> for atomic install.
+///     and handing a fully verified result to <see cref="SpeechModelStore"/> for installation.
 /// </summary>
 /// <remarks>
 ///     Per this library's "download integrity and progress" decision, downloads of different
 ///     models run fully concurrently with no pool limit, since each model is staged and installed
 ///     under its own isolated subtree in <see cref="SpeechModelStore"/>. A per-model-id lock
 ///     serializes only two concurrent <c>DownloadAsync</c> calls for the *same* model id - the
-///     minimal guard needed to avoid racing the store's atomic <c>Directory.Move</c>-based install
+///     minimal guard needed to avoid racing the store's directory-move-based install
 ///     swap for that model - so a second concurrent call for the same model id queues behind the
 ///     first while calls for different model ids proceed in parallel. A corrupted, partial, or
-///     checksum-mismatched download is never handed to the store's atomic-install step, so a prior
+///     checksum-mismatched download is never handed to the store's install step, so a prior
 ///     successful install of the same model (if any) is left completely untouched and still
 ///     reports installed - a failed repair attempt never regresses an already-working model.
 /// </remarks>
 public sealed class SpeechModelDownloader : IDisposable
 {
-    /// <summary>The store used to stage, atomically install, and clean up this downloader's results.</summary>
+    /// <summary>The store used to stage, install, and clean up this downloader's results.</summary>
     private readonly SpeechModelStore _store;
 
     /// <summary>The seam used to fetch each declared file's bytes.</summary>
@@ -52,14 +52,17 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </summary>
     private readonly DownloadMirror? _mirror;
 
+    /// <summary>Whether <see cref="Dispose"/> has been called; later downloads throw <see cref="ObjectDisposedException"/>.</summary>
+    private volatile bool _disposed;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class.
     /// </summary>
-    /// <param name="store">The store used to stage and atomically install downloaded models.</param>
+    /// <param name="store">The store used to stage and install downloaded models.</param>
     /// <param name="client">
     ///     An optional download seam, or <see langword="null"/> to create and own a default
     ///     <see cref="HttpModelDownloadClient"/> internally. Tests substitute a fake here to
-    ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
+    ///     exercise queueing, checksum verification, and install logic deterministically
     ///     without any real network access.
     /// </param>
     /// <param name="diagnostics">
@@ -86,11 +89,11 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class with
     ///     host-configurable download options.
     /// </summary>
-    /// <param name="store">The store used to stage and atomically install downloaded models.</param>
+    /// <param name="store">The store used to stage and install downloaded models.</param>
     /// <param name="client">
     ///     An optional download seam, or <see langword="null"/> to create and own a default
     ///     <see cref="HttpModelDownloadClient"/> internally. Tests substitute a fake here to
-    ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
+    ///     exercise queueing, checksum verification, and install logic deterministically
     ///     without any real network access.
     ///     <para>
     ///     Supplying a non-<see langword="null"/> <paramref name="client"/> together with an
@@ -170,7 +173,7 @@ public sealed class SpeechModelDownloader : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies, and atomically installs one model's declared files.
+    ///     Downloads, verifies, and installs one model's declared files.
     /// </summary>
     /// <param name="modelId">The model identifier to install under in the store. Must be a valid directory name.</param>
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
@@ -205,6 +208,7 @@ public sealed class SpeechModelDownloader : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Validate modelId (and thereby fail fast, before ever touching the queue or disk) by
         // resolving its directory - GetModelDirectory performs the same validation the store
@@ -217,24 +221,24 @@ public sealed class SpeechModelDownloader : IDisposable
         await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await DownloadWhileLockedAsync(modelId, descriptor, model: null, progress, cancellationToken)
+            return await DownloadWhileLockedAsync(modelId, descriptor, installHook: null, progress, cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
         {
-            modelLock.Release();
+            ReleaseQuietly(modelLock);
         }
     }
 
     /// <summary>
-    ///     Downloads, verifies, atomically installs, and runs the model's own
+    ///     Downloads, verifies, installs, and runs the model's own
     ///     <see cref="ISpeechModel.InstallAsync"/> hook for one model's declared files.
     /// </summary>
     /// <param name="model">
     ///     The model to install, supplying both its <see cref="ISpeechModel.DownloadDescriptor"/>
     ///     (via <see cref="ISpeechModel.Id"/>/<see cref="ISpeechModel.DownloadDescriptor"/>) and
     ///     its own <see cref="ISpeechModel.InstallAsync"/> hook, invoked on the verified staged
-    ///     files before the atomic swap into <c>current/</c>.
+    ///     files before the staged files are moved into <c>current/</c>.
     /// </param>
     /// <param name="progress">
     ///     An optional progress sink invoked as each file transfers, with
@@ -276,6 +280,7 @@ public sealed class SpeechModelDownloader : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(model);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Validate the model's id (and thereby fail fast, before ever touching the queue or
         // disk) by resolving its directory - GetModelDirectory performs the same validation the
@@ -288,12 +293,51 @@ public sealed class SpeechModelDownloader : IDisposable
         await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await DownloadWhileLockedAsync(model.Id, model.DownloadDescriptor, model, progress, cancellationToken)
+            return await DownloadWhileLockedAsync(model.Id, model.DownloadDescriptor, model.InstallAsync, progress, cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
         {
-            modelLock.Release();
+            ReleaseQuietly(modelLock);
+        }
+    }
+
+    /// <summary>
+    ///     Downloads, verifies, installs, and runs a caller-supplied install hook for
+    ///     one payload identified by a store id (used by the reference-voice pack, which is not an
+    ///     <see cref="ISpeechModel"/>).
+    /// </summary>
+    /// <param name="modelId">The id to install under in the store. Must be a valid directory name.</param>
+    /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
+    /// <param name="installHook">
+    ///     Invoked with the staging directory after every file is verified and before the staged files are moved
+    ///     into place; a thrown exception abandons the staging directory and is classified as an
+    ///     install-hook failure.
+    /// </param>
+    /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
+    /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress download.</param>
+    /// <returns>A <see cref="SpeechModelDownloadResult"/> describing the outcome.</returns>
+    internal async Task<SpeechModelDownloadResult> DownloadAsync(
+        string modelId,
+        SpeechModelDownloadDescriptor descriptor,
+        Func<string, CancellationToken, Task>? installHook,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _store.GetModelDirectory(modelId);
+
+        var modelLock = _perModelLocks.GetOrAdd(modelId, static _ => new SemaphoreSlim(1, 1));
+        await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await DownloadWhileLockedAsync(modelId, descriptor, installHook, progress, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseQuietly(modelLock);
         }
     }
 
@@ -303,18 +347,17 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </summary>
     /// <param name="modelId">The model identifier to install under in the store.</param>
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
-    /// <param name="model">
-    ///     The model whose <see cref="ISpeechModel.InstallAsync"/> hook should be invoked on the
-    ///     verified staged files before the atomic swap, or <see langword="null"/> when the
-    ///     caller used the bare <c>(modelId, descriptor, ...)</c> overload, in which case no
-    ///     install hook runs at all.
+    /// <param name="installHook">
+    ///     The install hook (an <see cref="ISpeechModel.InstallAsync"/> delegate, or a caller-owned
+    ///     equivalent) invoked on the verified staged files before the staged files are moved into place, or
+    ///     <see langword="null"/> when no install hook runs at all.
     /// </param>
     /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress download.</param>
     private async Task<SpeechModelDownloadResult> DownloadWhileLockedAsync(
         string modelId,
         SpeechModelDownloadDescriptor descriptor,
-        ISpeechModel? model,
+        Func<string, CancellationToken, Task>? installHook,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -329,7 +372,7 @@ public sealed class SpeechModelDownloader : IDisposable
         // launch does not leak leftover staging/replaced directories indefinitely.
         if (_store.IsInstalled(modelId))
         {
-            _store.CleanUpLeftovers(modelId);
+            await _store.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
                 "ModelManagementSubsystem",
@@ -339,9 +382,25 @@ public sealed class SpeechModelDownloader : IDisposable
 
         // Opportunistically retry cleanup of any leftovers from a prior interrupted attempt
         // before starting a new one, per the store's non-blocking cleanup policy.
-        _store.CleanUpLeftovers(modelId);
+        await _store.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
 
-        var (operationId, stagingDirectory) = _store.BeginStaging(modelId);
+        string operationId;
+        string stagingDirectory;
+        try
+        {
+            (operationId, stagingDirectory) = _store.BeginStaging(modelId);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Creating the staging directory is a local file-system step, so a failure here is reported as an
+            // IoFailure result like every other disk failure rather than escaping as an exception
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                "ModelManagementSubsystem",
+                $"Failed to download model '{modelId}': {ex.Message}");
+            return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.IoFailure, ex);
+        }
+
         try
         {
             long totalSizeBytes = 0;
@@ -387,12 +446,12 @@ public sealed class SpeechModelDownloader : IDisposable
             }
 
             // Every file verified - let the model unpack/process its own staged files (if it
-            // declares an install hook) before the atomic current/ swap. The default
+            // declares an install hook) before the current/ replace. The default
             // ISpeechModel.InstallAsync implementation is a no-op, so this is always safe to
             // call even for a model that needs no post-download processing at all.
-            if (model is not null)
+            if (installHook is not null)
             {
-                await model.InstallAsync(stagingDirectory, cancellationToken).ConfigureAwait(false);
+                await installHook(stagingDirectory, cancellationToken).ConfigureAwait(false);
 
                 // The install hook may have expanded, shrunk, added, or removed files (e.g. by
                 // unpacking an archive and deleting it), so recompute the installed size from
@@ -402,7 +461,7 @@ public sealed class SpeechModelDownloader : IDisposable
             }
 
             // Hand off the fully verified (and, if applicable, installed) staging directory to
-            // the store for the atomic current/ swap.
+            // the store for the current/ replace.
             _store.CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes);
             return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed);
         }
@@ -410,10 +469,10 @@ public sealed class SpeechModelDownloader : IDisposable
         {
             // Only a genuine caller cancellation (the supplied token itself was signaled) takes
             // this branch and propagates unchanged. An OperationCanceledException/
-            // TaskCanceledException NOT caused by this token (for example HttpClient's own
-            // internal request timeout) falls through to the catch below instead, where
-            // ClassifyFailure honestly reports it as NetworkBlocked rather than being mistaken
-            // for a caller-driven cancellation.
+            // TaskCanceledException NOT caused by this token falls through to the catch below
+            // instead: the HTTP fetch step's own request timeout (wrapped in
+            // HttpFetchTimeoutException) is classified as NetworkBlocked there, and any other
+            // such cancellation is reported as Failed, never mistaken for a caller cancellation.
             SpeechModelStore.AbandonStaging(stagingDirectory);
             throw;
         }
@@ -476,8 +535,7 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     <see cref="SpeechModelDownloadOutcome.Failed"/> as the final, generic fallback for any
     ///     unmatched exception type - this classification never throws, and an unmatched
     ///     exception still produces <see cref="SpeechModelDownloadOutcome.Failed"/> with the
-    ///     exception preserved in <see cref="SpeechModelDownloadResult.Error"/>, exactly as
-    ///     before this richer classification existed.
+    ///     exception preserved in <see cref="SpeechModelDownloadResult.Error"/>.
     /// </returns>
     private static SpeechModelDownloadOutcome ClassifyFailure(Exception ex) => ex switch
     {
@@ -529,7 +587,8 @@ public sealed class SpeechModelDownloader : IDisposable
 
         // Trim exactly one trailing slash from the mirror's base so "https://mirror/" and
         // "https://mirror" both combine identically with the segments that follow.
-        var basePath = mirror.BaseUri.ToString().TrimEnd('/');
+        var baseUri = mirror.BaseUri.AbsoluteUri;
+        var basePath = baseUri.EndsWith('/') ? baseUri[..^1] : baseUri;
 
         // RelativeInstallPath may use either path separator (SpeechModelDownloadFile accepts
         // both when validating "no parent-escaping segments"), so split on both and
@@ -650,8 +709,17 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     Disposes every per-model-id lock held in <see cref="_perModelLocks"/> and, when this
     ///     instance created it internally, the underlying download client.
     /// </summary>
+    /// <remarks>
+    ///     Dispose is idempotent but is not synchronized with in-flight downloads: a download that
+    ///     started before disposal may still be running, and its <c>finally</c> block then releases a
+    ///     semaphore that has already been disposed. That release swallows the resulting
+    ///     <see cref="ObjectDisposedException"/>, so an in-flight download never fails because of a
+    ///     concurrent disposal; it can, however, fail or be canceled when the owned download client is
+    ///     disposed under it. Callers should cancel and await outstanding downloads before disposing.
+    /// </remarks>
     public void Dispose()
     {
+        _disposed = true;
         foreach (var modelLock in _perModelLocks.Values)
         {
             modelLock.Dispose();
@@ -660,6 +728,22 @@ public sealed class SpeechModelDownloader : IDisposable
         if (_ownsClient && _client is IDisposable disposableClient)
         {
             disposableClient.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Releases a per-model-id lock, ignoring the <see cref="ObjectDisposedException"/> that results when
+    ///     <see cref="Dispose"/> ran while the download was still in flight.
+    /// </summary>
+    private static void ReleaseQuietly(SemaphoreSlim modelLock)
+    {
+        try
+        {
+            modelLock.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The downloader was disposed while this download was in flight; nothing is left to release.
         }
     }
 
@@ -704,7 +788,7 @@ public sealed class SpeechModelDownloader : IDisposable
 /// </remarks>
 public enum SpeechModelDownloadOutcome
 {
-    /// <summary>Every declared file was fetched, verified, and atomically installed.</summary>
+    /// <summary>Every declared file was fetched, verified, and installed.</summary>
     Installed,
 
     /// <summary>
@@ -731,8 +815,10 @@ public enum SpeechModelDownloadOutcome
     ///     <see cref="System.Security.Authentication.AuthenticationException"/>), a DNS/
     ///     connection-level failure (an <c>HttpRequestException</c> wrapping a
     ///     <see cref="System.Net.Sockets.SocketException"/> - DNS resolution failure, connection
-    ///     refused, or host unreachable), or a request timeout that was <em>not</em> caused by
-    ///     the caller's own <see cref="CancellationToken"/> (a genuine caller cancellation still
+    ///     refused, or host unreachable), or the HTTP fetch step's own request timeout (the
+    ///     <c>HttpClient</c>'s <c>Timeout</c> elapsing, which is not caused by the caller's own
+    ///     <see cref="CancellationToken"/>; any other cancellation that the caller's token did not
+    ///     cause is reported as <see cref="Failed"/>, and a genuine caller cancellation still
     ///     propagates unchanged as <see cref="OperationCanceledException"/>, never this outcome).
     ///     Nothing was installed, and any prior successful install of the same model is
     ///     untouched.

@@ -12,17 +12,19 @@ sections:
           - title: NullSpeechDiagnostics Requirements
             requirements:
               - id: Speech-Diagnostics-NullSpeechDiagnostics-Singleton
-                title: The NullSpeechDiagnostics class shall expose a single shared instance.
+                title: >-
+                  The Diagnostics subsystem shall provide a default sink that accepts reported
+                  events without disrupting the operation that reported them.
                 justification: |
-                  The class is stateless, so a shared singleton avoids unnecessary allocation
-                  and gives every caller an identical, predictable no-op sink.
+                  A host that supplies no sink still needs a working one. That the default is one
+                  shared, stateless object is a design detail described in the design document.
                 tests:
-                  - NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
+                  - NullSpeechDiagnostics_Instance_ReportEvent_OperationContinues
 
               - id: Speech-Diagnostics-NullSpeechDiagnostics-NeverThrows
                 title: >-
-                  The NullSpeechDiagnostics class shall discard every reported event without
-                  throwing, for any input including null-ish or edge-case values.
+                  The default diagnostics sink shall discard every reported event without throwing, for
+                  every severity and for null, empty, or non-empty category and message values.
                 justification: |
                   A discard sink must never itself become the reason a caller's real audio,
                   model, recognition, or synthesis operation fails.

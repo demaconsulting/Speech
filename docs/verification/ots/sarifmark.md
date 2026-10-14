@@ -32,8 +32,6 @@ not produce the required output.
 
 **Expected**: Exits 0 and successfully reads the SARIF content.
 
-**Requirement coverage**: `Template-OTS-SarifMark`.
-
 #### SarifMark_MarkdownReportGeneration
 
 **Scenario**: SarifMark renders the SARIF input as a markdown report included in the release
@@ -41,18 +39,9 @@ artifacts.
 
 **Expected**: Exits 0 and produces a non-empty markdown report.
 
-**Requirement coverage**: `Template-OTS-SarifMark`.
-
 #### SarifMark_Enforcement
 
 **Scenario**: SarifMark self-validation processes a SARIF file containing known issues in
 enforcement mode.
 
 **Expected**: Returns a non-zero exit code when issues are found.
-
-**Requirement coverage**: `Template-OTS-SarifMark-Enforcement`.
-
-### Requirements Coverage
-
-- **`Template-OTS-SarifMark`**: SarifMark_SarifReading, SarifMark_MarkdownReportGeneration
-- **`Template-OTS-SarifMark-Enforcement`**: SarifMark_Enforcement

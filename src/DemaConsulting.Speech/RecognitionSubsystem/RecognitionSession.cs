@@ -28,8 +28,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     by the time it returns - including one last flushed result for a trailing utterance that
 ///     had not yet been decoded (see <see cref="IRecognitionBackend.TryFlush"/>). Both
 ///     <see cref="StopAsync"/> and <see cref="DisposeAsync"/> await that pump thread through the
-///     cooperative-cancel-then-abandon policy documented on <see cref="DedicatedWorker"/>
-///     (Decision #4): an abandoned stop/dispose still completes teardown as best-effort, while an
+///     cooperative-cancel-then-abandon policy documented on <see cref="DedicatedWorker"/>: an abandoned stop/dispose still completes teardown as best-effort, while an
 ///     abandonment that happens for any other reason transitions this session to
 ///     <see cref="RecognitionSessionState.Faulted"/>.
 ///     </para>
@@ -48,6 +47,13 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     that a faulty backend which always reports a result cannot livelock the pump thread.
     /// </summary>
     private const int MaxResultsPerFrame = 32;
+
+    /// <summary>
+    ///     The maximum number of results drained from the backend at teardown, before the final
+    ///     flush, so that results left over by the per-block cap are still delivered while a
+    ///     faulty backend that always reports a result still cannot livelock the pump thread.
+    /// </summary>
+    private const int MaxResultsAtFinalDrain = 1024;
 
     /// <summary>The diagnostics category used for every event this session reports.</summary>
     private const string DiagnosticsCategory = "RecognitionSubsystem";
@@ -76,7 +82,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>Invoked exactly once, at the very end of <see cref="DisposeAsync"/>, to release the engine's exclusivity lease.</summary>
     private readonly Action _releaseLease;
 
-    /// <summary>Buffers provisional/final results for <see cref="GetResultsAsync"/> (Decision #5).</summary>
+    /// <summary>Buffers provisional/final results for <see cref="GetResultsAsync"/>.</summary>
     private readonly RecognitionResultBuffer _resultBuffer;
 
     /// <summary>This session's current lifecycle state.</summary>
@@ -95,7 +101,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     The pump loop's own dedicated-thread completion, set alongside <see cref="_pumpTask"/>.
     ///     Unlike <see cref="_pumpTask"/>, this completes only once the pump thread has genuinely
     ///     exited - even if <see cref="_pumpTask"/> itself completed early as abandoned - so
-    ///     teardown can safely wait for it before touching the shared backend again (Decision #4).
+    ///     teardown can safely wait for it before touching the shared backend again.
     /// </summary>
     private Task? _pumpRawCompletion;
 
@@ -106,7 +112,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     <see cref="StartAsync"/> ever releases the lock, so <see cref="RunTeardownAsync"/> can
     ///     await this - the device's own <see cref="IAudioCaptureDevice.Start"/> call genuinely
     ///     returning, even if <see cref="StartAsync"/>'s own abandon-aware task completed early as
-    ///     cancelled - before it ever stops the device: this is what still prevents a concurrent
+    ///     canceled - before it ever stops the device: this is what still prevents a concurrent
     ///     <see cref="StopAsync"/>/<see cref="DisposeAsync"/> from converging this session to
     ///     <see cref="RecognitionSessionState.Stopped"/> and returning while the device is still
     ///     genuinely starting, now that <see cref="StartAsync"/> no longer blocks the caller for
@@ -115,11 +121,11 @@ internal sealed class RecognitionSession : IRecognitionSession
     private Task? _deviceStartRawCompletion;
 
     /// <summary>
-    ///     Set only when the pump worker was abandoned (finding 24): the continuation of
+    ///     Set only when the pump worker was abandoned: the continuation of
     ///     <see cref="_pumpRawCompletion"/> that safely resets the backend and stops the device
     ///     once that raw completion genuinely happens - deferred out of the teardown task itself
     ///     so <see cref="StopAsync"/>/<see cref="FaultSession"/> still complete promptly
-    ///     (Decision #4) and this session's own state still converges immediately, while
+    ///     (the abandon guarantee) and this session's own state still converges immediately, while
     ///     <see cref="DisposeCoreAsync"/> still awaits this before releasing the engine's lease,
     ///     so the shared backend is never reset/touched while an abandoned pump thread may still
     ///     be inside it.
@@ -137,7 +143,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>
     ///     The single-flight disposal operation, shared by every concurrent <see cref="DisposeAsync"/>
     ///     caller so a second call awaits the same real teardown rather than returning as soon as
-    ///     the first call merely begins (Decision: see the review finding this closes).
+    ///     the first call merely begins.
     /// </summary>
     private Task? _disposeTask;
 
@@ -185,7 +191,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         _releaseLease = releaseLease;
         _diagnostics = diagnostics;
         _worker = worker;
-        _resultBuffer = new RecognitionResultBuffer(diagnostics, DiagnosticsCategory);
+        _resultBuffer = new RecognitionResultBuffer();
 
         var deviceSampleRate = device.SampleRate;
         var deviceChannelCount = device.ChannelCount;
@@ -301,7 +307,7 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             // Run the native, potentially slow device.Start() call through the same dedicated
             // worker the pump loop uses, rather than inline on this caller's thread (see this
-            // method's remarks). Given this call's own cancellationToken so a cancelled start is
+            // method's remarks). Given this call's own cancellationToken so a canceled start is
             // genuinely abandoned (not silently ignored) rather than always running to completion
             // regardless of the caller's request. The raw completion is published to
             // _deviceStartRawCompletion before the lock is released so RunTeardownAsync can still
@@ -310,7 +316,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             _deviceStartRawCompletion = deviceStartRawCompletion;
         }
 
-        // Raised only after _syncRoot has been released (finding 21): invoking a host's
+        // Raised only after _syncRoot has been released: invoking a host's
         // StateChanged handler while still holding this session's state lock risks deadlock if
         // that handler calls back into this session (for example StopAsync/DisposeAsync) and then
         // synchronously blocks on the result, since any continuation that needs this same lock
@@ -417,14 +423,14 @@ internal sealed class RecognitionSession : IRecognitionSession
             }
         }
 
-        // Raised only after _syncRoot has been released (finding 21/25): see StartAsync's remarks.
+        // Raised only after _syncRoot has been released : see StartAsync's remarks.
         if (transition is not null)
         {
             RaiseStateChanged(transition);
         }
 
         // Started only after the transition above has been raised, and only on this thread's own
-        // sequential program order (finding 32/33): RunTeardownAsync must never begin running -
+        // sequential program order: RunTeardownAsync must never begin running -
         // not even the portion of it that could complete synchronously given fast/trivial
         // dependencies - until this caller is done raising its own transition, or a concurrent
         // StateChanged subscriber could observe the eventual Stopped/Faulted-preserved transition
@@ -434,7 +440,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             _ = RunTeardownAsync(pending);
         }
 
-        // cancellationToken only bounds this caller's own wait for teardown (finding 19/25): the
+        // cancellationToken only bounds this caller's own wait for teardown: the
         // shared teardown task above is never aborted by it, since it is shared with every other
         // concurrent/overlapping StopAsync caller (and DisposeAsync), all of whom still need
         // draining/resetting/stopping to genuinely happen regardless of whether this particular
@@ -449,7 +455,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     The captured inputs <see cref="RunTeardownAsync"/> needs to actually run the teardown
     ///     sequence, plus the <see cref="TaskCompletionSource"/> that backs the shared,
     ///     already-published <see cref="_teardownTask"/> - deliberately separated from starting
-    ///     <see cref="RunTeardownAsync"/> itself (findings 32/33): the caller that receives this
+    ///     <see cref="RunTeardownAsync"/> itself: the caller that receives this
     ///     must invoke <see cref="RunTeardownAsync"/> only after it has released
     ///     <see cref="_syncRoot"/> and raised its own state-transition event, never while still
     ///     holding the lock, so the eventual Stopped/Faulted-preserved transition that
@@ -471,7 +477,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     <see cref="RaiseStateChanged"/>, and - only for whichever caller actually wins the
     ///     race to create it - the <see cref="TeardownStart"/> that caller alone must then pass to
     ///     <see cref="RunTeardownAsync"/> once it has released <see cref="_syncRoot"/> and raised
-    ///     its transition (findings 32/33). Must be called with <see cref="_syncRoot"/> held, so
+    ///     its transition. Must be called with <see cref="_syncRoot"/> held, so
     ///     creating it (including the synchronous unsubscribe/channel-completion below) is atomic
     ///     with every state check a concurrent caller might make - but, deliberately, this method
     ///     never itself invokes <see cref="RunTeardownAsync"/>: doing so here, while
@@ -498,7 +504,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         {
             // Never started: there is nothing to drain, reset, or stop, but single-use
             // bookkeeping still requires converging on Stopped - and GetResultsAsync still must
-            // not hang forever waiting for a result buffer nobody ever completes (finding 23).
+            // not hang forever waiting for a result buffer nobody ever completes.
             var createdArgs = TransitionTo(RecognitionSessionState.Stopped);
             _resultBuffer.Complete();
             _teardownTask = Task.CompletedTask;
@@ -543,16 +549,15 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     the pump worker was abandoned, matching <see cref="StopAsync"/>'s documented contract
     ///     that its returned task completing means this session itself has converged. Only
     ///     resetting the shared backend and stopping the capture device - which must never run
-    ///     concurrently with the pump thread still being inside a blocking backend call (finding
-    ///     24) - is deferred to <see cref="_deferredBackendTeardown"/>, a continuation of
+    ///     concurrently with the pump thread still being inside a blocking backend call - is deferred to <see cref="_deferredBackendTeardown"/>, a continuation of
     ///     <paramref name="start"/>'s pump raw completion that <see cref="DisposeCoreAsync"/>
     ///     awaits before releasing the engine's lease, which is what actually closes the reuse
-    ///     race Decision #4 is about: a new session (or engine disposal) touching the shared
+    ///     race the abandon guarantee must handle: a new session (or engine disposal) touching the shared
     ///     backend concurrently with an abandoned pump thread that has not yet genuinely exited.
     ///     <para>
     ///     Must only ever be invoked after the caller that obtained <paramref name="start"/> from
     ///     <see cref="EnsureTeardownStartedLocked"/> has released <see cref="_syncRoot"/> and
-    ///     raised its own Stopping/Faulted transition (findings 32/33): see
+    ///     raised its own Stopping/Faulted transition: see
     ///     <see cref="TeardownStart"/>'s and <see cref="EnsureTeardownStartedLocked"/>'s remarks
     ///     for why. <paramref name="start"/>'s <see cref="TaskCompletionSource"/> is always
     ///     completed, even if an earlier step reports a failure via diagnostics, since every step
@@ -568,7 +573,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             // control returning to it immediately so it never blocks on this method's own
             // potentially-slow/native work (backend reset, device stop). Awaiting an
             // already-completed task does not yield - it continues synchronously on the calling
-            // thread - so without this unconditional yield, a null/already-cancelled pumpCts or an
+            // thread - so without this unconditional yield, a null/already-canceled pumpCts or an
             // already-completed pumpTask would let the whole method, including the blocking
             // device.Stop() call below, run inline on whichever thread happened to call
             // StopAsync/DisposeAsync/FaultSession, defeating their documented
@@ -580,8 +585,8 @@ internal sealed class RecognitionSession : IRecognitionSession
             // never under _syncRoot - see its remarks), and device.Stop() below must never run
             // concurrently with that still-in-progress device.Start() call. Awaiting the raw
             // completion here (not StartAsync's own abandon-aware task) is deliberate: if a
-            // caller cancelled StartAsync while the device was still starting and the abandon
-            // timeout has already elapsed, StartAsync's own task completes early as cancelled/
+            // caller canceled StartAsync while the device was still starting and the abandon
+            // timeout has already elapsed, StartAsync's own task completes early as canceled/
             // faulted while the device-start worker thread may still genuinely be inside
             // IAudioCaptureDevice.Start() - this raw completion only resolves once that thread has
             // truly exited, exactly mirroring _pumpRawCompletion's role for the pump thread. This
@@ -603,13 +608,13 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
-            // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker (Decision
-            // #4): PumpLoop itself never observes this token while draining (see its own remarks), so
+            // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker:
+            // PumpLoop itself never observes this token while draining (see its own remarks), so
             // every block already accepted is still decoded and buffered normally; this cancellation
             // only matters if the pump thread is genuinely stuck inside a blocking backend call that
             // never returns, in which case the worker is abandoned after its timeout rather than
             // hanging this call forever.
-            // A finite file source is never cancelled here: the abandon deadline would cut off a
+            // A finite file source is never canceled here: the abandon deadline would cut off a
             // slow backend (for example a large CPU model) still decoding the file's queued audio,
             // losing the tail of a transcript the user expects in totality.
             if (pumpCts is not null && _device is not WavFileAudioCaptureDevice)
@@ -628,7 +633,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                 {
                     // The pump thread may still be inside a blocking backend call
                     // (AcceptSamples/TryDecode/TryFlush) even though the abandon-aware wrapper above
-                    // has given up waiting for it (finding 24): backend.Reset()/device.Stop() below
+                    // has given up waiting for it: backend.Reset()/device.Stop() below
                     // must not run yet, or they would race that still-running call.
                     abandoned = true;
                 }
@@ -647,9 +652,9 @@ internal sealed class RecognitionSession : IRecognitionSession
             if (abandoned)
             {
                 // Defer only the backend reset/device stop until the pump thread's own raw
-                // completion genuinely happens (finding 24); DisposeCoreAsync awaits this before
+                // completion genuinely happens; DisposeCoreAsync awaits this before
                 // releasing the engine's lease. This call itself still completes promptly and
-                // best-effort, matching Decision #4's existing guarantee that an abandoned
+                // best-effort, matching the existing guarantee that an abandoned
                 // stop/dispose never hangs its caller.
                 lock (_syncRoot)
                 {
@@ -672,7 +677,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
-            // Raised only after _syncRoot has been released (finding 21): see StartAsync's remarks.
+            // Raised only after _syncRoot has been released: see StartAsync's remarks.
             if (stoppedArgs is not null)
             {
                 RaiseStateChanged(stoppedArgs);
@@ -682,7 +687,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
         finally
         {
-            // Always completes the shared, previously-published teardown task (findings 32/33),
+            // Always completes the shared, previously-published teardown task,
             // regardless of which branch above ran or whether an unexpected exception escaped one
             // of them, so no concurrent StopAsync/DisposeAsync/FaultSession caller can ever hang
             // waiting on a teardown that silently stopped making progress.
@@ -693,7 +698,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>
     ///     Awaits <paramref name="pumpRawCompletion"/> (the pump thread's own raw completion),
     ///     then resets the shared recognition backend and stops the capture device - used only
-    ///     when the pump worker was abandoned (finding 24), so the shared backend is never
+    ///     when the pump worker was abandoned, so the shared backend is never
     ///     touched while that thread may still be inside it.
     /// </summary>
     private async Task ResetBackendAndStopDeviceAsync(Task? pumpRawCompletion)
@@ -771,8 +776,7 @@ internal sealed class RecognitionSession : IRecognitionSession
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Every concurrent caller shares the same single-flight disposal task (Decision: see the
-    ///     review finding this closes) rather than a second call returning the instant the first
+    ///     Every concurrent caller shares the same single-flight disposal task rather than a second call returning the instant the first
     ///     merely begins: both wait for the exact same real teardown, state transitions, and
     ///     engine-lease release to complete.
     /// </remarks>
@@ -788,10 +792,10 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>
     ///     Runs the full Stopping -&gt; Stopped (or Faulted-preserving) teardown, then additionally
     ///     awaits the deferred backend reset/device stop continuation set when the pump worker was
-    ///     abandoned (finding 24) - which itself awaits the pump thread's own raw completion, not
+    ///     abandoned - which itself awaits the pump thread's own raw completion, not
     ///     merely the abandon-aware task the teardown above already waited for - before
     ///     transitioning through Disposing to Disposed and releasing the engine's exclusivity
-    ///     lease. This closes Decision #4's race: even though <see cref="StopAsync"/> deliberately
+    ///     lease. This closes the reuse race: even though <see cref="StopAsync"/> deliberately
     ///     does not wait out a non-cooperative, abandoned native call, disposal must, because
     ///     releasing the lease is what permits a new session (or engine disposal) to touch or
     ///     dispose the shared backend - and that must never overlap an abandoned pump thread that
@@ -807,13 +811,13 @@ internal sealed class RecognitionSession : IRecognitionSession
             (teardown, transition, start) = EnsureTeardownStartedLocked(preserveFault: _state == RecognitionSessionState.Faulted);
         }
 
-        // Raised only after _syncRoot has been released (finding 21): see StartAsync's remarks.
+        // Raised only after _syncRoot has been released: see StartAsync's remarks.
         if (transition is not null)
         {
             RaiseStateChanged(transition);
         }
 
-        // Started only after the transition above has been raised (findings 32/33): see
+        // Started only after the transition above has been raised: see
         // StopAsync's matching comment and TeardownStart's remarks for why.
         if (start is { } pending)
         {
@@ -838,7 +842,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             {
                 // FinishBackendTeardownAsync already reports every failure through diagnostics
                 // itself; this only confirms the abandoned pump thread - and the backend
-                // reset/device stop that had to wait for it (finding 24) - has genuinely finished
+                // reset/device stop that had to wait for it - has genuinely finished
                 // before the lease below is released.
             }
         }
@@ -860,7 +864,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>
     ///     Moves this session to <paramref name="newState"/> and returns the event args the caller
     ///     must raise via <see cref="RaiseStateChanged"/> once <see cref="_syncRoot"/> has been
-    ///     released (finding 21). Must be called under <see cref="_syncRoot"/>, but deliberately
+    ///     released. Must be called under <see cref="_syncRoot"/>, but deliberately
     ///     does not invoke <see cref="StateChanged"/> itself: a host's handler calling back into
     ///     this session (for example <see cref="StopAsync"/>/<see cref="DisposeAsync"/>) and then
     ///     synchronously blocking on the result would otherwise risk deadlocking against this same
@@ -875,7 +879,7 @@ internal sealed class RecognitionSession : IRecognitionSession
 
     /// <summary>
     ///     Invokes <see cref="StateChanged"/> for <paramref name="args"/>. Must be called only
-    ///     after releasing <see cref="_syncRoot"/> (finding 21); never called while holding it.
+    ///     after releasing <see cref="_syncRoot"/>; never called while holding it.
     /// </summary>
     private void RaiseStateChanged(SessionStateChangedEventArgs args)
     {
@@ -967,7 +971,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             }
         }
 
-        // Raised only after _syncRoot has been released (finding 21): see StartAsync's remarks.
+        // Raised only after _syncRoot has been released: see StartAsync's remarks.
         if (faultedArgs is not null)
         {
             RaiseStateChanged(faultedArgs);
@@ -978,7 +982,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             RaiseStateChanged(teardownArgs);
         }
 
-        // Started only after both transitions above have been raised (findings 32/33): see
+        // Started only after both transitions above have been raised: see
         // StopAsync's matching comment and TeardownStart's remarks for why. Fire-and-forget is
         // safe here: RunTeardownAsync reports every failure through diagnostics itself rather
         // than letting any step throw, so there is nothing this caller needs to observe beyond
@@ -998,8 +1002,8 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </summary>
     /// <remarks>
     ///     Deliberately does not observe the <see cref="DedicatedWorker"/> cancellation token
-    ///     passed to <see cref="DedicatedWorker.RunAsync(Action{CancellationToken}, CancellationToken)"/>: that token is cancelled by
-    ///     <see cref="StopAsync"/> purely as the outer abandon-timeout deadline (Decision #4), and
+    ///     passed to <see cref="DedicatedWorker.RunAsync(Action{CancellationToken}, CancellationToken)"/>: that token is canceled by
+    ///     <see cref="StopAsync"/> purely as the outer abandon-timeout deadline, and
     ///     reading it here as well would risk silently dropping buffered-but-undecoded frames in
     ///     a race with that cancellation, breaking the guarantee that every block accepted before
     ///     <see cref="StopAsync"/> is still decoded. Completion of <see cref="_pendingFrames"/>'s
@@ -1022,7 +1026,7 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             if (!ProcessFrame(frame))
             {
-                // The backend itself failed (finding 22): continuing to pump further frames
+                // The backend itself failed: continuing to pump further frames
                 // through a backend that just threw would only repeat the same failure for every
                 // subsequent block, while leaving this session Running and its result buffer open
                 // forever for a caller still awaiting GetResultsAsync. Stop draining; the session
@@ -1042,6 +1046,18 @@ internal sealed class RecognitionSession : IRecognitionSession
     {
         try
         {
+            // Results beyond MaxResultsPerFrame for the last block(s) are still queued in the
+            // backend; drain them (bounded) before finalizing so none is lost at stop.
+            for (var i = 0; i < MaxResultsAtFinalDrain; i++)
+            {
+                if (!_backend.TryDecode(out var pending) || pending is null)
+                {
+                    break;
+                }
+
+                BufferResult(pending);
+            }
+
             if (!_backend.TryFlush(out var result) || result is null)
             {
                 return;
@@ -1063,7 +1079,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     result it produced.
     /// </summary>
     /// <returns>
-    ///     <see langword="false"/> if the backend itself threw (finding 22), meaning this
+    ///     <see langword="false"/> if the backend itself threw, meaning this
     ///     session has already been faulted and the pump loop must not call this again;
     ///     otherwise <see langword="true"/>.
     /// </returns>
@@ -1107,7 +1123,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     }
 
     /// <summary>
-    ///     Faults this session's state and result buffer from the pump thread itself (finding 22),
+    ///     Faults this session's state and result buffer from the pump thread itself,
     ///     without starting teardown: unlike <see cref="FaultSession"/>, this is called while the
     ///     pump thread is still executing, so awaiting <see cref="_pumpTask"/>/
     ///     <see cref="_pumpRawCompletion"/> here (as starting teardown would) would await this very
@@ -1126,7 +1142,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             }
         }
 
-        // Raised only after _syncRoot has been released (finding 21): see StartAsync's remarks.
+        // Raised only after _syncRoot has been released: see StartAsync's remarks.
         if (faultedArgs is not null)
         {
             RaiseStateChanged(faultedArgs);

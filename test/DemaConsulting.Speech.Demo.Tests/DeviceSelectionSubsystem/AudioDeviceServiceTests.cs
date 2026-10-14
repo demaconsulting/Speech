@@ -117,6 +117,68 @@ public class AudioDeviceServiceTests
     }
 
     /// <summary>
+    ///     Proves that capture device creation is delegated to the library factory, which honors
+    ///     its own probe and answers with the honest unavailable device when the probe knows no
+    ///     device, rather than the adapter inventing a device.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceService_CreateCaptureDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice()
+    {
+        // Arrange: a factory whose injected capture probe reports no devices
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([]);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null));
+
+        // Act: request a capture device for an unknown device name
+        var device = service.CreateCaptureDevice(new AudioDeviceSelection("Missing Mic"));
+
+        // Assert: the factory's unavailable fallback is returned unchanged
+        Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
+    }
+
+    /// <summary>
+    ///     Proves that playback device creation is delegated to the library factory, which
+    ///     answers with the honest unavailable device when its probe knows no device.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceService_CreatePlaybackDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice()
+    {
+        // Arrange: a factory whose injected playback probe reports no devices
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([]);
+        var service = new AudioDeviceService(new AudioDeviceFactory(null, playbackProbe, null));
+
+        // Act: request a playback device with no explicit selection
+        var device = service.CreatePlaybackDevice(null);
+
+        // Assert: the factory's unavailable fallback is returned unchanged
+        Assert.Same(UnavailableAudioPlaybackDevice.Instance, device);
+    }
+
+    /// <summary>
+    ///     Proves that the adapter performs no caching: a later enumeration reflects whatever the
+    ///     probe reports at that moment.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceService_EnumerateCaptureDevices_ProbeResultChanges_ReturnsLatestProbeDevices()
+    {
+        // Arrange: a capture probe that reports one device, then a different device
+        var first = new List<AudioDeviceDescription> { new("Mic A", AudioDeviceDirection.Capture, 1, 16000) };
+        var second = new List<AudioDeviceDescription> { new("Mic B", AudioDeviceDirection.Capture, 2, 48000) };
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns(first, second);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null));
+
+        // Act: enumerate twice
+        var initial = service.EnumerateCaptureDevices();
+        var latest = service.EnumerateCaptureDevices();
+
+        // Assert: each call reports the probe's current answer
+        Assert.Equal(first, initial);
+        Assert.Equal(second, latest);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used only by the refresh delegation test.
     /// </summary>
     private sealed class FakePortAudioApi : IPortAudioApi

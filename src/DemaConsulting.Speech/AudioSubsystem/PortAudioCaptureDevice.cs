@@ -72,7 +72,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
 
         _environment = environment;
         _selection = selection ?? AudioDeviceSelection.SystemDefault;
-        _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
+        _diagnostics = new BestEffortDiagnostics(diagnostics ?? NullSpeechDiagnostics.Instance);
         _preferredFormat = preferredFormat;
         _resolvedDevice = ResolveDevice();
     }
@@ -96,6 +96,28 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     ///     The diagnostics sink for structural selection and lifecycle events.
     /// </summary>
     private readonly ISpeechDiagnostics _diagnostics;
+
+    /// <summary>
+    ///     Wraps a diagnostics sink so a throwing sink never alters lifecycle behavior
+    ///     (best-effort reporting).
+    /// </summary>
+    /// <param name="inner">The wrapped sink.</param>
+    private sealed class BestEffortDiagnostics(ISpeechDiagnostics inner) : ISpeechDiagnostics
+    {
+        /// <inheritdoc/>
+        public void Report(SpeechDiagnosticLevel level, string category, string message)
+        {
+            try
+            {
+                inner.Report(level, category, message);
+            }
+            catch (Exception)
+            {
+                // Intentionally broad: diagnostics are observational and must never fail, skip
+                // cleanup in, or otherwise change the audio operation being observed.
+            }
+        }
+    }
 
     /// <summary>
     ///     The optional preferred capture format to request when resolving the device.

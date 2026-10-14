@@ -48,16 +48,12 @@ against an installed-files directory.
 resolved against that directory, proving the repository can construct the managed configuration
 types correctly.
 
-**Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
-
 #### SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
 
 **Scenario**: A SpeechSherpa recognition model's declared engine input format is read.
 
 **Expected**: The declared mono `AudioFormat` is returned, proving the per-model input-format
 declaration the streaming API requires is available to the recognition pipeline.
-
-**Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
 
 #### SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
 
@@ -67,8 +63,6 @@ declaration the streaming API requires is available to the recognition pipeline.
 used to load an engine through the library's seam, proving the model-owned configuration pattern
 works end to end without the Speech library naming any sherpa-onnx type.
 
-**Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
-
 #### SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask
 
 **Scenario**: Loading the speech-inference engine fails, as it would on a machine whose native
@@ -76,14 +70,3 @@ runtime is absent.
 
 **Expected**: Composition returns the honest unavailable engine and reports the reason,
 without throwing, proving the native-runtime boundary degrades in the required honest way.
-
-**Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
-
-### Requirements Coverage
-
-- **`Speech-OTS-SherpaOnnx-ManagedStreamingApi`**:
-  `SherpaOnnxZipformerEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig`,
-  `SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000`
-- **`Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`**:
-  `SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
-  `SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask`

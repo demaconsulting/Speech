@@ -25,6 +25,26 @@ public class NullSpeechDiagnosticsTests
     }
 
     /// <summary>
+    ///     Proves that a caller holding the default sink can report an event and carry on with its own
+    ///     operation undisturbed.
+    /// </summary>
+    [Fact]
+    public void NullSpeechDiagnostics_Instance_ReportEvent_OperationContinues()
+    {
+        // Arrange: a caller that works through the default sink
+        ISpeechDiagnostics diagnostics = NullSpeechDiagnostics.Instance;
+        var completedSteps = 0;
+
+        // Act: the caller reports an event between two steps of its own work
+        completedSteps++;
+        diagnostics.Report(SpeechDiagnosticLevel.Warning, "AudioSubsystem", "Fallback in use.");
+        completedSteps++;
+
+        // Assert: both steps completed
+        Assert.Equal(2, completedSteps);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> is a true no-op for a normal,
     ///     well-formed event and never throws.
     /// </summary>
@@ -43,20 +63,28 @@ public class NullSpeechDiagnosticsTests
     }
 
     /// <summary>
-    ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> never throws even when given
-    ///     null-ish/edge inputs, confirming the sink cannot become the reason a caller's real
-    ///     operation fails.
+    ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> never throws when given a null,
+    ///     empty, or non-empty category or message, confirming the sink cannot become the reason a
+    ///     caller's real operation fails.
     /// </summary>
-    [Fact]
-    public void NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    [InlineData("", null)]
+    [InlineData("Category", null)]
+    [InlineData(null, "Message")]
+    [InlineData("Category", "")]
+    [InlineData("", "Message")]
+    public void NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow(string? category, string? message)
     {
         // Arrange: obtain the shared no-op sink
         var diagnostics = NullSpeechDiagnostics.Instance;
 
-        // Act: report using null category/message, which the interface signature permits at
-        // runtime even though nullable annotations discourage it at compile time
+        // Act: report using the null or empty category/message, which the interface signature
+        // permits at runtime even though nullable annotations discourage it at compile time
         var exception = Record.Exception(() =>
-            diagnostics.Report(SpeechDiagnosticLevel.Error, null!, null!));
+            diagnostics.Report(SpeechDiagnosticLevel.Error, category!, message!));
 
         // Assert: no exception is thrown
         Assert.Null(exception);

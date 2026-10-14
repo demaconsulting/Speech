@@ -5,6 +5,7 @@ using DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using NSubstitute;
 
@@ -131,6 +132,44 @@ public class SynthesisPanelViewModelTests
         Assert.Empty(viewModel.AvailableModels);
         Assert.Null(viewModel.SelectedModel);
         Assert.False(viewModel.CanPlay);
+        Assert.Contains("Model Catalog", SynthesisPanelViewModel.NoModelsMessage, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a Refresh triggered while a Play is in flight (a voice-pack change or an install can raise one)
+    ///     does not disturb the in-flight Play and leaves the panel settled once that Play ends.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Refresh_WhilePlaying_DoesNotDisturbPlayAndSettlesIdle()
+    {
+        // Arrange: an installed model, a device, and a session whose speech only ends when stopped
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var session = new FakeSynthesisSession
+        {
+            SpeakImplementation = (_, token) => Task.Delay(Timeout.Infinite, token),
+        };
+        var engine = new FakeSpeechSynthesizerEngine { SessionFactory = _ => session };
+        var viewModel = new SynthesisPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        var playTask = viewModel.PlayCommand.ExecuteAsync(null);
+        var selectedBefore = viewModel.SelectedModel;
+
+        // Act: refresh the catalog while the Play is in flight
+        viewModel.Refresh();
+
+        // Assert: the in-flight Play, its session and the selection are undisturbed
+        Assert.Same(selectedBefore, viewModel.SelectedModel);
+        Assert.Equal(0, session.StopCallCount);
+        Assert.Equal(0, session.DisposeCallCount);
+        Assert.False(playTask.IsCompleted);
+
+        // Cleanup: stop the Play and confirm the panel settles
+        await viewModel.StopCommand.ExecuteAsync(null);
+        await playTask;
+        Assert.NotEqual(SynthesisPlaybackState.Playing, viewModel.State);
     }
 
     /// <summary>
@@ -255,8 +294,7 @@ public class SynthesisPanelViewModelTests
     /// <summary>
     ///     Proves that the embedded <c>ModelSettingsViewModel.BuildValueBag</c> content genuinely
     ///     reaches the injected <see cref="ISynthesizerSessionFactory.LoadAsync"/> call during
-    ///     Play, closing the "settings bag has no real consumer" gap the demo previously
-    ///     documented.
+    ///     Play.
     /// </summary>
     [Fact]
     public async Task SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory()
@@ -300,7 +338,7 @@ public class SynthesisPanelViewModelTests
 
     /// <summary>
     ///     Proves that a full, successful Play lifecycle transitions through Synthesizing then
-    ///     Playing before settling on Idle, and disposes the session afterward via the
+    ///     Playing before settling on Idle, via the
     ///     <see cref="ISynthesisSession.StateChanged"/> mapping.
     /// </summary>
     [Fact]
@@ -445,7 +483,7 @@ public class SynthesisPanelViewModelTests
     {
         // Arrange: a session whose SpeakAsync only completes when its token is canceled,
         // simulating an in-flight, indefinitely long utterance, sharing the panel's own
-        // device-selection panel so Refresh() exercises the real registered hook
+        // device-selection panel so RefreshAsync() exercises the real registered hook
         var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
         var deviceService = Substitute.For<IAudioDeviceService>();
         var availableDevice = PlaybackDevice();
@@ -462,7 +500,7 @@ public class SynthesisPanelViewModelTests
         // Act: start playback without awaiting it, then refresh the shared device-selection
         // panel (as the "Refresh devices" button would)
         var playTask = viewModel.PlayCommand.ExecuteAsync(null);
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: Stop was requested on the session, the device refresh completed without
         // throwing (proving the hook genuinely awaited PlayAsync's own completion rather than
@@ -487,7 +525,7 @@ public class SynthesisPanelViewModelTests
     public async Task SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds()
     {
         // Arrange: a panel with no Play session ever started, sharing its own device-selection
-        // panel so Refresh() exercises the real registered hook
+        // panel so RefreshAsync() exercises the real registered hook
         var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
         var deviceService = Substitute.For<IAudioDeviceService>();
         var availableDevice = PlaybackDevice();
@@ -498,7 +536,7 @@ public class SynthesisPanelViewModelTests
             Catalog(descriptor), deviceService, deviceSelection, SessionFactory(engine));
 
         // Act: refresh the shared device-selection panel while idle, with no Play ever started
-        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+        var exception = await Record.ExceptionAsync(() => deviceSelection.RefreshAsync());
 
         // Assert: the refresh completes without throwing, no session was ever created, and the
         // panel remains idle
@@ -508,10 +546,9 @@ public class SynthesisPanelViewModelTests
     }
 
     /// <summary>
-    ///     Proves the central bugfix this redesign exists for: calling Play twice in a row with
-    ///     the selected model and settings parameter values unchanged reuses the exact same
-    ///     cached engine and session, rather than reloading the model and recreating the session
-    ///     on every click.
+    ///     Proves that calling Play twice in a row with the selected model and settings
+    ///     parameter values unchanged reuses the exact same cached engine and session, rather
+    ///     than reloading the model and recreating the session on every click.
     /// </summary>
     [Fact]
     public async Task SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload()
@@ -583,6 +620,42 @@ public class SynthesisPanelViewModelTests
     }
 
     /// <summary>
+    ///     Proves that a model instance that replaces the previously selected one (same identifier, as after a
+    ///     catalog re-read) makes the next Play reload the cached engine.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_ModelInstanceChanged_ReloadsEngine()
+    {
+        // Arrange: two descriptors with the same identifier but distinct model instances, returned in turn
+        var first = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var second = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var catalog = Substitute.For<IModelCatalogService>();
+        catalog.Enumerate().Returns([first]);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var device = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(device);
+        var firstEngine = new FakeSpeechSynthesizerEngine();
+        var secondEngine = new FakeSpeechSynthesizerEngine();
+        var sessionFactory = SessionFactory(firstEngine, secondEngine);
+        var viewModel = new SynthesisPanelViewModel(catalog, deviceService, DeviceSelection(), sessionFactory)
+        {
+            Text = "Hello world",
+        };
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Act: re-read the catalog (new model instance, same id) and play again
+        catalog.Enumerate().Returns([second]);
+        viewModel.Refresh();
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert: the stale engine was disposed and a new one loaded
+        await sessionFactory.Received(2).LoadAsync(
+            Arg.Any<ISpeechModel>(), Arg.Any<IReadOnlyDictionary<string, object>?>(), Arg.Any<CancellationToken>());
+        Assert.Equal(1, firstEngine.DisposeCallCount);
+        Assert.Equal(1, secondEngine.CreateSessionCallCount);
+    }
+
+    /// <summary>
     ///     Proves that changing the selected playback device between two Play calls recreates
     ///     only the cached session - rebound to the newly selected device - without reloading the
     ///     unrelated cached engine.
@@ -621,7 +694,7 @@ public class SynthesisPanelViewModelTests
 
     /// <summary>
     ///     Proves that the example tag hints are drawn from the library's closed Natural Language
-    ///     Audio Tag vocabulary and include the tags this phase's task explicitly calls out.
+    ///     Audio Tag vocabulary and include the commonly used tags.
     /// </summary>
     [Fact]
     public void SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags()
@@ -734,5 +807,550 @@ public class SynthesisPanelViewModelTests
 
         // Assert: no fault
         Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="IModelCatalogService.ReferenceVoicesChanged"/> event makes the
+    ///     panel re-read the catalog (so a rebuilt model's new voice list is offered) and keeps the
+    ///     voice the user had chosen where it is still available.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice()
+    {
+        // Arrange: a synthesis model with a 150-voice list; the user picks voice 120
+        ISpeechModel NewModel(int count) => new FakeSpeechModel(
+            "tts",
+            "TTS",
+            SpeechModelRole.Synthesis,
+            [new ChoiceParameter(
+                "voice",
+                "Voice",
+                "Reference voice.",
+                [.. Enumerable.Range(0, count).Select(i => new ChoiceParameterOption($"v{i}", $"Voice {i}"))],
+                "v0")]);
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = new[] { new SpeechModelDescriptor(NewModel(10), SpeechModelState.Downloaded) };
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+        var first = viewModel.SelectedModel;
+
+        // Act: a pack install grows the voice list on the rebuilt model; the event fires
+        descriptors = [new SpeechModelDescriptor(NewModel(150), SpeechModelState.Downloaded)];
+        ((ChoiceParameterViewModel)viewModel.Settings.Parameters[0]).SelectedOption =
+            ((ChoiceParameterViewModel)viewModel.Settings.Parameters[0]).Options[5];
+        catalog.ReferenceVoicesChanged += Raise.Event<EventHandler>(catalog, EventArgs.Empty);
+
+        // Assert: a new model instance with 150 options, still on the previously chosen voice
+        Assert.NotSame(first, viewModel.SelectedModel);
+        var voice = (ChoiceParameterViewModel)viewModel.Settings.Parameters[0];
+        Assert.Equal(150, voice.Options.Count);
+        Assert.Equal("v5", voice.SelectedOption.Value);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SynthesisPanelViewModel.DisposeAsync"/> unsubscribes from
+    ///     <see cref="IModelCatalogService.ReferenceVoicesChanged"/>.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged()
+    {
+        // Arrange
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = Array.Empty<SpeechModelDescriptor>();
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Act: dispose, then the catalog gains a model and raises the event
+        await viewModel.DisposeAsync();
+        descriptors = [FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis)];
+        catalog.ReferenceVoicesChanged += Raise.Event<EventHandler>(catalog, EventArgs.Empty);
+
+        // Assert: no refresh happened after disposal
+        Assert.False(viewModel.HasModels);
+    }
+
+    /// <summary>
+    ///     Proves that the consent note and the installed pack's attribution are shown for the
+    ///     Chatterbox voice-cloning model, and nothing is shown for other models.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing()
+    {
+        // Arrange: the real Chatterbox model (no store voices, so nothing is read from disk) and a pack that is installed
+        var chatterbox = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { IncludeStoreVoices = false });
+        var catalog = Substitute.For<IModelCatalogService>();
+        catalog.ReferenceVoicePacks.Returns([ReferenceVoicePack.VoiceZero10]);
+        catalog.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.Downloaded);
+        var descriptors = new[] { new SpeechModelDescriptor(chatterbox, SpeechModelState.Downloaded) };
+        catalog.Enumerate().Returns(_ => descriptors);
+
+        // Act
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Assert: Chatterbox shows consent + attribution
+        Assert.True(viewModel.HasVoiceNotice);
+        Assert.Contains(ReferenceVoiceLibrary.ConsentNotice, viewModel.VoiceNotice, StringComparison.Ordinal);
+        Assert.Contains("OwenTyme", viewModel.VoiceNotice, StringComparison.Ordinal);
+
+        // Act: a different synthesis model is selected instead
+        descriptors = [FakeSpeechModel.Descriptor("other", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis)];
+        viewModel.Refresh();
+
+        // Assert: no voice notice
+        Assert.False(viewModel.HasVoiceNotice);
+        Assert.Null(viewModel.VoiceNotice);
+    }
+
+    /// <summary>
+    ///     Proves that no voice notice is shown when a model other than Chatterbox Turbo is selected.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing()
+    {
+        // Arrange: a catalog offering only a non-Chatterbox synthesis model
+        var catalog = Substitute.For<IModelCatalogService>();
+        catalog.ReferenceVoicePacks.Returns([ReferenceVoicePack.VoiceZero10]);
+        catalog.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.Downloaded);
+        var descriptors = new[]
+        {
+            FakeSpeechModel.Descriptor("other", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis),
+        };
+        catalog.Enumerate().Returns(_ => descriptors);
+
+        // Act
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Assert: no voice notice
+        Assert.False(viewModel.HasVoiceNotice);
+        Assert.Null(viewModel.VoiceNotice);
+    }
+
+    /// <summary>
+    ///     Builds a panel with one installed synthesis model, an available playback device and
+    ///     the supplied engine, ready to Play "Hello world".
+    /// </summary>
+    /// <param name="engine">The engine the session seam returns.</param>
+    /// <returns>The composed panel.</returns>
+    private static SynthesisPanelViewModel PlayablePanel(FakeSpeechSynthesizerEngine engine)
+    {
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var playbackDevice = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(playbackDevice);
+        return new SynthesisPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine))
+        {
+            Text = "Hello world",
+        };
+    }
+
+    /// <summary>
+    ///     Proves that Play speaks the entered text through a session bound to the playback
+    ///     device the device service resolved for the current selection.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice()
+    {
+        // Arrange: an installed model and an engine recording the device each session is bound to
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        IAudioPlaybackDevice? boundDevice = null;
+        var engine = new FakeSpeechSynthesizerEngine
+        {
+            SessionFactory = device =>
+            {
+                boundDevice = device;
+                return new FakeSynthesisSession();
+            },
+        };
+        var viewModel = new SynthesisPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine))
+        {
+            Text = "Speak this",
+        };
+
+        // Act
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert: the session is bound to the resolved device and speaks exactly the entered text
+        Assert.Same(availableDevice, boundDevice);
+        Assert.Equal(["Speak this"], engine.CreatedSessions.Single().SpeakTexts);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh keeps the user's selected model when it is still installed.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_Refresh_SelectedModelStillInstalled_PreservesSelection()
+    {
+        // Arrange: two installed synthesis models with the second selected
+        var first = FakeSpeechModel.Descriptor("tts-a", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var second = FakeSpeechModel.Descriptor("tts-b", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var viewModel = new SynthesisPanelViewModel(
+            Catalog(first, second), Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+        viewModel.SelectedModel = second.Model;
+
+        // Act
+        viewModel.Refresh();
+
+        // Assert: the selection survived the refresh
+        Assert.Equal("tts-b", viewModel.SelectedModel?.Id);
+    }
+
+    /// <summary>
+    ///     Proves that while a Play is in flight the panel refuses to start another one, because
+    ///     the Play command cannot execute outside the Idle and Error states.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_WhilePlaying_IsRefused()
+    {
+        // Arrange: a session whose speech only ends when stopped
+        var session = new FakeSynthesisSession
+        {
+            SpeakImplementation = (_, token) => Task.Delay(Timeout.Infinite, token),
+        };
+        var viewModel = PlayablePanel(new FakeSpeechSynthesizerEngine { SessionFactory = _ => session });
+
+        // Act: start playback without awaiting it
+        var playTask = viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert: the panel is busy, so Play cannot be started again
+        Assert.Equal(SynthesisPlaybackState.Playing, viewModel.State);
+        Assert.False(viewModel.CanPlay);
+        Assert.False(viewModel.PlayCommand.CanExecute(null));
+
+        // Cleanup
+        await viewModel.StopCommand.ExecuteAsync(null);
+        await playTask;
+    }
+
+    /// <summary>
+    ///     Proves that a session the engine creates but reports unavailable is released and
+    ///     reported honestly as an unavailable synthesizer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_UnavailableSession_ReportsErrorStateAndDisposesSession()
+    {
+        // Arrange: an available engine whose created session is unavailable
+        var session = new FakeSynthesisSession { IsAvailable = false };
+        var viewModel = PlayablePanel(new FakeSpeechSynthesizerEngine { SessionFactory = _ => session });
+
+        // Act
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert
+        Assert.Equal(SynthesisPanelViewModel.SynthesizerUnavailableMessage, viewModel.StatusMessage);
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(0, session.SpeakCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an engine reporting it is busy while creating the session surfaces the
+    ///     engine's explanation as an error state rather than an exception.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_EngineBusy_ReportsErrorStateWithEngineMessage()
+    {
+        // Arrange
+        var engine = new FakeSpeechSynthesizerEngine
+        {
+            CreateSessionException = new SynthesisEngineBusyException("The engine is busy."),
+        };
+        var viewModel = PlayablePanel(engine);
+
+        // Act
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert
+        Assert.Equal("The engine is busy.", viewModel.StatusMessage);
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+    }
+
+    /// <summary>
+    ///     Proves that a session fault is reported as an error, the faulted session is released
+    ///     and the next Play creates a fresh session against the still-cached engine.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers()
+    {
+        // Arrange: the first session faults while speaking; later sessions work
+        var createdCount = 0;
+        var engine = new FakeSpeechSynthesizerEngine
+        {
+            SessionFactory = _ => new FakeSynthesisSession
+            {
+                SpeakException = createdCount++ == 0 ? new SynthesisSessionFaultedException("Session faulted.") : null,
+            },
+        };
+        var viewModel = PlayablePanel(engine);
+
+        // Act: the first Play faults
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert: error reported and the faulted session released
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+        Assert.Equal("Session faulted.", viewModel.StatusMessage);
+        Assert.Equal(1, engine.CreatedSessions[0].DisposeCallCount);
+
+        // Act: the next Play
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert: a fresh session from the same engine spoke successfully
+        Assert.Equal(2, engine.CreateSessionCallCount);
+        Assert.Equal(SynthesisPlaybackState.Idle, viewModel.State);
+        Assert.Null(viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="SpeechSynthesizerUnavailableException"/> raised while speaking
+    ///     is reported as an error state carrying the exception's message.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_SpeakThrowsSynthesizerUnavailable_ReportsErrorStateWithMessage()
+    {
+        // Arrange
+        var session = new FakeSynthesisSession
+        {
+            SpeakException = new SpeechSynthesizerUnavailableException("Runtime missing."),
+        };
+        var viewModel = PlayablePanel(new FakeSpeechSynthesizerEngine { SessionFactory = _ => session });
+
+        // Act
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+        Assert.Equal("Runtime missing.", viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves the mapping from session states to playback states: Stopping is Playing,
+    ///     Created is Idle, and Faulted is Error with the faulted message.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_SessionStateChanged_StoppingCreatedFaulted_MapsToPlayingIdleError()
+    {
+        // Arrange: a session that raises extra states while speaking
+        var session = new FakeSynthesisSession();
+        var viewModel = PlayablePanel(new FakeSpeechSynthesizerEngine { SessionFactory = _ => session });
+        var observed = new List<(SynthesisPlaybackState State, string? Message)>();
+        session.SpeakImplementation = (_, _) =>
+        {
+            session.RaiseStateChanged(SynthesisSessionState.Stopping);
+            observed.Add((viewModel.State, viewModel.StatusMessage));
+            session.RaiseStateChanged(SynthesisSessionState.Created);
+            observed.Add((viewModel.State, viewModel.StatusMessage));
+            session.RaiseStateChanged(SynthesisSessionState.Faulted);
+            observed.Add((viewModel.State, viewModel.StatusMessage));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Assert
+        Assert.Equal(SynthesisPlaybackState.Playing, observed[0].State);
+        Assert.Equal(SynthesisPlaybackState.Idle, observed[1].State);
+        Assert.Equal(SynthesisPlaybackState.Error, observed[2].State);
+        Assert.Equal(SynthesisPanelViewModel.SessionFaultedMessage, observed[2].Message);
+    }
+
+    /// <summary>
+    ///     Proves that disposing the panel while a Play is in flight stops the session, awaits the
+    ///     Play and releases the cached session and engine.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_DisposeAsync_WhilePlaying_StopsPlayAndReleasesSessionAndEngine()
+    {
+        // Arrange: a session whose speech only ends when stopped
+        var session = new FakeSynthesisSession
+        {
+            SpeakImplementation = (_, token) => Task.Delay(Timeout.Infinite, token),
+        };
+        var engine = new FakeSpeechSynthesizerEngine { SessionFactory = _ => session };
+        var viewModel = PlayablePanel(engine);
+        var playTask = viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Act
+        await viewModel.DisposeAsync();
+        await playTask;
+
+        // Assert
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that disposing after a completed Play releases the cached session and engine
+    ///     exactly once, even when disposed twice.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce()
+    {
+        // Arrange
+        var engine = new FakeSpeechSynthesizerEngine();
+        var viewModel = PlayablePanel(engine);
+        await viewModel.PlayCommand.ExecuteAsync(null);
+
+        // Act
+        await viewModel.DisposeAsync();
+        await viewModel.DisposeAsync();
+
+        // Assert
+        Assert.Equal(1, engine.CreatedSessions.Single().DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Builds a panel whose seams throw <paramref name="exception"/> at the chosen stage of a Play attempt.
+    /// </summary>
+    /// <param name="exception">The exception to throw.</param>
+    /// <param name="atLoad">
+    ///     <see langword="true"/> to throw from the engine load; <see langword="false"/> to throw from session creation.
+    /// </param>
+    /// <returns>The composed panel.</returns>
+    private static SynthesisPanelViewModel FaultingPanel(Exception exception, bool atLoad)
+    {
+        if (!atLoad)
+        {
+            return PlayablePanel(new FakeSpeechSynthesizerEngine { CreateSessionException = exception });
+        }
+
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var device = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(device);
+        var factory = Substitute.For<ISynthesizerSessionFactory>();
+        factory.LoadAsync(
+                Arg.Any<ISpeechModel>(),
+                Arg.Any<IReadOnlyDictionary<string, object>?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<ISpeechSynthesizerEngine>(exception));
+        return new SynthesisPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), factory)
+        {
+            Text = "Hello world",
+        };
+    }
+
+    /// <summary>
+    ///     Proves that an unexpected fault while loading the engine or creating the session (for example an invalid
+    ///     parameter value) is reported as an error state instead of escaping the command.
+    /// </summary>
+    /// <param name="atLoad">Whether the fault is thrown by the engine load rather than the session creation.</param>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SynthesisPanelViewModel_Play_SetupFaults_ReportsErrorStateWithMessage(bool atLoad)
+    {
+        // Arrange
+        var viewModel = FaultingPanel(new ArgumentException("Invalid parameter value."), atLoad);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => viewModel.PlayCommand.ExecuteAsync(null));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+        Assert.Equal("Invalid parameter value.", viewModel.StatusMessage);
+        Assert.True(viewModel.CanPlay);
+    }
+
+    /// <summary>
+    ///     Proves that a cancellation while loading the engine or creating the session reports "Playback stopped."
+    ///     and returns to idle instead of escaping the command.
+    /// </summary>
+    /// <param name="atLoad">Whether the cancellation is thrown by the engine load rather than the session creation.</param>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SynthesisPanelViewModel_Play_SetupCanceled_ReportsStoppedAndReturnsToIdle(bool atLoad)
+    {
+        // Arrange
+        var viewModel = FaultingPanel(new OperationCanceledException(), atLoad);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => viewModel.PlayCommand.ExecuteAsync(null));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(SynthesisPlaybackState.Idle, viewModel.State);
+        Assert.Equal(SynthesisPanelViewModel.StoppedMessage, viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves that an unexpected exception while speaking is reported as an error state and the session, whose
+    ///     state is unknown, is released so the next Play creates a fresh one.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_Play_SpeakThrowsUnexpected_ReportsErrorAndReleasesSession()
+    {
+        // Arrange
+        var engine = new FakeSpeechSynthesizerEngine
+        {
+            SessionFactory = _ => new FakeSynthesisSession { SpeakException = new InvalidOperationException("Unexpected.") },
+        };
+        var viewModel = PlayablePanel(engine);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => viewModel.PlayCommand.ExecuteAsync(null));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
+        Assert.Equal("Unexpected.", viewModel.StatusMessage);
+        Assert.Equal(1, engine.CreatedSessions[0].DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a state transition reported by anything other than the panel's cached session is ignored,
+    ///     while the cached session's own transitions still apply.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_SessionStateChanged_ForeignSender_IsIgnored()
+    {
+        // Arrange: a played session that stays cached
+        var session = Substitute.For<ISynthesisSession>();
+        session.IsAvailable.Returns(true);
+        var engine = Substitute.For<ISpeechSynthesizerEngine>();
+        engine.IsAvailable.Returns(true);
+        engine.CreateSessionAsync(Arg.Any<IAudioPlaybackDevice>(), Arg.Any<CancellationToken>()).Returns(session);
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var device = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(device);
+        var factory = Substitute.For<ISynthesizerSessionFactory>();
+        factory.LoadAsync(
+                Arg.Any<ISpeechModel>(),
+                Arg.Any<IReadOnlyDictionary<string, object>?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(engine));
+        var viewModel = new SynthesisPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), factory)
+        {
+            Text = "Hello world",
+        };
+        await viewModel.PlayCommand.ExecuteAsync(null);
+        Assert.Equal(SynthesisPlaybackState.Idle, viewModel.State);
+        var faulted = new SessionStateChangedEventArgs(SynthesisSessionState.Created, SynthesisSessionState.Faulted);
+
+        // Act & Assert: a transition from some other object is ignored
+        session.StateChanged += Raise.Event<EventHandler<SessionStateChangedEventArgs>>(new object(), faulted);
+        Assert.Equal(SynthesisPlaybackState.Idle, viewModel.State);
+
+        // Act & Assert: the cached session's own transition applies
+        session.StateChanged += Raise.Event<EventHandler<SessionStateChangedEventArgs>>(session, faulted);
+        Assert.Equal(SynthesisPlaybackState.Error, viewModel.State);
     }
 }

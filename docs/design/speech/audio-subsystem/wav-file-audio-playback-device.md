@@ -19,8 +19,8 @@ writing to a file never depends on real audio hardware, `IsAvailable` is always 
   open or stop, since every `Write` call is fully synchronous.
 - **Write(IReadOnlyList&lt;float&gt;)**: Converts and appends one block of normalized samples as
   16-bit PCM data. Each sample is clamped to `[-1.0, 1.0]` before scaling to a 16-bit signed
-  value, matching the clamp-before-scale rounding behavior of the informal, temporary
-  `WavFileWriter` this unit promotes to a permanent, tested, public capability, so a sample at or
+  value, using clamp-before-scale rounding (the same behavior as the demo application's internal
+  `WavFileWriter`), so a sample at or
   beyond the clamp boundary maps to the nearest valid 16-bit value rather than overflowing into
   an unrelated sample on the wire.
 - **Dispose()**: Patches the RIFF and `data` chunk sizes with the now-known total byte count and

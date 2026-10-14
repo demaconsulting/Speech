@@ -21,6 +21,7 @@
 using System.Reflection;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.SelfTest;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli;
 
@@ -67,7 +68,7 @@ internal static class Program
     ///     <c>--silent</c> only ever suppresses the console write, never the exit code or the
     ///     unexpected-exception rethrow.
     /// </remarks>
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         // Declared outside the try block (rather than `using var context = ...`) so the catch
         // blocks below can consult context.Silent when Context.Create succeeded but a later
@@ -81,7 +82,7 @@ internal static class Program
             using var contextLease = context;
 
             // Run the program logic
-            Run(context);
+            await RunAsync(context).ConfigureAwait(false);
 
             // Return the exit code from the context
             return context.ExitCode;
@@ -91,7 +92,7 @@ internal static class Program
             // Print expected argument exceptions and return error code, honoring --silent
             if (!IsSilentRequested(context, args))
             {
-                Console.Error.WriteLine($"Error: {ex.Message}");
+                await Console.Error.WriteLineAsync($"Error: {ex.Message}").ConfigureAwait(false);
             }
 
             return 1;
@@ -101,7 +102,7 @@ internal static class Program
             // Print expected operation exceptions and return error code, honoring --silent
             if (!IsSilentRequested(context, args))
             {
-                Console.Error.WriteLine($"Error: {ex.Message}");
+                await Console.Error.WriteLineAsync($"Error: {ex.Message}").ConfigureAwait(false);
             }
 
             return 1;
@@ -113,7 +114,7 @@ internal static class Program
             // preserves diagnostics via crash/event logs regardless of --silent.
             if (!IsSilentRequested(context, args))
             {
-                Console.Error.WriteLine($"Unexpected error: {ex.Message}");
+                await Console.Error.WriteLineAsync($"Unexpected error: {ex.Message}").ConfigureAwait(false);
             }
 
             throw;
@@ -124,7 +125,7 @@ internal static class Program
     ///     Determines whether console error output should be suppressed for <c>--silent</c>.
     /// </summary>
     /// <param name="context">
-    ///     The constructed context, or <see langword="null"/> when <see cref="Context.Create"/>
+    ///     The constructed context, or <see langword="null"/> when <see cref="Context.Create(string[])"/>
     ///     itself threw before a context could be built (for example, an unrecognized
     ///     subcommand name).
     /// </param>
@@ -150,12 +151,13 @@ internal static class Program
     ///     Runs the program logic based on the provided context.
     /// </summary>
     /// <param name="context">The context containing command line arguments and program state.</param>
+    /// <returns>A task that completes once the selected action has finished.</returns>
     /// <remarks>
     ///     Dispatch is priority-ordered: version check first, then help, then self-validation,
     ///     then subcommand dispatch. Only the highest-priority matching action is executed per
     ///     invocation.
     /// </remarks>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -179,12 +181,12 @@ internal static class Program
         // Priority 3: Self-Validation
         if (context.Validate)
         {
-            Validation.Run(context);
+            await Validation.RunAsync(context).ConfigureAwait(false);
             return;
         }
 
         // Priority 4: Subcommand dispatch
-        Dispatch(context);
+        await DispatchAsync(context).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -210,16 +212,22 @@ internal static class Program
         context.WriteLine("  -v, --version              Display version information");
         context.WriteLine("  -?, -h, --help             Display this help message");
         context.WriteLine("  --silent                   Suppress console output");
+        context.WriteLine("  --no-emotions              With 'voices install': skip the pack's emotion (mood) clips");
         context.WriteLine("  --validate                 Run self-validation");
-        context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
+        context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml; alias: --result)");
         context.WriteLine("  --depth <#>                Set heading depth for markdown output (default: 1)");
         context.WriteLine("  --log <file>               Write output to log file");
         context.WriteLine("  --models-dir <path>        Override the model store root directory");
+        context.WriteLine("  --voices-dir <path>        Extra folder of .wav/.flac reference voices for Chatterbox Turbo (must exist)");
         context.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
         context.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         context.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
         context.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
         context.WriteLine("  --verbose, --diagnostics   Enable verbose diagnostics output");
+        context.WriteLine("");
+        context.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
+        context.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
+        context.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
         context.WriteLine("");
         context.WriteLine("Commands:");
         foreach (var command in CommandDispatch.Commands)
@@ -230,6 +238,9 @@ internal static class Program
         context.WriteLine("");
         context.WriteLine("Each command above is listed with its full flag summary; run");
         context.WriteLine("'speech-cli doctor' to check the local audio, model, and native-runtime environment.");
+        context.WriteLine("");
+        context.WriteLine("Voice cloning: pick a Chatterbox Turbo voice with 'speak --tts-model <id> --tts-param voice=<voiceId>';");
+        context.WriteLine("see 'list-voices' for ids. " + ReferenceVoiceLibrary.ConsentNotice);
     }
 
     /// <summary>
@@ -238,12 +249,12 @@ internal static class Program
     /// <param name="context">The context containing command line arguments and program state.</param>
     /// <remarks>
     ///     When no subcommand was given, prints the same usage information as <c>--help</c>
-    ///     rather than treating the absence of a subcommand as an error. <see cref="Context.Create"/>
+    ///     rather than treating the absence of a subcommand as an error. <see cref="Context.Create(string[])"/>
     ///     already rejects an unrecognized subcommand name as an <see cref="ArgumentException"/>
-    ///     before <see cref="Run"/> is ever reached, so every <see cref="Context.Command"/> value
+    ///     before <see cref="RunAsync"/> is ever reached, so every <see cref="Context.Command"/> value
     ///     that reaches this method is guaranteed to resolve via <see cref="CommandDispatch.Find"/>.
     /// </remarks>
-    private static void Dispatch(Context context)
+    private static async Task DispatchAsync(Context context)
     {
         if (context.Command == null)
         {
@@ -254,6 +265,6 @@ internal static class Program
         var command = CommandDispatch.Find(context.Command) ??
             throw new InvalidOperationException($"Internal error: unresolved command '{context.Command}'.");
 
-        command.Handler(context);
+        await command.Handler(context).ConfigureAwait(false);
     }
 }

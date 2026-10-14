@@ -4,8 +4,8 @@ package SpeechSherpa {
              * archive kokoro-int8-en-v0_19 (Apache-2.0, confirmed directly from the archive's
              * own LICENSE file), an English-only, int8-quantized, StyleTTS2-derived
              * multi-speaker model. Declares a single .tar.bz2 download, delegates InstallAsync
-             * to the shared TarBz2ArchiveExtractor built in Phase 7a, builds the proven Kokoro
-             * offline text-to-speech configuration for this model, and - new in Phase 10 - owns
+             * to the shared TarBz2ArchiveExtractor, builds the proven Kokoro
+             * offline text-to-speech configuration for this model, and owns
              * a confirmed voice-name-to-speaker-id mapping via ISynthesisModel.ResolveSpeakerId,
              * closing the "speaker selection is out of scope" gap the sibling
              * SherpaOnnxVitsLibriTtsEnglishSynthesisModel explicitly deferred. Declares 11

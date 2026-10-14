@@ -82,4 +82,198 @@ public sealed class PathHelpersTests
         // Act / Assert: the escape attempt is rejected
         Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, relativePath));
     }
+
+    /// <summary>
+    ///     Validates that a rooted relative path is rejected, because it would replace the base
+    ///     directory entirely.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_RootedRelativePath_ThrowsArgumentException()
+    {
+        // Arrange: a base path and a rooted "relative" path outside it
+        var basePath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "safe-path-combine-tests"));
+        var rootedPath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "elsewhere", "outside.txt"));
+
+        // Act / Assert: the rooted path is rejected
+        Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, rootedPath));
+    }
+
+    /// <summary>
+    ///     Validates that a rooted path that lies inside the base directory is also rejected
+    ///     (regression: it was previously accepted because it passed the containment check).
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_RootedPathInsideBase_ThrowsArgumentException()
+    {
+        // Arrange: a rooted path that is inside the base directory
+        var basePath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "safe-path-combine-tests"));
+        var rootedInside = Path.Join(basePath, "child.txt");
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, rootedInside));
+
+        // Assert: the offending parameter is identified
+        Assert.Equal("relativePath", exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Validates that a path passing through an existing directory symbolic link is rejected,
+    ///     even though its lexical form lies inside the base directory.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_DirectorySymbolicLinkComponent_ThrowsArgumentException()
+    {
+        // Arrange: a base directory containing a symbolic link that points outside the base
+        var root = Path.Join(Path.GetTempPath(), "safe-path-link-" + Guid.NewGuid().ToString("N"));
+        var basePath = Path.Join(root, "base");
+        var outside = Path.Join(root, "outside");
+        Directory.CreateDirectory(basePath);
+        Directory.CreateDirectory(outside);
+        try
+        {
+            var linkPath = Path.Join(basePath, "link");
+            if (!TryCreateDirectoryLink(linkPath, outside))
+            {
+                Assert.Skip("Symbolic links cannot be created in this environment.");
+            }
+
+            // Act / Assert: the contained-looking path through the link is rejected, with the
+            // offending parameter identified
+            var exception = Assert.Throws<ArgumentException>(
+                () => PathHelpers.SafePathCombine(basePath, Path.Join("link", "file.txt")));
+            Assert.Equal("relativePath", exception.ParamName);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a Windows directory junction (creatable without elevated privilege) is rejected.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_JunctionComponent_ThrowsArgumentException()
+    {
+        // Arrange: only Windows has junctions
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Junctions exist only on Windows.");
+        var root = Path.Join(Path.GetTempPath(), "safe-path-junction-" + Guid.NewGuid().ToString("N"));
+        var basePath = Path.Join(root, "base");
+        var outside = Path.Join(root, "outside");
+        Directory.CreateDirectory(basePath);
+        Directory.CreateDirectory(outside);
+        try
+        {
+            var junction = Path.Join(basePath, "junction");
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "cmd.exe", $"/c mklink /J \"{junction}\" \"{outside}\"")
+            {
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+            })!;
+            process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            Assert.SkipUnless(Directory.Exists(junction), "The junction could not be created.");
+
+            // Act / Assert: the path through the junction is rejected
+            Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, Path.Join("junction", "file.txt")));
+        }
+        finally
+        {
+            // Remove the junction itself first so the recursive delete never follows it
+            var junctionPath = Path.Join(basePath, "junction");
+            if (Directory.Exists(junctionPath))
+            {
+                Directory.Delete(junctionPath);
+            }
+
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that an existing file symbolic link component is rejected.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_FileSymbolicLinkComponent_ThrowsArgumentException()
+    {
+        // Arrange: a base directory containing a file symbolic link to a file outside the base
+        var root = Path.Join(Path.GetTempPath(), "safe-path-flink-" + Guid.NewGuid().ToString("N"));
+        var basePath = Path.Join(root, "base");
+        Directory.CreateDirectory(basePath);
+        try
+        {
+            var target = Path.Join(root, "outside.txt");
+            File.WriteAllText(target, "x");
+            var linkPath = Path.Join(basePath, "link.txt");
+            try
+            {
+                File.CreateSymbolicLink(linkPath, target);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+            {
+                Assert.Skip("Symbolic links cannot be created in this environment.");
+            }
+
+            // Act / Assert: the link component is rejected
+            Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, "link.txt"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that ordinary existing and non-existing components below the base are still accepted.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_PlainExistingDirectory_ReturnsCombinedPath()
+    {
+        // Arrange: a base directory with a plain subdirectory
+        var basePath = Path.Join(Path.GetTempPath(), "safe-path-plain-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Join(basePath, "sub"));
+        try
+        {
+            // Act: combine through the existing directory to a file that does not exist
+            var result = PathHelpers.SafePathCombine(basePath, Path.Join("sub", "missing.txt"));
+
+            // Assert: the fully qualified combination is returned
+            Assert.Equal(Path.GetFullPath(Path.Join(basePath, "sub", "missing.txt")), result);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Creates a directory symbolic link, reporting whether the environment allowed it.
+    /// </summary>
+    /// <param name="linkPath">The link to create.</param>
+    /// <param name="target">The directory the link points to.</param>
+    /// <returns><see langword="true"/> when the link was created.</returns>
+    private static bool TryCreateDirectoryLink(string linkPath, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, target);
+            return true;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     Validates that null arguments are rejected.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException()
+    {
+        // Act / Assert: each null argument is rejected
+        Assert.Throws<ArgumentNullException>(() => PathHelpers.SafePathCombine(null!, "child.txt"));
+        Assert.Throws<ArgumentNullException>(() => PathHelpers.SafePathCombine("base", null!));
+    }
 }

@@ -440,12 +440,20 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
             selectedVoice = voiceValue;
         }
 
-        var index = VoiceOrder
-            .Select((voice, ordinal) => (voice, ordinal))
-            .Where(pair => string.Equals(pair.voice, selectedVoice, StringComparison.Ordinal))
-            .Select(pair => (int?)pair.ordinal)
-            .FirstOrDefault();
+        var defaultIndex = -1;
+        for (var ordinal = 0; ordinal < VoiceOrder.Count; ordinal++)
+        {
+            if (string.Equals(VoiceOrder[ordinal], selectedVoice, StringComparison.Ordinal))
+            {
+                return ordinal;
+            }
 
-        return index ?? VoiceOrder.ToList().IndexOf(DefaultVoice);
+            if (string.Equals(VoiceOrder[ordinal], DefaultVoice, StringComparison.Ordinal))
+            {
+                defaultIndex = ordinal;
+            }
+        }
+
+        return defaultIndex;
     }
 }

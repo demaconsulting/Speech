@@ -12,9 +12,9 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     URL(s)/checksum(s), declared parameters, audio-tag support declaration, own archive
 ///     unpacking (<see cref="InstallAsync"/>), own text normalization/correction
 ///     (<see cref="NormalizeText"/>), and own declared license identification
-///     (<see cref="LicenseName"/>/<see cref="LicenseUrl"/>). This pass (Sub-phase 2b) defines
+///     (<see cref="LicenseName"/>/<see cref="LicenseUrl"/>). This interface defines
 ///     only the generic identity/catalog contract plus these model-owned hooks; the recognition- and
-///     synthesis-engine construction members that Phase 3/4 add live on the role-specific
+///     synthesis-engine construction members live on the role-specific
 ///     interfaces, not here, so this contract never needs to change to add a new engine backend.
 ///     <see cref="SpeechModelCatalog"/> depends only on this common contract, so it can
 ///     enumerate and report install state for any model regardless of role.
@@ -59,15 +59,15 @@ public interface ISpeechModel
 
     /// <summary>
     ///     Unpacks this model's verified, downloaded file(s) in place within
-    ///     <paramref name="stagedFilesDirectory"/> before <see cref="SpeechModelStore"/> atomically
-    ///     promotes that directory to the model's installed <c>current/</c> content. The default
+    ///     <paramref name="stagedFilesDirectory"/> before <see cref="SpeechModelStore"/> promotes
+    ///     that directory to the model's installed content. The default
     ///     implementation is a no-op, matching the common case of a model whose single downloaded
     ///     file needs no unpacking at all.
     /// </summary>
     /// <param name="stagedFilesDirectory">
     ///     The staging directory already containing this model's fully checksum-verified downloaded
     ///     file(s), named per <see cref="DownloadDescriptor"/>'s declared relative install paths.
-    ///     Never <see cref="SpeechModelStore"/>'s <c>current/</c> directory - this method must
+    ///     Never a directory holding already-installed content - this method must
     ///     never be given, and must never touch, installed content.
     /// </param>
     /// <param name="cancellationToken">A token to observe while unpacking.</param>
@@ -84,12 +84,12 @@ public interface ISpeechModel
     ///     <see cref="DownloadDescriptor"/> entry rather than <see cref="Path.Join(string, string)"/>
     ///     or string concatenation directly on the declared
     ///     <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> - that method is the same one
-    ///     same one <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
+    ///     <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
     ///     destination, so it is the only way to guarantee this hook agrees with the downloader on
     ///     the exact path regardless of which path separator the file's declared install path used.
     ///     <see cref="SpeechModelDownloader"/> invokes this after every declared file has been
     ///     fetched and its checksum verified, and before the staging directory is handed to
-    ///     <see cref="SpeechModelStore"/> for the atomic swap - an exception thrown here is
+    ///     <see cref="SpeechModelStore"/> for installation - an exception thrown here is
     ///     handled identically to a download failure: nothing is installed, and any prior
     ///     successful install of the same model is left completely untouched.
     /// </remarks>
@@ -105,11 +105,9 @@ public interface ISpeechModel
     /// <returns>The normalized text; by default, <paramref name="text"/> unchanged.</returns>
     /// <remarks>
     ///     Per this library's per-model "own text-normalization / correction (e.g. punctuation
-    ///     restoration)" responsibility. This pass defines only the hook's existence and identity
-    ///     default; the actual normalization *content* for any real model is a Phase 4 synthesis
-    ///     concern, per this library's synthesis-subsystem scope - this member exists now
-    ///     purely so the contract shape matches the approved plan and does not need a breaking
-    ///     change later.
+    ///     restoration)" responsibility. The default is the identity; the actual normalization
+    ///     content for a real model is that model's own concern, supplied by overriding this
+    ///     member.
     /// </remarks>
     string NormalizeText(string text) => text;
 

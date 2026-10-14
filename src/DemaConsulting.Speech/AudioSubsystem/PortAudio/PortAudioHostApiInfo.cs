@@ -16,4 +16,10 @@ internal sealed record PortAudioHostApiInfo(
     string Name,
     PortAudioHostApiType Type,
     int DefaultInputDeviceIndex,
-    int DefaultOutputDeviceIndex);
+    int DefaultOutputDeviceIndex)
+{
+    /// <summary>
+    ///     Gets the number of devices the host API reports, or <c>0</c> when it is not known.
+    /// </summary>
+    public int DeviceCount { get; init; }
+}

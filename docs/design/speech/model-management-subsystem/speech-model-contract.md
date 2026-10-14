@@ -3,8 +3,8 @@
 **Purpose**: Define the common per-model contract every model's backing class implements
 (identity, role, declared parameters, declared audio-tag support, download descriptor), with two
 role-specific interfaces. `IRecognitionModel` exposes a public `AudioFormat` plus the public
-engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` is extended in
-Sub-phase 4b with the equivalent public members the SynthesisSubsystem needs and a public
+engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` carries
+the equivalent public members the SynthesisSubsystem needs and a public
 best-effort `PreferredAudioFormat` hint. Both interfaces are fully public - including their
 engine-construction members - because third-party extension of the Speech library is a confirmed
 goal: a host composes its `SpeechModelCatalog` from models it supplies itself via `AddModels`,
@@ -17,18 +17,21 @@ instance of the sherpa-onnx-backed models this repository ships.
 **Key Methods**:
 
 - **ISpeechModel.Id / DisplayName**: the model's stable identifier and display name.
-- **ISpeechModel.Role**: which speech capability the model provides (`SpeechModelRole`).
+- **ISpeechModel.Role**: which speech capability the model provides (`SpeechModelRole`). Each role
+  interface (`IRecognitionModel`, `ISynthesisModel`) extends `ISpeechModel`; the implementing model
+  reports its own role through this member, so hosts can tell the two kinds apart while still handling
+  every model through the common contract.
 - **ISpeechModel.Parameters**: the model's declared `ISpeechModelParameter` instances.
 - **ISpeechModel.AudioTagSupport**: the model's declared `SpeechModelAudioTagSupport`.
 - **ISpeechModel.DownloadDescriptor**: the `SpeechModelDownloadDescriptor` describing the file(s)
   to download to install this model.
 - **ISpeechModel.InstallAsync(stagedFilesDirectory, cancellationToken)**: unpacks this model's
-  verified, downloaded file(s) in place before `SpeechModelStore` atomically promotes the staging
+  verified, downloaded file(s) in place before `SpeechModelStore` promotes the staging
   directory to `current/`. Defaults to a no-op (`Task.CompletedTask`), matching the common case of
   a model whose single downloaded file needs no unpacking; a model whose declared payload is an
   archive (zip/tar) overrides this to expand it and remove the original archive file. Invoked by
   `SpeechModelDownloader`'s `ISpeechModel`-aware `DownloadAsync` overload after checksum
-  verification and before the atomic swap. An override that needs to locate one of its own
+  verification and before the staged files are moved into place. An override that needs to locate one of its own
   declared files within `stagedFilesDirectory` must resolve it via
   `SpeechModelDownloadFile.ResolveStagedPath`, the same method `SpeechModelDownloader` itself uses
   to compute each file's staging destination, rather than a raw `Path.Join`/string concatenation
@@ -49,9 +52,8 @@ instance of the sherpa-onnx-backed models this repository ships.
   host enumerating `SpeechModelCatalog.Enumerate()` can discover licensing for any model without
   parsing `DisplayName`.
 - **IRecognitionModel** / **ISynthesisModel**: `: ISpeechModel`. `IRecognitionModel` adds two
-  public members in Phase 3 (see below), plus a public `NormalizeText(text, isFinal)` default
-  hook in Phase 12 (see below). `ISynthesisModel` adds two public members in Sub-phase 4b
-  (see below).
+  public engine-construction members (see below), plus a public `NormalizeText(text, isFinal)`
+  default hook (see below). `ISynthesisModel` adds two public members (see below).
 - **IRecognitionModel.AudioFormat** *(public)*: the mono audio format this model's recognition
   engine requires its input audio at. Declared per model rather than assumed, because streaming
   models are trained at a fixed feature rate and produce unusable results at any other; this is

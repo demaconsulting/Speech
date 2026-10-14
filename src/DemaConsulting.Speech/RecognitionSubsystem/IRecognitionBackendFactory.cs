@@ -10,8 +10,8 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     Separating backend construction from backend use lets <see cref="SpeechRecognizerFactory"/>
 ///     decide, without any sherpa-onnx knowledge of its own, whether a real backend could be
 ///     loaded, and lets tests inject a fake backend without a model directory, a native runtime,
-///     or an inference session. It mirrors the <c>IModelDownloadClient</c> seam introduced in
-///     Phase 2a for exactly the same testability reason.
+///     or an inference session. It mirrors the <c>IModelDownloadClient</c> seam for exactly
+///     the same testability reason.
 /// </remarks>
 internal interface IRecognitionBackendFactory
 {

@@ -27,7 +27,7 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     <see cref="DeliberatelyAmbiguous"/>), capitalize, and ensure terminal punctuation. It does
 ///     not perform any glossary/vocabulary-aware casing (this generic library has no doc-set or
 ///     glossary concept to hook such a stage to) and does not integrate any trained punctuation
-///     model (no such model is being integrated in this phase). Both omissions match the
+///     model (none is integrated). Both omissions match the
 ///     shipping default of the reference implementation this class was ported from, which itself
 ///     ships with heuristics-only as its default configuration.
 ///     </para>

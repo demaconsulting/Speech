@@ -10,11 +10,11 @@ overrides it); `FakeRecognitionModel`'s optional `useZipArchivePayload` construc
 adds a zip-unpack override, verified directly at the unit level against a small, deterministic
 in-memory zip archive built with `System.IO.Compression.ZipArchive`
 (`FakeModelDescriptors.ZipArchiveDescriptor`/`ZipArchiveBytes`). The recognition role's engine
-members added in Phase 3 are verified through `FakeRecognitionModel`, which builds a real managed
+members are verified through `FakeRecognitionModel`, which builds a real managed
 recognizer configuration without loading any native library or opening any file, so the contract
 is provable with no downloaded model present. The synthesis role's engine, preferred-audio-format,
-and capability-profile members added in Sub-phase 4b are verified the same way through
-`FakeSynthesisModel`, which builds a real managed VITS `OfflineTtsConfig` without loading any
+and capability-profile members are verified the same way through
+`FakeSynthesisModel`, which builds a real managed synthesis engine configuration without loading any
 native library, exposes a concrete best-effort `PreferredAudioFormat`, and relies on
 `ISynthesisModel.CapabilityProfile`'s default-hook implementation rather than overriding it,
 proving the default resolves to `DefaultModelCapabilityProfile.Instance` with zero model-specific
@@ -116,3 +116,19 @@ directory, exposes its best-effort
 ##### The default LicenseName/LicenseUrl hooks report Unknown/null
 
 **Test**: `ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl`
+
+##### An overridden shared normalizer is applied to both provisional and final recognition results
+
+**Test**: `IRecognitionModel_NormalizeText_OverriddenSharedNormalizer_IsAppliedForBothResultKinds`
+
+##### The default post-endpoint warm-up window is zero
+
+**Test**: `IRecognitionModel_PostEndpointWarmupWindowMs_DefaultImplementation_ReturnsZero`
+
+##### The default parameterized backend creation forwards to the parameter-less creation
+
+**Test**: `IRecognitionModel_CreateBackendWithParameters_DefaultImplementation_ForwardsToParameterlessCreation`
+
+##### The default speaker resolution returns the first speaker
+
+**Test**: `ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker`

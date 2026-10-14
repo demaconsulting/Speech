@@ -1,0 +1,73 @@
+---
+# Microsoft.ML.OnnxRuntime OTS Software Requirements
+#
+# Requirements for the Microsoft.ML.OnnxRuntime managed ONNX inference API.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: Microsoft.ML.OnnxRuntime Requirements
+        requirements:
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference
+            title: >-
+              Microsoft.ML.OnnxRuntime shall provide a CPU inference session for a well-formed
+              ONNX model without requiring any accelerated execution provider.
+            justification: |
+              The SpeechOnnx model packages must always be able to load their graphs; the
+              built-in CPU provider is the guaranteed final fallback of the shared execution
+              provider selector.
+            tags: [ots]
+            tests:
+              - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
+            title: >-
+              Microsoft.ML.OnnxRuntime shall refuse a request to use an unrecognized execution
+              provider by reporting an error.
+            justification: |
+              Accelerated providers are optional and machine-dependent; the shared provider
+              selector's layered fallback relies on an unrecognized provider name surfacing as a
+              reported error rather than as a crash or a silently broken session. The first test
+              observes the error directly from ONNX Runtime; the second observes the resulting
+              fallback to a working CPU session.
+            tags: [ots]
+            tests:
+              - MicrosoftMlOnnxRuntime_AppendExecutionProvider_UnknownProviderName_ThrowsOnnxRuntimeException
+              - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
+            title: Microsoft.ML.OnnxRuntime shall report an error when an inference run fails.
+            justification: |
+              A candidate execution provider can construct a session that then fails at inference
+              time; the selector's fallback relies on that failure surfacing as a reported error.
+              The first test provokes a genuine failure with a wrong-typed input, which stands in
+              for an accelerated-provider probe failure, and observes the error directly; the
+              second observes the selector's resulting fallback to CPU.
+            tags: [ots]
+            tests:
+              - MicrosoftMlOnnxRuntime_Run_WrongTypedInput_ThrowsOnnxRuntimeException
+              - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
+            title: >-
+              Microsoft.ML.OnnxRuntime shall bind typed tensor inputs and outputs of a loaded
+              model by name or by position.
+            justification: |
+              The Chatterbox Turbo and Nemotron engines exchange tensors with their graphs on
+              every run, so correct tensor binding is essential.
+            tags: [ots]
+            tests:
+              - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
+              - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
+            title: >-
+              Microsoft.ML.OnnxRuntime shall accept the cache tensors produced by one run as the
+              inputs of the next run of the same session.
+            justification: |
+              The Chatterbox Turbo and Nemotron engines run autoregressive and streaming graphs
+              whose caches are fed back on every step.
+            tags: [ots]
+            tests:
+              - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
+              - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches

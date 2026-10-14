@@ -14,15 +14,24 @@ sections:
               - id: Speech-Audio-AudioFormat-PositiveValues
                 title: >-
                   The AudioFormat value type shall reject a non-positive sample rate or channel
-                  count and shall expose the accepted values unchanged when both are positive.
+                  count at construction.
                 justification: |
                   Zero or negative rates and channel counts describe no meaningful audio format.
                   Rejecting them at construction keeps every downstream device/model declaration
                   honest and removes repeated defensive validation at each call site.
                 tests:
-                  - AudioFormat_Constructor_ValidValues_ExposesProperties
                   - AudioFormat_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
                   - AudioFormat_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Audio-AudioFormat-ExposesValues
+                title: >-
+                  The AudioFormat value type shall expose the accepted sample rate and channel
+                  count unchanged when both are positive, and compare equal by value.
+                justification: |
+                  A plain value type lets device and model declarations describe audio formats
+                  without leaking native types.
+                tests:
+                  - AudioFormat_Constructor_ValidValues_ExposesProperties
                   - AudioFormat_ValueEquality_EquivalentValuesCompareByValue
 
               - id: Speech-Audio-AudioFormat-MonoFactory

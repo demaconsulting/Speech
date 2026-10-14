@@ -8,8 +8,8 @@ namespace DemaConsulting.Speech.Demo.ShellSubsystem;
 /// </summary>
 /// <remarks>
 ///     The shell deliberately knows nothing about any specific panel: it renders whatever list of
-///     entries it is given. That is what lets later phases add the model-settings, synthesis, and
-///     recognition panels by appending entries, with no change to the shell itself.
+///     entries it is given. That is what lets a new panel be added by appending an entry, with no
+///     change to the shell itself.
 /// </remarks>
 public sealed class DemoPanelViewModel
 {

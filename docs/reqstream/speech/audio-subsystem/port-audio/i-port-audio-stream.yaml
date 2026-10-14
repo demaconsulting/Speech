@@ -15,8 +15,8 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
                     title: >-
-                      The IPortAudioStream interface shall abstract PortAudio stream start, stop,
-                      and disposal behind a mockable managed contract.
+                      The stream contract shall let callers start, stop and release an audio
+                      stream without opening a native stream.
                     justification: |
                       Capture/playback unit tests need to simulate stream lifecycle transitions
                       without opening native PortAudio streams.

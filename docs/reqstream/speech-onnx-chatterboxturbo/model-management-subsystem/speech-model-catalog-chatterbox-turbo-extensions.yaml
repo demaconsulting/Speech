@@ -1,0 +1,82 @@
+---
+# Software Unit Requirements for SpeechModelCatalogChatterboxTurboExtensions
+#
+# Unit-level behavior of the SpeechModelCatalogChatterboxTurboExtensions unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# SpeechModelCatalogChatterboxTurboExtensionsTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelCatalogChatterboxTurboExtensions Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-Registration
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall register the
+                  package's single synthesis model into the supplied SpeechModelCatalog.
+                justification: |
+                  Registration is the opt-in seam through which a host composes this package with
+                  the Speech library without the library depending on it.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ReturnsCatalog
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall return the same
+                  catalog instance it was called on.
+                justification: |
+                  Returning the catalog allows call chaining with the other registration methods.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall reject a null
+                  catalog.
+                justification: |
+                  A null catalog is a caller bug that must fail fast and visibly.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_NullCatalog_ThrowsArgumentNullException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-DefaultStoreVoices
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall, when the options name
+                  no reference-voice library, offer the voices of the catalog store's library.
+                justification: |
+                  Hosts get the user folder and installed voice pack with no wiring.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-OptionsNotMutated
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall leave the caller's
+                  options object unchanged when registering it.
+                justification: |
+                  A shared options object must not be mutated by registering it against one
+                  catalog.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_OptionsObject_IsNotMutated
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
+                  with the precision variants named by the supplied options.
+                justification: |
+                  A host selects variants through the options and expects the registered model to
+                  reflect them.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed
+
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
+                title: >-
+                  The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
+                  with the explicit voices named by the supplied options.
+                justification: |
+                  A host supplies voices through the options and expects the registered model to
+                  offer them.
+                tests:
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_ExplicitVoices_AreComposed

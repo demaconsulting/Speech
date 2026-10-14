@@ -18,8 +18,8 @@ field.
   `?`, or `!`. Ported verbatim (contraction table and exclusion list) from the reference
   `HiArc.AI.Speech.DictationRestorer` implementation, deliberately dropping that reference's
   glossary-casing stage and optional trained-punctuation-model stage entirely: this generic
-  library has no doc-set/glossary concept, and no punctuation model is being integrated in this
-  phase - matching the reference's own shipping default of heuristics-only.
+  library has no doc-set/glossary concept, and no punctuation model is integrated - matching
+  the reference's own shipping default of heuristics-only.
 - **RestoreProvisional(rawText)**: the cheap path for a still-forming provisional result -
   lowercase, then capitalize the standalone word "I" and the first letter only. No contraction
   restoration and no terminal-punctuation insertion, since a provisional hypothesis may still be

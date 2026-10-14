@@ -17,38 +17,60 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-LogMel
                 title: >-
                   The NemotronFeatureExtractor class shall compute 128-band natural-log mel
-                  features from 16 kHz mono audio using 0.97 preemphasis, centered reflect
-                  padding of 256 samples on each side, a 512-point FFT of a 400-sample periodic
-                  Hann window, a hop of 160 samples, Slaney-scale mel filters, and an additive
-                  1e-10 log floor, reproducing a reference computation of a known signal.
+                  features from 16 kHz mono audio that reproduce a reference computation of a
+                  known signal.
                 justification: |
                   The encoder was trained on exactly this front end; any deviation silently
                   degrades recognition accuracy, so the numerical pipeline must be pinned
                   against a reference.
                 tests:
                   - Extract_GoldenSignal_MatchesReference
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-SilenceFloor
+                title: >-
+                  The NemotronFeatureExtractor class shall produce the natural log of the
+                  additive log floor for every band of digital silence.
+                justification: |
+                  The log floor keeps silence finite rather than negative infinity, and the
+                  floor value is part of the front end the encoder was trained on.
+                tests:
                   - Extract_Silence_IsLogEpsilon
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEquivalence
                 title: >-
                   The NemotronFeatureExtractor class shall produce identical frames whether the
-                  audio is accepted in one piece or in arbitrary chunks, and shall reproduce the
-                  same frames after Reset.
+                  audio is accepted in one piece or in arbitrary chunks.
                 justification: |
                   A streaming recognizer receives audio in pieces of arbitrary size; the
                   features, and therefore the transcript, must not depend on the split.
                 tests:
                   - Extract_Chunked_EqualsOneShot
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Reset
+                title: >-
+                  The NemotronFeatureExtractor class shall reproduce the same frames for the
+                  same signal after Reset.
+                justification: |
+                  A new session must not inherit the previous session's audio context.
+                tests:
                   - Reset_AfterUse_ReproducesFeatures
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
                 title: >-
-                  The NemotronFeatureExtractor class's Flush method shall apply the right reflect
-                  pad so that the final frames are produced, zero-extending input shorter than
-                  the pad, and shall produce no frames when no audio was accepted.
+                  The NemotronFeatureExtractor class's Flush method shall produce the final
+                  frames of the accepted audio, including for input shorter than one analysis
+                  window.
                 justification: |
                   The last audio of an utterance must reach the encoder, including utterances
-                  shorter than one analysis window, while an empty stream must not invent frames.
+                  shorter than one analysis window.
                 tests:
                   - Flush_VeryShortInput_ProducesFrames
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-FlushNoAudio
+                title: >-
+                  The NemotronFeatureExtractor class's Flush method shall produce no frames when
+                  no audio was accepted.
+                justification: |
+                  An empty stream must not invent frames.
+                tests:
                   - Flush_NoAudio_ProducesNoFrames

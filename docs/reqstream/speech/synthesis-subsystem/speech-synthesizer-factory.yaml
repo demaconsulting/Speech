@@ -2,10 +2,9 @@
 # Software Unit Requirements for SpeechSynthesizerFactory
 #
 # These requirements describe the design-level behavior of the SpeechSynthesizerFactory unit,
-# decomposing the parent SynthesisSubsystem requirements. Updated for the async Engine/Session
-# redesign: Create() became the asynchronous LoadAsync(), returning Task<ISpeechSynthesizerEngine>
-# with no playback-device parameter, since device binding now happens later at
-# CreateSessionAsync. Mirrors speech-recognizer-factory.yaml's identical Phase 3 pattern.
+# decomposing the parent SynthesisSubsystem requirements. LoadAsync returns
+# Task<ISpeechSynthesizerEngine> with no playback-device parameter, since device binding happens
+# later at CreateSessionAsync.
 
 sections:
   - title: Speech Requirements
@@ -22,7 +21,7 @@ sections:
                 justification: |
                   A single composition entry point keeps all "can this machine speak right now?"
                   logic in one reviewable place, so a host never has to reason about model
-                  installation and backend loading separately. Composition no longer depends on
+                  installation and backend loading separately. Composition does not depend on
                   playback-device availability, since LoadAsync produces a Layer 3 engine that is
                   not yet bound to any device.
                 tests:
@@ -61,22 +60,28 @@ sections:
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidationAndCancellation
                 title: >-
                   The SpeechSynthesizerFactory class shall reject a null model, a null
-                  SpeechModelStore, or a null SpeechModelCatalog, and shall throw
-                  OperationCanceledException when the supplied cancellation token is already
-                  cancelled.
+                  SpeechModelStore, or a null SpeechModelCatalog with ArgumentNullException.
                 justification: |
                   A null model, store, or catalog is a programming error at the call site, not an
                   ordinary "unavailable" machine state, and must fail immediately with a clear
-                  exception rather than being silently treated as unavailable. An already
-                  cancelled token means the caller no longer wants the result, so LoadAsync must
-                  honor it rather than performing the (potentially slow) load anyway.
+                  exception rather than being silently treated as unavailable.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
                   - SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-CanceledTokenThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw OperationCanceledException when
+                  the supplied cancellation token is already canceled.
+                justification: |
+                  An already canceled token means the caller no longer wants the result, so
+                  LoadAsync must honor it rather than performing the (potentially slow) load
+                  anyway.
+                tests:
+                  - SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
                 title: >-
@@ -85,11 +90,11 @@ sections:
                   does not supply one, so a model with real per-voice knowledge can later resolve
                   a genuine speaker id from it once a session is created.
                 justification: |
-                  Prior to this requirement, no seam existed to carry a session-level selected
-                  voice from a host's ISpeechModel.Parameters selection through to
-                  SynthesisSession; adding this argument as optional with a null default
-                  keeps every existing call site source-compatible while unblocking real voice
-                  selection end-to-end for models such as SherpaOnnxKokoroEnglishSynthesisModel.
+                  The seam that carries a session-level selected voice from a host's
+                  ISpeechModel.Parameters selection through to SynthesisSession is an optional
+                  argument with a null default, which keeps every call site source-compatible
+                  while enabling real voice selection end-to-end for models such as
+                  SherpaOnnxKokoroEnglishSynthesisModel.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine
 
@@ -111,23 +116,41 @@ sections:
               - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
                   The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
-                  from LoadAsync() - before installed/role/backend checks run - when
-                  parameterValues supplies a value for a parameter the requested model does
-                  declare, but the value is invalid for that parameter (wrong CLR type, outside
-                  [Minimum, Maximum] or non-integral for a NumericParameter declared IsInteger,
-                  or not a declared ChoiceParameterOption.Value for a ChoiceParameter, or not a
-                  bool for a BooleanParameter), naming the parameter id, the model id, and the
-                  reason the value is invalid.
+                  from LoadAsync() when a supplied numeric parameter value is invalid for the
+                  declared NumericParameter.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
                   value invalid for it, is a caller bug rather than a legitimate cross-model
                   compatibility gap, and must be surfaced immediately and loudly - synchronously
-                  from LoadAsync() - rather than silently substituted the first time
-                  ResolveSpeakerId ran per segment. This validation happens once, up front, at
-                  LoadAsync(); it does not change ResolveSpeakerId's or ResolveOverrideRatios's
-                  own existing never-throw, per-segment runtime contract.
+                  from LoadAsync(), before installed/role/backend checks run - rather than
+                  silently substituted the first time ResolveSpeakerId ran per segment. A numeric
+                  value is invalid when it has the wrong CLR type, lies outside
+                  [Minimum, Maximum], or is non-integral for a parameter declared IsInteger. The
+                  exception names the parameter id, the model id, and the reason. This
+                  validation happens once, up front; it does not change ResolveSpeakerId's or
+                  ResolveOverrideRatios's own never-throw, per-segment runtime contract.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidChoiceParameterValueThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
+                  from LoadAsync() when a supplied choice parameter value is not a declared
+                  option.
+                justification: |
+                  A value outside the closed option set can never be honored and must be
+                  surfaced immediately and loudly, naming the parameter id and the model id.
+                tests:
                   - SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidBooleanParameterValueThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
+                  from LoadAsync() when a supplied boolean parameter value is not a bool.
+                justification: |
+                  A non-bool value cannot be interpreted as a flag and must be surfaced
+                  immediately and loudly, naming the parameter id and the model id.
+                tests:
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_Throws

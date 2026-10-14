@@ -1,0 +1,109 @@
+---
+# Software Unit Requirements for the SpeechDemo AudioDeviceService
+#
+# These requirements describe the behavior of the IAudioDeviceService / AudioDeviceService
+# unit - the demo-owned device seam and its real implementation over the library's
+# AudioDeviceFactory - decomposing the parent DeviceSelectionSubsystem requirements.
+# IAudioDeviceService and AudioDeviceService are treated as one unit because the interface has
+# no independently observable behavior of its own; every test exercises it through
+# AudioDeviceService, its sole production implementation.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Construction (Devices-FactoryRequired)
+#   - Enumeration (Devices-LibraryProbeDelegation, -LibraryPlaybackProbeDelegation,
+#     -EmptyProbeResult, -ProbeResultsNotCached)
+#   - Refresh (Devices-ServiceRefreshDelegation)
+#   - Device creation (Devices-CaptureDeviceCreation, -PlaybackDeviceCreation)
+# Every test below is an AudioDeviceServiceTests test.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: DeviceSelectionSubsystem Requirements
+        sections:
+          - title: AudioDeviceService Requirements
+            requirements:
+              - id: SpeechDemo-Devices-FactoryRequired
+                title: >-
+                  The AudioDeviceService shall reject being created without a library audio device
+                  factory, with a caller error.
+                justification: |
+                  Every call is forwarded to the factory, so a missing factory is a programming
+                  error that should surface at composition rather than at the first
+                  enumeration.
+                tests:
+                  - AudioDeviceService_Constructor_NullFactory_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Devices-LibraryProbeDelegation
+                title: >-
+                  The AudioDeviceService shall list exactly the capture devices the system reports,
+                  in the order reported.
+                justification: |
+                  The demo exists to show the library's device enumeration working, so it must
+                  not maintain a device list of its own. Routing enumeration through a
+                  demo-owned seam keeps the presentation logic testable without audio hardware
+                  while leaving the library's public API untouched.
+                tests:
+                  - AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
+
+              - id: SpeechDemo-Devices-LibraryPlaybackProbeDelegation
+                title: >-
+                  The AudioDeviceService shall list exactly the playback devices the system
+                  reports, in the order reported.
+                justification: |
+                  As for capture devices, the demo must not maintain a playback device list of
+                  its own; the picker shows what the library's playback probe reports.
+                tests:
+                  - AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
+
+              - id: SpeechDemo-Devices-EmptyProbeResult
+                title: >-
+                  When the system reports no devices for a direction, the AudioDeviceService shall
+                  list no devices for that direction, without an error.
+                justification: |
+                  A machine with no audio backend is an ordinary state. Returning an empty list
+                  spares every caller a null check and an exception handler.
+                tests:
+                  - AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
+
+              - id: SpeechDemo-Devices-ProbeResultsNotCached
+                title: >-
+                  Each time devices are listed, the AudioDeviceService shall list the devices the
+                  system currently reports rather than a remembered list.
+                justification: |
+                  Devices are hot-plugged while the application runs; a cached list would hide
+                  a refresh's result from every later enumeration.
+                tests:
+                  - AudioDeviceService_EnumerateCaptureDevices_ProbeResultChanges_ReturnsLatestProbeDevices
+
+              - id: SpeechDemo-Devices-ServiceRefreshDelegation
+                title: >-
+                  When a refresh is requested, the AudioDeviceService shall make the system re-scan
+                  its devices so that later device lists reflect hardware changes.
+                justification: |
+                  A manual refresh is only meaningful if the library re-scans hardware; the
+                  adapter must therefore forward the request rather than absorb it.
+                tests:
+                  - AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
+
+              - id: SpeechDemo-Devices-CaptureDeviceCreation
+                title: >-
+                  The AudioDeviceService shall provide a capture device for a selection, and shall
+                  provide an unavailable capture device when no matching device is known.
+                justification: |
+                  The panels create the devices they stream from through this seam. Delegating
+                  to the factory keeps device creation consistent with the same probe that
+                  produced the picker's list.
+                tests:
+                  - AudioDeviceService_CreateCaptureDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
+
+              - id: SpeechDemo-Devices-PlaybackDeviceCreation
+                title: >-
+                  The AudioDeviceService shall provide a playback device for a selection, and shall
+                  provide an unavailable playback device when no matching device is known.
+                justification: |
+                  The panels create the devices they stream to through this seam. Delegating to
+                  the factory keeps device creation consistent with the same probe that
+                  produced the picker's list.
+                tests:
+                  - AudioDeviceService_CreatePlaybackDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice

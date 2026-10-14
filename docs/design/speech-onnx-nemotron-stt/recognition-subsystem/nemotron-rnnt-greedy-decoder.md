@@ -3,7 +3,7 @@
 **Purpose**: Run RNN-T greedy search over encoder output frames to produce token ids, over an
 `IRnntNetwork` seam that holds the prediction network's recurrent state. The seam lets the greedy
 loop be unit tested with a scripted managed fake; `NemotronRnntNetwork` is the ONNX Runtime
-implementation, documented below.
+implementation, documented in `nemotron-rnnt-network.md`.
 
 **Data Model**: Holds the `IRnntNetwork` it owns. `MaxSymbolsPerFrame` is the constant `10`.
 The decoder keeps no state of its own: the recurrent state lives in the network and persists
@@ -22,30 +22,10 @@ across `Decode` calls, so decoding continues seamlessly across chunk boundaries.
 - **Reset()**: resets the network's prediction state.
 - **Dispose()**: disposes the network.
 
-**NemotronRnntNetwork (internal collaborator)**: the ONNX Runtime implementation of
-`IRnntNetwork`. It wraps the LSTM prediction network (`decoder.onnx`: inputs `targets` [1, 1],
-`h_in` and `c_in` [2, 1, 640]; outputs `decoder_output` [1, 640, 1], `h_out`, `c_out`) and the
-joint network (`joint.onnx`: inputs `encoder_output` [1, 1, 1024] and `decoder_output`
-[1, 1, 640]; output `joint_output` logits over the vocabulary). Both sessions are tiny and called
-many times per chunk, so they are created with `CreateSessionOptions()` - one intra-op thread and
-`session.intra_op.allow_spinning=0` - and always run on the CPU; a multi-threaded or spinning
-pool would make these microsecond-scale calls slower and steal CPU from the encoder. All tensors
-are `OrtValue`s over arrays allocated once and reused, so the per-token path performs no managed
-allocation beyond ONNX Runtime's own result collection. `Reset` zeroes the recurrent state and
-advances the prediction network with the blank token, as at stream start; `Advance(token)` feeds
-the emitted token and keeps the new state; `PredictToken(frame)` runs the joint network and
-returns the arg-max token after subtracting `NemotronRnntNetwork.BlankPenalty` (3.0) from the
-blank score; the penalized arg-max is the pure internal static method `SelectToken(logits,
-blankId)` (first index wins ties), which is unit tested without ONNX models. The model is
-under-confident on quiet, isolated microphone words and otherwise emits blank for them; with the
-penalty 20 of 21 real microphone recordings of single words and short phrases are recognized
-(versus about 10 without it), at the cost of occasional
-near-homophone substitutions. Values above about 4 cause repeated or spurious tokens.
-
 **Error Handling**: `Decode` throws `ArgumentNullException` for a null token list; ONNX Runtime
 exceptions from the network propagate unchanged to the engine.
 
-**Dependencies**: `IRnntNetwork`; `NemotronRnntNetwork` additionally uses `Microsoft.ML.OnnxRuntime`.
+**Dependencies**: `IRnntNetwork` only; the ONNX-backed `NemotronRnntNetwork` is a separate unit.
 
 **Callers**: `OnnxNemotronRecognitionEngine` decodes every encoder output through it and resets
 and disposes it with the engine; `OnnxNemotronMultilingualRecognitionModel.CreateBackend`

@@ -2,7 +2,8 @@
 # Software Unit Requirements for KokoroPhonemeVocabulary
 #
 # These requirements describe the design-level behavior of the KokoroPhonemeVocabulary unit,
-# decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
+# decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements. Each
+# requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
 # KokoroPhonemeVocabularyTests.cs.
@@ -17,20 +18,43 @@ sections:
               - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ToTokenIds
                 title: >-
                   The KokoroPhonemeVocabulary class shall convert a phoneme string into the
-                  model's ordered integer token id sequence using its embedded character-level
-                  vocabulary, dropping any character absent from the vocabulary and truncating
-                  the result to at most 510 entries.
+                  model's ordered integer token id sequence, one id per character, using its
+                  embedded character-level vocabulary.
                 justification: |
                   The ONNX model's input_ids tensor requires integer token ids, not characters;
                   this conversion must exactly match the proven Python reference pipeline's own
-                  per-character lookup-and-drop behavior for synthesized audio to be correct,
-                  and must respect the model's 512-token context window (with 2 reserved for
-                  the leading/trailing pad token the caller adds).
+                  per-character lookup for synthesized audio to be correct.
                 tests:
                   - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
-                  - ToTokenIds_UnknownChar_IsSkipped
                   - ToTokenIds_EmptyString_ReturnsEmptyList
+
+              - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-UnknownCharacterDrop
+                title: >-
+                  The KokoroPhonemeVocabulary class shall skip any character absent from its
+                  vocabulary rather than failing.
+                justification: |
+                  The proven Python reference pipeline drops characters with no token id; matching
+                  it keeps synthesized audio identical.
+                tests:
+                  - ToTokenIds_UnknownChar_IsSkipped
+
+              - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-Truncation
+                title: >-
+                  The KokoroPhonemeVocabulary class shall truncate the token id sequence to at
+                  most 510 entries.
+                justification: |
+                  The model has a 512-token context window, two of which are reserved for the
+                  leading and trailing pad token the caller adds.
+                tests:
                   - ToTokenIds_LongerThanMaxPhonemeTokens_IsTruncated
+
+              - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-PadToken
+                title: >-
+                  The KokoroPhonemeVocabulary class shall declare token id 0 as the pad token.
+                justification: |
+                  The caller brackets every token sequence with this id, so it must match the
+                  model's own pad token.
+                tests:
                   - PadTokenId_IsZero
 
               - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation

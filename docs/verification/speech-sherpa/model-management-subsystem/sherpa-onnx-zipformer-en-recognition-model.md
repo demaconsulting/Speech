@@ -44,7 +44,7 @@ is a regression guard against this deliberate non-enablement ever being accident
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity
+##### The model declares its expected, stable catalog identity and its license
 
 **Test**: `SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues`
 

@@ -1,0 +1,99 @@
+---
+# Software Unit Requirements for the SpeechDemo Program
+#
+# These requirements describe the design-level behavior of the Program unit - the process entry
+# point - decomposing the system-level library composition requirement in
+# docs/reqstream/speech-demo.yaml. Fail-fast handling and --help are exercised through the
+# internal Run seam, which takes injected writers, environment reader and start action.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: Program Requirements
+        requirements:
+          - id: SpeechDemo-Program-AvaloniaApp
+            title: >-
+              The Program unit shall configure the Avalonia application builder for the demo
+              application.
+            justification: |
+              Avalonia's design-time tooling invokes the builder without running Main, so the
+              builder must hold all application configuration and no application logic.
+            tests:
+              - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
+
+          - id: SpeechDemo-Program-FailFast
+            title: >-
+              The Program unit shall report an invalid launch option on the error stream and exit
+              with a non-zero code without starting the application.
+            justification: |
+              A mistyped or invalid option must be explained at the console before any window
+              opens, and a script must be able to detect the failure from the exit code.
+            tests:
+              - Program_Run_UnrecognizedOption_ReportsErrorAndDoesNotStart
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
+          - id: SpeechDemo-Program-FailFastUsage
+            title: >-
+              The Program unit shall print the usage text after reporting an invalid launch
+              option.
+            justification: |
+              The user needs the valid options at hand to correct the command line.
+            tests:
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
+          - id: SpeechDemo-Program-ErrorNoEcho
+            title: >-
+              The Program unit shall not echo an unrecognized or invalid argument value in its
+              error output.
+            justification: |
+              A misplaced secret must not be copied into console logs.
+            tests:
+              - Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument
+              - Program_Run_PasswordWithoutMirrorUrl_ReportsErrorWithoutEchoingSecret
+              - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
+
+          - id: SpeechDemo-Program-HelpRequest
+            title: >-
+              The Program unit shall print the usage text without starting the application when
+              a help flag is supplied.
+            justification: |
+              Asking for help must not open a window.
+            tests:
+              - Program_Run_HelpFlag_PrintsUsageAndDoesNotStart
+
+          - id: SpeechDemo-Program-HelpExitCode
+            title: >-
+              The Program unit shall exit with code zero when a help flag is supplied.
+            justification: |
+              Asking for help is a successful request.
+            tests:
+              - Program_Run_HelpFlag_PrintsUsageAndDoesNotStart
+
+          - id: SpeechDemo-Program-HelpWinsOverInvalidMirror
+            title: >-
+              The Program unit shall honor a help flag even when the mirror options are invalid.
+            justification: |
+              A user asking for help to learn the correct mirror options must not be rejected
+              for getting them wrong.
+            tests:
+              - Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero
+          - id: SpeechDemo-Program-StartsApplication
+            title: >-
+              The Program unit shall start the application with every accepted launch option
+              when the arguments are valid.
+            justification: |
+              The parsed options are the only channel by which launch arguments reach the
+              composition root, so none may be dropped on the way.
+            tests:
+              - Program_Run_ValidOptions_StartsWithAllParsedOptions
+              - Program_Run_BearerTokenMirror_StartsWithParsedToken
+
+          - id: SpeechDemo-Program-OptionValueRequired
+            title: >-
+              The Program unit shall report an error and not start the application when a
+              value-taking launch option is followed by another launch option instead of a value.
+            justification: |
+              Starting with a silently swallowed option would run with a configuration the user
+              did not ask for.
+            tests:
+              - Program_Run_OptionFollowedByOption_ReportsErrorAndDoesNotStart

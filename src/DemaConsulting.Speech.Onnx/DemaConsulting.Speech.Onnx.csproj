@@ -68,12 +68,7 @@
          -available CPU provider when no accelerated provider is present at runtime. This mirrors
          the sibling DemaConsulting.Speech.Sherpa package's "consuming application brings its own
          native runtime package" convention. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
-  </ItemGroup>
-
-  <!-- Project References -->
-  <ItemGroup>
-    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->

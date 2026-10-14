@@ -28,6 +28,11 @@ using DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
+// xUnit1051 is suppressed for this file: these tests deliberately call the three-argument
+// RecognizeCommand.RunAsync(Context, ICliModelCatalog, AudioDeviceFactory) seam, which owns the
+// Ctrl+C cancellation wiring, rather than the CancellationToken overload that bypasses it.
+#pragma warning disable xUnit1051
+
 namespace DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
 
 /// <summary>
@@ -55,7 +60,7 @@ public sealed class RecognizeCommandTests
     ///     all-zero sample frames, so a test can construct a real
     ///     <see cref="WavFileAudioCaptureDevice"/> without needing a shared binary test fixture.
     /// </summary>
-    private static string WriteMinimalWavFile(int sampleFrameCount = 0)
+    private static string WriteMinimalWavFile(int sampleFrameCount = 0, short channelCount = 1)
     {
         var path = Path.Join(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
         using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write))
@@ -68,10 +73,10 @@ public sealed class RecognizeCommandTests
             writer.Write("fmt "u8);
             writer.Write(16);
             writer.Write((short)1); // PCM
-            writer.Write((short)1); // mono
+            writer.Write(channelCount);
             writer.Write(16000);
-            writer.Write(32000);
-            writer.Write((short)2);
+            writer.Write(32000 * channelCount);
+            writer.Write((short)(2 * channelCount));
             writer.Write((short)16);
             writer.Write("data"u8);
             writer.Write(dataByteCount);
@@ -104,6 +109,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--input", "in.wav"]));
     }
 
@@ -111,8 +117,10 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_InputFlag_ParsesInputPath()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--input", "in.wav"]);
 
+        // Assert
         Assert.Equal("model-1", options.ModelId);
         Assert.Equal("in.wav", options.InputPath);
         Assert.False(options.Mic);
@@ -122,8 +130,10 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_MicFlag_ParsesTrue()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic"]);
 
+        // Assert
         Assert.True(options.Mic);
     }
 
@@ -131,9 +141,11 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--stt-param", "beam=2", "--stt-param", "lang=en"]);
 
+        // Assert
         Assert.Equal([("beam", "2"), ("lang", "en")], options.RawParameters);
     }
 
@@ -141,9 +153,11 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "2.5"]);
 
+        // Assert
         Assert.Equal(2.5, options.SilenceTimeoutSeconds);
     }
 
@@ -151,6 +165,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "0"]));
     }
@@ -159,6 +174,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "not-a-number"]));
     }
@@ -167,9 +183,11 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "5", "--start-timeout", "2.5"]);
 
+        // Assert
         Assert.Equal(2.5, options.StartTimeoutSeconds);
     }
 
@@ -177,9 +195,11 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "5"]);
 
+        // Assert
         Assert.Null(options.StartTimeoutSeconds);
     }
 
@@ -187,6 +207,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--start-timeout", "0"]));
     }
@@ -195,12 +216,13 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--start-timeout", "not-a-number"]));
     }
 
     /// <summary>
-    ///     Test that <see cref="RecognizeCommand.RunAsync"/>'s mic-mode start-timeout default
+    ///     Test that <c>RecognizeCommand.RunAsync</c>'s mic-mode start-timeout default
     ///     resolves to a fixed 8 seconds when <c>--start-timeout</c> is omitted, independent of
     ///     whatever value <c>--silence-timeout</c> is given - it never borrows
     ///     <c>--silence-timeout</c>'s own value, proving the requirement's corrected wording.
@@ -208,26 +230,32 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault()
     {
+        // Arrange
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--silence-timeout", "2.5"]);
 
+        // Act
         var startTimeout = RecognizeCommand.ResolveStartTimeout(options);
 
+        // Assert
         Assert.Equal(TimeSpan.FromSeconds(8), startTimeout);
         Assert.NotEqual(RecognizeCommand.ResolveSilenceTimeout(options), startTimeout);
     }
 
     /// <summary>
-    ///     Test that <see cref="RecognizeCommand.RunAsync"/>'s mic-mode silence-timeout default
+    ///     Test that <c>RecognizeCommand.RunAsync</c>'s mic-mode silence-timeout default
     ///     resolves to a fixed 5 seconds when <c>--silence-timeout</c> is omitted.
     /// </summary>
     [Fact]
     public void RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault()
     {
+        // Arrange
         var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic"]);
 
+        // Act
         var silenceTimeout = RecognizeCommand.ResolveSilenceTimeout(options);
 
+        // Assert
         Assert.Equal(TimeSpan.FromSeconds(5), silenceTimeout);
     }
 
@@ -238,11 +266,14 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_Run_StartTimeoutGiven_ResolvesToGivenValue()
     {
+        // Arrange
         var options = RecognizeCommand.ParseArguments(
             ["--stt-model", "model-1", "--mic", "--start-timeout", "2.5"]);
 
+        // Act
         var startTimeout = RecognizeCommand.ResolveStartTimeout(options);
 
+        // Assert
         Assert.Equal(TimeSpan.FromSeconds(2.5), startTimeout);
     }
 
@@ -250,9 +281,11 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue()
     {
+        // Act
         var interimOptions = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--interim"]);
         var finalOnlyOptions = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--final-only"]);
 
+        // Assert
         Assert.True(interimOptions.InterimOnly);
         Assert.False(interimOptions.FinalOnly);
         Assert.True(finalOnlyOptions.FinalOnly);
@@ -263,8 +296,10 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath()
     {
+        // Act
         var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--output-text", "out.txt"]);
 
+        // Assert
         Assert.Equal("out.txt", options.OutputPath);
     }
 
@@ -272,6 +307,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--bogus"]));
     }
 
@@ -279,82 +315,212 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--stt-model"]));
+        // Arrange
+        string[] args = ["--stt-model"];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains("--stt-model requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Regression test: a value-taking flag directly followed by another recognized option must
+    ///     be reported as missing its value instead of swallowing that option as its value.
+    /// </summary>
+    [Theory]
+    [InlineData("--stt-model")]
+    [InlineData("--input")]
+    [InlineData("--capture-device")]
+    [InlineData("--silence-timeout")]
+    [InlineData("--start-timeout")]
+    [InlineData("--stt-param")]
+    [InlineData("--output-text")]
+    public void RecognizeCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        string[] args = [flag, "--mic"];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains($"{flag} requires a value", exception.Message);
+    }
+
+    /// <summary>Regression test: a value-taking flag at the end of the arguments is reported as missing its value.</summary>
+    [Theory]
+    [InlineData("--input")]
+    [InlineData("--capture-device")]
+    [InlineData("--silence-timeout")]
+    [InlineData("--start-timeout")]
+    [InlineData("--stt-param")]
+    [InlineData("--output-text")]
+    public void RecognizeCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        string[] args = ["--stt-model", "model-1", flag];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains($"{flag} requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Regression test: non-finite timeouts (NaN, Infinity) must be rejected like any other
+    ///     non-positive/malformed number, since NaN compares false against every bound.
+    /// </summary>
+    [Theory]
+    [InlineData("--silence-timeout", "NaN")]
+    [InlineData("--silence-timeout", "Infinity")]
+    [InlineData("--silence-timeout", "-Infinity")]
+    [InlineData("--start-timeout", "NaN")]
+    [InlineData("--start-timeout", "Infinity")]
+    [InlineData("--start-timeout", "-Infinity")]
+    public void RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException(string flag, string value)
+    {
+        // Arrange
+        string[] args = ["--stt-model", "model-1", "--mic", flag, value];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains(flag, exception.Message);
+        Assert.Contains("positive number", exception.Message);
+    }
+
+    /// <summary>
+    ///     Regression test: when cancellation lands during file-mode processing and the drain
+    ///     <c>StopAsync</c> honors the canceled token, the command still completes gracefully
+    ///     (session stopped via an uncancelable stop, no exception, disposal performed).
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_FileInputCanceledDuringStart_CompletesGracefully()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.ObserveStopCancellation = true;
+        using var cts = new CancellationTokenSource();
+        session.OnStart = _ => cts.Cancel();
+        var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
+        try
+        {
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
+
+            // Act
+            await RecognizeCommand.RunAsync(
+                context, catalog, new AudioDeviceFactory(), cts.Token);
+
+            // Assert
+            Assert.Equal(2, session.StopCallCount);
+            Assert.Equal(RecognitionSessionState.Stopped, session.State);
+            Assert.Equal(1, session.DisposeCallCount);
+            Assert.Equal(1, engine.DisposeCallCount);
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            File.Delete(wavPath);
+        }
     }
 
     // --- Input-source mutual exclusion ---
 
     /// <summary>Test that supplying both --input and --mic throws.</summary>
     [Fact]
-    public void RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", "in.wav", "--mic"]);
 
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
     }
 
     /// <summary>Test that neither --input nor --mic given throws.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NoInputSource_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_NoInputSource_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "model-1"]);
 
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
     }
 
     // --- --interim/--final-only mutual exclusion ---
 
     /// <summary>Test that supplying both --interim and --final-only throws.</summary>
     [Fact]
-    public void RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             ["recognize", "--stt-model", "model-1", "--mic", "--interim", "--final-only"]);
 
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
     }
 
     // --- Model resolution error paths ---
 
     /// <summary>Test that an unknown model id throws.</summary>
     [Fact]
-    public void RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = new FakeCliModelCatalog();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "does-not-exist", "--mic"]);
 
-        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
+
+        // Assert
         Assert.Contains("does-not-exist", exception.Message);
     }
 
     /// <summary>Test that a wrong-role (synthesis) model throws.</summary>
     [Fact]
-    public void RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel(role: SpeechModelRole.Synthesis);
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
-        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
+
+        // Assert
         Assert.Contains("model-1", exception.Message);
+        Assert.Contains("list-models --role stt", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded model throws an actionable "download" message.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint()
+    public async Task RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel(state: SpeechModelState.NotDownloaded);
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
-        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
+
+        // Assert
         Assert.Contains("download model-1", exception.Message);
     }
 
@@ -362,8 +528,9 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that a valid --stt-param is forwarded to CreateRecognizerEngineAsync's parameterValues argument.</summary>
     [Fact]
-    public void RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine()
+    public async Task RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine()
     {
+        // Arrange
         var beamParameter = new NumericParameter(
             "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
         var catalog = CreateCatalogWithModel(parameters: [beamParameter]);
@@ -374,8 +541,10 @@ public sealed class RecognizeCommandTests
             using var context = Context.Create(
                 ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "beam=6"]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
 
+            // Assert
             var parameterValues = Assert.Single(catalog.CreateRecognizerParameterValueCalls);
             Assert.NotNull(parameterValues);
             Assert.Equal(6.0, Assert.IsType<double>(parameterValues["beam"]));
@@ -388,8 +557,9 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that an invalid --stt-param value throws before any recognizer engine is created.</summary>
     [Fact]
-    public void RecognizeCommand_Run_InvalidParam_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_InvalidParam_ThrowsArgumentException()
     {
+        // Arrange
         var beamParameter = new NumericParameter(
             "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
         var catalog = CreateCatalogWithModel(parameters: [beamParameter]);
@@ -399,7 +569,8 @@ public sealed class RecognizeCommandTests
             using var context = Context.Create(
                 ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "beam=999"]);
 
-            Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, new AudioDeviceFactory()));
+            // Act / Assert
+            await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory()));
         }
         finally
         {
@@ -409,6 +580,36 @@ public sealed class RecognizeCommandTests
 
     // --- File-input explicit-drain stop flow ---
 
+    /// <summary>Test that a key the recognition model does not declare is rejected before any engine is created.</summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var wavPath = WriteMinimalWavFile();
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "nope=1"]);
+
+            // Act / Assert
+            await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory()));
+        }
+        finally
+        {
+            File.Delete(wavPath);
+        }
+    }
+
+    /// <summary>Test that a malformed --stt-param token (no key=value separator) is rejected.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException()
+    {
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
+            ["--stt-model", "model-1", "--mic", "--stt-param", "missing-equals-sign"]));
+    }
+
     /// <summary>
     ///     Test that file-input mode starts the session once and then explicitly drains it with a
     ///     single <c>StopAsync</c> call - no longer relying on a separate end-of-file event, since
@@ -416,8 +617,9 @@ public sealed class RecognizeCommandTests
     ///     returning - and disposes both the engine and the session exactly once.
     /// </summary>
     [Fact]
-    public void RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain()
+    public async Task RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
@@ -425,8 +627,10 @@ public sealed class RecognizeCommandTests
         {
             using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
 
+            // Assert
             Assert.Equal(1, session.StartCallCount);
             Assert.Equal(1, session.StopCallCount);
             Assert.Equal(1, session.DisposeCallCount);
@@ -444,8 +648,9 @@ public sealed class RecognizeCommandTests
     ///     the given path into <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>.
     /// </summary>
     [Fact]
-    public void RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession()
+    public async Task RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (_, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile();
@@ -453,8 +658,10 @@ public sealed class RecognizeCommandTests
         {
             using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
 
+            // Assert
             Assert.IsType<WavFileAudioCaptureDevice>(engine.LastDevice);
         }
         finally
@@ -463,12 +670,99 @@ public sealed class RecognizeCommandTests
         }
     }
 
+    // --- Input WAV file validation ---
+
+    /// <summary>
+    ///     Test that <c>--start-timeout</c> and <c>--silence-timeout</c> given together with <c>--input</c> are
+    ///     accepted and have no effect: file mode never constructs the idle-timeout wrapper, so the recognizer is
+    ///     started and drained through the same explicit path as without them and the run succeeds.
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireRecognizer(catalog);
+        var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--start-timeout", "0.001", "--silence-timeout", "0.001"]);
+
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
+
+            // Assert
+            Assert.Equal(1, session.StartCallCount);
+            Assert.Equal(1, session.StopCallCount);
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            File.Delete(wavPath);
+        }
+    }
+
+    /// <summary>Test that <c>--input</c> naming a file that is not a WAV file is rejected with a clear error.</summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = _ => engine.LastDevice!.Start();
+        var path = Path.Join(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
+        await File.WriteAllTextAsync(path, "this is not a RIFF file", TestContext.Current.CancellationToken);
+        try
+        {
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", path]);
+
+            // Act
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory()));
+
+            // Assert
+            Assert.Contains(path, ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Test that <c>--input</c> naming a stereo WAV file is rejected because only mono is supported.</summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = _ => engine.LastDevice!.Start();
+        var path = WriteMinimalWavFile(channelCount: 2);
+        try
+        {
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", path]);
+
+            // Act
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory()));
+
+            // Assert
+            Assert.Contains("mono", ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     // --- --interim/--final-only/--output-text filtering and writing ---
 
     /// <summary>Test that, by default, both interim and final results print (interim overwritten, final settled).</summary>
     [Fact]
-    public void RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal()
+    public async Task RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireRecognizer(catalog);
         session.OnStart = self =>
@@ -484,7 +778,8 @@ public sealed class RecognizeCommandTests
         {
             using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
         }
         finally
         {
@@ -492,6 +787,7 @@ public sealed class RecognizeCommandTests
             File.Delete(wavPath);
         }
 
+        // Assert
         var printed = writer.ToString();
         var physicalLines = printed.Split('\n');
         Assert.True(physicalLines.Length >= 2, $"Expected at least 2 physical lines, got: {printed}");
@@ -509,8 +805,9 @@ public sealed class RecognizeCommandTests
     ///     over that same maximum length rather than only the most recent (shorter) write.
     /// </summary>
     [Fact]
-    public void RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters()
+    public async Task RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireRecognizer(catalog);
         session.OnStart = self =>
@@ -527,7 +824,8 @@ public sealed class RecognizeCommandTests
         {
             using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
         }
         finally
         {
@@ -535,6 +833,7 @@ public sealed class RecognizeCommandTests
             File.Delete(wavPath);
         }
 
+        // Assert
         var printed = writer.ToString();
         var physicalLines = printed.Split('\n');
         Assert.True(physicalLines.Length >= 2, $"Expected at least 2 physical lines, got: {printed}");
@@ -557,8 +856,9 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that --final-only suppresses interim console output.</summary>
     [Fact]
-    public void RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput()
+    public async Task RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireRecognizer(catalog);
         session.OnStart = self =>
@@ -575,7 +875,8 @@ public sealed class RecognizeCommandTests
             using var context = Context.Create(
                 ["recognize", "--stt-model", "model-1", "--input", wavPath, "--final-only"]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
         }
         finally
         {
@@ -583,6 +884,7 @@ public sealed class RecognizeCommandTests
             File.Delete(wavPath);
         }
 
+        // Assert
         var printed = writer.ToString();
         var physicalLines = printed.Split('\n');
         Assert.Equal("hello", physicalLines[0]);
@@ -592,8 +894,9 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that --interim suppresses final console output (settle line).</summary>
     [Fact]
-    public void RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput()
+    public async Task RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireRecognizer(catalog);
         session.OnStart = self =>
@@ -610,7 +913,8 @@ public sealed class RecognizeCommandTests
             using var context = Context.Create(
                 ["recognize", "--stt-model", "model-1", "--input", wavPath, "--interim"]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
         }
         finally
         {
@@ -618,6 +922,7 @@ public sealed class RecognizeCommandTests
             File.Delete(wavPath);
         }
 
+        // Assert
         var printed = writer.ToString();
         var physicalLines = printed.Split('\n');
         var firstLineSegments = physicalLines[0].Split('\r');
@@ -628,8 +933,9 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that --output-text writes only final results, one per line, overwriting any prior file content.</summary>
     [Fact]
-    public void RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent()
+    public async Task RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, _) = WireRecognizer(catalog);
         session.OnStart = self =>
@@ -641,15 +947,17 @@ public sealed class RecognizeCommandTests
         };
         var wavPath = WriteMinimalWavFile();
         var outputPath = Path.Join(Path.GetTempPath(), $"recognize-output-{Guid.NewGuid():N}.txt");
-        File.WriteAllText(outputPath, "stale content that must be overwritten");
+        await File.WriteAllTextAsync(outputPath, "stale content that must be overwritten", TestContext.Current.CancellationToken);
         try
         {
             using var context = Context.Create(
                 ["recognize", "--stt-model", "model-1", "--input", wavPath, "--output-text", outputPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
 
-            var lines = File.ReadAllLines(outputPath);
+            // Assert
+            var lines = await File.ReadAllLinesAsync(outputPath, TestContext.Current.CancellationToken);
             Assert.Equal(["hello", "world"], lines);
         }
         finally
@@ -663,34 +971,80 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer engine is created.</summary>
     [Fact]
-    public void RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException()
+    public async Task RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             ["recognize", "--stt-model", "model-1", "--mic", "--capture-device", "does-not-exist"]);
 
-        var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
+
+        // Assert
         Assert.Contains("does-not-exist", exception.Message);
     }
 
     /// <summary>Test that no available capture device (mic mode, no --output-text/--input) throws InvalidOperationException.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
+    public async Task RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
-        Assert.Throws<InvalidOperationException>(() => RecognizeCommand.Run(context, catalog, factory));
+        // Act / Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => RecognizeCommand.RunAsync(context, catalog, factory));
+    }
+
+    /// <summary>
+    ///     Test that mic mode, given an available capture device, binds the session to that device,
+    ///     starts it, streams the results to the console and ends on the silence timeout.
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = self => self.RaiseResult("hello mic", isFinal: true);
+        var probe = new FakeAudioCaptureDeviceProbe([new AudioDeviceDescription("Fake Mic", AudioDeviceDirection.Capture, 1, 16000)]);
+        var source = new Commands.ConversationCommandSubsystem.FakeCaptureDeviceSource(probe);
+        var originalOut = Console.Out;
+        using var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--mic", "--silence-timeout", "0.2", "--start-timeout", "0.2"]);
+
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, source, TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal(1, session.StartCallCount);
+        Assert.Equal(1, session.StopCallCount);
+        Assert.NotNull(engine.LastDevice);
+        Assert.IsNotType<WavFileAudioCaptureDevice>(engine.LastDevice);
+        Assert.Contains("hello mic", writer.ToString());
     }
 
     // --- Disposal ordering ---
 
     /// <summary>Test that both the engine and the session are disposed exactly once after a successful file-input run.</summary>
     [Fact]
-    public void RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce()
+    public async Task RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce()
     {
+        // Arrange
         var catalog = CreateCatalogWithModel();
         var (session, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile();
@@ -698,8 +1052,10 @@ public sealed class RecognizeCommandTests
         {
             using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
-            RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
 
+            // Assert
             Assert.Equal(1, session.DisposeCallCount);
             Assert.Equal(1, engine.DisposeCallCount);
         }
@@ -713,34 +1069,42 @@ public sealed class RecognizeCommandTests
 
     /// <summary>Test that a null context is rejected.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task RecognizeCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(
-            () => RecognizeCommand.Run(null!, new FakeCliModelCatalog(), new AudioDeviceFactory()));
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => RecognizeCommand.RunAsync(null!, new FakeCliModelCatalog(), new AudioDeviceFactory()));
     }
 
     /// <summary>Test that a null catalog is rejected.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NullCatalog_ThrowsArgumentNullException()
+    public async Task RecognizeCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
-        Assert.Throws<ArgumentNullException>(
-            () => RecognizeCommand.Run(context, null!, new AudioDeviceFactory()));
+
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => RecognizeCommand.RunAsync(context, null!, new AudioDeviceFactory()));
     }
 
     /// <summary>Test that a null factory is rejected.</summary>
     [Fact]
-    public void RecognizeCommand_Run_NullFactory_ThrowsArgumentNullException()
+    public async Task RecognizeCommand_Run_NullFactory_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
-        Assert.Throws<ArgumentNullException>(
-            () => RecognizeCommand.Run(context, new FakeCliModelCatalog(), null!));
+
+        // Act / Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => RecognizeCommand.RunAsync(context, new FakeCliModelCatalog(), null!));
     }
 
     /// <summary>Test that ParseArguments rejects a null args list.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException()
     {
+        // Act / Assert
         Assert.Throws<ArgumentNullException>(() => RecognizeCommand.ParseArguments(null!));
     }
 }

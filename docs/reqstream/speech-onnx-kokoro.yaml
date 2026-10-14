@@ -6,7 +6,8 @@
 # without specifying implementation details. SpeechOnnxKokoro is a sibling system to Speech: it
 # supplies a concrete, ONNX-Runtime-backed Kokoro v1.0 text-to-speech model and inference engine
 # through the Speech library's ISynthesisModel extension seam, ships as its own package, and is
-# versioned as part of this repository. The Speech library never depends on it.
+# versioned as part of this repository. The Speech library never depends on it. Each requirement
+# states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see the subsystem/unit-level reqstream
 # files under docs/reqstream/speech-onnx-kokoro/ for the full tests: lists these system
@@ -18,37 +19,70 @@ sections:
       - id: SpeechOnnxKokoro-Models-AddKokoroModels
         title: >-
           The library shall let a host register its ONNX-Runtime-backed Kokoro v1.0 synthesis
-          model with a Speech library SpeechModelCatalog through a single AddKokoroModels() call
-          that returns the same catalog for chaining.
+          model with a Speech library SpeechModelCatalog through a single AddKokoroModels() call.
         tags: [system]
         justification: |
           The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a
           host needs one discoverable, opt-in entry point to make this package's model available
-          for enumeration, download, and composition, composable with registrations from any
-          other model package.
+          for enumeration, download, and composition.
         children:
           - SpeechOnnxKokoro-Models-CatalogRegistration
+          - SpeechOnnxKokoro-Models-CatalogArgumentValidation
+        tests:
+          - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
+
+      - id: SpeechOnnxKokoro-Models-AddKokoroModelsChaining
+        title: >-
+          The library's AddKokoroModels() call shall return the same catalog it was called on so
+          that registrations can be chained.
+        tags: [system]
+        justification: |
+          Chaining keeps the catalog composable with registrations from any other model package
+          in one fluent expression.
+        children:
+          - SpeechOnnxKokoro-Models-CatalogChaining
         tests:
           - AddKokoroModels_Called_ReturnsSameCatalogInstance
-          - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
 
       - id: SpeechOnnxKokoro-Models-SynthesisModel
         title: >-
           The library shall provide a real, downloadable, ONNX-Runtime-backed English synthesis
-          model implementing the Speech library's ISynthesisModel contract, including selectable
-          voices, and owning its own text-to-phoneme-to-token pipeline.
+          model implementing the Speech library's ISynthesisModel contract.
         tags: [system]
         justification: |
           The real Kokoro v1.0 ONNX export performs only the waveform-generation forward pass;
-          a host needs a real, checksum-verified, installable synthesis model that also owns
-          phonemization and tokenization to perform offline text-to-speech with this model
-          family at all, and voice selection lets a host offer more than a single fixed voice.
+          a host needs a real, checksum-verified, installable synthesis model to perform
+          offline text-to-speech with this model family at all.
         children:
           - SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
-          - SpeechOnnxKokoro-Models-TextToPhonemePipeline
         tests:
           - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+      - id: SpeechOnnxKokoro-Models-SelectableVoices
+        title: >-
+          The library shall let a host select among multiple English voices of the synthesis
+          model.
+        tags: [system]
+        justification: |
+          Voice selection lets a host offer more than a single fixed voice.
+        children:
+          - SpeechOnnxKokoro-Models-VoiceSelection
+        tests:
           - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+
+      - id: SpeechOnnxKokoro-Models-EmbeddedPhonemePipeline
+        title: >-
+          The library shall turn English text into the phoneme token ids the model was trained
+          on without requiring any separate phonemizer or tokenizer download.
+        tags: [system]
+        justification: |
+          The bare ONNX export performs only the waveform-generation forward pass, so a host
+          cannot synthesize correct speech unless the package also converts text to phonemes
+          and tokens.
+        children:
+          - SpeechOnnxKokoro-Models-TextToPhonemePipeline
+          - SpeechOnnxKokoro-Models-PhonemeTokenization
+        tests:
           - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
           - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
 
@@ -63,6 +97,21 @@ sections:
           package's synthesis model.
         children:
           - SpeechOnnxKokoro-Synthesis-OnnxBackend
+          - SpeechOnnxKokoro-Synthesis-OnnxBackendSampleRate
+          - SpeechOnnxKokoro-Synthesis-OnnxBackendVoiceSelection
+          - SpeechOnnxKokoro-Synthesis-OnnxBackendLifecycle
         tests:
           - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+
+      - id: SpeechOnnxKokoro-Synthesis-ExecutionProviderProbe
+        title: >-
+          The library shall be able to confirm that an inference session can run the Kokoro
+          graph so an unusable accelerated execution provider is not used for synthesis.
+        tags: [system]
+        justification: |
+          An accelerated provider that loads the model but cannot run it would otherwise fail
+          at the first synthesis request.
+        children:
+          - SpeechOnnxKokoro-Synthesis-OnnxBackendProbe
+        tests:
           - RunProbeInference_RunnableSession_DoesNotThrow

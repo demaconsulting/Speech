@@ -4,8 +4,8 @@ namespace DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 /// <summary>
 ///     Deterministic <see cref="ISynthesisBackend"/> test double that records every call it
-///     receives and returns scripted (or generated) audio, so the synthesizer's chunking,
-///     pipelining, and playback behavior can be verified with no native sherpa-onnx runtime and
+///     receives and returns scripted (or generated) audio, so the session's chunking,
+///     ordering, and playback behavior can be verified with no native inference runtime and
 ///     no downloaded model.
 /// </summary>
 internal sealed class FakeSynthesisEngine : ISynthesisBackend
@@ -63,38 +63,77 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     public int SampleRate { get; }
 
     /// <summary>Gets every <see cref="Generate"/> call this engine has received, in arrival order.</summary>
-    public IReadOnlyList<(string Text, float Speed, int SpeakerId)> GenerateCalls => _generateCalls;
+    public IReadOnlyList<(string Text, float Speed, int SpeakerId)> GenerateCalls
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return [.. _generateCalls];
+            }
+        }
+    }
 
     /// <summary>Gets the number of <see cref="Dispose"/> calls this engine has received.</summary>
-    public int DisposeCallCount { get; private set; }
+    public int DisposeCallCount
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return _disposeCallCount;
+            }
+        }
+    }
+
+    /// <summary>Backing store for <see cref="DisposeCallCount"/>, guarded by <see cref="_concurrencyLock"/>.</summary>
+    private int _disposeCallCount;
+
+    /// <summary>Backing store for <see cref="MaxConcurrentGenerateCalls"/>, guarded by <see cref="_concurrencyLock"/>.</summary>
+    private int _maxConcurrentGenerateCalls;
+
+    /// <summary>Backing store for <see cref="IsDisposed"/>; volatile so cross-thread reads see the latest value.</summary>
+    private volatile bool _isDisposed;
 
     /// <summary>
     ///     Gets the highest number of <see cref="Generate"/> calls this engine ever observed
     ///     overlapping in flight at once, used to prove the synthesis pipeline never calls
     ///     <see cref="Generate"/> concurrently on the same engine instance.
     /// </summary>
-    public int MaxConcurrentGenerateCalls { get; private set; }
+    public int MaxConcurrentGenerateCalls
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return _maxConcurrentGenerateCalls;
+            }
+        }
+    }
 
     /// <summary>Gets a value indicating whether this engine has been disposed.</summary>
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed => _isDisposed;
 
     /// <inheritdoc/>
-    public EngineAudio Generate(string text, float speed, int speakerId)
+    public BackendAudio Generate(string text, float speed, int speakerId)
     {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         lock (_concurrencyLock)
         {
             _inFlightGenerateCalls++;
-            if (_inFlightGenerateCalls > MaxConcurrentGenerateCalls)
+            if (_inFlightGenerateCalls > _maxConcurrentGenerateCalls)
             {
-                MaxConcurrentGenerateCalls = _inFlightGenerateCalls;
+                _maxConcurrentGenerateCalls = _inFlightGenerateCalls;
             }
         }
 
         try
         {
-            _generateCalls.Add((text, speed, speakerId));
+            lock (_concurrencyLock)
+            {
+                _generateCalls.Add((text, speed, speakerId));
+            }
 
             if (_simulatedGenerateDelay > TimeSpan.Zero)
             {
@@ -112,7 +151,7 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
                 samples[i] = 0.5f;
             }
 
-            return new EngineAudio(samples, SampleRate);
+            return new BackendAudio(samples, SampleRate);
         }
         finally
         {
@@ -126,7 +165,10 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     /// <inheritdoc/>
     public void Dispose()
     {
-        IsDisposed = true;
-        DisposeCallCount++;
+        _isDisposed = true;
+        lock (_concurrencyLock)
+        {
+            _disposeCallCount++;
+        }
     }
 }

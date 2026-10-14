@@ -42,9 +42,6 @@
 
     <!-- Code Quality Configuration -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- The generated API doc path for OnnxNemotronMultilingualRecognitionModel exceeds the NuGet
-         path-length advisory (about 150 characters); it is well within every supported file system limit. -->
-    <NoWarn>$(NoWarn);NU5123</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -65,7 +62,7 @@
     <!-- Managed ONNX Runtime API only - see the referenced DemaConsulting.Speech.Onnx package's
          own remarks for why this package never references an accelerated execution-provider
          package itself. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
   </ItemGroup>
 
   <!-- Project References -->

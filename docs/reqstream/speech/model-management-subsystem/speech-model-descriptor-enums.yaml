@@ -5,8 +5,7 @@
 # These requirements describe the design-level behavior of these three small, tightly-coupled
 # supporting enums, decomposing the parent ModelManagementSubsystem requirements. They are
 # documented together (rather than one file each) because none carries independent behavior
-# beyond declaring its fixed value set, mirroring the existing
-# audio-subsystem/unavailable-fallbacks.yaml grouped-supporting-types precedent.
+# beyond declaring its fixed value set.
 
 sections:
   - title: Speech Requirements

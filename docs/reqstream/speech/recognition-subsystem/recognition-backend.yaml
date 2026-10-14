@@ -1,0 +1,40 @@
+---
+# Software Unit Requirements for RecognitionBackend
+#
+# Covers the recognition-backend seam (IRecognitionBackend, IRecognitionBackendFactory and
+# DefaultRecognitionBackendFactory) that confines every speech-inference interop call so the
+# recognition pipeline is testable with pure managed fakes. The concrete
+# SherpaOnnxRecognitionEngine and its engine-specific requirements live in SpeechSherpa, see
+# docs/reqstream/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.yaml.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: RecognitionBackend Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionBackend-MockableSeam
+                title: >-
+                  The recognition pipeline's audio conversion, threading, and result delivery shall
+                  behave as documented for any recognizer that produces results, with no
+                  downloaded model or native runtime required.
+                justification: |
+                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
+                  platform-specific native inference binary available, so the recognition logic
+                  must be verifiable entirely in managed tests.
+                tests:
+                  - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+
+              - id: Speech-Recognition-RecognitionBackend-ModelOwnedConfiguration
+                title: >-
+                  A recognizer shall be configured using only the settings and input sample rate
+                  that the selected model itself declares.
+                justification: |
+                  The design makes each model responsible for its own engine
+                  configuration, so that adding a new model is a self-contained, reviewable unit
+                  of work that never requires changing the recognition subsystem.
+                tests:
+                  - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend

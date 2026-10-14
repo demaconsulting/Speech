@@ -19,4 +19,7 @@ the real implementation filters devices to the preferred host API.
 #### Test Scenarios
 
 See the AudioSubsystem-level scenarios "Preferred Host API: Capture Enumeration Filters Devices"
-and "Unavailable Fallbacks: Honest Degradation".
+and "Mockable Contracts: Device and Probe Substitution", plus the
+_UnavailableAudioCaptureDeviceProbe_ unit verification document
+(`docs/verification/speech/audio-subsystem/unavailable-audio-capture-device-probe.md`) for the
+honest-empty enumeration behavior.

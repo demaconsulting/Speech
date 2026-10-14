@@ -25,16 +25,12 @@ includes expected document content.
 
 **Expected**: FileAssert exits 0 for the build-notes PDF document.
 
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
-
 #### WeasyPrint_CodeQualityPdf
 
 **Scenario**: FileAssert asserts the code-quality PDF file exists, contains at least one page, and
 includes expected document content.
 
 **Expected**: FileAssert exits 0 for the code-quality PDF document.
-
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
 
 #### WeasyPrint_ReviewPlanPdf
 
@@ -43,16 +39,12 @@ includes expected document content.
 
 **Expected**: FileAssert exits 0 for the review plan PDF document.
 
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
-
 #### WeasyPrint_ReviewReportPdf
 
 **Scenario**: FileAssert asserts the review report PDF file exists, contains at least one page, and
 includes expected document content.
 
 **Expected**: FileAssert exits 0 for the review report PDF document.
-
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
 
 #### WeasyPrint_DesignPdf
 
@@ -61,8 +53,6 @@ and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the design document PDF.
 
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
-
 #### WeasyPrint_VerificationPdf
 
 **Scenario**: FileAssert asserts the verification PDF file exists, contains at least one page, and
@@ -70,19 +60,9 @@ includes expected verification document content.
 
 **Expected**: FileAssert exits 0 for the verification PDF.
 
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
-
 #### WeasyPrint_UserGuidePdf
 
 **Scenario**: FileAssert asserts the user guide PDF file exists, contains at least one page, and
 includes expected document content.
 
 **Expected**: FileAssert exits 0 for the user guide PDF document.
-
-**Requirement coverage**: `Template-OTS-WeasyPrint`.
-
-### Requirements Coverage
-
-- **`Template-OTS-WeasyPrint`**: WeasyPrint_BuildNotesPdf, WeasyPrint_CodeQualityPdf,
-  WeasyPrint_ReviewPlanPdf, WeasyPrint_ReviewReportPdf, WeasyPrint_DesignPdf,
-  WeasyPrint_VerificationPdf, WeasyPrint_UserGuidePdf

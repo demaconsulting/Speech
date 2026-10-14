@@ -11,7 +11,8 @@ sections:
       - title: AudioSubsystem Requirements
         requirements:
           - id: Speech-Audio-NameOnlyIdentity
-            title: The AudioSubsystem shall identify audio devices by name alone.
+            title: >-
+              The AudioSubsystem shall resolve a persisted device selection by the saved device name.
             justification: |
               This library's "single preferred host API per platform, name-only device
               identity" decision removes device-index instability across reboots and hot-plug
@@ -19,6 +20,7 @@ sections:
               accepted for the desktop use case.
             children:
               - Speech-Audio-AudioDeviceDescription-NameIdentity
+              - Speech-Audio-AudioDeviceDescription-ValueEquality
               - Speech-Audio-AudioDeviceSelection-ExactNameMatch
             tests:
               - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
@@ -42,28 +44,58 @@ sections:
           - id: Speech-Audio-Factory
             title: >-
               The AudioSubsystem shall provide a factory that composes capture and playback
-              devices, and their enumeration probes, without ever throwing.
+              devices and their enumeration probes.
             justification: |
               Composition happens at application start-up, where a missing device or backend is
               an ordinary machine state; every factory method must return a working
-              implementation or an honest unavailable fallback rather than throwing.
+              implementation or an honest unavailable fallback.
             children:
-              - Speech-Audio-AudioDeviceFactory-NeverThrows
               - Speech-Audio-AudioDeviceFactory-InjectableProbes
+              - Speech-Audio-AudioDeviceFactory-InjectablePlaybackProbe
+              - Speech-Audio-AudioDeviceFactory-DiagnosticsSink
+              - Speech-Audio-AudioDeviceFactory-DefaultProbesWhenNoneInjected
+              - Speech-Audio-AudioDeviceFactory-UnavailableFallbackReported
               - Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
               - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
               - Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
             tests:
-              - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
               - AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice
               - AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice
               - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
 
+          - id: Speech-Audio-FactoryNeverThrows
+            title: >-
+              The AudioSubsystem shall never throw from the AudioDeviceFactory constructor or its
+              Create* methods.
+            justification: |
+              Composition happens at application start-up, where a missing device or backend is
+              an ordinary machine state; a factory method must not turn that into an exception.
+              RefreshDevices is deliberately excluded: it refuses a refresh while a stream is
+              active (see Speech-Audio-DeviceRefreshRefusal).
+            children:
+              - Speech-Audio-AudioDeviceFactory-NeverThrows
+              - Speech-Audio-AudioDeviceFactory-CreateCaptureDeviceNeverThrows
+              - Speech-Audio-AudioDeviceFactory-CreatePlaybackDeviceNeverThrows
+            tests:
+              - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
+
+          - id: Speech-Audio-InitializationFallback
+            title: >-
+              The AudioSubsystem shall provide unavailable capture and playback devices and
+              probes when the PortAudio runtime cannot initialize.
+            justification: |
+              A machine missing compatible native audio support is an expected deployment state
+              that must not break composition. This subsystem requirement decomposes the
+              system-level initialization-failure requirement onto the factory behavior.
+            children:
+              - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+            tests:
+              - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+              - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
+
           - id: Speech-Audio-FormatValue
             title: >-
-              The AudioSubsystem shall expose a validating audio-format value type and allow
-              callers to request a preferred capture or playback format while preserving today's
-              device-native behavior when no preference is supplied.
+              The AudioSubsystem shall expose a validating audio-format value type.
             justification: |
               Model-driven composition needs one plain, public type that can describe "open the
               device in roughly this format" without leaking native PortAudio or sherpa-onnx
@@ -71,15 +103,33 @@ sections:
               model metadata talk about audio format in the same terms.
             children:
               - Speech-Audio-AudioFormat-PositiveValues
+              - Speech-Audio-AudioFormat-ExposesValues
               - Speech-Audio-AudioFormat-MonoFactory
-              - Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
-              - Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
-              - Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
-              - Speech-Audio-PortAudioCaptureDevice-PreferredSampleRateNegotiated
-              - Speech-Audio-PortAudioPlaybackDevice-PreferredSampleRateNegotiated
             tests:
               - AudioFormat_Constructor_ValidValues_ExposesProperties
               - AudioFormat_Mono_ValidSampleRate_ReturnsMonoFormat
+
+          - id: Speech-Audio-PreferredFormat
+            title: >-
+              The AudioSubsystem shall allow callers to request a preferred capture or playback
+              format, preserving device-native behavior when no preference is supplied.
+            justification: |
+              Model-driven composition needs to open a device in roughly the format an engine
+              wants, while hosts that express no preference must keep today's device-native
+              behavior. This is a deliberate grouping parent: each child requirement states one
+              criterion.
+            children:
+              - Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
+              - Speech-Audio-AudioDeviceFactory-DefaultFormatWithoutPreference
+              - Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
+              - Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
+              - Speech-Audio-PortAudioCaptureDevice-PreferredChannelCountClamp
+              - Speech-Audio-PortAudioPlaybackDevice-PreferredChannelCountClamp
+              - Speech-Audio-PortAudioCaptureDevice-DefaultFormatWithoutPreference
+              - Speech-Audio-PortAudioPlaybackDevice-DefaultFormatWithoutPreference
+              - Speech-Audio-PortAudioCaptureDevice-PreferredSampleRateNegotiated
+              - Speech-Audio-PortAudioPlaybackDevice-PreferredSampleRateNegotiated
+            tests:
               - AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat
               - AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat
               - PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
@@ -89,27 +139,34 @@ sections:
 
           - id: Speech-Audio-MockableContracts
             title: >-
-              The AudioSubsystem shall expose mockable capture/playback device and probe
-              interfaces so hosts and tests can depend on audio behavior without any real
-              hardware in automated test environments.
+              The AudioSubsystem shall report an unavailable state, rather than throwing, when
+              no audio hardware or runtime is available, so hosts and tests can run without
+              real hardware.
             justification: |
               This library's "own interfaces over direct OTS types" decision requires
               library-owned abstractions so hosts can supply mocks in tests and the backend can
-              be replaced later without a breaking API change.
+              be replaced later without a breaking API change. This is a deliberate grouping
+              parent: each child requirement states one criterion.
             children:
               - Speech-Audio-IAudioCaptureDevice-AvailabilityFlag
               - Speech-Audio-IAudioCaptureDevice-StartStopFrameCaptured
               - Speech-Audio-IAudioPlaybackDevice-AvailabilityFlag
-              - Speech-Audio-IAudioPlaybackDevice-StartStopWrite
+              - Speech-Audio-IAudioPlaybackDevice-Start
+              - Speech-Audio-IAudioPlaybackDevice-Stop
+              - Speech-Audio-IAudioPlaybackDevice-Write
               - Speech-Audio-IAudioCaptureDeviceProbe-EnumerateNeverThrows
               - Speech-Audio-IAudioPlaybackDeviceProbe-EnumerateNeverThrows
             tests:
               - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
+              - AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured
+              - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
+              - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
+              - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
+              - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
 
           - id: Speech-Audio-PreferredHostApiEnumeration
             title: >-
-              The AudioSubsystem shall enumerate only devices that belong to one preferred
-              PortAudio host API per supported platform.
+              The AudioSubsystem shall list each physical audio device once per enumeration.
             justification: |
               Restricting enumeration to one host API avoids duplicate listings of the same
               physical device under multiple PortAudio backends.
@@ -117,12 +174,16 @@ sections:
               - Speech-Audio-PortAudioCaptureDeviceProbe-PreferredHostOnly
               - Speech-Audio-PortAudioPlaybackDeviceProbe-PreferredHostOnly
               - Speech-Audio-PortAudio-PreferredHostApiResolution
+              - Speech-Audio-PortAudio-HostApiIndexResolution
               - Speech-Audio-PortAudioCaptureDeviceProbe-EmptyOnMissingBackend
               - Speech-Audio-PortAudioPlaybackDeviceProbe-EmptyOnMissingBackend
             tests:
               - PortAudioCaptureDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredInputDevices
               - PortAudioPlaybackDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredOutputDevices
               - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+              - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+              - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+              - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
 
           - id: Speech-Audio-RealCaptureDevice
             title: >-
@@ -135,6 +196,7 @@ sections:
               - Speech-Audio-PortAudioCaptureDevice-AvailabilityReflectsResolution
               - Speech-Audio-PortAudioCaptureDevice-FrameDelivery
               - Speech-Audio-PortAudioCaptureDevice-NativeFaultsThrowUnavailable
+              - Speech-Audio-PortAudioCaptureDevice-BestEffortDiagnostics
             tests:
               - PortAudioCaptureDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
               - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
@@ -145,14 +207,35 @@ sections:
               The AudioSubsystem shall provide a real playback-device implementation that can
               resolve a selected or default output device and stream queued samples.
             justification: |
-              The library's future speech-synthesis pipeline requires a real audio-output sink
+              The library's speech-synthesis pipeline requires a real audio-output sink
               for manual end-to-end use outside CI, while automated tests still need a mockable seam.
             children:
               - Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
+              - Speech-Audio-PortAudioPlaybackDevice-ResolutionFaultsContained
+              - Speech-Audio-PortAudioPlaybackDevice-NullEnvironmentRejected
+              - Speech-Audio-PortAudioPlaybackDevice-UnresolvedOperationsThrow
+              - Speech-Audio-PortAudioPlaybackDevice-NullWriteRejected
+              - Speech-Audio-PortAudioPlaybackDevice-NamedSelectionResolved
               - Speech-Audio-PortAudioPlaybackDevice-QueuedPlayback
-              - Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-RestartNeverReplaysStaleAudio
+              - Speech-Audio-PortAudioPlaybackDevice-WriteCopiesBuffer
+              - Speech-Audio-PortAudioPlaybackDevice-EmptyWriteIgnored
+              - Speech-Audio-PortAudioPlaybackDevice-UnderrunZeroFill
+              - Speech-Audio-PortAudioPlaybackDevice-OpenFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StartFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StartFailureDisposesStream
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-StopFailureKeepsStreamActive
+              - Speech-Audio-PortAudioPlaybackDevice-StartRejectedAfterStopFailure
+              - Speech-Audio-PortAudioPlaybackDevice-StopRetryReleasesStream
+              - Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
+              - Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
+              - Speech-Audio-PortAudioPlaybackDevice-BestEffortDiagnostics
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
+              - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountExcludesZeroFill
+              - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
+              - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountZeroWhenUnresolved
             tests:
               - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
               - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
@@ -164,17 +247,21 @@ sections:
               writes queued samples to a WAV file as 16-bit PCM instead of rendering them through
               real hardware.
             justification: |
-              Any host application - not only a future command-line tool - needs a deterministic,
+              Any host application - not only a command-line tool - needs a deterministic,
               file-based way to capture synthesized speech (for example, for its own automated
               tests), the same generic need the demo application's own temporary, non-reusable
               WavFileWriter previously served informally.
             children:
               - Speech-Audio-WavFileAudioPlaybackDevice-AlwaysAvailable
               - Speech-Audio-WavFileAudioPlaybackDevice-WriteEncodesPcm
+              - Speech-Audio-WavFileAudioPlaybackDevice-WriteClampsSamples
               - Speech-Audio-WavFileAudioPlaybackDevice-ReportsConstructedFormat
               - Speech-Audio-WavFileAudioPlaybackDevice-PendingSampleCountAlwaysZero
               - Speech-Audio-WavFileAudioPlaybackDevice-FinalizesHeaderOnDispose
+              - Speech-Audio-WavFileAudioPlaybackDevice-DisposeIsIdempotent
               - Speech-Audio-WavFileAudioPlaybackDevice-ArgumentValidation
+              - Speech-Audio-WavFileAudioPlaybackDevice-WriteBufferValidation
+              - Speech-Audio-WavFileAudioPlaybackDevice-WriteAfterDisposeRejected
               - Speech-Audio-WavFileAudioPlaybackDevice-StartStopAreNoOps
             tests:
               - WavFileAudioPlaybackDevice_IsAvailable_Always_ReturnsTrue
@@ -187,14 +274,17 @@ sections:
               instead of capturing from real microphone hardware, signaling end-of-file through
               an additive event.
             justification: |
-              Any host application - not only a future command-line tool - needs a deterministic
+              Any host application - not only a command-line tool - needs a deterministic
               way to drive speech recognition from a pre-recorded file, mirroring the identical
-              file-based need on the playback side above.
+              file-based need on the playback side above. This is a deliberate grouping parent:
+              each child requirement states one criterion.
             children:
               - Speech-Audio-WavFileAudioCaptureDevice-AlwaysAvailable
               - Speech-Audio-WavFileAudioCaptureDevice-DeliversFileContents
               - Speech-Audio-WavFileAudioCaptureDevice-EndOfFileReached
+              - Speech-Audio-WavFileAudioCaptureDevice-EndOfFileSuppressedOnStop
               - Speech-Audio-WavFileAudioCaptureDevice-ReportsResolvedFormat
+              - Speech-Audio-WavFileAudioCaptureDevice-ZeroFormatBeforeStart
               - Speech-Audio-WavFileAudioCaptureDevice-UnsupportedFormatThrowsInvalidOperationException
               - Speech-Audio-WavFileAudioCaptureDevice-ArgumentValidation
             tests:
@@ -204,19 +294,18 @@ sections:
 
           - id: Speech-Audio-PortAudioInterop
             title: >-
-              The AudioSubsystem shall isolate PortAudio interop behind a mockable internal seam
-              so host-API selection and device-resolution logic can be unit tested without real
-              audio hardware.
+              The AudioSubsystem shall degrade gracefully, enumerating no devices, when the
+              native audio runtime is unavailable.
             justification: |
-              CI cannot assume access to a microphone or speaker, so PortAudio selection and
-              degradation logic must be verifiable in pure managed tests.
+              A machine without the native audio runtime is an ordinary deployment state, and
+              hosts and CI must still be able to enumerate (an empty list) without failure. How
+              the native runtime is isolated for testing is described in the AudioSubsystem
+              design document.
             children:
               - Speech-Audio-PortAudio-Seam
             tests:
-              - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
-              - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
-              - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
               - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+              - PortAudioCaptureDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
 
           - id: Speech-Audio-CaptureFormatDisclosure
             title: >-
@@ -231,6 +320,7 @@ sections:
             children:
               - Speech-Audio-IAudioCaptureDevice-CaptureFormat
               - Speech-Audio-PortAudioCaptureDevice-CaptureFormat
+              - Speech-Audio-PortAudioCaptureDevice-ZeroCaptureFormatWhenUnresolved
               - Speech-Audio-UnavailableAudioCaptureDevice-ZeroCaptureFormat
             tests:
               - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
@@ -245,11 +335,12 @@ sections:
               A playback device resolves whatever format its hardware defaults to, and Write
               carries no format metadata of its own. Downstream consumers - notably speech
               synthesis, whose engine produces one fixed mono rate - cannot resample or upmix
-              correctly without being told the resolved format, mirroring the identical Sub-phase
-              3 capture-side requirement above.
+              correctly without being told the resolved format, mirroring the identical
+              capture-side requirement above.
             children:
               - Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
               - Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
+              - Speech-Audio-PortAudioPlaybackDevice-ZeroPlaybackFormatWhenUnresolved
               - Speech-Audio-UnavailableAudioPlaybackDevice-ZeroPlaybackFormat
             tests:
               - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
@@ -259,47 +350,198 @@ sections:
             title: >-
               The AudioSubsystem shall provide honest unavailable fallback implementations of
               every capture/playback device and probe interface that report unavailability
-              rather than throwing, and throw a documented exception only when an operational
-              member is actually invoked.
+              rather than throwing.
             justification: |
               Per this library's "nothing throws at composition" decision, obtaining and
-              holding a fallback device or probe must never throw; only misuse of an already
-              unavailable device is a programming error that should surface as an exception.
+              holding a fallback device or probe must never throw.
             children:
               - Speech-Audio-UnavailableAudioCaptureDevice-ReportsUnavailable
-              - Speech-Audio-UnavailableAudioCaptureDevice-OperationsThrow
               - Speech-Audio-UnavailableAudioPlaybackDevice-ReportsUnavailable
-              - Speech-Audio-UnavailableAudioPlaybackDevice-OperationsThrow
               - Speech-Audio-UnavailableAudioCaptureDeviceProbe-EmptyEnumeration
               - Speech-Audio-UnavailableAudioPlaybackDeviceProbe-EmptyEnumeration
-              - Speech-Audio-AudioDeviceUnavailableException-Thrown
             tests:
               - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
               - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
               - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
               - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
 
+          - id: Speech-Audio-UnavailableFallbackOperationsThrow
+            title: >-
+              The AudioSubsystem shall throw a documented exception from an unavailable fallback
+              device only when an operational member is actually invoked.
+            justification: |
+              Only misuse of an already unavailable device is a programming error that should
+              surface as an exception.
+            children:
+              - Speech-Audio-UnavailableAudioCaptureDevice-OperationsThrow
+              - Speech-Audio-UnavailableAudioPlaybackDevice-OperationsThrow
+              - Speech-Audio-AudioDeviceUnavailableException-Thrown
+            tests:
+              - UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+              - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
+
           - id: Speech-Audio-DeviceRefresh
             title: >-
-              The AudioSubsystem shall allow a caller to force the PortAudio device table to be
-              re-scanned on demand, refusing the refresh with a documented exception rather than
-              tearing down a stream that is currently in use.
+              The AudioSubsystem shall make newly attached or removed audio devices visible to a
+              caller on demand, without recomposing the factory.
             justification: |
               Audio devices are hot-pluggable; a host application that has already composed an
               AudioDeviceFactory needs a way to make newly attached or removed hardware visible
-              without recomposing the whole factory, while never silently invalidating a stream
-              that is currently open.
+              without recomposing the whole factory.
             children:
-              - Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
-              - Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
-              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
-              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
-              - Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
-              - Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances
               - Speech-Audio-AudioDeviceFactory-RefreshDevices
-              - Speech-Audio-AudioDeviceInUseException-Constructors
+              - Speech-Audio-AudioDeviceFactory-RefreshReevaluatesDefaultProbes
+              - Speech-Audio-AudioDeviceFactory-RefreshPreservesInjectedProbes
             tests:
               - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
-              - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
               - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
+
+          - id: Speech-Audio-DeviceRefreshInvalidation
+            title: >-
+              The AudioSubsystem shall prevent a device instance created before a completed
+              device-table refresh from starting a stream.
+            justification: |
+              PortAudio device indices are runtime-assigned and can be reused for a different
+              physical device (or become invalid entirely) once the device table is re-scanned.
+              A pre-refresh instance must fail safely and direct the caller to create a fresh
+              instance via AudioDeviceFactory rather than open a stream against the wrong
+              hardware.
+            children:
+              - Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
+              - Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
+              - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
+            tests:
+              - PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+              - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+
+          - id: Speech-Audio-DeviceRefreshRefusal
+            title: >-
+              The AudioSubsystem shall refuse a device-table refresh with a documented exception
+              rather than tearing down a stream that is currently in use.
+            justification: |
+              A refresh must never silently invalidate a stream that is currently open.
+            children:
+              - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
+              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
+              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamDeregistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistrationOnStartFailure
+              - Speech-Audio-AudioDeviceFactory-RefreshPropagatesInUse
+              - Speech-Audio-AudioDeviceInUseException-Constructors
+            tests:
+              - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
               - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
+
+          - id: Speech-Audio-AudioFileReading
+            title: >-
+              The AudioSubsystem shall decode WAV and FLAC audio files into floating-point clips.
+            justification: |
+              Hosts keep reference clips and test audio as WAV or FLAC files. That decoding is
+              managed-only, behaving identically on every platform, is a design detail described
+              in the AudioSubsystem design document. This is a deliberate grouping parent:
+              each child requirement states one criterion.
+            children:
+              - Speech-Audio-AudioFileReader-DetectsContainer
+              - Speech-Audio-AudioFileReader-DecodesFileOrStream
+              - Speech-Audio-AudioFileReader-DecodesStream
+              - Speech-Audio-AudioFileReader-ReadsFromCurrentStreamPosition
+              - Speech-Audio-AudioFileReader-DecodesId3PrefixedFlac
+              - Speech-Audio-AudioFileReader-ListsSupportedExtensions
+              - Speech-Audio-AudioFileReader-ReportsMissingFile
+              - Speech-Audio-AudioFileReader-ReportsIoFailures
+              - Speech-Audio-AudioFileReader-ReportsMalformedFile
+              - Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
+              - Speech-Audio-AudioFileReader-NamesPathInFailures
+              - Speech-Audio-AudioFileReader-NoPathForStreamFailures
+              - Speech-Audio-AudioFileReader-RejectsNullStream
+              - Speech-Audio-AudioFileReader-RejectsBlankPath
+              - Speech-Audio-AudioFileReader-RejectsNullPath
+              - Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
+              - Speech-Audio-AudioFileReader-ByteCap
+              - Speech-Audio-AudioFileReader-RejectsNegativeMaxEncodedBytes
+              - Speech-Audio-AudioFileReader-MaxSamples
+              - Speech-Audio-AudioFileReader-VerifyChecksums
+              - Speech-Audio-AudioFileReader-VerifyChecksumsOptOut
+              - Speech-Audio-AudioFileReader-ReadMono
+              - Speech-Audio-AudioFileReader-ReadMonoDownMix
+              - Speech-Audio-AudioClip-DerivedMembers
+              - Speech-Audio-AudioClip-ToMono
+              - Speech-Audio-AudioClip-ToPcm16
+              - Speech-Audio-AudioClip-ToPcm16Clamping
+              - Speech-Audio-AudioClip-ToMonoIndependentCopy
+              - Speech-Audio-AudioClip-ValidatesInput
+              - Speech-Audio-AudioClip-ValidatesRateAndChannels
+              - Speech-Audio-AudioClip-EmptyClip
+              - Speech-Audio-AudioClip-PartialFrameTruncation
+              - Speech-Audio-WavDecoder-Encodings
+              - Speech-Audio-WavDecoder-ExtremeValueScaling
+              - Speech-Audio-WavDecoder-FloatPassThrough
+              - Speech-Audio-WavDecoder-HeaderTolerance
+              - Speech-Audio-WavDecoder-DuplicateFmtLastWins
+              - Speech-Audio-WavDecoder-ExtensibleFormat
+              - Speech-Audio-WavDecoder-ExtensibleUnsupportedRejection
+              - Speech-Audio-WavDecoder-OverstatedDataSize
+              - Speech-Audio-WavDecoder-TrailingPartialFrame
+              - Speech-Audio-WavDecoder-ZeroLengthData
+              - Speech-Audio-WavDecoder-MultichannelOrder
+              - Speech-Audio-WavDecoder-UnsupportedEncodingRejection
+              - Speech-Audio-WavDecoder-MalformedChunkRejection
+              - Speech-Audio-WavDecoder-DataBeforeFmtRejection
+              - Speech-Audio-WavDecoder-TruncatedImageRejection
+              - Speech-Audio-WavDecoder-TruncatedExtensibleFmtRejection
+              - Speech-Audio-WavDecoder-InvalidFormatFieldRejection
+              - Speech-Audio-WavDecoder-ZeroSampleRateRejection
+              - Speech-Audio-WavDecoder-SampleRateRangeRejection
+              - Speech-Audio-WavDecoder-NonWavRejection
+              - Speech-Audio-WavDecoder-SampleCap
+              - Speech-Audio-FlacDecoder-Prediction
+              - Speech-Audio-FlacDecoder-ResidualCoding
+              - Speech-Audio-FlacDecoder-WastedBits
+              - Speech-Audio-FlacDecoder-StereoModes
+              - Speech-Audio-FlacDecoder-BitDepths
+              - Speech-Audio-FlacDecoder-LibFlacFixtures
+              - Speech-Audio-FlacDecoder-HeaderCodes
+              - Speech-Audio-FlacDecoder-BlockSizeCodes
+              - Speech-Audio-FlacDecoder-MultiByteFrameNumbers
+              - Speech-Audio-FlacDecoder-ContainerLayouts
+              - Speech-Audio-FlacDecoder-ExtraMetadataBlocks
+              - Speech-Audio-FlacDecoder-Id3Prefix
+              - Speech-Audio-FlacDecoder-UnknownLength
+              - Speech-Audio-FlacDecoder-MarkerDetection
+              - Speech-Audio-FlacDecoder-Integrity
+              - Speech-Audio-FlacDecoder-IntegrityOptOut
+              - Speech-Audio-FlacDecoder-TruncatedStreamRejection
+              - Speech-Audio-FlacDecoder-InvalidStreamInfoRejection
+              - Speech-Audio-FlacDecoder-InvalidFrameFieldRejection
+              - Speech-Audio-FlacDecoder-OversizedBlockRejection
+              - Speech-Audio-FlacDecoder-DamagedId3Rejection
+              - Speech-Audio-FlacDecoder-SampleCap
+            tests:
+              - AudioFileReader_Read_DetectsContainerByContent
+              - FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact
+
+          - id: Speech-Audio-ClipConversion
+            title: >-
+              The AudioSubsystem shall provide down-mixing and resampling of decoded audio clips.
+            justification: |
+              Recognition and synthesis models require audio at a fixed mono rate; converting
+              in the library keeps that logic in one tested place. This is a deliberate grouping
+              parent: each child requirement states one criterion.
+            children:
+              - Speech-Audio-AudioResampler-DownMix
+              - Speech-Audio-AudioResampler-DownMixChannelCountValidation
+              - Speech-Audio-AudioResampler-DownMixPartialFrame
+              - Speech-Audio-AudioResampler-Resample
+              - Speech-Audio-AudioResampler-ResampleTonePreserved
+              - Speech-Audio-AudioResampler-ResampleAntiAliasing
+              - Speech-Audio-AudioResampler-ResampleEqualRates
+              - Speech-Audio-AudioResampler-ResampleRateValidation
+              - Speech-Audio-AudioResampler-ToMonoResampled
+              - Speech-Audio-AudioResampler-ToMonoResampledTargetRate
+              - Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
+              - Speech-Audio-AudioResampler-ToMonoResampledNullClip
+              - Speech-Audio-AudioResampler-ToMonoResampledRateValidation
+            tests:
+              - AudioResampler_DownMix_AveragesChannels
+              - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate

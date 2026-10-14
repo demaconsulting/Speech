@@ -14,18 +14,59 @@ sections:
             requirements:
               - id: SpeechDemo-Models-StatePresentation
                 title: >-
-                  The ModelCatalogSubsystem shall present each model's identity, role, and
-                  installation state in readable form, and shall announce every derived display
-                  value when that state changes.
+                  The ModelListItemViewModel shall present each model's identity, role, and
+                  installation state in readable form.
                 justification: |
-                  A user needs to know at a glance whether a model is missing, downloading,
-                  installed, or broken. Announcing the derived caption, progress visibility, and
-                  button state together is what keeps a bound row from going stale mid-download.
+                  A user needs to know at a glance what a model is and whether it is missing,
+                  downloading, installed, or broken.
                 tests:
-                  - ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
                   - ModelListItemViewModel_Constructor_Descriptor_CarriesDescriptorIdentityAndState
                   - ModelListItemViewModel_StatusText_EachState_ReturnsReadableCaption
+
+              - id: SpeechDemo-Models-RowDescriptorRequired
+                title: >-
+                  The ModelListItemViewModel shall reject a model row created with no model
+                  descriptor.
+                justification: |
+                  Failing at creation makes an unidentified row an immediate, diagnosable
+                  programming error.
+                tests:
+                  - ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Models-DownloadAvailability
+                title: >-
+                  The ModelListItemViewModel shall offer a download for a model row only when
+                  the model is neither installed nor already downloading.
+                justification: |
+                  Working installed content must not be disturbed, while a retry after failure
+                  must remain possible.
+                tests:
                   - ModelListItemViewModel_CanDownload_EachState_ReflectsRetryPolicy
+
+              - id: SpeechDemo-Models-ProgressVisibility
+                title: >-
+                  The ModelListItemViewModel shall show a model row's progress bar only while
+                  the model is downloading.
+                justification: |
+                  A progress bar on an idle row would misreport its state.
+                tests:
                   - ModelListItemViewModel_IsDownloading_DownloadingState_ReturnsTrue
+
+              - id: SpeechDemo-Models-FailureMessageVisibility
+                title: >-
+                  The ModelListItemViewModel shall report a model row's failure explanation as
+                  present only when there is one to show.
+                justification: |
+                  An empty message must never render as blank red text.
+                tests:
                   - ModelListItemViewModel_HasFailureMessage_ReflectsPresenceOfMessage
+
+              - id: SpeechDemo-Models-StateChangeAnnouncement
+                title: >-
+                  The ModelListItemViewModel shall announce every derived display value of a
+                  model row when its installation state changes.
+                justification: |
+                  Announcing the derived caption, progress visibility, and button state together
+                  is what keeps a bound row from going stale mid-download.
+                tests:
                   - ModelListItemViewModel_State_Changed_NotifiesDerivedProperties

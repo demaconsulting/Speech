@@ -5,8 +5,7 @@ using NSubstitute;
 namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="UnavailableSpeechRecognizerEngine"/> and
-///     <see cref="SpeechRecognizerUnavailableException"/>.
+///     Unit tests for <see cref="UnavailableSpeechRecognizerEngine"/>.
 /// </summary>
 public class UnavailableSpeechRecognizerEngineTests
 {
@@ -60,14 +59,14 @@ public class UnavailableSpeechRecognizerEngineTests
 
     /// <summary>
     ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.CreateSessionAsync"/> still
-    ///     honors an already-cancelled token, since that is a genuine caller error rather than
+    ///     honors an already-canceled token, since that is a genuine caller error rather than
     ///     an ordinary unavailable state - matching the <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>
     ///     contract every implementation must honor.
     /// </summary>
     [Fact]
-    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException()
+    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException()
     {
-        // Arrange: the shared unavailable engine, an arbitrary device, and an already-cancelled token
+        // Arrange: the shared unavailable engine, an arbitrary device, and an already-canceled token
         var engine = UnavailableSpeechRecognizerEngine.Instance;
         var device = Substitute.For<IAudioCaptureDevice>();
         using var cts = new CancellationTokenSource();
@@ -93,55 +92,5 @@ public class UnavailableSpeechRecognizerEngineTests
 
         // Assert: the shared instance is still usable
         Assert.False(UnavailableSpeechRecognizerEngine.Instance.IsAvailable);
-    }
-
-    /// <summary>
-    ///     Proves that <see cref="SpeechRecognizerUnavailableException"/> exposes the message
-    ///     supplied to its single-argument constructor, confirming standard exception conformance.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerUnavailableException_Constructor_WithMessage_ExposesMessage()
-    {
-        // Arrange: a specific message
-        const string message = "No recognition model is installed.";
-
-        // Act: construct the exception with the message
-        var exception = new SpeechRecognizerUnavailableException(message);
-
-        // Assert: the message is exposed unchanged
-        Assert.Equal(message, exception.Message);
-    }
-
-    /// <summary>
-    ///     Proves that <see cref="SpeechRecognizerUnavailableException"/> exposes both the message
-    ///     and inner exception supplied to its two-argument constructor.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerUnavailableException_Constructor_WithInnerException_ExposesBoth()
-    {
-        // Arrange: a message and an inner exception
-        const string message = "Recognition engine failed to load.";
-        var inner = new InvalidOperationException("native runtime missing");
-
-        // Act: construct the exception with both
-        var exception = new SpeechRecognizerUnavailableException(message, inner);
-
-        // Assert: both the message and inner exception are exposed unchanged
-        Assert.Equal(message, exception.Message);
-        Assert.Same(inner, exception.InnerException);
-    }
-
-    /// <summary>
-    ///     Proves that the default (parameterless) constructor of
-    ///     <see cref="SpeechRecognizerUnavailableException"/> produces a non-empty default message.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerUnavailableException_Constructor_Default_HasNonEmptyMessage()
-    {
-        // Act: construct with no arguments
-        var exception = new SpeechRecognizerUnavailableException();
-
-        // Assert: a default, non-empty message is provided
-        Assert.False(string.IsNullOrEmpty(exception.Message));
     }
 }

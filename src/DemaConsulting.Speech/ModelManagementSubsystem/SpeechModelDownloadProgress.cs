@@ -32,7 +32,9 @@ public sealed record SpeechModelDownloadProgress(int FileIndex, int FileCount, l
     /// <remarks>
     ///     Computed on demand rather than stored, since it is fully determined by
     ///     <see cref="BytesTransferred"/> and <see cref="TotalBytes"/>. A <see cref="TotalBytes"/>
-    ///     of zero is treated as fully complete (1.0) rather than dividing by zero.
+    ///     of zero is treated as fully complete (1.0) rather than dividing by zero, and the ratio
+    ///     is clamped to [0, 1] so a transfer that reports more bytes than the declared total (or a
+    ///     negative count) never yields an out-of-range fraction.
     /// </remarks>
     public double? FractionComplete
     {
@@ -43,7 +45,7 @@ public sealed record SpeechModelDownloadProgress(int FileIndex, int FileCount, l
                 return null;
             }
 
-            return TotalBytes.Value == 0 ? 1.0 : (double)BytesTransferred / TotalBytes.Value;
+            return TotalBytes.Value == 0 ? 1.0 : Math.Clamp((double)BytesTransferred / TotalBytes.Value, 0.0, 1.0);
         }
     }
 }

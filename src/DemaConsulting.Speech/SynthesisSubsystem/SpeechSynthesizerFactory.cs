@@ -62,7 +62,7 @@ public static class SpeechSynthesizerFactory
     ///     per synthesized segment, or <see langword="null"/> to use every model's own default
     ///     voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine when the model is installed, its role is synthesis, and the backend loaded
     ///     successfully; otherwise <see cref="UnavailableSpeechSynthesizerEngine.Instance"/>.
@@ -78,7 +78,7 @@ public static class SpeechSynthesizerFactory
     ///     <see cref="SpeechDiagnosticLevel.Info"/> and silently ignored, preserving this
     ///     library's cross-model settings-dictionary-reuse contract.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     public static Task<ISpeechSynthesizerEngine> LoadAsync(
         ISynthesisModel model,
         string installedModelDirectory,
@@ -109,7 +109,7 @@ public static class SpeechSynthesizerFactory
     ///     An optional session-level parameter value bag, forwarded to the returned engine, or
     ///     <see langword="null"/> to use every model's own default voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine when the model is installed, its role is synthesis, and the backend loaded
     ///     successfully; otherwise <see cref="UnavailableSpeechSynthesizerEngine.Instance"/>.
@@ -123,7 +123,7 @@ public static class SpeechSynthesizerFactory
     ///     <see cref="LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>
     ///     overload's matching remark for the full behavior.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     /// <remarks>
     ///     Equivalent to calling
     ///     <see cref="LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>
@@ -162,7 +162,7 @@ public static class SpeechSynthesizerFactory
     ///     An optional session-level parameter value bag, forwarded to the returned engine, or
     ///     <see langword="null"/> to use every model's own default voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine when the model is installed, its role is synthesis, and the backend loaded
     ///     successfully; otherwise <see cref="UnavailableSpeechSynthesizerEngine.Instance"/>.
@@ -176,7 +176,7 @@ public static class SpeechSynthesizerFactory
     ///     <see cref="LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>
     ///     overload's matching remark for the full behavior.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     /// <remarks>
     ///     Equivalent to calling
     ///     <see cref="LoadAsync(ISynthesisModel,SpeechModelStore,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>
@@ -208,7 +208,7 @@ public static class SpeechSynthesizerFactory
     ///     An optional session-level parameter value bag forwarded to the returned engine, or
     ///     <see langword="null"/> to use every model's own default voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine, or <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for any
     ///     honest unavailable state.
@@ -221,7 +221,7 @@ public static class SpeechSynthesizerFactory
     ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
     ///     parameter <paramref name="model"/> declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     internal static Task<ISpeechSynthesizerEngine> LoadAsync(
         ISynthesisModel model,
         SpeechModelStore store,
@@ -249,7 +249,7 @@ public static class SpeechSynthesizerFactory
     ///     An optional session-level parameter value bag forwarded to the returned engine, or
     ///     <see langword="null"/> to use every model's own default voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine, or <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for any
     ///     honest unavailable state.
@@ -262,7 +262,7 @@ public static class SpeechSynthesizerFactory
     ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
     ///     parameter <paramref name="model"/> declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     internal static Task<ISpeechSynthesizerEngine> LoadAsync(
         ISynthesisModel model,
         SpeechModelCatalog catalog,
@@ -289,7 +289,7 @@ public static class SpeechSynthesizerFactory
     ///     An optional session-level parameter value bag forwarded to the returned engine, or
     ///     <see langword="null"/> to use every model's own default voice/speaker.
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the load. Must not already be cancelled.</param>
+    /// <param name="cancellationToken">A token to cancel the load. Must not already be canceled.</param>
     /// <returns>
     ///     A real engine, or <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for any
     ///     honest unavailable state.
@@ -304,7 +304,7 @@ public static class SpeechSynthesizerFactory
     ///     value. An unrecognized parameter id is reported at <see cref="SpeechDiagnosticLevel.Info"/>
     ///     and silently ignored instead.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     internal static async Task<ISpeechSynthesizerEngine> LoadAsync(
         ISynthesisModel model,
         string installedModelDirectory,
@@ -398,7 +398,7 @@ public static class SpeechSynthesizerFactory
 
         if (cancellationToken.IsCancellationRequested)
         {
-            // Finding 31: the worker's delegate finished within the abandon grace period - so
+            // The worker's delegate finished within the abandon grace period - so
             // run.Task above returned normally with a genuinely created backend - but
             // cancellation was still requested before that happened. The caller must not
             // receive a loaded engine for a call it asked to cancel; dispose the backend that

@@ -10,8 +10,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackend.cs, ISynthesisBackendFactory.cs, DefaultSynthesisBackendFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem/synthesis-session.md (documented with the pipeline it serves) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/synthesis-session.md (documented with the pipeline it serves) */
-        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/synthesis-backend.md */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/synthesis-backend.md */
+        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/synthesis-backend.yaml */
     }
 }

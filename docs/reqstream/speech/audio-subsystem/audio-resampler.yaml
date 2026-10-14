@@ -1,0 +1,121 @@
+---
+# Software Unit Requirements for AudioResampler
+#
+# The unit down-mixes and resamples float audio, decomposing the AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioResampler Requirements
+            requirements:
+              - id: Speech-Audio-AudioResampler-DownMix
+                title: >-
+                  The AudioResampler class shall down-mix interleaved audio by averaging channels.
+                justification: |
+                  Averaging preserves content for mono-oriented models.
+                tests:
+                  - AudioResampler_DownMix_AveragesChannels
+
+              - id: Speech-Audio-AudioResampler-DownMixPartialFrame
+                title: >-
+                  The AudioResampler class shall drop a trailing partial frame when down-mixing.
+                justification: |
+                  A ragged final frame cannot be averaged and must not read past the data.
+                tests:
+                  - AudioResampler_DownMix_PartialTrailingFrame_IsDropped
+
+              - id: Speech-Audio-AudioResampler-DownMixChannelCountValidation
+                title: >-
+                  The AudioResampler class shall reject a non-positive channel count when down-mixing.
+                justification: |
+                  A zero channel count would divide by zero; invalid input must fail at the call site.
+                tests:
+                  - AudioResampler_DownMix_NonPositiveChannelCount_Throws
+
+              - id: Speech-Audio-AudioResampler-Resample
+                title: >-
+                  The AudioResampler class shall resample mono audio between sample rates so that
+                  the output duration matches the input duration to within one sample.
+                justification: |
+                  Models need audio at a fixed rate without the clip being stretched or shortened.
+                tests:
+                  - AudioResampler_Resample_ChangesRate_PreservesDuration
+
+              - id: Speech-Audio-AudioResampler-ResampleTonePreserved
+                title: >-
+                  The AudioResampler class shall preserve a tone below the output Nyquist frequency
+                  to within 0.02 of the ideal tone away from the clip edges, and the level of a
+                  constant signal at every output sample.
+                justification: |
+                  Content within the target band must reach the model undistorted.
+                tests:
+                  - AudioResampler_Resample_ChangesRateKeepingTone
+                  - AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel
+                  - AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges
+
+              - id: Speech-Audio-AudioResampler-ResampleAntiAliasing
+                title: >-
+                  The AudioResampler class shall attenuate a tone above the output Nyquist
+                  frequency by at least 40 dB when down-sampling.
+                justification: |
+                  Content the target rate cannot represent must not fold back into the passband as
+                  aliasing. The filtering technique is described in the AudioResampler design
+                  document.
+                tests:
+                  - AudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+
+              - id: Speech-Audio-AudioResampler-ResampleEqualRates
+                title: >-
+                  The AudioResampler class shall return a copy of the input when the input and output rates
+                  are equal.
+                justification: |
+                  Equal rates need no filtering; a copy keeps the caller's buffer independent.
+                tests:
+                  - AudioResampler_Resample_SameRateOrEmpty_AreTrivial
+
+              - id: Speech-Audio-AudioResampler-ResampleRateValidation
+                title: >-
+                  The AudioResampler class shall reject a non-positive input or output sample rate when
+                  resampling.
+                justification: |
+                  A non-positive rate has no meaning and would corrupt the ratio computation.
+                tests:
+                  - AudioResampler_Resample_NonPositiveRates_Throw
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampled
+                title: >-
+                  The AudioResampler class shall convert an AudioClip into a mono sample array.
+                justification: |
+                  The common model-input preparation is one call.
+                tests:
+                  - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampledTargetRate
+                title: >-
+                  The AudioResampler class shall deliver the mono sample array of a clip
+                  conversion at the requested target rate.
+                justification: |
+                  Models need audio at a fixed rate, so the conversion must land on the rate the
+                  caller asks for.
+                tests:
+                  - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampledNullClip
+                title: >-
+                  The AudioResampler class shall reject a null clip with ArgumentNullException when
+                  preparing a mono array.
+                justification: |
+                  Invalid input must fail at the call site.
+                tests:
+                  - AudioResampler_ToMonoResampled_NullClip_Throws
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampledRateValidation
+                title: >-
+                  The AudioResampler class shall reject a non-positive target rate with
+                  ArgumentOutOfRangeException when preparing a mono array.
+                justification: |
+                  Invalid input must fail at the call site.
+                tests:
+                  - AudioResampler_ToMonoResampled_NonPositiveTargetRate_Throws

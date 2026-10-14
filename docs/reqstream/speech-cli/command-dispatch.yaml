@@ -1,0 +1,62 @@
+---
+# Software Unit Requirements for the SpeechCli CommandDispatch
+#
+# These requirements describe the design-level behavior of the CommandDispatch unit - the table
+# mapping subcommand names to handlers and usage summaries - decomposing system-level requirements
+# in docs/reqstream/speech-cli.yaml. Tests are CommandDispatchTests tests, plus ProgramTests and
+# IntegrationTests tests that exercise the table through the entry point.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: CommandDispatch Requirements
+        requirements:
+          - id: SpeechCli-CommandDispatch-VoiceCommandsRegistered
+            title: >-
+              The CommandDispatch unit shall resolve the list-voices and voices subcommand names.
+            justification: |
+              The reference-voice commands are only reachable if they are in the table.
+            tests:
+              - CommandDispatch_Find_VoiceCommands_AreRegistered
+
+          - id: SpeechCli-CommandDispatch-HandlersReturnTasks
+            title: >-
+              The CommandDispatch unit shall run the handler of a recognized subcommand when it
+              is invoked, yielding that command's completion or exit code, and shall let a
+              fault in the handler surface to the caller as an error.
+            justification: |
+              The entry point must be able to rely on every recognized subcommand either
+              completing or reporting its error, never silently doing nothing.
+            tests:
+              - CommandDispatch_Handlers_RunAndReportOnlyOperatorErrors
+              - CommandDispatch_Handler_MissingArgument_SurfacesFaultForSyncAndAsyncCommands
+
+          - id: SpeechCli-CommandDispatch-UnknownNameNotResolved
+            title: >-
+              The CommandDispatch unit shall not resolve a name that is not a registered
+              subcommand.
+            justification: |
+              The entry point rejects exactly the names the table does not resolve.
+            tests:
+              - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
+              - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
+
+          - id: SpeechCli-CommandDispatch-HelpUsageSummaries
+            title: >-
+              The CommandDispatch unit shall supply a non-empty usage summary for every
+              registered subcommand.
+            justification: |
+              The usage text can only describe a subcommand that has a summary.
+            tests:
+              - CommandDispatch_Commands_EveryDescriptorHasNameAndUsageSummary
+
+          - id: SpeechCli-CommandDispatch-HelpListsAllSubcommands
+            title: >-
+              The CommandDispatch unit shall make the usage text list every registered
+              subcommand.
+            justification: |
+              The usage text is built from the registered subcommands, so it cannot drift from
+              the commands.
+            tests:
+              - Program_Run_WithHelpFlag_DisplaysUsageInformation
+              - SpeechCli_HelpFlag_Provided_ListsAllSubcommands

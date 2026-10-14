@@ -11,7 +11,7 @@ download descriptor, voice-selection parameter, and engine configuration. `Model
 `kokoro-int8-en-v0_19`. `DownloadDescriptor` declares exactly one file: the model's own
 `.tar.bz2` archive from `k2-fsa/sherpa-onnx`'s `tts-models` GitHub Releases tag (103,248,205
 bytes, SHA-256 `c9f0dd393615805b0bab050c340834d5e684e732aec91c0e860cd30e982c08bd`, independently
-re-downloaded and re-hashed in this project's development sandbox during this pass, not
+independently re-downloaded and re-hashed in this project's development sandbox, not
 fabricated or copied uncritically from an earlier measurement).
 
 **Key Methods**:
@@ -27,7 +27,7 @@ fabricated or copied uncritically from an earlier measurement).
   `DisplayName`.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
-  `TarBz2ArchiveExtractor` (built in Phase 7a, reused here unchanged) to extract the downloaded
+  `TarBz2ArchiveExtractor` (shared with the other Sherpa models, reused unchanged) to extract the downloaded
   archive in place and delete it, leaving the archive's own top-level folder
   (`kokoro-int8-en-v0_19/`) containing every file `BuildEngineConfig` references:
   `model.int8.onnx` (134,186,977 bytes), `voices.bin` (5,755,904 bytes), `tokens.txt` (1,078
@@ -46,7 +46,7 @@ fabricated or copied uncritically from an earlier measurement).
   `LengthScale`/`DictDir`/`Lexicon`/`Lang`) were confirmed by reflecting directly over the
   installed `sherpa-onnx.dll` from the `org.k2fsa.sherpa.onnx` package this
   repository's `.csproj` references. This exact configuration was proven end-to-end in this
-  project's development sandbox during this pass: a real, loaded `OfflineTts` instance built
+  project's development sandbox: a real, loaded `OfflineTts` instance built
   from it reported `SampleRate = 24000` and `NumSpeakers = 11`, and generated real, audibly
   non-silent, and audibly distinct audio for two different speaker ids given the identical input
   sentence.
@@ -60,12 +60,12 @@ fabricated or copied uncritically from an earlier measurement).
   speaker id for that voice, using a confirmed `id2speaker` ordering (index = speaker id): `af`=0,
   `af_bella`=1, `af_nicole`=2, `af_sarah`=3, `af_sky`=4, `am_adam`=5, `am_michael`=6, `bf_emma`=7,
   `bf_isabella`=8, `bm_george`=9, `bm_lewis`=10. This ordering was confirmed by three independent
-  means during this pass: (1) upstream `k2-fsa/sherpa-onnx`'s own
+  means: (1) upstream `k2-fsa/sherpa-onnx`'s own
   `scripts/kokoro/v0.19/generate_voices_bin.py` generation script, which hard-codes this exact
   `id2speaker` map; (2) exact byte arithmetic against the real downloaded `voices.bin` - each
   voice is a `(511, 1, 256)` float32 embedding tensor, so `511 * 1 * 256 * 4 bytes * 11 voices =
   5,755,904 bytes`, an exact match to the real file's measured size on disk; and (3) a live
-  loaded model in this pass's own spike reporting `NumSpeakers = 11`. Never throws: a
+  loaded model in a development spike reporting `NumSpeakers = 11`. Never throws: a
   `null` bag, a missing key, or an unrecognized value falls back to the default voice's speaker
   id (`0`, "af") rather than failing synthesis.
 
@@ -75,7 +75,7 @@ convention. Any extraction failure inside `TarBz2ArchiveExtractor` propagates un
 handled by `SpeechModelDownloader`, identically to a download failure.
 
 **License**: Apache License 2.0 - confirmed directly from this archive's own `LICENSE` file
-(re-read in this pass, not assumed from memory or copied from a different model's docs),
+(read directly, not assumed from memory or copied from a different model's docs),
 matching the recognition models' license family rather than the VITS/Piper synthesis model's
 CC BY 4.0 attribution license. This fact is now also exposed structurally, not only in this
 prose, via `LicenseName = "Apache-2.0"` and

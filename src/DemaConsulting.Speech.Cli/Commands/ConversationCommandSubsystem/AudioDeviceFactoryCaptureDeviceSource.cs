@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 /// </summary>
 /// <remarks>
 ///     This adapter forwards every call to the composed <see cref="AudioDeviceFactory"/>
-///     unchanged - including its hardware-detection behavior - so <see cref="AskCommand.Run(Cli.Context)"/>'s
+///     unchanged - including its hardware-detection behavior - so <see cref="AskCommand.RunAsync(Cli.Context)"/>'s
 ///     real capture-device resolution is exactly what it was before this seam was introduced.
 ///     It does not own the composed factory and does not dispose anything.
 /// </remarks>

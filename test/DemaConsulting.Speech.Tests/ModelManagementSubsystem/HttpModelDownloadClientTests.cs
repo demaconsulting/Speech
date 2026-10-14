@@ -29,7 +29,7 @@ public sealed class HttpModelDownloadClientTests
         // Arrange: a stubbed server that serves a known payload with an explicit Content-Length.
         // Kestrel (WireMock.Net's self-hosted server) otherwise always responds with
         // Transfer-Encoding: chunked and strips any explicit Content-Length header, so
-        // PostWireMockMiddlewareInit buffers the body and sets Response.ContentLength itself
+        // PreWireMockMiddlewareInit buffers the body and sets Response.ContentLength itself
         // before anything is written, forcing a real Content-Length response.
         var payload = CreatePayload(sizeBytes: 256 * 1024);
         using var server = WireMockServer.Start(new WireMockServerSettings
@@ -75,6 +75,65 @@ public sealed class HttpModelDownloadClientTests
         }
 
         Assert.Equal(payload.Length, reports[^1].BytesTransferred);
+        Assert.All(reports, r =>
+        {
+            Assert.Equal(0, r.FileIndex);
+            Assert.Equal(1, r.FileCount);
+        });
+    }
+
+    /// <summary>
+    ///     Proves that a successful download leaves the caller-owned destination stream open and
+    ///     usable, since the caller (not the client) owns its lifetime.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+
+        // Act
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
+
+        // Assert
+        Assert.True(destination.CanWrite);
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that an already-canceled token surfaces as an
+    ///     <see cref="OperationCanceledException"/> and writes nothing to the destination.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException()
+    {
+        // Arrange
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(CreatePayload(sizeBytes: 16)));
+
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => client.DownloadAsync(sourceUri, destination, null, cancellation.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        Assert.Equal(0, destination.Length);
     }
 
     /// <summary>
@@ -322,13 +381,13 @@ public sealed class HttpModelDownloadClientTests
     }
 
     /// <summary>
-    ///     Builds a deterministic, non-repeating payload of the given size so a truncated or
+    ///     Builds a random, non-repeating payload of the given size so a truncated or
     ///     corrupted download is reliably detectable.
     /// </summary>
     private static byte[] CreatePayload(int sizeBytes)
     {
-        // A cryptographically-derived pseudo-random sequence is a convenient way to generate a
-        // large, deterministic (seeded), non-repeating byte pattern without a real model file.
+        // Cryptographically random bytes are a convenient way to generate a large, non-repeating
+        // byte pattern without a real model file.
         using var rng = RandomNumberGenerator.Create();
         var payload = new byte[sizeBytes];
         rng.GetBytes(payload);

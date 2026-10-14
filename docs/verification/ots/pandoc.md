@@ -24,16 +24,12 @@ element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the build-notes HTML document.
 
-**Requirement coverage**: `Template-OTS-Pandoc`.
-
 #### Pandoc_CodeQualityHtml
 
 **Scenario**: FileAssert asserts the code-quality HTML file exists, contains a valid HTML title
 element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the code-quality HTML document.
-
-**Requirement coverage**: `Template-OTS-Pandoc`.
 
 #### Pandoc_ReviewPlanHtml
 
@@ -42,16 +38,12 @@ element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the review plan HTML document.
 
-**Requirement coverage**: `Template-OTS-Pandoc`.
-
 #### Pandoc_ReviewReportHtml
 
 **Scenario**: FileAssert asserts the review report HTML file exists, contains a valid HTML title
 element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the review report HTML document.
-
-**Requirement coverage**: `Template-OTS-Pandoc`.
 
 #### Pandoc_DesignHtml
 
@@ -60,8 +52,6 @@ element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the design document HTML.
 
-**Requirement coverage**: `Template-OTS-Pandoc`.
-
 #### Pandoc_VerificationHtml
 
 **Scenario**: FileAssert asserts the verification HTML file exists, contains a valid HTML title
@@ -69,18 +59,9 @@ element, and includes expected verification document content.
 
 **Expected**: FileAssert exits 0 for the verification document.
 
-**Requirement coverage**: `Template-OTS-Pandoc`.
-
 #### Pandoc_UserGuideHtml
 
 **Scenario**: FileAssert asserts the user guide HTML file exists, contains a valid HTML title
 element, and includes expected document content.
 
 **Expected**: FileAssert exits 0 for the user guide HTML document.
-
-**Requirement coverage**: `Template-OTS-Pandoc`.
-
-### Requirements Coverage
-
-- **`Template-OTS-Pandoc`**: Pandoc_BuildNotesHtml, Pandoc_CodeQualityHtml, Pandoc_ReviewPlanHtml,
-  Pandoc_ReviewReportHtml, Pandoc_DesignHtml, Pandoc_VerificationHtml, Pandoc_UserGuideHtml

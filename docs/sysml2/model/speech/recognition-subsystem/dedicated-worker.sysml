@@ -1,5 +1,5 @@
 package Speech {
-    part def DedicatedWorker {
+    part def RecognitionDedicatedWorker {
         doc /* Internal long-running-task helper that runs one blocking delegate on its own
              * dedicated thread (TaskCreationOptions.LongRunning) and applies a
              * cooperative-cancel-then-abandon policy: requests cancellation first, then abandons
@@ -9,8 +9,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/DedicatedWorker.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/DedicatedWorkerTests.cs */
-        comment designRef /* Design: docs/design/speech/recognition-subsystem/recognition-session.md (documented with the pipeline it serves) */
-        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/recognition-session.md (documented with the pipeline it serves) */
+        comment designRef /* Design: docs/design/speech/recognition-subsystem/dedicated-worker.md */
+        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/dedicated-worker.md */
         comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml */
     }
 }

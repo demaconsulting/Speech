@@ -1,0 +1,390 @@
+---
+# Software Unit Requirements for the SpeechDemo AppLaunchOptions
+#
+# These requirements describe the design-level behavior of the AppLaunchOptions unit - the
+# parser and holder of the demo's launch-time command-line options - decomposing the
+# system-level launch and mirror requirements in docs/reqstream/speech-demo.yaml.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: AppLaunchOptions Requirements
+        requirements:
+          - id: SpeechDemo-LaunchOptions-Parsing
+            title: >-
+              The AppLaunchOptions unit shall make each supplied launch argument value available
+              as the setting its option names, and shall report every setting as unset when no
+              argument is supplied.
+            justification: |
+              The demo's windows and composition root need each launch setting by name, so
+              arguments must land on the setting that names them and an absent option must be
+              distinguishable from a supplied one.
+            tests:
+              - Parse_NoArguments_ReturnsAllDefaults
+              - Parse_AllOptions_ParsesOntoProperties
+
+          - id: SpeechDemo-LaunchOptions-HelpRequest
+            title: >-
+              The AppLaunchOptions unit shall report a help request when --help, -h or -? is
+              supplied.
+            justification: |
+              A user starting the demo from a shell expects the conventional help flags to
+              ask for usage text rather than open a window.
+            tests:
+              - Parse_HelpFlag_SetsHelp
+              - Parse_ArgumentsOnlyOverload_ParsesHelpFlag
+
+          - id: SpeechDemo-LaunchOptions-HelpSkipsVoicesDirCheck
+            title: >-
+              The AppLaunchOptions unit shall not require the --voices-dir folder to exist when a
+              help flag is supplied.
+            justification: |
+              A help request must always succeed, even beside an otherwise invalid option.
+            tests:
+              - Parse_HelpWithMissingVoicesDir_StillReportsHelp
+
+          - id: SpeechDemo-LaunchOptions-RepeatedOptionLastWins
+            title: >-
+              The AppLaunchOptions unit shall use the last value when an option is repeated.
+            justification: |
+              Wrapper scripts append overrides to a base command line; a defined rule keeps that
+              predictable.
+            tests:
+              - Parse_RepeatedOption_LastValueWins
+
+          - id: SpeechDemo-LaunchOptions-RejectUnrecognized
+            title: >-
+              The AppLaunchOptions unit shall reject an unrecognized argument with an
+              explanatory error.
+            justification: |
+              A mistyped option must fail fast with an explained error rather than being
+              ignored, otherwise a user would believe a mirror or folder setting was in effect
+              when it was not.
+            tests:
+              - Parse_UnrecognizedArgument_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-UnrecognizedNotEchoed
+            title: >-
+              The AppLaunchOptions unit shall identify an unrecognized argument by its position
+              only and shall not include the argument text in the error message.
+            justification: |
+              A misplaced secret value (for example a password typed without its option name)
+              must not be copied into logs or tickets by the error text.
+            tests:
+              - Parse_UnrecognizedArgument_ErrorDoesNotEchoArgument
+
+          - id: SpeechDemo-LaunchOptions-RejectMissingValue
+            title: >-
+              The AppLaunchOptions unit shall reject a value-taking option supplied without
+              its value with an explanatory error naming the option.
+            justification: |
+              An option left without its value is almost always a truncated command line;
+              failing fast tells the user instead of silently running with a default.
+            tests:
+              - Parse_OptionMissingValue_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-RejectOptionAsValue
+            title: >-
+              The AppLaunchOptions unit shall reject a value-taking option whose next argument is
+              another recognized launch option, with an explanatory error naming the first
+              option, instead of using that option as the value.
+            justification: |
+              A command line such as "--mirror-url --help" is a missing value, not a mirror URL
+              called "--help"; consuming the option would silently discard what the user asked
+              for.
+            tests:
+              - Parse_ValueOptionFollowedByRecognizedOption_ThrowsArgumentException
+              - Parse_ValueOptionFollowedByLongFormOption_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-HyphenValueAccepted
+            title: >-
+              The AppLaunchOptions unit shall accept a value that begins with a hyphen but is not
+              a recognized launch option.
+            justification: |
+              Paths and secrets can legitimately begin with a hyphen; only a recognized option
+              indicates a missing value.
+            tests:
+              - Parse_ValueOptionFollowedByNonOptionHyphenValue_AcceptsValue
+
+          - id: SpeechDemo-LaunchOptions-RejectNullArguments
+            title: >-
+              The AppLaunchOptions unit shall reject a null argument list as a caller error.
+            justification: |
+              A missing argument list is a programming error in the caller and must surface at
+              the call rather than as a later null reference.
+            tests:
+              - Parse_NullArguments_ThrowsArgumentNullException
+
+          - id: SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
+            title: >-
+              The AppLaunchOptions unit shall reject a null environment reader as a caller
+              error.
+            justification: |
+              A missing environment reader is a programming error in the caller and must surface
+              at the call rather than as a later null reference while reading a mirror variable.
+            tests:
+              - Parse_NullEnvironmentReader_ThrowsArgumentNullException
+
+          - id: SpeechDemo-LaunchOptions-HelpText
+            title: >-
+              The AppLaunchOptions unit shall write usage text naming every help flag and the
+              mirror bearer-token option to a supplied writer.
+            justification: |
+              Users discover each option, including the credential options, from the usage text.
+            tests:
+              - PrintHelp_ListsHelpFlagsAndBearerTokenOption
+
+          - id: SpeechDemo-LaunchOptions-HelpTextNullWriter
+            title: >-
+              The AppLaunchOptions unit shall reject a null help writer as a caller error.
+            justification: |
+              A testable writer keeps the usage text verifiable without capturing the console,
+              and a null writer is a caller programming error.
+            tests:
+              - PrintHelp_NullWriter_ThrowsArgumentNullException
+
+          - id: SpeechDemo-LaunchOptions-StoreFolder
+            title: >-
+              The AppLaunchOptions unit shall translate a supplied models directory into a
+              model store root override.
+            justification: |
+              Letting a user relocate the model store matches the speech-cli --models-dir option
+              and lets the demo run against a pre-populated or read-only location.
+            tests:
+              - CreateStoreOptions_WithModelsDir_ReturnsMatchingRootPathOverride
+
+          - id: SpeechDemo-LaunchOptions-StoreFolderDefault
+            title: >-
+              The AppLaunchOptions unit shall report no model store override when no models
+              directory was supplied.
+            justification: |
+              Without the option the demo must use the library's default per-user store, so
+              no override may be invented.
+            tests:
+              - CreateStoreOptions_NoModelsDir_ReturnsNull
+
+          - id: SpeechDemo-LaunchOptions-MirrorConfiguration
+            title: >-
+              The AppLaunchOptions unit shall translate the supplied mirror options into
+              downloader options carrying the configured mirror.
+            justification: |
+              Launch-time mirror arguments let a user behind a network policy redirect model
+              downloads from a script.
+            tests:
+              - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
+              - CreateDownloaderOptions_BearerTokenMirror_ReturnsConfiguredMirror
+
+          - id: SpeechDemo-LaunchOptions-NoMirror
+            title: >-
+              The AppLaunchOptions unit shall report no downloader options when no mirror was
+              supplied.
+            justification: |
+              Without a mirror every model downloads from its own declared public location.
+            tests:
+              - CreateDownloaderOptions_NoMirrorUrl_ReturnsNull
+
+          - id: SpeechDemo-LaunchOptions-MirrorRejection
+            title: >-
+              The AppLaunchOptions unit shall reject an invalid mirror URL with an explanatory
+              error.
+            justification: |
+              An invalid URL must be rejected before any window opens so the user gets a clear
+              console message.
+            tests:
+              - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-MirrorHalfCredentialRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a mirror user supplied without a mirror
+              password with an explanatory error.
+            justification: |
+              Half of a Basic-authentication pair can never authenticate.
+            tests:
+              - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
+              - CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser
+
+          - id: SpeechDemo-LaunchOptions-MirrorPasswordWithoutUserRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a mirror password supplied without a mirror
+              user with an explanatory error.
+            justification: |
+              A password with no user name can never authenticate and would otherwise be
+              silently dropped.
+            tests:
+              - CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-MirrorCredentialWithoutUrlRejection
+            title: >-
+              The AppLaunchOptions unit shall reject mirror credentials or a bearer token
+              supplied without a mirror URL with an explanatory error.
+            justification: |
+              A credential with no mirror to apply to would otherwise be silently dropped.
+            tests:
+              - CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-MirrorBasicAndBearerRejection
+            title: >-
+              The AppLaunchOptions unit shall reject Basic credentials supplied together with a
+              bearer token, without echoing either.
+            justification: |
+              Two competing authentication schemes are ambiguous; refusing them avoids sending
+              the wrong secret to the mirror.
+            tests:
+              - CreateDownloaderOptions_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets
+
+          - id: SpeechDemo-LaunchOptions-MirrorInsecureBasicRejection
+            title: >-
+              The AppLaunchOptions unit shall reject Basic credentials for a plain-HTTP mirror
+              on a non-loopback host, without echoing the password.
+            justification: |
+              Credentials sent over unencrypted HTTP to a remote host are exposed to the network.
+            tests:
+              - CreateDownloaderOptions_BasicCredentialsOverPlainHttp_ThrowsWithoutEchoingPassword
+
+          - id: SpeechDemo-LaunchOptions-MirrorMixedSourcesRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a command-line mirror user combined with an
+              environment password rather than mixing the two sources.
+            justification: |
+              A credential pair from two sources is almost always a mistake and would send an
+              ambient secret to a mirror the user did not intend.
+            tests:
+              - CreateDownloaderOptions_CommandLineUserWithEnvironmentPassword_IsRejectedNotMixed
+
+          - id: SpeechDemo-LaunchOptions-MirrorEmptyOptionIgnored
+            title: >-
+              The AppLaunchOptions unit shall treat an empty or whitespace-only mirror option value as unset, so the
+              environment fallback still applies.
+            justification: |
+              Scripts commonly pass an empty or blank expanded variable; it must not disable the
+              environment configuration nor count as a supplied credential.
+            tests:
+              - Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
+              - Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
+              - Parse_WhitespaceMirrorUrlOption_FallsBackToEnvironment
+              - Parse_WhitespaceCredentialOption_DoesNotDisableEnvironmentCredentials
+
+          - id: SpeechDemo-LaunchOptions-MirrorUrlEnvironment
+            title: >-
+              The AppLaunchOptions unit shall take the mirror URL from the DEMASPEECH_MIRROR_URL
+              environment variable when --mirror-url is not supplied.
+            justification: |
+              Scripted launches configure the mirror once in the environment.
+            tests:
+              - Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent
+
+          - id: SpeechDemo-LaunchOptions-MirrorUrlOptionPrecedence
+            title: >-
+              The AppLaunchOptions unit shall prefer an explicit --mirror-url option over the
+              DEMASPEECH_MIRROR_URL environment variable.
+            justification: |
+              An explicit option is the most specific statement of intent.
+            tests:
+              - Parse_MirrorUrlOption_OverridesEnvironment
+
+          - id: SpeechDemo-LaunchOptions-MirrorBasicCredentialsEnvironment
+            title: >-
+              The AppLaunchOptions unit shall take HTTP Basic mirror credentials from the
+              DEMASPEECH_MIRROR_USER and DEMASPEECH_MIRROR_PASSWORD environment variables when no
+              mirror credential option is supplied.
+            justification: |
+              Environment variables keep a secret out of the process command line.
+            tests:
+              - Parse_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
+
+          - id: SpeechDemo-LaunchOptions-MirrorBearerTokenEnvironment
+            title: >-
+              The AppLaunchOptions unit shall take the mirror bearer token from the
+              DEMASPEECH_MIRROR_BEARER_TOKEN environment variable when no mirror credential option
+              is supplied.
+            justification: |
+              Environment variables keep a token out of the process command line.
+            tests:
+              - Parse_EnvironmentBearerToken_UsedWhenOptionsAbsent
+
+          - id: SpeechDemo-LaunchOptions-MirrorCredentialOptionPrecedence
+            title: >-
+              The AppLaunchOptions unit shall ignore every mirror credential environment variable
+              when any mirror credential option is supplied.
+            justification: |
+              Credentials come from one source only, so an explicit option is never mixed with an
+              ambient credential of the other kind.
+            tests:
+              - Parse_CredentialOption_DisablesEnvironmentCredentials
+
+          - id: SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
+            title: >-
+              The AppLaunchOptions unit shall treat an empty or whitespace-only mirror environment variable as unset.
+            justification: |
+              Shells commonly export empty or blank variables, which must not enable a mirror.
+            tests:
+              - Parse_EmptyEnvironmentVariables_TreatedAsUnset
+              - Parse_WhitespaceEnvironmentVariables_TreatedAsUnset
+
+          - id: SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
+            title: >-
+              The AppLaunchOptions unit shall reject a mirror credential environment variable
+              supplied without a mirror URL with an explanatory error.
+            justification: |
+              A credential with no mirror to apply to would otherwise be silently dropped.
+            tests:
+              - CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+
+          - id: SpeechDemo-LaunchOptions-MirrorSecretsNotInErrors
+            title: >-
+              The AppLaunchOptions unit shall not include a mirror credential or an invalid mirror
+              URL value in any configuration error message.
+            justification: |
+              Error text is routinely copied into logs and tickets.
+            tests:
+              - CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+              - CreateDownloaderOptions_InvalidMirrorUrl_ErrorDoesNotEchoValue
+
+          - id: SpeechDemo-LaunchOptions-MirrorEnvironmentHelp
+            title: >-
+              The AppLaunchOptions unit shall name the four DEMASPEECH_MIRROR_* environment
+              variables in its help text.
+            justification: |
+              Users discover the environment alternative from --help.
+            tests:
+              - PrintHelp_ListsMirrorEnvironmentVariables
+
+          - id: SpeechDemo-LaunchOptions-VoicesDir
+            title: >-
+              The AppLaunchOptions unit shall accept a --voices-dir launch option naming an
+              existing folder of the user's own reference voices.
+            justification: |
+              Chatterbox Turbo needs reference recordings to clone. A launch option lets a
+              user bring their own voices, matching the speech-cli --voices-dir option.
+            tests:
+              - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
+
+          - id: SpeechDemo-LaunchOptions-VoicesDirHelp
+            title: >-
+              The AppLaunchOptions unit shall list the --voices-dir option in its help text.
+            justification: |
+              A launch option a user cannot discover from the help text might as well not
+              exist.
+            tests:
+              - PrintHelp_ListsVoicesDirOption
+
+          - id: SpeechDemo-LaunchOptions-VoicesDirValueRequired
+            title: >-
+              The AppLaunchOptions unit shall reject a --voices-dir option supplied without a
+              value.
+            justification: |
+              A truncated command line must produce an immediate explained error instead of a
+              silently empty voice list.
+            tests:
+              - Parse_VoicesDir_NoValue_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-VoicesDirMustExist
+            title: >-
+              The AppLaunchOptions unit shall reject a --voices-dir option naming a folder that
+              does not exist.
+            justification: |
+              Validating the folder up front turns a typo into an immediate explained error
+              instead of a silently empty voice list.
+            tests:
+              - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException

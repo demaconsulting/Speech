@@ -10,7 +10,7 @@ can honor inline Natural Language Audio Tags.
 - `SpeechModelState`: `NotDownloaded`, `Downloading`, `Downloaded`, `FailedOrCorrupt` - no
   "update available" state.
 - `SpeechModelAudioTagSupport`: `None`, `ParameterMapped`, `Native` - a declaration shape only;
-  the Layer 2 rendering logic that actually honors a tag is implemented per-model in Phase 4.
+  the Layer 2 rendering logic that actually honors a tag is implemented per model.
 
 **Key Methods**: None; these are declaration-only enums.
 
@@ -19,4 +19,4 @@ can honor inline Natural Language Audio Tags.
 **Dependencies**: None (BCL only).
 
 **Callers**: `ISpeechModel` (`Role`, `AudioTagSupport`), `SpeechModelDescriptor`/
-`SpeechModelCatalog` (`SpeechModelState`), and every model's own backing class in Phase 3/4.
+`SpeechModelCatalog` (`SpeechModelState`), and every model's own backing class.

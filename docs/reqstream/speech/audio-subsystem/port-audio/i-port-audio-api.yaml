@@ -15,10 +15,9 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                     title: >-
-                      The IPortAudioApi interface shall abstract PortAudio initialization,
-                      host-API metadata access, device metadata access, capture/playback format
-                      negotiation, and capture/playback stream opening behind a mockable managed
-                      contract.
+                      The audio runtime contract shall let callers initialize the runtime, read
+                      host-API and device metadata, probe capture and playback formats, and open
+                      capture and playback streams without referencing native-runtime types.
                     justification: |
                       Higher-level audio-device logic must be unit testable without referencing
                       native PortAudioSharp2 types or loading a native runtime.

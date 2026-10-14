@@ -1,6 +1,6 @@
 ### ISpeechRecognizerEngine
 
-**Purpose**: Define the Layer 3 contract for one loaded, reusable speech-inference engine, so
+**Purpose**: Define the engine contract for one loaded, reusable speech-inference engine, so
 hosts and tests can depend on "is recognition possible, and can I start a session?" without
 depending on a specific inference backend.
 
