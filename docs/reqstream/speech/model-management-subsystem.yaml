@@ -131,6 +131,8 @@ sections:
               - Speech-Models-SpeechModelStore-EmptyTempCleanup
               - Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
             tests:
+              - SpeechModelStore_Uninstall_LiveStagingDirectory_IsLeftAlone
+              - SpeechModelStore_Uninstall_ReplacedDirectories_AreRemoved
               - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
               - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
           - id: Speech-Models-DownloadOrchestration

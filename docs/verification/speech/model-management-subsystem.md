@@ -90,7 +90,8 @@ client); different-id calls run concurrently with no pool limit.
 
 **Expected**: The install is removed, replaced directories are cleaned and live staging survives.
 
-**Test**: `SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories`
+**Tests**: `SpeechModelStore_Uninstall_LiveStagingDirectory_IsLeftAlone`,
+`SpeechModelStore_Uninstall_ReplacedDirectories_AreRemoved`
 
 #### Failed replacement preserves the prior install
 
