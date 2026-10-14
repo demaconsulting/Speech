@@ -66,7 +66,11 @@ public sealed class ReferenceVoicePackTests
         var first = Create();
         var second = Create();
 
+        // Act
+        var sameInstanceEqual = first.Equals(first);
+
         // Assert
+        Assert.True(sameInstanceEqual);
         Assert.NotSame(first, second);
         Assert.NotEqual(first, second);
         Assert.Equal(first, first);
@@ -78,6 +82,9 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_Constructor_ValidArguments_ExposesValues()
     {
+        // Arrange
+        // (the helper supplies a complete set of valid arguments)
+
         // Act
         var pack = Create();
 
@@ -101,8 +108,10 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive()
     {
-        // Act
+        // Arrange
         var pack = Create();
+
+        // Act
         var file = Assert.Single(pack.DownloadDescriptor.Files);
 
         // Assert
@@ -117,6 +126,9 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields()
     {
+        // Arrange
+        // (the built-in pack is a static descriptor)
+
         // Act
         var pack = ReferenceVoicePack.VoiceZero10;
 
@@ -149,6 +161,9 @@ public sealed class ReferenceVoicePackTests
     [InlineData("a\0b.zip")]
     public void ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws(string name)
     {
+        // Arrange
+        // (the unsafe name is the theory argument)
+
         // Act
         var ex = Assert.Throws<ArgumentException>(() => Create(archiveFileName: name));
 
@@ -163,6 +178,9 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues()
     {
+        // Arrange
+        // (the built-in pack is a static descriptor)
+
         // Act
         var pack = ReferenceVoicePack.VoiceZero10;
 
@@ -388,8 +406,18 @@ public sealed class ReferenceVoicePackTests
         var licenseUrlNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", null!, "A", other));
         var sourceUrlNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", null!));
         var idNull = Record.Exception(() => new ReferenceVoicePack(null!, "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        var displayNameNull = Record.Exception(() => new ReferenceVoicePack("p", null!, uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        var archiveFileNameNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, null!, "root", "CC0", other, "A", other));
+        var archiveRootFolderNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", null!, "CC0", other, "A", other));
+        var licenseNameNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", null!, other, "A", other));
+        var attributionNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, null!, other));
 
         // Assert
+        Assert.Equal("displayName", Assert.IsType<ArgumentNullException>(displayNameNull).ParamName);
+        Assert.Equal("archiveFileName", Assert.IsType<ArgumentNullException>(archiveFileNameNull).ParamName);
+        Assert.Equal("archiveRootFolder", Assert.IsType<ArgumentNullException>(archiveRootFolderNull).ParamName);
+        Assert.Equal("licenseName", Assert.IsType<ArgumentNullException>(licenseNameNull).ParamName);
+        Assert.Equal("attribution", Assert.IsType<ArgumentNullException>(attributionNull).ParamName);
         Assert.IsType<ArgumentNullException>(uriNull);
         Assert.IsType<ArgumentNullException>(checksumNull);
         Assert.IsType<ArgumentNullException>(licenseUrlNull);
@@ -477,6 +505,9 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoiceSource_Values_AreDirectoryUserAndPack()
     {
+        // Arrange
+        // (the enumeration type is the subject)
+
         // Act
         var names = Enum.GetNames<ReferenceVoiceSource>();
 
