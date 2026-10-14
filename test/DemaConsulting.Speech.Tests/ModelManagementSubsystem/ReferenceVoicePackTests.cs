@@ -521,4 +521,28 @@ public sealed class ReferenceVoicePackTests
         // Assert
         Assert.Throws<NotSupportedException>(act);
     }
+
+    /// <summary>
+    ///     Proves that a <c>with</c> expression assigning mood clips stores its own read-only, ordinal-sorted copy, so a
+    ///     later change to the assigned dictionary neither alters the clips nor exposes a mutable dictionary.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceInfo_MoodClips_WithExpressionThenCallerChanges_DoNotAlterClips()
+    {
+        // Arrange
+        var original = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.Pack, "p", "v");
+        var clips = new Dictionary<string, string> { ["sad"] = "/m/sad.flac", ["anger"] = "/m/anger.flac" };
+        var voice = original with { MoodClips = clips };
+
+        // Act
+        clips["happy"] = "/m/happy.flac";
+        clips["sad"] = "/changed.flac";
+        var act = () => ((IDictionary<string, string>)voice.MoodClips)["x"] = "/x.flac";
+
+        // Assert
+        Assert.Null(original.MoodClips);
+        Assert.Equal(["anger", "sad"], voice.MoodClips.Keys);
+        Assert.Equal("/m/sad.flac", voice.MoodClips["sad"]);
+        Assert.Throws<NotSupportedException>(act);
+    }
 }

@@ -32,12 +32,24 @@ public sealed record ReferenceVoiceInfo(
     string? Attribution = null,
     IReadOnlyDictionary<string, string>? MoodClips = null)
 {
-    /// <summary>Gets the read-only copy of the mood clips supplied at construction, or <see langword="null"/> when none.</summary>
-    public IReadOnlyDictionary<string, string>? MoodClips { get; init; } = MoodClips is null
-        ? null
-        : new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
-            new SortedDictionary<string, string>(MoodClips.ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.Ordinal));
+    private readonly IReadOnlyDictionary<string, string>? _moodClips = Copy(MoodClips);
 
+    /// <summary>
+    ///     Gets the read-only, ordinal-sorted copy of the mood clips, or <see langword="null"/> when none. Setting it
+    ///     (the constructor argument or a <c>with</c> expression) always stores a fresh copy, so a later change to the
+    ///     supplied dictionary never shows through.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? MoodClips
+    {
+        get => _moodClips;
+        init => _moodClips = Copy(value);
+    }
+
+    private static IReadOnlyDictionary<string, string>? Copy(IReadOnlyDictionary<string, string>? clips) =>
+        clips is null
+            ? null
+            : new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+                new SortedDictionary<string, string>(clips.ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.Ordinal));
     /// <summary>
     ///     Finds the clip of a mood in <see cref="MoodClips"/>, matching the mood name case-insensitively after
     ///     trimming it.

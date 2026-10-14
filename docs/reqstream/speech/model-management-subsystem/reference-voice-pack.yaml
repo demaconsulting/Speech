@@ -182,12 +182,13 @@ sections:
               - id: Speech-Models-ReferenceVoicePack-MoodClipsImmutable
                 title: >-
                   The ReferenceVoiceInfo type shall keep a voice's mood clips unchanged when the
-                  caller later changes the collection the voice was created from.
+                  caller later changes a collection supplied to create the voice or to change its clips.
                 justification: |
                   Voice descriptions are shared between consumers, so a change made by the caller
                   who created one must not alter the clips other consumers see.
                 tests:
                   - ReferenceVoiceInfo_MoodClips_CallerChangesAfterCreation_DoNotAlterClips
+                  - ReferenceVoiceInfo_MoodClips_WithExpressionThenCallerChanges_DoNotAlterClips
 
               - id: Speech-Models-ReferenceVoicePack-MoodClipsReadOnly
                 title: >-

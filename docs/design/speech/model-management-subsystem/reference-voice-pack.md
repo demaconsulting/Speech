@@ -30,7 +30,8 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   the `ReferenceVoiceLibrary` design). `MoodClips` is an optional read-only map of lower-case mood name to
   the absolute path of that speaker's emotion clip, or `null` when the voice has none (user and directory
   voices, and packs installed without emotions). `MoodClips` is
-  copied at construction into a read-only dictionary enumerated in ordinal mood order, so later changes
+  copied, by an explicit backing field whose `init` accessor also runs for a `with` expression, into a
+  read-only dictionary enumerated in ordinal mood order, so later changes
   to the supplied dictionary never show through (the requirements `...MoodClipsImmutable` and `...MoodClipsReadOnly`
   state only the observable outcome; the record, copy and ordering are this design's choice).
   `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the

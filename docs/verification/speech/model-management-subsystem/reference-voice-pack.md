@@ -91,6 +91,8 @@ Also asserts the exact ordinal list of the 13 mood names.
 
 **Tests**: `ReferenceVoiceInfo_MoodClips_CallerChangesAfterCreation_DoNotAlterClips` (a later change to the
 supplied dictionary does not show through; keys are in ordinal mood order),
+`ReferenceVoiceInfo_MoodClips_WithExpressionThenCallerChanges_DoNotAlterClips` (the same holds for a `with`
+expression assigning a dictionary, and the stored copy cannot be cast to a mutable dictionary),
 `ReferenceVoiceInfo_MoodClips_ConsumerModification_IsRejected` (casting the exposed clips to a mutable
 dictionary and writing throws)
 
