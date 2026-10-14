@@ -24,6 +24,7 @@ sections:
                 tests:
                   - SpeechModelDownloadFile_Constructor_ValidValues_ExposesValues
                   - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
+                  - SpeechModelDownloadFile_Constructor_RelativeUri_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloadFile-ChecksumValidation
                 title: >-

@@ -179,17 +179,22 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative()
     {
+        // Arrange
+        var uri = new Uri("https://example.invalid/pack-1.zip");
+        var other = new Uri("https://example.invalid/license");
+        var source = new Uri("https://example.invalid/source");
+
         // Act
         var pack = Create();
+        var negativeVoices = Record.Exception(() => new ReferenceVoicePack(
+            "pack-1", "Pack", uri, ValidChecksum, 10, "pack-1.zip", "root", "CC0", other, "Attribution", source, voicesBytes: -1));
+        var negativeEmotions = Record.Exception(() => new ReferenceVoicePack(
+            "pack-1", "Pack", uri, ValidChecksum, 10, "pack-1.zip", "root", "CC0", other, "Attribution", source, emotionsBytes: -1));
 
         // Assert
         Assert.Equal(0L, pack.InstalledSizeBytes(includeEmotions: true));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ReferenceVoicePack(
-            "pack-1", "Pack", new Uri("https://example.invalid/pack-1.zip"), ValidChecksum, 10, "pack-1.zip", "root", "CC0",
-            new Uri("https://example.invalid/license"), "Attribution", new Uri("https://example.invalid/source"), voicesBytes: -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ReferenceVoicePack(
-            "pack-1", "Pack", new Uri("https://example.invalid/pack-1.zip"), ValidChecksum, 10, "pack-1.zip", "root", "CC0",
-            new Uri("https://example.invalid/license"), "Attribution", new Uri("https://example.invalid/source"), emotionsBytes: -1));
+        Assert.IsType<ArgumentOutOfRangeException>(negativeVoices);
+        Assert.IsType<ArgumentOutOfRangeException>(negativeEmotions);
     }
 
     /// <summary>
@@ -343,20 +348,27 @@ public sealed class ReferenceVoicePackTests
         var voice = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.Pack, "p", "v", MoodClips: clips);
         var plain = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.User, null, "v");
 
-        // Act and Assert
-        foreach (var name in new[] { "sad", "SAD", " Sad ", "\tsAd" })
-        {
-            Assert.True(voice.TryGetMoodClip(name, out var path), name);
-            Assert.Equal("/m/sad.flac", path);
-        }
+        // Act
+        var matches = new[] { "sad", "SAD", " Sad ", "\tsAd" }
+            .Select(name => (Name: name, Found: voice.TryGetMoodClip(name, out var path), Path: path))
+            .ToList();
+        var misses = new[] { null, "", "  ", "calm", "sa d" }
+            .Select(name => (Name: name, Found: voice.TryGetMoodClip(name, out var missing), Path: missing))
+            .ToList();
+        var plainFound = plain.TryGetMoodClip("sad", out _);
 
-        foreach (var name in new[] { null, "", "  ", "calm", "sa d" })
+        // Assert
+        Assert.All(matches, m =>
         {
-            Assert.False(voice.TryGetMoodClip(name, out var missing), name);
-            Assert.Null(missing);
-        }
-
-        Assert.False(plain.TryGetMoodClip("sad", out _));
+            Assert.True(m.Found, m.Name);
+            Assert.Equal("/m/sad.flac", m.Path);
+        });
+        Assert.All(misses, m =>
+        {
+            Assert.False(m.Found, m.Name);
+            Assert.Null(m.Path);
+        });
+        Assert.False(plainFound);
     }
 
     /// <summary>
@@ -370,12 +382,19 @@ public sealed class ReferenceVoicePackTests
         var uri = new Uri("https://example.invalid/pack-1.zip");
         var other = new Uri("https://example.invalid/other");
 
-        // Act and Assert
-        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", null!, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, null!, 10, "p.zip", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", null!, "A", other));
-        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", null!));
-        Assert.Throws<ArgumentNullException>(() => new ReferenceVoicePack(null!, "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        // Act
+        var uriNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", null!, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        var checksumNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, null!, 10, "p.zip", "root", "CC0", other, "A", other));
+        var licenseUrlNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", null!, "A", other));
+        var sourceUrlNull = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", null!));
+        var idNull = Record.Exception(() => new ReferenceVoicePack(null!, "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(uriNull);
+        Assert.IsType<ArgumentNullException>(checksumNull);
+        Assert.IsType<ArgumentNullException>(licenseUrlNull);
+        Assert.IsType<ArgumentNullException>(sourceUrlNull);
+        Assert.IsType<ArgumentNullException>(idNull);
     }
 
     /// <summary>
@@ -389,13 +408,47 @@ public sealed class ReferenceVoicePackTests
         var uri = new Uri("https://example.invalid/pack-1.zip");
         var other = new Uri("https://example.invalid/other");
 
-        // Act and Assert
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, string.Empty, 10, "p.zip", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", " ", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, " ", "root", "CC0", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "", "CC0", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "", other, "A", other));
-        Assert.Throws<ArgumentException>(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, " ", other));
+        // Act
+        var checksum = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, string.Empty, 10, "p.zip", "root", "CC0", other, "A", other));
+        var displayName = Record.Exception(() => new ReferenceVoicePack("p", " ", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        var archiveFileName = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, " ", "root", "CC0", other, "A", other));
+        var archiveRootFolder = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "", "CC0", other, "A", other));
+        var licenseName = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "", other, "A", other));
+        var attribution = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, " ", other));
+
+        // Assert
+        Assert.IsType<ArgumentException>(checksum);
+        Assert.Equal("displayName", Assert.IsType<ArgumentException>(displayName).ParamName);
+        Assert.Equal("archiveFileName", Assert.IsType<ArgumentException>(archiveFileName).ParamName);
+        Assert.Equal("archiveRootFolder", Assert.IsType<ArgumentException>(archiveRootFolder).ParamName);
+        Assert.Equal("licenseName", Assert.IsType<ArgumentException>(licenseName).ParamName);
+        Assert.Equal("attribution", Assert.IsType<ArgumentException>(attribution).ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a null display name, archive file name, archive root folder, license name or attribution is
+    ///     rejected with an <see cref="ArgumentNullException"/> naming that argument.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_NullTextArguments_ThrowArgumentNullNamingTheArgument()
+    {
+        // Arrange
+        var uri = new Uri("https://example.invalid/pack-1.zip");
+        var other = new Uri("https://example.invalid/other");
+
+        // Act
+        var displayName = Record.Exception(() => new ReferenceVoicePack("p", null!, uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, "A", other));
+        var archiveFileName = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, null!, "root", "CC0", other, "A", other));
+        var archiveRootFolder = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", null!, "CC0", other, "A", other));
+        var licenseName = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", null!, other, "A", other));
+        var attribution = Record.Exception(() => new ReferenceVoicePack("p", "Pack", uri, ValidChecksum, 10, "p.zip", "root", "CC0", other, null!, other));
+
+        // Assert
+        Assert.Equal("displayName", Assert.IsType<ArgumentNullException>(displayName).ParamName);
+        Assert.Equal("archiveFileName", Assert.IsType<ArgumentNullException>(archiveFileName).ParamName);
+        Assert.Equal("archiveRootFolder", Assert.IsType<ArgumentNullException>(archiveRootFolder).ParamName);
+        Assert.Equal("licenseName", Assert.IsType<ArgumentNullException>(licenseName).ParamName);
+        Assert.Equal("attribution", Assert.IsType<ArgumentNullException>(attribution).ParamName);
     }
 
     /// <summary>

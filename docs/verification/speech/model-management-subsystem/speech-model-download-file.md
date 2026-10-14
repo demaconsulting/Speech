@@ -31,6 +31,10 @@ directory separator regardless of which separator the install path was declared 
 
 **Test**: `SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException`
 
+##### Constructor: Relative URI Throws ArgumentException
+
+**Test**: `SpeechModelDownloadFile_Constructor_RelativeUri_ThrowsArgumentException`
+
 ##### Constructor: Invalid Checksum Throws ArgumentException
 
 **Test**: `SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException`
@@ -38,6 +42,8 @@ directory separator regardless of which separator the install path was declared 
 ##### Constructor: Invalid Install Path Throws ArgumentException
 
 **Test**: `SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException`
+
+The cases include separator-only paths (`/`, `//` and two backslashes), which name no segment at all.
 
 ##### Constructor: Rooted Install Path Throws ArgumentException
 
@@ -63,7 +69,7 @@ form the downloader uses to stage the file, as both call this method).
 
 | Requirement | Tests |
 | :--- | :--- |
-| `...DownloadFile-UriValidation` | `..._ValidValues_ExposesValues`, `..._HttpUri_ThrowsArgumentException` |
+| `...DownloadFile-UriValidation` | `..._ValidValues_ExposesValues`, `..._HttpUri_...`, `..._RelativeUri_...` |
 | `...DownloadFile-ChecksumValidation` | `..._Constructor_InvalidChecksum_ThrowsArgumentException` |
 | `...DownloadFile-InstallPathValidation` | `..._InvalidInstallPath_Throws...`, `..._RootedInstallPath_Throws...` |
 | `...DownloadFile-NullArgumentValidation` | `..._Constructor_NullArguments_ThrowsArgumentNullException` |

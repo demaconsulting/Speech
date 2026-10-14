@@ -73,6 +73,7 @@ sections:
                   a missing value must fail at creation rather than later.
                 tests:
                   - ReferenceVoicePack_Constructor_NullArguments_ThrowArgumentNull
+                  - ReferenceVoicePack_Constructor_NullTextArguments_ThrowArgumentNullNamingTheArgument
 
               - id: Speech-Models-ReferenceVoicePack-BlankArgumentRejection
                 title: >-

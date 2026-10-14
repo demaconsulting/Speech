@@ -17,7 +17,10 @@ instance of the sherpa-onnx-backed models this repository ships.
 **Key Methods**:
 
 - **ISpeechModel.Id / DisplayName**: the model's stable identifier and display name.
-- **ISpeechModel.Role**: which speech capability the model provides (`SpeechModelRole`).
+- **ISpeechModel.Role**: which speech capability the model provides (`SpeechModelRole`). Each role
+  interface (`IRecognitionModel`, `ISynthesisModel`) extends `ISpeechModel`; the implementing model
+  reports its own role through this member, so hosts can tell the two kinds apart while still handling
+  every model through the common contract.
 - **ISpeechModel.Parameters**: the model's declared `ISpeechModelParameter` instances.
 - **ISpeechModel.AudioTagSupport**: the model's declared `SpeechModelAudioTagSupport`.
 - **ISpeechModel.DownloadDescriptor**: the `SpeechModelDownloadDescriptor` describing the file(s)

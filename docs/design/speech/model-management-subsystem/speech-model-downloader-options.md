@@ -8,10 +8,14 @@ library code change.
 `SpeechModelDownloader` resolves each file's effective request URI beneath it and applies its
 configured authentication to requests sent to it.
 
-**Key Methods**: A plain options record with a single settable property; no behavior of its own.
+**Key Methods**: N/A - a plain options record with a single init-only property and no behavior of its own.
 
-**Error Handling**: None - validation of a supplied `Mirror` happens eagerly in `DownloadMirror`'s
-own constructor, never in this options type itself.
+**Error Handling**: N/A - this type performs no validation or I/O; validation of a supplied `Mirror` happens
+eagerly in `DownloadMirror`'s own constructor, never in this options type itself.
+
+**Thread Safety**: Instances are immutable after initialization, so one instance can be shared freely between
+threads and downloaders. The mirror's optional `NetworkCredential` is mutable and owned by the caller, who must not
+modify it after supplying it.
 
 **Dependencies**: `DownloadMirror`.
 

@@ -16,32 +16,14 @@ sections:
                 title: >-
                   The model download client contract shall let the model downloader's
                   fetch/verify/install behavior run against a substitute implementation with no
-                  real network access, while the production path uses a real HTTP implementation.
+                  real network access.
                 justification: |
                   This library's "own interfaces over direct OTS types" decision requires a
                   library-owned abstraction so that the downloader's orchestration can be unit
-                  tested deterministically with a fake implementation, while the production path
-                  still fetches over real HTTP(S).
+                  tested deterministically with a fake implementation.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
                   - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
-                  - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
-
-              - id: Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
-                title: >-
-                  A download request made through the model download client contract shall carry
-                  no per-request mirror-authentication input; any mirror authentication a client
-                  applies shall be determined solely by that client's own configuration, and a
-                  client with no mirror configured shall send no authorization.
-                justification: |
-                  A host's own implementation of the contract must stay compatible across
-                  releases, so mirror authentication is configured once on the client rather than
-                  passed with every request. The observable consequence is that a configured
-                  client authenticates every in-scope request the same way and an unconfigured
-                  client never authenticates.
-                tests:
-                  - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
-                  - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
 
               - id: Speech-Models-IModelDownloadClient-SuccessDeliversBytes
                 title: >-

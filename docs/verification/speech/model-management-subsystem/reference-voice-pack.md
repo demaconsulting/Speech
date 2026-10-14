@@ -44,10 +44,16 @@ rejected on every platform, not only where the platform's invalid-character set 
 
 Verifies a null URI, checksum, license URL, source URL or id is rejected with `ArgumentNullException`.
 
+**Test**: `ReferenceVoicePack_Constructor_NullTextArguments_ThrowArgumentNullNamingTheArgument`
+
+Verifies a null display name, archive file name, root folder, license name or attribution is rejected with
+`ArgumentNullException` naming that argument.
+
 **Test**: `ReferenceVoicePack_Constructor_BlankArguments_ThrowArgument`
 
 Verifies an empty checksum and a blank display name, archive file name, root folder, license name or attribution
-are rejected with `ArgumentException`. (An empty checksum is also a case of `ReferenceVoicePack_Constructor_BadChecksum_Throws`.)
+are rejected with `ArgumentException`, the blank text arguments naming the offending argument.
+(An empty checksum is also a case of `ReferenceVoicePack_Constructor_BadChecksum_Throws`.)
 
 The unsafe-name theories also cover a trailing dot, leading or trailing whitespace, Windows reserved device names
 and NUL for the id and the archive file name.

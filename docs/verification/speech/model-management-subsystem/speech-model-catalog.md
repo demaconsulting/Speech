@@ -7,8 +7,9 @@ constructor to inject a fake known-model list, a real temp-directory-backed `Spe
 and fake `IModelDownloadClient` implementations (a fixed-payload client for a successful/
 checksum-mismatched download, and a `TaskCompletionSource`-gated client to deterministically
 observe the `Downloading` state while a download is in flight). A system-level end-to-end test
-(`SpeechTests.cs`) additionally proves the full public composition (a scratch-directory store and
-a fake download client) enumerates and tracks state correctly.
+(`SpeechTests.cs`) additionally proves the catalog composed over a scratch-directory store and a fake download
+client through the internal constructor enumerates and tracks state correctly (the public constructor's
+default composition is not exercised there).
 
 #### Test Environment
 

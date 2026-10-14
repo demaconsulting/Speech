@@ -21,14 +21,17 @@ public sealed class SpeechModelStoreOptions
     }
 
     /// <summary>
-    ///     Gets or sets an absolute directory path to use as the model store root instead of the
+    ///     Gets or sets a directory path to use as the model store root instead of the
     ///     default per-user <see cref="Environment.SpecialFolder.LocalApplicationData"/> location.
     /// </summary>
     /// <remarks>
     ///     When <see langword="null"/>, empty, or whitespace-only (the default is <see langword="null"/>), <see cref="SpeechModelStore"/> resolves its
     ///     root to a "DemaConsulting.Speech/Models" folder under
     ///     <see cref="Environment.SpecialFolder.LocalApplicationData"/>. The override, when
-    ///     supplied, is used verbatim as the store root - it is the caller's responsibility to
+    ///     supplied, is used exactly as given - absolute or relative, without being made absolute
+    ///     up front - so a relative path resolves against the process's current working directory
+    ///     at the time each store operation touches the file system. Supply an absolute path to
+    ///     avoid depending on the working directory. It is the caller's responsibility to
     ///     supply a writable, per-installation-appropriate path. The directory is created on
     ///     first use if it does not already exist; supplying a non-writable path surfaces as a
     ///     first-use I/O failure from whichever store operation needed to write, not from

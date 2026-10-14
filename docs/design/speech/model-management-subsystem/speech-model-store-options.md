@@ -4,7 +4,8 @@
 library code change.
 
 **Data Model**: `RootPathOverride` (optional `string?`, `init`-only, `null` by default) - when it contains at least
-one non-whitespace character, `SpeechModelStore` uses this path verbatim (no trimming or normalization) instead
+one non-whitespace character, `SpeechModelStore` uses this path exactly as given (no trimming or normalization,
+absolute or relative; a relative path resolves against the current working directory) instead
 of resolving under `Environment.SpecialFolder.LocalApplicationData`. A null, empty, or whitespace-only value is
 treated as "no override" and selects the default root (the decision resolves the earlier requirement/design
 mismatch: whitespace-only is the same as unset).

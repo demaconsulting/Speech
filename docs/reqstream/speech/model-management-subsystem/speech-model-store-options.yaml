@@ -14,8 +14,9 @@ sections:
               - id: Speech-Models-SpeechModelStoreOptions-RootOverride
                 title: >-
                   The SpeechModelStoreOptions class shall let a host redirect model storage to a
-                  chosen root directory, which the model store uses exactly as given, whenever the
-                  chosen value contains at least one non-whitespace character.
+                  chosen root directory, which the model store uses exactly as given (a relative
+                  path resolving against the current working directory), whenever the chosen
+                  value contains at least one non-whitespace character.
                 justification: |
                   Some hosts need to redirect model storage (for example to a shared or portable
                   location) without any library code change.

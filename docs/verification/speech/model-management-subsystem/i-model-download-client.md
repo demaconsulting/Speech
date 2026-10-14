@@ -8,8 +8,8 @@ implementations (`FakeModelDownloadClient`, `OrderTrackingModelDownloadClient`,
 orchestration logic against this seam, and directly through
 `HttpModelDownloadClientTests.cs`, which proves the one real implementation
 (`HttpModelDownloadClient`) genuinely satisfies the contract against a WireMock.Net-stubbed HTTP
-server. The seam's `DownloadAsync` has four parameters; mirror authentication is a construction-time
-setting of `HttpModelDownloadClient` and never a per-call input.
+server. The seam's `DownloadAsync` has four parameters; mirror authentication is verified with the
+real implementation's own unit and is not part of this contract.
 
 #### Test Environment
 
@@ -24,8 +24,7 @@ setting of `HttpModelDownloadClient` and never a per-call input.
 Tests pass when a fake implementation of this seam lets `SpeechModelDownloader`'s
 fetch/verify/install logic be exercised deterministically with no real network
 access, and when the real implementation delivers exactly the served bytes with the destination
-left open, reports single-file progress ending at the total, applies mirror authentication only from its construction-time
-configuration (no per-call parameter exists), throws on a non-success response, and surfaces
+left open, reports single-file progress ending at the total, throws on a non-success response, and surfaces
 cancellation. How `SpeechModelDownloader` resolves the request URI is verified with that unit.
 
 #### Test Scenarios
@@ -46,7 +45,7 @@ cancellation. How `SpeechModelDownloader` resolves the request URI is verified w
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
 
-##### Download: Real HttpModelDownloadClient Downloads Exact Bytes from a Stubbed Server
+##### Download: Real Client Downloads Exact Bytes from a Stubbed Server
 
 **Scenario**: The real client downloads from a WireMock-stubbed server.
 
@@ -62,16 +61,6 @@ single-file (index 0 of 1) with a monotonically increasing byte count ending at 
 **Expected**: The stream is still writable after the call, because the caller owns its lifetime.
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen`
-
-##### Mirror Authentication Is Fixed at Construction (real implementation)
-
-**Scenario**: The real client is built with no, bearer-token or credential mirror authentication and
-downloads from the stubbed server.
-
-**Expected**: The Authorization header is absent, bearer or basic respectively, with no per-call input.
-
-**Tests**: `HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader`,
-`HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader`
 
 ##### Error path: Non-Success Response Throws (real implementation)
 

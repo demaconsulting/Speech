@@ -116,3 +116,19 @@ directory, exposes its best-effort
 ##### The default LicenseName/LicenseUrl hooks report Unknown/null
 
 **Test**: `ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl`
+
+##### An overridden shared normalizer is applied to both provisional and final recognition results
+
+**Test**: `IRecognitionModel_NormalizeText_OverriddenSharedNormalizer_IsAppliedForBothResultKinds`
+
+##### The default post-endpoint warm-up window is zero
+
+**Test**: `IRecognitionModel_PostEndpointWarmupWindowMs_DefaultImplementation_ReturnsZero`
+
+##### The default parameterized backend creation forwards to the parameter-less creation
+
+**Test**: `IRecognitionModel_CreateBackendWithParameters_DefaultImplementation_ForwardsToParameterlessCreation`
+
+##### The default speaker resolution returns the first speaker
+
+**Test**: `ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker`

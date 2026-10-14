@@ -16,9 +16,8 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelContract-RoleMarkerInterfaces
                 title: >-
-                  IRecognitionModel and ISynthesisModel shall each extend ISpeechModel with a fixed
-                  role, letting a model's role be determined by a type check while remaining usable
-                  through the common ISpeechModel contract.
+                  A speech model shall identify itself as either a recognition model or a synthesis
+                  model.
                 justification: |
                   Role-specific engine-construction members live on the two role
                   interfaces, while the common ISpeechModel contract stays role-neutral so a
@@ -96,6 +95,7 @@ sections:
                   output text) and must not be confused or merged.
                 tests:
                   - IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+                  - IRecognitionModel_NormalizeText_OverriddenSharedNormalizer_IsAppliedForBothResultKinds
 
               - id: Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
                 title: >-
@@ -176,3 +176,33 @@ sections:
                   example "Apache-2.0 (likely)"), never silently upgraded to a certain claim.
                 tests:
                   - ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl
+
+              - id: Speech-Models-SpeechModelContract-PostEndpointWarmupDefault
+                title: >-
+                  A recognition model that declares no post-endpoint warm-up shall report a window of
+                  zero milliseconds.
+                justification: |
+                  Most engines need no warm-up after an endpoint; the zero default lets such models
+                  avoid any extra code and lets recognition skip the warm-up behavior.
+                tests:
+                  - IRecognitionModel_PostEndpointWarmupWindowMs_DefaultImplementation_ReturnsZero
+
+              - id: Speech-Models-SpeechModelContract-RecognitionParameterizedBackendDefault
+                title: >-
+                  A recognition model that declares no parameter-dependent engine configuration shall
+                  create the same kind of engine whether or not parameter values are supplied.
+                justification: |
+                  Existing models must keep working when a host supplies parameter values; the
+                  default ignores them so no model needs code unless it uses them.
+                tests:
+                  - IRecognitionModel_CreateBackendWithParameters_DefaultImplementation_ForwardsToParameterlessCreation
+
+              - id: Speech-Models-SpeechModelContract-SynthesisSpeakerDefault
+                title: >-
+                  A synthesis model that declares no speaker selection shall use the first speaker
+                  regardless of the parameter values supplied.
+                justification: |
+                  Single-speaker models need no selection logic; a stable default of the first speaker
+                  keeps synthesis deterministic for hosts that supply no speaker choice.
+                tests:
+                  - ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker
