@@ -56,11 +56,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
-    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.8" PrivateAssets="All" />
     <!-- Managed ONNX Runtime API only - see the referenced DemaConsulting.Speech.Onnx package's
          own remarks for why this package never references an accelerated execution-provider
          package itself. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
   </ItemGroup>
 
   <!-- Project References -->

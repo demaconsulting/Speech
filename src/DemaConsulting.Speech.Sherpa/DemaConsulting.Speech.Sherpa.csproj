@@ -60,7 +60,7 @@
          (CS0121 "ambiguous call") with the identical members already compiled into
          DemaConsulting.Speech's own reference assembly. -->
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
-    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.8" PrivateAssets="All" />
     <!-- Managed sherpa-onnx API only. The matching org.k2fsa.sherpa.onnx.runtime.{RID} native
          package is deliberately NOT referenced here: this package does NOT bundle sherpa-onnx
          native runtime packages; the consuming application adds the runtime package(s) for its

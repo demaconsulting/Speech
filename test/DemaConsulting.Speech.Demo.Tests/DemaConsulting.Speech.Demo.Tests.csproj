@@ -39,10 +39,10 @@
       <IncludeAssets>compile; runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" />
     <PackageReference Include="NSubstitute" Version="6.2.0" />
-    <PackageReference Include="xunit.v3" Version="4.0.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -71,7 +71,7 @@
        library directly. -->
   <ItemGroup>
     <!-- Keep sherpa-onnx's libonnxruntime; Microsoft's native copy would overwrite it (see the Cli project). -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" ExcludeAssets="native" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
     <!-- Needed only so SpeechDemoTests can compose the catalog exactly as the demo's own
