@@ -3,7 +3,7 @@
 #### Verification Approach
 
 The exception is verified directly through its three constructors
-(`UnavailableSpeechRecognizerEngineTests`); it has no dependencies to mock. Its behavioral role -
+(`SpeechRecognizerUnavailableExceptionTests`); it has no dependencies to mock. Its behavioral role -
 being thrown by the operational members of the unavailable session, and by a session whose capture
 device fails to start - is verified with `UnavailableRecognitionSession` and `RecognitionSession`
 in their own documents.

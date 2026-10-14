@@ -17,9 +17,9 @@ observing what was reported rather than by asserting an absence of exceptions al
 Threading is verified without timing-dependent assertions. `StopAsync` completes its internal queue
 and awaits its pump task, so a test raises a frame, calls `StopAsync`, and then asserts on the
 fully drained result - no test asserts on elapsed time or relies on a sleep or delay for ordinary
-behavior. Bounded waits (`WaitAsync` with a multi-second limit, and one `SpinWait.SpinUntil` with a
-5-second limit that waits for the backend to have received an expected number of blocks) appear
-only as watchdogs that fail a hung test instead of hanging the run; they never decide a result.
+behavior. Bounded waits (`WaitAsync` with a 30-second limit, and a signaled wait on the fake engine's call
+counter with a 30-second limit that waits for the backend to have received an expected number of
+blocks) appear only as watchdogs that fail a hung test instead of hanging the run; they never decide a result.
 Waiting for
 the pump to be inside a blocked backend call uses a signal on the fake engine
 (`AcceptSamplesEntered`), waiting for state transitions uses `StateChanged`, and "must not have
@@ -111,7 +111,9 @@ Transitions are forward-only and raised in order; a stopped session cannot resta
 `RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
 
 Trailing audio is flushed before completion, concurrent stops converge, and a reset fault is
-reported without escaping.
+reported without escaping. `RecognitionSession_StopAsync_MoreResultsThanPerBlockLimit_DeliversAllFinalResults`
+verifies that results held by the backend beyond the per-block drain limit are still delivered at
+stop.
 
 ##### Session Lifecycle: Concurrent Start/Stop/Dispose Convergence
 
@@ -135,10 +137,12 @@ shared teardown.
 ##### Session Lifecycle: Fault Containment and Device Loss
 
 **Tests**: `RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer`,
+`RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException`,
 `RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice`
 
-A backend fault faults the session and completes the result buffer; disposal after device loss
-still tears down the backend and device.
+A backend fault is terminal by design: it faults the session and completes the result buffer.
+Stopping the faulted session does not throw the session-faulted exception, and disposal after
+device loss still tears down the backend and device.
 
 ##### Session Pipeline: Capture Format Conversion and Text Normalization
 

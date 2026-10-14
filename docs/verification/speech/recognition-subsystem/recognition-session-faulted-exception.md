@@ -15,10 +15,19 @@ so no downloaded model, native runtime, or audio hardware is needed. A consumer 
 #### Acceptance Criteria
 
 The unit is considered verified when a fault during `GetResultsAsync` enumeration surfaces to the
-consumer as `RecognitionSessionFaultedException` rather than being swallowed.
+consumer as `RecognitionSessionFaultedException`
+rather than being swallowed,
+and stopping a faulted session does not raise it.
 
 #### Test Scenarios
 
 ##### A session fault surfaces to the results consumer
 
 **Test**: `RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`
+
+##### Stopping a faulted session does not throw
+
+**Test**: `RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException`
+
+Verifies that the fault is reported only to a reader of the results: stopping a session that has
+already faulted completes without throwing the session-faulted exception.

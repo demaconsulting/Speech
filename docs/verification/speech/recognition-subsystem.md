@@ -176,10 +176,13 @@ device going unavailable mid-session transitions the session to `Faulted`.
 
 **Tests**: `RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
 `RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
-`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
+`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`,
+`RecognitionSession_StopAsync_MoreResultsThanPerBlockLimit_DeliversAllFinalResults`
 
-Verifies that `StopAsync` flushes trailing audio the backend had accepted but not yet decoded as
-one last final result before completing, that two concurrent `StopAsync` callers both complete
+Verifies that `StopAsync` first drains any results the per-block limit left in the backend (100
+final results scripted for one block are all delivered, in order), then flushes trailing audio the
+backend had accepted but not yet decoded as one last final result before completing, that two concurrent `StopAsync`
+callers both complete
 only once the session has actually stopped, and that a backend reset failure during `StopAsync` is
 reported rather than thrown while teardown still completes.
 
@@ -211,10 +214,12 @@ converges.
 #### Session Lifecycle: Fault Containment and Device Loss
 
 **Tests**: `RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer`,
+`RecognitionSession_StopAsync_AfterFault_DoesNotThrowFaultedException`,
 `RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice`
 
-Verifies that a backend exception from `AcceptSamples` faults the session and completes the
-result buffer, and that after a mid-session device loss `DisposeAsync` still tears down the
+Verifies that a backend exception from `AcceptSamples` is terminal by design - it faults the
+session and completes the result buffer - that stopping the faulted session afterward does not
+throw the session-faulted exception, and that after a mid-session device loss `DisposeAsync` still tears down the
 backend and the device.
 
 #### Session Pipeline: Synchronous Burst Not Dropped

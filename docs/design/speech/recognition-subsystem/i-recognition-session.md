@@ -12,8 +12,10 @@ or `Stopping`); see the subsystem-level design doc's state diagram. `StateChange
 a `SessionStateChangedEventArgs` carrying `Previous` and `Current`, for every transition. The
 adjacent `SpeechRecognitionResult` record carries the full recognized `Text` of the current
 utterance plus an `IsFinal` flag distinguishing a provisional hypothesis from a committed one;
-`Text` is never a delta, so a host can render it directly. The `SpeechRecognitionEvent` record
-wraps one result as the value yielded by `GetResultsAsync`, mirroring the AudioSubsystem's
+`Text` is never a delta, so a host can render it directly, and is never null (the record rejects
+null text with `ArgumentNullException`, including through a `with` copy). The `SpeechRecognitionEvent` record
+wraps one result as the value yielded by `GetResultsAsync` (a null result is rejected with
+`ArgumentNullException`), mirroring the AudioSubsystem's
 `AudioCaptureFrameEventArgs` pattern.
 
 **Key Methods**:
@@ -34,7 +36,9 @@ wraps one result as the value yielded by `GetResultsAsync`, mirroring the AudioS
   thrown and `StopAsync` still completes, but the trailing audio and/or the backend's clean state
   can no longer be guaranteed for that one call. Idempotent once stopped or faulted.
 - **GetResultsAsync(CancellationToken cancellationToken = default)**: Returns an
-  `IAsyncEnumerable<SpeechRecognitionEvent>` of ordered provisional and final results.
+  `IAsyncEnumerable<SpeechRecognitionEvent>` of results in the order they were produced. Final
+  results are always delivered; an unread provisional result may be replaced by a newer one
+  (provisional coalescing), so a slow consumer never stalls recognition.
   Single-consumer: throws `InvalidOperationException` if called again while a previous
   enumeration of the same session is still active. A session fault during enumeration surfaces as
   `RecognitionSessionFaultedException` thrown from the enumerator, never silently.
@@ -45,7 +49,8 @@ wraps one result as the value yielded by `GetResultsAsync`, mirroring the AudioS
 **Error Handling**: Real implementations and the unavailable fallback both use
 `SpeechRecognizerUnavailableException` when an operational call is invalid because no usable
 session is available or the capture device fails at first use or mid-session; such a fault also
-transitions `State` to `Faulted` and is wrapped in `RecognitionSessionFaultedException` for any
+transitions `State` to `Faulted` (a failure of the recognition backend itself is terminal for the
+session) and is wrapped in `RecognitionSessionFaultedException` for any
 active `GetResultsAsync` consumer. Starting more than once, or consuming `GetResultsAsync` from
 more than one concurrent caller, throws `InvalidOperationException`.
 

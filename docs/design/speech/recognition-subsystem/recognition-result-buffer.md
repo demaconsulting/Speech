@@ -21,8 +21,14 @@ await new data without polling.
 - **Fault(Exception)**: Records the cause and signals every current and future `ReadAllAsync`
   consumer to throw `RecognitionSessionFaultedException` wrapping it.
 
-**Error Handling**: None required; the buffer never drops a final result, and a provisional
-result is only replaced by a newer one.
+**Error Handling**: A null argument to `AddResult` or `Fault` throws `ArgumentNullException`. A
+result added after `Complete()` or `Fault(...)` is silently ignored, so a late write from the pump
+never throws. `Complete()` and `Fault(...)` never discard buffered results: `ReadAllAsync` first
+delivers everything already buffered (queued finals, then any unread provisional) and only then
+ends normally (completion) or throws `RecognitionSessionFaultedException` wrapping the cause
+(fault). Only the first fault cause is kept. Canceling the token passed to `ReadAllAsync`
+propagates `OperationCanceledException` to that reader only and leaves the buffer intact. The
+buffer never drops a final result, and a provisional result is only replaced by a newer one.
 
 **Dependencies**: `SpeechRecognitionEvent`, `RecognitionSessionFaultedException`.
 

@@ -16,8 +16,9 @@ fallback for anyone else.
 #### Acceptance Criteria
 
 The unit is considered verified when the shared instance reports `false` availability and
-`Created` state, throws `SpeechRecognizerUnavailableException` from `StartAsync` and the first
-`MoveNextAsync` of `GetResultsAsync`, treats `StopAsync` and repeated disposal as safe no-ops, and
+`Created` state, throws `SpeechRecognizerUnavailableException` from `StartAsync` and from the
+`GetResultsAsync` call itself (before any enumeration), treats repeated `StopAsync` calls and
+repeated disposal as safe no-ops, and
 the exception type exposes the message and inner exception supplied to each of its constructors.
 
 #### Test Scenarios
@@ -29,7 +30,7 @@ the exception type exposes the message and inner exception supplied to each of i
 `UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException`
 
 Verifies that the shared instance reports itself unavailable and that both starting and
-enumerating results fail with `SpeechRecognizerUnavailableException` rather than hanging or
+requesting results fail with `SpeechRecognizerUnavailableException` rather than hanging or
 silently yielding nothing.
 
 ##### UnavailableRecognitionSession: Safe No-Op Stop and Repeated Disposal
@@ -37,6 +38,6 @@ silently yielding nothing.
 **Tests**: `UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp`,
 `UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow`
 
-Verifies that stopping is a no-op and that disposing the shared instance twice, then re-reading it,
+Verifies that repeated stopping is a no-op and that disposing the shared instance twice, then re-reading it,
 leaves the fallback intact for every other holder. The RecognitionSubsystem-level scenario
 "Unavailable Fallback: Honest Degradation" covers the same tests alongside the engine fallback.

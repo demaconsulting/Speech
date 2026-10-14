@@ -40,7 +40,8 @@ abandon deadline cannot truncate a slow backend's final drain.
   observes this token while draining), awaits the pump task, completes the result buffer, resets
   the backend, then stops the capture device. Draining the pump does two things in order: first
   it processes every already-queued block through the backend as normal, then - as its last
-  action, still on the same pump thread - it flushes the backend (`TryFlush`), finalizing and
+  action, still on the same pump thread - it drains any results the per-block cap left behind and
+  flushes the backend (`TryFlush`), finalizing and
   delivering any trailing audio the backend had accepted but not yet decoded, for example the tail
   of an utterance released with no trailing silence, which a streaming backend cannot normally
   decode without more audio it will now never receive. Because of that flush, every result derived
@@ -70,18 +71,28 @@ abandon deadline cannot truncate a slow backend's final drain.
   needs casing/contraction/punctuation restoration (for example `SpeechSherpa`'s
   `UppercaseTranscriptRestorer`) surfaces
   readable text to every consumer instead of the backend's raw output; bounded at
-  `MaxResultsPerFrame` (32) results per block so a faulty backend cannot livelock the pump. As its
-  last action once the queue is drained and completed, flushes the backend (`TryFlush`) and
-  buffers the trailing final result the same way, before the queue-completion path returns.
+  `MaxResultsPerFrame` (32) results per block so a faulty backend cannot livelock the pump; any
+  results beyond that cap stay in the backend and are drained on the next block or at stop. As its
+  last action once the queue is drained and completed, drains the backend's remaining results
+  (`TryDecode`, bounded at `MaxResultsAtFinalDrain` (1024)), then flushes the backend (`TryFlush`)
+  and buffers the trailing final result the same way, before the queue-completion path returns.
 - **FaultSession(Exception)**: Transitions to `Faulted` from `Starting`/`Running`/`Stopping`,
   faults the result buffer with the cause (surfacing it to `GetResultsAsync` as
   `RecognitionSessionFaultedException`), and cancels the pump token.
 
-**Error Handling**: Every stage is contained. A failure enqueueing a block, converting it,
-running inference on it, or delivering a result is caught and reported through
-`ISpeechDiagnostics`, never rethrown - an exception escaping the frame handler would propagate
-into the native PortAudio callback and tear down the audio stream, and a single bad block must
-never end the session. A capture device that reported itself available but fails on `StartAsync`
+**Error Handling**: Every stage is contained: no failure escapes into the audio callback or the
+caller of `StartAsync`/`StopAsync`/`DisposeAsync`, because an exception escaping the frame
+handler would propagate into the native PortAudio callback and tear down the audio stream. A
+failure enqueueing a block, or delivering a result, is caught and reported through
+`ISpeechDiagnostics`, never rethrown, and the session continues. A failure of the recognition
+backend itself (`AcceptSamples`, `TryDecode`, or a block conversion that precedes them) is
+terminal by design: it is reported, the session transitions to `Faulted`, the result buffer is
+faulted (so readers receive `RecognitionSessionFaultedException` after any already-buffered
+results) and the pump stops, because a backend that has just thrown is in an undefined state and
+repeating the failure for every later block would only hide it. Teardown (reset, device stop, lease
+release) still runs on `StopAsync`/`DisposeAsync`, so the failure is surfaced as a faulted session
+rather than a hang, and the host recovers by creating a new session. A capture device that
+reported itself available but fails on `StartAsync`
 or goes unavailable mid-session is surfaced as `SpeechRecognizerUnavailableException` (with the
 device's exception as `InnerException` when applicable) and faults the session. A device
 reporting a non-positive rate or channel count falls back to a pass-through conversion with a
