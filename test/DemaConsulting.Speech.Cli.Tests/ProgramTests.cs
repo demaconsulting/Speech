@@ -102,13 +102,14 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder()
     {
-        // Arrange
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
             using var versionWriter = new StringWriter();
             Console.SetOut(versionWriter);
-            using var context = Context.Create(["--validate", "--help", "--version"]);
+            using var context = Context.Create(["--validate", "--help", "--version", "--models-dir", modelsDir]);
 
             // Act
             await Program.RunAsync(context);
@@ -122,6 +123,7 @@ public class ProgramTests
         finally
         {
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -132,13 +134,14 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_HelpValidateTogether_HelpTakesPriority()
     {
-        // Arrange
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
             using var helpWriter = new StringWriter();
             Console.SetOut(helpWriter);
-            using var context = Context.Create(["--validate", "--help"]);
+            using var context = Context.Create(["--validate", "--help", "--models-dir", modelsDir]);
 
             // Act
             await Program.RunAsync(context);
@@ -151,27 +154,50 @@ public class ProgramTests
         finally
         {
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
     /// <summary>
-    ///     Runs <c>--validate</c> in process and returns the printed output and exit code.
+    ///     Returns a unique, not-yet-created models directory path under the temp folder.
+    /// </summary>
+    /// <returns>The path of the isolated models directory.</returns>
+    private static string NewModelsDir() =>
+        Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    ///     Deletes a directory tree if it exists.
+    /// </summary>
+    /// <param name="path">The directory to delete.</param>
+    private static void DeleteDirectory(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Runs <c>--validate</c> in process against an isolated models directory and returns the
+    ///     printed output and exit code.
     /// </summary>
     /// <returns>The captured standard output and the context exit code.</returns>
     private static async Task<(string Output, int ExitCode)> RunValidateAsync()
     {
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
             using var outWriter = new StringWriter();
             Console.SetOut(outWriter);
-            using var context = Context.Create(["--validate"]);
+            using var context = Context.Create(["--validate", "--models-dir", modelsDir]);
             await Program.RunAsync(context);
             return (outWriter.ToString(), context.ExitCode);
         }
         finally
         {
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -250,13 +276,14 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithValidateFlag_RunsValidation()
     {
-        // Arrange: setup test conditions
+        // Arrange: an isolated models directory so the real per-user model store is never touched
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
             using var outWriter = new StringWriter();
             Console.SetOut(outWriter);
-            using var context = Context.Create(["--validate"]);
+            using var context = Context.Create(["--validate", "--models-dir", modelsDir]);
 
             // Act: execute the operation being tested
             await Program.RunAsync(context);
@@ -269,6 +296,7 @@ public class ProgramTests
         finally
         {
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -438,6 +466,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create a recognize context with no model option
         var originalError = Console.Error;
         try
         {
@@ -445,6 +474,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["recognize"]);
 
+            // Act / Assert: the dispatched command rejects the missing model
             await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
@@ -496,6 +526,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode()
     {
+        // Arrange: capture stdout and create a list-devices context
         var originalOut = Console.Out;
         try
         {
@@ -503,8 +534,10 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["list-devices"]);
 
+            // Act: dispatch the command
             await Program.RunAsync(context);
 
+            // Assert: the command completed successfully
             Assert.Equal(0, context.ExitCode);
         }
         finally
@@ -521,6 +554,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing()
     {
+        // Arrange: an isolated, empty models directory and captured stdout
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
         var originalOut = Console.Out;
@@ -530,8 +564,10 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["--models-dir", modelsDir, "doctor"]);
 
+            // Act: dispatch the command
             var exception = await Record.ExceptionAsync(() => Program.RunAsync(context));
 
+            // Assert: no exception and a report was written
             Assert.Null(exception);
             Assert.NotEqual(string.Empty, outWriter.ToString());
         }
@@ -554,6 +590,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create a speak context with no model option
         var originalError = Console.Error;
         try
         {
@@ -561,6 +598,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["speak"]);
 
+            // Act / Assert: the dispatched command rejects the missing model
             await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
@@ -578,6 +616,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException()
     {
+        // Arrange: capture stderr and create an ask context with no TTS model option
         var originalError = Console.Error;
         try
         {
@@ -585,6 +624,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["ask"]);
 
+            // Act / Assert: the dispatched command rejects the missing model
             await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
@@ -685,6 +725,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_Help_DocumentsVoicesOptionsAndConsentNote()
     {
+        // Arrange: capture stdout and create a help context
         var originalOut = Console.Out;
         try
         {
@@ -692,8 +733,10 @@ public class ProgramTests
             Console.SetOut(writer);
             using var context = Context.Create(["--help"]);
 
+            // Act: display the help text
             await Program.RunAsync(context);
 
+            // Assert: the voice options, commands, selection syntax and consent note are documented
             var output = writer.ToString();
             Assert.Contains("--voices-dir", output);
             Assert.Contains("list-voices", output);
@@ -715,7 +758,11 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_WithNullContext_ThrowsArgumentNullException()
     {
-        await Assert.ThrowsAsync<ArgumentNullException>(() => Program.RunAsync(null!));
+        // Arrange: a null context
+        Context context = null!;
+
+        // Act / Assert: the returned task faults with an argument-null exception
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Program.RunAsync(context));
     }
 
     /// <summary>
@@ -730,6 +777,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_Help_DocumentsMirrorEnvironmentVariables()
     {
+        // Arrange: capture stdout and create a help context with an empty fake environment
         var originalOut = Console.Out;
         try
         {
@@ -737,8 +785,10 @@ public class ProgramTests
             Console.SetOut(writer);
             using var context = Context.Create(["--help"], FakeEnvironment());
 
+            // Act: display the help text
             await Program.RunAsync(context);
 
+            // Assert: every mirror environment variable name is listed
             var output = writer.ToString();
             Assert.Contains("DEMASPEECH_MIRROR_URL", output);
             Assert.Contains("DEMASPEECH_MIRROR_USER", output);
@@ -757,6 +807,7 @@ public class ProgramTests
     [Fact]
     public async Task Program_Run_Help_DoesNotPrintEnvironmentSecretValues()
     {
+        // Arrange: capture stdout and create a help context whose environment holds a secret token
         var originalOut = Console.Out;
         try
         {
@@ -768,8 +819,10 @@ public class ProgramTests
                     ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
                     ("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value")));
 
+            // Act: display the help text
             await Program.RunAsync(context);
 
+            // Assert: the secret value never appears in the output
             Assert.DoesNotContain("super-secret-value", writer.ToString());
         }
         finally
@@ -785,8 +838,9 @@ public class ProgramTests
     [Fact]
     public async Task Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode()
     {
-        // Arrange
+        // Arrange: an unsupported results file path and an isolated models directory
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.txt");
+        var modelsDir = NewModelsDir();
         var originalError = Console.Error;
         var originalOut = Console.Out;
         try
@@ -797,7 +851,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = await Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
 
             // Assert
             Assert.Equal(1, result);
@@ -809,6 +863,7 @@ public class ProgramTests
             Console.SetError(originalError);
             Console.SetOut(originalOut);
             File.Delete(resultsFile);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -819,8 +874,9 @@ public class ProgramTests
     [Fact]
     public async Task Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode()
     {
-        // Arrange: the parent directory does not exist, so the write fails
+        // Arrange: the parent directory does not exist, so the write fails; isolated models directory
         var resultsFile = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "results.trx");
+        var modelsDir = NewModelsDir();
         var originalError = Console.Error;
         var originalOut = Console.Out;
         try
@@ -831,7 +887,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = await Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
 
             // Assert
             Assert.Equal(1, result);
@@ -841,6 +897,7 @@ public class ProgramTests
         {
             Console.SetError(originalError);
             Console.SetOut(originalOut);
+            DeleteDirectory(modelsDir);
         }
     }
 
@@ -850,8 +907,9 @@ public class ProgramTests
     [Fact]
     public async Task Program_Main_ValidateWithXmlResults_WritesJUnitFile()
     {
-        // Arrange
+        // Arrange: an XML results file path and an isolated models directory
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.xml");
+        var modelsDir = NewModelsDir();
         var originalOut = Console.Out;
         try
         {
@@ -859,17 +917,23 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = await Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--models-dir", modelsDir, "--results", resultsFile]);
 
-            // Assert
+            // Assert: the file parses as JUnit XML and holds one passing test case per self-validation check
             Assert.Equal(0, result);
             Assert.True(File.Exists(resultsFile), "Results file was not created");
-            Assert.Contains("<testsuite", await File.ReadAllTextAsync(resultsFile, TestContext.Current.CancellationToken));
+            var document = System.Xml.Linq.XDocument.Load(resultsFile);
+            Assert.NotNull(document.Root);
+            var testCases = document.Descendants("testcase").ToList();
+            Assert.Equal(5, testCases.Count);
+            Assert.Contains(testCases, c => (string?)c.Attribute("name") == "SpeechCli_VersionDisplay");
+            Assert.DoesNotContain(testCases, c => c.Element("failure") != null || c.Element("error") != null);
         }
         finally
         {
             Console.SetOut(originalOut);
             File.Delete(resultsFile);
+            DeleteDirectory(modelsDir);
         }
     }
 }

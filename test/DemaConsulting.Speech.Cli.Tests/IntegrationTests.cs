@@ -130,18 +130,34 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateFlag_Provided_RunsValidation()
     {
-        // Act: run the tool with validate flag
-        var exitCode = Runner.Run(
-            out var output,
-            "dotnet",
-            _dllPath,
-            "--validate");
+        // Arrange: an isolated, empty model store so self-validation does not depend on ambient state
+        var modelsDir = CreateTempModelsDir();
 
-        // Assert: validation summary is present; exit code is success (no failed self-tests)
-        Assert.Equal(0, exitCode);
-        Assert.Contains("Total Tests:", output);
-        Assert.Contains("Passed:", output);
-        Assert.Contains("Failed: 0", output);
+        try
+        {
+            // Act: run the tool with validate flag
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--validate",
+                "--models-dir",
+                modelsDir);
+
+            // Assert: validation summary is present; exit code is success (no failed self-tests)
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Total Tests:", output);
+            Assert.Contains("Passed:", output);
+            Assert.Contains("Failed: 0", output);
+            Assert.Contains("SpeechCli_ModelStoreRootWritable - Passed", output);
+        }
+        finally
+        {
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
+            }
+        }
     }
 
     /// <summary>
@@ -150,8 +166,9 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile()
     {
-        // Arrange: temporary TRX results file path
+        // Arrange: temporary TRX results file path and an isolated, empty model store
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_integration_test_{Guid.NewGuid()}.trx");
+        var modelsDir = CreateTempModelsDir();
 
         try
         {
@@ -161,22 +178,38 @@ public class IntegrationTests
                 "dotnet",
                 _dllPath,
                 "--validate",
+                "--models-dir",
+                modelsDir,
                 "--results",
                 resultsFile);
 
-            // Assert: results file is created with valid TRX structure
+            // Assert: results file is created and parses as TRX XML holding the self-validation results
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(resultsFile), "Results file was not created");
 
-            var trxContent = File.ReadAllText(resultsFile);
-            Assert.Contains("<TestRun", trxContent);
-            Assert.Contains("</TestRun>", trxContent);
+            var document = System.Xml.Linq.XDocument.Load(resultsFile);
+            Assert.NotNull(document.Root);
+            Assert.Equal("TestRun", document.Root.Name.LocalName);
+            var resultNames = document.Descendants()
+                .Where(e => e.Name.LocalName == "UnitTestResult")
+                .Select(e => (string?)e.Attribute("testName"))
+                .ToList();
+            Assert.Contains("SpeechCli_VersionDisplay", resultNames);
+            Assert.Equal(5, resultNames.Count);
+            Assert.All(
+                document.Descendants().Where(e => e.Name.LocalName == "UnitTestResult"),
+                e => Assert.Equal("Passed", (string?)e.Attribute("outcome")));
         }
         finally
         {
             if (File.Exists(resultsFile))
             {
                 File.Delete(resultsFile);
+            }
+
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
             }
         }
     }
@@ -1279,17 +1312,32 @@ public class IntegrationTests
     [Fact]
     public void SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel()
     {
-        // Act: run validation with heading depth 3
-        var exitCode = Runner.Run(
-            out var output,
-            "dotnet",
-            _dllPath,
-            "--validate",
-            "--depth",
-            "3");
+        // Arrange: an isolated, empty model store
+        var modelsDir = CreateTempModelsDir();
 
-        // Assert: output contains level-3 markdown headings
-        Assert.Equal(0, exitCode);
-        Assert.Contains("###", output);
+        try
+        {
+            // Act: run validation with heading depth 3
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--validate",
+                "--models-dir",
+                modelsDir,
+                "--depth",
+                "3");
+
+            // Assert: output contains level-3 markdown headings
+            Assert.Equal(0, exitCode);
+            Assert.Contains("###", output);
+        }
+        finally
+        {
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
+            }
+        }
     }
 }
