@@ -11,6 +11,7 @@ package SpeechOnnxChatterboxTurbo {
     part def SpeechOnnxChatterboxTurboSystem {
         doc /* The SpeechOnnxChatterboxTurbo library as a whole. */
 
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SpeechOnnxChatterboxTurboTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-chatterboxturbo.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-chatterboxturbo.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-chatterboxturbo.yaml */
