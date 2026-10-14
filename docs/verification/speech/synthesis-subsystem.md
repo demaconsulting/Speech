@@ -211,6 +211,14 @@ ordered tag and literal spans rather than merging or losing either.
 `DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText`,
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter`,
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride`,
+`DefaultModelCapabilityProfile_Render_ParameterMappedTagMidText_OverridesOnlyFollowingText`,
+`DefaultModelCapabilityProfile_Render_ConsecutiveParameterMappedTags_BothApplyToFollowingText`,
+`SpeechPlan_Constructor_NullSegments_ThrowsArgumentNullException`,
+`SpeechPlan_Constructor_NullSegmentElement_ThrowsArgumentException`,
+`SpeechPlan_Constructor_CallerListChangedLater_PlanIsUnaffected`,
+`SpeechSegment_Constructor_NullText_ThrowsArgumentNullException`,
+`SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException`,
+`SpeechSegment_Constructor_EmptyTextAndZeroSilence_IsAccepted`,
 `DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags`,
 `DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords`,
 `DefaultModelCapabilityProfile_Render_NativeSupport_MoodTag_PassesCanonicalText`,
@@ -222,7 +230,11 @@ ordered tag and literal spans rather than merging or losing either.
 Verifies that pauses always render as silence regardless of declared support, that native
 support passes tags through unchanged, that parameter-mapped support maps the tags with a
 built-in numeric convention and strips every other tag, that no support strips every non-pause
-tag, that plain text is split into chunked segments, and that null arguments are rejected. Also
+tag, that plain text is split into chunked segments, and that null arguments are rejected. A
+parameter-mapped tag in the middle of narration (`Hello [fast] world.`) is verified to put the
+override only on the segment spoken after the tag, and consecutive tags both apply to the text
+that follows them. A speech plan or segment is verified to reject missing content, reject a
+negative silence, and keep its own copy of the segment list. Also
 verifies that a chunk whose text ends in a genuine ellipsis (adjacent or whitespace-spaced)
 renders a longer post-chunk silence (`EllipsisPauseMilliseconds`) than an ordinary
 single-terminator sentence end, while every other chunk boundary still adds zero silence.
@@ -368,6 +380,7 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 **Tests**: `SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
 `SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
 `SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted`,
+`SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed`,
 `SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`,
 `SynthesisSession_IsAvailable_AfterFault_ReturnsFalse`,
 `SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`
@@ -378,7 +391,8 @@ faulting operation raises `Created → Starting → Running → Faulted` directl
 `Stopping`); that a subscriber's handler exception
 is caught and routed to diagnostics rather than propagated or destabilizing the session; that a
 handler blocking while another thread reads `State` does not deadlock (handlers never run under
-the session lock); and that
+the session lock); that
+disposal reports `Disposing` and then the terminal `Disposed`; and that
 `IsAvailable` reports false once the session is disposed or faulted.
 
 #### Session: Overlap Rule - No Concurrent Operations
@@ -462,13 +476,14 @@ stopped.
 **Tests**: `SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns`,
 `SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
 `SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
+`SynthesisSession_SpeakAsync_AfterDispose_ThrowsObjectDisposedException`,
 `SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
 
 Verifies that `StopAsync` cancels an in-flight operation and does not complete until the
 in-flight `DedicatedWorker`-routed `Generate` call has genuinely returned (never orphaning it); is
 a safe no-op when no operation is in flight; releases the engine's exclusivity lease exactly once
-across repeated `DisposeAsync` calls; and that operating on a disposed session throws
-`ObjectDisposedException`.
+across repeated `DisposeAsync` calls; and that both `SpeakAsync` and `SynthesizeAsync` on a disposed
+session throw `ObjectDisposedException`.
 
 #### Session: Abandoned Native Calls Fault the Session
 

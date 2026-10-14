@@ -35,17 +35,24 @@ sections:
           - id: Speech-Synthesis-ClosedVocabularyAliasCanonicalization
             title: >-
               The SynthesisSubsystem shall map every documented synonym of a tag onto exactly one
-              canonical tag, with no synonym shared by two different tags.
+              canonical tag.
             justification: |
               Collapsing synonyms onto one canonical value keeps Layer 2 rendering independent of
-              how a tag was spelled, and an ambiguous synonym would make the rendered result
-              unpredictable.
+              how a tag was spelled.
             children:
               - Speech-Synthesis-AudioTagParser-AliasRoundTrip
+            tests:
+              - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
+
+          - id: Speech-Synthesis-ClosedVocabularyAliasUniqueness
+            title: >-
+              The SynthesisSubsystem shall never let one synonym name two different tags.
+            justification: |
+              An ambiguous synonym would make the rendered result unpredictable.
+            children:
               - Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
             tests:
               - AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags
-              - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
 
           - id: Speech-Synthesis-ClosedVocabularyKindGrouping
             title: >-
@@ -172,26 +179,37 @@ sections:
               approximation of pace and volume intent.
             children:
               - Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
+              - Speech-Synthesis-Layer2Rendering-ParameterMappedAppliesToFollowingTextOnly
             tests:
               - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
+              - DefaultModelCapabilityProfile_Render_ParameterMappedTagMidText_OverridesOnlyFollowingText
 
           - id: Speech-Synthesis-Layer2RenderingPause
             title: >-
-              The SynthesisSubsystem shall render a pause tag, and the end of a sentence that
-              trails off in an ellipsis, as real timed silence regardless of the selected
-              model's declared audio-tag support.
+              The SynthesisSubsystem shall render a pause tag as real timed silence regardless of
+              the selected model's declared audio-tag support.
             justification: |
               Pauses require no model cooperation, so every installed model - however limited
-              its audio-tag support - honors a pause identically and a trailing-off sentence
-              reads naturally.
+              its audio-tag support - honors a pause identically.
             children:
               - Speech-Synthesis-Layer2Rendering-PauseAlwaysSilence
+            tests:
+              - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
+
+          - id: Speech-Synthesis-Layer2RenderingEllipsisPause
+            title: >-
+              The SynthesisSubsystem shall render the end of a sentence that trails off in an
+              ellipsis as real timed silence regardless of the selected model's declared
+              audio-tag support.
+            justification: |
+              A trailing-off sentence reads naturally only when followed by a pause, and the
+              pause must be distinct from, and longer than, an ordinary sentence boundary.
+            children:
               - Speech-Synthesis-Layer2Rendering-EllipsisPause
               - Speech-Synthesis-Layer2Rendering-EllipsisPauseDuration
               - Speech-Synthesis-Layer2Rendering-EllipsisPauseDistinctFromTagPause
               - Speech-Synthesis-Layer2Rendering-NoPauseAtOrdinaryBoundary
             tests:
-              - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
               - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
 
           - id: Speech-Synthesis-Layer2RenderingStrip
@@ -208,15 +226,32 @@ sections:
               - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
               - DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords
 
+          - id: Speech-Synthesis-Layer2RenderingPlanValidity
+            title: >-
+              The SynthesisSubsystem shall refuse to create a speech plan or speech segment with
+              missing content or a negative silence duration.
+            justification: |
+              Plans are produced by host-supplied rendering strategies as well as the built-in
+              one, and the synthesis pipeline relies on every plan being well formed; rejecting a
+              malformed one at creation surfaces the defect at its source.
+            children:
+              - Speech-Synthesis-Layer2Rendering-PlanRejectsMissingSegments
+              - Speech-Synthesis-Layer2Rendering-PlanIsolatedFromCallerList
+              - Speech-Synthesis-Layer2Rendering-SegmentRejectsMissingText
+              - Speech-Synthesis-Layer2Rendering-SegmentRejectsNegativeSilence
+            tests:
+              - SpeechPlan_Constructor_NullSegments_ThrowsArgumentNullException
+              - SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException
+
           - id: Speech-Synthesis-MockableContract
             title: >-
-              The SynthesisSubsystem shall let a host obtain and use a text-to-speech engine and
-              session that it can substitute with a test double, so that host playback handling
-              can be tested with no model, speakers, or native runtime present.
+              The SynthesisSubsystem shall let a host obtain a text-to-speech engine and session,
+              and stop and release them safely, when no model, speakers, or native runtime is
+              present.
             justification: |
               This library's "engine backend stays swappable at the public API surface"
               decision requires that a future backend can replace the current one without a
-              breaking API change, and hosts must be able to test their playback handling
+              breaking API change, and hosts must be able to exercise their playback handling
               against the contract with no model, speakers, or native runtime present.
             children:
               - Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableCreateSessionSucceeds
@@ -251,7 +286,10 @@ sections:
               must surface loudly rather than silently doing nothing.
             children:
               - Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
+              - Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableSynthesizeThrows
               - Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
+              - Speech-Synthesis-ISynthesisSession-UnavailableSynthesizeThrows
+              - Speech-Synthesis-ISynthesisSession-UnavailableNullTextRejected
             tests:
               - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
               - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
@@ -285,19 +323,40 @@ sections:
 
           - id: Speech-Synthesis-MockableSynthesisStreaming
             title: >-
-              The SynthesisSubsystem shall let a host synthesize a text into audio segments and
-              play those segments through a session's bound playback device, and reuse the same
-              session for many non-overlapping operations.
+              The SynthesisSubsystem shall let a host synthesize a text into ordered audio
+              segments through a session without playing them.
+            justification: |
+              A host that needs the audio itself, rather than playback, must be able to obtain
+              it through the same session.
+            children:
+              - Speech-Synthesis-ISpeechSynthesizerEngine-SynthesizedSpeechShape
+              - Speech-Synthesis-ISynthesisSession-StreamingContract
+            tests:
+              - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+          - id: Speech-Synthesis-MockableSynthesisPlayback
+            title: >-
+              The SynthesisSubsystem shall let a host speak a text through a session's bound
+              playback device.
+            justification: |
+              Speaking is the primary use of a session; it must reach the one device the session
+              was bound to.
+            children:
+              - Speech-Synthesis-ISynthesisSession-StreamingContractSpeak
+            tests:
+              - SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
+
+          - id: Speech-Synthesis-MockableSynthesisSessionReuse
+            title: >-
+              The SynthesisSubsystem shall let a host reuse the same session for many
+              non-overlapping operations.
             justification: |
               Obtaining an engine is the expensive step while a bound session is cheap to
               reuse; a host doing repeated, low-latency synthesis must not rebuild the session
               between turns.
             children:
-              - Speech-Synthesis-ISpeechSynthesizerEngine-SynthesizedSpeechShape
-              - Speech-Synthesis-ISynthesisSession-StreamingContract
               - Speech-Synthesis-ISynthesisSession-HotReuseAcrossTurns
             tests:
-              - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
               - SynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction
 
           - id: Speech-Synthesis-MockableSynthesisSessionDisposal
@@ -358,15 +417,25 @@ sections:
           - id: Speech-Synthesis-EngineDisposalOrdering
             title: >-
               The SynthesisSubsystem shall dispose an active leased session before disposing the
-              engine itself, and dispose the engine's backend exactly once.
+              engine itself.
             justification: |
               Disposing the active session first guarantees no in-flight native call outlives
               the engine that owns its backend.
             children:
               - Speech-Synthesis-SpeechSynthesizerEngine-DisposalOrdering
-              - Speech-Synthesis-SpeechSynthesizerEngine-BackendDisposedOnce
             tests:
               - SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
+
+          - id: Speech-Synthesis-EngineBackendDisposedOnce
+            title: >-
+              The SynthesisSubsystem shall dispose an engine's backend exactly once, however many
+              times the engine is disposed.
+            justification: |
+              Releasing native resources twice is undefined behavior, and a host cannot know
+              whether another owner has already disposed the engine.
+            children:
+              - Speech-Synthesis-SpeechSynthesizerEngine-BackendDisposedOnce
+            tests:
               - SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
 
           - id: Speech-Synthesis-Composition
@@ -565,6 +634,7 @@ sections:
               - Speech-Synthesis-SynthesisSession-StateChangedHandlerIsolation
               - Speech-Synthesis-ISynthesisSession-StateMachine
               - Speech-Synthesis-ISynthesisSession-StateMachineStates
+              - Speech-Synthesis-ISynthesisSession-StateMachineDisposalTransition
               - Speech-Synthesis-ISynthesisSession-StateMachineOperationScope
               - Speech-Synthesis-ISynthesisSession-StateMachineTransitionOrder
               - Speech-Synthesis-ISynthesisSession-StateMachineFaultTransition
@@ -590,16 +660,26 @@ sections:
           - id: Speech-Synthesis-FaultContainment
             title: >-
               The SynthesisSubsystem shall contain and report a fault raised while synthesizing
-              or playing speech, without crashing the process.
+              speech, without crashing the process.
             justification: |
-              A model that fails mid-utterance or a dropped playback device is an ordinary event
-              during a synthesis operation and must never tear down the process, per this
-              library's fault-containment requirements.
+              A model that fails mid-utterance is an ordinary event during a synthesis operation
+              and must never tear down the process, per this library's fault-containment
+              requirements.
             children:
               - Speech-Synthesis-SynthesisSession-FaultContainment
-              - Speech-Synthesis-SynthesisSession-PlaybackDeviceUnavailableContainment
             tests:
               - SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
+
+          - id: Speech-Synthesis-FaultContainmentPlaybackDevice
+            title: >-
+              The SynthesisSubsystem shall contain a playback device failure raised while
+              speaking, without crashing the process, and still stop the device.
+            justification: |
+              A dropped playback device is an ordinary event during a speak operation and must
+              never tear down the process or leave the device running.
+            children:
+              - Speech-Synthesis-SynthesisSession-PlaybackDeviceUnavailableContainment
+            tests:
               - SynthesisSession_SpeakAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice
 
           - id: Speech-Synthesis-FaultContainmentBoundedCompletion
@@ -659,31 +739,56 @@ sections:
               - Speech-Synthesis-SynthesisSession-DisposedStateReporting
               - Speech-Synthesis-SynthesisSession-DisposedReportsUnavailable
               - Speech-Synthesis-SynthesisSession-FaultedReportsUnavailable
+              - Speech-Synthesis-ISynthesisSession-DisposedOperationsThrow
             tests:
               - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
               - SynthesisSession_IsAvailable_AfterFault_ReturnsFalse
 
           - id: Speech-Synthesis-DeterministicCancellation
             title: >-
-              The SynthesisSubsystem shall support deterministic cancellation of an in-flight
-              speak operation, completing the cancellation only after the operation's native
-              call has actually returned or been abandoned.
+              The SynthesisSubsystem shall complete a cancellation of an in-flight speak
+              operation only after the operation's native call has actually returned or been
+              abandoned.
             justification: |
               A user interrupting speech (barge-in) is an ordinary event and the caller must get
               control back deterministically, without the stop completing while a native call is
               still running.
             children:
+              - Speech-Synthesis-SynthesisSession-StopWaitsForNativeCompletion
+              - Speech-Synthesis-SynthesisSession-DeviceStopDeferredUntilStartReturns
+            tests:
+              - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+              - SynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns
+
+          - id: Speech-Synthesis-CancellationStopsOperation
+            title: >-
+              The SynthesisSubsystem shall end an in-flight speak operation in the stopped state,
+              not a fault, when a host requests cancellation, and treat a request with nothing in
+              flight as a no-op.
+            justification: |
+              A caller-requested stop is an ordinary, successful outcome that must leave the
+              session ready for the next call.
+            children:
               - Speech-Synthesis-SynthesisSession-StopCancelsOperation
               - Speech-Synthesis-SynthesisSession-StopUnwindsToStopped
               - Speech-Synthesis-SynthesisSession-StopWhenIdle
-              - Speech-Synthesis-SynthesisSession-StopWaitsForNativeCompletion
-              - Speech-Synthesis-SynthesisSession-DeviceStopDeferredUntilStartReturns
-              - Speech-Synthesis-SynthesisSession-StopCallerTokenBoundsWaitOnly
-              - Speech-Synthesis-SynthesisSession-StopCallerTokenDoesNotAbortTeardown
               - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
             tests:
-              - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+              - SynthesisSession_StopAsync_CallerTokenPreCanceled_OperationStillCanceledAndAwaited
+              - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
               - DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly
+
+          - id: Speech-Synthesis-CancellationCallerTokenScope
+            title: >-
+              The SynthesisSubsystem shall let a caller's own cancellation token bound only that
+              caller's wait for a stop, never the operation's teardown.
+            justification: |
+              Abandoning the wait must not leave the operation half torn down.
+            children:
+              - Speech-Synthesis-SynthesisSession-StopCallerTokenBoundsWaitOnly
+              - Speech-Synthesis-SynthesisSession-StopCallerTokenDoesNotAbortTeardown
+            tests:
+              - SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops
 
           - id: Speech-Synthesis-NonCooperativeCallAbandonment
             title: >-
@@ -741,15 +846,28 @@ sections:
           - id: Speech-Synthesis-UnavailableFallbackOperationsThrow
             title: >-
               The SynthesisSubsystem shall throw a documented exception only when an operational
-              member of an unavailable engine or session is actually invoked.
+              member of an unavailable engine is actually invoked.
             justification: |
-              Only misuse of an already unavailable engine or session is a programming error
-              that should surface as an exception.
+              Only misuse of an already unavailable engine is a programming error that should
+              surface as an exception.
             children:
               - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-OperationsThrow
-              - Speech-Synthesis-UnavailableSynthesisSession-OperationsThrow
-              - Speech-Synthesis-UnavailableSynthesisSession-NullTextRejection
+              - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-SynthesizeThrows
               - Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
             tests:
               - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+          - id: Speech-Synthesis-UnavailableSessionOperationsThrow
+            title: >-
+              The SynthesisSubsystem shall throw a documented exception only when an operational
+              member of an unavailable session is actually invoked.
+            justification: |
+              Only misuse of an already unavailable session is a programming error that should
+              surface as an exception.
+            children:
+              - Speech-Synthesis-UnavailableSynthesisSession-OperationsThrow
+              - Speech-Synthesis-UnavailableSynthesisSession-NullTextRejection
+            tests:
               - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException

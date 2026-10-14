@@ -63,16 +63,23 @@ sections:
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
                 title: >-
-                  Every operational member of the ISpeechSynthesizerEngine contract
-                  (SpeakAsync, SynthesizeAsync) shall throw a documented exception when invoked
-                  on an unavailable engine.
+                  An unavailable text-to-speech engine contract shall fail a request to speak text
+                  with a documented unavailability error.
                 justification: |
-                  Hosts must be able to test their playback logic against the contract with no
-                  model, no speakers, and no native runtime present, so an unavailable engine's
-                  one-shot operational members must fail loudly and consistently rather than
-                  silently doing nothing.
+                  Hosts must be able to exercise their playback logic with no model, no speakers,
+                  and no native runtime present, so an unavailable engine must fail loudly and
+                  consistently rather than silently doing nothing.
                 tests:
                   - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableSynthesizeThrows
+                title: >-
+                  An unavailable text-to-speech engine contract shall fail a request to synthesize
+                  text with a documented unavailability error.
+                justification: |
+                  A host that ignores the availability flag must be told the request cannot be
+                  honored instead of receiving an empty result it might mistake for silence.
+                tests:
                   - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableCreateSessionSucceeds

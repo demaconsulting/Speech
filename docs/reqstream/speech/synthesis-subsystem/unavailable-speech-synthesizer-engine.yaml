@@ -53,15 +53,24 @@ sections:
 
               - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-OperationsThrow
                 title: >-
-                  The UnavailableSpeechSynthesizerEngine class shall throw
-                  SpeechSynthesizerUnavailableException when SpeakAsync or SynthesizeAsync is
-                  invoked.
+                  An unavailable text-to-speech engine shall fail a request to speak text with a
+                  documented unavailability error.
                 justification: |
-                  A caller that ignores the IsAvailable flag and invokes a one-shot operational
-                  member has made a programming error that must surface immediately rather than
-                  silently speaking nothing.
+                  A caller that ignores the availability flag and asks the engine to speak has made
+                  a programming error that must surface immediately rather than silently speaking
+                  nothing.
                 tests:
                   - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-SynthesizeThrows
+                title: >-
+                  An unavailable text-to-speech engine shall fail a request to produce audio
+                  without playback with a documented unavailability error.
+                justification: |
+                  A caller that ignores the availability flag and asks the engine for audio has made
+                  a programming error that must surface immediately rather than silently returning
+                  no audio.
+                tests:
                   - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
 
               - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-SafeDispose
