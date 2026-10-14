@@ -38,8 +38,11 @@ public class ContextTests
     [Fact]
     public void Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption()
     {
-        // Act: parse a command line with the subcommand first, then a global option
-        using var context = Context.Create(["list-models", "--models-dir", "/tmp/models", "--format", "json"]);
+        // Arrange: a command line with the subcommand first, then a global option
+        string[] args = ["list-models", "--models-dir", "/tmp/models", "--format", "json"];
+
+        // Act: parse the command line
+        using var context = Context.Create(args);
 
         // Assert: the global option is resolved onto the context, not left in CommandArgs
         Assert.Equal("list-models", context.Command);
@@ -73,15 +76,29 @@ public class ContextTests
     }
 
     /// <summary>
-    ///     Test that a <c>--voices-dir</c> naming a missing directory, or lacking a value, is rejected.
+    ///     Test that a <c>--voices-dir</c> naming a missing directory is rejected.
     /// </summary>
     [Fact]
-    public void Context_Create_WithBadVoicesDir_ThrowsArgumentException()
+    public void Context_Create_WithMissingVoicesDir_ThrowsArgumentException()
     {
+        // Arrange: a directory path that does not exist
         var missing = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
 
+        // Act and Assert: creating the context rejects the missing directory
         Assert.Throws<ArgumentException>(() => Context.Create(["list-voices", "--voices-dir", missing]));
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-voices", "--voices-dir"]));
+    }
+
+    /// <summary>
+    ///     Test that a <c>--voices-dir</c> lacking a value is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_VoicesDirWithoutValue_ThrowsArgumentException()
+    {
+        // Arrange: a command line whose last option has no value
+        string[] args = ["list-voices", "--voices-dir"];
+
+        // Act and Assert: creating the context rejects the missing value
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -91,15 +108,19 @@ public class ContextTests
     [Fact]
     public void Context_Create_WithMirrorOptions_ParsesOntoContext()
     {
-        // Act
-        using var context = Context.Create([
+        // Arrange: mirror options following the subcommand
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret"
-        ]);
+        ];
 
-        // Assert
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: the three values are recorded and no bearer token is set
         Assert.Equal("https://mirror.example.com", context.MirrorUrl);
         Assert.Equal("alice", context.MirrorUser);
         Assert.Equal("secret", context.MirrorPassword);
@@ -113,11 +134,14 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_NoMirrorUrl_ReturnsNull()
     {
-        // Act
+        // Arrange: a context with no mirror settings
         using var context = Context.Create(["list-models"]);
 
-        // Assert
-        Assert.Null(context.CreateMirror());
+        // Act: create the mirror
+        var mirror = context.CreateMirror();
+
+        // Assert: no mirror is configured
+        Assert.Null(mirror);
     }
 
     /// <summary>
@@ -128,16 +152,18 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror()
     {
-        // Act
+        // Arrange: a valid mirror URL with a user and password
         using var context = Context.Create([
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret"
         ]);
+
+        // Act: create the mirror
         var mirror = context.CreateMirror();
 
-        // Assert
+        // Assert: the mirror carries the base URI and Basic credentials only
         Assert.NotNull(mirror);
         Assert.Equal(new Uri("https://mirror.example.com"), mirror.BaseUri);
         Assert.Equal("alice", mirror.Credentials?.UserName);
@@ -152,15 +178,17 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror()
     {
-        // Act
+        // Arrange: a valid mirror URL with a bearer token only
         using var context = Context.Create([
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-bearer-token", "token-value"
         ]);
+
+        // Act: create the mirror
         var mirror = context.CreateMirror();
 
-        // Assert
+        // Assert: the mirror carries the token and no Basic credentials
         Assert.NotNull(mirror);
         Assert.Null(mirror.Credentials);
         Assert.Equal("token-value", mirror.BearerToken);
@@ -173,8 +201,11 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException()
     {
+        // Arrange: a mirror URL that is not an absolute URL
+        string[] args = ["list-models", "--mirror-url", "not a url"];
+
         // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", "not a url"]));
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -184,12 +215,16 @@ public class ContextTests
     [Theory]
     [InlineData("https://mirror.example.com/base?token=abc")]
     [InlineData("https://mirror.example.com/base#fragment")]
+    [InlineData("https://user@mirror.example.com/base")]
     [InlineData("https://user:secret@mirror.example.com/base")]
     [InlineData("ftp://mirror.example.com/base")]
     public void Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException(string mirrorUrl)
     {
+        // Arrange: a mirror URL of an unsupported shape
+        string[] args = ["list-models", "--mirror-url", mirrorUrl];
+
         // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", mirrorUrl]));
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -198,43 +233,77 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException()
     {
-        // Act and Assert
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Arrange: a valid mirror URL with a whitespace-only bearer token
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-bearer-token", "   "
-        ]));
+        ];
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
-    ///     Test that <see cref="Context.CreateMirror"/> rejects either credential form combined
-    ///     with a plain <c>http</c> mirror on a non-loopback host, since the credential would be
-    ///     sent in cleartext, but accepts the same combination on a loopback host.
+    ///     Test that <see cref="Context.CreateMirror"/> rejects Basic credentials combined with a
+    ///     plain <c>http</c> mirror on a non-loopback host, since the credential would be sent in
+    ///     cleartext.
     /// </summary>
     [Fact]
-    public void Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback()
+    public void Context_CreateMirror_BasicCredentialsOverPlainHttp_ThrowsArgumentException()
     {
-        // Act and Assert: non-loopback host, Basic credentials and bearer token
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Arrange: Basic credentials with a non-loopback http mirror
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "http://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret"
-        ]));
+        ];
 
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a bearer token combined with a
+    ///     plain <c>http</c> mirror on a non-loopback host, since the token would be sent in cleartext.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BearerTokenOverPlainHttp_ThrowsArgumentException()
+    {
+        // Arrange: a bearer token with a non-loopback http mirror
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "http://mirror.example.com",
             "--mirror-bearer-token", "token-value"
-        ]));
+        ];
 
-        // Loopback host is accepted
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> accepts a credential combined with a plain
+    ///     <c>http</c> mirror on a loopback host.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror()
+    {
+        // Arrange: a bearer token with a loopback http mirror
         using var loopback = Context.Create([
             "list-models",
             "--mirror-url", "http://localhost:8080",
             "--mirror-bearer-token", "token-value"
         ]);
-        Assert.NotNull(loopback.CreateMirror());
+
+        // Act: create the mirror
+        var mirror = loopback.CreateMirror();
+
+        // Assert: the loopback mirror is accepted
+        Assert.NotNull(mirror);
     }
 
     /// <summary>
@@ -244,8 +313,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix()
     {
-        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["bogus-command"]));
+        // Arrange: an argument that is neither a known option nor a subcommand
+        string[] args = ["bogus-command"];
 
+        // Act: attempt to create the context
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(args));
+
+        // Assert: the message names the argument and carries no parameter name
         Assert.Equal("Unsupported argument 'bogus-command'", exception.Message);
         Assert.Null(exception.ParamName);
     }
@@ -257,8 +331,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_OptionMissingValue_MessageHasNoParameterSuffix()
     {
-        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["--models-dir"]));
+        // Arrange: an option that requires a value, given none
+        string[] args = ["--models-dir"];
 
+        // Act: attempt to create the context
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(args));
+
+        // Assert: the message carries no parameter suffix or name
         Assert.DoesNotContain("(Parameter", exception.Message, StringComparison.Ordinal);
         Assert.Null(exception.ParamName);
     }
@@ -270,6 +349,7 @@ public class ContextTests
     [Fact]
     public void Context_WriteError_ErrorWriterThrows_RestoresForegroundColor()
     {
+        // Arrange: an error writer whose writes fail, and the original console color
         var originalError = Console.Error;
         var originalColor = Console.ForegroundColor;
         try
@@ -277,8 +357,10 @@ public class ContextTests
             Console.SetError(new ThrowingWriter());
             using var context = Context.Create(["--version"]);
 
+            // Act: write an error, which throws from the writer
             Assert.Throws<IOException>(() => context.WriteError("boom"));
 
+            // Assert: the foreground color was restored
             Assert.Equal(originalColor, Console.ForegroundColor);
         }
         finally
@@ -302,8 +384,11 @@ public class ContextTests
     [Fact]
     public void Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException()
     {
+        // Arrange: a help request carrying a mirror user but no mirror URL
+        string[] args = ["--help", "--mirror-user", "alice"];
+
         // Act and Assert
-        Assert.Throws<ArgumentException>(() => Context.Create(["--help", "--mirror-user", "alice"]));
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -313,12 +398,16 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException()
     {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Arrange: a valid mirror URL with a user and no password
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice"
-        ]));
+        ];
+
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -330,14 +419,18 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException()
     {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Arrange: a valid mirror URL with Basic credentials and a bearer token
+        string[] args =
+        [
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret",
             "--mirror-bearer-token", "token-value"
-        ]));
+        ];
+
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -348,12 +441,16 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException()
     {
-        // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create([
+        // Arrange: a user and password with no mirror URL
+        string[] args =
+        [
             "list-models",
             "--mirror-user", "alice",
             "--mirror-password", "secret"
-        ]));
+        ];
+
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -364,8 +461,11 @@ public class ContextTests
     [Fact]
     public void Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException()
     {
+        // Arrange: a bearer token with no mirror URL
+        string[] args = ["list-models", "--mirror-bearer-token", "token-value"];
+
         // Act and Assert (mirror options are validated while creating the context)
-        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -380,10 +480,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent()
     {
-        using var context = Context.Create(
-            ["list-models"],
-            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+        // Arrange: the mirror URL variable is set and the option is absent
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
 
+        // Act: parse the command line
+        using var context = Context.Create(["list-models"], environment);
+
+        // Assert: the variable supplies the URL
         Assert.Equal("https://env.example.com", context.MirrorUrl);
     }
 
@@ -393,10 +496,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_MirrorUrlOption_OverridesEnvironment()
     {
-        using var context = Context.Create(
-            ["list-models", "--mirror-url", "https://cli.example.com"],
-            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+        // Arrange: both the option and the variable are present
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
 
+        // Act: parse the command line
+        using var context = Context.Create(["list-models", "--mirror-url", "https://cli.example.com"], environment);
+
+        // Assert: the option wins
         Assert.Equal("https://cli.example.com", context.MirrorUrl);
     }
 
@@ -406,14 +512,17 @@ public class ContextTests
     [Fact]
     public void Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent()
     {
-        using var context = Context.Create(
-            ["list-models"],
-            FakeEnvironment(
-                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
-                ("DEMASPEECH_MIRROR_USER", "alice"),
-                ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+        // Arrange: the URL, user and password variables are set and no credential option is given
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "alice"),
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret"));
+        using var context = Context.Create(["list-models"], environment);
 
+        // Act: create the mirror
         var mirror = context.CreateMirror();
+
+        // Assert: the mirror carries the variables' Basic credentials
         Assert.NotNull(mirror);
         Assert.Equal("alice", mirror.Credentials?.UserName);
         Assert.Equal("env-secret", mirror.Credentials?.Password);
@@ -425,13 +534,16 @@ public class ContextTests
     [Fact]
     public void Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent()
     {
-        using var context = Context.Create(
-            ["list-models"],
-            FakeEnvironment(
-                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
-                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+        // Arrange: the URL and bearer-token variables are set and no credential option is given
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token"));
+        using var context = Context.Create(["list-models"], environment);
 
+        // Act: create the mirror
         var mirror = context.CreateMirror();
+
+        // Assert: the mirror carries the variable's token
         Assert.NotNull(mirror);
         Assert.Equal("env-token", mirror.BearerToken);
     }
@@ -442,14 +554,17 @@ public class ContextTests
     [Fact]
     public void Context_Create_CredentialOption_DisablesEnvironmentCredentials()
     {
-        using var context = Context.Create(
-            ["list-models", "--mirror-bearer-token", "cli-token"],
-            FakeEnvironment(
-                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
-                ("DEMASPEECH_MIRROR_USER", "alice"),
-                ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+        // Arrange: a bearer-token option while user and password variables are set
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "alice"),
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret"));
+        using var context = Context.Create(["list-models", "--mirror-bearer-token", "cli-token"], environment);
 
+        // Act: create the mirror
         var mirror = context.CreateMirror();
+
+        // Assert: only the option's token is used
         Assert.NotNull(mirror);
         Assert.Null(mirror.Credentials);
         Assert.Equal("cli-token", mirror.BearerToken);
@@ -461,14 +576,18 @@ public class ContextTests
     [Fact]
     public void Context_Create_EmptyEnvironmentVariables_TreatedAsUnset()
     {
-        using var context = Context.Create(
-            ["list-models"],
-            FakeEnvironment(
-                ("DEMASPEECH_MIRROR_URL", ""),
-                ("DEMASPEECH_MIRROR_USER", ""),
-                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "")));
+        // Arrange: the URL, user and bearer-token variables are all empty
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", ""),
+            ("DEMASPEECH_MIRROR_USER", ""),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", ""));
+        using var context = Context.Create(["list-models"], environment);
 
-        Assert.Null(context.CreateMirror());
+        // Act: create the mirror
+        var mirror = context.CreateMirror();
+
+        // Assert: no mirror is configured
+        Assert.Null(mirror);
     }
 
     /// <summary>
@@ -477,10 +596,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret()
     {
-        var exception = Assert.Throws<ArgumentException>(() => Context.Create(
-            ["list-models"],
-            FakeEnvironment(("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value"))));
+        // Arrange: only the bearer-token variable is set
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value"));
 
+        // Act: attempt to create the context
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["list-models"], environment));
+
+        // Assert: the error does not echo the secret
         Assert.DoesNotContain("super-secret-value", exception.Message);
     }
 
@@ -490,10 +612,13 @@ public class ContextTests
     [Fact]
     public void Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue()
     {
-        var exception = Assert.Throws<ArgumentException>(() => Context.Create(
-            ["list-models"],
-            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "not a url secret-value"))));
+        // Arrange: the URL variable holds an invalid value containing a marker
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "not a url secret-value"));
 
+        // Act: attempt to create the context
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["list-models"], environment));
+
+        // Assert: the error does not echo the rejected value
         Assert.DoesNotContain("secret-value", exception.Message);
     }
 
@@ -505,15 +630,18 @@ public class ContextTests
     [InlineData("6", 6)]
     public void Context_Create_DepthWithinRange_ParsesOntoContext(string value, int expected)
     {
-        // Act
-        using var context = Context.Create(["--validate", "--depth", value]);
+        // Arrange: a validation command line with an in-range depth
+        string[] args = ["--validate", "--depth", value];
 
-        // Assert
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: the depth is recorded
         Assert.Equal(expected, context.HeadingDepth);
     }
 
     /// <summary>
-    ///     Test that <c>--depth</c> rejects a value outside 1-6, a non-numeric value, and a missing value.
+    ///     Test that <c>--depth</c> rejects a value outside 1-6 or a non-numeric value.
     /// </summary>
     [Theory]
     [InlineData("0")]
@@ -522,8 +650,13 @@ public class ContextTests
     [InlineData("deep")]
     public void Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException(string value)
     {
-        // Act and Assert
-        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--depth", value]));
+        // Arrange: a validation command line with an invalid depth
+        string[] args = ["--validate", "--depth", value];
+
+        // Act: attempt to create the context
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(args));
+
+        // Assert: the message names the option
         Assert.Contains("--depth", exception.Message);
     }
 
@@ -533,7 +666,11 @@ public class ContextTests
     [Fact]
     public void Context_Create_DepthWithoutValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--depth"]));
+        // Arrange: --depth as the last argument
+        string[] args = ["--validate", "--depth"];
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 
     /// <summary>
@@ -563,45 +700,109 @@ public class ContextTests
     [Fact]
     public void Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption()
     {
-        using var context = Context.Create(["list-devices", "--verbose"]);
+        // Arrange: the verbose flag follows the subcommand
+        string[] args = ["list-devices", "--verbose"];
 
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: diagnostics are enabled and the flag is not collected into the subcommand arguments
         Assert.True(context.Diagnostics);
         Assert.Empty(context.CommandArgs);
     }
 
     /// <summary>
-    ///     Test that <c>--no-emotions</c> is a global option recognized before or after any
-    ///     subcommand (not only <c>voices install</c>), and that it is off by default.
+    ///     Test that <c>--no-emotions</c> before the subcommand is recognized as a global option.
+    /// </summary>
+    [Fact]
+    public void Context_Create_NoEmotionsBeforeCommand_IsRecognizedAsGlobalOption()
+    {
+        // Arrange: the flag precedes a non-voices subcommand
+        string[] args = ["--no-emotions", "list-devices"];
+
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: the flag is recorded
+        Assert.True(context.NoEmotions);
+    }
+
+    /// <summary>
+    ///     Test that <c>--no-emotions</c> after a non-voices subcommand is recognized as a global
+    ///     option and not collected into the subcommand's arguments.
     /// </summary>
     [Fact]
     public void Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption()
     {
-        // Act
-        using var before = Context.Create(["--no-emotions", "list-devices"]);
-        using var after = Context.Create(["list-devices", "--no-emotions"]);
-        using var absent = Context.Create(["list-devices"]);
+        // Arrange: the flag follows a non-voices subcommand
+        string[] args = ["list-devices", "--no-emotions"];
 
-        // Assert
-        Assert.True(before.NoEmotions);
-        Assert.True(after.NoEmotions);
-        Assert.Empty(after.CommandArgs);
-        Assert.False(absent.NoEmotions);
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: the flag is recorded and not left in CommandArgs
+        Assert.True(context.NoEmotions);
+        Assert.Empty(context.CommandArgs);
     }
 
     /// <summary>
-    ///     Test that <c>--results</c> and its alias <c>--result</c> store the results file path,
-    ///     and that a missing value is rejected.
+    ///     Test that <c>--no-emotions</c> is off by default.
     /// </summary>
     [Fact]
-    public void Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue()
+    public void Context_Create_NoEmotionsAbsent_DefaultsToOff()
     {
-        // Act
-        using var results = Context.Create(["--validate", "--results", "out.trx"]);
-        using var alias = Context.Create(["--validate", "--result", "out.xml"]);
+        // Arrange: a command line without the flag
+        string[] args = ["list-devices"];
 
-        // Assert
+        // Act: parse the command line
+        using var context = Context.Create(args);
+
+        // Assert: the flag is off
+        Assert.False(context.NoEmotions);
+    }
+
+    /// <summary>
+    ///     Test that <c>--results</c> stores the results file path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_ResultsOption_ParsesPath()
+    {
+        // Arrange: a validation command line with --results
+        string[] args = ["--validate", "--results", "out.trx"];
+
+        // Act: parse the command line
+        using var results = Context.Create(args);
+
+        // Assert: the path is recorded
         Assert.Equal("out.trx", results.ResultsFile);
+    }
+
+    /// <summary>
+    ///     Test that the <c>--result</c> alias stores the results file path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_ResultAlias_ParsesPath()
+    {
+        // Arrange: a validation command line with the alias
+        string[] args = ["--validate", "--result", "out.xml"];
+
+        // Act: parse the command line
+        using var alias = Context.Create(args);
+
+        // Assert: the path is recorded
         Assert.Equal("out.xml", alias.ResultsFile);
-        Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--results"]));
+    }
+
+    /// <summary>
+    ///     Test that <c>--results</c> without a value is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException()
+    {
+        // Arrange: --results as the last argument
+        string[] args = ["--validate", "--results"];
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
 }

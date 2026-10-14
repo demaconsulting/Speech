@@ -13,15 +13,32 @@ sections:
         requirements:
           - id: SpeechCli-Context-GlobalOptionPlacement
             title: >-
-              The Context unit shall recognize --models-dir, --verbose and --no-emotions as
-              global options wherever they appear on the command line, including after the
-              subcommand.
+              The Context unit shall recognize --models-dir as a global option wherever it
+              appears on the command line, including after the subcommand.
             justification: |
               Users place global options before or after the subcommand interchangeably.
             tests:
               - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+
+          - id: SpeechCli-Context-GlobalOptionPlacementVerbose
+            title: >-
+              The Context unit shall recognize --verbose as a global option wherever it appears
+              on the command line, including after the subcommand.
+            justification: |
+              Users place global options before or after the subcommand interchangeably.
+            tests:
               - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
+
+          - id: SpeechCli-Context-GlobalOptionPlacementNoEmotions
+            title: >-
+              The Context unit shall recognize --no-emotions as a global option wherever it
+              appears on the command line, including after the subcommand.
+            justification: |
+              Users place global options before or after the subcommand interchangeably.
+            tests:
+              - Context_Create_NoEmotionsBeforeCommand_IsRecognizedAsGlobalOption
               - Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption
+              - Context_Create_NoEmotionsAbsent_DefaultsToOff
 
           - id: SpeechCli-Context-ModelsDir
             title: >-
@@ -43,11 +60,12 @@ sections:
           - id: SpeechCli-Context-VoicesDirValidation
             title: >-
               The Context unit shall reject a --voices-dir value that is not an existing folder
-              with an ArgumentException.
+              or that is missing.
             justification: |
               A mistyped folder must be reported at launch rather than as an empty voice list.
             tests:
-              - Context_Create_WithBadVoicesDir_ThrowsArgumentException
+              - Context_Create_WithMissingVoicesDir_ThrowsArgumentException
+              - Context_Create_VoicesDirWithoutValue_ThrowsArgumentException
 
           - id: SpeechCli-Context-MirrorOptions
             title: >-
@@ -67,22 +85,38 @@ sections:
 
           - id: SpeechCli-Context-MirrorCredentials
             title: >-
-              The Context unit shall create a mirror configured with basic credentials, or with
-              a bearer token, when one is supplied with a mirror URL.
+              The Context unit shall create a mirror configured with basic credentials when a
+              user and password are supplied with a mirror URL.
             justification: |
               Private mirrors require authentication.
             tests:
               - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+
+          - id: SpeechCli-Context-MirrorBearerToken
+            title: >-
+              The Context unit shall create a mirror configured with a bearer token when a
+              bearer token is supplied with a mirror URL.
+            justification: |
+              Private mirrors may require token authentication instead of basic credentials.
+            tests:
               - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
 
           - id: SpeechCli-Context-MirrorUrlValidation
             title: >-
-              The Context unit shall reject a mirror URL that is invalid or of an unsupported
-              shape with an ArgumentException.
+              The Context unit shall reject a mirror URL that is not a valid absolute URL.
             justification: |
               A malformed mirror must fail at launch instead of during a download.
             tests:
               - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorUrlShapeValidation
+            title: >-
+              The Context unit shall reject a mirror URL that carries a query string, a
+              fragment or user information, or that does not use the http or https scheme.
+            justification: |
+              Such URLs can leak secrets or cannot be used as a download base location, so they
+              must fail at launch instead of during a download.
+            tests:
               - Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException
 
           - id: SpeechCli-Context-MirrorCredentialValidation
@@ -128,7 +162,9 @@ sections:
             justification: |
               Credentials must not cross a network unencrypted.
             tests:
-              - Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
+              - Context_CreateMirror_BasicCredentialsOverPlainHttp_ThrowsArgumentException
+              - Context_CreateMirror_BearerTokenOverPlainHttp_ThrowsArgumentException
+              - Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror
 
           - id: SpeechCli-Context-MirrorUrlEnvironment
             title: >-
@@ -204,22 +240,37 @@ sections:
 
           - id: SpeechCli-Context-HeadingDepthValidation
             title: >-
-              The Context unit shall reject a --depth value that is missing, non-numeric or out
-              of range with an ArgumentException.
+              The Context unit shall reject a --depth value that is non-numeric or outside the
+              range 1 to 6.
             justification: |
               An invalid depth would produce an invalid heading level.
             tests:
               - Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException
+
+          - id: SpeechCli-Context-HeadingDepthMissingValue
+            title: >-
+              The Context unit shall reject --depth supplied without a value.
+            justification: |
+              A missing depth cannot be rendered and must be reported at launch.
+            tests:
               - Context_Create_DepthWithoutValue_ThrowsArgumentException
 
           - id: SpeechCli-Context-ResultsOption
             title: >-
-              The Context unit shall record the --results path, and reject --results without a
-              value.
+              The Context unit shall record the --results path.
             justification: |
               Self-validation evidence is written to the path the user names.
             tests:
-              - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
+              - Context_Create_ResultsOption_ParsesPath
+              - Context_Create_ResultAlias_ParsesPath
+
+          - id: SpeechCli-Context-ResultsOptionMissingValue
+            title: >-
+              The Context unit shall reject --results supplied without a value.
+            justification: |
+              A missing path cannot be written to and must be reported at launch.
+            tests:
+              - Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException
 
           - id: SpeechCli-Context-DiagnosticsOption
             title: >-
@@ -232,7 +283,7 @@ sections:
 
           - id: SpeechCli-Context-UnsupportedArgument
             title: >-
-              The Context unit shall reject an unsupported argument with an ArgumentException
+              The Context unit shall reject an unsupported argument with an error
               whose message names the argument and carries no parameter-name suffix.
             justification: |
               The message is printed to the user as the whole error.
@@ -242,7 +293,7 @@ sections:
           - id: SpeechCli-Context-OptionValueRequired
             title: >-
               The Context unit shall reject an option that requires a value but has none, with
-              an ArgumentException whose message carries no parameter-name suffix.
+              an error whose message carries no parameter-name suffix.
             justification: |
               The message is printed to the user as the whole error.
             tests:

@@ -42,11 +42,17 @@ fails.
 
 **Expected**: `VoicesDir` carries the folder and `CommandArgs` is empty.
 
-#### Context_Create_WithBadVoicesDir_ThrowsArgumentException
+#### Context_Create_WithMissingVoicesDir_ThrowsArgumentException
 
-**Scenario**: `--voices-dir` names a missing folder, and separately is given with no value.
+**Scenario**: `--voices-dir` names a missing folder.
 
-**Expected**: `ArgumentException` in both cases.
+**Expected**: `ArgumentException`.
+
+#### Context_Create_VoicesDirWithoutValue_ThrowsArgumentException
+
+**Scenario**: `--voices-dir` is given with no value.
+
+**Expected**: `ArgumentException`.
 
 #### Context_Create_WithMirrorOptions_ParsesOntoContext
 
@@ -80,8 +86,8 @@ fails.
 
 #### Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException
 
-**Scenario**: Four mirror URLs: with a query string, with a fragment, with user-info, and with an
-`ftp` scheme.
+**Scenario**: Five mirror URLs: with a query string, with a fragment, with user name only, with user name
+and password, and with an `ftp` scheme.
 
 **Expected**: `ArgumentException` for each (the rule is enforced by the library's mirror type that
 `Context` forwards to).
@@ -92,12 +98,23 @@ fails.
 
 **Expected**: `ArgumentException`.
 
-#### Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
+#### Context_CreateMirror_BasicCredentialsOverPlainHttp_ThrowsArgumentException
 
-**Scenario**: Basic credentials, then a bearer token, each with a non-loopback `http` mirror; then a
-bearer token with a loopback `http` mirror.
+**Scenario**: Basic credentials with a non-loopback `http` mirror.
 
-**Expected**: `ArgumentException` for the first two; the loopback mirror is accepted.
+**Expected**: `ArgumentException`.
+
+#### Context_CreateMirror_BearerTokenOverPlainHttp_ThrowsArgumentException
+
+**Scenario**: A bearer token with a non-loopback `http` mirror.
+
+**Expected**: `ArgumentException`.
+
+#### Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror
+
+**Scenario**: A bearer token with a loopback `http` mirror.
+
+**Expected**: A mirror carrying the token is returned.
 
 #### Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix
 
@@ -227,18 +244,41 @@ name.
 
 **Expected**: `Diagnostics` is true and `CommandArgs` is empty.
 
+#### Context_Create_NoEmotionsBeforeCommand_IsRecognizedAsGlobalOption
+
+**Scenario**: `--no-emotions` placed before `list-devices`.
+
+**Expected**: `NoEmotions` is true and `CommandArgs` does not contain the option.
+
 #### Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption
 
-**Scenario**: `--no-emotions` before and after `list-devices`, and absent.
+**Scenario**: `--no-emotions` placed after `list-devices`.
 
-**Expected**: `NoEmotions` is true when present at either position (and not collected into
-`CommandArgs`), false otherwise.
+**Expected**: `NoEmotions` is true and `CommandArgs` does not contain the option.
 
-#### Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
+#### Context_Create_NoEmotionsAbsent_DefaultsToOff
 
-**Scenario**: `--results out.trx`, `--result out.xml`, and `--results` with no value.
+**Scenario**: `list-devices` with no `--no-emotions`.
 
-**Expected**: `ResultsFile` carries each path; the missing value is an `ArgumentException`.
+**Expected**: `NoEmotions` is false.
+
+#### Context_Create_ResultsOption_ParsesPath
+
+**Scenario**: `--results out.trx`.
+
+**Expected**: `ResultsFile` carries `out.trx`.
+
+#### Context_Create_ResultAlias_ParsesPath
+
+**Scenario**: `--result out.xml`.
+
+**Expected**: `ResultsFile` carries `out.xml`.
+
+#### Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException
+
+**Scenario**: `--results` with no value.
+
+**Expected**: `ArgumentException`.
 
 #### SpeechCli_SilentFlag_Provided_SuppressesOutput
 
