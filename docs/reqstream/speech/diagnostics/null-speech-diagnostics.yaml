@@ -13,13 +13,13 @@ sections:
             requirements:
               - id: Speech-Diagnostics-NullSpeechDiagnostics-Singleton
                 title: >-
-                  The Diagnostics subsystem shall always provide a ready-to-use default sink, and
-                  every caller shall receive the same one.
+                  The Diagnostics subsystem shall provide a default sink that accepts reported
+                  events without disrupting the operation that reported them.
                 justification: |
-                  A host that supplies no sink still needs a working one, and the default holds no
-                  state, so sharing one avoids allocation and gives every caller identical behavior.
+                  A host that supplies no sink still needs a working one. That the default is one
+                  shared, stateless object is a design detail described in the design document.
                 tests:
-                  - NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
+                  - NullSpeechDiagnostics_Instance_ReportEvent_OperationContinues
 
               - id: Speech-Diagnostics-NullSpeechDiagnostics-NeverThrows
                 title: >-

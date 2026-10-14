@@ -5,7 +5,9 @@
 System.Numerics.Tensors is used as the Speech library's source of vectorized numeric primitives
 (`TensorPrimitives`) for per-sample audio math. It was chosen because it is a Microsoft-maintained
 package that accelerates bulk float operations with the hardware vector instructions available at
-run time, avoiding hand-written SIMD code and keeping the audio pipeline's inner loops short.
+run time, avoiding hand-written SIMD code and keeping the audio pipeline's inner loops short. That
+vectorization is the design rationale for choosing the package; it is not a requirement-level claim,
+and the requirements state only the numeric results each operation produces.
 
 ### Features Used
 

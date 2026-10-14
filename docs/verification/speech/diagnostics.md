@@ -26,12 +26,18 @@ receives every event reported by `AudioDeviceFactory`.
 
 ### Test Scenarios
 
-#### Singleton: Instance Returns the Same Object
+#### Default Sink: Reporting an Event Does Not Disrupt the Caller
+
+**Test**: `NullSpeechDiagnostics_Instance_ReportEvent_OperationContinues`
+
+Verifies that a caller using the default sink can report an event and continue its own work.
+
+#### Singleton: Instance Returns the Same Object (design detail)
 
 **Test**: `NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance`
 
-Verifies that two reads of `NullSpeechDiagnostics.Instance` return reference-equal objects,
-confirming the singleton pattern required for safe, allocation-free default composition.
+Verifies that two reads of `NullSpeechDiagnostics.Instance` return reference-equal objects, the design-level
+singleton that keeps default composition allocation-free. This is not a requirement-level criterion.
 
 #### Null Object: Report Never Throws for a Normal Event
 

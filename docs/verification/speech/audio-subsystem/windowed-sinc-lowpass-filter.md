@@ -2,9 +2,9 @@
 
 #### Verification Approach
 
-`WindowedSincLowpassFilter` has no dedicated test class. It is a stateless internal DSP primitive
-verified indirectly, with real (unmocked) filter code, through the anti-aliasing tests of the two
-resamplers that consume it: `AudioFrameResamplerTests.cs` (capture direction) and
+`WindowedSincLowpassFilter` is a stateless internal DSP primitive verified directly by
+`WindowedSincLowpassFilterTests.cs` and, with real (unmocked) filter code, through the anti-aliasing
+tests of the two resamplers that consume it: `AudioFrameResamplerTests.cs` (capture direction) and
 `PlaybackAudioResamplerTests.cs` (playback direction). Kernel-construction argument validation is
 exercised only through those callers; see Acceptance Criteria for the stated boundary.
 
@@ -20,6 +20,28 @@ both resamplers, and a short input during downsampling does not throw. Direct un
 those guards are defensive and are reachable only from fixed internal call sites.
 
 #### Test Scenarios
+
+##### Direct: Tone Above the Cutoff Is Attenuated
+
+**Test**: `WindowedSincLowpassFilter_ApplyLowpassFilter_ToneAboveCutoff_IsAttenuated`
+
+Stimulus: a 0.5-amplitude 12 kHz tone at 48 kHz through a kernel cut off at the 16 kHz target's Nyquist.
+Expected: the interior output peak is at least 30 dB below the input peak.
+
+##### Direct: In-Band Tone Is Preserved
+
+**Test**: `WindowedSincLowpassFilter_ApplyLowpassFilter_ToneInPassband_IsPreserved`
+
+Stimulus: a 0.5-amplitude 1 kHz tone through the same kernel. Expected: the interior output peak stays
+within 0.02 of 0.5.
+
+##### Direct: Constant Signal Keeps Unity Gain, and Interior Samples Equal the Kernel Dot Product
+
+**Tests**: `WindowedSincLowpassFilter_ApplyLowpassFilter_ConstantSignal_KeepsUnityGain`,
+`WindowedSincLowpassFilter_ApplyLowpassFilter_InteriorSample_EqualsKernelDotProduct`
+
+Expected: a constant input is returned unchanged including at the edges, and an interior output sample equals the
+hand-summed product of the kernel with its input window.
 
 ##### Capture Direction: Above-Nyquist Tone Is Attenuated
 

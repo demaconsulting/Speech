@@ -25,6 +25,26 @@ public class NullSpeechDiagnosticsTests
     }
 
     /// <summary>
+    ///     Proves that a caller holding the default sink can report an event and carry on with its own
+    ///     operation undisturbed.
+    /// </summary>
+    [Fact]
+    public void NullSpeechDiagnostics_Instance_ReportEvent_OperationContinues()
+    {
+        // Arrange: a caller that works through the default sink
+        ISpeechDiagnostics diagnostics = NullSpeechDiagnostics.Instance;
+        var completedSteps = 0;
+
+        // Act: the caller reports an event between two steps of its own work
+        completedSteps++;
+        diagnostics.Report(SpeechDiagnosticLevel.Warning, "AudioSubsystem", "Fallback in use.");
+        completedSteps++;
+
+        // Assert: both steps completed
+        Assert.Equal(2, completedSteps);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> is a true no-op for a normal,
     ///     well-formed event and never throws.
     /// </summary>

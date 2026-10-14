@@ -1,8 +1,8 @@
 ---
 # Software Unit Requirements for WindowedSincLowpassFilter
 #
-# WindowedSincLowpassFilter has no dedicated test class: it is exercised end to end through the
-# anti-aliasing tests of the two resamplers that consume it, which is the evidence linked below.
+# WindowedSincLowpassFilter is exercised directly by its own tests, and end to end through the
+# anti-aliasing tests of the two resamplers that consume it.
 
 sections:
   - title: Speech Requirements
@@ -13,13 +13,16 @@ sections:
             requirements:
               - id: Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
                 title: >-
-                  The WindowedSincLowpassFilter class shall provide a normalized windowed-sinc
-                  lowpass filter that attenuates content above the target Nyquist frequency before
-                  decimation, for both the capture-direction and playback-direction resamplers.
+                  The WindowedSincLowpassFilter class shall attenuate a tone above the target
+                  Nyquist frequency by at least 30 dB while keeping the amplitude of an in-band
+                  tone within 0.02 of the input amplitude, for both the capture-direction and
+                  playback-direction resamplers.
                 justification: |
                   Downsampling without anti-aliasing folds energy above the target Nyquist
-                  frequency back into the audible band. One shared filter keeps the DSP math
-                  written once for both resampling directions.
+                  frequency back into the audible band. The filter design technique is described
+                  in the WindowedSincLowpassFilter design document.
                 tests:
+                  - WindowedSincLowpassFilter_ApplyLowpassFilter_ToneAboveCutoff_IsAttenuated
+                  - WindowedSincLowpassFilter_ApplyLowpassFilter_ToneInPassband_IsPreserved
                   - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
                   - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated

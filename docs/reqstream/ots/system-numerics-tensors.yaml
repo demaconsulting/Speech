@@ -1,7 +1,7 @@
 ---
 # System.Numerics.Tensors OTS Software Requirements
 #
-# Requirements for the System.Numerics.Tensors vectorized numeric primitives.
+# Requirements for the System.Numerics.Tensors numeric primitives.
 
 sections:
   - title: OTS Software Requirements
@@ -9,49 +9,47 @@ sections:
       - title: System.Numerics.Tensors Requirements
         requirements:
           - id: Speech-OTS-SystemNumericsTensors-SampleConversion
-            title: System.Numerics.Tensors shall convert 16-bit PCM samples to floats in bulk.
+            title: System.Numerics.Tensors shall convert a 16-bit PCM sample to the same numeric value as a float.
             justification: |
-              WAV decoding converts large PCM buffers to floats; a maintained vectorized primitive
-              keeps that loop short and fast without hand-written SIMD.
+              WAV decoding converts PCM samples to floats; the converted values must equal the
+              source integers exactly before they are scaled.
             tags: [ots]
             tests:
               - WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
 
           - id: Speech-OTS-SystemNumericsTensors-SampleDivision
-            title: System.Numerics.Tensors shall divide float sample buffers by a scalar in bulk.
+            title: System.Numerics.Tensors shall divide each element of a float buffer by a scalar.
             justification: |
               Normalizing converted PCM samples to the -1 to 1 range divides every sample by the
-              same scalar; the vectorized primitive performs this over whole buffers.
+              same scalar, so each result must equal the element divided by that scalar.
             tags: [ots]
             tests:
-              - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
               - WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
 
           - id: Speech-OTS-SystemNumericsTensors-SampleMultiplication
-            title: System.Numerics.Tensors shall multiply float sample buffers by a scalar in bulk.
+            title: System.Numerics.Tensors shall multiply each element of a float buffer by a scalar.
             justification: |
-              Applying a volume override scales every synthesized sample by the same ratio; the
-              vectorized primitive performs this over whole buffers.
+              Applying a volume override scales every synthesized sample by the same ratio, so
+              each result must equal the element times that ratio.
             tags: [ots]
             tests:
               - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
 
           - id: Speech-OTS-SystemNumericsTensors-SampleClamping
-            title: System.Numerics.Tensors shall clamp float sample buffers to a value range in bulk.
+            title: System.Numerics.Tensors shall limit each element of a float buffer to a given value range.
             justification: |
-              A scaled volume override can exceed full scale; clamping bounds every sample to the
-              valid range so the output never clips beyond it.
+              A scaled volume override can exceed full scale; limiting every sample to the valid
+              range keeps the output from exceeding it.
             tags: [ots]
             tests:
               - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
 
           - id: Speech-OTS-SystemNumericsTensors-DotProduct
-            title: System.Numerics.Tensors shall compute the float dot product of two sample spans.
+            title: System.Numerics.Tensors shall compute the float dot product of two equal-length sample spans.
             justification: |
-              The anti-aliasing lowpass filter applied before down-sampling convolves its kernel
-              with the signal as one dot product per output sample; the vectorized primitive
-              keeps that convolution fast without hand-written SIMD.
+              The anti-aliasing lowpass filter applied before down-sampling computes each output
+              sample as the dot product of its kernel with a window of the signal, so the product
+              must equal the sum of the element-wise products.
             tags: [ots]
             tests:
-              - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
-              - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+              - WindowedSincLowpassFilter_ApplyLowpassFilter_InteriorSample_EqualsKernelDotProduct
