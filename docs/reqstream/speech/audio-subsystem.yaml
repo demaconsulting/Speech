@@ -196,6 +196,7 @@ sections:
               - Speech-Audio-PortAudioCaptureDevice-AvailabilityReflectsResolution
               - Speech-Audio-PortAudioCaptureDevice-FrameDelivery
               - Speech-Audio-PortAudioCaptureDevice-NativeFaultsThrowUnavailable
+              - Speech-Audio-PortAudioCaptureDevice-BestEffortDiagnostics
             tests:
               - PortAudioCaptureDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
               - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
@@ -229,6 +230,7 @@ sections:
               - Speech-Audio-PortAudioPlaybackDevice-StopRetryReleasesStream
               - Speech-Audio-PortAudioPlaybackDevice-DisposeFailureThrowsUnavailable
               - Speech-Audio-PortAudioPlaybackDevice-IdempotentStart
+              - Speech-Audio-PortAudioPlaybackDevice-BestEffortDiagnostics
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountExcludesZeroFill
