@@ -201,22 +201,31 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that <c>pack.json</c> records the pack's identity, license, attribution and voice count.
+    ///     Proves that <c>pack.json</c> records every pack metadata field: identity, license, attribution, source, archive and counts.
     /// </summary>
     [Fact]
     public async Task ReferenceVoicePackInstaller_Install_TypicalArchive_WritesPackMetadata()
     {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+
         // Act
-        var staging = await InstallAsync(ReferenceVoiceTestPacks.BuildTypicalZip());
+        var staging = await InstallAsync(zip);
 
         // Assert
         using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Join(staging, "pack.json"), TestContext.Current.CancellationToken));
         var json = document.RootElement;
         Assert.Equal("voice-zero-1.0", json.GetProperty("id").GetString());
+        Assert.Equal("Test pack", json.GetProperty("name").GetString());
         Assert.Equal("CC0 1.0 Universal", json.GetProperty("license").GetString());
+        Assert.Equal("https://creativecommons.org/publicdomain/zero/1.0/", json.GetProperty("licenseUrl").GetString());
         Assert.Equal("Test attribution", json.GetProperty("attribution").GetString());
+        Assert.Equal("https://example.invalid/project", json.GetProperty("sourceUrl").GetString());
+        Assert.Equal("https://example.invalid/voice-zero-1.0.zip", json.GetProperty("archiveUrl").GetString());
+        Assert.Equal(ReferenceVoiceTestPacks.PackFor(zip).Sha256Checksum, json.GetProperty("archiveSha256").GetString());
         Assert.Equal(2, json.GetProperty("voiceCount").GetInt32());
-        Assert.Equal("voices", json.GetProperty("variants")[0].GetString());
+        Assert.Equal(0, json.GetProperty("emotionClipCount").GetInt32());
+        Assert.Equal(["voices"], json.GetProperty("variants").EnumerateArray().Select(item => item.GetString()).ToArray());
     }
 
     /// <summary>

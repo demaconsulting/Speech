@@ -48,8 +48,8 @@ to every request this instance issues.
   `ApplyMirrorAuthentication`. A request is in scope only when its scheme, host and port equal the
   mirror's and its path equals, or is nested beneath, the mirror's base path on a *segment boundary*
   (deliberately not `Uri.IsBaseOf`, which is an ordinal string-prefix test under which a mirror at
-  `https://mirror/models` would wrongly be the base of `https://mirror/modelsEvil/file.bin`). Exactly
-  one trailing slash is trimmed from both paths before comparing, so `https://mirror/models/` and
+  `https://mirror/models` would wrongly be the base of `https://mirror/modelsEvil/file.bin`). All
+  trailing slashes are trimmed from both paths before comparing, so `https://mirror/models/` and
   `https://mirror/models` denote the same base. A request outside the scope carries no
   `Authorization` header, because a caller can hold this public type directly (bypassing
   `SpeechModelDownloader`'s URI rewriting) and ask it to fetch an unrelated address.

@@ -29,7 +29,7 @@ public sealed class HttpModelDownloadClientTests
         // Arrange: a stubbed server that serves a known payload with an explicit Content-Length.
         // Kestrel (WireMock.Net's self-hosted server) otherwise always responds with
         // Transfer-Encoding: chunked and strips any explicit Content-Length header, so
-        // PostWireMockMiddlewareInit buffers the body and sets Response.ContentLength itself
+        // PreWireMockMiddlewareInit buffers the body and sets Response.ContentLength itself
         // before anything is written, forcing a real Content-Length response.
         var payload = CreatePayload(sizeBytes: 256 * 1024);
         using var server = WireMockServer.Start(new WireMockServerSettings
@@ -381,13 +381,13 @@ public sealed class HttpModelDownloadClientTests
     }
 
     /// <summary>
-    ///     Builds a deterministic, non-repeating payload of the given size so a truncated or
+    ///     Builds a random, non-repeating payload of the given size so a truncated or
     ///     corrupted download is reliably detectable.
     /// </summary>
     private static byte[] CreatePayload(int sizeBytes)
     {
-        // A cryptographically-derived pseudo-random sequence is a convenient way to generate a
-        // large, deterministic (seeded), non-repeating byte pattern without a real model file.
+        // Cryptographically random bytes are a convenient way to generate a large, non-repeating
+        // byte pattern without a real model file.
         using var rng = RandomNumberGenerator.Create();
         var payload = new byte[sizeBytes];
         rng.GetBytes(payload);

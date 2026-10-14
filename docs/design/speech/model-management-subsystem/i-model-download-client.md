@@ -24,11 +24,17 @@ access.
   value (or leaving it unchanged when no mirror is configured) before calling `DownloadAsync` -
   see `SpeechModelDownloader.ResolveEffectiveUri`.
 
-**Error Handling**: The interface itself defines no error handling beyond its documented
-contract: implementations must throw (rather than silently truncate) on any non-success response
-or transport failure, and must surface cancellation of `cancellationToken` as an
-`OperationCanceledException`, so a caller can distinguish a verified download from a partial or failed
-one without inspecting `destination`'s length itself.
+**Argument contract**: `sourceUri` and `destination` must not be null (`ArgumentNullException`); only `progress`
+may be null. `sourceUri` must be an absolute HTTP(S) URI; an implementation rejects a relative or other-scheme
+URI by throwing, and the exception type is implementation-defined. `destination` must be writable
+(`CanWrite`); the client appends sequentially from its current position and never closes, seeks or disposes
+it. After a failure or cancellation it may hold a partial prefix of the file.
+
+**Error Handling**: Implementations must throw (rather than silently truncate) on any non-success response
+or transport failure: `HttpRequestException` for an HTTP-based implementation such as
+`HttpModelDownloadClient`, or another failure exception (for example `IOException`) for other
+implementations. Cancellation of `cancellationToken` surfaces as an `OperationCanceledException`, so a caller
+can distinguish a verified download from a partial or failed one without inspecting `destination`'s length.
 
 **Dependencies**: `SpeechModelDownloadProgress` (carried by the `IProgress<SpeechModelDownloadProgress>`
 parameter), plus the BCL types `Uri`, `Stream`, `IProgress<T>` and `CancellationToken`.
