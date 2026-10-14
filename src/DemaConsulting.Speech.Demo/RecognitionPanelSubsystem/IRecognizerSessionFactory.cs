@@ -9,12 +9,11 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 /// <remarks>
 ///     The library exposes engine composition through the static
 ///     <see cref="SpeechRecognizerFactory.LoadAsync(IRecognitionModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>
-///     method, which requires an <see cref="IRecognitionModel"/> - an interface whose members are
-///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
-///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract
-///     instead and performs the narrowing itself, which is what lets a demo test substitute a
-///     plain, publicly implementable fake model for every scenario (including "wrong role") with
-///     no <c>InternalsVisibleTo</c> grant from the library. This method also cannot be
+///     method, which requires an <see cref="IRecognitionModel"/>, which is public and may be implemented by hosts
+///     and tests. This seam nevertheless accepts the common <see cref="ISpeechModel"/> contract
+///     and performs the narrowing itself, which isolates the static factory and gives panel tests
+///     a role-agnostic input: the "wrong role" scenario needs a plain <see cref="ISpeechModel"/>
+///     that is not a recognition model. This method also cannot be
 ///     substituted directly in a ViewModel unit test because it is static; the production
 ///     implementation resolves the model's installed-files directory and delegates straight to
 ///     that factory, while tests substitute a fake that returns a controlled

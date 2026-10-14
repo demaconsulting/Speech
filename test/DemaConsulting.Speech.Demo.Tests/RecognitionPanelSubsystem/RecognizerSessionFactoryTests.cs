@@ -103,20 +103,28 @@ public class RecognizerSessionFactoryTests
         /// <summary>Gets the directory the backend was created for.</summary>
         public string? BackendDirectory { get; private set; }
 
+        /// <inheritdoc/>
         public string Id => _inner.Id;
 
+        /// <inheritdoc/>
         public string DisplayName => _inner.DisplayName;
 
+        /// <inheritdoc/>
         public SpeechModelRole Role => SpeechModelRole.Recognition;
 
+        /// <inheritdoc/>
         public IReadOnlyList<ISpeechModelParameter> Parameters => _inner.Parameters;
 
+        /// <inheritdoc/>
         public SpeechModelAudioTagSupport AudioTagSupport => _inner.AudioTagSupport;
 
+        /// <inheritdoc/>
         public SpeechModelDownloadDescriptor DownloadDescriptor => _inner.DownloadDescriptor;
 
+        /// <inheritdoc/>
         public AudioFormat AudioFormat => AudioFormat.Mono(16000);
 
+        /// <inheritdoc/>
         public IRecognitionBackend CreateBackend(string installedModelDirectory)
         {
             BackendDirectory = installedModelDirectory;
@@ -129,22 +137,27 @@ public class RecognizerSessionFactoryTests
     /// </summary>
     private sealed class BackendDouble : IRecognitionBackend
     {
+        /// <inheritdoc/>
         public void AcceptSamples(ReadOnlySpan<float> monoSamples)
         {
         }
 
+        /// <inheritdoc/>
         public bool TryDecode(out SpeechRecognitionResult? result)
         {
             result = null;
             return false;
         }
 
+        /// <inheritdoc/>
         public bool TryFlush(out SpeechRecognitionResult? result) => TryDecode(out result);
 
+        /// <inheritdoc/>
         public void Reset()
         {
         }
 
+        /// <inheritdoc/>
         public void Dispose()
         {
         }
