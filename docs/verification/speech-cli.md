@@ -140,7 +140,8 @@ supplemental manual check.
 
 **Tests**: `Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption`,
 `Context_Create_WithMirrorOptions_ParsesOntoContext`,
-`Context_Create_WithExistingVoicesDir_ParsesOntoContext`, `Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
+`Context_Create_WithExistingVoicesDir_ParsesOntoContext`, `Context_Create_WithMissingVoicesDir_ThrowsArgumentException`,
+`Context_Create_VoicesDirWithoutValue_ThrowsArgumentException`,
 `SpeechCli_SilentFlag_Provided_SuppressesOutput`, `SpeechCli_LogFlag_Provided_WritesOutputToFile`,
 `Context_Create_DepthWithinRange_ParsesOntoContext`,
 `Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException`,
@@ -148,7 +149,7 @@ supplemental manual check.
 `Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics`,
 `Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption`,
 `Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption`,
-`Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue`
+`Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException`
 
 Verifies that a global option appearing after the subcommand name is still recognized as a global
 option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
@@ -173,7 +174,9 @@ the results file path.
 `Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException`,
 `Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException`,
 `Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException` (SpeechCli-Cli-DownloadMirrorBearerTokenValidation),
-`Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback`
+`Context_CreateMirror_BasicCredentialsOverPlainHttp_ThrowsArgumentException`,
+`Context_CreateMirror_BearerTokenOverPlainHttp_ThrowsArgumentException`,
+`Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror`
 Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
 `DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
 token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
@@ -229,7 +232,7 @@ the self-validation does not depend on ambient models. The version and help chec
 
 **Tests**: `SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile`,
 `SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel`,
-`Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue`,
+`Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException`,
 `Program_Main_ValidateWithXmlResults_WritesJUnitFile`,
 `Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode`,
 `Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode`
