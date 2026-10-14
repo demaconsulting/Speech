@@ -57,7 +57,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
-    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.7" PrivateAssets="All" />
     <!-- Managed ONNX Runtime API only (CPU execution provider built in). This package does NOT
          reference any accelerated execution-provider package (e.g. Microsoft.ML.OnnxRuntime.Gpu/
          .DirectML): a consuming application that wants GPU acceleration adds that package itself
