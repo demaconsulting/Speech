@@ -13,7 +13,8 @@ xUnit v3 under the .NET SDK, in `test/DemaConsulting.Speech.Onnx.NemotronStt.Tes
 
 Long quiet runs (digital silence or low-level noise) are truncated to the 400 ms cap; tone,
 immediate speech, and very quiet speech pass through intact; the adaptive threshold is clamped
-to its bounds and non-adaptive mode keeps the default; audio flows during calibration; chunked
+to its bounds and non-adaptive mode keeps the default; a stream shorter than the 20-frame
+calibration window keeps the default threshold; audio flows during calibration; chunked
 feeding equals single feeding; flush emits partial frames; reset restores the initial state;
 `QuietRunSamples` follows the input clock.
 
@@ -42,6 +43,10 @@ feeding equals single feeding; flush emits partial frames; reset restores the in
 ##### Very quiet speech is not dropped
 
 **Test**: `Process_VeryQuietSpeech_IsNotDropped`
+
+##### A stream shorter than the calibration window keeps the default threshold
+
+**Test**: `Process_ShorterThanCalibrationWindow_KeepsDefaultThreshold`
 
 ##### Loud calibration clamps the threshold to the maximum
 

@@ -12,11 +12,11 @@ graphs directly through ONNX Runtime and owns the whole signal path itself in ma
 core library's session, engine, resampling, and result-buffering logic remain in the core library
 and drive this backend only through `IRecognitionBackend`. It contains the following units:
 
-- **OnnxNemotronRecognitionEngine**: the real `IRecognitionBackend`; also documents the
-  ONNX-backed `NemotronEncoder` and its `INemotronEncoder` seam
+- **OnnxNemotronRecognitionEngine**: the real `IRecognitionBackend`
 - **NemotronFeatureExtractor**: the streaming log-mel front end
-- **NemotronRnntGreedyDecoder**: RNN-T greedy search over the `IRnntNetwork` seam; also documents
-  the ONNX-backed `NemotronRnntNetwork`
+- **NemotronEncoder**: the ONNX Runtime cache-aware encoder behind the `INemotronEncoder` seam
+- **NemotronRnntGreedyDecoder**: RNN-T greedy search over the `IRnntNetwork` seam
+- **NemotronRnntNetwork**: the ONNX Runtime prediction and joint networks behind `IRnntNetwork`
 - **SilenceRunLimiter**: the stateful streaming leading-silence limiter
 - **DitherNoise**: the seeded Gaussian dither source applied after the limiter
 

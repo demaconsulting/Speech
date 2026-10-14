@@ -11,8 +11,10 @@ produce an exactly-zero log-mel input.
 (320 samples). A frame is *quiet* when its RMS is below the current threshold. Quiet runs longer
 than 400 ms (20 frames) are truncated to 400 ms; loud frames pass through unchanged. The
 threshold is adaptive: until calibrated it is the default `0.003`; after the first 20 frames
-(400 ms) it becomes 3.5 times the 15th percentile of those frames' RMS values, clamped to the
-range 0.0015 to 0.006. Audio keeps flowing during calibration (calibration frames are passed
+(400 ms) it becomes 3.5 times the 15th percentile of those frames' RMS values (the third-quietest
+of the 20), clamped to the range 0.0015 to 0.006. A stream shorter than 20 frames never
+calibrates, so the default threshold stays in force for its whole length. Audio keeps flowing
+during calibration (calibration frames are passed
 through the same truncation rules with the default threshold, never delayed or withheld). A
 partial trailing frame is held until the next call or `Flush`. Counters: `Threshold`,
 `IsCalibrated`, `QuietRunSamples` (the current quiet run measured on the **input** clock,

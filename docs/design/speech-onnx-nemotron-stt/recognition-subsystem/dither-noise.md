@@ -9,8 +9,9 @@ recognition pipeline.
 
 **Key Methods**:
 
-- **Apply(samples)**: adds Gaussian noise of the configured amplitude in place; an amplitude of
-  zero leaves samples unchanged; the same seed yields the same sequence.
+- **Apply(samples)**: adds zero-mean Gaussian noise of the configured amplitude in place (its
+  standard deviation, measured over at least 100000 samples, is within 10% of the amplitude);
+  an amplitude of zero leaves samples unchanged; the same seed yields the same sequence.
 - **Reset()**: restarts the noise sequence from the seed.
 
 **Error Handling**: no exception is expected from normal operation.

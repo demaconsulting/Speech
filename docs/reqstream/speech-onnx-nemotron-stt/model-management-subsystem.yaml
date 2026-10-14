@@ -77,13 +77,34 @@ sections:
           - id: SpeechOnnxNemotronStt-Models-DownloadDescriptor
             title: >-
               The ModelManagementSubsystem shall declare a download descriptor naming every one
-              of the model's eleven files, each with a checksum and an HTTPS download URI.
+              of the model's eleven files.
             justification: |
-              A host needs a checksum-verified, installable model; the downloader can only
-              fetch and verify the files the model declares.
+              A host needs an installable model; the downloader can only fetch the files the
+              model declares.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
+            tests:
+              - DownloadDescriptor_ListsElevenFiles
+
+          - id: SpeechOnnxNemotronStt-Models-DownloadChecksums
+            title: >-
+              The ModelManagementSubsystem shall declare a checksum for every file in the
+              model's download descriptor.
+            justification: |
+              The downloader can only verify the integrity of the files for which the model
+              declares a checksum.
+            children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadChecksums
+            tests:
+              - DownloadDescriptor_ListsElevenFiles
+
+          - id: SpeechOnnxNemotronStt-Models-DownloadUris
+            title: >-
+              The ModelManagementSubsystem shall declare an HTTPS download URI for every file in
+              the model's download descriptor.
+            justification: |
+              Downloading over HTTPS protects the model files from tampering in transit.
+            children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadUris
             tests:
               - DownloadDescriptor_ListsElevenFiles
@@ -104,20 +125,39 @@ sections:
           - id: SpeechOnnxNemotronStt-Models-CreateBackendValidation
             title: >-
               The ModelManagementSubsystem's CreateBackend method shall fail with an exception,
-              rather than return a partially built backend, for an unusable installation: an
-              empty model directory, missing model files, or a vocabulary that does not declare
-              the selected locale.
+              rather than return a partially built backend, for an empty model directory.
             justification: |
               A host must learn about an unusable installation at backend construction so the
               Speech library's factory can degrade it to the honest unavailable recognizer,
               instead of failing later during recognition.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-EmptyDirectoryRejected
-              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-MissingFilesRejected
-              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-UnsupportedLocaleRejected
             tests:
               - CreateBackend_EmptyDirectory_Throws
+
+          - id: SpeechOnnxNemotronStt-Models-CreateBackendMissingFiles
+            title: >-
+              The ModelManagementSubsystem's CreateBackend method shall fail with an exception,
+              rather than return a partially built backend, when model files are missing.
+            justification: |
+              A partially installed model cannot recognize speech; the failure must surface at
+              backend construction rather than during recognition.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-MissingFilesRejected
+            tests:
               - CreateBackend_MissingFiles_Throws
+
+          - id: SpeechOnnxNemotronStt-Models-CreateBackendUnsupportedLocale
+            title: >-
+              The ModelManagementSubsystem's CreateBackend method shall fail with an exception,
+              rather than return a partially built backend, when the vocabulary does not declare
+              the selected locale.
+            justification: |
+              Without the locale's language identifier the encoder cannot be driven correctly;
+              the failure must surface at backend construction rather than during recognition.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-UnsupportedLocaleRejected
+            tests:
               - CreateBackend_VocabularyWithoutLocale_Throws
 
           - id: SpeechOnnxNemotronStt-Models-VocabularyLoading

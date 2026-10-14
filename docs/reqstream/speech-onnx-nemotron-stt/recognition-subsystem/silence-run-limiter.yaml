@@ -62,12 +62,17 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
                 title: >-
                   The SilenceRunLimiter class shall set its threshold to 3.5 times the 15th
-                  percentile of the frame RMS values of the first 20 frames (400 ms).
+                  percentile (the third-quietest) of the frame RMS values of the first 20 frames
+                  (400 ms), and shall keep the default threshold for a stream shorter than 20
+                  frames.
                 justification: |
                   A fixed threshold is wrong for both very clean and very noisy microphones; an
-                  adaptive threshold calibrated from the stream's own start is robust.
+                  adaptive threshold calibrated from the stream's own start is robust. A stream
+                  too short to calibrate cannot yield a meaningful noise floor, so the default
+                  applies.
                 tests:
                   - Process_MidLevelCalibration_ThresholdIsMultipleOfNoiseFloor
+                  - Process_ShorterThanCalibrationWindow_KeepsDefaultThreshold
 
               - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ThresholdMaximum
                 title: >-

@@ -6,8 +6,10 @@
 # docs/reqstream/speech-onnx-nemotron-stt.yaml. This subsystem contains the real raw-ONNX
 # implementation of the Speech library's public IRecognitionBackend seam
 # (OnnxNemotronRecognitionEngine) and the units it composes: the streaming log-mel feature
-# extractor (NemotronFeatureExtractor), the RNN-T greedy decoder (NemotronRnntGreedyDecoder), and
-# the leading-silence limiter with its dither source (SilenceRunLimiter, DitherNoise). All
+# extractor (NemotronFeatureExtractor), the cache-aware encoder wrapper (NemotronEncoder), the
+# RNN-T greedy decoder (NemotronRnntGreedyDecoder) and its ONNX-backed network
+# (NemotronRnntNetwork), and the leading-silence limiter with its dither source
+# (SilenceRunLimiter, DitherNoise). All
 # recognition policy above that seam (session state machine, resampling, cancellation, fault
 # containment) remains in the Speech library's own RecognitionSubsystem.
 #
@@ -23,8 +25,7 @@ sections:
             title: >-
               The SpeechOnnxNemotronStt RecognitionSubsystem shall implement the Speech
               library's IRecognitionBackend seam over the Nemotron encoder, decoder, and joint
-              ONNX graphs run through ONNX Runtime, accepting 16 kHz audio, buffering it
-              cheaply, and decoding it only in whole encoder chunks.
+              ONNX graphs run through ONNX Runtime.
             justification: |
               The Speech library confines every speech-recognition interop call behind its
               public IRecognitionBackend seam so its own recognition policy is verifiable
@@ -32,13 +33,40 @@ sections:
               is what turns that policy into text for the Nemotron model this package ships.
             children:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Construction
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SampleRate
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Buffering
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ChunkedDecoding
             tests:
               - Constructor_NullArguments_Throw
+
+          - id: SpeechOnnxNemotronStt-Recognition-OnnxBackendSampleRate
+            title: >-
+              The RecognitionSubsystem shall accept 16 kHz audio.
+            justification: |
+              The Nemotron front end is trained on 16 kHz audio, and the Speech library
+              resamples captured audio to the rate the backend declares.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SampleRate
+            tests:
               - SampleRate_Is16kHz
+
+          - id: SpeechOnnxNemotronStt-Recognition-OnnxBackendBuffering
+            title: >-
+              The RecognitionSubsystem shall buffer accepted audio without decoding it.
+            justification: |
+              The Speech library's recognition worker feeds audio and pumps decoding
+              separately; accepting audio must be cheap.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Buffering
+            tests:
               - AcceptSamples_Empty_IsIgnored
+
+          - id: SpeechOnnxNemotronStt-Recognition-OnnxBackendChunkedDecoding
+            title: >-
+              The RecognitionSubsystem shall decode audio only in whole encoder chunks.
+            justification: |
+              The cache-aware encoder is trained on fixed-size chunks, so decoding must run in
+              whole chunks.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ChunkedDecoding
+            tests:
               - TryDecode_LessThanChunk_ReportsNothing
 
           - id: SpeechOnnxNemotronStt-Recognition-EncoderWiring
@@ -51,12 +79,12 @@ sections:
               production tensor wiring cannot be exercised by the managed fakes, so a tiny
               synthetic ONNX model with the same tensor contract verifies it.
             children:
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderInputs
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderCacheFeedback
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderReset
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderProbe
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderDispose
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderArgumentValidation
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Inputs
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-CacheFeedback
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Reset
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Probe
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-Dispose
+              - SpeechOnnxNemotronStt-Recognition-NemotronEncoder-ArgumentValidation
             tests:
               - NemotronEncoder_Encode_FirstChunk_ReturnsFramesWithLanguage
               - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
@@ -108,19 +136,35 @@ sections:
           - id: SpeechOnnxNemotronStt-Recognition-QuietEndpointing
             title: >-
               The RecognitionSubsystem shall finalize an utterance when the input has been quiet
-              for at least 2500 ms after speech, including when the quiet run lies inside a
-              single large block of audio, and shall never finalize on silence alone.
+              for at least 2500 ms after speech.
             justification: |
               The limiter removes most of a long quiet run, so the chunk clock stalls during
-              silence; endpointing must therefore be measured on the input clock, and a stream
-              of only silence has no utterance to finalize.
+              silence; endpointing must therefore be measured on the input clock.
             children:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietInsideBlock
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
             tests:
               - TryDecode_QuietAfterSpeech_EndpointsAndResets
+
+          - id: SpeechOnnxNemotronStt-Recognition-QuietEndpointingInsideBlock
+            title: >-
+              The RecognitionSubsystem shall finalize an utterance at a quiet run of at least
+              2500 ms that lies inside a single large block of audio.
+            justification: |
+              A host may deliver audio in blocks of any size, and the utterance boundary must
+              not depend on how the audio was split.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietInsideBlock
+            tests:
               - TryDecode_QuietInsideOneBlock_SplitsUtterance
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
+            title: >-
+              The RecognitionSubsystem shall never finalize an utterance on silence alone.
+            justification: |
+              A stream of only silence has no utterance to finalize.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
+            tests:
               - TryDecode_OnlySilence_NeverEndpoints
 
           - id: SpeechOnnxNemotronStt-Recognition-QuietPadding
@@ -250,7 +294,7 @@ sections:
               The model is under-confident on quiet, isolated words and otherwise emits blank
               for them.
             children:
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-BlankPenalty
             tests:
               - SelectToken_BlankWithinPenalty_PrefersNonBlank
               - SelectToken_BlankBeyondPenalty_ReturnsBlank
@@ -266,9 +310,9 @@ sections:
               and the real model is too large for CI, so tiny synthetic ONNX models with the
               same tensor contracts verify the wiring.
             children:
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-PrimedPrediction
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-TokenFeedback
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-EncoderFrameScoring
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-PrimedPrediction
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-TokenFeedback
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-EncoderFrameScoring
             tests:
               - Reset_PredictToken_UsesPrimedDecoderOutput
               - Advance_FeedsTokenAndRecurrentState
@@ -285,8 +329,8 @@ sections:
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Reset
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Dispose
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkReset
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkDispose
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-Reset
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-Dispose
             tests:
               - Reset_ResetsNetwork
               - Dispose_DisposesNetwork
@@ -302,7 +346,10 @@ sections:
               a null-reference failure deeper in decoding.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkArgumentValidation
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-ArgumentValidation
+            tests:
+              - NullArguments_Throw
+              - Constructor_NullSessions_Throw
             tests:
               - NullArguments_Throw
               - Constructor_NullSessions_Throw
@@ -338,8 +385,8 @@ sections:
           - id: SpeechOnnxNemotronStt-Recognition-SilenceAdaptiveThreshold
             title: >-
               The RecognitionSubsystem shall calibrate the quiet threshold from the start of
-              the stream within fixed bounds, keep audio flowing during calibration, and keep
-              the default threshold when adaptation is disabled.
+              the stream within fixed bounds, using the default threshold until enough of the
+              stream has been seen to calibrate.
             justification: |
               A fixed threshold is wrong for both very clean and very noisy microphones, and
               clamping bounds the damage of a pathological calibration window. Calibration is
@@ -352,11 +399,32 @@ sections:
               - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
               - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ThresholdMaximum
               - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ThresholdMinimum
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-CalibrationFlow
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-NonAdaptive
             tests:
               - Process_MidLevelCalibration_ThresholdIsMultipleOfNoiseFloor
+              - Process_LoudCalibration_ThresholdClampedToMaximum
+              - Process_SilentCalibration_ThresholdClampedToMinimum
+              - Process_ShorterThanCalibrationWindow_KeepsDefaultThreshold
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceCalibrationFlow
+            title: >-
+              The RecognitionSubsystem shall keep audio flowing while the quiet threshold is
+              being calibrated.
+            justification: |
+              No speech may be delayed or lost while the limiter calibrates.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-CalibrationFlow
+            tests:
               - Process_DuringCalibration_AudioStillFlows
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceNonAdaptive
+            title: >-
+              The RecognitionSubsystem shall keep the default quiet threshold when adaptation is
+              disabled.
+            justification: |
+              A host that knows its noise floor must be able to fix the threshold.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-NonAdaptive
+            tests:
               - Process_NonAdaptive_KeepsDefaultThreshold
 
           - id: SpeechOnnxNemotronStt-Recognition-SilenceLimiterStreaming

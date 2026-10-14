@@ -3,11 +3,11 @@
 #
 # These requirements describe the design-level behavior of the NemotronRnntGreedyDecoder unit,
 # decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements. The unit's
-# ONNX-backed collaborator NemotronRnntNetwork is documented inside the unit's design document
-# rather than as a separate unit; this unit is verified over the IRnntNetwork seam with a fake.
+# ONNX-backed collaborator NemotronRnntNetwork has its own unit requirement file
+# (nemotron-rnnt-network.yaml); this unit is verified over the IRnntNetwork seam with a fake.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
-# NemotronRnntGreedyDecoderTests.cs and NemotronRnntNetworkTests.cs.
+# NemotronRnntGreedyDecoderTests.cs.
 
 sections:
   - title: SpeechOnnxNemotronStt Requirements
@@ -72,78 +72,6 @@ sections:
                   deterministically.
                 tests:
                   - Dispose_DisposesNetwork
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
-                title: >-
-                  The NemotronRnntNetwork collaborator shall prefer the best non-blank token over
-                  the blank token unless the blank token's score exceeds it by more than a fixed
-                  penalty of 3.0, and shall not penalize any non-blank token.
-                justification: |
-                  The model is under-confident on quiet, isolated words and otherwise emits
-                  blank for them; the penalty recovers those words.
-                tests:
-                  - SelectToken_BlankWithinPenalty_PrefersNonBlank
-                  - SelectToken_BlankBeyondPenalty_ReturnsBlank
-                  - SelectToken_NonBlankIds_AreNotPenalized
-                  - PredictToken_ScoreEqualsBlank_AppliesPenalty
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-PrimedPrediction
-                title: >-
-                  The NemotronRnntNetwork collaborator shall predict from the blank-primed
-                  decoder output before any token has been fed.
-                justification: |
-                  The first prediction of an utterance must condition on the start-of-sequence
-                  state the model was trained with.
-                tests:
-                  - Reset_PredictToken_UsesPrimedDecoderOutput
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-TokenFeedback
-                title: >-
-                  The NemotronRnntNetwork collaborator shall condition each prediction on the
-                  tokens fed so far by feeding the fed token and the previous call's recurrent
-                  states into the next decoder call.
-                justification: |
-                  The production tensor and state wiring cannot be exercised by the managed fake,
-                  and the real model is too large for CI, so tiny synthetic ONNX models with the
-                  same tensor contracts verify the wiring.
-                tests:
-                  - Advance_FeedsTokenAndRecurrentState
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-EncoderFrameScoring
-                title: >-
-                  The NemotronRnntNetwork collaborator shall score the encoder frame it is given
-                  against the decoder output when selecting a token.
-                justification: |
-                  The prediction must depend on the audio frame being decoded.
-                tests:
-                  - PredictToken_UsesEncoderFrame
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkReset
-                title: >-
-                  The NemotronRnntNetwork collaborator's Reset method shall restore zero
-                  recurrent states.
-                justification: |
-                  A new utterance must not inherit the previous utterance's prediction state.
-                tests:
-                  - Reset_AfterAdvance_ClearsRecurrentState
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkDispose
-                title: >-
-                  The NemotronRnntNetwork collaborator shall reject use after disposal with
-                  ObjectDisposedException.
-                justification: |
-                  Use of released native sessions must fail clearly rather than crash.
-                tests:
-                  - Dispose_BlocksFurtherUse
-
-              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkArgumentValidation
-                title: >-
-                  The NemotronRnntNetwork collaborator shall throw ArgumentNullException for a
-                  null decoder or joint session.
-                justification: |
-                  A programming error should surface immediately with a clear exception.
-                tests:
-                  - Constructor_NullSessions_Throw
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
                 title: >-

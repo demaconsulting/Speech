@@ -11,8 +11,9 @@ xUnit v3 under the .NET SDK, in `test/DemaConsulting.Speech.Onnx.NemotronStt.Tes
 
 #### Acceptance Criteria
 
-The dither is deterministic and resettable for a given seed, differs between seeds, matches its
-configured amplitude statistically, and leaves samples unchanged at zero amplitude.
+The dither is deterministic and resettable for a given seed, differs between seeds, has a
+standard deviation within 10% of its configured amplitude over 100000 samples, and leaves
+samples unchanged at zero amplitude.
 
 #### Test Scenarios
 

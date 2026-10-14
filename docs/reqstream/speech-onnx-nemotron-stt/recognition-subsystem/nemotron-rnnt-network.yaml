@@ -1,0 +1,90 @@
+---
+# Software Unit Requirements for NemotronRnntNetwork
+#
+# These requirements describe the design-level behavior of the NemotronRnntNetwork unit, the
+# ONNX Runtime implementation of the RNN-T prediction and joint networks that
+# NemotronRnntGreedyDecoder drives, decomposing the parent SpeechOnnxNemotronStt
+# RecognitionSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# NemotronRnntNetworkTests.cs, against tiny synthetic ONNX models that honor the real tensor
+# contracts (NemotronNetworkFixture.cs).
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: NemotronRnntNetwork Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-BlankPenalty
+                title: >-
+                  The NemotronRnntNetwork class shall prefer the best non-blank token over the
+                  blank token unless the blank token's score exceeds it by more than a fixed
+                  penalty of 3.0, and shall not penalize any non-blank token.
+                justification: |
+                  The model is under-confident on quiet, isolated words and otherwise emits
+                  blank for them; the penalty recovers those words.
+                tests:
+                  - SelectToken_BlankWithinPenalty_PrefersNonBlank
+                  - SelectToken_BlankBeyondPenalty_ReturnsBlank
+                  - SelectToken_NonBlankIds_AreNotPenalized
+                  - PredictToken_ScoreEqualsBlank_AppliesPenalty
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-PrimedPrediction
+                title: >-
+                  The NemotronRnntNetwork class shall predict from the blank-primed decoder
+                  output before any token has been fed.
+                justification: |
+                  The first prediction of an utterance must condition on the start-of-sequence
+                  state the model was trained with.
+                tests:
+                  - Reset_PredictToken_UsesPrimedDecoderOutput
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-TokenFeedback
+                title: >-
+                  The NemotronRnntNetwork class shall condition each prediction on the tokens fed
+                  so far by feeding the fed token and the previous call's recurrent states into
+                  the next decoder call.
+                justification: |
+                  The production tensor and state wiring cannot be exercised by the managed fake,
+                  and the real model is too large for CI, so tiny synthetic ONNX models with the
+                  same tensor contracts verify the wiring.
+                tests:
+                  - Advance_FeedsTokenAndRecurrentState
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-EncoderFrameScoring
+                title: >-
+                  The NemotronRnntNetwork class shall score the encoder frame it is given against
+                  the decoder output when selecting a token.
+                justification: |
+                  The prediction must depend on the audio frame being decoded.
+                tests:
+                  - PredictToken_UsesEncoderFrame
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-Reset
+                title: >-
+                  The NemotronRnntNetwork class's Reset method shall restore zero recurrent
+                  states.
+                justification: |
+                  A new utterance must not inherit the previous utterance's prediction state.
+                tests:
+                  - Reset_AfterAdvance_ClearsRecurrentState
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-Dispose
+                title: >-
+                  The NemotronRnntNetwork class shall reject use after disposal with
+                  ObjectDisposedException.
+                justification: |
+                  Use of released native sessions must fail clearly rather than crash.
+                tests:
+                  - Dispose_BlocksFurtherUse
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-ArgumentValidation
+                title: >-
+                  The NemotronRnntNetwork class shall throw ArgumentNullException for a null
+                  decoder or joint session.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - Constructor_NullSessions_Throw

@@ -36,8 +36,9 @@ sections:
 
               - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
                 title: >-
-                  The DitherNoise class shall add Gaussian noise whose standard deviation equals
-                  the configured amplitude.
+                  The DitherNoise class shall add zero-mean Gaussian noise whose standard
+                  deviation, measured over at least 100000 samples, is within 10% of the
+                  configured amplitude.
                 justification: |
                   The dither must be tiny enough not to disturb speech yet large enough to avoid
                   the exact-zero log-mel degeneracy of digital silence.
