@@ -150,10 +150,10 @@ public class SpeechDemoTests
         Assert.Contains(registered, m => m.Role == SpeechModelRole.Synthesis);
         Assert.Contains(registered, m => m.Role == SpeechModelRole.Recognition);
     }    /// <summary>
-    ///     Proves that the demo's synthesis and recognition panels, composed over the real
-    ///     library catalog, honestly report that no models are installed yet - the expected
-    ///     state of a fresh install - rather than a silently empty or crashing panel.
-    /// </summary>
+         ///     Proves that the demo's synthesis and recognition panels, composed over the real
+         ///     library catalog, honestly report that no models are installed yet - the expected
+         ///     state of a fresh install - rather than a silently empty or crashing panel.
+         /// </summary>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly()
     {
