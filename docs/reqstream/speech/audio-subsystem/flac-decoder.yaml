@@ -176,10 +176,12 @@ sections:
               - id: Speech-Audio-FlacDecoder-InvalidFrameFieldRejection
                 title: >-
                   The FlacDecoder shall reject a frame with invalid header, frame-number,
-                  subframe or predictor fields with InvalidDataException.
+                  subframe or predictor fields, including a negative linear-predictor right shift,
+                  with InvalidDataException.
                 justification: |
                   Corrupt or hostile frames must fail with a clear, bounded error instead of
-                  producing garbage.
+                  producing garbage. RFC 9639 section 9.2.6 and Appendix B.4 forbid a negative
+                  linear-predictor right shift.
                 tests:
                   - FlacDecoder_Decode_InvalidFields_Throw
                   - FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors

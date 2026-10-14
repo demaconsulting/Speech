@@ -255,6 +255,7 @@ internal static class FlacFrameDecoder
             throw new InvalidDataException($"A FLAC subframe at byte {reader.BytePosition} has an invalid predictor precision.");
         }
 
+        // RFC 9639 section 9.2.6: the right shift is coded signed, but "MUST NOT be negative" (see Appendix B.4)
         var shift = (int)reader.ReadSigned(5);
         if (shift < 0)
         {
