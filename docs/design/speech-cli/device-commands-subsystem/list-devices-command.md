@@ -34,7 +34,9 @@ are public and directly implementable by a hand-written fake (see the DeviceComm
 design).
 
 **Error Handling**: A null `Context`, capture probe or playback probe throws
-`ArgumentNullException`. An unrecognized `--direction` value, a `--direction` with no value or followed by another option token, and
+`ArgumentNullException`. An unrecognized `--direction` value, a `--direction` with no value or
+followed by another option token,
+and
 any other argument throw `ArgumentException` naming the offending token; `Program.Main` reports
 these as a one-line message with a non-zero exit code. The unit does not guard the probes'
 `Enumerate()` calls: an exception thrown by a probe propagates to the caller (unlike `doctor`,

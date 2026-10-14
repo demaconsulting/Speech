@@ -18,7 +18,8 @@ independent of any injected probe, so that step cannot be deterministically fake
 `Run` through device creation into those checks is verified only manually.
 
 Two timing facts shape the tests. `RecordTestClip` really waits for the duration it is given, so
-its tests use a short duration. `PlayTestTone` accepts an optional total time limit that is counted from before the device is started; the
+its tests use a short duration. `PlayTestTone` accepts an optional total time limit that is counted
+from before the device is started; the
 stalled-device test injects a 1 ms limit, so the failure path is instant instead of waiting the
 default 7 seconds (2-second tone plus 5-second margin). The default limit itself is therefore not
 asserted by any automated test; it is a constant in the unit.
@@ -40,8 +41,9 @@ The unit passes when it defaults to the output direction and parses its flags; r
 arguments, an unknown device name (either direction) and an unavailable device cleanly; generates a
 tone of the expected length that stays within full scale, is identical on every channel and rejects
 a non-positive sample rate; writes the whole tone and stops the device; fails instead of hanging
-when the playback queue never drains or the device start alone exceeds the total limit; reports capture statistics with invariant-culture durations;
-fails when capture delivers no samples; always stops a capture device whose `Start` threw and a playback device whose `Start` or write threw; and
+when the playback queue never drains or the device start alone exceeds the total limit; reports
+capture statistics with invariant-culture durations; fails when capture delivers no samples; always
+stops a capture device whose `Start` threw and a playback device whose `Start` or write threw; and
 rejects a missing context, factory or device list.
 
 #### Test Scenarios

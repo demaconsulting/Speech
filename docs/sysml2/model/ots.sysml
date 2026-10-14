@@ -132,6 +132,17 @@ package SpeechOnnx {
     }
 }
 
+package SpeechCli {
+    part def TestResults {
+        doc /* Maintained TRX and JUnit serializer (DemaConsulting.TestResults) used by the SpeechCli
+             * Validation unit to write self-validation results. */
+
+        comment designRef /* Design: docs/design/ots/test-results.md */
+        comment verificationRef /* Verification: docs/verification/ots/test-results.md */
+        comment reqRef /* Requirements: docs/reqstream/ots/test-results.yaml */
+    }
+}
+
 package SpeechDemo {
     part def Avalonia {
         doc /* Cross-platform XAML desktop UI framework providing the application host,

@@ -40,10 +40,15 @@ are described in the design but are not verified by an automated test.
 #### Acceptance Criteria
 
 The unit passes when `ask` enforces both model ids and the text-source rules, rejects every unsupported option,
-reports actionable model-resolution errors (each naming what to do next), rejects a value-taking option that is followed by another recognized option or has no value at all while still accepting dash-prefixed text as a value, rejects non-finite timeouts, and forwards typed parameters to the right engine; the first final
+reports actionable model-resolution errors (each naming what to do next), rejects a value-taking
+option that is followed by another recognized option or has no value at all while still accepting
+dash-prefixed text as a value,
+rejects non-finite timeouts, and forwards typed parameters to the right engine; the first final
 result ends the listen phase while a timeout with no final result ends it with an empty reply; the reply goes to
 stdout or the `--output-text` file; device failures are reported cleanly and in the right order relative to the
-prompt; the recognizer is created before the prompt finishes and released when the prompt is canceled or setup is canceled; Ctrl+C or cancellation during model-engine setup is reported cleanly; `Ctrl+C` is
+prompt; the recognizer is created before the prompt finishes and released when the prompt is canceled or setup is
+canceled; Ctrl+C or cancellation during model-engine setup is reported cleanly;
+`Ctrl+C` is
 reported as a cancellation with no text or file written, and a timeout is not; and every created object is disposed
 once.
 

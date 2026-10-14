@@ -32,5 +32,6 @@ package SpeechCli {
         part consoleCancellation : ConsoleCancellation;
         part validation : Validation;
         part pathHelpers : PathHelpers;
+        part testResults : TestResults;
     }
 }

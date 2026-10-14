@@ -30,7 +30,7 @@ accepted. Case sensitivity of the comparison follows the platform because `GetRe
 | Exception | Condition |
 | --- | --- |
 | `ArgumentNullException` | `basePath` or `relativePath` is null |
-| `ArgumentException` | `relativePath` is rooted (even inside the base), the combined path escapes the base, or a path is invalid for the runtime (see below) |
+| `ArgumentException` | `relativePath` is rooted, escapes the base, or is invalid for the runtime (see below) |
 | `NotSupportedException` | A path has an unsupported format |
 | `PathTooLongException` | The combined or resolved path exceeds the system limit |
 

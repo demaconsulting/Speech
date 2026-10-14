@@ -202,7 +202,7 @@ variables but never prints their values.
 `SpeechCli_ValidateFlag_Provided_RunsValidation`
 
 Verifies that `--validate` runs all five self-test checks (version display, help display,
-the dispatch table being well formed, audio-backend probe composition, the model-store root being
+the subcommand registration being well formed, audio-backend probe composition, the model-store root being
 writable) to completion without throwing regardless of the host machine's audio hardware or
 installed models, and reports a pass/fail summary. The version and help checks run their inner
 invocation with the process environment hidden, so an ambient `DEMASPEECH_MIRROR_*` variable cannot

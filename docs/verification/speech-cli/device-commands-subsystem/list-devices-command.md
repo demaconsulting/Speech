@@ -22,7 +22,8 @@ hardware, because the command exits cleanly in both cases.
 
 The unit passes when it lists the devices of both probes by default and only those of the
 requested direction under `--direction`, reports "No devices found." for an empty result, reports
-each device with the name, channel count and sample rate the probe returned, rejects an invalid `--direction`, a `--direction` with no value or followed by another option, an
+each device with the name, channel count and sample rate the probe returned, rejects an invalid
+`--direction`, a `--direction` with no value or followed by another option, an
 unsupported flag and a missing context or probe, and the built tool lists devices cleanly.
 
 #### Test Scenarios
@@ -75,7 +76,8 @@ enumerated. These values are distinctive so they cannot appear in the output by 
 
 **Scenario**: `--direction` is followed by another `--direction` token instead of a value.
 
-**Expected**: `ArgumentException` whose message says `--direction requires a value`; the option token is not swallowed as the value.
+**Expected**: `ArgumentException` whose message says `--direction requires a value`; the option token is not
+swallowed as the value.
 
 ##### ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
 

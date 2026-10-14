@@ -222,7 +222,7 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 **Self-validation path:**
 
 1. **Input**: `--validate` is given, optionally with `--results <file>` and `--depth <#>`
-2. **Checks**: version display, help display, and whether the dispatch table is well formed are
+2. **Checks**: version display, help display, and whether the subcommand registration is well formed are
    checked in-process (the version and help checks build their inner `Context` with an empty
    environment reader, so ambient `DEMASPEECH_MIRROR_*` variables cannot affect them); an `AudioDeviceFactory` is
    composed and both device probes are enumerated

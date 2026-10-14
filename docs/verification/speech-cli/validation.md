@@ -6,7 +6,7 @@
 In-process tests run `Program.RunAsync` and `Program.Main` with `--validate` and assert on the
 printed summary, the results file and the exit code; the out-of-process integration tests run the
 built tool and assert on the same. Because the self-test checks are written to pass on any machine,
-a run reporting `Failed: 0` shows that all five checks (version, help, dispatch table, audio-backend
+a run reporting `Failed: 0` shows that all five checks (version, help, subcommand registration, audio-backend
 probe, model-store root writable) passed on the host. The failure paths of the individual checks
 cannot be provoked without injecting a fault, so they are covered by review of the per-check
 exception handling rather than by a test; only the results-file failure paths have tests.

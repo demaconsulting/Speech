@@ -95,7 +95,8 @@ unknown, wrong-role or not-downloaded model, an invalid `--stt-param`, and an un
 names the file or the mono requirement. Null arguments to the entry points throw
 `ArgumentNullException`. A cancellation that ends the result pump is treated as graceful
 termination; in file mode, if the drain `StopAsync` itself throws a cancellation, the command
-stops the session again with an uncancelable token before completing. Neither `IAudioCaptureDevice` nor its implementations are disposable, so the command
+stops the session again with an uncancelable token before completing.
+Neither `IAudioCaptureDevice` nor its implementations are disposable, so the command
 needs no capture-device disposal; the engine and session are released by `await using`.
 
 **Dependencies**: `ICliModelCatalog`, `ICliCaptureDeviceSource`, `AudioDeviceFactory`,

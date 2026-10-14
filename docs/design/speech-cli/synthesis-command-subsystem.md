@@ -85,7 +85,9 @@ subsystem in production, via `AudioDeviceFactoryPlaybackDeviceSource`), and
 `DeviceCommandsSubsystem` rather than duplicating device resolution logic.
 `ParameterBagParser` depends only on the library's public
 `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter` types. The
-recognition and conversation command subsystems consume the C# `internal` `ParameterBagParser.Resolve`/`ParseToken` methods and the
+recognition and conversation command subsystems consume the C# `internal`
+`ParameterBagParser.Resolve`/`ParseToken` methods and
+the
 `ICliPlaybackDeviceSource` seam. Nothing in this subsystem touches `ISynthesisModel` or any other
 internal library type directly; that access is confined to the catalog adapter of
 `ModelCommandsSubsystem`.

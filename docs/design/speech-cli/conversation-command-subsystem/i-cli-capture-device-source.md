@@ -10,7 +10,8 @@ system default input device) and returns a capture device.
 
 **Key Methods**: `CreateCaptureDevice` returns a real, available device when the selection is known to
 `CaptureProbe`; otherwise it returns an honestly unavailable device whose `IsAvailable` is false. It does not throw
-for an unknown device or for the default when no capture devices exist, because callers decide how to report an unavailable device.
+for an unknown device or for the default when no capture devices exist, because callers decide how to
+report an unavailable device.
 
 The seam exists because `AudioDeviceFactory.CreateCaptureDevice` checks real PortAudio initialization before it
 consults any injected probe, so on a machine with no audio hardware, including a headless build agent, it resolves

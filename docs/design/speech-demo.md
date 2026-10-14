@@ -69,7 +69,7 @@ external interfaces are its user interface and the interfaces it consumes.
 | `DEMASPEECH_CAPTURE_DEBUG_DIR` | Inbound | Environment variable | Opt-in raw capture recording; off by default |
 | Refresh commands | Inbound | User interface | Never throw |
 | Download command | Inbound/Outbound | User interface | Reports progress and honest failure |
-| `AudioDeviceFactory` | Outbound | Constructor/property/`RefreshDevices()` | Construction and probe access never throw; `RefreshDevices()` can throw `AudioDeviceInUseException` or a native fault, which `DeviceSelectionViewModel` handles and reports as a status |
+| `AudioDeviceFactory` | Outbound | Members | Probe access never throws; `RefreshDevices()` faults become a status |
 | `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `AudioDeviceSelection` | Outbound | Value construction | Name-only device identity |
@@ -77,10 +77,10 @@ external interfaces are its user interface and the interfaces it consumes.
 | `SpeechModelCatalog.DownloadAsync(...)` | Outbound | Method call/return | Throws for unknown model id |
 | `SpeechModelCatalog` mirror/voice-pack members | Outbound | Method call/return | Mirror and voice-pack calls |
 | File system | Outbound | Files | Model store, voices folder and optional capture recording |
-| `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call/return | Throws `ArgumentException` for invalid parameters; the calling panel catches it and reports a failure status |
-| `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call/return | Throws `ArgumentException` for invalid parameters; the calling panel catches it and reports a failure status |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call | Invalid parameters give a failure status |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call | Invalid parameters give a failure status |
 | `ISynthesisSession.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
-| `IRecognitionSession.Start/Stop/GetResultsAsync()` | Outbound | `IAsyncEnumerable` | The library raises `StateChanged` on background threads; the view model marshals each notification to the UI thread |
+| `IRecognitionSession.Start/Stop/GetResultsAsync()` | Outbound | `IAsyncEnumerable` | Events marshaled to UI thread |
 
 ## Dependencies
 

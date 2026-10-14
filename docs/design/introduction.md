@@ -214,6 +214,8 @@ The following OTS items are also covered:
 - **SarifMark** — SARIF report conversion tool
 - **SonarMark** — SonarCloud quality report tool
 - **SysML2Tools** — architecture model lint and diagram rendering tool
+- **TestResults** (`DemaConsulting.TestResults`) — TRX and JUnit serializer used by SpeechCli's
+  `--validate --results` self-validation output
 - **VersionMark** — tool-version documentation tool
 - **WeasyPrint** — HTML-to-PDF conversion tool
 - **xUnit** — unit-testing framework
@@ -224,7 +226,9 @@ The following topics are explicitly excluded from this design documentation:
 
 - External library internals beyond the integration points used by this repository
 - Build pipeline configuration and CI/CD processes
-- Deployment, packaging, and distribution mechanisms
+- Deployment and distribution mechanisms (the packaging mechanism itself is not specified; a
+  packaging constraint that shapes a design, such as SpeechCli's `net10.0`-only target, is
+  stated only where it applies)
 - Infrastructure and hosting environment details
 - Test projects and test infrastructure
 
@@ -329,8 +333,8 @@ that `Speech` neither references nor knows about:
 - `SpeechOnnxChatterboxTurbo` (`DemaConsulting.Speech.Onnx.ChatterboxTurbo`) supplies a
   voice-cloning text-to-speech model and engine in two subsystems, `ModelManagementSubsystem`
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
-  (engine, networks, token selector, conditioning, capability profile). It depends on `Speech` and
-  `SpeechOnnx`.
+  (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
+  and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
