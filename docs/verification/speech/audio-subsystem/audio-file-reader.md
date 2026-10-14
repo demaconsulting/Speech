@@ -144,7 +144,8 @@ throw `InvalidDataException`; an input exactly at the limit is not rejected by t
 
 **Test**: `AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength`
 
-**Expected**: With `MaxSamples` and `MaxEncodedBytes` both `long.MaxValue`, a seekable stream that only reports a length of
+**Expected**: With `MaxSamples` and `MaxEncodedBytes` both `long.MaxValue`, a seekable stream that only
+reports a length of
 `Array.MaxLength + 1` bytes throws `InvalidDataException` naming the `Array.MaxLength`-byte limit,
 without reading any data or allocating.
 
