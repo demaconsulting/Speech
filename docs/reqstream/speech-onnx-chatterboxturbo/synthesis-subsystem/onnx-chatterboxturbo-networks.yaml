@@ -187,12 +187,13 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidationLanguageModel
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall fail construction, reporting an
-                  invalid model, for a language-model graph without the expected cache
-                  inputs.
+                  invalid model, for a language-model graph without the expected inputs,
+                  outputs or complete cache layout.
                 justification: |
                   A language model that cannot carry its cache cannot generate.
                 tests:
                   - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_IncompleteLanguageModelLayout_DisposesSessionsAndThrows
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConstructionCleanup
                 title: >-
@@ -203,6 +204,7 @@ sections:
                 tests:
                   - OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows
                   - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_IncompleteLanguageModelLayout_DisposesSessionsAndThrows
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
                 title: >-

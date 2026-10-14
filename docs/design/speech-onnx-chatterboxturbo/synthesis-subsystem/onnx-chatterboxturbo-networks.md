@@ -70,8 +70,10 @@ is safe (it only releases its own cache tensors).
 first position or an attention length shorter than the sequence length; `ObjectDisposedException` for use
 after dispose of the networks or of a language-model state; `ArgumentException` for an embeddings array of
 the wrong length or an empty decode token array; `ArgumentNullException` for null arguments;
-`InvalidOperationException` when a graph lacks the expected structure (no
-`past_key_values` inputs, or encoder outputs that match neither the named nor the positional contract);
+`InvalidOperationException` when a graph lacks the expected structure (no `past_key_values` inputs, a cache
+input without its key or value partner, a cache input without its `present.*` output, no `inputs_embeds`
+input, no logits output, or encoder outputs that match neither the named nor the positional contract); the
+layout is validated at construction, before any step runs;
 other ONNX Runtime exceptions propagate after cleanup. Not thread-safe; the engine serializes calls.
 
 **Dependencies**: `Microsoft.ML.OnnxRuntime`; `OnnxChatterboxTurboSynthesisEngine.EmbeddingSize` (embedding

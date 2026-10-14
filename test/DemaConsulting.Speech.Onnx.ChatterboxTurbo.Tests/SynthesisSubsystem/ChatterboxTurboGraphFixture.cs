@@ -137,8 +137,18 @@ internal static class ChatterboxTurboGraphFixture
     /// <param name="withPastInputs">False to omit the cache inputs (an invalid graph).</param>
     /// <param name="halfEmbeddings">True to declare a float16 <c>inputs_embeds</c> input (cast to float32 inside the graph).</param>
     /// <param name="halfLogits">True to emit float16 logits (cast from float32 inside the graph).</param>
+    /// <param name="omitValueInput">True to omit the layer-0 value cache input (an incomplete key/value pair).</param>
+    /// <param name="omitValuePresentOutput">True to omit the layer-0 value present output.</param>
+    /// <param name="embeddingsInputName">The name of the embedding input (anything else is an invalid graph).</param>
     /// <returns>The serialized graph.</returns>
-    public static byte[] LanguageModel(bool halfCache, bool withPastInputs, bool halfEmbeddings = false, bool halfLogits = false)
+    public static byte[] LanguageModel(
+        bool halfCache,
+        bool withPastInputs,
+        bool halfEmbeddings = false,
+        bool halfLogits = false,
+        bool omitValueInput = false,
+        bool omitValuePresentOutput = false,
+        string embeddingsInputName = "inputs_embeds")
     {
         var projection = new float[EmbeddingSize * Vocabulary];
         for (var row = 0; row < EmbeddingSize; row++)
@@ -151,16 +161,16 @@ internal static class ChatterboxTurboGraphFixture
 
         var type = halfCache ? OnnxModelWriter.Float16 : OnnxModelWriter.Float;
         var writer = new OnnxModelWriter("language_model")
-            .Input("inputs_embeds", halfEmbeddings ? OnnxModelWriter.Float16 : OnnxModelWriter.Float, "1", "s", "1024")
+            .Input(embeddingsInputName, halfEmbeddings ? OnnxModelWriter.Float16 : OnnxModelWriter.Float, "1", "s", "1024")
             .Input("attention_mask", OnnxModelWriter.Int64, "1", "a")
             .Input("position_ids", OnnxModelWriter.Int64, "1", "s")
             .FloatInitializer("projection", [EmbeddingSize, Vocabulary], projection);
 
         // Half-precision inputs and outputs are converted around the float32 matmul (CPU MatMul has no float16 kernel)
-        var matmulInput = "inputs_embeds";
+        var matmulInput = embeddingsInputName;
         if (halfEmbeddings)
         {
-            writer.Node("Cast", ["inputs_embeds"], ["embeds_float"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float));
+            writer.Node("Cast", [embeddingsInputName], ["embeds_float"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float));
             matmulInput = "embeds_float";
         }
 
@@ -194,10 +204,19 @@ internal static class ChatterboxTurboGraphFixture
 
         foreach (var kind in new[] { "key", "value" })
         {
+            // The optional omissions build deliberately invalid cache layouts for validation tests
+            if (kind == "value" && omitValueInput)
+            {
+                continue;
+            }
+
             writer
                 .Input($"past_key_values.0.{kind}", type, "1", "2", "p", "4")
-                .Node("Concat", [$"past_key_values.0.{kind}", "step"], [$"present.0.{kind}"], OnnxModelWriter.IntAttribute("axis", 2))
-                .Output($"present.0.{kind}", type, "1", "2", "q", "4");
+                .Node("Concat", [$"past_key_values.0.{kind}", "step"], [$"present.0.{kind}"], OnnxModelWriter.IntAttribute("axis", 2));
+            if (!(kind == "value" && omitValuePresentOutput))
+            {
+                writer.Output($"present.0.{kind}", type, "1", "2", "q", "4");
+            }
         }
 
         return writer.Build();

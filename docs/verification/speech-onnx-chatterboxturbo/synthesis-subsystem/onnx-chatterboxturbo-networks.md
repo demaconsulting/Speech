@@ -103,6 +103,12 @@ the waveform, proving the speaker inputs reach the decoder) and
 
 **Test**: `OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows`
 
+##### An incomplete language-model layout disposes sessions
+
+**Test**: `OnnxChatterboxTurboNetworks_Constructor_IncompleteLanguageModelLayout_DisposesSessionsAndThrows`
+(a cache input without its key/value partner, a cache input without its present output, and a missing
+embedding input; each throws `InvalidOperationException` at construction)
+
 ##### Unrecognized encoder outputs are rejected
 
 **Test**: `OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException`

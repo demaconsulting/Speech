@@ -120,6 +120,8 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
                 throw new InvalidOperationException("The language model graph has no past_key_values inputs.");
             }
 
+            ValidateLanguageModelLayout(_languageModel, _pastNames);
+
             _languageModelOutputs = [_languageModel.OutputMetadata.Keys.First(), .. _pastNames.Select(n => PresentPrefix + n[PastPrefix.Length..])];
             var first = _languageModel.InputMetadata[_pastNames[0]];
             _kvType = first.ElementDataType;
@@ -340,6 +342,50 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         created.Add(session);
         OnSessionCreated?.Invoke(session);
         return session;
+    }
+
+    /// <summary>
+    ///     Verifies the language model exposes the inputs and outputs the generation loop relies on: the embedding
+    ///     input, a key and a value input per layer, a present output per cache input, and a logits output.
+    /// </summary>
+    private static void ValidateLanguageModelLayout(InferenceSession languageModel, string[] pastNames)
+    {
+        if (!languageModel.InputMetadata.ContainsKey("inputs_embeds"))
+        {
+            throw new InvalidOperationException("The language model graph has no inputs_embeds input.");
+        }
+
+        // Every cache input needs its key/value partner and a matching present output
+        var inputs = new HashSet<string>(pastNames, StringComparer.Ordinal);
+        foreach (var name in pastNames)
+        {
+            string? partner = null;
+            if (name.EndsWith(".key", StringComparison.Ordinal))
+            {
+                partner = name[..^".key".Length] + ".value";
+            }
+            else if (name.EndsWith(".value", StringComparison.Ordinal))
+            {
+                partner = name[..^".value".Length] + ".key";
+            }
+
+            if (partner == null || !inputs.Contains(partner))
+            {
+                throw new InvalidOperationException(
+                    $"The language model graph input {name} is not part of a complete key/value pair.");
+            }
+
+            var present = PresentPrefix + name[PastPrefix.Length..];
+            if (!languageModel.OutputMetadata.ContainsKey(present))
+            {
+                throw new InvalidOperationException($"The language model graph has no {present} output.");
+            }
+        }
+
+        if (languageModel.OutputMetadata.Count == 0)
+        {
+            throw new InvalidOperationException("The language model graph has no logits output.");
+        }
     }
 
     /// <summary>Binds the encoder outputs by name, or by the reference positional order for exactly four outputs.</summary>

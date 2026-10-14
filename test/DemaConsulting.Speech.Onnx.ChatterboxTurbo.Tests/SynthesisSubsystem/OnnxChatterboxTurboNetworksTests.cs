@@ -441,6 +441,47 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         }
     }
 
+    /// <summary>Proves an incomplete cache layout or missing embedding input is rejected and sessions are disposed.</summary>
+    /// <param name="omitValueInput">True to omit the layer-0 value cache input.</param>
+    /// <param name="omitValuePresentOutput">True to omit the layer-0 value present output.</param>
+    /// <param name="embeddingsInputName">The embedding input name.</param>
+    [Theory]
+    [InlineData(true, false, "inputs_embeds")]
+    [InlineData(false, true, "inputs_embeds")]
+    [InlineData(false, false, "other_embeds")]
+    public void OnnxChatterboxTurboNetworks_Constructor_IncompleteLanguageModelLayout_DisposesSessionsAndThrows(
+        bool omitValueInput,
+        bool omitValuePresentOutput,
+        string embeddingsInputName)
+    {
+        // Arrange: a language model missing a value input, a present output or the embedding input
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        File.WriteAllBytes(
+            paths.LanguageModel,
+            ChatterboxTurboGraphFixture.LanguageModel(
+                halfCache: true,
+                withPastInputs: true,
+                omitValueInput: omitValueInput,
+                omitValuePresentOutput: omitValuePresentOutput,
+                embeddingsInputName: embeddingsInputName));
+        var created = new List<InferenceSession>();
+        OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
+        try
+        {
+            // Act
+            var exception = Record.Exception(() => Create(paths));
+
+            // Assert: construction fails with the documented exception and every session is disposed
+            Assert.IsType<InvalidOperationException>(exception);
+            Assert.Equal(4, created.Count);
+            Assert.All(created, session => Assert.True(IsDisposed(session)));
+        }
+        finally
+        {
+            OnnxChatterboxTurboNetworks.OnSessionCreated = null;
+        }
+    }
+
     /// <summary>Proves a missing graph file fails creation and disposes the sessions created so far.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows()
