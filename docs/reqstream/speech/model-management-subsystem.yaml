@@ -734,6 +734,7 @@ sections:
               - Speech-Models-ReferenceVoicePack-BlankArgumentRejection
               - Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
               - Speech-Models-ReferenceVoicePack-UnsafeArchiveFileNameRejection
+              - Speech-Models-ReferenceVoicePack-ReservedArchiveFileNameRejection
               - Speech-Models-ReferenceVoicePack-UnsafeRootFolderRejection
               - Speech-Models-ReferenceVoicePack-DownloadDescriptor
               - Speech-Models-ReferenceVoicePack-SizeMetadata
