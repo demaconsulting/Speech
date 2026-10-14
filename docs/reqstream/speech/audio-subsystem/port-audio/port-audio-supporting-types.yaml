@@ -41,8 +41,8 @@ sections:
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
                     title: >-
-                      The subsystem shall provide host-API metadata sufficient to resolve the
-                      preferred host API.
+                      The subsystem shall expose the host-API type, name and device count of the
+                      preferred host API, or report it as missing when it is absent.
                     justification: |
                       The managed bindings expose device enumeration but not host-API
                       enumeration, leaving a gap the library must bridge itself. The native

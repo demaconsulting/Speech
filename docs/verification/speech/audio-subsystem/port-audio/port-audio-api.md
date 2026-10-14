@@ -53,3 +53,24 @@ the stream instead of escaping, and the shared singleton loads.
 
 **Tests**: `PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome`,
 `PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes`
+
+##### Manual Hardware Procedure: Stream Open and Wrapper Lifecycle
+
+Opening a real stream needs the native PortAudio library and audio hardware, so `OpenCaptureStream`,
+`OpenPlaybackStream` and the `PortAudioSharpStream` wrapper lifecycle are verified manually before a release. The
+procedure runs on a machine with at least one microphone and one speaker, and the evidence is recorded in the
+release verification record (date, platform, device names, outcome of each step).
+
+1. Create a capture device through `AudioDeviceFactory.CreateCaptureDevice()` and call `Start()`.
+   Expected: no exception, and `FrameCaptured` is raised repeatedly with non-empty sample blocks.
+2. Call `Stop()`, then `Start()` and `Stop()` again.
+   Expected: no exception, frames stop after `Stop()`, and the second run delivers frames again.
+3. Create a playback device through `AudioDeviceFactory.CreatePlaybackDevice()`, call `Start()`, `Write` one
+   second of a 440 Hz tone, wait until `PendingSampleCount` is zero, then `Stop()`.
+   Expected: the tone is audible, `PendingSampleCount` reaches zero, and `Stop()` does not throw.
+4. With a stream started, call `RefreshDevices()`.
+   Expected: `AudioDeviceInUseException`; after `Stop()` the same call succeeds.
+5. Request a preferred format the device cannot open (for example an unusual sample rate).
+   Expected: the device falls back to its default format and an Info diagnostic is reported.
+6. Dispose every device and confirm the process exits without a hang or native crash.
+   Expected: clean exit.

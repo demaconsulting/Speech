@@ -105,6 +105,10 @@ via `AudioDeviceFactory` instead. A `RefreshDevices()` call made while this devi
 active is refused with `AudioDeviceInUseException` by `PortAudioEnvironment`, indirectly via
 `AudioDeviceFactory`.
 
+**Diagnostics**: Reporting is best-effort. The sink is wrapped so an exception it throws is swallowed;
+a throwing sink never fails a successful `Start()`, skips stream disposal, or leaves the
+active-stream registration behind.
+
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
 `AudioDeviceSelection`, `AudioFormat`, `IAudioPlaybackDevice`, `AudioDeviceUnavailableException`,
 `ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.

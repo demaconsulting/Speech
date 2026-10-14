@@ -396,3 +396,15 @@ sections:
                 tests:
                   - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
                   - PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-BestEffortDiagnostics
+                title: >-
+                  The PortAudioPlaybackDevice class shall complete Start and Stop, including stream
+                  disposal and active-stream deregistration, when the diagnostics sink throws.
+                justification: |
+                  Diagnostics are observational; a failing sink must never fail a successful
+                  operation or leave a stream undisposed or registered.
+                tests:
+                  - PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSink_StartSucceedsAndStaysRegistered
+                  - PortAudioPlaybackDevice_Stop_ThrowingDiagnosticsSink_DisposesStreamAndUnregisters
+                  - PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSinkAndStartFails_ThrowsOriginalFailureAndUnregisters

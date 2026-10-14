@@ -41,6 +41,9 @@ Tests pass when all of the following hold:
 - Refresh: a device whose environment was refreshed after construction refuses to start with
   `AudioDeviceUnavailableException`, a device resolved after the refresh starts normally, and
   while a stream is active a refresh is refused.
+- Best-effort diagnostics: with a diagnostics sink that throws on every report, `Start` succeeds
+  and stays registered, `Stop` disposes the stream and releases the registration, and a failed
+  start still throws the original wrapped failure and releases the registration.
 
 #### Test Scenarios
 
@@ -282,3 +285,21 @@ The dispose failure is wrapped and the registration is still released.
 **Test**: `PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally`
 
 `Start` completes without error.
+
+##### Diagnostics: Throwing Sink Does Not Fail Start
+
+**Test**: `PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSink_StartSucceedsAndStaysRegistered`
+
+`Start` completes, the stream is started and undisposed, and a refresh is refused.
+
+##### Diagnostics: Throwing Sink Does Not Skip Disposal on Stop
+
+**Test**: `PortAudioPlaybackDevice_Stop_ThrowingDiagnosticsSink_DisposesStreamAndUnregisters`
+
+`Stop` completes, the stream is disposed once and a later refresh succeeds.
+
+##### Diagnostics: Throwing Sink Does Not Mask a Start Failure
+
+**Test**: `PortAudioPlaybackDevice_Start_ThrowingDiagnosticsSinkAndStartFails_ThrowsOriginalFailureAndUnregisters`
+
+The wrapped native start failure is thrown, the stream is disposed and a later refresh succeeds.

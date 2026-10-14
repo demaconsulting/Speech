@@ -184,6 +184,7 @@ sections:
                   described in the AudioDeviceFactory design document.
                 tests:
                   - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
+                  - AudioDeviceFactory_RefreshDevices_DeviceListChanges_EnumerationReflectsNewDevices
 
               - id: Speech-Audio-AudioDeviceFactory-RefreshPropagatesInUse
                 title: >-
