@@ -96,6 +96,14 @@ and an environment credential without a mirror URL is rejected like its option c
 rejected URL values are never printed in help or error messages. Still prefer a short-lived bearer token over
 a long-lived user and password.
 
+### Flag values
+
+A flag that takes a value (for example `--text`, `--file`, `--tts-model`, `--playback-device`,
+`--capture-device`, `--device`, `--start-timeout`) rejects the next argument when it is another
+option token, and reports the flag as missing its value, rather than silently using the option as the
+value. The `--start-timeout` and `--silence-timeout` values must be finite numbers; `NaN` and
+infinity are rejected.
+
 ### `speak` flags
 
 One of `--text <string>`, `--file <path>`, or piped stdin supplies the text to synthesize; add

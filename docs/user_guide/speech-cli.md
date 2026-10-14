@@ -104,7 +104,11 @@ speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --mic --silen
 ```
 
 `--silence-timeout` and `--start-timeout` apply only to `--mic`; when combined with `--input <wav-path>` they are
-accepted and ignored, because a file ends on its own.
+accepted and ignored, because a file ends on its own. Both must be finite numbers; `NaN` and infinity are rejected.
+
+A flag that takes a value (such as `--text`, `--file`, `--tts-model`, `--playback-device`, `--capture-device` or
+`--start-timeout`) rejects an option token in the value position and reports the flag as missing its value, for
+`ask`, `devices test`, `list-devices`, `speak` and `recognize` alike.
 
 Speak a prompt and listen for the reply in one invocation, giving up to 20 seconds to start
 speaking and ending capture after 1.5 seconds of silence - the intended pattern for an AI agent

@@ -77,7 +77,10 @@ The demo accepts `--models-dir <path>`, `--mirror-url <url>` (with `--mirror-use
 `speech-cli`; run `dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the list.
 `--voices-dir` names an existing folder of your own `.wav`/`.flac` reference voices that is
 offered to Chatterbox Turbo alongside the installed pack and the user folder under the models
-root; a missing folder is rejected at start-up with an explanatory message.
+root; a missing folder is rejected at start-up with an explanatory message. A value-taking option
+(for example `--mirror-url --help`) followed by another launch option instead of a value is rejected as
+missing its value, while a value that merely begins with a hyphen and is not a launch option is accepted.
+Whitespace-only mirror URL, user, password and token values are treated as not supplied.
 
 The mirror may also be configured through the `DEMASPEECH_MIRROR_URL` (the fallback for `--mirror-url`),
 `DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN` environment
