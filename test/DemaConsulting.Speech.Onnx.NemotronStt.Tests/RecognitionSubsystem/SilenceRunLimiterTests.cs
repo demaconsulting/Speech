@@ -164,6 +164,23 @@ public sealed class SilenceRunLimiterTests
         Assert.Equal(1600, output.Count);
     }
 
+    /// <summary>Proves a stream shorter than the calibration window keeps the default threshold.</summary>
+    [Fact]
+    public void Process_ShorterThanCalibrationWindow_KeepsDefaultThreshold()
+    {
+        // Arrange: a limiter and 19 frames (380 ms) of low-level constant audio, one frame short of calibration
+        var limiter = new SilenceRunLimiter();
+        var shortStream = new float[19 * 320];
+        Array.Fill(shortStream, 0.0008f);
+
+        // Act: process the short stream and flush
+        Run(limiter, shortStream);
+
+        // Assert: calibration never completed and the default threshold still applies
+        Assert.False(limiter.IsCalibrated);
+        Assert.Equal(new SilenceRunLimiterOptions().DefaultThreshold, limiter.Threshold);
+    }
+
     /// <summary>Proves the default threshold applies before calibration and calibration sets 3.5 times the noise floor.</summary>
     [Fact]
     public void Process_MidLevelCalibration_ThresholdIsMultipleOfNoiseFloor()
