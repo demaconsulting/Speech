@@ -14,7 +14,8 @@ FlacDecoder unit.
 #### Acceptance Criteria
 
 Containers are detected by content, errors map to the documented exceptions with the path in the
-message, an input larger than the largest array length is rejected before it is read, `VerifyChecksums`
+message, an input larger than `MaxEncodedBytes` is rejected before it is fully read (file, seekable stream and
+non-seekable stream), `VerifyChecksums`
 and `MaxSamples` are honored (including for a valid but poorly compressed FLAC), `ReadMono` returns
 native-rate mono, a stream is read from its current position, and an I/O failure propagates unwrapped.
 
@@ -120,11 +121,29 @@ sample, over 4 MB in total, far above five bytes per sample plus 1 MiB).
 **Expected**: With `MaxSamples = 4096` it decodes to 4096 samples; with `MaxSamples = 4095` it throws
 `InvalidDataException`.
 
+##### Input larger than MaxEncodedBytes is rejected
+
+**Tests**: `AudioFileReader_Read_FileLargerThanMaxEncodedBytes_Throws`,
+`AudioFileReader_Read_SeekableStreamLargerThanMaxEncodedBytes_Throws`,
+`AudioFileReader_Read_NonSeekableStreamLargerThanMaxEncodedBytes_Throws`,
+`AudioFileReader_Read_InputAtMaxEncodedBytes_Decodes`
+
+**Expected**: With `MaxEncodedBytes = 1024`, a 1025-byte file (message names the path and the `1024-byte limit`), a
+seekable stream reporting 1025 bytes (nothing read), and a non-seekable 1 MiB stream (read stops at the limit) all
+throw `InvalidDataException`; an input exactly at the limit is not rejected by the size check.
+
+##### Negative MaxEncodedBytes is rejected
+
+**Test**: `AudioFileReader_Read_NegativeMaxEncodedBytes_ReportsOptionsParameter`
+
+**Expected**: A stream read and a path read both throw `ArgumentOutOfRangeException` with parameter name
+`options.MaxEncodedBytes`.
+
 ##### Input larger than the largest array length is rejected
 
 **Test**: `AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength`
 
-**Expected**: With `MaxSamples = long.MaxValue`, a seekable stream that only reports a length of
+**Expected**: With `MaxSamples` and `MaxEncodedBytes` both `long.MaxValue`, a seekable stream that only reports a length of
 `Array.MaxLength + 1` bytes throws `InvalidDataException` naming the `Array.MaxLength`-byte limit,
 without reading any data or allocating.
 

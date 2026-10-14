@@ -167,5 +167,6 @@ and `AudioResampler.ToMonoResampled(clip, 16000)` prepares a clip for a model. A
 that runs past the total sample count declared in its header) and an unsupported WAV encoding
 `NotSupportedException`. `new AudioClip(...)` rejects null samples, and a sample rate or channel
 count that is not positive, with an `ArgumentException`-derived exception. `AudioFileReadOptions` lets you
-disable FLAC checksum verification or lower
-the `MaxSamples` guard against oversized files.
+disable FLAC checksum verification, lower the `MaxSamples` guard against files that decode to too many
+samples, or lower `MaxEncodedBytes` (default 1.25 GiB, independent of `MaxSamples`) to reject oversized
+input before it is read into memory.

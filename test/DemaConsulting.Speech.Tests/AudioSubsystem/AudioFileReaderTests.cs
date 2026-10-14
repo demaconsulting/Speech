@@ -399,6 +399,92 @@ public sealed class AudioFileReaderTests
         Assert.Equal(count, clip.Samples.Length);
     }
 
+    /// <summary>Proves a file larger than MaxEncodedBytes is rejected from its length, naming the file.</summary>
+    [Fact]
+    public void AudioFileReader_Read_FileLargerThanMaxEncodedBytes_Throws()
+    {
+        // Arrange
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(path, new byte[1025]);
+
+        try
+        {
+            // Act
+            var error = Assert.Throws<InvalidDataException>(() =>
+                AudioFileReader.Read(path, new AudioFileReadOptions { MaxEncodedBytes = 1024 }));
+
+            // Assert
+            Assert.Contains("1024-byte limit", error.Message, StringComparison.Ordinal);
+            Assert.Contains(path, error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Proves a seekable stream larger than MaxEncodedBytes is rejected without reading it.</summary>
+    [Fact]
+    public void AudioFileReader_Read_SeekableStreamLargerThanMaxEncodedBytes_Throws()
+    {
+        // Arrange
+        using var stream = new LengthOnlyStream(1025);
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() =>
+            AudioFileReader.Read(stream, new AudioFileReadOptions { MaxEncodedBytes = 1024 }));
+
+        // Assert
+        Assert.Contains("1024-byte limit", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, stream.BytesRead);
+    }
+
+    /// <summary>Proves a non-seekable stream is rejected once it passes MaxEncodedBytes, without reading all of it.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NonSeekableStreamLargerThanMaxEncodedBytes_Throws()
+    {
+        // Arrange: far more data than the limit, so a bounded read must stop early
+        var stream = new NonSeekableStream(new byte[1 << 20]);
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() =>
+            AudioFileReader.Read(stream, new AudioFileReadOptions { MaxEncodedBytes = 1024 }));
+
+        // Assert
+        Assert.Contains("1024-byte limit", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves an input exactly at MaxEncodedBytes is not rejected by the size limit.</summary>
+    [Fact]
+    public void AudioFileReader_Read_InputAtMaxEncodedBytes_Decodes()
+    {
+        // Arrange
+        var wav = File.ReadAllBytes(Path.Combine(FixtureDirectory, "mono-16-44100.wav"));
+        var options = new AudioFileReadOptions { MaxEncodedBytes = wav.Length };
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(wav), options);
+
+        // Assert
+        Assert.Equal(44100, clip.SampleRate);
+    }
+
+    /// <summary>Proves a negative MaxEncodedBytes is reported against the options parameter for a stream and a path.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NegativeMaxEncodedBytes_ReportsOptionsParameter()
+    {
+        // Arrange
+        var negative = new AudioFileReadOptions { MaxEncodedBytes = -1 };
+        var path = Path.Combine(FixtureDirectory, "mono-16-44100.wav");
+
+        // Act
+        var streamError = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(new MemoryStream(), negative));
+        var pathError = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(path, negative));
+
+        // Assert
+        Assert.Equal("options.MaxEncodedBytes", streamError.ParamName);
+        Assert.Equal("options.MaxEncodedBytes", pathError.ParamName);
+    }
     /// <summary>Proves a valid FLAC holding more samples than MaxSamples is rejected during decoding.</summary>
     [Fact]
     public void AudioFileReader_Read_IncompressibleFlacOverMaxSamples_Throws()
@@ -540,7 +626,7 @@ public sealed class AudioFileReaderTests
 
         // Act
         var ex = Assert.Throws<InvalidDataException>(() =>
-            AudioFileReader.Read(stream, new AudioFileReadOptions { MaxSamples = long.MaxValue }));
+            AudioFileReader.Read(stream, new AudioFileReadOptions { MaxSamples = long.MaxValue, MaxEncodedBytes = long.MaxValue }));
 
         // Assert - the reported limit is the array clamp rather than the unbounded sample-derived value
         Assert.Contains($"{Array.MaxLength}-byte limit", ex.Message, StringComparison.Ordinal);

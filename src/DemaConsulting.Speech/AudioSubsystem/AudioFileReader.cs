@@ -7,8 +7,8 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     The container is detected from the file content (<c>RIFF....WAVE</c>, or <c>fLaC</c> optionally behind an
 ///     ID3v2 tag), never from the file extension, so a mislabeled file still loads. WAV supports PCM 8/16/24/32-bit
 ///     and 32-bit float; FLAC supports every RFC 9639 native-framed stream (1-8 channels, 4-32 bits). Ogg-FLAC is
-///     not supported. The whole file is read into memory, and decoded size is bounded by
-///     <see cref="AudioFileReadOptions.MaxSamples"/>. Stateless and thread-safe.
+///     not supported. The whole file is read into memory; the encoded size is bounded by
+///     <see cref="AudioFileReadOptions.MaxEncodedBytes"/> and the decoded size by <see cref="AudioFileReadOptions.MaxSamples"/>. Stateless and thread-safe.
 /// </remarks>
 public static class AudioFileReader
 {
@@ -22,9 +22,9 @@ public static class AudioFileReader
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
     /// <returns>The decoded clip.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="path"/> is null or blank.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <c>options.MaxSamples</c> is negative (after the file-exists check).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <c>options.MaxSamples</c> or <c>options.MaxEncodedBytes</c> is negative (after the file-exists check).</exception>
     /// <exception cref="FileNotFoundException">Thrown when no file exists at the path (a path naming a directory is reported the same way).</exception>
-    /// <exception cref="InvalidDataException">Thrown when the file is not a well-formed WAV or FLAC file, or is too large.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the file is not a well-formed WAV or FLAC file, or is larger than <see cref="AudioFileReadOptions.MaxEncodedBytes"/> or decodes to more than <see cref="AudioFileReadOptions.MaxSamples"/> samples.</exception>
     /// <exception cref="NotSupportedException">Thrown when a WAV file uses an unsupported encoding.</exception>
     /// <exception cref="IOException">Thrown, unwrapped, when the file cannot be opened or read (for example it is locked by another process).</exception>
     /// <exception cref="UnauthorizedAccessException">Thrown, unwrapped, when the caller lacks permission to read the file.</exception>
@@ -64,8 +64,8 @@ public static class AudioFileReader
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
     /// <returns>The decoded clip.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="stream"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="AudioFileReadOptions.MaxSamples"/> is negative.</exception>
-    /// <exception cref="InvalidDataException">Thrown when the data is not a well-formed WAV or FLAC file (including a seekable stream positioned at or past its end), or is too large.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="AudioFileReadOptions.MaxSamples"/> or <see cref="AudioFileReadOptions.MaxEncodedBytes"/> is negative.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the data is not a well-formed WAV or FLAC file (including a seekable stream positioned at or past its end), or is larger than <see cref="AudioFileReadOptions.MaxEncodedBytes"/> or decodes to more than <see cref="AudioFileReadOptions.MaxSamples"/> samples.</exception>
     /// <exception cref="NotSupportedException">Thrown when a WAV file uses an unsupported encoding.</exception>
     public static AudioClip Read(Stream stream, AudioFileReadOptions? options = null)
     {
@@ -101,10 +101,11 @@ public static class AudioFileReader
     }
 
     /// <summary>
-    ///     Validates the options and returns the largest input size, in bytes, that can be read into memory: the
-    ///     largest array length. Input size is deliberately not derived from
-    ///     <see cref="AudioFileReadOptions.MaxSamples"/>, because a valid FLAC stream has no upper bound on encoded
-    ///     bytes per decoded sample; the decoders enforce the sample cap while decoding instead.
+    ///     Validates the options and returns the largest input size, in bytes, that may be read into memory: the
+    ///     smaller of <see cref="AudioFileReadOptions.MaxEncodedBytes"/> and the largest array length. It is
+    ///     deliberately independent of <see cref="AudioFileReadOptions.MaxSamples"/>, because a valid FLAC stream
+    ///     has no upper bound on encoded bytes per decoded sample; the decoders enforce the sample cap while
+    ///     decoding instead.
     /// </summary>
     private static long GetMaxBytes(AudioFileReadOptions options)
     {
@@ -113,7 +114,12 @@ public static class AudioFileReader
             throw new ArgumentOutOfRangeException($"{nameof(options)}.{nameof(AudioFileReadOptions.MaxSamples)}", "MaxSamples must not be negative.");
         }
 
-        return Array.MaxLength;
+        if (options.MaxEncodedBytes < 0)
+        {
+            throw new ArgumentOutOfRangeException($"{nameof(options)}.{nameof(AudioFileReadOptions.MaxEncodedBytes)}", "MaxEncodedBytes must not be negative.");
+        }
+
+        return Math.Min(options.MaxEncodedBytes, Array.MaxLength);
     }
 
     /// <summary>Reads a stream to its end, failing as soon as more than <paramref name="maxBytes"/> bytes are seen.</summary>

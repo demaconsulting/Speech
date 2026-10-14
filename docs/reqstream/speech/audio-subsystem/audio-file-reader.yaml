@@ -168,14 +168,30 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
-                  The AudioFileReader class shall reject an input larger than the largest array
-                  length with InvalidDataException before reading it into memory.
+                  The AudioFileReader class shall reject, with InvalidDataException and before reading
+                  all of it into memory, an input larger than the configured maximum encoded size
+                  (and never larger than the largest array length), a limit that is independent of
+                  the maximum sample count.
                 justification: |
-                  An input that cannot fit in memory must fail with a bounded cost rather than
-                  exhausting the host. No smaller input-size limit can be derived from the sample
-                  limit, because a valid FLAC stream has no upper bound on encoded bytes per sample.
+                  Hostile input must fail with a bounded memory cost rather than exhausting the host.
+                  The limit cannot be derived from the sample limit, because a valid FLAC stream has
+                  no upper bound on encoded bytes per decoded sample, so it is configured separately
+                  with a default that covers legitimate files.
                 tests:
+                  - AudioFileReader_Read_FileLargerThanMaxEncodedBytes_Throws
+                  - AudioFileReader_Read_SeekableStreamLargerThanMaxEncodedBytes_Throws
+                  - AudioFileReader_Read_NonSeekableStreamLargerThanMaxEncodedBytes_Throws
+                  - AudioFileReader_Read_InputAtMaxEncodedBytes_Decodes
                   - AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength
+
+              - id: Speech-Audio-AudioFileReader-RejectsNegativeMaxEncodedBytes
+                title: >-
+                  The AudioFileReader class shall reject a negative maximum encoded size option with
+                  ArgumentOutOfRangeException whose parameter name is options.MaxEncodedBytes.
+                justification: |
+                  Caller mistakes must fail at the call site with a conventional exception type.
+                tests:
+                  - AudioFileReader_Read_NegativeMaxEncodedBytes_ReportsOptionsParameter
 
               - id: Speech-Audio-AudioFileReader-MaxSamples
                 title: >-

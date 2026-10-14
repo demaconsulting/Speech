@@ -459,6 +459,7 @@ sections:
               - Speech-Audio-AudioFileReader-RejectsNullPath
               - Speech-Audio-AudioFileReader-RejectsNegativeMaxSamples
               - Speech-Audio-AudioFileReader-ByteCap
+              - Speech-Audio-AudioFileReader-RejectsNegativeMaxEncodedBytes
               - Speech-Audio-AudioFileReader-MaxSamples
               - Speech-Audio-AudioFileReader-VerifyChecksums
               - Speech-Audio-AudioFileReader-VerifyChecksumsOptOut

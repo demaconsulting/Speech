@@ -4,16 +4,19 @@
 only, so hosts and models can accept either format without a native decoder dependency.
 
 **Data Model**: A static class with no state. `SupportedExtensions` lists `.wav` and `.flac`.
-`AudioFileReadOptions` carries `VerifyChecksums` (default `true`) and `MaxSamples` (default
-`DefaultMaxSamples`, 2^28 samples across channels) as init-only settings.
+`AudioFileReadOptions` carries `VerifyChecksums` (default `true`), `MaxSamples` (default
+`DefaultMaxSamples`, 2^28 samples across channels) and `MaxEncodedBytes` (default
+`DefaultMaxEncodedBytes`, 1.25 GiB) as init-only settings.
 
 **Key Methods**:
 
-- **Read(path | stream, options)**: first bounds the input by the maximum array length (the most
-  that can be held in memory): a file is rejected from the remaining length of the `FileStream` it
+- **Read(path | stream, options)**: first bounds the input by `MaxEncodedBytes` (never above the maximum
+  array length, the most that can be held in memory): a file is rejected from the remaining length of the `FileStream` it
   opens (read-only, `FileShare.Read`), a seekable stream from its remaining length (measured from
   its current position, never negative), and a non-seekable stream is copied in chunks that stop as
-  soon as the limit is exceeded. No tighter input bound is derived from `MaxSamples`, because a
+  soon as the limit is exceeded. `MaxEncodedBytes` is independent of `MaxSamples` (a default of 1.25 GiB
+  covers an uncompressed 32-bit file of `DefaultMaxSamples` samples), and no tighter bound is derived from
+  `MaxSamples`, because a
   valid FLAC stream (Rice-coded residuals) has no upper bound on encoded bytes per decoded sample.
   The decoders instead enforce the exact `MaxSamples` limit while decoding: `WavDecoder` before
   allocating its output, and `FlacDecoder` on the declared total and then as each frame's samples
@@ -36,8 +39,8 @@ that is neither WAV nor FLAC or that is malformed; `NotSupportedException` for a
 is not supported; `ArgumentNullException` for a null stream or a null path, `ArgumentException` for an empty or
 whitespace path; `IOException` (for example a file locked by another process) and
 `UnauthorizedAccessException` propagate unwrapped from the file open or read;
-`ArgumentOutOfRangeException` for a negative `MaxSamples`. The negative `MaxSamples` exception
-reports `options.MaxSamples` as its parameter name (the faulty value), and a
+`ArgumentOutOfRangeException` for a negative `MaxSamples` or `MaxEncodedBytes`. The negative-option exception
+reports `options.MaxSamples` or `options.MaxEncodedBytes` as its parameter name (the faulty value), and a
 path-based read checks that the file exists first, so a negative `MaxSamples` with a missing path
 reports `FileNotFoundException` (a stream read has no existence check, so it reports the negative
 value directly). Path-based reads prefix the path to the message of decoder
