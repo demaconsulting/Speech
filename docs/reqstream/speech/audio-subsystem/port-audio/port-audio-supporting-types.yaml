@@ -17,9 +17,8 @@ sections:
                 requirements:
                   - id: Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
                     title: >-
-                      The PortAudio supporting types shall carry managed metadata describing
-                      PortAudio devices and host APIs without exposing PortAudioSharp2 structs to
-                      higher-level logic.
+                      The subsystem shall describe audio devices and host APIs to higher-level
+                      logic using managed metadata only.
                     justification: |
                       Mockable managed metadata lets unit tests drive selection logic without
                       loading the native PortAudio runtime.
@@ -30,8 +29,8 @@ sections:
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
                     title: >-
-                      The PortAudioHostApiType type shall declare the stable PortAudio host-API
-                      identifiers used by the platform-mapping policy.
+                      The subsystem shall identify each supported host API by its stable
+                      PortAudio type identifier.
                     justification: |
                       The runtime host-API index is machine-specific, so the platform policy must
                       begin from PortAudio's stable host-API type identifiers.
@@ -42,9 +41,8 @@ sections:
 
                   - id: Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
                     title: >-
-                      The PortAudio supporting types shall provide host-API metadata, so the
-                      subsystem can resolve the preferred host API even though the PortAudio
-                      managed bindings expose device enumeration but not host-API enumeration.
+                      The subsystem shall provide host-API metadata sufficient to resolve the
+                      preferred host API.
                     justification: |
                       The managed bindings expose device enumeration but not host-API
                       enumeration, leaving a gap the library must bridge itself. The native

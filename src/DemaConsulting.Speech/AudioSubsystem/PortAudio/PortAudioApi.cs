@@ -77,6 +77,16 @@ internal sealed class PortAudioApi : IPortAudioApi
             throw new InvalidOperationException($"PortAudio returned no host-API info for index {hostApiIndex}.");
         }
 
+        return ConvertHostApiInfo(hostApiInfoPointer);
+    }
+
+    /// <summary>
+    ///     Converts a native <c>PaHostApiInfo</c> block into the managed host-API metadata record.
+    /// </summary>
+    /// <param name="hostApiInfoPointer">A non-null pointer to a native host-API info block.</param>
+    /// <returns>The managed host-API metadata.</returns>
+    internal static PortAudioHostApiInfo ConvertHostApiInfo(nint hostApiInfoPointer)
+    {
         var hostApiInfoNative = Marshal.PtrToStructure<PortAudioNativeMethods.HostApiInfoNative>(hostApiInfoPointer);
         return new PortAudioHostApiInfo(
             Marshal.PtrToStringAnsi(hostApiInfoNative.Name) ?? string.Empty,
@@ -186,7 +196,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     ///     Converts one capture callback from the native PortAudio buffer shape into a managed
     ///     float-sample block for the higher-level device implementation.
     /// </summary>
-    private static PortAudioStreamCallbackResult CaptureCallback(
+    internal static PortAudioStreamCallbackResult CaptureCallback(
         nint input,
         uint frameCount,
         int channelCount,
@@ -233,7 +243,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     /// <summary>
     ///     Converts one managed playback block into the native PortAudio output-buffer shape.
     /// </summary>
-    private static PortAudioStreamCallbackResult PlaybackCallback(
+    internal static PortAudioStreamCallbackResult PlaybackCallback(
         nint output,
         uint frameCount,
         int channelCount,
@@ -265,7 +275,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     ///     stream) can hold per-stream buffer state via a closure without needing an instance
     ///     field on this stateless adapter type.
     /// </summary>
-    private sealed class ReusableSampleBuffer
+    internal sealed class ReusableSampleBuffer
     {
         /// <summary>Gets or sets the buffer reused across this stream's callback invocations.</summary>
         internal float[] Samples { get; set; } = [];
@@ -329,6 +339,30 @@ internal sealed class PortAudioApi : IPortAudioApi
     /// </returns>
     private static bool IsFormatSupported(PortAudioStreamParameters parameters, bool isInput, int sampleRate)
     {
+        return IsFormatSupported(parameters, isInput, sampleRate, PortAudioNativeMethods.Pa_IsFormatSupported);
+    }
+
+    /// <summary>
+    ///     Probes format support through the supplied native-call delegate; this overload lets tests
+    ///     substitute the native entry point.
+    /// </summary>
+    /// <param name="parameters">The input or output stream parameters to probe.</param>
+    /// <param name="isInput">
+    ///     <see langword="true"/> when <paramref name="parameters"/> describes the input side.
+    /// </param>
+    /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
+    /// <param name="nativeCall">
+    ///     The native probe, receiving the input pointer, the output pointer and the rate.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> only when <paramref name="nativeCall"/> reports <c>paNoError</c>.
+    /// </returns>
+    internal static bool IsFormatSupported(
+        PortAudioStreamParameters parameters,
+        bool isInput,
+        int sampleRate,
+        Func<nint, nint, double, int> nativeCall)
+    {
         var parametersPointer = nint.Zero;
         try
         {
@@ -338,7 +372,7 @@ internal sealed class PortAudioApi : IPortAudioApi
             var inputParameters = isInput ? parametersPointer : nint.Zero;
             var outputParameters = isInput ? nint.Zero : parametersPointer;
             // Intentional native interop: capability probing requires the PortAudio C API entry point.
-            var result = PortAudioNativeMethods.Pa_IsFormatSupported(inputParameters, outputParameters, sampleRate);
+            var result = nativeCall(inputParameters, outputParameters, sampleRate);
             return result == 0;
         }
         catch
@@ -363,7 +397,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     ///     Converts PortAudio's double-precision default sample rate to the library's integer Hz
     ///     representation.
     /// </summary>
-    private static int ConvertSampleRate(double sampleRate)
+    internal static int ConvertSampleRate(double sampleRate)
     {
         return checked((int)Math.Round(sampleRate, MidpointRounding.AwayFromZero));
     }
@@ -372,7 +406,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     ///     Validates one PortAudio count-returning API value, converting negative error-style
     ///     returns into managed exceptions with clear context.
     /// </summary>
-    private static int NormalizeCount(int count, string noun)
+    internal static int NormalizeCount(int count, string noun)
     {
         if (count < 0)
         {

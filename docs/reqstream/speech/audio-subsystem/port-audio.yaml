@@ -14,14 +14,13 @@ sections:
             requirements:
               - id: Speech-Audio-PortAudio-Seam
                 title: >-
-                  The PortAudio subsystem shall allow host-API selection, device enumeration and
-                  stream behavior to run against a substitute audio runtime, so that they operate
-                  without the native PortAudio library or any audio hardware.
+                  The PortAudio subsystem shall let host-API selection, device enumeration and
+                  stream behavior be exercised without the native PortAudio library or any audio
+                  hardware.
                 justification: |
                   CI cannot assume access to audio hardware, so host-API selection and stream
-                  lifecycle logic must be verifiable using fakes instead of the real runtime.
-                  The mechanism (a managed abstraction in front of the native runtime) is
-                  described in the PortAudio design document.
+                  lifecycle logic must be verifiable without the real runtime. How this is
+                  achieved is described in the PortAudio design document.
                 children:
                   - Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                   - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
