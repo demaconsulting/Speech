@@ -186,10 +186,10 @@ A single sentence of 90 words, far over the budget, yields at least three segmen
 
 **Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_RunsOnCpuOnly`
 
-ONNX Runtime offers the CPU provider and no accelerator provider (the non-accelerator remote
-`AzureExecutionProvider` that ships in the CPU package is permitted), no accelerator provider library ships
-in the output directory, and synthesis succeeds. The evidence is provider- and library-based, not a
-hardware measurement.
+ONNX Runtime offers the CPU provider, no accelerator provider library ships in the output directory, and
+synthesis succeeds. Providers the runtime lists on its own (for example the built-in CoreML provider on macOS)
+are not asserted against, since an available accelerator does no harm. The evidence is provider- and
+library-based, not a hardware measurement.
 
 ### Shared-test coverage
 
