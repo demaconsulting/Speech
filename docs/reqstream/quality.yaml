@@ -8,7 +8,7 @@ sections:
   - title: Quality Requirements
     requirements:
       - id: Quality-TestInfrastructure
-        title: The repository shall rely on xUnit to execute automated tests.
+        title: The repository shall execute its automated tests.
         tags: [quality]
         justification: |
           Automated testing depends on xUnit's test execution capability. This
@@ -19,7 +19,7 @@ sections:
           - Speech-OTS-xUnit-Execute
 
       - id: Quality-TestReporting
-        title: The repository shall rely on xUnit to report automated test results.
+        title: The repository shall report the results of its automated tests.
         tags: [quality]
         justification: |
           Automated testing depends on xUnit's result reporting capability. This
@@ -30,7 +30,7 @@ sections:
           - Speech-OTS-xUnit-Report
 
       - id: Quality-BuildIntegrity
-        title: The repository's build pipeline shall rely on BuildMark to generate build notes.
+        title: The repository's build pipeline shall generate build notes.
         tags: [quality]
         justification: |
           CI/CD reliability depends on BuildMark's build-notes generation. This
@@ -41,7 +41,7 @@ sections:
           - Speech-OTS-BuildMark
 
       - id: Quality-VersionTracking
-        title: The repository's build pipeline shall rely on VersionMark to track tool versions.
+        title: The repository's build pipeline shall record the versions of the tools it uses.
         tags: [quality]
         justification: |
           CI/CD reliability depends on VersionMark's version-tracking capability.
@@ -52,7 +52,7 @@ sections:
           - Speech-OTS-VersionMark
 
       - id: Quality-VersionValidation
-        title: The repository's build pipeline shall rely on VersionMark to validate its configuration by linting.
+        title: The repository's build pipeline shall validate its tool-version configuration.
         tags: [quality]
         justification: |
           CI/CD reliability depends on VersionMark's linting capability. This
@@ -63,7 +63,7 @@ sections:
           - Speech-OTS-VersionMark-Lint
 
       - id: Quality-StaticAnalysis
-        title: The repository shall rely on SarifMark to enforce static-analysis results.
+        title: The repository shall enforce its static-analysis results.
         tags: [quality]
         justification: |
           Code quality assurance depends on SarifMark's SARIF-based enforcement.
@@ -75,7 +75,7 @@ sections:
           - Speech-OTS-SarifMark-Enforcement
 
       - id: Quality-QualityDashboard
-        title: The repository shall rely on SonarMark to report SonarCloud quality-gate status.
+        title: The repository shall report its quality-gate status.
         tags: [quality]
         justification: |
           Code quality visibility depends on SonarMark's SonarCloud integration.
@@ -86,7 +86,7 @@ sections:
           - Speech-OTS-SonarMark
 
       - id: Quality-PeerReview
-        title: The repository shall rely on ReviewMark to enforce peer-review tracking and reporting.
+        title: The repository shall enforce peer-review tracking and reporting.
         tags: [quality]
         justification: |
           Peer-review compliance depends on ReviewMark's indexing, enforcement,
@@ -103,7 +103,7 @@ sections:
           - Speech-OTS-ReviewMark-DirectoryOverride
 
       - id: Quality-DocumentationGeneration
-        title: The repository shall rely on Pandoc to convert documentation to HTML.
+        title: The repository shall convert its documentation to HTML.
         tags: [quality]
         justification: |
           Documentation generation depends on Pandoc's format conversion. This
@@ -114,7 +114,7 @@ sections:
           - Speech-OTS-Pandoc
 
       - id: Quality-PdfGeneration
-        title: The repository shall rely on WeasyPrint to render PDF documentation.
+        title: The repository shall render its documentation as PDF.
         tags: [quality]
         justification: |
           PDF documentation depends on WeasyPrint's PDF rendering. This grouping
@@ -125,7 +125,7 @@ sections:
           - Speech-OTS-WeasyPrint
 
       - id: Quality-RequirementsTraceability
-        title: The repository shall rely on ReqStream to report requirements traceability.
+        title: The repository shall report requirements traceability.
         tags: [quality]
         justification: |
           Requirements traceability depends on ReqStream's reporting capability.
@@ -136,7 +136,7 @@ sections:
           - Speech-OTS-ReqStream
 
       - id: Quality-RequirementsLinting
-        title: The repository shall rely on ReqStream to lint requirements.
+        title: The repository shall lint its requirements.
         tags: [quality]
         justification: |
           Requirements quality depends on ReqStream's linting capability. This
@@ -147,7 +147,7 @@ sections:
           - Speech-OTS-ReqStream-Lint
 
       - id: Quality-GeneratedDocumentVerification
-        title: The repository shall rely on FileAssert to verify that generated documents exist.
+        title: The repository shall verify that its generated documents exist.
         tags: [quality]
         justification: |
           Generated-document verification depends on FileAssert. This grouping
@@ -158,9 +158,7 @@ sections:
           - Speech-OTS-FileAssert
 
       - id: Quality-AudioBackend
-        title: >-
-          The repository shall rely on PortAudioSharp2 for real cross-platform audio capture and
-          playback.
+        title: The repository shall capture and play back audio on every supported platform.
         tags: [quality]
         justification: |
           Real audio I/O depends on PortAudioSharp2's managed PortAudio binding and its
@@ -175,8 +173,7 @@ sections:
 
       - id: Quality-SpeechEngine
         title: >-
-          The repository shall rely on sherpa-onnx for local, offline speech recognition and
-          synthesis inference.
+          The repository shall run speech recognition and synthesis inference locally and offline.
         tags: [quality]
         justification: |
           Streaming speech-to-text and text-to-speech in the SpeechSherpa package depend on
@@ -190,9 +187,7 @@ sections:
           - Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
 
       - id: Quality-ArchiveExtraction
-        title: >-
-          The repository shall rely on SharpCompress to unpack downloaded .tar.bz2 model
-          archives.
+        title: The repository shall unpack downloaded .tar.bz2 model archives.
         tags: [quality]
         justification: |
           Model installation depends on SharpCompress's managed BZip2 tar decoder, and the
@@ -205,9 +200,7 @@ sections:
           - Speech-OTS-SharpCompress-ArgumentValidation
 
       - id: Quality-OnnxInference
-        title: >-
-          The repository shall rely on Microsoft.ML.OnnxRuntime for local, offline ONNX model
-          inference.
+        title: The repository shall run ONNX model inference locally and offline.
         tags: [quality]
         justification: |
           The ONNX-based recognition and synthesis packages depend on ONNX Runtime's managed
@@ -220,10 +213,10 @@ sections:
           - Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
           - Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
           - Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
+          - Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
 
       - id: Quality-VectorizedAudioMath
-        title: >-
-          The repository shall rely on System.Numerics.Tensors for vectorized audio sample math.
+        title: The repository shall convert, scale, clamp and combine audio samples numerically.
         tags: [quality]
         justification: |
           WAV decoding, resampling, and volume scaling depend on System.Numerics.Tensors'
@@ -238,7 +231,7 @@ sections:
           - Speech-OTS-SystemNumericsTensors-DotProduct
 
       - id: Quality-SoftwareStructureModeling
-        title: The repository shall rely on SysML2Tools to lint software-structure models.
+        title: The repository shall lint its software-structure models.
         tags: [quality]
         justification: |
           Software-structure documentation depends on SysML2Tools' model-linting
@@ -249,7 +242,7 @@ sections:
           - Speech-OTS-SysML2Tools-Lint
 
       - id: Quality-SoftwareStructureRendering
-        title: The repository shall rely on SysML2Tools to render software-structure diagrams.
+        title: The repository shall render its software-structure diagrams.
         tags: [quality]
         justification: |
           Software-structure documentation depends on SysML2Tools' diagram-rendering
@@ -261,7 +254,7 @@ sections:
 
       - id: Quality-DemoUserInterface
         title: >-
-          The repository shall rely on Avalonia for the cross-platform demo application host.
+          The repository shall host its demo application as a cross-platform desktop application.
         tags: [quality]
         justification: |
           The SpeechDemo application depends on Avalonia for its cross-platform desktop
@@ -273,9 +266,7 @@ sections:
           - SpeechDemo-OTS-Avalonia-ApplicationBuilderConfiguration
 
       - id: Quality-DemoMvvm
-        title: >-
-          The repository shall rely on CommunityToolkit.Mvvm for demo observable change
-          notification.
+        title: The repository shall notify demo views when a view-model value changes.
         tags: [quality]
         justification: |
           The SpeechDemo view models depend on CommunityToolkit.Mvvm for observable change
@@ -287,8 +278,7 @@ sections:
           - SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
 
       - id: Quality-DemoCommands
-        title: >-
-          The repository shall rely on CommunityToolkit.Mvvm for demo generated commands.
+        title: The repository shall provide the demo view models with invokable commands.
         tags: [quality]
         justification: |
           The SpeechDemo view models depend on CommunityToolkit.Mvvm for generated commands.

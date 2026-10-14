@@ -10,8 +10,8 @@ sections:
         requirements:
           - id: Speech-OTS-TestResults-TrxSerialization
             title: >-
-              DemaConsulting.TestResults shall serialize the self-validation results as a TRX
-              document that the SpeechCli Validation unit writes for a .trx results path.
+              DemaConsulting.TestResults shall serialize test results as a TRX
+              document.
             justification: |
               Qualification evidence is consumed by test-result tooling that reads TRX, and the
               package avoids hand-rolling that format.
@@ -21,8 +21,8 @@ sections:
 
           - id: Speech-OTS-TestResults-JUnitSerialization
             title: >-
-              DemaConsulting.TestResults shall serialize the self-validation results as a JUnit
-              XML document that the SpeechCli Validation unit writes for a .xml results path.
+              DemaConsulting.TestResults shall serialize test results as a JUnit XML
+              document.
             justification: |
               Qualification evidence is also consumed by tooling that reads JUnit XML, and the
               package avoids hand-rolling that format.
