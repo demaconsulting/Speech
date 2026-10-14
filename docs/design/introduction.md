@@ -184,7 +184,8 @@ any of them:
 - **ModelManagementSubsystem (Subsystem of SpeechOnnxNemotronStt)** — The `AddNemotronSttModels()`
   catalog extension, the Nemotron recognition model class, and the vocabulary loader
 - **RecognitionSubsystem (Subsystem of SpeechOnnxNemotronStt)** — `OnnxNemotronRecognitionEngine`
-  with its streaming feature extractor, RNN-T greedy decoder, and silence-run limiter
+  with its streaming feature extractor, cache-aware encoder (`NemotronEncoder`), decoder and joint
+  network (`NemotronRnntNetwork`), RNN-T greedy decoder, and silence-run limiter
 - **SpeechOnnxChatterboxTurbo (System)** — The `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
   library, a concrete ONNX Runtime-backed voice-cloning text-to-speech model and engine
   implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, with its own embedded

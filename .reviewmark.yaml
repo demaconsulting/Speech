@@ -268,6 +268,7 @@ reviews:
       - "docs/design/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
       - "docs/verification/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/WindowedSincLowpassFilter.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WindowedSincLowpassFilterTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/PlaybackAudioResamplerTests.cs"
 
   # Speech-AudioSubsystem-IAudioCaptureDevice Review (one per unit)
@@ -897,6 +898,7 @@ reviews:
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SessionStateChangedEventArgs.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionResult.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionEvent.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognitionRecordTests.cs"
 
   # Speech-RecognitionSubsystem-SpeechRecognizerFactory Review (one per unit)
   - id: Speech-RecognitionSubsystem-SpeechRecognizerFactory
@@ -1861,8 +1863,10 @@ reviews:
       - "docs/design/speech-demo/model-settings-subsystem/model-settings-view-model.md"
       - "docs/verification/speech-demo/model-settings-subsystem/model-settings-view-model.md"
       - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml"
       - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewModelTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewTests.cs"
 
   # SpeechDemo-ModelSettingsSubsystem-ParameterViewModels Review (one per unit)
   - id: SpeechDemo-ModelSettingsSubsystem-ParameterViewModels
@@ -3044,12 +3048,48 @@ reviews:
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/OnnxNemotronRecognitionEngine.cs"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEngineOptions.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxNemotronRecognitionEngineTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/Fakes.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEncoder Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEncoder
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronEncoder Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntNetwork Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntNetwork
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronRnntNetwork Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntNetworkTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronNetworkFixture.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor Review (one per unit)
@@ -3084,11 +3124,7 @@ reviews:
       - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntGreedyDecoder.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntGreedyDecoderTests.cs"
-      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntNetworkTests.cs"
-      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronNetworkFixture.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter Review (one per unit)
@@ -3169,6 +3205,7 @@ reviews:
       - "docs/verification/ots/system-numerics-tensors.md"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioCaptureDeviceTests.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WindowedSincLowpassFilterTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
 
   # OTS-BuildMark Review (one per OTS item)

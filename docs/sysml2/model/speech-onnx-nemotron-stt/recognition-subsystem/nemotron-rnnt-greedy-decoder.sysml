@@ -2,8 +2,7 @@ package SpeechOnnxNemotronStt {
     part def NemotronRnntGreedyDecoder {
         doc /* RNN-T greedy decoder over the IRnntNetwork seam: blank-terminated symbol search
              * per encoder frame with at most ten symbols per frame, advancing the prediction
-             * state per emitted token. Also documents the ONNX-backed NemotronRnntNetwork
-             * (decoder and joint graphs). */
+             * state per emitted token. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntGreedyDecoder.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntGreedyDecoderTests.cs */

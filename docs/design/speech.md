@@ -375,8 +375,11 @@ direct safety impact is introduced.
 
 ## Design Constraints
 
-- **Nothing throws at composition**: Constructing and holding any object this library exposes
-  never throws; PortAudio initialization failure degrades to unavailable probes/devices
+- **Nothing throws at composition**: Composition paths (`AudioDeviceFactory` construction, device
+  creation and probe enumeration, and the recognizer and synthesizer factories' load paths)
+  never throw; PortAudio initialization failure degrades to unavailable probes/devices.
+  Argument and contract validation on public constructors and operations (for example a null
+  argument, or a non-HTTPS download URI) still throws the documented exceptions
 - **Own interfaces over direct OTS types**: Hosts and tests depend on library-owned interfaces,
   never directly on PortAudioSharp2 types
 - **Zero project references, denylisted interface-layer packages**: The library must remain
