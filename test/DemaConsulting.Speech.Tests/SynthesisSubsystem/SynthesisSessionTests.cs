@@ -1042,12 +1042,15 @@ public class SynthesisSessionTests
     [Fact]
     public async Task SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops()
     {
-        // Arrange
-        var backend = new FakeSynthesisEngine();
+        // Arrange: a gated in-flight call, so the stop is still pending when the caller's wait begins
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         await using var session = CreateSession(backend, device);
 
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
 
         using var preCanceled = new CancellationTokenSource();
         await preCanceled.CancelAsync();
@@ -1056,6 +1059,7 @@ public class SynthesisSessionTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(preCanceled.Token));
 
         // Assert: the operation itself was still genuinely requested to stop and settles normally
+        generateRelease.Release();
         await Record.ExceptionAsync(() => speakTask);
         Assert.NotEqual(SynthesisSessionState.Running, session.State);
     }
