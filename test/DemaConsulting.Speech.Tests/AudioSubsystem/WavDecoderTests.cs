@@ -62,6 +62,7 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteUInt32LittleEndian(fmt.AsSpan(4), 22050);
         BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(14), 16);
         BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(24), 1);
+        CanonicalGuidTail.CopyTo(fmt.AsSpan(28));
         var image = Riff(("LIST", new byte[] { 1, 2, 3 }), ("fmt ", fmt), ("data", new byte[] { 0x00, 0x40 }));
 
         // Act
@@ -386,7 +387,7 @@ public sealed class WavDecoderTests
         Assert.Contains("not a RIFF/WAVE", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Builds a 40-byte <c>WAVE_FORMAT_EXTENSIBLE</c> <c>fmt </c> body with the given sub-format tag.</summary>
+    /// <summary>Builds a 40-byte <c>WAVE_FORMAT_EXTENSIBLE</c> <c>fmt </c> body with the given sub-format tag and canonical GUID tail.</summary>
     private static byte[] Extensible(int subFormat, int bits, int channels)
     {
         var fmt = new byte[40];
@@ -395,7 +396,48 @@ public sealed class WavDecoderTests
         BinaryPrimitives.WriteUInt32LittleEndian(fmt.AsSpan(4), 8000);
         BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(14), (ushort)bits);
         BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(24), (ushort)subFormat);
+        CanonicalGuidTail.CopyTo(fmt.AsSpan(28));
         return fmt;
+    }
+
+    /// <summary>The last twelve bytes of a canonical KSDATAFORMAT_SUBTYPE GUID.</summary>
+    private static readonly byte[] CanonicalGuidTail = [0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71];
+
+    /// <summary>Proves an extensible sub-format whose GUID is not the canonical PCM or float GUID is rejected.</summary>
+    [Theory]
+    [InlineData(1, 16, 4)]
+    [InlineData(1, 16, 15)]
+    [InlineData(3, 32, 8)]
+    [InlineData(3, 32, 30)]
+    [InlineData(1, 16, 2)]
+    [InlineData(3, 32, 3)]
+    public void WavDecoder_Decode_ExtensibleNonCanonicalGuid_Throws(int subFormat, int bits, int corruptOffset)
+    {
+        // Arrange: a canonical header whose GUID is damaged at one byte (offsets index the fmt body, 24-39 is the GUID)
+        var fmt = Extensible(subFormat, bits, 1);
+        var index = corruptOffset < 24 ? 24 + corruptOffset : corruptOffset;
+        fmt[index] ^= 0xFF;
+        var image = Riff(("fmt ", fmt), ("data", new byte[8]));
+
+        // Act
+        var error = Record.Exception(() => WavDecoder.Decode(image, long.MaxValue));
+
+        // Assert
+        Assert.IsType<NotSupportedException>(error);
+    }
+
+    /// <summary>Proves the canonical PCM extensible GUID is accepted.</summary>
+    [Fact]
+    public void WavDecoder_Decode_ExtensibleCanonicalPcmGuid_Decodes()
+    {
+        // Arrange
+        var image = Riff(("fmt ", Extensible(1, 16, 1)), ("data", new byte[] { 0x00, 0x40 }));
+
+        // Act
+        var clip = WavDecoder.Decode(image, long.MaxValue);
+
+        // Assert
+        Assert.Equal([0.5f], clip.Samples);
     }
 
     /// <summary>Encodes a fractional full-scale value as little-endian PCM.</summary>

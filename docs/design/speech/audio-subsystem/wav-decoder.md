@@ -16,8 +16,10 @@
   encoders is therefore accepted) and handed to `DecodeSamples`. Chunk sizes are 32-bit values
   clamped to `int.MaxValue` before use, so a huge non-data chunk simply ends the walk.
 - **ParseFormat(data, body, size)** (private): validates the `fmt` chunk - at least 16 bytes, at
-  least 40 for `WAVE_FORMAT_EXTENSIBLE` (whose sub-format supplies the real tag; all 40 bytes must be
-  present in the image) - and rejects zero
+  least 40 for `WAVE_FORMAT_EXTENSIBLE` (whose sub-format GUID supplies the real tag; all 40 bytes must be
+  present in the image, and the GUID must be the complete canonical `KSDATAFORMAT_SUBTYPE_PCM` or
+  `KSDATAFORMAT_SUBTYPE_IEEE_FLOAT` value: the format tag as a 4-byte little-endian value followed by
+  `00 00 10 00 80 00 00 AA 00 38 9B 71`) - and rejects zero
   channels or sample rate, a rate above `int.MaxValue` (with its own message naming the rate), and any
   format tag or bit depth other than 8/16/24/32-bit PCM and 32-bit float. Returns a private `WavFormat`
   record. Only the format tag,
@@ -32,7 +34,7 @@ this itself even though `AudioFileReader` dispatches on the header first), a mis
 `data` chunk, a truncated chunk, a `data` chunk that precedes `fmt`, zero channels or rate, a
 sample rate above `int.MaxValue`, a `WAVE_FORMAT_EXTENSIBLE` `fmt` chunk shorter than 40 bytes,
 or more samples than `maxSamples`; `NotSupportedException` for any other format tag or bit depth,
-including an extensible sub-format other than PCM or float.
+including an extensible sub-format other than PCM or float, or whose GUID is not canonical.
 
 Float samples are passed through as stored, so a NaN in the file reaches the clip unchanged.
 

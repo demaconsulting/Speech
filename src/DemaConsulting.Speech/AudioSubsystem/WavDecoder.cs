@@ -24,6 +24,9 @@ internal static class WavDecoder
     /// <summary>The <c>WAVE_FORMAT_EXTENSIBLE</c> format tag.</summary>
     private const int FormatExtensible = 0xFFFE;
 
+    /// <summary>The last twelve bytes shared by the canonical PCM and IEEE float sub-format GUIDs.</summary>
+    private static ReadOnlySpan<byte> SubFormatGuidTail => [0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71];
+
     /// <summary>Gets a value indicating whether <paramref name="data"/> starts with a RIFF/WAVE header.</summary>
     /// <param name="data">The file bytes.</param>
     /// <returns><see langword="true"/> when the header is present.</returns>
@@ -92,7 +95,7 @@ internal static class WavDecoder
     ///     Thrown when the chunk is truncated (an extensible chunk must supply all 40 bytes) or declares no
     ///     channels or an unusable sample rate.
     /// </exception>
-    /// <exception cref="NotSupportedException">Thrown when the format tag or bit depth is not supported.</exception>
+    /// <exception cref="NotSupportedException">Thrown when the format tag, extensible sub-format GUID or bit depth is not supported.</exception>
     private static WavFormat ParseFormat(byte[] data, int body, int size)
     {
         if (size < 16 || body + 16 > data.Length)
@@ -113,7 +116,15 @@ internal static class WavDecoder
                 throw new InvalidDataException("The WAV file has a truncated extensible 'fmt ' chunk.");
             }
 
-            tag = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(body + 24, 2));
+            // Only the canonical KSDATAFORMAT_SUBTYPE_PCM / _IEEE_FLOAT GUIDs are accepted: the 4-byte
+            // little-endian format tag followed by 00 00 10 00 80 00 00 AA 00 38 9B 71
+            var subFormat = data.AsSpan(body + 24, 16);
+            if (!subFormat[4..].SequenceEqual(SubFormatGuidTail) || subFormat[2] != 0 || subFormat[3] != 0)
+            {
+                throw new NotSupportedException("The WAV extensible sub-format is not a canonical PCM or IEEE float GUID.");
+            }
+
+            tag = BinaryPrimitives.ReadUInt16LittleEndian(subFormat[..2]);
         }
 
         if (channels == 0 || rate == 0)

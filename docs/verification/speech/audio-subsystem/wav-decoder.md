@@ -158,6 +158,17 @@ negative extremes scale to exactly -1.
 
 **Test**: `WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws`
 
+##### Extensible sub-format GUID must be canonical
+
+**Arrange**: Extensible headers for PCM (16-bit) and float (32-bit) with one byte of the 16-byte
+sub-format GUID inverted (in the tag word, its zero high word, or the fixed 12-byte tail), and one
+header with the canonical PCM GUID.
+
+**Expected**: Each damaged header throws `NotSupportedException`; the canonical PCM header decodes.
+
+**Tests**: `WavDecoder_Decode_ExtensibleNonCanonicalGuid_Throws`,
+`WavDecoder_Decode_ExtensibleCanonicalPcmGuid_Decodes`
+
 ##### Trailing partial frame with an exact data size
 
 **Arrange**: Stereo 16-bit data of six bytes with an accurate declared size.

@@ -70,13 +70,17 @@ sections:
 
               - id: Speech-Audio-WavDecoder-ExtensibleUnsupportedRejection
                 title: >-
-                  The WavDecoder class shall reject an unsupported extensible sub-format or bit depth
-                  with NotSupportedException.
+                  The WavDecoder class shall reject an unsupported extensible sub-format, a
+                  sub-format whose identifier is not the standard PCM or IEEE float identifier, or an
+                  unsupported bit depth with NotSupportedException.
                 justification: |
                   A clearly typed failure lets callers distinguish an unsupported encoding from a
-                  damaged file.
+                  damaged file, and an unrelated identifier that merely begins like PCM must not be
+                  decoded as PCM.
                 tests:
                   - WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws
+                  - WavDecoder_Decode_ExtensibleNonCanonicalGuid_Throws
+                  - WavDecoder_Decode_ExtensibleCanonicalPcmGuid_Decodes
 
               - id: Speech-Audio-WavDecoder-OverstatedDataSize
                 title: >-
