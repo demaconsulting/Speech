@@ -20,18 +20,25 @@ sections:
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall expose an
               AddChatterboxTurboModels extension method that registers the package's single
-              synthesis model, configured with the supplied options, into a SpeechModelCatalog
-              and returns that same catalog.
+              synthesis model, configured with the supplied options, into a SpeechModelCatalog.
             justification: |
               Registration is the opt-in seam through which a host composes this package with
               the Speech library without the library depending on it.
             children:
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-Registration
-              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ReturnsCatalog
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-OptionsNotMutated
+
+          - id: SpeechOnnxChatterboxTurbo-Models-CatalogChaining
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall return the same
+              SpeechModelCatalog it was given when registering the package's model.
+            justification: |
+              Returning the supplied catalog lets a host chain further registrations fluently.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ReturnsCatalog
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDescription
             title: >-
@@ -78,21 +85,26 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDownload
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall describe the
-              downloadable file set of the model for each selectable precision variant, and load
-              the graphs of the selected variant.
+              downloadable file set of the model for each selectable precision variant.
             justification: |
-              The model store verifies and installs exactly what the descriptor lists, and a
-              backend that loaded another variant's graphs would not match the installed files.
+              The model store verifies and installs exactly what the descriptor lists.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
+
+          - id: SpeechOnnxChatterboxTurbo-Models-VariantLoading
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall load the graphs of the
+              selected precision variant.
+            justification: |
+              A backend that loaded another variant's graphs would not match the installed files.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
 
           - id: SpeechOnnxChatterboxTurbo-Models-VoiceChoice
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall expose the voices
-              supplied to the model, explicitly or from a voice directory, as a voice choice
-              with unique ids.
+              supplied to the model, explicitly or from a voice directory, as a voice choice.
             justification: |
               The model has no built-in voices, so the host's own clips define the voice list a
               user can choose from.
@@ -103,10 +115,18 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectory
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryMissing
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryResilience
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceFailure
+
+          - id: SpeechOnnxChatterboxTurbo-Models-VoiceUniqueness
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall give every exposed
+              voice a unique id.
+            justification: |
+              A voice choice is keyed by id, so two voices must never share one.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateDirectoryVoices
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceLabelUniqueness
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceFailure
 
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreation
             title: >-
@@ -176,14 +196,29 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsLimits
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the generation
-              limits to 1024 new tokens, 25 speech tokens per text token and 12 consecutive
-              repeats.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the maximum
+              number of newly generated tokens to 1024.
             justification: |
-              A host that supplies no options still gets bounded, non-looping generation.
+              A host that supplies no options still gets bounded generation.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsMaxNewTokens
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsTokensPerTextToken
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the allowance
+              to 25 speech tokens per text token.
+            justification: |
+              A host that supplies no options still gets a length bound proportional to the text.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsTokensPerTextToken
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsRepeats
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the limit on
+              consecutive repeated speech tokens to 12.
+            justification: |
+              A host that supplies no options still gets non-looping generation.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsRepeats
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsThreads
@@ -216,15 +251,29 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsVoiceSources
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the voice
-              sources to no explicit voices, no voice directory and no voice library, with the
-              store voices included and no diagnostics sink.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default to no
+              explicitly supplied voices.
             justification: |
-              Nothing outside the host's explicit choices is read or reported by default, while
-              the library voices are offered without configuration.
+              The model has no built-in voices, so a host supplies its own or uses the library.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNoVoices
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsStoreVoices
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default to including
+              the voices of the reference-voice library.
+            justification: |
+              The library voices are offered without any configuration.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsStoreVoices
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsNoExtraSources
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default to no voice
+              directory, no voice library and no diagnostics sink being configured.
+            justification: |
+              Nothing outside the host's explicit choices is read or reported by default.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNoSources
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
@@ -258,11 +307,10 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-TextTokenization
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall tokenize text into
-              exactly the ids the reference tokenizer produces, from a tokenizer carried by the
-              package itself.
+              exactly the ids the reference tokenizer produces.
             justification: |
               The language model is only correct for the exact ids its training tokenizer
-              produced, and carrying the tokenizer keeps installation to one model.
+              produced.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
@@ -322,13 +370,22 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall normalize every
-              reference voice to mono audio at 24 kHz.
+              reference voice to mono audio.
             justification: |
-              The speech encoder expects mono 24 kHz audio, while hosts hold clips in whatever
-              channel layout and rate they were recorded in.
+              The speech encoder expects mono audio, while hosts hold clips in whatever channel
+              layout they were recorded in.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-DownMix
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceSampleRate
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall normalize every
+              reference voice to a 24 kHz sample rate.
+            justification: |
+              The speech encoder expects 24 kHz audio, while hosts hold clips at whatever rate they
+              were recorded in.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Resampling
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceLength
