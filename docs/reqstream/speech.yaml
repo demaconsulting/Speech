@@ -149,6 +149,7 @@ sections:
           - Speech-Models-PerModelDownloadSerialization
           - Speech-Models-CrossModelDownloadConcurrency
           - Speech-Models-DownloadDescriptors
+          - Speech-Models-DownloadDescriptorInstallPaths
           - Speech-Models-MockableHttpSeam
         tests:
           - Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel
@@ -163,6 +164,7 @@ sections:
           a verified replacement is fully staged, then swapped in atomically.
         children:
           - Speech-Models-AtomicInstall
+          - Speech-Models-AtomicInstallFailureSafety
           - Speech-Models-LeftoverCleanup
         tests:
           - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
@@ -284,6 +286,8 @@ sections:
           - Speech-Models-ReferenceVoicePack
           - Speech-Models-ReferenceVoicePackDescriptor
           - Speech-Models-ReferenceVoicePackInstall
+          - Speech-Models-ReferenceVoicePackInstallSafety
+          - Speech-Models-ReferenceVoicePackInstallSizeCaps
           - Speech-Models-ReferenceVoicePackUninstall
           - Speech-Models-ReferenceVoiceEmotionInstall
           - Speech-Models-ReferenceVoiceEmotionUpgrade
@@ -407,6 +411,7 @@ sections:
         children:
           - Speech-Synthesis-ClosedVocabulary
           - Speech-Synthesis-ClosedVocabularyAliasCanonicalization
+          - Speech-Synthesis-ClosedVocabularyAliasUniqueness
           - Speech-Synthesis-ClosedVocabularyKindGrouping
         tests:
           - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
@@ -449,11 +454,14 @@ sections:
           - Speech-Synthesis-MockableSynthesisPlaybackContract
           - Speech-Synthesis-MockableSynthesisOneShot
           - Speech-Synthesis-MockableSynthesisStreaming
+          - Speech-Synthesis-MockableSynthesisPlayback
+          - Speech-Synthesis-MockableSynthesisSessionReuse
           - Speech-Synthesis-MockableSynthesisSessionDisposal
           - Speech-Synthesis-MockableCancellationContract
           - Speech-Synthesis-MockableCancellationIdleNoOp
           - Speech-Synthesis-EngineExclusivity
           - Speech-Synthesis-EngineDisposalOrdering
+          - Speech-Synthesis-EngineBackendDisposedOnce
           - Speech-Synthesis-VoiceSelection
           - Speech-Synthesis-SpeakerIdResolution
           - Speech-Synthesis-VoiceSelectionIndependentOfTagOverrides
@@ -461,11 +469,14 @@ sections:
           - Speech-Synthesis-SessionStateMachine
           - Speech-Synthesis-FaultedSessionTerminal
           - Speech-Synthesis-FaultContainment
+          - Speech-Synthesis-FaultContainmentPlaybackDevice
           - Speech-Synthesis-FaultContainmentBoundedCompletion
           - Speech-Synthesis-FaultContainmentAbandonedCall
           - Speech-Synthesis-FaultContainmentDisposal
           - Speech-Synthesis-SessionAvailabilityAfterEnd
           - Speech-Synthesis-DeterministicCancellation
+          - Speech-Synthesis-CancellationStopsOperation
+          - Speech-Synthesis-CancellationCallerTokenScope
           - Speech-Synthesis-NonCooperativeCallAbandonment
           - Speech-Synthesis-NativeCallThreadIsolation
           - Speech-Synthesis-NoSynthesizedTextInDiagnostics
@@ -487,6 +498,8 @@ sections:
           - Speech-Synthesis-Layer2RenderingStrip
           - Speech-Synthesis-Layer2RenderingPlainTextChunking
           - Speech-Synthesis-Layer2RenderingPause
+          - Speech-Synthesis-Layer2RenderingEllipsisPause
+          - Speech-Synthesis-Layer2RenderingPlanValidity
           - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
           - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
         tests:
@@ -534,5 +547,6 @@ sections:
           - Speech-Synthesis-CompositionRejectsInvalidParameterValue
           - Speech-Synthesis-UnavailableFallback
           - Speech-Synthesis-UnavailableFallbackOperationsThrow
+          - Speech-Synthesis-UnavailableSessionOperationsThrow
         tests:
           - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
