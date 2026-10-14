@@ -58,18 +58,20 @@ repository root (identified by `Speech.slnx`), so no binary fixture is duplicate
 ### Acceptance Criteria
 
 A RecognitionCommandSubsystem test run passes when the microphone run above succeeds, the file-input
-parsing and disposal tests pass, every unit's own acceptance criteria are met, and the
-integration test either passes against a real model or is reported as skipped for lack of a
-downloaded model. A skip means that scenario is unverified in that environment and must be
-covered by the manual verification below. The skip is deliberate: the model store is per-user
-and may be empty on build agents, so the test is not made unskippable; the manual evidence step
-below is the required substitute and its outcome is recorded with the release verification.
+parsing and disposal tests pass, and every unit's own acceptance criteria are met. The real-model
+file-recognition integration test passes only when it runs against a downloaded model. When it is
+skipped for lack of a downloaded model, the real-model recognition scenario is **unverified in
+that environment**: the run does not claim that scenario as passed, and it is verified only by the
+manual verification below. The skip is deliberate: the model store is per-user and may be empty
+on build agents, so the test is not made unskippable. Acceptance of the scenario therefore rests
+on a recorded manual result, never on an unrecorded one.
 
 ### Manual / Build-Time Verification
 
 Real-microphone behavior and real-model recognition cannot be verified in a build environment
 with no audio hardware or downloaded model. When the integration test is skipped, or whenever
-microphone behavior needs confirming, perform these checks on a developer machine:
+microphone behavior needs confirming, perform these checks on a developer machine and record the
+outcome as described under "Manual Evidence Record":
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- recognize --stt-model <id> --input
   test/DemaConsulting.Speech.Tests/TestData/crossing-the-bar-16k-mono.wav`, against a downloaded
@@ -84,3 +86,15 @@ microphone behavior needs confirming, perform these checks on a developer machin
 - `recognize --stt-model <id> --mic --capture-device <name>`, with the name of a listed capture
   device, listens on that device. No automated test proves device selection by a valid name; the
   automated tests cover only the rejection of an unknown name and the no-device case.
+
+### Manual Evidence Record
+
+Each manual check above is recorded in the release verification record with these fields, so a
+skipped automated scenario is never accepted on an unrecorded outcome:
+
+- the exact command run;
+- the recognition model identifier and, for microphone checks, the capture device used;
+- the date and the person who ran it;
+- the outcome (passed or failed) and, on failure, a short description of what was observed.
+
+A scenario with no recorded manual result stays unverified.
