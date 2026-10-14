@@ -32,7 +32,8 @@ restored while keeping defaults for keys or options that no longer apply; after 
 installation notification newly available voices are offered immediately and the prior voice
 selection is retained; an empty panel explains
 whether no model is selected or the model has no parameters; and a parameter of an unrecognized
-kind is skipped without hiding the others. The acceptance
+kind is skipped without hiding the others; a numeric parameter declared as whole-number gets a
+whole-number-only control and no continuous slider. The acceptance
 criteria of each unit are stated in its own verification document.
 
 ### Test Scenarios
@@ -99,18 +100,22 @@ recognized parameter.
 
 **Expected**: The unrecognized parameter is skipped and the two recognized ones are presented in order.
 
+#### ModelSettingsView_NumericTemplate_IntegerParameter_ShowsWholeNumberControlInsteadOfSlider
+
+**Scenario**: The view markup's numeric parameter template is read (the demo has no headless UI host,
+so the markup is checked structurally rather than rendered).
+
+**Expected**: The template holds one slider visible only when the parameter is not declared
+whole-number and one up-down control visible only when it is, with the up-down formatted in whole
+numbers and bound to the presenter's value and bounds. Together with the presenter rounding every
+write to a whole number, no fractional value can be selected for such a parameter.
+
 ### Accepted Gaps
 
-#### XAML Template Selection
+#### Rendered Controls
 
-`ModelSettingsView.axaml`'s `DataTemplate` selection between `Slider` (continuous) and
-`NumericUpDown` (`IsInteger`) is not itself exercised by an automated UI test. This subsystem has
-no precedent for XAML-level template-selection testing - every other `DataTemplate` choice in this
-view (choice/boolean presenters) is likewise verified only indirectly, through the presenter type
-checks in `ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters`
-rather than a rendered-control assertion. Consistent with that precedent, the `IsInteger` binding
-path is confirmed structurally (the compiled XAML's `IsVisible="{Binding IsInteger}"`/
-`IsVisible="{Binding !IsInteger}"` bindings and the `NumericUpDown`'s
-`Value`/`Minimum`/`Maximum`/`Increment`/`FormatString` bindings were read and checked by hand
-against `NumericParameterViewModel`'s members) rather than through a UI testing mechanism that has
-no precedent in this project.
+The structural test reads the view markup; it does not render the view, so Avalonia's own control
+behavior (for example how `NumericUpDown` handles typed input) is not exercised and is covered
+by the Avalonia OTS evidence instead. The choice and boolean templates are likewise verified only
+indirectly, through the presenter type checks in
+`ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters`.

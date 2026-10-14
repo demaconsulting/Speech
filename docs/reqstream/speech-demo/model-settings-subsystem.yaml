@@ -71,7 +71,6 @@ sections:
               - SpeechDemo-Settings-NumericPresenter-Clamping
               - SpeechDemo-Settings-NumericPresenter-IntegerRounding
               - SpeechDemo-Settings-NumericPresenter-ControlSelection
-              - SpeechDemo-Settings-NumericPresenter-WholeNumberControl
               - SpeechDemo-Settings-NumericPresenter-NonFiniteIgnored
               - SpeechDemo-Settings-ChoicePresenterDefaultSelection
               - SpeechDemo-Settings-BooleanPresenter
@@ -80,6 +79,19 @@ sections:
               - SpeechDemo-Settings-ValueBagDuplicateIds
             tests:
               - ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
+
+          - id: SpeechDemo-Settings-NumericPresenter-WholeNumberControl
+            title: >-
+              The ModelSettingsSubsystem shall offer a whole-number-only control instead of a
+              continuous slider for a parameter declared IsInteger.
+            justification: |
+              A discrete parameter with no fractional meaning must never present a continuous
+              slider that implies fractional values are selectable, which makes the parameter's
+              discrete nature visible in the UI itself. The control selection is made by the
+              settings view, so it is verified at subsystem level against the view markup rather
+              than only through the presenter's reported flag.
+            tests:
+              - ModelSettingsView_NumericTemplate_IntegerParameter_ShowsWholeNumberControlInsteadOfSlider
 
           - id: SpeechDemo-Settings-CapturedValuesRestored
             title: >-

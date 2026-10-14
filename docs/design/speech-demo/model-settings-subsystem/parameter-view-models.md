@@ -44,7 +44,8 @@ abstract base is only observable through its concrete presenters.
   Avalonia's built-in `NumericUpDown` bound to `Value`/`Minimum`/`Maximum`/`Step` with `FormatString="0"` — for an
   integer parameter
   instead of the `Slider` used for a continuous one, via `IsInteger`/`!IsInteger` visibility
-  bindings, so a fractional value can never be selected in the first place.
+  bindings, so a fractional value can never be selected in the first place. That view-level outcome is
+  verified at subsystem level by a structural test over the view markup.
 - **Choice presenter**: exposes the declared options and preselects the option whose value matches
   the declared default, resolved by value rather than by position. Changing `SelectedOption`
   raises a property-changed notification and updates `BoxedValue`. A `null` or non-member option

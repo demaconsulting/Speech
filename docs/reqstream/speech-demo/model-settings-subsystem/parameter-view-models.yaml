@@ -70,19 +70,6 @@ sections:
                 tests:
                   - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
 
-              - id: SpeechDemo-Settings-NumericPresenter-WholeNumberControl
-                title: >-
-                  The ModelSettingsSubsystem shall offer a whole-number-only control instead of a
-                  continuous slider for a parameter declared IsInteger.
-                justification: |
-                  A discrete parameter with no fractional meaning must never present a
-                  continuous slider that implies fractional values are selectable, which makes
-                  the parameter's discrete nature visible in the UI itself. The view binding
-                  that realizes this is an accepted verification gap (see the subsystem
-                  verification document); the reported IsInteger flag it binds to is tested.
-                tests:
-                  - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
-
               - id: SpeechDemo-Settings-NumericPresenter-NonFiniteIgnored
                 title: >-
                   The NumericParameterViewModel shall ignore a written value that is not a finite

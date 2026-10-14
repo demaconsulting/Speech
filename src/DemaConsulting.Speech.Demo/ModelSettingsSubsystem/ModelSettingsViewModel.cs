@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 
 /// <summary>
 ///     Presentation state for the demo's per-model tunable-parameter settings, embedded within
-///     the synthesis and recognition panels for whichever model is currently selected there.
+///     the synthesis panel for whichever model is currently selected there.
 /// </summary>
 /// <remarks>
 ///     This ViewModel proves that a host can build a completely generic parameter-settings UI

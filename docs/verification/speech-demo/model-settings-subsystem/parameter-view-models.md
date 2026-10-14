@@ -6,9 +6,10 @@ The presenters are tested directly against library parameter descriptors constru
 abstract base is verified through the concrete presenters, since it has no behavior observable on
 its own. No model, audio hardware or native runtime is required.
 
-The XAML `DataTemplate` selection between `Slider` and `NumericUpDown` is not covered by an
-automated UI test; see the _Accepted Gaps_ section of the ModelSettingsSubsystem verification
-document.
+The control selection made by the XAML `DataTemplate` between `Slider` and `NumericUpDown` is a
+view-level outcome, so it is not verified by this unit; the ModelSettingsSubsystem verification
+document covers it with a structural test over the view markup. This unit verifies only that the
+presenter reports the `IsInteger` flag that the template binds to.
 
 #### Test Environment
 
@@ -67,9 +68,8 @@ regardless of write order.
 **Scenario**: A numeric presenter is built from a descriptor declaring `IsInteger: true` (for
 example the LibriTTS-R `speaker` parameter).
 
-**Expected**: `IsInteger` is exposed as `true`. This verifies both the presenter's reporting
-requirement and, as far as the unit can, the whole-number-control requirement: the `DataTemplate`
-binding that renders `NumericUpDown` instead of `Slider` is an accepted gap (see above).
+**Expected**: `IsInteger` is exposed as `true`. This verifies only the presenter's reporting
+requirement; the control the view offers for such a parameter is verified at subsystem level.
 
 ##### NumericParameterViewModel_Value_SetNonFinite_KeepsPreviousValue
 
