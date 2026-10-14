@@ -22,8 +22,7 @@ sections:
             title: >-
               The ModelManagementSubsystem shall never expose a partially installed or partially
               replaced model: an installed model's content is untouched until a verified
-              replacement is complete, and a failed or interrupted replacement leaves the prior
-              install usable or reported as not installed.
+              replacement is complete.
             justification: |
               The download-while-in-use residual risk requires that a model already loaded by an
               in-use recognizer/synthesizer keep reading unaffected content, rather than being
@@ -33,13 +32,25 @@ sections:
               - Speech-Models-SpeechModelStore-AtomicSwap
               - Speech-Models-SpeechModelStore-AtomicSwapReplacesExisting
               - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
-              - Speech-Models-SpeechModelStore-InstallRollback
               - Speech-Models-SpeechModelStore-ManifestWrittenAfterSwap
               - Speech-Models-SpeechModelStore-StagingCreation
               - Speech-Models-SpeechModelStore-AbandonStaging
               - Speech-Models-SpeechModelStore-InstallArgumentGuards
+              - Speech-Models-SpeechModelStore-InstallScratchLocationGuard
             tests:
               - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
+              - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
+
+          - id: Speech-Models-AtomicInstallFailureSafety
+            title: >-
+              The ModelManagementSubsystem shall leave the prior install usable, or report the
+              model as not installed, when a replacement fails or is interrupted.
+            justification: |
+              A failed or interrupted replacement must never leave a half-replaced model that a
+              host would mistake for a working install.
+            children:
+              - Speech-Models-SpeechModelStore-InstallRollback
+            tests:
               - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
 
           - id: Speech-Models-InstallStateQuery
@@ -215,29 +226,40 @@ sections:
           - id: Speech-Models-DownloadDescriptors
             title: >-
               The ModelManagementSubsystem shall describe a model's downloadable file(s) with
-              HTTPS-only URLs paired with SHA-256 checksums and install paths that stay inside
-              the model's own location, rejecting insecure or malformed descriptions when they
-              are created.
+              HTTPS-only URLs paired with SHA-256 checksums, rejecting insecure or malformed
+              descriptions when they are created.
             justification: |
-              Restricting downloads to HTTPS and validating checksums/paths eagerly at
-              construction, rather than deep into the download pipeline, catches a malformed or
-              tampered model catalog entry as early as possible.
+              Restricting downloads to HTTPS and validating checksums eagerly at construction,
+              rather than deep into the download pipeline, catches a malformed or tampered model
+              catalog entry as early as possible.
             children:
               - Speech-Models-SpeechModelDownloadFile-UriValidation
               - Speech-Models-SpeechModelDownloadFile-ChecksumValidation
-              - Speech-Models-SpeechModelDownloadFile-InstallPathValidation
               - Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
-              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
-              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPathNullArgument
               - Speech-Models-SpeechModelDownloadDescriptor-Validation
               - Speech-Models-SpeechModelDownloadDescriptor-FileListRejection
               - Speech-Models-SpeechModelDownloadDescriptor-EmptyFileListRejection
               - Speech-Models-SpeechModelDownloadDescriptor-NullElementRejection
               - Speech-Models-SpeechModelDownloadDescriptor-ListSnapshot
-              - Speech-Models-SpeechModelDownloadDescriptor-DuplicatePathRejection
             tests:
               - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
               - SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException
+
+          - id: Speech-Models-DownloadDescriptorInstallPaths
+            title: >-
+              The ModelManagementSubsystem shall describe each downloadable file with an install
+              path that stays inside the model's own location and is unique within the model,
+              rejecting any other path when the description is created.
+            justification: |
+              A path escaping the model's location or colliding with another file's path would let
+              a malformed or tampered catalog entry write outside the model or overwrite its own
+              files.
+            children:
+              - Speech-Models-SpeechModelDownloadFile-InstallPathValidation
+              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
+              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPathNullArgument
+              - Speech-Models-SpeechModelDownloadDescriptor-DuplicatePathRejection
+            tests:
               - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException
 
           - id: Speech-Models-DownloadProgress
@@ -251,6 +273,7 @@ sections:
               - Speech-Models-SpeechModelDownloadProgress-FractionComplete
               - Speech-Models-SpeechModelDownloadProgress-UnknownTotal
               - Speech-Models-SpeechModelDownloadProgress-ZeroTotal
+              - Speech-Models-SpeechModelDownloadProgress-FractionBounds
               - Speech-Models-SpeechModelDownloader-ProgressReporting
             tests:
               - SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction
@@ -321,7 +344,6 @@ sections:
               - Speech-Models-DownloadMirror-BearerTokenRedaction
               - Speech-Models-SpeechModelDownloader-CredentialedMirrorRequiresOwnClient
               - Speech-Models-SpeechModelDownloader-CredentialedMirrorOwnClientAuthenticates
-              - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
               - Speech-Models-HttpModelDownloadClient-BasicAuthApplication
               - Speech-Models-HttpModelDownloadClient-NoAuthorizationWithoutMirror
@@ -473,6 +495,8 @@ sections:
               parsing the model's display name.
             children:
               - Speech-Models-SpeechModelContract-LicenseDeclaration
+            tests:
+              - ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl
 
           - id: Speech-Models-ContractHooks
             title: >-
@@ -485,6 +509,9 @@ sections:
               - Speech-Models-SpeechModelContract-InstallHook
               - Speech-Models-SpeechModelContract-NormalizeTextHook
               - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
+              - Speech-Models-SpeechModelContract-PostEndpointWarmupDefault
+              - Speech-Models-SpeechModelContract-RecognitionParameterizedBackendDefault
+              - Speech-Models-SpeechModelContract-SynthesisSpeakerDefault
             tests:
               - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
               - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
@@ -653,10 +680,8 @@ sections:
 
           - id: Speech-Models-CatalogStoreComposition
             title: >-
-              The ModelManagementSubsystem shall let a host resolve an installed model's
-              directory, and compose a recognizer or synthesizer, using the same catalog it
-              uses for enumeration and download, so that all model operations share one view of
-              what is installed.
+              The ModelManagementSubsystem shall let a host resolve the directory of an installed
+              model from the catalog it uses for enumeration and download.
             justification: |
               A host that owns a catalog for enumeration and download needs the model directory
               for RecognitionSubsystem/SynthesisSubsystem composition; a second, independent
@@ -668,8 +693,8 @@ sections:
 
           - id: Speech-Models-ReferenceVoicePack
             title: >-
-              The ModelManagementSubsystem shall provide a model-agnostic reference-voice library
-              that downloads a verified, licensed voice pack through the model downloader.
+              The ModelManagementSubsystem shall let a host acquire and install a verified,
+              licensed reference-voice pack.
             justification: |
               Voice-cloning synthesis models need reference clips, and a hundred-plus permissively
               licensed clips are far more useful as an optional, verified download than as
@@ -724,16 +749,14 @@ sections:
           - id: Speech-Models-ReferenceVoicePackInstall
             title: >-
               The ModelManagementSubsystem shall install only a verified reference-voice pack
-              archive's voice clips and license files, safely and within size caps.
+              archive's voice clips and license files.
             justification: |
-              The upstream archive holds far more content than the voice list needs, and even a
-              checksum-verified archive is untrusted input to the extractor, so extraction must be
-              selective, path-safe and bounded.
+              The upstream archive holds far more content than the voice list needs, so extraction
+              must be selective.
             children:
               - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
               - Speech-Models-ReferenceVoicePackInstaller-PackMetadata
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveDeletion
-              - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
               - Speech-Models-ReferenceVoicePackInstaller-PortableNames
               - Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
               - Speech-Models-ReferenceVoicePackInstaller-NoVoicesRejection
@@ -742,12 +765,32 @@ sections:
               - Speech-Models-ReferenceVoicePackInstaller-MissingArchive
               - Speech-Models-ReferenceVoicePackInstaller-ArgumentValidation
               - Speech-Models-ReferenceVoicePackInstaller-Cancellation
+            tests:
+              - ReferenceVoicePackInstaller_Install_TypicalArchive_ExtractsOnlyAllowListedEntries
+
+          - id: Speech-Models-ReferenceVoicePackInstallSafety
+            title: >-
+              The ModelManagementSubsystem shall never write outside the reference-voice pack's
+              own location when installing a pack archive.
+            justification: |
+              Even a checksum-verified archive is untrusted input to the extractor, so extraction
+              must be path-safe.
+            children:
+              - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+            tests:
+              - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
+
+          - id: Speech-Models-ReferenceVoicePackInstallSizeCaps
+            title: >-
+              The ModelManagementSubsystem shall reject a reference-voice pack archive whose
+              content exceeds the published size caps.
+            justification: |
+              Even a checksum-verified archive is untrusted input, so extraction must be bounded.
+            children:
               - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
               - Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
               - Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps
             tests:
-              - ReferenceVoicePackInstaller_Install_TypicalArchive_ExtractsOnlyAllowListedEntries
-              - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
               - ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws
 
           - id: Speech-Models-ReferenceVoicePackUninstall
@@ -761,6 +804,7 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-PackUninstall
               - Speech-Models-ReferenceVoiceLibrary-UninstallDiscardsUpgradeBackup
               - Speech-Models-ReferenceVoiceLibrary-UninstallWaitsForInstall
+              - Speech-Models-ReferenceVoiceLibrary-UninstallCompletesOnceStarted
             tests:
               - ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder
               - ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves
@@ -801,6 +845,7 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-UpgradeRestoresOnFailure
               - Speech-Models-ReferenceVoiceLibrary-AbandonedBackupRestored
               - Speech-Models-ReferenceVoiceLibrary-VariantReporting
+              - Speech-Models-ReferenceVoiceLibrary-BackupScanFailureTolerated
             tests:
               - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
               - ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall
