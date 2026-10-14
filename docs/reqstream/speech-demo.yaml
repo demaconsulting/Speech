@@ -49,7 +49,7 @@ sections:
           - SpeechDemo-Program-AvaloniaApp
           - SpeechDemo-Program-StartsApplication
         tests:
-          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+          - SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh
 
       - id: SpeechDemo-Shell-LaunchOptions
         title: >-
@@ -128,7 +128,7 @@ sections:
           - SpeechDemo-DeviceSelection-RefreshFailureKeepsSelections
           - SpeechDemo-DeviceSelection-RefreshReachesLibrary
         tests:
-          - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
+          - SpeechDemo_SystemIntegration_DevicePanel_ListsDevicesAndSelectionChanges
 
       - id: SpeechDemo-Devices-HonestEmptyState
         title: >-
@@ -161,7 +161,8 @@ sections:
           - SpeechDemo-ModelCatalog-PanelRefreshFaultContained
           - SpeechDemo-ModelCatalog-PanelOperation
         tests:
-          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+          - SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh
+          - SpeechDemo_SystemIntegration_CatalogPanel_ShowsInstalledAndNotInstalledModels
 
       - id: SpeechDemo-Models-Download
         title: >-
@@ -282,6 +283,7 @@ sections:
           - SpeechDemo-MirrorOptions-BasicAndBearerRejected
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch
+          - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesThroughComposition
 
       - id: SpeechDemo-Models-MirrorEnvironmentInputs
         title: >-
@@ -455,6 +457,7 @@ sections:
           - SpeechDemo-Settings-CapturedValuesRestored
           - SpeechDemo-Settings-EmptyStateExplained
           - SpeechDemo-Settings-UnrecognizedParameterTolerated
+          - SpeechDemo-Settings-NumericPresenter-WholeNumberControl
         tests:
           - SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis
 
@@ -507,6 +510,7 @@ sections:
           - SpeechDemo-Synthesis-TextToSpeech-Device-SynthesisPanelSubsystem
           - SpeechDemo-SynthesisPanel-ModelSettings
           - SpeechDemo-SynthesisPanel-DependencyValidation
+          - SpeechDemo-SynthesisPanel-ModelValidation
           - SpeechDemo-SynthesisPanel-ChangedVoiceRespected
           - SpeechDemo-SynthesisPanel-DeviceChangeRespected
           - SpeechDemo-SynthesisPanel-ShutdownReleasesPlayback
@@ -706,5 +710,7 @@ sections:
           - SpeechDemo-Recognition-CaptureDebugLateFrameDiscarded
           - SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
           - SpeechDemo-Recognition-CaptureDebugInvalidArgumentsRejected
+          - SpeechDemo-Recognition-CaptureDebugBoundedMemory
+          - SpeechDemo-Recognition-CaptureDebugNeverDelaysCapture
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled

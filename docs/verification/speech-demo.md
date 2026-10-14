@@ -65,12 +65,13 @@ Verifies that composing the demo through `App.Compose` (the composition root its
 a private models directory) produces a shell offering the four panels (Devices, Model Catalog,
 Text-to-Speech, Speech-to-Text), opened on the first, and hosting the composed panel instances.
 
-### Integration: Real Audio Backend Device Enumeration Never Throws
+### Integration: Device Panel Lists Devices and Selection Changes
 
-**Test**: `SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows`
+**Test**: `SpeechDemo_SystemIntegration_DevicePanel_ListsDevicesAndSelectionChanges`
 
-Verifies that building the device panel over the real audio factory succeeds regardless of
-whether the machine running the tests has any audio hardware or a working PortAudio runtime.
+Verifies that the composed device panel lists the devices the audio backend reports and that
+choosing a different device changes the panel's selection, regardless of whether the machine
+has any audio hardware.
 
 ### Integration: Unavailable Audio Backend Is Explained
 
@@ -313,9 +314,24 @@ Verifies that starting with no capture device shows the explanation.
 
 Verifies that starting with an unavailable engine shows the explanation.
 
-### Integration: Refreshing Every Panel Never Throws
+### Integration: Composed Over an Empty Store, Panels Exist and Refresh
 
-**Test**: `SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows`
+**Test**: `SpeechDemo_SystemIntegration_ComposedOverEmptyStore_PanelsExistAndRefresh`
 
-Verifies that invoking every panel's refresh command on a fully composed demo — which is what a
-user clicking the refresh buttons actually exercises — completes without faulting.
+Verifies that a demo composed over an empty model store hosts every panel and that invoking
+every panel's refresh command — which is what a user clicking the refresh buttons exercises —
+completes with the panels still present and without faulting.
+
+### Integration: Catalog Panel Shows Installed and Not-Installed Models
+
+**Test**: `SpeechDemo_SystemIntegration_CatalogPanel_ShowsInstalledAndNotInstalledModels`
+
+Verifies that the composed catalog panel lists a model installed in the store as installed and
+a registered but absent model as not installed.
+
+### Integration: Mirror Redirection Applies Through Composition
+
+**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_AppliesThroughComposition`
+
+Verifies that a mirror configured through the composition root redirects the catalog's download
+locations to the mirror.
