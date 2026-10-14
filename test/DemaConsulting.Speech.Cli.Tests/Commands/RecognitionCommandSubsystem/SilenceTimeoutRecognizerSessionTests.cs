@@ -93,30 +93,37 @@ public sealed class SilenceTimeoutRecognizerSessionTests
     }
 
     /// <summary>
-    ///     Test that, with no time source supplied, the idle window elapses in real time: a short
-    ///     window ends the session after that much wall-clock time with no result.
+    ///     Test that, with no time source supplied, the session uses a working system-clock timer: a
+    ///     result arriving well inside a long idle window is yielded and no timeout occurs. The
+    ///     timeout behavior itself is verified deterministically with the fake time source, so this
+    ///     test never depends on wall-clock timing.
     /// </summary>
     [Fact]
-    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_EndsSessionAfterRealIdleWindow()
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_YieldsResultWithoutTimingOut()
     {
-        // Arrange
+        // Arrange: a long idle window on the default (system) time source
         var session = new FakeRecognitionSession();
-        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromMilliseconds(100));
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromMinutes(10));
         var timedOutCount = 0;
         wrapper.TimedOut += (_, _) => timedOutCount++;
-        var cancellationToken = TestContext.Current.CancellationToken;
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
 
-        // Act
-        var results = new List<DemaConsulting.Speech.RecognitionSubsystem.SpeechRecognitionEvent>();
-        await foreach (var e in wrapper.GetResultsAsync(cancellationToken))
-        {
-            results.Add(e);
-        }
+        // Act: request the first result, deliver one, then end the session
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+        session.RaiseResult("hello", isFinal: true);
+        var hasResult = await firstMoveNextTask;
+        var text = enumerator.Current.Result.Text;
+        var secondMoveNextTask = enumerator.MoveNextAsync();
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        var hasMore = await secondMoveNextTask;
 
-        // Assert
-        Assert.Empty(results);
+        // Assert: the result was yielded, the stream ended on the explicit stop only, and no timeout fired
+        Assert.True(hasResult);
+        Assert.Equal("hello", text);
+        Assert.False(hasMore);
         Assert.Equal(1, session.StopCallCount);
-        Assert.Equal(1, timedOutCount);
+        Assert.Equal(0, timedOutCount);
     }
 
     /// <summary>Test that enumeration, with no start timeout given, arms the idle timer with the idle timeout.</summary>

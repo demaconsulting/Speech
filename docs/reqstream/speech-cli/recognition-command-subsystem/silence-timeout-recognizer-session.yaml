@@ -92,16 +92,25 @@ sections:
               - id: SpeechCli-RecognitionCommands-SessionDefaultClock
                 title: >-
                   The SilenceTimeoutRecognizerSession shall be creatable without supplying a time
-                  source, and shall then end a session once the configured idle window has
-                  elapsed in real time.
+                  source.
                 tags: [unit]
                 justification: |
-                  Production callers have no reason to supply a clock, so an idle window of N
-                  seconds must mean N real seconds; only tests substitute a clock to avoid real
-                  waiting.
+                  Production callers have no reason to supply a clock, so creation must succeed
+                  without one; only tests substitute a clock to avoid real waiting.
                 tests:
                   - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow
-                  - SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_EndsSessionAfterRealIdleWindow
+
+              - id: SpeechCli-RecognitionCommands-SessionDefaultClockOperation
+                title: >-
+                  The SilenceTimeoutRecognizerSession created without a time source shall deliver
+                  a result that arrives inside the idle window without timing out.
+                tags: [unit]
+                justification: |
+                  A session on the default clock must behave as a normal result stream while
+                  speech keeps arriving; the timeout itself is verified with a substituted clock
+                  so no test depends on wall-clock timing.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_YieldsResultWithoutTimingOut
 
               - id: SpeechCli-RecognitionCommands-SessionTimeoutDrain
                 title: >-

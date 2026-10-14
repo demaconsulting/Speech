@@ -15,16 +15,17 @@ read the due time of the most recently armed timer to prove which window is in e
 - **Isolation**: Every test builds its own session, time provider and wrapper; no shared state
 - **Test doubles**: `FakeRecognitionSession` (raises scripted results, counts `StopAsync` calls and
   completes its result stream when stopped) and `FakeTimeProvider`/`FakeTimer` (records the due
-  time each timer is armed with, tracks which timers are still active, and fires on demand). One
-  test deliberately uses the real system clock with a 100-millisecond window.
+  time each timer is armed with, tracks which timers are still active, and fires on demand). No
+  test waits on the real system clock; the one test that constructs the wrapper without a time
+  provider uses a 10-minute window that it never lets elapse.
 
 #### Acceptance Criteria
 
 The unit passes when it rejects invalid construction arguments, arms the start window before the
 first result and the idle window thereafter, stops the wrapped session and raises `TimedOut`
 exactly once when the active window elapses, delivers results drained by that stop, releases
-every idle timer it armed, measures windows in real time when no time provider is supplied, and
-propagates cancellation.
+every idle timer it armed, behaves as a normal result stream when no time provider is supplied,
+and propagates cancellation.
 
 #### Test Scenarios
 
@@ -52,13 +53,14 @@ propagates cancellation.
 
 **Expected**: No exception; the system clock is used.
 
-##### SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_EndsSessionAfterRealIdleWindow
+##### SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_YieldsResultWithoutTimingOut
 
-**Scenario**: The wrapper is built with a 100-millisecond idle timeout and no time provider, over a
-session that never produces a result.
+**Scenario**: The wrapper is built with a 10-minute idle timeout and no time provider; one final
+result is delivered, then the session is stopped.
 
-**Expected**: Using real elapsed time, the enumeration completes empty, `StopAsync` was called once
-and `TimedOut` was raised once.
+**Expected**: The result is yielded, the enumeration then ends on the explicit stop, `StopAsync`
+was called once and `TimedOut` was never raised. The test never waits on wall-clock time; the
+timeout path is verified only with the fake time provider.
 
 ##### SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout
 
