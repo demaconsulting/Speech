@@ -107,6 +107,18 @@ sections:
                 tests:
                   - ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws
 
+              - id: Speech-Models-ReferenceVoicePack-ReservedArchiveFileNameRejection
+                title: >-
+                  The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive
+                  file name equal, ignoring letter case, to the name of a file or directory that an
+                  installed pack contains at its root.
+                justification: |
+                  The archive is staged beside the installed content, so a colliding name would
+                  overwrite the pack metadata or block creation of a content directory. Comparison
+                  ignores case so the outcome is the same on every platform.
+                tests:
+                  - ReferenceVoicePack_Constructor_ReservedArchiveFileName_Throws
+
               - id: Speech-Models-ReferenceVoicePack-UnsafeRootFolderRejection
                 title: >-
                   The ReferenceVoicePack unit shall reject, when a descriptor is created, an archive

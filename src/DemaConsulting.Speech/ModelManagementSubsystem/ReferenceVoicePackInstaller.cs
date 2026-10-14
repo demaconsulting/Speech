@@ -34,6 +34,16 @@ internal static class ReferenceVoicePackInstaller
     /// <summary>The name of the extracted folder holding the per-speaker emotion (mood) clips.</summary>
     internal const string EmotionsDirectoryName = "voices-emotion";
 
+    /// <summary>The name of the extracted license file at the pack root.</summary>
+    internal const string LicenseFileName = "LICENSE.md";
+
+    /// <summary>The name of the extracted readme file (at the pack root and in each clip folder).</summary>
+    internal const string ReadmeFileName = "README.md";
+
+    /// <summary>The names the installer itself creates or extracts at the root of an installed pack.</summary>
+    internal static readonly string[] ReservedRootNames =
+        [PackMetadataFileName, VoicesDirectoryName, EmotionsDirectoryName, LicenseFileName, ReadmeFileName];
+
     /// <summary>The largest accepted extracted size of one entry (bytes).</summary>
     internal const long MaximumEntryBytes = 128L * 1024 * 1024;
 
@@ -245,7 +255,7 @@ internal static class ReferenceVoicePackInstaller
 
         if (segments.Length == 3 && string.Equals(segments[1], VoicesDirectoryName, StringComparison.Ordinal))
         {
-            if (string.Equals(segments[2], "README.md", StringComparison.Ordinal))
+            if (string.Equals(segments[2], ReadmeFileName, StringComparison.Ordinal))
             {
                 return Path.Combine(VoicesDirectoryName, segments[2]);
             }
@@ -259,7 +269,7 @@ internal static class ReferenceVoicePackInstaller
 
         if (includeEmotions && segments.Length >= 3 && string.Equals(segments[1], EmotionsDirectoryName, StringComparison.Ordinal))
         {
-            if (segments.Length == 3 && string.Equals(segments[2], "README.md", StringComparison.Ordinal))
+            if (segments.Length == 3 && string.Equals(segments[2], ReadmeFileName, StringComparison.Ordinal))
             {
                 return Path.Combine(EmotionsDirectoryName, segments[2]);
             }
@@ -277,7 +287,7 @@ internal static class ReferenceVoicePackInstaller
 
     /// <summary>Determines whether a root-level file is one of the license/readme files that are extracted.</summary>
     private static bool IsTextFile(string name) =>
-        string.Equals(name, "LICENSE.md", StringComparison.Ordinal) || string.Equals(name, "README.md", StringComparison.Ordinal);
+        string.Equals(name, LicenseFileName, StringComparison.Ordinal) || string.Equals(name, ReadmeFileName, StringComparison.Ordinal);
 
     /// <summary>What an allow-listed archive entry is.</summary>
     private enum EntryKind

@@ -68,7 +68,7 @@ public sealed class ReferenceVoicePack
     ///     <c>.</c>/<c>..</c>, not a Windows reserved device name), then the HTTPS scheme and checksum shape, which are
     ///     enforced by the <see cref="SpeechModelDownloadFile"/> the descriptor delegates to.
     /// </remarks>
-    /// <exception cref="ArgumentException">Thrown when a text argument is blank, the id/file name/root folder is not a safe name (see remarks), the URI is not HTTPS, or the checksum is malformed.</exception>
+    /// <exception cref="ArgumentException">Thrown when a text argument is blank, the id/file name/root folder is not a safe name (see remarks), the archive file name matches (ignoring case) a name the installer creates in the pack root, the URI is not HTTPS, or the checksum is malformed.</exception>
     /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="sizeBytes"/> is not positive or an installed size is negative.</exception>
     public ReferenceVoicePack(
@@ -102,6 +102,12 @@ public sealed class ReferenceVoicePack
 
         RequireSafeName(id, nameof(id));
         RequireSafeName(archiveFileName, nameof(archiveFileName));
+        if (ReferenceVoicePackInstaller.ReservedRootNames.Contains(archiveFileName, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"'{archiveFileName}' collides with a file or directory the installer creates in the pack root.",
+                nameof(archiveFileName));
+        }
         RequireSafeName(archiveRootFolder, nameof(archiveRootFolder));
 
         // The file descriptor enforces the HTTPS scheme and the 64-hex checksum shape

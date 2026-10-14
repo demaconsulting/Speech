@@ -59,7 +59,11 @@ archive file name or archive root folder that is not a single safe path segment,
 A safe segment contains none of the characters invalid in a file name on any platform (including the
 path separators, the drive colon and NUL), is not rooted, is not `.` or `..`, has no leading or trailing
 whitespace and no trailing dot, and is not a Windows reserved device name (`CON`, `PRN`, `AUX`, `NUL`,
-`COM1`-`COM9`, `LPT1`-`LPT9`, with or without an extension).
+`COM1`-`COM9`, `LPT1`-`LPT9`, with or without an extension). The archive file name is additionally
+rejected with `ArgumentException` (parameter `archiveFileName`) when it equals, ignoring case, any of
+`ReferenceVoicePackInstaller.ReservedRootNames` - the metadata file, the two content directories and
+the license and readme files the installer creates at the pack root - so the archive staged beside the
+content can never collide with them, identically on case-sensitive and case-insensitive file systems.
 
 Arguments are checked in this order: blank or null text and null URIs, the size ranges, the safe
 names, then the HTTPS scheme and checksum shape, which the constructor delegates to the

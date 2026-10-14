@@ -172,6 +172,29 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
+    ///     Proves that an archive file name matching (in any letter case) a file or directory the installer creates in
+    ///     the pack root is rejected, naming the parameter, and that a non-colliding name is accepted.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_ReservedArchiveFileName_Throws()
+    {
+        // Arrange
+        var reserved = ReferenceVoicePackInstaller.ReservedRootNames
+            .SelectMany(name => new[] { name, name.ToUpperInvariant(), name.ToLowerInvariant() })
+            .Distinct()
+            .ToArray();
+
+        // Act
+        var errors = reserved.Select(name => Assert.Throws<ArgumentException>(() => Create(archiveFileName: name))).ToArray();
+        var accepted = Create(archiveFileName: "pack.json.zip");
+
+        // Assert
+        Assert.All(errors, error => Assert.Equal("archiveFileName", error.ParamName));
+        Assert.Equal(["pack.json", "voices", "voices-emotion", "LICENSE.md", "README.md"], ReferenceVoicePackInstaller.ReservedRootNames);
+        Assert.Equal("pack.json.zip", accepted.ArchiveFileName);
+    }
+
+    /// <summary>
     ///     Proves that the built-in pack carries the sizes measured from the real archive (voices plus license/readme
     ///     files, and the emotion clips) and that the installed-size arithmetic adds them only when emotions are included.
     /// </summary>

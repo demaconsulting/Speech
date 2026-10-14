@@ -58,6 +58,15 @@ are rejected with `ArgumentException`, the blank text arguments naming the offen
 The unsafe-name theories also cover a trailing dot, leading or trailing whitespace, Windows reserved device names
 and NUL for the id and the archive file name.
 
+##### Reserved Archive File Names
+
+**Test**: `ReferenceVoicePack_Constructor_ReservedArchiveFileName_Throws`
+
+**Arrange**: Every reserved root name (`pack.json`, `voices`, `voices-emotion`, `LICENSE.md`, `README.md`) in its
+original, upper and lower case, and the non-colliding name `pack.json.zip`.
+
+**Expected**: Each reserved variant throws `ArgumentException` naming `archiveFileName`; the other name is accepted.
+
 ##### Size Metadata
 
 **Test**: `ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues`
