@@ -155,25 +155,27 @@ public class AudioDeviceFactoryTests
     public void AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
     {
         // Arrange: a fake PortAudio environment with a higher-capability default capture device
-        var environment = new PortAudioEnvironment(
-            new FakePortAudioApi(
-            [
-                new PortAudioDeviceInfo("Mic", 5, 4, 0, 48000, 0.01, 0.0)
-            ])
-            {
-                FindHostApiIndexResult = 5,
-                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
-            },
-            OSPlatform.Windows);
+        var api = new FakePortAudioApi(
+        [
+            new PortAudioDeviceInfo("Mic", 5, 4, 0, 48000, 0.01, 0.0)
+        ])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var preferredFormat = new AudioFormat(16000, 2);
 
-        // Act
+        // Act: create the device with the preferred format and open its stream
         var device = factory.CreateCaptureDevice(preferredFormat: preferredFormat);
+        device.Start();
 
-        // Assert
+        // Assert: the device reports the format and the requested format reached the PortAudio API
         Assert.Equal(16000, device.SampleRate);
         Assert.Equal(2, device.ChannelCount);
+        Assert.Equal((2, 16000), api.LastOpenedFormat);
+        device.Stop();
     }
 
     /// <summary>
@@ -210,25 +212,27 @@ public class AudioDeviceFactoryTests
     public void AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
     {
         // Arrange: a fake PortAudio environment with a higher-capability default playback device
-        var environment = new PortAudioEnvironment(
-            new FakePortAudioApi(
-            [
-                new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)
-            ])
-            {
-                FindHostApiIndexResult = 5,
-                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
-            },
-            OSPlatform.Windows);
+        var api = new FakePortAudioApi(
+        [
+            new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)
+        ])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var preferredFormat = new AudioFormat(24000, 2);
 
-        // Act
+        // Act: create the device with the preferred format and open its stream
         var device = factory.CreatePlaybackDevice(preferredFormat: preferredFormat);
+        device.Start();
 
-        // Assert
+        // Assert: the device reports the format and the requested format reached the PortAudio API
         Assert.Equal(24000, device.SampleRate);
         Assert.Equal(2, device.ChannelCount);
+        Assert.Equal((2, 24000), api.LastOpenedFormat);
+        device.Stop();
     }
 
     /// <summary>
@@ -535,6 +539,36 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="AudioDeviceFactory.RefreshDevices"/> makes a changed device table
+    ///     visible: a device added after the refresh is enumerated and a removed one is not.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_DeviceListChanges_EnumerationReflectsNewDevices()
+    {
+        // Arrange: a factory over a fake runtime that initially exposes one microphone
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Old Mic", 5, 1, 0, 16000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        var namesBefore = factory.CaptureProbe.Enumerate().Select(d => d.Name).ToArray();
+
+        // Act: swap the device table and refresh
+        api.Devices = [new PortAudioDeviceInfo("New Mic", 5, 2, 0, 48000, 0.01, 0.0)];
+        factory.RefreshDevices();
+        var namesAfter = factory.CaptureProbe.Enumerate().Select(d => d.Name).ToArray();
+        var device = factory.CreateCaptureDevice();
+
+        // Assert: enumeration and created devices reflect only the new table
+        Assert.Equal(["Old Mic"], namesBefore);
+        Assert.Equal(["New Mic"], namesAfter);
+        Assert.Equal(48000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
+    }
+
+    /// <summary>
     ///     Proves that a refresh refused because a device is in use propagates
     ///     <see cref="AudioDeviceInUseException"/> to the caller unchanged.
     /// </summary>
@@ -600,9 +634,24 @@ public class AudioDeviceFactoryTests
     ///     Minimal fake PortAudio seam used by the factory tests.
     /// </summary>
     private sealed class FakePortAudioApi(
-        IReadOnlyList<PortAudioDeviceInfo> devices,
+        IReadOnlyList<PortAudioDeviceInfo> initialDevices,
         Exception? initializeException = null) : IPortAudioApi
     {
+        /// <summary>
+        ///     Gets or sets the device table, reassignable so tests can change it between refreshes.
+        /// </summary>
+        internal IReadOnlyList<PortAudioDeviceInfo> Devices { get; set; } = initialDevices;
+
+        /// <summary>
+        ///     Gets the (channelCount, sampleRate) most recently requested from an opened stream.
+        /// </summary>
+        internal (int ChannelCount, int SampleRate)? LastOpenedFormat { get; private set; }
+
+        /// <summary>
+        ///     Gets the device index most recently requested from an opened stream.
+        /// </summary>
+        internal int? LastOpenedDeviceIndex { get; private set; }
+
         /// <summary>
         ///     Gets or sets the host-API index returned by <see cref="FindHostApiIndex"/>.
         /// </summary>
@@ -635,7 +684,7 @@ public class AudioDeviceFactoryTests
         public int HostApiCount => 1;
 
         /// <inheritdoc/>
-        public int DeviceCount => devices.Count;
+        public int DeviceCount => Devices.Count;
 
         /// <inheritdoc/>
         public void Initialize()
@@ -669,7 +718,7 @@ public class AudioDeviceFactoryTests
         /// <inheritdoc/>
         public PortAudioDeviceInfo GetDeviceInfo(int deviceIndex)
         {
-            return devices[deviceIndex];
+            return Devices[deviceIndex];
         }
 
         /// <inheritdoc/>
@@ -692,7 +741,9 @@ public class AudioDeviceFactoryTests
             uint framesPerBuffer,
             Action<IReadOnlyList<float>> onSamplesCaptured)
         {
-            throw new NotSupportedException("Stream opening is outside this test scope.");
+            LastOpenedDeviceIndex = deviceIndex;
+            LastOpenedFormat = (channelCount, sampleRate);
+            return new StubStream();
         }
 
         /// <inheritdoc/>
@@ -703,7 +754,30 @@ public class AudioDeviceFactoryTests
             uint framesPerBuffer,
             Func<int, float[]> provideSamples)
         {
-            throw new NotSupportedException("Stream opening is outside this test scope.");
+            LastOpenedDeviceIndex = deviceIndex;
+            LastOpenedFormat = (channelCount, sampleRate);
+            return new StubStream();
+        }
+    }
+
+    /// <summary>
+    ///     A stream stub that accepts every lifecycle call.
+    /// </summary>
+    private sealed class StubStream : IPortAudioStream
+    {
+        /// <inheritdoc/>
+        public void Start()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Stop()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
         }
     }
 }
