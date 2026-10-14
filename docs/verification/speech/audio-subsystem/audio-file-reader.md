@@ -54,7 +54,7 @@ message and no path prefix.
 **Tests**: `AudioFileReader_Read_NullStream_ThrowsArgumentNullException`,
 `AudioFileReader_Read_BlankPath_ThrowsArgumentException`,
 `AudioFileReader_Read_NegativeMaxSamplesStream_ThrowsArgumentOutOfRange`,
-`AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter`
+`AudioFileReader_Read_NegativeMaxSamples_Stream_ReportsOptionsParameter`,
 
 **Expected**: A null stream throws `ArgumentNullException`; an empty or blank path throws
 `ArgumentException`; a negative `MaxSamples` on the stream overload throws
@@ -83,14 +83,14 @@ throws `IOException` unwrapped; an unsupported WAV read from a stream throws
 
 ##### WAV stream and mono read errors
 
-**Test**: `AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors`
+**Tests**: `AudioFileReader_Read_WavStream_Decodes`, `AudioFileReader_ReadMono_UnrecognizedStream_ThrowsInvalidData`,
 
 **Expected**: A WAV fixture read from a stream decodes (44100 Hz, mono); `ReadMono` of a
 three-byte stream throws `InvalidDataException` and of a missing path `FileNotFoundException`.
 
 ##### Checksum verification option
 
-**Test**: `AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly`
+**Tests**: `AudioFileReader_Read_VerifyChecksumsDefault_DamagedFlac_Throws`,
 
 **Expected**: A FLAC fixture whose final byte is corrupted throws `InvalidDataException` by default
 and with `VerifyChecksums = true`, and decodes with `VerifyChecksums = false`.

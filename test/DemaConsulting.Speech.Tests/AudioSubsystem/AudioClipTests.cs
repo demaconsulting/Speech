@@ -7,21 +7,47 @@ namespace DemaConsulting.Speech.Tests.AudioSubsystem;
 /// </summary>
 public sealed class AudioClipTests
 {
-    /// <summary>Proves the clip's derived members.</summary>
+    /// <summary>Proves the frame count and duration are derived from the samples, rate and channels.</summary>
     [Fact]
-    public void AudioClip_DerivedMembers_AreConsistent()
+    public void AudioClip_DerivedMembers_FrameCountAndDuration()
+    {
+        // Arrange
+        var clip = new AudioClip([1f, -1f, 0.5f, 0.5f, 2f, -2f, 0f, float.NaN], 4, 2, 16);
+
+        // Act
+        var frames = clip.FrameCount;
+        var duration = clip.Duration;
+
+        // Assert
+        Assert.Equal(4, frames);
+        Assert.Equal(1.0, duration);
+    }
+
+    /// <summary>Proves the mono down-mix of a multi-channel clip.</summary>
+    [Fact]
+    public void AudioClip_DerivedMembers_MonoDownMix()
     {
         // Arrange
         var clip = new AudioClip([1f, -1f, 0.5f, 0.5f, 2f, -2f, 0f, float.NaN], 4, 2, 16);
 
         // Act
         var mono = clip.ToMono();
+
+        // Assert
+        Assert.Equal([0f, 0.5f, 0f, float.NaN], mono);
+    }
+
+    /// <summary>Proves the 16-bit PCM conversion of a multi-channel clip.</summary>
+    [Fact]
+    public void AudioClip_DerivedMembers_Pcm16Conversion()
+    {
+        // Arrange
+        var clip = new AudioClip([1f, -1f, 0.5f, 0.5f, 2f, -2f, 0f, float.NaN], 4, 2, 16);
+
+        // Act
         var pcm = clip.ToPcm16();
 
         // Assert
-        Assert.Equal(4, clip.FrameCount);
-        Assert.Equal(1.0, clip.Duration);
-        Assert.Equal([0f, 0.5f, 0f, float.NaN], mono);
         Assert.Equal([32767, -32768, 16384, 16384, 32767, -32768, 0, 0], pcm.Select(v => (int)v));
     }
 
@@ -126,23 +152,97 @@ public sealed class AudioClipTests
         Assert.Equal([32767, -32768, 16384, 0, 0], pcm.Select(v => (int)v));
     }
 
-    /// <summary>Proves <see cref="AudioClip"/> rejects a null sample array and non-positive rates or channel counts, including through <c>with</c>.</summary>
+    /// <summary>Proves the constructor rejects a null sample array.</summary>
     [Fact]
-    public void AudioClip_InvalidValues_Throw()
+    public void AudioClip_InvalidValues_NullSamples_Throws()
+    {
+        // Arrange / Act
+        var error = Record.Exception(() => new AudioClip(null!, 8000, 1, 16));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(error);
+    }
+
+    /// <summary>Proves the constructor rejects a non-positive sample rate and names the parameter.</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void AudioClip_InvalidValues_SampleRate_Throws(int rate)
+    {
+        // Arrange / Act
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], rate, 1, 16));
+
+        // Assert
+        Assert.Equal("SampleRate", error.ParamName);
+    }
+
+    /// <summary>Proves the constructor rejects a non-positive channel count and names the parameter.</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-2)]
+    public void AudioClip_InvalidValues_ChannelCount_Throws(int channels)
+    {
+        // Arrange / Act
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, channels, 16));
+
+        // Assert
+        Assert.Equal("ChannelCount", error.ParamName);
+    }
+
+    /// <summary>Proves a <c>with</c> expression rejects a zero sample rate.</summary>
+    [Fact]
+    public void AudioClip_InvalidValues_WithSampleRate_Throws()
     {
         // Arrange
         var valid = new AudioClip([0f, 0f], 8000, 1, 16);
 
-        // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => new AudioClip(null!, 8000, 1, 16));
-        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 0, 1, 16)).ParamName);
-        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], -1, 1, 16)).ParamName);
-        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, 0, 16)).ParamName);
-        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, -2, 16)).ParamName);
-        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { SampleRate = 0 });
-        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { ChannelCount = 0 });
-        Assert.Throws<ArgumentNullException>(() => valid with { Samples = null! });
-        Assert.Equal(16000, (valid with { SampleRate = 16000 }).SampleRate);
+        // Act
+        var error = Record.Exception(() => valid with { SampleRate = 0 });
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(error);
+    }
+
+    /// <summary>Proves a <c>with</c> expression rejects a zero channel count.</summary>
+    [Fact]
+    public void AudioClip_InvalidValues_WithChannelCount_Throws()
+    {
+        // Arrange
+        var valid = new AudioClip([0f, 0f], 8000, 1, 16);
+
+        // Act
+        var error = Record.Exception(() => valid with { ChannelCount = 0 });
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(error);
+    }
+
+    /// <summary>Proves a <c>with</c> expression rejects null samples.</summary>
+    [Fact]
+    public void AudioClip_InvalidValues_WithNullSamples_Throws()
+    {
+        // Arrange
+        var valid = new AudioClip([0f, 0f], 8000, 1, 16);
+
+        // Act
+        var error = Record.Exception(() => valid with { Samples = null! });
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(error);
+    }
+
+    /// <summary>Proves a <c>with</c> expression accepts a valid sample rate.</summary>
+    [Fact]
+    public void AudioClip_With_ValidSampleRate_Applies()
+    {
+        // Arrange
+        var valid = new AudioClip([0f, 0f], 8000, 1, 16);
+
+        // Act
+        var changed = valid with { SampleRate = 16000 };
+
+        // Assert
+        Assert.Equal(16000, changed.SampleRate);
     }
 
     /// <summary>Proves an empty sample array is a valid, zero-length clip.</summary>

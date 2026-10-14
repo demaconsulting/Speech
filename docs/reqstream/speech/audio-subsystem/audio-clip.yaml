@@ -16,7 +16,7 @@ sections:
                 justification: |
                   Consumers need the common size views of decoded audio without re-implementing them.
                 tests:
-                  - AudioClip_DerivedMembers_AreConsistent
+                  - AudioClip_DerivedMembers_FrameCountAndDuration
                   - AudioClip_EmptySamples_HasZeroDuration
 
               - id: Speech-Audio-AudioClip-ToMono
@@ -28,7 +28,7 @@ sections:
                   - AudioClip_ToMono_AveragesChannels
                   - AudioClip_ToMono_MonoClip_ReturnsIndependentCopy
                   - AudioClip_ToMono_NaNSample_PropagatesToFrame
-                  - AudioClip_DerivedMembers_AreConsistent
+                  - AudioClip_DerivedMembers_MonoDownMix
 
               - id: Speech-Audio-AudioClip-ToPcm16
                 title: >-
@@ -38,7 +38,7 @@ sections:
                   Playback and file writers need 16-bit PCM.
                 tests:
                   - AudioClip_ToPcm16_ScalesWithRounding
-                  - AudioClip_DerivedMembers_AreConsistent
+                  - AudioClip_DerivedMembers_Pcm16Conversion
 
               - id: Speech-Audio-AudioClip-ToPcm16Clamping
                 title: >-
@@ -48,7 +48,7 @@ sections:
                   Out-of-range or invalid samples must not overflow or produce arbitrary PCM values.
                 tests:
                   - AudioClip_ToPcm16_ClampsOutOfRangeSamples
-                  - AudioClip_DerivedMembers_AreConsistent
+                  - AudioClip_DerivedMembers_Pcm16Conversion
 
               - id: Speech-Audio-AudioClip-ValidatesInput
                 title: >-
@@ -57,7 +57,8 @@ sections:
                 justification: |
                   A null sample array would fail later, far from the mistake.
                 tests:
-                  - AudioClip_InvalidValues_Throw
+                  - AudioClip_InvalidValues_NullSamples_Throws
+                  - AudioClip_InvalidValues_WithNullSamples_Throws
 
               - id: Speech-Audio-AudioClip-ValidatesRateAndChannels
                 title: >-
@@ -66,7 +67,11 @@ sections:
                 justification: |
                   A zero rate or channel count would divide by zero in Duration and the down-mix.
                 tests:
-                  - AudioClip_InvalidValues_Throw
+                  - AudioClip_InvalidValues_SampleRate_Throws
+                  - AudioClip_InvalidValues_ChannelCount_Throws
+                  - AudioClip_InvalidValues_WithSampleRate_Throws
+                  - AudioClip_InvalidValues_WithChannelCount_Throws
+                  - AudioClip_With_ValidSampleRate_Applies
 
               - id: Speech-Audio-AudioClip-EmptyClip
                 title: >-

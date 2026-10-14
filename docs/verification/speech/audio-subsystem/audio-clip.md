@@ -21,13 +21,17 @@ expression; an empty sample array is a valid zero-duration clip.
 ##### Invalid values are rejected
 
 **Stimulus**: Construct a clip with null samples, with sample rate 0 and -1, and with channel
-count 0 and -2; apply `with { SampleRate = 0 }` and `with { ChannelCount = 0 }` to a valid clip.
+count 0 and -2; apply `with { SampleRate = 0 }`, `with { ChannelCount = 0 }` and
+`with { Samples = null }` to a valid clip; apply a valid `with { SampleRate = 16000 }`.
 
-**Expected**: `ArgumentNullException` for null samples; `ArgumentOutOfRangeException` whose
-`ParamName` is `SampleRate` or `ChannelCount` for the bad numbers and for both `with` cases; a
-valid `with { SampleRate = 16000 }` succeeds.
+**Expected**: `ArgumentNullException` for null samples (constructor and `with`);
+`ArgumentOutOfRangeException` whose `ParamName` is `SampleRate` or `ChannelCount` for the bad
+numbers and for both numeric `with` cases; the valid `with` succeeds.
 
-**Test**: `AudioClip_InvalidValues_Throw` (also asserts `with { Samples = null }` throws)
+**Tests**: `AudioClip_InvalidValues_NullSamples_Throws`, `AudioClip_InvalidValues_SampleRate_Throws`,
+`AudioClip_InvalidValues_ChannelCount_Throws`, `AudioClip_InvalidValues_WithSampleRate_Throws`,
+`AudioClip_InvalidValues_WithChannelCount_Throws`, `AudioClip_InvalidValues_WithNullSamples_Throws`
+and `AudioClip_With_ValidSampleRate_Applies`
 
 ##### Empty samples have zero duration
 
@@ -40,13 +44,14 @@ valid `with { SampleRate = 16000 }` succeeds.
 ##### Derived members are consistent
 
 **Stimulus**: A 2-channel, 4 Hz clip of eight samples including out-of-range (`2`, `-2`) and
-`NaN` values; call `ToMono()` and `ToPcm16()`.
+`NaN` values; read `FrameCount` and `Duration`, call `ToMono()` and call `ToPcm16()`.
 
 **Expected**: `FrameCount` 4 and `Duration` 1.0; mono `[0, 0.5, 0, NaN]`; PCM is exactly
 `[32767, -32768, 16384, 16384, 32767, -32768, 0, 0]` (all eight samples asserted: `1.0 -> 32767`,
 `-1.0 -> -32768`, out-of-range values clamped, and `NaN -> 0`).
 
-**Test**: `AudioClip_DerivedMembers_AreConsistent`
+**Tests**: `AudioClip_DerivedMembers_FrameCountAndDuration`, `AudioClip_DerivedMembers_MonoDownMix`
+and `AudioClip_DerivedMembers_Pcm16Conversion`
 
 ##### Non-multiple sample count
 

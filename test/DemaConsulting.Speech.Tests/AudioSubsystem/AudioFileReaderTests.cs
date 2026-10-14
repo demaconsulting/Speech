@@ -86,9 +86,9 @@ public sealed class AudioFileReaderTests
         Assert.DoesNotContain("'", error.Message);
     }
 
-    /// <summary>Proves a WAV image is decoded from a stream and the same errors apply to <c>ReadMono</c>.</summary>
+    /// <summary>Proves a WAV image is decoded from a stream.</summary>
     [Fact]
-    public void AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors()
+    public void AudioFileReader_Read_WavStream_Decodes()
     {
         // Arrange
         var wav = File.ReadAllBytes(Path.Combine(FixtureDirectory, "mono-16-44100.wav"));
@@ -99,25 +99,86 @@ public sealed class AudioFileReaderTests
         // Assert
         Assert.Equal(44100, clip.SampleRate);
         Assert.Equal(1, clip.ChannelCount);
-        Assert.Throws<InvalidDataException>(() => AudioFileReader.ReadMono(new MemoryStream([1, 2, 3])));
-        Assert.Throws<FileNotFoundException>(() => AudioFileReader.ReadMono(Path.Combine(FixtureDirectory, "missing.flac")));
     }
 
-    /// <summary>Proves the VerifyChecksums option is passed to the FLAC decoder: a damaged frame fails by default and decodes when disabled.</summary>
+    /// <summary>Proves <c>ReadMono</c> rejects an unrecognized stream like <c>Read</c>.</summary>
     [Fact]
-    public void AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly()
+    public void AudioFileReader_ReadMono_UnrecognizedStream_ThrowsInvalidData()
     {
-        // Arrange: the last byte belongs to the final frame's CRC-16 footer
-        var flac = File.ReadAllBytes(Path.Combine(FixtureDirectory, "mono-16-44100.flac"));
-        flac[^1] ^= 0xFF;
+        // Arrange
+        var stream = new MemoryStream([1, 2, 3]);
 
         // Act
-        var lenient = AudioFileReader.Read(new MemoryStream(flac), new AudioFileReadOptions { VerifyChecksums = false });
+        var error = Record.Exception(() => AudioFileReader.ReadMono(stream));
 
         // Assert
-        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(flac)));
-        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(flac), new AudioFileReadOptions { VerifyChecksums = true }));
+        Assert.IsType<InvalidDataException>(error);
+    }
+
+    /// <summary>Proves <c>ReadMono</c> reports a missing path like <c>Read</c>.</summary>
+    [Fact]
+    public void AudioFileReader_ReadMono_MissingPath_ThrowsFileNotFound()
+    {
+        // Arrange
+        var missing = Path.Combine(FixtureDirectory, "missing.flac");
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.ReadMono(missing));
+
+        // Assert
+        Assert.IsType<FileNotFoundException>(error);
+    }
+
+    /// <summary>Proves a damaged FLAC frame fails by default.</summary>
+    [Fact]
+    public void AudioFileReader_Read_VerifyChecksumsDefault_DamagedFlac_Throws()
+    {
+        // Arrange: the last byte belongs to the final frame's CRC-16 footer
+        var flac = DamagedFlac();
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(flac)));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(error);
+    }
+
+    /// <summary>Proves a damaged FLAC frame fails when checksum verification is explicitly enabled.</summary>
+    [Fact]
+    public void AudioFileReader_Read_VerifyChecksumsTrue_DamagedFlac_Throws()
+    {
+        // Arrange
+        var flac = DamagedFlac();
+        var options = new AudioFileReadOptions { VerifyChecksums = true };
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(new MemoryStream(flac), options));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(error);
+    }
+
+    /// <summary>Proves a damaged FLAC frame decodes when checksum verification is disabled.</summary>
+    [Fact]
+    public void AudioFileReader_Read_VerifyChecksumsFalse_DamagedFlac_Decodes()
+    {
+        // Arrange
+        var flac = DamagedFlac();
+        var options = new AudioFileReadOptions { VerifyChecksums = false };
+
+        // Act
+        var lenient = AudioFileReader.Read(new MemoryStream(flac), options);
+
+        // Assert
         Assert.Equal(44100, lenient.SampleRate);
+    }
+
+    /// <summary>Loads the mono FLAC fixture with its final CRC-16 footer byte corrupted.</summary>
+    private static byte[] DamagedFlac()
+    {
+        var flac = File.ReadAllBytes(Path.Combine(FixtureDirectory, "mono-16-44100.flac"));
+        flac[^1] ^= 0xFF;
+        return flac;
     }
 
     /// <summary>Proves the MaxSamples limit applies to the decoded sample count, not only the byte cap.</summary>
@@ -223,24 +284,48 @@ public sealed class AudioFileReaderTests
         Assert.IsType<ArgumentOutOfRangeException>(error);
     }
 
-    /// <summary>Proves a negative MaxSamples is reported against the options parameter, and for a path only after the file is found.</summary>
+    /// <summary>Proves a negative MaxSamples on a stream is reported against the options parameter.</summary>
     [Fact]
-    public void AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter()
+    public void AudioFileReader_Read_NegativeMaxSamples_Stream_ReportsOptionsParameter()
+    {
+        // Arrange
+        var negative = new AudioFileReadOptions { MaxSamples = -1 };
+
+        // Act
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(new MemoryStream([1]), negative));
+
+        // Assert
+        Assert.Equal("options.MaxSamples", error.ParamName);
+    }
+
+    /// <summary>Proves a missing path is reported before a negative MaxSamples.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NegativeMaxSamples_MissingPath_ReportsFileNotFoundFirst()
     {
         // Arrange
         var negative = new AudioFileReadOptions { MaxSamples = -1 };
         var missing = Path.Combine(FixtureDirectory, "missing.flac");
+
+        // Act
+        var error = Record.Exception(() => AudioFileReader.Read(missing, negative));
+
+        // Assert: the existence check comes first for path-based reads
+        Assert.IsType<FileNotFoundException>(error);
+    }
+
+    /// <summary>Proves a negative MaxSamples is reported for an existing path.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NegativeMaxSamples_ExistingPath_ReportsOptionsParameter()
+    {
+        // Arrange
+        var negative = new AudioFileReadOptions { MaxSamples = -1 };
         var existing = Path.Combine(FixtureDirectory, "mono-16-44100.flac");
 
         // Act
-        var streamError = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(new MemoryStream([1]), negative));
-        var missingError = Record.Exception(() => AudioFileReader.Read(missing, negative));
-        var existingError = Record.Exception(() => AudioFileReader.Read(existing, negative));
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(existing, negative));
 
-        // Assert: the existence check comes first for path-based reads
-        Assert.Equal("options.MaxSamples", streamError.ParamName);
-        Assert.IsType<FileNotFoundException>(missingError);
-        Assert.IsType<ArgumentOutOfRangeException>(existingError);
+        // Assert
+        Assert.Equal("options.MaxSamples", error.ParamName);
     }
 
     /// <summary>Proves an unsupported WAV encoding is reported with the path.</summary>

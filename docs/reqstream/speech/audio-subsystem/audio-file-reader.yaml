@@ -36,7 +36,7 @@ sections:
                   Hosts also hold audio in memory or on network sources that cannot seek.
                 tests:
                   - AudioFileReader_Read_NonSeekableStream_Decodes
-                  - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
+                  - AudioFileReader_Read_WavStream_Decodes
 
               - id: Speech-Audio-AudioFileReader-ReadsFromCurrentStreamPosition
                 title: >-
@@ -163,7 +163,9 @@ sections:
                   Caller mistakes must fail at the call site with a conventional exception type.
                 tests:
                   - AudioFileReader_Read_NegativeMaxSamplesStream_ThrowsArgumentOutOfRange
-                  - AudioFileReader_Read_NegativeMaxSamples_ReportsOptionsParameter
+                  - AudioFileReader_Read_NegativeMaxSamples_Stream_ReportsOptionsParameter
+                  - AudioFileReader_Read_NegativeMaxSamples_MissingPath_ReportsFileNotFoundFirst
+                  - AudioFileReader_Read_NegativeMaxSamples_ExistingPath_ReportsOptionsParameter
 
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
@@ -195,7 +197,8 @@ sections:
                 justification: |
                   Hosts normally want to fail fast on damaged files.
                 tests:
-                  - AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly
+                  - AudioFileReader_Read_VerifyChecksumsDefault_DamagedFlac_Throws
+                  - AudioFileReader_Read_VerifyChecksumsTrue_DamagedFlac_Throws
 
               - id: Speech-Audio-AudioFileReader-VerifyChecksumsOptOut
                 title: >-
@@ -204,7 +207,7 @@ sections:
                 justification: |
                   Hosts may prefer to recover as much audio as possible from a damaged file.
                 tests:
-                  - AudioFileReader_Read_VerifyChecksums_AppliesToFlacOnly
+                  - AudioFileReader_Read_VerifyChecksumsFalse_DamagedFlac_Decodes
 
               - id: Speech-Audio-AudioFileReader-ReadMono
                 title: >-
@@ -214,7 +217,8 @@ sections:
                   Recognition and voice conditioning need mono audio and resample it themselves.
                 tests:
                   - AudioFileReader_ReadMono_Stereo_DownMixesAtNativeRate
-                  - AudioFileReader_Read_WavStream_DecodesAndReadMonoRepeatsErrors
+                  - AudioFileReader_ReadMono_UnrecognizedStream_ThrowsInvalidData
+                  - AudioFileReader_ReadMono_MissingPath_ThrowsFileNotFound
 
               - id: Speech-Audio-AudioFileReader-ReadMonoDownMix
                 title: >-
