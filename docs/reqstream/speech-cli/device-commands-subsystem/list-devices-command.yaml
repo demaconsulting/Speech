@@ -73,9 +73,8 @@ sections:
               - id: SpeechCli-DeviceCommands-ListDevicesArgumentValidation
                 title: >-
                   The ListDevicesCommand shall reject an invalid `--direction`, a `--direction` followed by
-                  no value or by another option, or an unsupported flag, with a clear, non-zero-exit-code error rather than
-                  a
-                  stack trace.
+                  no value or by another option, or an unsupported flag, with a clear, non-zero-exit-code
+                  error rather than a stack trace.
                 tags: [unit]
                 justification: |
                   A mistyped option must fail predictably so a script can detect it instead of

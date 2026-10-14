@@ -37,21 +37,32 @@ sections:
           - SpeechCli-CommandDispatch-HandlersReturnTasks
         tests:
           - Program_Run_WithListModelsCommand_ListsModelsAndSucceeds
-          - CommandDispatch_Handlers_ReturnNonNullTasks
+          - CommandDispatch_Handlers_RunAndReportOnlyOperatorErrors
 
       - id: SpeechCli-Cli-UnknownSubcommandRejection
         title: >-
-          The tool shall reject any unrecognized subcommand name with a clear error message and
-          a non-zero exit code rather than a stack trace or silent no-op.
+          The tool shall reject any unrecognized subcommand name with a clear error message that
+          names the command, rather than a stack trace or silent no-op.
         tags: [system]
         justification: |
-          A CLI must fail predictably and legibly on operator typos or unsupported commands,
-          both for interactive use and for scripting, where a non-zero exit code is how a
-          calling script detects failure.
+          A CLI must fail legibly on operator typos or unsupported commands, so the operator
+          can see which name was not recognized.
         children:
           - SpeechCli-CommandDispatch-UnknownNameNotResolved
           - SpeechCli-Context-UnsupportedArgument
           - SpeechCli-Program-UnknownSubcommandReported
+        tests:
+          - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
+          - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
+
+      - id: SpeechCli-Cli-UnknownSubcommandExitCode
+        title: >-
+          The tool shall return a non-zero exit code when given an unrecognized subcommand name.
+        tags: [system]
+        justification: |
+          A non-zero exit code is how a calling script detects that the requested command did
+          not run.
+        children:
           - SpeechCli-Program-InvalidArgumentReported
         tests:
           - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
@@ -319,6 +330,7 @@ sections:
           override ambient configuration.
         children:
           - SpeechCli-Context-MirrorUrlEnvironment
+          - SpeechCli-Context-MirrorUrlOptionOverride
         tests:
           - Context_Create_MirrorUrlOption_OverridesEnvironment
 
@@ -360,6 +372,7 @@ sections:
           combined with an ambient credential of the other kind.
         children:
           - SpeechCli-Context-MirrorCredentialEnvironment
+          - SpeechCli-Context-MirrorCredentialOptionOverride
         tests:
           - Context_Create_CredentialOption_DisablesEnvironmentCredentials
 
@@ -452,6 +465,7 @@ sections:
           combined.
         children:
           - SpeechCli-Program-ActionPriority
+          - SpeechCli-Program-HelpOverValidatePriority
         tests:
           - Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
@@ -471,6 +485,7 @@ sections:
           - SpeechCli-Program-HelpOutput
           - SpeechCli-CommandDispatch-HelpUsageSummaries
           - SpeechCli-Program-NoSubcommandUsage
+          - SpeechCli-CommandDispatch-HelpListsAllSubcommands
         tests:
           - Program_Run_WithHelpFlag_DisplaysUsageInformation
           - Program_Run_WithShortHelpFlag_DisplaysUsage
@@ -482,7 +497,7 @@ sections:
       - id: SpeechCli-Cli-SelfValidation
         title: >-
           The tool shall run a self-validation, when invoked with `--validate`, that exercises
-          version display, help display, whether the subcommand dispatch table is well formed,
+          version display, help display, whether the subcommand registration is well formed,
           audio-backend probe composition, and whether the model-store root can be written to.
         tags: [system]
         justification: |
@@ -491,6 +506,11 @@ sections:
           reference `TemplateDotNetTool`'s self-validation precedent.
         children:
           - SpeechCli-Validation-Checks
+          - SpeechCli-Validation-HelpCheck
+          - SpeechCli-Validation-SubcommandRegistrationCheck
+          - SpeechCli-Validation-AudioBackendCheck
+          - SpeechCli-Validation-ModelStoreCheck
+          - SpeechCli-Validation-Summary
           - SpeechCli-Program-ValidateDispatch
         tests:
           - Program_Run_WithValidateFlag_RunsValidation
@@ -519,7 +539,10 @@ sections:
           skipping the file would let a pipeline pass without any recorded evidence.
         children:
           - SpeechCli-Validation-ResultsFile
+          - SpeechCli-Validation-ResultsFileJUnit
           - SpeechCli-Context-ResultsOption
+          - Speech-OTS-TestResults-TrxSerialization
+          - Speech-OTS-TestResults-JUnitSerialization
         tests:
           - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
           - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
@@ -527,8 +550,8 @@ sections:
 
       - id: SpeechCli-Cli-SelfValidationResultsErrors
         title: >-
-          The tool shall report a `--results` file with an unsupported extension, an unwritable
-          path, or no value as an error with a non-zero exit code.
+          The tool shall report a `--results` file with an unsupported extension as an error
+          with a non-zero exit code.
         tags: [system]
         justification: |
           Exiting zero when the result file could not be written would let a pipeline pass
@@ -536,9 +559,30 @@ sections:
         children:
           - SpeechCli-Validation-ResultsErrors
         tests:
-          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
           - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
+
+      - id: SpeechCli-Cli-SelfValidationResultsUnwritable
+        title: >-
+          The tool shall report a `--results` path that cannot be written as an error with a
+          non-zero exit code.
+        tags: [system]
+        justification: |
+          Qualification evidence that was requested but not produced must fail the run.
+        children:
+          - SpeechCli-Validation-ResultsUnwritableError
+        tests:
           - Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode
+
+      - id: SpeechCli-Cli-SelfValidationResultsMissingValue
+        title: >-
+          The tool shall report a `--results` option given without a value as an error with a
+          non-zero exit code.
+        tags: [system]
+        justification: |
+          A results option with no path cannot produce evidence, so the run must fail rather
+          than pass silently.
+        tests:
+          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
 
       - id: SpeechCli-ModelManagement
         title: >-
@@ -563,6 +607,10 @@ sections:
           - SpeechCli-ModelCommands-ListModelsStateConflict
           - SpeechCli-ModelCommands-ListModelsFormatValidation
           - SpeechCli-ModelCommands-ListModelsUnsupportedFlag
+          - SpeechCli-ModelCommands-InstallStateShown
+          - SpeechCli-ModelCommands-ModelEnumeration
+          - SpeechCli-ModelCommands-StateConsistentAcrossInvocations
+          - SpeechCli-ModelCommands-SynthesisModelAudioFormatRoleRefusal
         tests:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
           - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
@@ -582,6 +630,7 @@ sections:
           - SpeechCli-ModelCommands-ModelInfoUnknownId
           - SpeechCli-ModelCommands-ModelInfoMissingId
           - SpeechCli-ModelCommands-ModelInfoExtraArgument
+          - SpeechCli-ModelCommands-ModelInfoLicenseUrl
         tests:
           - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
           - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
@@ -605,6 +654,11 @@ sections:
           - SpeechCli-ModelCommands-DownloadMirrorComposition
           - SpeechCli-ModelCommands-ProgressWholePercentLines
           - SpeechCli-ModelCommands-ProgressKilobyteLines
+          - SpeechCli-ModelCommands-DownloadInstalled
+          - SpeechCli-ModelCommands-DownloadUnexpectedFailure
+          - SpeechCli-ModelCommands-DownloadUnknownModelRefused
+          - SpeechCli-ModelCommands-OperationOutcomesReported
+          - SpeechCli-ModelCommands-CompositionFailureReleasesResources
         tests:
           - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
           - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
@@ -621,6 +675,7 @@ sections:
           - SpeechCli-ModelCommands-UninstallNeverInstalled
           - SpeechCli-ModelCommands-UninstallArgumentValidation
           - SpeechCli-ModelCommands-UninstallCancellation
+          - SpeechCli-ModelCommands-NeverInstalledModelNoOp
         tests:
           - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
 
@@ -654,6 +709,7 @@ sections:
           - SpeechCli-ModelCommands-ListVoicesEmptyHint
           - SpeechCli-ModelCommands-ListVoicesConsentNote
           - SpeechCli-ModelCommands-ListVoicesArgumentValidation
+          - SpeechCli-ModelCommands-VoiceEnumeration
         tests:
           - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
           - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
@@ -675,6 +731,7 @@ sections:
           - SpeechCli-ModelCommands-VoicesMissingSubAction
           - SpeechCli-ModelCommands-VoicesUnknownSubAction
           - SpeechCli-ModelCommands-VoicePacksCancellation
+          - SpeechCli-ModelCommands-VoicePackStateQuery
         tests:
           - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
           - CommandDispatch_Find_VoiceCommands_AreRegistered
@@ -689,6 +746,7 @@ sections:
           command-line way to install a voice pack.
         children:
           - SpeechCli-ModelCommands-VoicePackInstall
+          - SpeechCli-ModelCommands-VoicePackInstallVerified
           - SpeechCli-ModelCommands-VoicePackInstallProgress
           - SpeechCli-ModelCommands-VoicePackInstallFailure
           - SpeechCli-ModelCommands-VoicePackInstallMirror
@@ -738,6 +796,7 @@ sections:
           - SpeechCli-ModelCommands-VoiceCloningModelListed
           - SpeechCli-ModelCommands-VoiceCloningModelVoiceSupply
           - SpeechCli-ModelCommands-DamagedVoiceFileTolerated
+          - SpeechCli-ModelCommands-DamagedVoiceFileModelUse
         tests:
           - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
 
@@ -783,6 +842,8 @@ sections:
           - SpeechCli-DeviceCommands-ToneChannelIdentity
           - SpeechCli-DeviceCommands-DevicesTestDeviceUnavailable
           - SpeechCli-DeviceCommands-ToneNoModelRequired
+          - SpeechCli-DeviceCommands-DevicesTestNormalAndError
+          - SpeechCli-DeviceCommands-DevicesTestDeviceStopped
         tests:
           - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
           - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
@@ -803,6 +864,7 @@ sections:
           - SpeechCli-DeviceCommands-DoctorAudioDevices
           - SpeechCli-DeviceCommands-DoctorModelCounts
           - SpeechCli-DeviceCommands-DoctorExitCode
+          - SpeechCli-DeviceCommands-DoctorArgumentValidation
         tests:
           - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
 
@@ -844,6 +906,10 @@ sections:
           - SpeechCli-SynthesisCommands-ParamNumberFormatRejection
           - SpeechCli-SynthesisCommands-PlaybackDeviceSourceContract
           - SpeechCli-SynthesisCommands-PlaybackDeviceSourceFactoryRequired
+          - SpeechCli-SynthesisCommands-PlaybackDeviceCreation
+          - SpeechCli-SynthesisCommands-PlaybackDeviceUnavailableRejection
+          - SpeechCli-SynthesisCommands-ValueFlagOptionRejection
+          - SpeechCli-SynthesisCommands-TextFileUnreadable
         tests:
           - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -891,6 +957,8 @@ sections:
           - SpeechCli-RecognitionCommands-OutputTextFinalOnly
           - SpeechCli-RecognitionCommands-OutputTextOneLinePerResult
           - SpeechCli-RecognitionCommands-FileInputSource
+          - SpeechCli-RecognitionCommands-ValueFlagOptionRejection
+          - SpeechCli-RecognitionCommands-FileInputCancellation
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -914,6 +982,7 @@ sections:
           - SpeechCli-RecognitionCommands-DeviceDispatch
           - SpeechCli-RecognitionCommands-DeviceUnavailable
           - SpeechCli-RecognitionCommands-RecognizeMicrophone
+          - SpeechCli-RecognitionCommands-RecognizeMicrophoneIdleEnd
           - SpeechCli-RecognitionCommands-SilenceTimeoutOption
           - SpeechCli-RecognitionCommands-StartTimeoutOption
           - SpeechCli-RecognitionCommands-SessionCancellation
@@ -921,6 +990,7 @@ sections:
           - SpeechCli-RecognitionCommands-SessionRequiresWrappedSession
           - SpeechCli-RecognitionCommands-SessionStartWindowFallback
           - SpeechCli-RecognitionCommands-SessionTimeoutValidation
+          - SpeechCli-RecognitionCommands-SessionTimeoutDrain
         tests:
           - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
           - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
@@ -981,6 +1051,10 @@ sections:
           - SpeechCli-ConversationCommands-ListenCancellationNoFile
           - SpeechCli-ConversationCommands-ListenCancellationNoText
           - SpeechCli-ConversationCommands-PromptCancellationNotDelayed
+          - SpeechCli-ConversationCommands-DefaultCaptureDeviceUnavailable
+          - SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DefaultDeviceUnavailable
+          - SpeechCli-ConversationCommands-ICliCaptureDeviceSource-UnknownDeviceUnavailable
+          - SpeechCli-ConversationCommands-ICliCaptureDeviceSource-DefaultDeviceUnavailable
         tests:
           - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
           - SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError
@@ -1031,6 +1105,9 @@ sections:
           - SpeechCli-ConsoleCancellation-ArgumentValidation
           - SpeechCli-ConsoleCancellation-ObserveCallbackOnly
           - SpeechCli-ConsoleCancellation-DisposeIdempotent
+          - SpeechCli-ConsoleCancellation-RegisterCallbackAfterCancel
+          - SpeechCli-ConsoleCancellation-RegisterSuppressesTermination
+          - SpeechCli-ConsoleCancellation-DisposeDetaches
         tests:
           - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
 

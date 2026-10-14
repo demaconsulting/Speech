@@ -2567,6 +2567,7 @@ reviews:
       - "docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md"
       - "src/DemaConsulting.Speech.Onnx/OnnxRuntimeSubsystem/OnnxExecutionProviderSelector.cs"
       - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxSelectorHookCollection.cs"
 
   # SpeechOnnxKokoro-Architecture Review (one per system)
   - id: SpeechOnnxKokoro-Architecture
@@ -2866,6 +2867,7 @@ reviews:
       - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
       - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboConditioning.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboConditioningTests.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
 
@@ -3274,3 +3276,13 @@ reviews:
       - "docs/design/ots/community-toolkit-mvvm.md"                               # OTS integration design
       - "docs/verification/ots/community-toolkit-mvvm.md"                         # OTS verification
       - "test/DemaConsulting.Speech.Demo.Tests/Ots/CommunityToolkitMvvmTests.cs"  # OTS integration tests
+
+  # OTS-TestResults Review (one per OTS item)
+  - id: OTS-TestResults
+    title: Review that DemaConsulting.TestResults Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/test-results.yaml"                                    # OTS requirements
+      - "docs/design/ots/test-results.md"                                         # OTS integration design
+      - "docs/verification/ots/test-results.md"                                   # OTS verification
+      - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"                # OTS integration tests (TRX)
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"                    # OTS integration tests (JUnit)

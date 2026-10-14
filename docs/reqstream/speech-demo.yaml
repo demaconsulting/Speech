@@ -26,8 +26,9 @@ sections:
 
       - id: SpeechDemo-Shell-LibraryComposition
         title: >-
-          The demo application shall compose itself over the library's real public entry
-          points without ever throwing at start-up.
+          When the demo starts, it shall open its main window with every panel available on any
+          ordinary machine state - including no audio backend and no installed model - without
+          a start-up failure.
         tags: [system]
         justification: |
           The demo's primary evidence value is that the library is genuinely consumable by a
@@ -39,6 +40,7 @@ sections:
           - SpeechDemo-App-ShellComposition
           - SpeechDemo-App-AvaloniaApplication
           - SpeechDemo-App-ShutdownContainment
+          - SpeechDemo-App-ShutdownFailureContained
           - SpeechDemo-App-CatalogRegistration
           - SpeechDemo-App-CompositionFailureReleasesCatalog
           - SpeechDemo-App-ShutdownDeferral
@@ -62,6 +64,7 @@ sections:
           - SpeechDemo-LaunchOptions-Parsing
           - SpeechDemo-LaunchOptions-StoreFolder
           - SpeechDemo-LaunchOptions-StoreFolderDefault
+          - SpeechDemo-LaunchOptions-HyphenValueAccepted
         tests:
           - SpeechDemo_SystemIntegration_LaunchOptions_RelocateModelStore
 
@@ -78,6 +81,8 @@ sections:
           - SpeechDemo-LaunchOptions-UnrecognizedNotEchoed
           - SpeechDemo-LaunchOptions-RepeatedOptionLastWins
           - SpeechDemo-LaunchOptions-RejectMissingValue
+          - SpeechDemo-LaunchOptions-RejectOptionAsValue
+          - SpeechDemo-Program-OptionValueRequired
           - SpeechDemo-LaunchOptions-RejectNullArguments
           - SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
           - SpeechDemo-Program-FailFast
@@ -120,6 +125,7 @@ sections:
           - SpeechDemo-DeviceSelection-RefreshKeepsSelection
           - SpeechDemo-DeviceSelection-RefreshFailureExplained
           - SpeechDemo-DeviceSelection-RefreshFailureKeepsState
+          - SpeechDemo-DeviceSelection-RefreshFailureKeepsSelections
           - SpeechDemo-DeviceSelection-RefreshReachesLibrary
         tests:
           - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
@@ -136,6 +142,7 @@ sections:
         children:
           - SpeechDemo-Devices-HonestEmptyState-DeviceSelectionSubsystem
           - SpeechDemo-DeviceSelection-EmptyPanelExplained
+          - SpeechDemo-DeviceSelection-EmptyPanelDefaultSelections
         tests:
           - SpeechDemo_SystemIntegration_UnavailableAudioBackend_DevicePanelExplainsAbsence
 
@@ -255,6 +262,7 @@ sections:
           - SpeechDemo-LaunchOptions-NoMirror
           - SpeechDemo-LaunchOptions-MirrorRejection
           - SpeechDemo-LaunchOptions-MirrorHalfCredentialRejection
+          - SpeechDemo-LaunchOptions-MirrorPasswordWithoutUserRejection
           - SpeechDemo-LaunchOptions-MirrorCredentialWithoutUrlRejection
           - SpeechDemo-LaunchOptions-MirrorBasicAndBearerRejection
           - SpeechDemo-LaunchOptions-MirrorInsecureBasicRejection
@@ -269,6 +277,7 @@ sections:
           - SpeechDemo-MirrorOptions-InvalidUrl
           - SpeechDemo-MirrorOptions-InsecureCredentialRejected
           - SpeechDemo-MirrorOptions-EmptyCredentialIsUnset
+          - SpeechDemo-MirrorOptions-WhitespaceCredentialIsUnset
           - SpeechDemo-MirrorOptions-NonHttpSchemeRejected
           - SpeechDemo-MirrorOptions-BasicAndBearerRejected
         tests:
@@ -363,7 +372,9 @@ sections:
           must refresh the voice choice at once without discarding what the user selected.
         children:
           - SpeechDemo-Voices-VoiceChoice-ModelSettingsSubsystem
+          - SpeechDemo-Voices-VoiceChoice-SelectionRetained-ModelSettingsSubsystem
           - SpeechDemo-SynthesisPanel-ReferenceVoiceChangeHandling
+          - SpeechDemo-SynthesisPanel-ReferenceVoiceChoiceKept
         tests:
           - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstalledVoicesOfferedAndChoiceKept
 
@@ -406,6 +417,8 @@ sections:
           installed.
         children:
           - SpeechDemo-Voices-SynthesisConsentNote-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-VoiceNotice
+          - SpeechDemo-SynthesisPanel-VoiceNoticeOtherModels
         tests:
           - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentNote
 
@@ -418,6 +431,7 @@ sections:
           The pack's license requires attribution where its voices are used.
         children:
           - SpeechDemo-Voices-SynthesisAttribution-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-VoiceAttribution
         tests:
           - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsPackAttribution
 
@@ -435,6 +449,8 @@ sections:
           can build such a page against the library's generic parameter contract alone.
         children:
           - SpeechDemo-Settings-GenericParameterRendering
+          - SpeechDemo-Settings-GenericParameterRenderingOrder
+          - SpeechDemo-Settings-GenericParameterRenderingKind
           - SpeechDemo-Settings-ValueBag
           - SpeechDemo-Settings-CapturedValuesRestored
           - SpeechDemo-Settings-EmptyStateExplained
@@ -486,8 +502,15 @@ sections:
           - SpeechDemo-SynthesisPanel-DeviceRefreshCoordination
           - SpeechDemo-SynthesisPanel-SetupFaultReporting
           - SpeechDemo-SynthesisPanel-ModelChangeGuard
-          - SpeechDemo-SynthesisPanel-VoiceNotice
           - SpeechDemo-SynthesisPanel-EngineSessionReuse
+          - SpeechDemo-Synthesis-TextToSpeech-ModelChoice-SynthesisPanelSubsystem
+          - SpeechDemo-Synthesis-TextToSpeech-Device-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-ModelSettings
+          - SpeechDemo-SynthesisPanel-DependencyValidation
+          - SpeechDemo-SynthesisPanel-ChangedVoiceRespected
+          - SpeechDemo-SynthesisPanel-DeviceChangeRespected
+          - SpeechDemo-SynthesisPanel-ShutdownReleasesPlayback
+          - SpeechDemo-SynthesisPanel-ShutdownStopsCatalogReaction
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_SpeaksEnteredText
 
@@ -501,6 +524,7 @@ sections:
           usable demonstration rather than an opaque one-shot call.
         children:
           - SpeechDemo-Synthesis-PlaybackStatus-SynthesisPanelSubsystem
+          - SpeechDemo-SynthesisPanel-LifecycleStatusCleared
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_ReportsLifecycleStatus
 
@@ -678,5 +702,9 @@ sections:
           - SpeechDemo-Recognition-CaptureDebugOptIn
           - SpeechDemo-Recognition-CaptureDebugWavOutput
           - SpeechDemo-Recognition-CaptureDebugFailureContained
+          - SpeechDemo-Recognition-CaptureDebugFinalizationFailureContained
+          - SpeechDemo-Recognition-CaptureDebugLateFrameDiscarded
+          - SpeechDemo-Recognition-CaptureDebugDisposeIdempotent
+          - SpeechDemo-Recognition-CaptureDebugInvalidArgumentsRejected
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled

@@ -220,3 +220,4 @@ includes:
   - docs/reqstream/ots/fileassert.yaml
   - docs/reqstream/ots/avalonia.yaml
   - docs/reqstream/ots/community-toolkit-mvvm.yaml
+  - docs/reqstream/ots/test-results.yaml
