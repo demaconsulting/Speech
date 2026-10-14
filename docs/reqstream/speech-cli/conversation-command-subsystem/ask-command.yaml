@@ -36,13 +36,37 @@ sections:
                 tags: [unit]
                 justification: |
                   An AI agent or operator scripting a voice conversation needs one command that speaks a
-                  prompt without needing to reason about which library types compose a synthesizer. The `--text` and
-                  `--file` sources are verified; the piped-stdin source is not tested because test runners
-                  redirect standard input.
+                  prompt without needing to reason about which library types compose a synthesizer. The
+                  `--text` and `--file` sources are verified here; the piped-stdin source has its own
+                  requirement.
                 tests:
                   - AskCommand_ParseArguments_TextFlag_ParsesText
                   - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
                   - AskCommand_Run_FileFlag_SpeaksFileContents
+                  - AskCommand_Run_EmptyPrompt_SpeaksEmptyTextWithoutError
+
+              - id: SpeechCli-ConversationCommands-AskPipedPrompt
+                title: >-
+                  The AskCommand shall speak the prompt text piped on standard input when invoked with `ask`
+                  and neither `--text` nor `--file`.
+                tags: [unit]
+                justification: |
+                  A script or AI agent can pipe a generated prompt into `ask` instead of writing a file or
+                  quoting it on the command line.
+                tests:
+                  - AskCommand_Run_PipedStdin_SpeaksPipedText
+
+              - id: SpeechCli-ConversationCommands-AskNamedDevices
+                title: >-
+                  The AskCommand shall speak the prompt through the playback device named by
+                  `--playback-device` and listen through the capture device named by `--capture-device` when
+                  both name known devices.
+                tags: [unit]
+                justification: |
+                  An operator with several audio devices needs to choose which speaker plays the prompt and
+                  which microphone hears the reply.
+                tests:
+                  - AskCommand_Run_NamedDevices_UseTheNamedDevices
 
               - id: SpeechCli-ConversationCommands-AskListenAfterPrompt
                 title: >-
@@ -124,7 +148,8 @@ sections:
                 tags: [unit]
                 justification: |
                   A missing prompt must fail predictably, so a scripted invocation never waits on input that
-                  never arrives.
+                  never arrives. Verified with a deterministic non-redirected standard-input source, so the
+                  test never depends on how the test host redirects its own input.
                 tests:
                   - AskCommand_Run_NoTextSource_ThrowsArgumentException
 
@@ -250,6 +275,40 @@ sections:
                 tests:
                   - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
 
+              - id: SpeechCli-ConversationCommands-ListenBlockingStart
+                title: >-
+                  The AskCommand shall still deliver the first final recognition result as the reply when the
+                  recognition session's start does not return until the session is stopped.
+                tags: [unit]
+                justification: |
+                  A real microphone session may run its capture loop inside its start call; the reply must be
+                  consumed while that call is still running, or the turn would never end.
+                tests:
+                  - AskCommand_Run_BlockingSessionStart_StillDeliversFinalResult
+
+              - id: SpeechCli-ConversationCommands-ListenStartFailure
+                title: >-
+                  The AskCommand shall report a failure of the recognition session's start as an error rather
+                  than ending the turn with an empty reply.
+                tags: [unit]
+                justification: |
+                  A microphone that cannot be opened must not look like a reply that never started, so the
+                  caller sees the real cause immediately.
+                tests:
+                  - AskCommand_Run_SessionStartFaults_ThrowsStartFailure
+
+              - id: SpeechCli-ConversationCommands-ListenCancellationStopFailure
+                title: >-
+                  The AskCommand shall contain a failure of stopping the live recognition session when
+                  `Ctrl+C` is pressed, without raising an unobserved error.
+                tags: [unit]
+                justification: |
+                  The `Ctrl+C` handler runs on the console signal thread, where an escaping failure could
+                  terminate the process instead of cancelling cleanly.
+                tests:
+                  - AskCommand_StopSessionObserved_StopFaults_CompletesWithoutThrowing
+                  - AskCommand_StopSessionObserved_StopThrowsSynchronously_CompletesWithoutThrowing
+
               - id: SpeechCli-ConversationCommands-ListenStartTimeout
                 title: >-
                   The AskCommand shall end the listen phase with an empty reply when no recognition result of
@@ -257,10 +316,10 @@ sections:
                 tags: [unit]
                 justification: |
                   A caller that opts into a start timeout needs `ask` to give up on a reply that never starts,
-                  consistently with `recognize --mic`. Only the flag's parsing is verified; the timeout firing
-                  before any result has no test.
+                  consistently with `recognize --mic`.
                 tests:
                   - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
+                  - AskCommand_Run_StartTimeoutWithNoResult_EndsTurnWithEmptyText
 
               - id: SpeechCli-ConversationCommands-ListenSilenceTimeout
                 title: >-
@@ -318,10 +377,10 @@ sections:
                   The AskCommand shall print the final recognized reply text to stdout by default.
                 tags: [unit]
                 justification: |
-                  A scripted caller of `ask` can read the reply from the command's own output. Only a reply
-                  after a `--text` prompt is verified; the `--file` and piped-stdin prompts have no test.
+                  A scripted caller of `ask` can read the reply from the command's own output.
                 tests:
                   - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+                  - AskCommand_Run_FileFlag_SpeaksFileContents
 
               - id: SpeechCli-ConversationCommands-OutputText
                 title: >-

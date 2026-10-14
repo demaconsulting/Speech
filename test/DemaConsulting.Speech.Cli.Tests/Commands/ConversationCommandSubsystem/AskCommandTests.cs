@@ -278,17 +278,116 @@ public sealed class AskCommandTests
     [Fact]
     public async Task AskCommand_Run_NoTextSource_ThrowsArgumentException()
     {
-        // This test specifically covers the "no source available" branch, so it cannot run when
-        // stdin actually is redirected (e.g. under some CI/test-runner harnesses).
-        Assert.SkipWhen(Console.IsInputRedirected, "Standard input is redirected, so the no-text-source branch is unreachable.");
-
+        // Arrange
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+        var interactiveInput = new AskCommand.StandardInputSource(IsRedirected: false, TextReader.Null);
 
+        // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(
-            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource(), interactiveInput));
+
+        // Assert
         Assert.Contains("--text", exception.Message);
         Assert.Contains("--file", exception.Message);
+    }
+
+    /// <summary>Test that a prompt piped on standard input is spoken when neither --text nor --file is given.</summary>
+    [Fact]
+    public async Task AskCommand_Run_PipedStdin_SpeaksPipedText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        var (synthSession, _) = WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("reply", isFinal: true);
+        var pipedInput = new AskCommand.StandardInputSource(IsRedirected: true, new StringReader("piped prompt"));
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        // Act
+        var originalOut = Console.Out;
+        Console.SetOut(new StringWriter());
+        try
+        {
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource(), pipedInput);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        // Assert
+        Assert.Equal(["piped prompt"], synthSession.SpeakAsyncCalls);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>Test that an empty --text prompt is not rejected and is passed to synthesis as is.</summary>
+    [Fact]
+    public async Task AskCommand_Run_EmptyPrompt_SpeaksEmptyTextWithoutError()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        var (synthSession, _) = WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("reply", isFinal: true);
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", string.Empty]);
+
+        // Act
+        var originalOut = Console.Out;
+        Console.SetOut(new StringWriter());
+        try
+        {
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        // Assert
+        Assert.Equal([string.Empty], synthSession.SpeakAsyncCalls);
+        Assert.Equal(0, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that explicit --playback-device and --capture-device names that match known devices
+    ///     resolve successfully and the named devices are the ones used for playback and capture.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_NamedDevices_UseTheNamedDevices()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        var (_, synthEngine) = WireSynthesizer(catalog);
+        var (recognitionSession, recognitionEngine) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("reply", isFinal: true);
+        var playbackDevice = new FakeAudioPlaybackDevice();
+        var captureDevice = new FakeAudioCaptureDevice();
+        var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
+        var captureSource = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([CaptureDevice]), captureDevice);
+        using var context = Context.Create(
+            [
+                "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                "--playback-device", "Fake Speakers", "--capture-device", "Fake Microphone"
+            ]);
+
+        // Act
+        var originalOut = Console.Out;
+        Console.SetOut(new StringWriter());
+        try
+        {
+            await AskCommand.RunAsync(context, catalog, playbackSource, captureSource);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        // Assert
+        Assert.Equal(0, context.ExitCode);
+        Assert.Same(playbackDevice, synthEngine.LastDevice);
+        Assert.Same(captureDevice, recognitionEngine.LastDevice);
     }
 
     // --- Model validation ---
@@ -829,6 +928,145 @@ public sealed class AskCommandTests
         // one from Listen's unified post-wait call (which always runs from the calling thread,
         // not from the result callback, to avoid a reentrant deadlock).
         Assert.Equal(2, recognitionSession.StopCallCount);
+    }
+
+    /// <summary>
+    ///     Test that <c>--start-timeout</c> ends the turn with an empty reply when the session emits
+    ///     no result of any kind: the production silence-timeout wrapper fires its start timeout and
+    ///     stops the session, nothing is printed as a reply, and the exit code stays zero.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_StartTimeoutWithNoResult_EndsTurnWithEmptyText()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        try
+        {
+            using var context = Context.Create(
+                [
+                    "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                    "--start-timeout", "0.05", "--output-text", outputPath
+                ]);
+
+            // Act
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+            Assert.True(recognitionSession.StopCallCount >= 1);
+            Assert.Equal(string.Empty, await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: a session whose <c>StartAsync</c> blocks the calling thread until the
+    ///     session is stopped must not prevent the already-available final result from being
+    ///     consumed. Before the start call ran on its own task, the result pump never began and the
+    ///     turn hung until the start call's own timeout.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_BlockingSessionStart_StillDeliversFinalResult()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        WireSynthesizer(catalog);
+        var session = new BlockingStartSession();
+        session.EnqueueFinal("blocked start reply");
+        catalog.CreateRecognizerEngineOverride = (_, _, _) =>
+            Task.FromResult<ISpeechRecognizerEngine>(new PassThroughRecognizerEngine(session));
+        var originalOut = Console.Out;
+        using var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            // Act
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource())
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+            Assert.Contains("blocked start reply", writer.ToString());
+            Assert.True(session.StopCallCount >= 1);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test: a failing session start is reported as that failure (promptly, because the
+    ///     failed start stops the session) rather than being swallowed as an empty reply or left as an
+    ///     unobserved task exception.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_SessionStartFaults_ThrowsStartFailure()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.StartException = new InvalidOperationException("microphone could not be opened");
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource())
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Contains("microphone could not be opened", exception.Message);
+        Assert.Equal(1, recognitionSession.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Test that stopping the session on behalf of the <c>Ctrl+C</c> handler observes a faulted
+    ///     stop task instead of leaving it unobserved or throwing.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_StopSessionObserved_StopFaults_CompletesWithoutThrowing()
+    {
+        // Arrange
+        var session = new FaultingStopSession(synchronous: false);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => AskCommand.StopSessionObservedAsync(session));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(1, session.StopCallCount);
+    }
+
+    /// <summary>
+    ///     Test that a stop that throws synchronously (rather than returning a faulted task) is also
+    ///     contained, so it can never escape into the console signal thread.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_StopSessionObserved_StopThrowsSynchronously_CompletesWithoutThrowing()
+    {
+        // Arrange
+        var session = new FaultingStopSession(synchronous: true);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => AskCommand.StopSessionObservedAsync(session));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(1, session.StopCallCount);
     }
 
     // --- Cancellation ---
@@ -1751,6 +1989,131 @@ public sealed class AskCommandTests
 
         // Assert
         Assert.Null(exception);
+    }
+
+    /// <summary>A recognizer engine that hands back one pre-built session of any kind.</summary>
+    /// <param name="session">The session <see cref="CreateSessionAsync"/> returns.</param>
+    private sealed class PassThroughRecognizerEngine(IRecognitionSession session) : ISpeechRecognizerEngine
+    {
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public Task<IRecognitionSession> CreateSessionAsync(
+            IAudioCaptureDevice device,
+            CancellationToken cancellationToken = default) => Task.FromResult(session);
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    ///     A recognition session whose <see cref="StartAsync"/> blocks the calling thread
+    ///     synchronously until <see cref="StopAsync"/> is called, like a real capture loop.
+    /// </summary>
+    private sealed class BlockingStartSession : IRecognitionSession
+    {
+        /// <summary>Set when <see cref="StopAsync"/> is called; unblocks <see cref="StartAsync"/>.</summary>
+        private readonly ManualResetEventSlim _stopped = new(initialState: false);
+
+        /// <summary>The results channel returned by <see cref="GetResultsAsync"/>.</summary>
+        private readonly System.Threading.Channels.Channel<SpeechRecognitionEvent> _channel =
+            System.Threading.Channels.Channel.CreateUnbounded<SpeechRecognitionEvent>();
+
+        /// <summary>Gets the number of times <see cref="StopAsync"/> was called.</summary>
+        public int StopCallCount { get; private set; }
+
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public RecognitionSessionState State => RecognitionSessionState.Running;
+
+        /// <inheritdoc/>
+        public event EventHandler<DemaConsulting.Speech.RecognitionSubsystem.SessionStateChangedEventArgs>? StateChanged
+        {
+            add => _ = value;
+            remove => _ = value;
+        }
+
+        /// <summary>Enqueues a final result ahead of the (blocking) start call.</summary>
+        /// <param name="text">The recognized text.</param>
+        public void EnqueueFinal(string text) =>
+            _channel.Writer.TryWrite(new SpeechRecognitionEvent(new SpeechRecognitionResult(text, IsFinal: true)));
+
+        /// <inheritdoc/>
+        public Task StartAsync(CancellationToken cancellationToken = default)
+        {
+            // Blocks synchronously, bounded so a regression fails instead of hanging forever.
+            if (!_stopped.Wait(TimeSpan.FromSeconds(30), CancellationToken.None))
+            {
+                throw new TimeoutException("StartAsync was never unblocked by StopAsync.");
+            }
+
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        public Task StopAsync(CancellationToken cancellationToken = default)
+        {
+            StopCallCount++;
+            _stopped.Set();
+            _channel.Writer.TryComplete();
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        public IAsyncEnumerable<SpeechRecognitionEvent> GetResultsAsync(CancellationToken cancellationToken = default) =>
+            _channel.Reader.ReadAllAsync(cancellationToken);
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync()
+        {
+            _stopped.Set();
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>A recognition session whose <see cref="StopAsync"/> always fails.</summary>
+    /// <param name="synchronous">
+    ///     <see langword="true"/> to throw synchronously from <see cref="StopAsync"/>; otherwise it
+    ///     returns a faulted task.
+    /// </param>
+    private sealed class FaultingStopSession(bool synchronous) : IRecognitionSession
+    {
+        /// <summary>Gets the number of times <see cref="StopAsync"/> was called.</summary>
+        public int StopCallCount { get; private set; }
+
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public RecognitionSessionState State => RecognitionSessionState.Running;
+
+        /// <inheritdoc/>
+        public event EventHandler<DemaConsulting.Speech.RecognitionSubsystem.SessionStateChangedEventArgs>? StateChanged
+        {
+            add => _ = value;
+            remove => _ = value;
+        }
+
+        /// <inheritdoc/>
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        /// <inheritdoc/>
+        public Task StopAsync(CancellationToken cancellationToken = default)
+        {
+            StopCallCount++;
+            var failure = new InvalidOperationException("stop failed");
+            return synchronous ? throw failure : Task.FromException(failure);
+        }
+
+        /// <inheritdoc/>
+        public IAsyncEnumerable<SpeechRecognitionEvent> GetResultsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     /// <summary>A recognition session whose <see cref="DisposeAsync"/> always throws the configured exception.</summary>

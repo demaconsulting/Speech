@@ -22,9 +22,10 @@ pre-warm scenarios hold the fake synthesis session in flight, or hold recognizer
 waits so a regression fails with a message instead of hanging.
 
 A `--file` prompt is tested for both a readable file (its contents are spoken) and a missing one (a clean
-`InvalidOperationException`). There is no automated test for an empty prompt, for a prompt piped on
-stdin, or for an explicit `--playback-device`/`--capture-device` name that resolves successfully. Those behaviors
-are described in the design but are not verified by an automated test.
+`InvalidOperationException`). A prompt piped on stdin is tested through an injected standard-input source, so the
+tests do not depend on how the test host wires stdin. An empty prompt and explicit
+`--playback-device`/`--capture-device` names that resolve successfully are tested too. The start-timeout and
+blocking-start scenarios use short real waits, bounded so that a regression fails instead of hanging.
 
 #### Test Environment
 
@@ -201,10 +202,28 @@ download it).
 
 ##### AskCommand_Run_NoTextSource_ThrowsArgumentException
 
-**Scenario**: No text source is given and stdin is not redirected.
+**Scenario**: No text source is given and the injected standard-input source is not redirected.
 
-**Expected**: `ArgumentException` naming `--text` and `--file`. The test returns without asserting when the test
-host redirects stdin, because that case reads the piped text instead.
+**Expected**: `ArgumentException` naming `--text` and `--file`. The standard-input source is injected, so the test
+does not depend on how the test host wires stdin.
+
+##### AskCommand_Run_PipedStdin_SpeaksPipedText
+
+**Scenario**: No text source is given and the injected standard-input source is redirected and holds a prompt.
+
+**Expected**: The piped prompt is the text that is spoken.
+
+##### AskCommand_Run_EmptyPrompt_SpeaksEmptyTextWithoutError
+
+**Scenario**: `--text` is given an empty value.
+
+**Expected**: The empty text is spoken and no error is raised.
+
+##### AskCommand_Run_NamedDevices_UseTheNamedDevices
+
+**Scenario**: `--playback-device` and `--capture-device` name devices that resolve successfully.
+
+**Expected**: The named devices are the ones used for playback and capture.
 
 ##### AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
 
@@ -283,8 +302,39 @@ of the model it names.
 
 **Scenario**: `--start-timeout` and `--silence-timeout` are given positive numbers.
 
-**Expected**: Each is parsed as the given number of seconds. This is the only test of `--start-timeout` as a
-setting; none of the scenarios makes the start timeout itself fire.
+**Expected**: Each is parsed as the given number of seconds.
+
+##### AskCommand_Run_StartTimeoutWithNoResult_EndsTurnWithEmptyText
+
+**Scenario**: The session emits no result of any kind, `--start-timeout` is a small value, and `--output-text` names
+a file.
+
+**Expected**: The start timeout fires, the session is stopped, and the file exists and is completely empty.
+
+##### AskCommand_Run_BlockingSessionStart_StillDeliversFinalResult
+
+**Scenario**: The fake session's start call blocks its calling thread until the session is stopped, and a final
+result is already queued.
+
+**Expected**: The final result is still delivered and the turn ends, so a blocking start cannot hang the turn.
+
+##### AskCommand_Run_SessionStartFaults_ThrowsStartFailure
+
+**Scenario**: The fake session's start call fails.
+
+**Expected**: The turn ends promptly with the start failure instead of waiting for results that never arrive.
+
+##### AskCommand_StopSessionObserved_StopFaults_CompletesWithoutThrowing
+
+**Scenario**: The stop call of the session returns a faulted task.
+
+**Expected**: The cancellation-time stop completes without throwing, so the failure is observed, not unobserved.
+
+##### AskCommand_StopSessionObserved_StopThrowsSynchronously_CompletesWithoutThrowing
+
+**Scenario**: The stop call of the session throws before returning a task.
+
+**Expected**: The cancellation-time stop completes without throwing.
 
 ##### AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
 

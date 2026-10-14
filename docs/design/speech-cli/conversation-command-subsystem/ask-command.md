@@ -26,11 +26,13 @@ timeout and an 8-second start timeout.
   through to the same unsupported-argument rejection, so no separate rejection list exists.
 - Text-source resolution runs first, because it is a cheap check that needs no model: `--text` and `--file`
   together are rejected; `--text` supplies the text; `--file` reads the whole file; with neither flag, redirected
-  stdin supplies the text, and a console with no redirected input is rejected. Piped stdin is read only when
-  neither flag is given. An unreadable or missing `--file` is reported as an `InvalidOperationException` naming the file,
-  as
-  `speak` does, so it is a clean error rather than an unexpected failure. Empty
-  prompt text is not rejected; it is passed to the synthesis session as is.
+  stdin supplies the text, and a console with no redirected input is rejected. Standard input is reached through a
+  small injectable source, so tests can supply a redirected or non-redirected stdin deterministically. Piped stdin is
+  read only when
+  neither flag is given. An unreadable or missing `--file` is reported as an `InvalidOperationException` naming
+  the file,
+  as `speak` does, so it is a clean error rather than an unexpected failure. Empty prompt text is not rejected;
+  it is passed to the synthesis session as is.
 - Model resolution runs next: the synthesis model first, then the recognition model, each failing with an
   actionable message naming its own flag for an unknown id, a wrong role, or a model not yet downloaded.
   `--tts-param`/`--stt-param` values are then resolved against the respective model's declared parameters with
@@ -99,6 +101,10 @@ The timeouts interact with results as follows:
   reply. A final result never waits on a timeout.
 - A timeout ending the turn is a normal outcome (exit code zero), not a cancellation.
 
+The session start runs on a background task, because a real capture session may block its calling thread until it is
+stopped; the turn therefore cannot hang on a blocking start. If the start fails, the session is stopped so the
+result stream ends, and the start failure is re-thrown to the caller rather than the turn waiting for results.
+
 _Output._ The reply text, or an empty string when the turn ended by a timeout with no final result, is printed to
 stdout by default or written to the `--output-text` file, replacing any previous content and leaving a completely
 empty file for an empty reply. `ask` never prints interim results.
@@ -112,7 +118,8 @@ so it works during playback or during listening. A canceled prompt skips the lis
 only `Ctrl+C` cancels: it is reported the same way, and no text is printed and no file is written. The token is
 re-checked after the listen phase returns and immediately before each output step, and the file write itself
 receives the token, so a cancellation observed at any of those points is reported identically rather than as a
-false success.
+false success. The stop requested by Ctrl+C is not abandoned: its task is observed, and a failure from it is
+swallowed, because the process is already shutting down and the failure is not actionable.
 
 _Global-option absorption._ Global options are recognized in any position before `ask` reaches `ParseArguments`,
 so a flag value that equals a global flag (for example `--text -v`) is absorbed as that global option and is never
