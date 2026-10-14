@@ -19,15 +19,20 @@ configuration, since every decision it makes is read from the `model` argument a
   `model.AudioTagSupport`. Otherwise, if `model.AudioTagSupport` is `Native`, passes the tag
   through as its canonical bracket text so the model's own inference sees the control token. If
   `ParameterMapped`, consults `SpeechParameterConventions` for a matching numeric parameter on
-  `model.Parameters` and attaches it as an override on the surrounding segment when one exists,
-  otherwise strips the tag. If `None`, strips every non-pause tag. For each
+  `model.Parameters` and attaches it as an override on the text that follows the tag when one exists, otherwise strips
+  the tag. Narration accumulated before the tag is flushed as its own segment first, so an override
+  never alters text spoken before the tag; consecutive tags accumulate onto the next text. If
+  `None`, strips every non-pause tag. For each
   `TaggedTextSpanKind.PlainText` span, delegates to `SentenceChunker.ChunkWithMetadata(...)` and
   emits one `SpeechSegment` per resulting chunk, setting that segment's `PostSilenceMs` to a new
   `EllipsisPauseMilliseconds` constant (500ms) when the chunk's `EndsWithEllipsis` flag is set, or
   `0` otherwise - a chunk-boundary-triggered pause distinct from, and never reusing, the
   tag-triggered short/long pause durations above.
 
-**Error Handling**: Rejects a null `spans` or `model` with `ArgumentNullException`. Every other
+**Error Handling**: Rejects a null `spans` or `model` with `ArgumentNullException`. `SpeechPlan`
+rejects a null segment list (`ArgumentNullException`) or a null element (`ArgumentException`) and
+keeps a private read-only copy of the list. `SpeechSegment` rejects null text
+(`ArgumentNullException`) and negative pre/post silence (`ArgumentOutOfRangeException`). Every other
 input - any tag, any support level, any parameter set - is handled without throwing, per this
 library's "never worse than plain narration" guarantee extended to Layer 2.
 

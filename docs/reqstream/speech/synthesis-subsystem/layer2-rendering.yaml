@@ -47,6 +47,18 @@ sections:
                 tests:
                   - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
 
+              - id: Speech-Synthesis-Layer2Rendering-ParameterMappedAppliesToFollowingTextOnly
+                title: >-
+                  The default Layer 2 rendering strategy shall apply a parameter override produced
+                  by a tag only to the narration that follows the tag, never to narration before it.
+                justification: |
+                  A pace or volume tag in the middle of a sentence is a request to change how the
+                  rest of the text is spoken; applying it to the text before the tag would speak
+                  words at a setting the author did not ask for.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedTagMidText_OverridesOnlyFollowingText
+                  - DefaultModelCapabilityProfile_Render_ConsecutiveParameterMappedTags_BothApplyToFollowingText
+
               - id: Speech-Synthesis-Layer2Rendering-ParameterMappedUnmappedStrip
                 title: >-
                   The default Layer 2 rendering strategy shall silently strip a tag with no
@@ -136,3 +148,45 @@ sections:
                 tests:
                   - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence
                   - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
+
+              - id: Speech-Synthesis-Layer2Rendering-PlanRejectsMissingSegments
+                title: >-
+                  A rendered speech plan shall refuse to be created from a missing segment list or
+                  from a list containing a missing segment.
+                justification: |
+                  Every consumer of a plan iterates its segments; a missing list or element would
+                  fail later, far from the cause, so it is rejected at creation.
+                tests:
+                  - SpeechPlan_Constructor_NullSegments_ThrowsArgumentNullException
+                  - SpeechPlan_Constructor_NullSegmentElement_ThrowsArgumentException
+
+              - id: Speech-Synthesis-Layer2Rendering-PlanIsolatedFromCallerList
+                title: >-
+                  A rendered speech plan shall be unaffected by later changes to the list it was
+                  created from.
+                justification: |
+                  Plans are shared across threads and documented as immutable, so a caller's
+                  later edits must not alter a plan already handed out.
+                tests:
+                  - SpeechPlan_Constructor_CallerListChangedLater_PlanIsUnaffected
+
+              - id: Speech-Synthesis-Layer2Rendering-SegmentRejectsMissingText
+                title: >-
+                  A speech segment shall refuse to be created without text, while accepting empty
+                  text for a silence-only segment.
+                justification: |
+                  Missing text would fail during synthesis; empty text is the valid way to express
+                  a pure pause.
+                tests:
+                  - SpeechSegment_Constructor_NullText_ThrowsArgumentNullException
+                  - SpeechSegment_Constructor_EmptyTextAndZeroSilence_IsAccepted
+
+              - id: Speech-Synthesis-Layer2Rendering-SegmentRejectsNegativeSilence
+                title: >-
+                  A speech segment shall refuse to be created with a negative silence before or
+                  after its audio.
+                justification: |
+                  A negative duration has no meaning and would corrupt the length of the played
+                  audio.
+                tests:
+                  - SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException

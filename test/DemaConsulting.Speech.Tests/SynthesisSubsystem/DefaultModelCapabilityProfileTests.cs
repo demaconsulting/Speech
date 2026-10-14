@@ -287,6 +287,145 @@ public class DefaultModelCapabilityProfileTests
     }
 
     /// <summary>
+    ///     Proves that a parameter-mapped tag in the middle of narration changes only the words that
+    ///     follow it: the words before the tag keep no override.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ParameterMappedTagMidText_OverridesOnlyFollowingText()
+    {
+        // Arrange: a model declaring a "tempo" numeric parameter and text with a tag in the middle
+        var model = new StubSpeechModel(
+            SpeechModelAudioTagSupport.ParameterMapped,
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0))]);
+        var spans = AudioTagParser.Parse("Hello [fast] world.");
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: two segments; only the second, spoken after the tag, carries the tempo override
+        Assert.Equal(2, plan.Segments.Count);
+        Assert.Contains("Hello", plan.Segments[0].Text, StringComparison.Ordinal);
+        Assert.Null(plan.Segments[0].ParameterOverrides);
+        Assert.Contains("world", plan.Segments[1].Text, StringComparison.Ordinal);
+        Assert.NotNull(plan.Segments[1].ParameterOverrides);
+        Assert.True((double)plan.Segments[1].ParameterOverrides!["tempo"] > 1.0);
+    }
+
+    /// <summary>
+    ///     Proves that two consecutive parameter-mapped tags with no text between them both apply
+    ///     to the text that follows them.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ConsecutiveParameterMappedTags_BothApplyToFollowingText()
+    {
+        // Arrange: a model declaring both a "tempo" and a "volume" numeric parameter
+        var model = new StubSpeechModel(
+            SpeechModelAudioTagSupport.ParameterMapped,
+            [
+                new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0)),
+                new NumericParameter("volume", "Volume", "Loudness.", new NumericParameterBounds(0.1, 2.0, 0.05, 1.0)),
+            ]);
+        var spans = AudioTagParser.Parse("Hello. [fast][loud] World.");
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: the last segment carries both overrides; the first carries none
+        Assert.Null(plan.Segments[0].ParameterOverrides);
+        var last = plan.Segments[^1];
+        Assert.NotNull(last.ParameterOverrides);
+        Assert.True(last.ParameterOverrides.ContainsKey("tempo"));
+        Assert.True(last.ParameterOverrides.ContainsKey("volume"));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechPlan"/> rejects a null segment list.
+    /// </summary>
+    [Fact]
+    public void SpeechPlan_Constructor_NullSegments_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new SpeechPlan(null!));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechPlan"/> rejects a segment list containing a null element.
+    /// </summary>
+    [Fact]
+    public void SpeechPlan_Constructor_NullSegmentElement_ThrowsArgumentException()
+    {
+        // Arrange
+        var segments = new SpeechSegment[] { new("Hello.", 0, 0, null), null! };
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new SpeechPlan(segments));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechPlan"/> keeps its own copy of the segments, so a later change
+    ///     to the caller's list does not alter the plan.
+    /// </summary>
+    [Fact]
+    public void SpeechPlan_Constructor_CallerListChangedLater_PlanIsUnaffected()
+    {
+        // Arrange
+        var segments = new List<SpeechSegment> { new("Hello.", 0, 0, null) };
+        var plan = new SpeechPlan(segments);
+
+        // Act
+        segments.Add(new SpeechSegment("Extra.", 0, 0, null));
+
+        // Assert
+        Assert.Single(plan.Segments);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechSegment"/> rejects a null text.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Constructor_NullText_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new SpeechSegment(null!, 0, 0, null));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechSegment"/> rejects a negative pre-silence or post-silence.
+    /// </summary>
+    [Theory]
+    [InlineData(-1, 0, "PreSilenceMs")]
+    [InlineData(0, -1, "PostSilenceMs")]
+    public void SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException(
+        int preSilenceMs,
+        int postSilenceMs,
+        string expectedParamName)
+    {
+        // Act
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => new SpeechSegment("Hello.", preSilenceMs, postSilenceMs, null));
+
+        // Assert
+        Assert.Equal(expectedParamName, exception.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechSegment"/> accepts empty text and zero silence, the valid
+    ///     boundary values.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Constructor_EmptyTextAndZeroSilence_IsAccepted()
+    {
+        // Act
+        var segment = new SpeechSegment(string.Empty, 0, 0, null);
+
+        // Assert
+        Assert.Equal(string.Empty, segment.Text);
+        Assert.Equal(0, segment.PreSilenceMs);
+        Assert.Equal(0, segment.PostSilenceMs);
+        Assert.Null(segment.ParameterOverrides);
+    }
+
+    /// <summary>
     ///     A minimal, declared-support-only <see cref="ISpeechModel"/> stand-in, so this test
     ///     class can drive every <see cref="SpeechModelAudioTagSupport"/> value directly without
     ///     depending on <see cref="FakeSynthesisModel"/>'s fixed <c>ParameterMapped</c> declaration.
