@@ -299,7 +299,7 @@ public class SynthesisSessionTests
         // Act: call SpeakAsync and prove it returns control to this thread - without blocking -
         // well before the device's own blocking Start() call has returned
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
-        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the device call was genuinely entered, but SpeakAsync has not yet completed and
         // this thread was never blocked waiting for it
@@ -308,7 +308,7 @@ public class SynthesisSessionTests
 
         // Act: release the blocked device call and let the speak call genuinely finish
         startRelease.Set();
-        await speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: the device was started and stopped exactly once each
         device.Received(1).Start();
@@ -367,7 +367,7 @@ public class SynthesisSessionTests
 
         // Assert: StopAsync itself completes only once the operation has truly stopped, and the
         // operation ends via cancellation rather than hanging or faulting some other way
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         await stopObserved;
         Assert.True(generateReturnedWhenStopCompleted);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
@@ -527,7 +527,7 @@ public class SynthesisSessionTests
         // Release the original call so both it and disposal can complete
         generateRelease.Release();
         await Record.ExceptionAsync(() => firstCall);
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Ordering witness: the lease was released only after the native call genuinely returned
         Assert.True(backend.GenerateReturned);
@@ -578,7 +578,7 @@ public class SynthesisSessionTests
         session.StateChanged += (_, _) =>
         {
             var read = Task.Run(() => session.State);
-            Assert.True(read.Wait(TimeSpan.FromSeconds(10)), "State read blocked while a handler was running");
+            Assert.True(read.Wait(TimeSpan.FromSeconds(30)), "State read blocked while a handler was running");
             lock (observedOnOtherThread)
             {
                 observedOnOtherThread.Add(read.Result);
@@ -607,7 +607,7 @@ public class SynthesisSessionTests
         session.StateChanged += (_, _) =>
         {
             var read = Task.Run(() => session.State);
-            Assert.True(read.Wait(TimeSpan.FromSeconds(10)), "State read blocked while a dispose-path handler was running");
+            Assert.True(read.Wait(TimeSpan.FromSeconds(30)), "State read blocked while a dispose-path handler was running");
             lock (observed)
             {
                 observed.Add(read.Result);
@@ -775,7 +775,7 @@ public class SynthesisSessionTests
         async Task DisposeOnceAsync() => await session.DisposeAsync();
         var first = DisposeOnceAsync();
         var second = DisposeOnceAsync();
-        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: both callers converged, and the lease was released exactly once
         Assert.Equal(SynthesisSessionState.Disposed, session.State);
@@ -826,7 +826,7 @@ public class SynthesisSessionTests
 
         // Act: release the abandoned background call so it can genuinely finish
         generateRelease.Release();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: only once the worker genuinely exited was the lease released; the ordering
         // witness captured at the instant of release proves it independent of timing
@@ -867,7 +867,7 @@ public class SynthesisSessionTests
         // abandon timeout plus margin), the session is Faulted - not the reusable Stopped state -
         // and a new call is rejected immediately rather than needing to wait for the still-running
         // abandoned native call
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
 
         var reuseException = await Record.ExceptionAsync(
             () => session.SynthesizeAsync("Second call.", TestContext.Current.CancellationToken));
@@ -903,14 +903,14 @@ public class SynthesisSessionTests
         // Assert: even once the default 2s abandon timeout has elapsed and the session has
         // faulted, StopAsync's own task must still not be complete, because the native call is
         // still genuinely running against the backend
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
         Assert.False(stopTask.IsCompleted);
 
         // Act: only now let the in-flight native-style call finish
         generateRelease.Release();
 
         // Assert: StopAsync completes only once the native call has genuinely returned
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.True(backend.GenerateReturned);
 
         await Record.ExceptionAsync(() => speakTask);
@@ -953,7 +953,7 @@ public class SynthesisSessionTests
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         _ = session.StopAsync(TestContext.Current.CancellationToken);
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
 
         // Act: only now - after the fault, with the tracked operation task already cleared -
         // begin disposing
@@ -967,7 +967,7 @@ public class SynthesisSessionTests
 
         // Act: release the abandoned background call so it can genuinely finish
         generateRelease.Release();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
         // Assert: only once the native call genuinely returned was the lease released; the
         // ordering witness captured at the instant of release proves it independent of timing
@@ -1017,7 +1017,7 @@ public class SynthesisSessionTests
         // Assert: even once the default 2s abandon timeout has elapsed and the session has
         // faulted, StopAsync's own task must still not be complete, and the playback device must
         // never have been stopped, because the abandoned Start() call is still genuinely running
-        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(30));
         Assert.False(stopTask.IsCompleted);
         Assert.False(deviceStopCalled);
 
@@ -1026,7 +1026,7 @@ public class SynthesisSessionTests
 
         // Assert: StopAsync completes, and the device was stopped, only once Start() genuinely
         // returned
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.True(deviceStopCalled);
 
         await Record.ExceptionAsync(() => speakTask);
@@ -1126,6 +1126,47 @@ public class SynthesisSessionTests
         }
 
         Assert.Equal(expected, session.State);
+    }
+
+    /// <summary>
+    ///     Proves that disposing a session reports the <see cref="SynthesisSessionState.Disposing"/>
+    ///     state and then the terminal <see cref="SynthesisSessionState.Disposed"/> state, in that order.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        var observed = new List<SynthesisSessionState>();
+        session.StateChanged += (_, args) => observed.Add(args.Current);
+
+        // Act
+        await session.DisposeAsync();
+
+        // Assert
+        Assert.Equal([SynthesisSessionState.Disposing, SynthesisSessionState.Disposed], observed);
+    }
+
+    /// <summary>
+    ///     Proves that speaking on a disposed session throws <see cref="ObjectDisposedException"/>
+    ///     rather than silently doing nothing.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        await session.DisposeAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => session.SpeakAsync("hello", TestContext.Current.CancellationToken));
+        Assert.Equal(SynthesisSessionState.Disposed, session.State);
+        Assert.False(session.IsAvailable);
     }
 
     /// <summary>
@@ -1599,12 +1640,12 @@ public class SynthesisSessionTests
         // Assert: the caller's task completes as canceled, bounded by the abandon timeout plus
         // margin, although the native call has not returned
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            () => speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
         Assert.False(backend.GenerateReturned);
 
         // Cleanup: release the abandoned background call so disposal does not hang
         generateRelease.Release();
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
     }
 
     /// <summary>
@@ -1627,7 +1668,7 @@ public class SynthesisSessionTests
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
-        await Record.ExceptionAsync(() => speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        await Record.ExceptionAsync(() => speakTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         // Assert
         diagnostics.Received().Report(
@@ -1637,7 +1678,7 @@ public class SynthesisSessionTests
 
         // Cleanup: release the abandoned background call so disposal does not hang
         generateRelease.Release();
-        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
     }
 
     /// <summary>

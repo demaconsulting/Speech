@@ -12,10 +12,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for every ordinary "cannot
 ///     synthesize on this machine right now" state (model not installed, native runtime absent).
 ///     <see cref="UnavailableSpeechSynthesizerEngine"/> and <see cref="UnavailableSynthesisSession"/>
-///     report themselves honestly through <c>IsAvailable == false</c> rather than throwing this
-///     exception on an operational call.
+///     report themselves honestly through <c>IsAvailable == false</c> at composition time, without
+///     throwing; an operational call (<c>SpeakAsync</c>/<c>SynthesizeAsync</c>) made on either of
+///     those fallbacks anyway throws this exception.
 ///     <para>
-///     This type is reserved for the same first-use-after-"unavailable" misuse case described
+///     This type is reserved for that first-use-after-"unavailable" misuse case described
 ///     above - this exception is <em>not</em> what a real, available
 ///     <see cref="SynthesisSession"/> throws for its own runtime failures: a playback
 ///     device failure (for example the speakers disconnecting mid-call) propagates as

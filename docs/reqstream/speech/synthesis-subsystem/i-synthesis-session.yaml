@@ -50,14 +50,37 @@ sections:
 
               - id: Speech-Synthesis-ISynthesisSession-StateMachineStates
                 title: >-
-                  The ISynthesisSession interface shall define the lifecycle states Created,
-                  Starting, Running, Stopping, Stopped, and the terminal Faulted.
+                  A text-to-speech session shall report its lifecycle as one of a closed set of
+                  states: created, starting, running, stopping, stopped, disposing, disposed, or
+                  faulted.
                 justification: |
                   A closed, documented set of states lets a host handle every state a session can
-                  report.
+                  report, including the ones that end its life.
                 tests:
                   - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
                   - SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted
+                  - SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed
+
+              - id: Speech-Synthesis-ISynthesisSession-StateMachineDisposalTransition
+                title: >-
+                  A text-to-speech session shall report the disposing state and then the terminal
+                  disposed state when it is disposed.
+                justification: |
+                  A host that reacts to lifecycle transitions must see disposal begin and end, in
+                  that order, so it can stop using the session.
+                tests:
+                  - SynthesisSession_StateChanged_Dispose_RaisesDisposingThenDisposed
+
+              - id: Speech-Synthesis-ISynthesisSession-DisposedOperationsThrow
+                title: >-
+                  A text-to-speech session shall fail a request to speak or synthesize made after
+                  the session has been disposed with an object-disposed error.
+                justification: |
+                  Using a disposed session is a programming error that must surface loudly and be
+                  distinguishable from a session that is merely unavailable or has faulted.
+                tests:
+                  - SynthesisSession_SpeakAsync_AfterDispose_ThrowsObjectDisposedException
+                  - SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException
 
               - id: Speech-Synthesis-ISynthesisSession-StateMachineOperationScope
                 title: >-
@@ -120,15 +143,23 @@ sections:
 
               - id: Speech-Synthesis-ISynthesisSession-StreamingContract
                 title: >-
-                  The ISynthesisSession interface shall let a host synthesize text into audio
-                  segments and speak text through the session's bound playback device, using only
-                  engine-neutral types.
+                  A text-to-speech session shall let a host synthesize text into ordered audio
+                  segments without playing them.
                 justification: |
                   This library's "engine backend stays swappable at the public API surface"
-                  decision requires that a future backend can replace the current one without a
-                  breaking API change.
+                  decision requires that the audio a host receives does not depend on which
+                  backend produced it.
                 tests:
                   - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+              - id: Speech-Synthesis-ISynthesisSession-StreamingContractSpeak
+                title: >-
+                  A text-to-speech session shall let a host speak text through the session's bound
+                  playback device.
+                justification: |
+                  Speaking is the primary use of a session and must reach the one device the
+                  session was bound to for its whole life.
+                tests:
                   - SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
 
               - id: Speech-Synthesis-ISynthesisSession-StopContract
@@ -161,18 +192,34 @@ sections:
 
               - id: Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
                 title: >-
-                  Every operational member of the ISynthesisSession contract (SpeakAsync,
-                  SynthesizeAsync) shall throw a documented exception when invoked on an
-                  unavailable session, rather than silently no-op-ing or misbehaving.
+                  An unavailable text-to-speech session shall fail a request to speak text with a
+                  documented unavailability error rather than silently doing nothing.
                 justification: |
-                  Hosts must be able to test their playback logic against the contract with no
-                  model, no speakers, and no native runtime present, so an unavailable session's
-                  operational members must fail loudly and consistently rather than silently
-                  doing nothing.
+                  Hosts must be able to exercise their playback logic with no model, no speakers,
+                  and no native runtime present, so an unavailable session must fail loudly and
+                  consistently rather than silently doing nothing.
                 tests:
                   - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
-                  - UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-ISynthesisSession-UnavailableSynthesizeThrows
+                title: >-
+                  An unavailable text-to-speech session shall fail a request to synthesize text
+                  with a documented unavailability error rather than silently returning no audio.
+                justification: |
+                  A host that ignores the availability flag must be told the request cannot be
+                  honored instead of receiving an empty result it might mistake for silence.
+                tests:
                   - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-ISynthesisSession-UnavailableNullTextRejected
+                title: >-
+                  An unavailable text-to-speech session shall reject missing text with an
+                  argument error before reporting that it is unavailable.
+                justification: |
+                  A missing argument is a caller defect independent of availability and must be
+                  reported the same way as on an available session.
+                tests:
+                  - UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException
                   - UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-ISynthesisSession-UnavailableStopAndDisposeSafe

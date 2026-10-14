@@ -5,7 +5,10 @@ one playback device for its entire life, cheap to obtain from
 `ISpeechSynthesizerEngine.CreateSessionAsync` and safely reusable across many
 `SpeakAsync`/`SynthesizeAsync` calls without reconstruction.
 
-**Data Model**: `IsAvailable` reflects disposal/fault status (`false` once disposed or `Faulted`).
+**Data Model**: `IsAvailable` reflects disposal/fault status (`false` once disposed or `Faulted`);
+a placeholder session reports `false` from creation and its operations throw
+`SpeechSynthesizerUnavailableException`, a faulted session throws `SynthesisSessionFaultedException`,
+and a disposed session throws `ObjectDisposedException`.
 `State` exposes the current `SynthesisSessionState` (`Created`, `Starting`, `Running`,
 `Stopping`, `Stopped`, `Disposing`, `Disposed`, `Faulted`); `StateChanged` reports every
 transition via a `SessionStateChangedEventArgs` carrying the previous and current state. Unlike

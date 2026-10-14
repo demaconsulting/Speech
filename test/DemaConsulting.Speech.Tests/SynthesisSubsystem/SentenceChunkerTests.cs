@@ -176,8 +176,8 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
-    ///     Proves that <see cref="SentenceChunker.Chunk"/> rejects a null <c>maxChunkLength</c>
-    ///     that is not strictly positive.
+    ///     Proves that <see cref="SentenceChunker.Chunk"/> rejects a <c>maxChunkLength</c>
+    ///     that is not strictly positive (zero).
     /// </summary>
     [Fact]
     public void SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException()

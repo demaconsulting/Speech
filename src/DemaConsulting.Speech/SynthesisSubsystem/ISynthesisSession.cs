@@ -27,10 +27,12 @@ public interface ISynthesisSession : IAsyncDisposable
 {
     /// <summary>
     ///     Gets a value indicating whether this session is backed by a real, loaded synthesis
-    ///     engine and has not faulted or been disposed. When <see langword="false"/>,
-    ///     <see cref="SpeakAsync"/> and <see cref="SynthesizeAsync"/> throw
-    ///     <see cref="SpeechSynthesizerUnavailableException"/> (or, once faulted,
-    ///     <see cref="SynthesisSessionFaultedException"/>) rather than silently doing nothing.
+    ///     engine and has not faulted or been disposed. When <see langword="false"/> because the
+    ///     session is a no-engine placeholder, <see cref="SpeakAsync"/> and <see cref="SynthesizeAsync"/>
+    ///     throw <see cref="SpeechSynthesizerUnavailableException"/> rather than silently doing nothing;
+    ///     when it is <see langword="false"/> because the session faulted, they throw
+    ///     <see cref="SynthesisSessionFaultedException"/>; when it is <see langword="false"/> because the
+    ///     session was disposed (or is being disposed), they throw <see cref="ObjectDisposedException"/>.
     /// </summary>
     bool IsAvailable { get; }
 
@@ -54,6 +56,7 @@ public interface ISynthesisSession : IAsyncDisposable
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
     /// <exception cref="SpeechSynthesizerUnavailableException">Thrown when <see cref="IsAvailable"/> is <see langword="false"/>.</exception>
     /// <exception cref="SynthesisSessionFaultedException">Thrown when this session has faulted.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this session has been disposed (or is being disposed).</exception>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when another <see cref="SpeakAsync"/> or <see cref="SynthesizeAsync"/> call is
     ///     already in flight on this session.
@@ -70,6 +73,7 @@ public interface ISynthesisSession : IAsyncDisposable
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
     /// <exception cref="SpeechSynthesizerUnavailableException">Thrown when <see cref="IsAvailable"/> is <see langword="false"/>.</exception>
     /// <exception cref="SynthesisSessionFaultedException">Thrown when this session has faulted.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this session has been disposed (or is being disposed).</exception>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when another <see cref="SpeakAsync"/> or <see cref="SynthesizeAsync"/> call is
     ///     already in flight on this session.
