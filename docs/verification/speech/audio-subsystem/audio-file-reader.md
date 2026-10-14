@@ -128,7 +128,8 @@ sample, over 4 MB in total, far above five bytes per sample plus 1 MiB).
 `AudioFileReader_Read_NonSeekableStreamLargerThanMaxEncodedBytes_Throws`,
 `AudioFileReader_Read_InputAtMaxEncodedBytes_Decodes`
 
-**Expected**: With `MaxEncodedBytes = 1024`, a 1025-byte file (message names the path and the `1024-byte limit`), a
+**Expected**: With `MaxEncodedBytes = 1024`, a 1025-byte file (message names the path and the
+`1024-byte limit`), a
 seekable stream reporting 1025 bytes (nothing read), and a non-seekable 1 MiB stream (read stops at the limit) all
 throw `InvalidDataException`; an input exactly at the limit is not rejected by the size check.
 
