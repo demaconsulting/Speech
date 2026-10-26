@@ -57,7 +57,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
-    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.7" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.11" PrivateAssets="All" />
     <!-- Managed ONNX Runtime API only (CPU execution provider built in). This package does NOT
          reference any accelerated execution-provider package (e.g. Microsoft.ML.OnnxRuntime.Gpu/
          .DirectML): a consuming application that wants GPU acceleration adds that package itself
@@ -68,7 +68,7 @@
          -available CPU provider when no accelerated provider is present at runtime. This mirrors
          the sibling DemaConsulting.Speech.Sherpa package's "consuming application brings its own
          native runtime package" convention. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->
