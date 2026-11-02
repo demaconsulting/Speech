@@ -37,7 +37,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>compile; runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" />
     <PackageReference Include="NSubstitute" Version="6.2.0" />
     <PackageReference Include="WireMock.Net" Version="2.19.0" />
@@ -55,7 +55,7 @@
            in any project that references this test project.
          - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
            Roslyn analyzers and MSBuild targets are fully activated during the build. -->
-    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.403">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
