@@ -41,6 +41,7 @@ words:
   - recieve
   - zipf
   - buildmark
+  - canvasnet
   - chokepoint
   - Conv
   - unpenalized

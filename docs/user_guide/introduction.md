@@ -1,5 +1,10 @@
 # Introduction
 
+The diagram below shows how an application uses the core library and the optional model packages to recognize
+and synthesize speech.
+
+![Speech architecture: your desktop application uses the engine-neutral DemaConsulting.Speech core, whose Recognition, Synthesis, and ModelManagement subsystems build on the Audio and Diagnostics subsystems, with optional Sherpa, Kokoro, NemotronStt, and ChatterboxTurbo model packages plugged in, to turn microphone audio into recognized text and tagged text into synthesized audio, built on PortAudioSharp2, sherpa-onnx, and ONNX Runtime](architecture.svg)
+
 ## Purpose
 
 This document is the user guide for DemaConsulting.Speech, a cross-platform .NET library
