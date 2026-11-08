@@ -13,6 +13,11 @@
 DemaConsulting.Speech is a cross-platform .NET library providing local, offline speech-to-text
 (STT) and text-to-speech (TTS) services for desktop applications.
 
+The diagram below shows how an application uses the core library and the optional model packages to recognize
+and synthesize speech.
+
+![Speech architecture: your desktop application uses the engine-neutral DemaConsulting.Speech core, whose Recognition, Synthesis, and ModelManagement subsystems build on the Audio and Diagnostics subsystems, with optional Sherpa, Kokoro, NemotronStt, and ChatterboxTurbo model packages plugged in, to turn microphone audio into recognized text and tagged text into synthesized audio, built on PortAudioSharp2, sherpa-onnx, and ONNX Runtime][architecture]
+
 ## Features
 
 - 🎙️ Streaming speech-to-text recognition
@@ -496,6 +501,7 @@ details.
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 
 <!-- Badge References -->
+[architecture]: https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/architecture.png
 [badge-forks]: https://img.shields.io/github/forks/demaconsulting/Speech?style=plastic
 [badge-stars]: https://img.shields.io/github/stars/demaconsulting/Speech?style=plastic
 [badge-contributors]: https://img.shields.io/github/contributors/demaconsulting/Speech?style=plastic

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="14" y="16" width="935" height="515" rx="28" fill="#d5dce6"/>
+  <rect x="10" y="10" width="935" height="515" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+  <g transform="translate(30,30)">
+    <rect x="170" y="0" width="520" height="60" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+    <text x="430" y="27" font-size="16" font-weight="600" fill="#92400e" text-anchor="middle">Your desktop application</text>
+    <text x="430" y="47" font-size="13" fill="#92400e" text-anchor="middle">references the Speech NuGet packages</text>
+    <line x1="430" y1="64" x2="430" y2="100" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+    <text x="442" y="86" font-size="12" fill="#334155">recognizes and synthesizes speech</text>
+
+    <rect x="170" y="104" width="520" height="180" rx="14" fill="#f8fafc" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="186" y="126" font-size="14" font-weight="600" fill="#2563eb">DemaConsulting.Speech (engine-neutral core)</text>
+
+    <g font-size="11" fill="#5b21b6" text-anchor="middle">
+      <rect x="190" y="136" width="153" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="266" y="158" font-size="14" font-weight="600" fill="#4c1d95">Recognition</text>
+      <text x="266" y="178">Streaming speech</text>
+      <text x="266" y="192">to text</text>
+      <rect x="353" y="136" width="153" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="429" y="158" font-size="14" font-weight="600" fill="#4c1d95">Synthesis</text>
+      <text x="429" y="178">Text to speech with</text>
+      <text x="429" y="192">audio tags</text>
+      <rect x="516" y="136" width="153" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="592" y="158" font-size="14" font-weight="600" fill="#4c1d95">ModelManagement</text>
+      <text x="592" y="178">Model catalog, download,</text>
+      <text x="592" y="192">and verification</text>
+    </g>
+
+    <g font-size="11" fill="#1e40af" text-anchor="middle">
+      <rect x="190" y="212" width="236" height="60" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="308" y="238" font-size="14" font-weight="600" fill="#1e3a8a">Audio</text>
+      <text x="308" y="258">Mockable capture and playback devices</text>
+      <rect x="436" y="212" width="233" height="60" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="552" y="238" font-size="14" font-weight="600" fill="#1e3a8a">Diagnostics</text>
+      <text x="552" y="258">Reports device and fallback events</text>
+    </g>
+
+    <line x1="430" y1="288" x2="430" y2="312" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+    <text x="442" y="304" font-size="12" fill="#334155">models plug in from optional DemaConsulting.Speech.* packages</text>
+
+    <g text-anchor="middle">
+      <rect x="170" y="316" width="118" height="60" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="229" y="342" font-size="14" font-weight="600" fill="#4c1d95">Sherpa</text>
+      <text x="229" y="362" font-size="11" fill="#5b21b6">STT and TTS models</text>
+      <rect x="304" y="316" width="118" height="60" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="363" y="342" font-size="14" font-weight="600" fill="#4c1d95">Kokoro</text>
+      <text x="363" y="362" font-size="11" fill="#5b21b6">TTS model</text>
+      <rect x="438" y="316" width="118" height="60" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="497" y="342" font-size="13" font-weight="600" fill="#4c1d95">NemotronStt</text>
+      <text x="497" y="362" font-size="11" fill="#5b21b6">Streaming STT model</text>
+      <rect x="572" y="316" width="118" height="60" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="631" y="342" font-size="13" font-weight="600" fill="#4c1d95">ChatterboxTurbo</text>
+      <text x="631" y="362" font-size="11" fill="#5b21b6">Voice-cloning TTS</text>
+    </g>
+
+    <line x1="430" y1="380" x2="430" y2="404" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+    <text x="442" y="396" font-size="12" fill="#334155">built on</text>
+
+    <g text-anchor="middle">
+      <rect x="170" y="408" width="166" height="60" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+      <text x="253" y="434" font-size="15" font-weight="600" fill="#334155">PortAudioSharp2</text>
+      <text x="253" y="454" font-size="12" fill="#475569">Audio devices</text>
+      <rect x="347" y="408" width="166" height="60" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+      <text x="430" y="434" font-size="15" font-weight="600" fill="#334155">sherpa-onnx</text>
+      <text x="430" y="454" font-size="12" fill="#475569">Speech engine</text>
+      <rect x="524" y="408" width="166" height="60" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+      <text x="607" y="434" font-size="15" font-weight="600" fill="#334155">ONNX Runtime</text>
+      <text x="607" y="454" font-size="12" fill="#475569">Model inference</text>
+    </g>
+
+    <text x="70" y="151" font-size="13" font-weight="600" fill="#475569" text-anchor="middle">Inputs</text>
+    <rect x="0" y="165" width="140" height="66" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+    <text x="70" y="192" font-size="15" font-weight="600" fill="#334155" text-anchor="middle">Audio and text</text>
+    <text x="70" y="213" font-size="12" fill="#475569" text-anchor="middle">microphone, tagged text</text>
+    <line x1="144" y1="198" x2="166" y2="198" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="720" y="115" width="165" height="166" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="802" y="141" font-size="16" font-weight="600" fill="#166534" text-anchor="middle">Outputs</text>
+    <g font-size="13" fill="#14532d" text-anchor="middle">
+      <rect x="734" y="153" width="137" height="26" rx="5" fill="#ffffff" stroke="#16a34a"/>
+      <text x="802" y="171">Recognized text</text>
+      <rect x="734" y="183" width="137" height="26" rx="5" fill="#ffffff" stroke="#16a34a"/>
+      <text x="802" y="201">Synthesized audio</text>
+      <rect x="734" y="213" width="137" height="26" rx="5" fill="#ffffff" stroke="#16a34a"/>
+      <text x="802" y="231">Installed models</text>
+      <rect x="734" y="243" width="137" height="26" rx="5" fill="#ffffff" stroke="#16a34a"/>
+      <text x="802" y="261">Diagnostic events</text>
+    </g>
+    <line x1="694" y1="198" x2="716" y2="198" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  </g>
+</svg>
