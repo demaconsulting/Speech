@@ -1,4 +1,3 @@
-// cspell:ignore Alsa ALSA portaudio
 namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
 
 /// <summary>

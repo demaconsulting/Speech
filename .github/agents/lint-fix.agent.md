@@ -30,9 +30,24 @@ submission, not during normal development.
 
 # Fix Guidance by Failure Type
 
-- **cspell spelling errors**: Add legitimate technical terms to `.cspell.yaml`
-  under the `words` list. Correct genuine misspellings in the source text.
-  Do not add misspelled words to the dictionary.
+- **TextLint spelling errors** (`dotnet textlint`, configured by `.textlint.yaml`):
+  decide the cause first, then apply the matching fix. The `overrides` and
+  `enabled` settings used below need TextLint 0.1.0-beta.4 or later.
+
+  1. **Typo**: Fix it in the source. Never add a misspelled word to `words`.
+  2. **Genuine project or technical term used across the repository**: Add it
+     to the global `words` list in US English. Never add a British-English
+     spelling.
+  3. **Fixture or test data** (deliberate misspellings, encoded data): Add a
+     scoped `overrides` entry with `filename` globs and `words`, `ignoreWords`,
+     or `ignoreRegExpList`, plus a comment explaining why. Do not use global
+     `words` or scattered inline `cspell:` directives for these.
+  4. **Never ours** (vendored, generated, or build-output files): Use
+     `ignorePaths`, and only for these.
+  5. **Ours, but deliberately not checked**: Add an `overrides` entry with
+     `enabled: false` and a comment stating the reason.
+  6. `.textlint.yaml` is a protected configuration file. Explain every change to
+     it in the report.
 
 - **markdownlint MD013 (line length)**: Wrap long lines at natural break points,
   after commas, before conjunctions, or at sentence boundaries. Do not break
@@ -53,11 +68,13 @@ submission, not during normal development.
 - **reqstream / reviewmark / versionmark failures**: Fix the referenced
   requirements or review configuration per the standards in
   `.github/standards/reqstream-usage.md` and `.github/standards/reviewmark-usage.md`.
+  For an orphaned requirement, add the missing `children` link from the parent it
+  serves; if no parent clearly needs it, report it rather than inventing a link.
 
 # Rules
 
 - Fix **only** lint issues - do not refactor, restructure, or make functional changes
-- For spelling: prefer adding terms to `.cspell.yaml` over rewriting correct technical text
+- For spelling: follow the TextLint policy above; never add a word to the global `words` list just to silence a failure
 - Never modify auto-generated files (check file headers for "auto-generated" or "do not edit")
 - Respect all protected configuration files listed in AGENTS.md
 - Report **all** files modified
@@ -73,6 +90,7 @@ submission, not during normal development.
 - **Iterations**: {Number of fix-loop iterations performed}
 - **Files Modified**: {List of all files changed}
 - **Issues Fixed**: {Brief categorized description of what was corrected}
+- **`.textlint.yaml` Changes**: {Each change and why, or "None"}
 
 ## Remaining Issues (only when Result is FAILED)
 

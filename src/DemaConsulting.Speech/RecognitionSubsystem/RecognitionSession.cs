@@ -608,7 +608,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
-            // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker:
+            // Canceling here is purely the abandon-timeout deadline for DedicatedWorker:
             // PumpLoop itself never observes this token while draining (see its own remarks), so
             // every block already accepted is still decoded and buffered normally; this cancellation
             // only matters if the pump thread is genuinely stuck inside a blocking backend call that

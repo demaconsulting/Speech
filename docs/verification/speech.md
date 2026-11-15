@@ -78,9 +78,9 @@ Verifies that PortAudio initialization failure degrades composition to the hones
 fallback devices rather than throwing.
 
 This scenario also evidences the platform requirements (`Speech-Platform-Windows`, `-Linux`, `-MacOS`,
-`-Net8`, `-Net9` and `-Net10`) only as a portability smoke test: the same test runs on every CI operating
+`-Net8`, `-Net9`, `-Net10` and `-Net11`) only as a portability smoke test: the same test runs on every CI operating
 system and target runtime, and each requirement links it through a source filter (`windows@`, `ubuntu@`,
-`macos@`, `net8.0@`, `net9.0@`, `net10.0@`) so only a pass on that platform or runtime counts. It proves the
+`macos@`, `net8.0@`, `net9.0@`, `net10.0@`, `net11.0@`) so only a pass on that platform or runtime counts. It proves the
 library composes and degrades without throwing on that platform; it does not exercise platform-specific
 native behavior such as real PortAudio device I/O.
 

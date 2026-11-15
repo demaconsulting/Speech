@@ -1,4 +1,3 @@
-// cspell:ignore Alsa ALSA portaudio
 using System.Runtime.InteropServices;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.AudioSubsystem.PortAudio;

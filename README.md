@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 # Speech
 
 [![GitHub forks][badge-forks]][link-forks]
@@ -28,7 +27,7 @@ and synthesize speech.
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
-- 🧵 Targets .NET 8, 9, and 10
+- 🧵 Targets .NET 8, 9, 10, and 11
 - 🛡️ Degrades gracefully without hardware
 
 Compliance evidence is generated automatically on every CI run, following the
@@ -36,7 +35,7 @@ Compliance evidence is generated automatically on every CI run, following the
 
 ## Installation
 
-Prerequisites: a .NET SDK that targets .NET 8, 9, or 10 (the packages multi-target all three), and
+Prerequisites: a .NET SDK that targets .NET 8, 9, 10, or 11 (the packages multi-target all four), and
 for live audio a machine with a capture or playback device. Without a device or a runtime, the
 library still composes and reports the affected capability as unavailable.
 

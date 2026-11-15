@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 ## AudioSubsystem Verification
 
 ### Verification Approach

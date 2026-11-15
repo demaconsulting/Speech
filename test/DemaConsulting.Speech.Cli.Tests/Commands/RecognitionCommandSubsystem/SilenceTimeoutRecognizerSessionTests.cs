@@ -304,7 +304,7 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         Assert.Equal(1, timedOutCount);
     }
 
-    /// <summary>Test that cancelling the token passed to <c>GetResultsAsync</c> propagates a cancellation from the enumeration.</summary>
+    /// <summary>Test that canceling the token passed to <c>GetResultsAsync</c> propagates a cancellation from the enumeration.</summary>
     [Fact]
     public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException()
     {

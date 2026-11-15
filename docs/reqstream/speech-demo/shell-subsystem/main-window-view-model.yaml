@@ -69,6 +69,8 @@ sections:
                 justification: |
                   Announcing selection changes is what lets the bound view swap panels without
                   any code-behind.
+                children:
+                  - SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
                 tests:
                   - MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
 

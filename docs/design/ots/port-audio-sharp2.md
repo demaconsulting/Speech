@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 ## PortAudioSharp2
 
 ### Purpose

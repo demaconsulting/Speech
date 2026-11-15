@@ -17,7 +17,7 @@ containment, and honest degradation fully testable without a downloaded speech m
 audio hardware. Determinism is structural wherever practical: a deterministic fake backend plus
 `SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
 transitions without polling. No test relies on a bounded sleep: the drain-wait test awaits a
-semaphore signalled by the stubbed device, abandonment is awaited through `StateChanged` reaching
+semaphore signaled by the stubbed device, abandonment is awaited through `StateChanged` reaching
 `Faulted`, and "not yet complete" assertions are made against backends gated by the test, with
 ordering witnesses captured at lease release.
 
@@ -464,7 +464,7 @@ device still results in a stop attempt during teardown.
 
 Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
 before stopping it, rather than stopping as soon as every segment has been written, and that
-cancelling during that wait ends it promptly instead of waiting for the queue to drain. Uses an
+canceling during that wait ends it promptly instead of waiting for the queue to drain. Uses an
 NSubstitute playback device whose `PendingSampleCount` getter signals a semaphore on every read,
 so the test deterministically observes the wait has genuinely begun (rather than racing a sleep)
 before asserting the awaited task has not completed and `Stop()` has not been called; only after

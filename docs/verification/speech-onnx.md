@@ -31,7 +31,7 @@ OnnxExecutionProviderSelector Verification_ for the unit-level detail.
 
 ## Test Environment
 
-- **Framework**: xUnit v3 running under the .NET SDK, multi-targeted at net8.0/net9.0/net10.0
+- **Framework**: xUnit v3 running under the .NET SDK, multi-targeted at net8.0/net9.0/net10.0/net11.0
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Onnx.Tests`
 - **Dependencies**: No external services, no network access, and no physical audio or accelerator

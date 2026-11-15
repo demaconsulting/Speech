@@ -38,7 +38,7 @@ sections:
               The ConsoleCancellation unit shall, on Ctrl+C for an Observe registration, run the
               callback without suppressing process termination.
             justification: |
-              A command that has no cancellable work still needs to notify the user, and must
+              A command that has no cancelable work still needs to notify the user, and must
               still end when Ctrl+C is pressed.
             tests:
               - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination

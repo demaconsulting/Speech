@@ -12,7 +12,7 @@ code to an application whose purpose is to exercise the Speech library.
 - `ObservableObject` as the view-model base type
 - The `[ObservableProperty]` source generator, including `[NotifyPropertyChangedFor]` for derived
   values
-- The `[RelayCommand]` source generator, for both synchronous commands and cancellable
+- The `[RelayCommand]` source generator, for both synchronous commands and cancelable
   asynchronous commands
 
 ### Integration Pattern

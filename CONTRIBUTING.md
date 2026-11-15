@@ -47,7 +47,7 @@ We follow a standard GitHub workflow for contributions:
 
 ### Prerequisites
 
-- [.NET SDK][dotnet-download] 8.0, 9.0, or 10.0
+- [.NET SDK][dotnet-download] 8.0, 9.0, 10.0, or 11.0
 - Git
 - A code editor (Visual Studio, VS Code, or Rider recommended)
 
@@ -169,7 +169,6 @@ dotnet test --collect "XPlat Code Coverage"
 
 All markdown files must follow these rules (enforced by markdownlint):
 
-- Maximum line length: 120 characters
 - Use ATX-style headers (`# Header`)
 - Lists must be surrounded by blank lines
 - Use reference-style links: `[text][ref]` with `[ref]: url` at document end
@@ -180,13 +179,17 @@ All markdown files must follow these rules (enforced by markdownlint):
 
 ### Spell Checking
 
-All files are spell-checked using cspell. **Never** add a word to the `.cspell.yaml` word list in order to silence a
-spell-checking failure. Doing so defeats the purpose of spell-checking and reduces the quality of the repository.
+All files are spell-checked using TextLint (`dotnet textlint`, configured in `.textlint.yaml`). **Never** add a word to
+the `.textlint.yaml` word list in order to silence a spell-checking failure. Doing so defeats the purpose of
+spell-checking and reduces the quality of the repository.
 
-- If cspell flags a word that is **misspelled**, fix the spelling in the source file.
-- If cspell flags a word that is a **genuine technical term** (tool name, project identifier, etc.) and is spelled
+- If TextLint flags a word that is **misspelled**, fix the spelling in the source file.
+- If TextLint flags a **British spelling**, correct it to US English in the source file.
+- If TextLint flags a word that is a **genuine technical term** (tool name, project identifier, etc.) and is spelled
   correctly, raise a **proposal** (e.g. comment in a pull request) explaining why the word should be added. The
   proposal must be reviewed and approved before the word is added to the list.
+- Words that are only valid in particular files (for example test fixtures or transcript data) belong in a scoped
+  `overrides` entry in `.textlint.yaml`, not in the global word list.
 
 ## Quality Checks
 

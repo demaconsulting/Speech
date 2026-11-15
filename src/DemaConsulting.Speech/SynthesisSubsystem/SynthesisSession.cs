@@ -548,7 +548,7 @@ internal sealed class SynthesisSession : ISynthesisSession
             // DedicatedWorker cooperative-cancel-then-abandon policy the per-segment native
             // Generate call below uses, rather than a plain Task.Run with CancellationToken.None:
             // a stuck/blocking device-open call must still be bounded by this operation's own
-            // cancellation, or a caller cancelling via StopAsync/DisposeAsync would await this
+            // cancellation, or a caller canceling via StopAsync/DisposeAsync would await this
             // operation's task forever despite having requested cancellation (the device-start
             // call never observes a request it was never given). The raw completion is published
             // to _pendingNativeCompletion - the same field GenerateSegmentAsync publishes its own

@@ -294,12 +294,11 @@ The application targets a single framework:
 
 | Target Framework | Runtime / Environment |
 | --- | --- |
-| `net8.0` | .NET 8 LTS |
+| `net10.0` | .NET 10 LTS |
 
-This is deliberately the floor of the library's supported range rather than the library's full
-`net8.0;net9.0;net10.0` matrix: the demo is never packaged for consumers, so it has no
-compatibility matrix to satisfy, and building it against the oldest supported runtime proves
-the library is genuinely consumable there.
+This is the standard target for applications and tools (net10.0, the current LTS release) rather
+than the library's multi-targeted `net8.0;net9.0;net10.0;net11.0` matrix: the demo is never
+packaged for consumers, so it has no compatibility matrix to satisfy.
 
 The application runs on Windows, Linux, and macOS wherever Avalonia and the library's native
 runtimes are available. Native speech-inference runtimes are declared for `win-x64` and

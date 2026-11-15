@@ -168,7 +168,6 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
             .ToList();
 
         // Assert: the CPU provider is present, the package ships no accelerator provider library, and synthesis succeeded
-        // cspell:ignore tensorrt coreml
         Assert.Contains("CPUExecutionProvider", providers);
         Assert.Empty(acceleratorLibraries);
         Assert.NotEmpty(Assert.Single(speech).Samples);

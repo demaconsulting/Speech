@@ -180,7 +180,9 @@ input-files:
   - docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md
+  - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md
+  - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md
@@ -204,6 +206,7 @@ input-files:
   - docs/verification/ots/system-numerics-tensors.md
   - docs/verification/ots/avalonia.md
   - docs/verification/ots/community-toolkit-mvvm.md
+  - docs/verification/ots/test-results.md
   - docs/verification/ots/buildmark.md
   - docs/verification/ots/fileassert.md
   - docs/verification/ots/pandoc.md

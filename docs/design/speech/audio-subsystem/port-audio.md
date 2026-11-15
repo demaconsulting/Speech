@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 ### PortAudio
 
 ![PortAudio Structure](PortAudioView.svg)

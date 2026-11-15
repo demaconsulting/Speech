@@ -52,6 +52,7 @@ sections:
           - SpeechSherpa-Models-RealNemotronRecognitionModel
           - SpeechSherpa-Models-UppercaseTranscriptRestoration
           - SpeechSherpa-Models-TarBz2ArchiveExtraction
+          - Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
         tests:
           - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
 
@@ -96,6 +97,7 @@ sections:
           accuracy must be proven directly against real installed models.
         children:
           - SpeechSherpa-Recognition-StreamingBackend
+          - Speech-OTS-SherpaOnnx-ManagedStreamingApi
         tests:
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance

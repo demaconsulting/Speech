@@ -1,4 +1,3 @@
-// cspell:ignore Alsa ALSA portaudio Cdecl Conv Convs
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 

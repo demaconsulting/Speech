@@ -1,4 +1,3 @@
-<!-- cspell:ignore Alsa -->
 #### PortAudio Supporting Types
 
 ##### Verification Approach

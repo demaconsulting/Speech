@@ -1305,7 +1305,7 @@ sections:
       - id: SpeechCli-Cli-CtrlCCancellation
         title: >-
           The tool shall let an operator interrupt a long-running subcommand with Ctrl+C,
-          cancelling its work and ending the command cleanly.
+          canceling its work and ending the command cleanly.
         tags: [system]
         justification: |
           Downloads, playback and listening can run for a long time; an operator must be able

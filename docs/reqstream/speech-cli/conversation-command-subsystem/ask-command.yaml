@@ -304,7 +304,7 @@ sections:
                 tags: [unit]
                 justification: |
                   The `Ctrl+C` handler runs on the console signal thread, where an escaping failure could
-                  terminate the process instead of cancelling cleanly.
+                  terminate the process instead of canceling cleanly.
                 tests:
                   - AskCommand_StopSessionObserved_StopFaults_CompletesWithoutThrowing
                   - AskCommand_StopSessionObserved_StopThrowsSynchronously_CompletesWithoutThrowing

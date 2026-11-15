@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 # System Design
 
 This document provides the system-level design for the Speech.
@@ -436,6 +435,7 @@ runtimes:
 | `net8.0` | .NET 8 LTS |
 | `net9.0` | .NET 9 |
 | `net10.0` | .NET 10 |
+| `net11.0` | .NET 11 |
 
 The library is supported on the following operating systems:
 

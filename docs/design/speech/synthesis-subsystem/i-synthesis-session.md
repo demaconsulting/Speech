@@ -30,7 +30,7 @@ document for the full state diagram.
   playing it - no playback device interaction at all. Same overlap/fault/availability error
   behavior as `SpeakAsync`.
 - **StopAsync(cancellationToken)**: Requests cooperative cancellation of whichever operation is
-  currently in flight, by cancelling that operation's own linked cancellation source. A safe
+  currently in flight, by canceling that operation's own linked cancellation source. A safe
   no-op when no operation is in flight. The canceled operation unwinds to `Stopped`, not
   `Faulted` - a caller-requested stop is an ordinary, successful outcome.
 - **DisposeAsync()**: Cancels any in-flight operation, transitions through `Disposing` to

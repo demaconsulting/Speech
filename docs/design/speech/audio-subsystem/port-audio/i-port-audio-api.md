@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 #### IPortAudioApi
 
 **Purpose**: Define the internal seam that abstracts the subset of PortAudio functionality the

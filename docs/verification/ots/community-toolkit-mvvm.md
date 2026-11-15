@@ -8,7 +8,7 @@ document.
 
 CommunityToolkit.Mvvm provides the MVVM source generators the SpeechDemo view models are built
 on: `ObservableObject`, the `[ObservableProperty]` generator, and the `[RelayCommand]` generator
-for both synchronous and cancellable asynchronous commands.
+for both synchronous and cancelable asynchronous commands.
 
 ### Verification Approach
 

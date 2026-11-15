@@ -103,5 +103,7 @@ sections:
             justification: |
               Avalonia's runtime and design-time tooling can only start the demo when the
               application object derives from the framework's application type.
+            children:
+              - SpeechDemo-OTS-Avalonia-DesktopApplicationHost
             tests:
               - Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication

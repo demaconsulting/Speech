@@ -31,6 +31,9 @@ sections:
                   File-based recognition has no live hardware to throttle against, so delivering
                   audio as fast as the calling thread permits lets a host consume the file more
                   quickly than real-time playback would allow.
+                children:
+                  - Speech-OTS-SystemNumericsTensors-SampleConversion
+                  - Speech-OTS-SystemNumericsTensors-SampleDivision
                 tests:
                   - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
 

@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 #### PortAudio Supporting Types
 
 **Purpose**: Provide the managed metadata records, stable host-API constants, and repository-local

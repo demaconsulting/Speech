@@ -316,7 +316,7 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
-    ///     Proves that <see cref="ISynthesisSession.StopAsync"/> fulfils its documented contract
+    ///     Proves that <see cref="ISynthesisSession.StopAsync"/> fulfills its documented contract
     ///     of completing only once the in-flight operation has genuinely stopped: its returned
     ///     task does not complete while the backend's native-style <c>Generate</c> call is still
     ///     in flight, so a caller that awaits <c>StopAsync</c> can safely assume the device/backend
@@ -982,7 +982,7 @@ public class SynthesisSessionTests
     ///     Proves that an abandoned playback <see cref="IAudioPlaybackDevice.Start"/> call (the
     ///     device-start counterpart of the abandoned-Generate case, but for the one-shot playback-device
     ///     startup rather than the per-segment native <c>Generate</c> call) is routed through the
-    ///     same <see cref="DedicatedWorker"/> cooperative-cancel-then-abandon policy: cancelling
+    ///     same <see cref="DedicatedWorker"/> cooperative-cancel-then-abandon policy: canceling
     ///     while <see cref="IAudioPlaybackDevice.Start"/> is still genuinely blocked must not hang
     ///     <see cref="ISynthesisSession.StopAsync"/> forever, and <see cref="IAudioPlaybackDevice.Stop"/>
     ///     must never be called while the abandoned <see cref="IAudioPlaybackDevice.Start"/> call
@@ -1543,7 +1543,7 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
-    ///     Proves that cancelling <see cref="ISynthesisSession.SpeakAsync"/> while it is waiting
+    ///     Proves that canceling <see cref="ISynthesisSession.SpeakAsync"/> while it is waiting
     ///     for the playback device to drain exits the wait promptly, rather than waiting out the
     ///     full drain: the device keeps reporting pending samples forever, so only cancellation
     ///     can end the operation.
@@ -1551,7 +1551,7 @@ public class SynthesisSessionTests
     [Fact(Timeout = 10000)]
     public async Task SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly()
     {
-        // Arrange: a device that never drains, signalling a semaphore on every poll
+        // Arrange: a device that never drains, signaling a semaphore on every poll
         var backend = new FakeSynthesisEngine();
         var device = CreateAvailablePlaybackDevice();
         using var polled = new SemaphoreSlim(0);

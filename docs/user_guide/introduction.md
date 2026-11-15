@@ -30,7 +30,7 @@ This user guide does not cover:
   model downloads)
 - Hardware-level audio verification, which is a manual activity (see "Hardware Verification Boundary")
 - Distribution of the demo application, which is built from source and not published as a package
-- Platforms or .NET versions other than the supported .NET 8, 9, and 10 desktop targets
+- Platforms or .NET versions other than the supported .NET 8, 9, 10, and 11 desktop targets
 
 ## References
 

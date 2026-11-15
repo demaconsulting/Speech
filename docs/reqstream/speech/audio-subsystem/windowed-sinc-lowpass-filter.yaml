@@ -21,6 +21,8 @@ sections:
                   Downsampling without anti-aliasing folds energy above the target Nyquist
                   frequency back into the audible band. The filter design technique is described
                   in the WindowedSincLowpassFilter design document.
+                children:
+                  - Speech-OTS-SystemNumericsTensors-DotProduct
                 tests:
                   - WindowedSincLowpassFilter_ApplyLowpassFilter_ToneAboveCutoff_IsAttenuated
                   - WindowedSincLowpassFilter_ApplyLowpassFilter_ToneInPassband_IsPreserved

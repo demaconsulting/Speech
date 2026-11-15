@@ -27,6 +27,7 @@ sections:
               respected.
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+              - Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
             tests:
               - OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
               - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
@@ -43,6 +44,7 @@ sections:
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbeAcceptedCandidateReturned
+              - Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
             tests:
               - OnnxExecutionProviderSelector_Create_ProbeOrtException_DisposesCandidateAndFallsBackToCpu
               - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
@@ -59,6 +61,7 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnavailableProviderFallsBack
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-MissingProviderLibraryFallsBack
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
+              - Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference
             tests:
               - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
               - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
