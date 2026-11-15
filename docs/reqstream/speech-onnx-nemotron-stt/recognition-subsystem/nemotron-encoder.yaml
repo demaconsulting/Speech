@@ -36,6 +36,8 @@ sections:
                 justification: |
                   The cache-aware encoder depends on the previous chunks' context; without the
                   feedback each chunk would be encoded in isolation.
+                children:
+                  - Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
                 tests:
                   - NemotronEncoder_Encode_SecondChunk_UsesPreviousCaches
 

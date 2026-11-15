@@ -4,7 +4,7 @@
     <!-- Build Configuration.
          Single target framework matching DemaConsulting.Speech.Demo, which this project
          references; the demo application has no multi-TFM support matrix to verify. -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

@@ -1,4 +1,3 @@
-<!-- cspell:ignore onnxruntime -->
 # SpeechCli System Design
 
 This document provides the system-level design for the SpeechCli application.
@@ -270,11 +269,11 @@ directory.
 | --- | --- |
 | `net10.0` | .NET 10 |
 
-SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0`). This is a
+SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0`/`net11.0`). This is a
 packaging constraint rather than a design element: because the tool is distributed as a .NET global
 tool it bundles a native inference runtime (`onnxruntime`/`sherpa-onnx-c-api`) per target
-framework; packing all three of the library's frameworks multiplied the bundled native
-payload three-fold for no benefit, since a globally-installed tool only ever runs on one .NET
+framework; packing all of the library's frameworks multiplied the bundled native
+payload several-fold for no benefit, since a globally-installed tool only ever runs on one .NET
 version at a time. The packed native runtime assets are further pruned to `win-x64`, `linux-x64`,
 and `osx-arm64` only (configured in the project file), rather than every RID the transitive
 `org.k2fsa.sherpa.onnx.runtime.*` packages support (including irrelevant ones like Android),

@@ -21,7 +21,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     <see cref="EmptyCatalogMessage"/>.
 ///     </para>
 ///     <para>
-///     Not thread-safe: expected to be used from the UI thread. Download progress is marshalled
+///     Not thread-safe: expected to be used from the UI thread. Download progress is marshaled
 ///     back through the same synchronization context the download was started on. While a model
 ///     download or voice-pack install is in flight, <see cref="RefreshAsync"/>, <see cref="ApplyMirrorAsync"/>
 ///     and the voice-pack commands are refused, because they would rebuild the catalog or the rows

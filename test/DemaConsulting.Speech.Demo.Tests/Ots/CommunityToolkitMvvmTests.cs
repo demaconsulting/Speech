@@ -97,7 +97,7 @@ public partial class CommunityToolkitMvvmTests
     }
 
     /// <summary>
-    ///     Proves that the package's <c>RelayCommand</c> generator produces a cancellable async
+    ///     Proves that the package's <c>RelayCommand</c> generator produces a cancelable async
     ///     command for an asynchronous method, which is what lets the demo run a model download
     ///     without blocking the UI thread.
     /// </summary>
@@ -122,7 +122,7 @@ public partial class CommunityToolkitMvvmTests
 
     /// <summary>
     ///     Proves that the asynchronous command generated for a method taking a
-    ///     <see cref="CancellationToken"/> is cancellable: canceling the command signals the token
+    ///     <see cref="CancellationToken"/> is cancelable: canceling the command signals the token
     ///     the annotated method received, which is what lets a user abort a model download.
     /// </summary>
     /// <returns>A task that completes when the test has finished.</returns>

@@ -166,6 +166,7 @@ The library targets the same frameworks as the Speech library:
 | `net8.0` | .NET 8 LTS |
 | `net9.0` | .NET 9 |
 | `net10.0` | .NET 10 |
+| `net11.0` | .NET 11 |
 
 The library runs wherever the Speech library and the base `Microsoft.ML.OnnxRuntime` package's CPU
 provider are available - effectively anywhere the targeted .NET runtime itself runs. An

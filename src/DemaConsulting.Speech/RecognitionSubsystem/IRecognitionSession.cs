@@ -88,7 +88,7 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     that convergence happens. A fault while finalizing or resetting is reported through
     ///     diagnostics rather than thrown; this call still completes.
     ///     <para>
-    ///     Cancelling <paramref name="cancellationToken"/> lets this call's own returned task
+    ///     Canceling <paramref name="cancellationToken"/> lets this call's own returned task
     ///     complete early with <see cref="OperationCanceledException"/> without waiting any
     ///     further, but it never aborts the shared teardown itself: one canceled caller must not
     ///     skip draining/stopping for every other caller (including <see cref="IAsyncDisposable.DisposeAsync"/>)

@@ -19,6 +19,7 @@
 #   net8.0@TestName   - proves the test passed under the .NET 8 runtime
 #   net9.0@TestName   - proves the test passed under the .NET 9 runtime
 #   net10.0@TestName  - proves the test passed under the .NET 10 runtime
+#   net11.0@TestName  - proves the test passed under the .NET 11 runtime
 
 sections:
   - title: Speech Requirements
@@ -121,3 +122,19 @@ sections:
           Consumers on .NET 10 need a library build targeting that framework.
         tests:
           - "net10.0@PlatformSupport_Build_Net10_LibraryBuiltForNet10"
+
+      - id: Speech-Platform-Net11
+        title: The library shall run on the .NET 11 runtime.
+        tags: [system]
+        justification: |
+          .NET 11 support ensures the library remains compatible with the newest .NET runtime.
+        tests:
+          - "net11.0@PlatformSupport_Run_Net11_LibraryRunsOnNet11"
+
+      - id: Speech-Platform-Net11-Build
+        title: The library shall build for .NET 11.
+        tags: [system]
+        justification: |
+          Consumers on .NET 11 need a library build targeting that framework.
+        tests:
+          - "net11.0@PlatformSupport_Build_Net11_LibraryBuiltForNet11"

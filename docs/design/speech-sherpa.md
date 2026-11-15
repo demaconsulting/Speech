@@ -160,6 +160,7 @@ The library targets the same frameworks as the Speech library:
 | `net8.0` | .NET 8 LTS |
 | `net9.0` | .NET 9 |
 | `net10.0` | .NET 10 |
+| `net11.0` | .NET 11 |
 
 The library runs wherever the Speech library and a sherpa-onnx native runtime package for the
 current RID are available. Other RIDs compose successfully and report speech features as

@@ -622,7 +622,7 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     <see cref="Exception.InnerException"/> is a <see cref="TimeoutException"/> - the
     ///     documented .NET <see cref="HttpClient"/> behavior that proves the cancellation
     ///     genuinely came from <see cref="HttpClient.Timeout"/> elapsing, never from some other,
-    ///     caller-supplied handler cancelling the request for an unrelated reason - wrapped so
+    ///     caller-supplied handler canceling the request for an unrelated reason - wrapped so
     ///     <see cref="ClassifyFailure"/> can honestly classify only a genuine HTTP fetch timeout
     ///     as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>. A
     ///     <see cref="TaskCanceledException"/> without that inner <see cref="TimeoutException"/>
@@ -662,7 +662,7 @@ public sealed class SpeechModelDownloader : IDisposable
             // Timeout-elapsed cancellation (see https://learn.microsoft.com/dotnet/api/system.net.http.httpclient.timeout) -
             // wrap it so ClassifyFailure's HttpFetchTimeoutException match cannot also
             // accidentally catch an unrelated TaskCanceledException thrown by a caller-supplied
-            // HttpClient's own handler (for example a custom DelegatingHandler cancelling for a
+            // HttpClient's own handler (for example a custom DelegatingHandler canceling for a
             // non-timeout reason) or by some other, host-injected IModelDownloadClient
             // implementation (this class has no way to know what such an implementation's own
             // TaskCanceledException actually signals, so any TaskCanceledException without this

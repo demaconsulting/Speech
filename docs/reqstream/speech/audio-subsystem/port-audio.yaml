@@ -1,5 +1,4 @@
 ---
-# cspell:ignore Alsa
 # Software Subsystem Requirements for PortAudio
 #
 # These requirements describe the child PortAudio subsystem that isolates native
@@ -31,6 +30,8 @@ sections:
                   - Speech-Audio-PortAudio-PortAudioEnvironment-SerializedInitializationEvaluation
                   - Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
                   - Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
+                  - Speech-OTS-PortAudioSharp2-ManagedBinding
+                  - Speech-OTS-PortAudioSharp2-StreamInterop
                 tests:
                   - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
                   - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
@@ -46,6 +47,7 @@ sections:
                 children:
                   - Speech-Audio-PortAudio-PortAudioEnvironment-PlatformMapping
                   - Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
+                  - Speech-OTS-PortAudioSharp2-HostApiSelection
                 tests:
                   - windows@PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
                   - ubuntu@PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa

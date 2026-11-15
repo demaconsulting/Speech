@@ -521,6 +521,9 @@ sections:
                 justification: |
                   A volume tag is realized as post-hoc gain because backends have no native gain
                   input; clamping prevents a loud tag from producing out-of-range samples.
+                children:
+                  - Speech-OTS-SystemNumericsTensors-SampleMultiplication
+                  - Speech-OTS-SystemNumericsTensors-SampleClamping
                 tests:
                   - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
 

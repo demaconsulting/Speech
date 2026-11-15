@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 # Introduction
 
 This document provides the detailed design for the Speech library, a cross-platform .NET

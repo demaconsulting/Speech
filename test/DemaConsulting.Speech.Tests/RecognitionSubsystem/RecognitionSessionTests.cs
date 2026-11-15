@@ -311,7 +311,7 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
-    ///     Proves that cancelling the token passed to <see cref="RecognitionSession.GetResultsAsync"/>
+    ///     Proves that canceling the token passed to <see cref="RecognitionSession.GetResultsAsync"/>
     ///     ends only that enumeration - the session itself keeps running and is not stopped.
     /// </summary>
     [Fact]
@@ -464,7 +464,7 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
-    ///     Proves that cancelling <see cref="RecognitionSession.StartAsync"/>'s own
+    ///     Proves that canceling <see cref="RecognitionSession.StartAsync"/>'s own
     ///     <see cref="CancellationToken"/> while <see cref="IAudioCaptureDevice.Start"/> is still
     ///     blocking is actually honored - guarding the regression where the device-start worker
     ///     call used <see cref="CancellationToken.None"/>, so a caller's cancellation request was

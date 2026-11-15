@@ -12,7 +12,7 @@ than relying on manual sign-off.
 - Review-plan generation (`--plan`) from `.reviewmark.yaml` review-set definitions
 - Review-report generation (`--report`) documenting review coverage and currency against the
   evidence store
-- Evidence-index scanning (`--index`) of PDF review evidence into an `index.json` catalogue
+- Evidence-index scanning (`--index`) of PDF review evidence into an `index.json` catalog
 - Enforcement mode (`--enforce`), which exits non-zero when files in a review-set are not current
 - Elaboration mode (`--elaborate`), which prints a review-set's ID, fingerprint, and file list for
   agent consumption
@@ -27,7 +27,7 @@ ReviewMark is invoked as a `dotnet tool` from three places: `lint.ps1` runs
 `docs/code_review_plan/generated/plan.md` and `docs/code_review_report/generated/report.md`.
 Enforcement of review currency against the evidence store (`--enforce`) is not yet wired into
 the workflow - it is deferred until the `reviews` branch is populated with review evidence PDFs
-and an `index.json` catalogue (see the `TODO` in `.github/workflows/build.yaml`). It is a
+and an `index.json` catalog (see the `TODO` in `.github/workflows/build.yaml`). It is a
 stateless CLI invocation — each run reads `.reviewmark.yaml` and the evidence source, produces
 its output or exit code, and exits; there is no initialization, configuration object, or
 disposal step.

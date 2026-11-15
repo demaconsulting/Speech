@@ -313,7 +313,7 @@ internal static class ReferenceVoicePackInstaller
     {
         long copied = 0;
         var buffer = new byte[BufferSize];
-#pragma warning disable S6966 // ZipArchiveEntry.OpenAsync exists only on net10.0; this library also targets net8.0/net9.0
+#pragma warning disable S6966 // ZipArchiveEntry.OpenAsync exists only on net10.0+; this library also targets net8.0/net9.0
         await using var source = entry.Open();
 #pragma warning restore S6966
         await using var target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);

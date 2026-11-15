@@ -1161,7 +1161,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         // Arrange
         var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
         var store = NewStore();
-        using var httpClient = new HttpClient(new NonTimeoutCancellingHttpMessageHandler());
+        using var httpClient = new HttpClient(new NonTimeoutCancelingHttpMessageHandler());
         using var client = new HttpModelDownloadClient(httpClient);
         using var downloader = new SpeechModelDownloader(store, client);
 
@@ -1486,7 +1486,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     ///     <see cref="TimeoutException"/> that a genuine <see cref="HttpClient.Timeout"/> expiry
     ///     produces.
     /// </summary>
-    private sealed class NonTimeoutCancellingHttpMessageHandler : HttpMessageHandler
+    private sealed class NonTimeoutCancelingHttpMessageHandler : HttpMessageHandler
     {
         /// <inheritdoc/>
         protected override Task<HttpResponseMessage> SendAsync(

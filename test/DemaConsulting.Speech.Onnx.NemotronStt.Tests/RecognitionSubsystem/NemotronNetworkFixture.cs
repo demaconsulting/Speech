@@ -16,7 +16,7 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.Tests.RecognitionSubsystem;
 internal static class NemotronNetworkFixture
 {
     /// <summary>The ReduceMax attribute that collapses the reduced axes.</summary>
-    private static readonly List<byte> NoKeepDimensions = OnnxModelWriter.IntAttribute("keepdims", 0); // cspell:disable-line
+    private static readonly List<byte> NoKeepDimensions = OnnxModelWriter.IntAttribute("keepdims", 0);
 
     /// <summary>The joint vocabulary size.</summary>
     public const int Vocabulary = 64;

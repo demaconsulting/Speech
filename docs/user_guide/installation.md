@@ -1,6 +1,6 @@
 # Installation
 
-Prerequisites: a .NET SDK that targets .NET 8, 9, or 10 (the packages multi-target all three), and
+Prerequisites: a .NET SDK that targets .NET 8, 9, 10, or 11 (the packages multi-target all four), and
 for live audio a machine with a capture or playback device. Without a device or runtime, the
 library still composes and reports the affected capability as unavailable.
 

@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 #### PortAudioEnvironment
 
 **Purpose**: Cache PortAudio initialization state and apply the library's preferred-host policy.

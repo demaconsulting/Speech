@@ -68,5 +68,7 @@ sections:
                 justification: |
                   Announcing the derived caption, progress visibility, and button state together
                   is what keeps a bound row from going stale mid-download.
+                children:
+                  - SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
                 tests:
                   - ModelListItemViewModel_State_Changed_NotifiesDerivedProperties

@@ -130,6 +130,8 @@ sections:
               - SpeechSherpa-Models-TarBz2ArchiveExtractor-ExtractAndDelete
               - SpeechSherpa-Models-TarBz2ArchiveExtractor-DeleteArchive
               - SpeechSherpa-Models-TarBz2ArchiveExtractor-ArgumentValidation
+              - Speech-OTS-SharpCompress-TarBz2Extraction
+              - Speech-OTS-SharpCompress-ArgumentValidation
             tests:
               - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
 

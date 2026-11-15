@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.Tests;
 ///     Platform and runtime evidence tests for the Speech system. Each test executes only on the
 ///     operating system or .NET runtime it provides evidence for and is skipped elsewhere, so the
 ///     requirement trace matrix can accept its result solely from a matching platform run (via the
-///     <c>windows@</c>, <c>ubuntu@</c>, <c>macos@</c>, and <c>net8.0@</c>/<c>net9.0@</c>/<c>net10.0@</c>
+///     <c>windows@</c>, <c>ubuntu@</c>, <c>macos@</c>, and <c>net8.0@</c>/<c>net9.0@</c>/<c>net10.0@</c>/<c>net11.0@</c>
 ///     source filters).
 /// </summary>
 public class PlatformSupportTests
@@ -213,6 +213,35 @@ public class PlatformSupportTests
     {
         // Arrange
         Assert.SkipUnless(Environment.Version.Major == 10, "Evidence applies to the .NET 10 runtime only.");
+
+        // Act & Assert
+        AssertLibraryRuns();
+    }
+
+    /// <summary>
+    ///     Proves that the library is built for .NET 11.
+    /// </summary>
+    [Fact]
+    public void PlatformSupport_Build_Net11_LibraryBuiltForNet11()
+    {
+        // Arrange
+        Assert.SkipUnless(Environment.Version.Major == 11, "Evidence applies to the .NET 11 runtime only.");
+
+        // Act
+        var framework = AssertLibraryBuiltAndLoaded();
+
+        // Assert
+        Assert.Equal(".NETCoreApp,Version=v11.0", framework);
+    }
+
+    /// <summary>
+    ///     Proves that the library runs on the .NET 11 runtime.
+    /// </summary>
+    [Fact]
+    public void PlatformSupport_Run_Net11_LibraryRunsOnNet11()
+    {
+        // Arrange
+        Assert.SkipUnless(Environment.Version.Major == 11, "Evidence applies to the .NET 11 runtime only.");
 
         // Act & Assert
         AssertLibraryRuns();

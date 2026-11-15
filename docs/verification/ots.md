@@ -15,6 +15,13 @@ SpeechDemo application's Avalonia and CommunityToolkit.Mvvm dependencies, automa
 covers application-host configuration and the generated MVVM members, while visual appearance and
 interactive behavior remain manual/local verification only.
 
+Verification evidence follows the requirements structure. Each runtime OTS requirement is a
+child of a requirement of the software item that uses it, so the tests that verify the OTS
+requirement also support that parent. Each build/pipeline tool's requirements are children of
+the repository quality requirements in `docs/reqstream/quality.yaml` (`Speech-Quality-*`), which
+state repository outcomes without naming the tool and carry no tests of their own; the evidence
+is the OTS requirements' own tests and pipeline output.
+
 ## OTS Items
 
 | OTS Item | Verification Approach |
@@ -26,6 +33,7 @@ interactive behavior remain manual/local verification only.
 | Microsoft.ML.OnnxRuntime | Deterministic tests over tiny in-memory graphs; manual real-model and GPU verification |
 | Avalonia | Deterministic application-host configuration tests; manual/local UI verification |
 | CommunityToolkit.Mvvm | Deterministic tests over the generated properties and commands |
+| DemaConsulting.TestResults | Deterministic tests over the TRX and JUnit XML files written by SpeechCli self-validation |
 | BuildMark | Self-validation CLI suite plus pipeline evidence via build-notes document |
 | FileAssert | Self-validation CLI suite plus transitive evidence from document assertions |
 | Pandoc | Pipeline evidence: FileAssert assertions on each generated HTML document |

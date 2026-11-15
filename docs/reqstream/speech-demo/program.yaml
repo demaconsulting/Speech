@@ -18,6 +18,8 @@ sections:
             justification: |
               Avalonia's design-time tooling invokes the builder without running Main, so the
               builder must hold all application configuration and no application logic.
+            children:
+              - SpeechDemo-OTS-Avalonia-ApplicationBuilderConfiguration
             tests:
               - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
 

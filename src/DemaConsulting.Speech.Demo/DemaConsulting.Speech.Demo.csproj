@@ -2,11 +2,10 @@
 
   <PropertyGroup>
     <!-- Build Configuration.
-         Single target framework (not the library's net8.0;net9.0;net10.0 matrix): this demo is
-         an application, never a published NuGet package, so it has no consumer compatibility
-         matrix to satisfy. Targeting the floor of the library's supported range proves the
-         library is genuinely consumable at its oldest supported runtime. -->
-    <TargetFramework>net8.0</TargetFramework>
+         Single target framework (not the library's multi-targeted matrix): this demo is an
+         application, never a published NuGet package, so it has no consumer compatibility
+         matrix to satisfy. Applications and tools target net10.0 (LTS). -->
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

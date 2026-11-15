@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 # SpeechCli
 
 `speech-cli` is a cross-platform .NET global tool that exposes the

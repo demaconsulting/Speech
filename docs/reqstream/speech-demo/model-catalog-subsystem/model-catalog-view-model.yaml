@@ -185,6 +185,8 @@ sections:
                 justification: |
                   The library guarantees nothing was installed after a cancellation, so the
                   model is offered again rather than marked corrupt.
+                children:
+                  - SpeechDemo-OTS-CommunityToolkitMvvm-CommandCancellation
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
 

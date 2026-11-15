@@ -19,7 +19,7 @@ desktop lifetime.
 
 - `OnFrameworkInitializationCompleted` composes the desktop shell by calling `Compose` with
   `LaunchOptions`, assigns the result to the main window and subscribes `ShutdownRequested`,
-  delegating to `HandleShutdownRequested` and cancelling the request when it returns true.
+  delegating to `HandleShutdownRequested` and canceling the request when it returns true.
 - `HandleShutdownRequested(Action, MainWindowViewModel, Func<Task>?)` is the testable shutdown decision;
   the optional last argument is a test seam awaited before the teardown steps so cleanup can be
   held pending. The

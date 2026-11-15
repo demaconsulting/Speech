@@ -259,7 +259,7 @@ samples, and that a final result's text has passed through the owning model's
 `RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults`
 
 Verifies that `GetResultsAsync` is single-consumer (a concurrent second enumeration throws
-`InvalidOperationException`), that cancelling the consumer's token ends its enumeration without
+`InvalidOperationException`), that canceling the consumer's token ends its enumeration without
 stopping the session itself, that a faulted session surfaces
 `RecognitionSessionFaultedException` from the active enumeration, that a slow consumer only ever
 sees the latest coalesced provisional rather than a queue of stale ones, and that final results

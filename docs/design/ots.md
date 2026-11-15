@@ -27,10 +27,27 @@ The SpeechDemo application adds two runtime NuGet dependencies of its own, `Aval
 Neither is referenced by the Speech library, and the library's project file fails the build if an
 `Avalonia*` package reference ever appears in it.
 
+The SpeechCli tool adds one runtime NuGet dependency of its own, `DemaConsulting.TestResults`,
+which serializes the results of its built-in self-validation as TRX or JUnit XML. It is not
+referenced by the Speech library.
+
 All remaining OTS items listed below are build-time and quality-pipeline tools, not runtime
 library dependencies. Each OTS item provides one stage of the documentation,
 requirements-traceability, testing, and quality-reporting pipeline invoked by `build.ps1`,
 `lint.ps1`, and the CI workflow.
+
+## Requirements Structure
+
+OTS requirements are linked into the requirements tree by who uses the OTS item:
+
+- Build, analysis, review, test, and documentation tools are children of the repository
+  quality requirements in `docs/reqstream/quality.yaml` (IDs `Speech-Quality-*`). Each quality
+  requirement states a repository or process outcome, such as peer review or requirements
+  traceability, and never names the tool, so the outcome survives a tool change.
+- Runtime OTS items (PortAudioSharp2, System.Numerics.Tensors, Microsoft.ML.OnnxRuntime,
+  SherpaOnnx, SharpCompress, Avalonia, CommunityToolkit.Mvvm, and DemaConsulting.TestResults) are
+  children of the system, subsystem, or unit requirement of the software item that uses them, so
+  each is traceable to the behavior it supports.
 
 ## OTS Items
 
@@ -43,6 +60,7 @@ requirements-traceability, testing, and quality-reporting pipeline invoked by `b
 | SharpCompress | Managed BZip2/tar archive reader for SpeechSherpa model installs |
 | Avalonia | Cross-platform desktop UI framework hosting the SpeechDemo application |
 | CommunityToolkit.Mvvm | MVVM change-notification and command source generators for SpeechDemo |
+| DemaConsulting.TestResults | TRX and JUnit XML serializer for SpeechCli self-validation results |
 | BuildMark | Generates build-notes documentation from GitHub Actions metadata |
 | FileAssert | Validates generated documents against acceptance criteria |
 | Pandoc | Converts Markdown documentation to HTML |

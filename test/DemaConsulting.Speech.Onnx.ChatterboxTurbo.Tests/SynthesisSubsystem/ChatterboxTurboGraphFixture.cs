@@ -1,4 +1,3 @@
-// cspell:ignore keepdims
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.SynthesisSubsystem;
 
 /// <summary>

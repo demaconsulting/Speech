@@ -1,5 +1,4 @@
 ---
-# cspell:ignore Kaldi
 # sherpa-onnx OTS Software Requirements
 #
 # Requirements for the org.k2fsa.sherpa.onnx managed speech-inference API package.

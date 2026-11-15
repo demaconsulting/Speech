@@ -1,5 +1,4 @@
 ---
-# cspell:ignore Alsa
 # Software Unit Requirements for PortAudio supporting types
 #
 # These grouped requirements cover PortAudioDeviceInfo, PortAudioHostApiInfo,

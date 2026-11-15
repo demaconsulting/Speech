@@ -70,6 +70,8 @@ sections:
                 justification: |
                   Speaking the exact text the user entered, on the device the user chose, is the
                   panel's core purpose.
+                children:
+                  - SpeechDemo-OTS-CommunityToolkitMvvm-AsyncCommands
                 tests:
                   - SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
 
@@ -439,6 +441,8 @@ sections:
                 justification: |
                   A voice pack install or removal rebuilds the model, so the panel must adopt the
                   new voice list immediately.
+                children:
+                  - SpeechDemo-OTS-CommunityToolkitMvvm-Commands
                 tests:
                   - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 

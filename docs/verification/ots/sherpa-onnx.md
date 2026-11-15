@@ -1,4 +1,3 @@
-<!-- cspell:ignore Kaldi -->
 ## SherpaOnnx Verification
 
 This document provides the verification evidence for the SherpaOnnx (`org.k2fsa.sherpa.onnx`) OTS

@@ -1,4 +1,3 @@
-<!-- cspell:ignore ALSA portaudio -->
 ### PortAudio
 
 #### Verification Approach

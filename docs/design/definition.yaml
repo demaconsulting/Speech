@@ -1,6 +1,7 @@
 ---
 resource-path:
   - docs/design
+  - docs/design/generated
   - docs/template
 input-files:
   - docs/design/title.txt
@@ -182,7 +183,9 @@ input-files:
   - docs/design/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md
@@ -206,6 +209,7 @@ input-files:
   - docs/design/ots/system-numerics-tensors.md
   - docs/design/ots/avalonia.md
   - docs/design/ots/community-toolkit-mvvm.md
+  - docs/design/ots/test-results.md
   - docs/design/ots/buildmark.md
   - docs/design/ots/fileassert.md
   - docs/design/ots/pandoc.md
@@ -220,5 +224,6 @@ input-files:
 template: template.html
 table-of-contents: true
 number-sections: true
+embed-resources: true
 filters:
   - docs/filters/canvasnet.lua

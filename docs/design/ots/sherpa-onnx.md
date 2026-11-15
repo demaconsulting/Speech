@@ -1,4 +1,3 @@
-<!-- cspell:ignore Kaldi -->
 ## SherpaOnnx
 
 ### Purpose

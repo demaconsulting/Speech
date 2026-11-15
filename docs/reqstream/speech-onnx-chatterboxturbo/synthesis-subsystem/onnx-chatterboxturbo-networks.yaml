@@ -46,6 +46,8 @@ sections:
                   continues from the previous steps and returns the last position's logits.
                 justification: |
                   Incremental generation needs each step to reuse the earlier steps.
+                children:
+                  - Speech-OTS-MicrosoftMlOnnxRuntime-CacheCarryOver
                 tests:
                   - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
 
@@ -84,6 +86,8 @@ sections:
                 justification: |
                   Exports of the encoder differ in output naming; the named export is the
                   primary contract.
+                children:
+                  - Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
                 tests:
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
 
@@ -93,6 +97,8 @@ sections:
                   unnamed outputs and bind them by position.
                 justification: |
                   Some exports drop the output names but keep the documented order.
+                children:
+                  - Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
                 tests:
                   - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
 

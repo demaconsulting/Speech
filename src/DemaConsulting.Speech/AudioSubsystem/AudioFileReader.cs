@@ -77,10 +77,22 @@ public static class AudioFileReader
     /// <summary>
     ///     Reads an audio file and down-mixes it to mono.
     /// </summary>
-    /// <param name="path">The file path.</param>
+    /// <remarks>
+    ///     Convenience wrapper over <see cref="Read(string, AudioFileReadOptions?)"/> for consumers, such as speech
+    ///     recognizers, that need a single channel of samples rather than an <see cref="AudioClip"/>. Multi-channel
+    ///     audio is down-mixed with <see cref="AudioClip.ToMono"/>, and the sample rate is that of the decoded clip
+    ///     (no resampling is performed). Stateless and thread-safe.
+    /// </remarks>
+    /// <param name="path">The file path. Must not be null or blank.</param>
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
-    /// <returns>The mono samples and their sample rate.</returns>
-    /// <inheritdoc cref="Read(string, AudioFileReadOptions?)" path="/exception"/>
+    /// <returns>The mono samples and their sample rate in hertz.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="path"/> is null or blank.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <c>options.MaxSamples</c> or <c>options.MaxEncodedBytes</c> is negative (after the file-exists check).</exception>
+    /// <exception cref="FileNotFoundException">Thrown when no file exists at the path (a path naming a directory is reported the same way).</exception>
+    /// <exception cref="InvalidDataException">Thrown when the file is not a well-formed WAV or FLAC file, or is larger than <see cref="AudioFileReadOptions.MaxEncodedBytes"/> or decodes to more than <see cref="AudioFileReadOptions.MaxSamples"/> samples.</exception>
+    /// <exception cref="NotSupportedException">Thrown when a WAV file uses an unsupported encoding.</exception>
+    /// <exception cref="IOException">Thrown, unwrapped, when the file cannot be opened or read (for example it is locked by another process).</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown, unwrapped, when the caller lacks permission to read the file.</exception>
     public static (float[] Samples, int SampleRate) ReadMono(string path, AudioFileReadOptions? options = null)
     {
         var clip = Read(path, options);
@@ -90,10 +102,20 @@ public static class AudioFileReader
     /// <summary>
     ///     Reads audio from a stream and down-mixes it to mono.
     /// </summary>
-    /// <param name="stream">A readable stream; reading starts at its current position.</param>
+    /// <remarks>
+    ///     Convenience wrapper over <see cref="Read(Stream, AudioFileReadOptions?)"/> for consumers, such as speech
+    ///     recognizers, that need a single channel of samples rather than an <see cref="AudioClip"/>. Multi-channel
+    ///     audio is down-mixed with <see cref="AudioClip.ToMono"/>, and the sample rate is that of the decoded clip
+    ///     (no resampling is performed). The stream is read to its end but not closed. Stateless and thread-safe
+    ///     apart from the caller-owned stream.
+    /// </remarks>
+    /// <param name="stream">A readable stream; reading starts at its current position (normally the start of the file). Must not be null.</param>
     /// <param name="options">Decode options, or <see langword="null"/> for the defaults.</param>
-    /// <returns>The mono samples and their sample rate.</returns>
-    /// <inheritdoc cref="Read(Stream, AudioFileReadOptions?)" path="/exception"/>
+    /// <returns>The mono samples and their sample rate in hertz.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="stream"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="AudioFileReadOptions.MaxSamples"/> or <see cref="AudioFileReadOptions.MaxEncodedBytes"/> is negative.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the data is not a well-formed WAV or FLAC file (including a seekable stream positioned at or past its end), or is larger than <see cref="AudioFileReadOptions.MaxEncodedBytes"/> or decodes to more than <see cref="AudioFileReadOptions.MaxSamples"/> samples.</exception>
+    /// <exception cref="NotSupportedException">Thrown when a WAV file uses an unsupported encoding.</exception>
     public static (float[] Samples, int SampleRate) ReadMono(Stream stream, AudioFileReadOptions? options = null)
     {
         var clip = Read(stream, options);

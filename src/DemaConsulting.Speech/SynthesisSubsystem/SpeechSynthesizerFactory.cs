@@ -22,7 +22,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     that is not installed, a model whose role is not synthesis, and a machine missing the
 ///     sherpa-onnx native runtime all return <see cref="UnavailableSpeechSynthesizerEngine.Instance"/>
 ///     and are reported through the diagnostics sink. A null argument or an invalid enum value is a
-///     programming error rather than a machine state, and still throws; so does cancelling the
+///     programming error rather than a machine state, and still throws; so does canceling the
 ///     supplied cancellation token via <see cref="OperationCanceledException"/>.
 ///     <para>
 ///     This factory takes no playback device: an engine loaded here can create many sessions over
