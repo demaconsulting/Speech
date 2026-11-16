@@ -119,8 +119,10 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// </remarks>
     public TextAnalysisResult Analyze(string text, CancellationToken cancellationToken)
     {
-        var analysis = AnalyzeDetailed(text, cancellationToken);
-        return new TextAnalysisResult(analysis.Annotations, analysis.SentenceBreaks);
+        // This is the path every synthesis request takes, so it runs the shared core without a
+        // detailed-token list: no AnalyzedToken and no per-token text copy is ever built.
+        var (annotations, sentenceBreaks) = AnalyzeCore(text, detailedTokens: null, cancellationToken);
+        return new TextAnalysisResult(annotations, sentenceBreaks);
     }
 
     /// <summary>
@@ -145,6 +147,42 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// </remarks>
     public EnglishTextAnalysis AnalyzeDetailed(string text, CancellationToken cancellationToken)
     {
+        // Run the shared core, asking it to materialize every token as it walks them.
+        var tokens = new List<AnalyzedToken>();
+        var (annotations, sentenceBreaks) = AnalyzeCore(text, tokens, cancellationToken);
+        return new EnglishTextAnalysis(tokens.AsReadOnly(), sentenceBreaks, annotations);
+    }
+
+    /// <summary>
+    ///     Runs the one analysis both public entry points share, so their annotations, sentence
+    ///     breaks, cancellation checkpoints, diagnostics counts and thread-safety cannot diverge,
+    ///     while letting <see cref="Analyze"/> skip the per-token objects only
+    ///     <see cref="AnalyzeDetailed"/> needs.
+    /// </summary>
+    /// <param name="text">
+    ///     The text to analyze. Must not be null; not retained after the call returns.
+    /// </param>
+    /// <param name="detailedTokens">
+    ///     When not null, a list that receives one <see cref="AnalyzedToken"/> (including its
+    ///     text copy) per token; when null, no token object and no text copy is created.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the analysis cooperatively.</param>
+    /// <returns>
+    ///     The read-only annotations and sentence breaks (never null), built from the same walk
+    ///     whatever <paramref name="detailedTokens"/> is.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is canceled.</exception>
+    /// <remarks>
+    ///     Keeps no state beyond the call (the only mutation is of the caller's own
+    ///     <paramref name="detailedTokens"/>), so it is thread-safe; reports one counts-only event
+    ///     to the optional diagnostics sink.
+    /// </remarks>
+    private (IReadOnlyList<SegmentAnnotation> Annotations, IReadOnlyList<int> SentenceBreaks) AnalyzeCore(
+        string text,
+        List<AnalyzedToken>? detailedTokens,
+        CancellationToken cancellationToken)
+    {
         // Reject bad input and an already-canceled operation before any work, including before
         // the tagger could be loaded.
         ArgumentNullException.ThrowIfNull(text);
@@ -158,9 +196,9 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         var sentences = _adapter.Analyze(analysisText, _tagPartOfSpeech, cancellationToken);
 
         // Step 3: build the tokens, annotations and sentence breaks from the source text.
-        var tokens = new List<AnalyzedToken>();
         var annotations = new List<SegmentAnnotation>();
         var sentenceBreaks = new List<int>();
+        var tokenCount = 0;
         var unknownWords = 0;
         for (var sentenceIndex = 0; sentenceIndex < sentences.Count; sentenceIndex++)
         {
@@ -177,18 +215,20 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             foreach (var token in sentence)
             {
                 // Building the result is part of the request: look at the token periodically.
-                if (tokens.Count % PartOfSpeechAdapter.CancellationCheckInterval == PartOfSpeechAdapter.CancellationCheckInterval - 1)
+                if (tokenCount % PartOfSpeechAdapter.CancellationCheckInterval == PartOfSpeechAdapter.CancellationCheckInterval - 1)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                tokens.Add(new AnalyzedToken(
+                // Only the detailed path pays for the token object and its text copy.
+                detailedTokens?.Add(new AnalyzedToken(
                     token.Start,
                     token.Length,
                     text.Substring(token.Start, token.Length),
                     token.Tag,
                     token.Confidence,
                     token.IsKnownWord));
+                tokenCount++;
 
                 if (token.Tag is null || token.Tag is PunctuationTag or SymbolTag)
                 {
@@ -213,8 +253,8 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         // sentence) must neither return nor report; then report one aggregate-counts event and
         // return the immutable result.
         cancellationToken.ThrowIfCancellationRequested();
-        _diagnostics.ReportRequest(new AnalysisCounts(sentences.Count, tokens.Count, annotations.Count, unknownWords));
-        return new EnglishTextAnalysis(tokens.AsReadOnly(), sentenceBreaks.AsReadOnly(), annotations.AsReadOnly());
+        _diagnostics.ReportRequest(new AnalysisCounts(sentences.Count, tokenCount, annotations.Count, unknownWords));
+        return (annotations.AsReadOnly(), sentenceBreaks.AsReadOnly());
     }
 
     /// <summary>

@@ -411,6 +411,33 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Equal(detailed.SentenceBreaks, result.SentenceBreaks);
     }
 
+    /// <summary>Proves both entry points share one analysis: identical annotations and breaks over placeholders, surrogates, CRLF and several sentences.</summary>
+    /// <param name="text">The text to analyze through both entry points.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData("Hello")]
+    [InlineData("He left home. She stayed. Nobody knew why.")]
+    [InlineData("I've \uFFFC read it. \uFFFC This record is old.\uFFFCPlease record it!")]
+    [InlineData("\uFFFC\uFFFC\uFFFC")]
+    [InlineData("Smile \uD83D\uDE00 and wave \uD83D\uDE00. Then go \uD83D\uDE00\uD83D\uDE00!")]
+    [InlineData("Wave\uD83D\uDE00\uFFFC\uD83D\uDE00word. Next sentence \uD83D\uDE00\uFFFC ends.")]
+    [InlineData("First line.\r\nSecond line, with a comma.\r\n\r\nThird: $5 (really)?\r\n")]
+    [InlineData("Dr. Smith said: \"Go.\" Then qzxvbnk left at 5 p.m. on 12 May 2024.")]
+    public void EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks(string text)
+    {
+        // Arrange
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        var detailed = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+
+        // Assert: same annotations and breaks, and the detailed path lists at least a token per annotation
+        Assert.Equal(detailed.Annotations, result.Annotations);
+        Assert.Equal(detailed.SentenceBreaks, result.SentenceBreaks);
+        Assert.True(detailed.Tokens.Count >= detailed.Annotations.Count);
+    }
+
     /// <summary>Proves selecting no annotations yields no annotations and no tagger load, but still supplies sentence breaks and untagged tokens.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger()

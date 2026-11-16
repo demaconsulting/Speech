@@ -17,16 +17,22 @@ only by the analyzer, with read-only `Tokens`, `SentenceBreaks` and `Annotations
 - **EnglishTextAnalyzer()** and **EnglishTextAnalyzer(options)**: take the options (defaults for the
   parameterless form) and snapshot them. A null options value throws `ArgumentNullException`. An internal
   constructor additionally takes the adapter so tests can observe tagger creation
-- **Analyze(text, cancellationToken)**: runs `AnalyzeDetailed` and returns its annotations and sentence
-  breaks as a `TextAnalysisResult`
-- **AnalyzeDetailed(text, cancellationToken)**: the algorithm below
+- **Analyze(text, cancellationToken)**: runs the shared analysis core without a detailed-token list and
+  returns its annotations and sentence breaks as a `TextAnalysisResult`; no `AnalyzedToken` and no
+  per-token text copy is created, because this is the path every synthesis request takes
+- **AnalyzeDetailed(text, cancellationToken)**: runs the same core with a token list, so each token is also
+  materialized as an `AnalyzedToken`; see the algorithm below
+- **AnalyzeCore(text, detailedTokens, cancellationToken)**: private; the algorithm below, shared by both
+  entry points so their annotations, breaks, cancellation checkpoints, counts and thread-safety cannot
+  diverge. The optional token list is the only difference between the two paths
 - **NeutralizePlaceholders(text)**: returns the text itself when it contains no `U+FFFC`, otherwise a copy
   of the same length in which each placeholder is a space
 
-**Algorithm of AnalyzeDetailed**: after rejecting a null text and an already-canceled token, neutralize the
+**Algorithm of the shared core**: after rejecting a null text and an already-canceled token, neutralize the
 placeholders and call `PartOfSpeechAdapter.Analyze` with the neutralized text, the selection flag and the
 token. For each sentence in order: if it is not the first, add the offset of its first token to the sentence
-breaks; for each token, add an `AnalyzedToken` whose `Text` is sliced from the original text; if the token
+breaks; for each token, count it and, only when a token list was supplied (`AnalyzeDetailed`), add an
+`AnalyzedToken` whose `Text` is sliced from the original text; if the token
 has a tag that is neither `PUNCT` nor `SYM`, count it as an unknown word when its lexicon flag is false and
 its tag is not `NUM`, and, unless it would start or end inside a surrogate pair, add one `en.upos`
 `SegmentAnnotation` over exactly the token with the tag name as its value. Finally report the counts and

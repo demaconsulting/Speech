@@ -41,12 +41,14 @@ Analyzing a text is a fixed sequence (see _EnglishTextAnalyzer Design_ for the a
    as a separator and no offset moves.
 3. Ask the adapter to split (and, when selected, tag) the neutralized text. Splitting alone needs no
    tagger; the adapter obtains the shared tagger lazily, once, only when a sentence is actually tagged.
-4. Build the tokens, the annotations (one `en.upos` per token that is not tagged `PUNCT` or `SYM`) and the
-   sentence breaks (the first token of every sentence after the first), all from the original text.
+4. Build the annotations (one `en.upos` per token that is not tagged `PUNCT` or `SYM`) and the sentence
+   breaks (the first token of every sentence after the first), all from the original text; only
+   `AnalyzeDetailed` also materializes each token.
 5. Check the token one last time, report one counts-only event through `AnalysisDiagnostics`, then return
    the result.
 
-`Analyze` returns the language-neutral `TextAnalysisResult`; `AnalyzeDetailed` returns the same analysis
+`Analyze` returns the language-neutral `TextAnalysisResult` through the shared core without creating any
+per-token object or text copy; `AnalyzeDetailed` runs the same core and returns the same analysis
 with every token's text, tag, confidence and known-word flag, which only the caller sees. The sentence
 breaks are always non-null so the Speech library treats the analyzer's opinion as authoritative, and the
 annotation selection never changes them.
