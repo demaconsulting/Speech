@@ -3284,6 +3284,26 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalyzerOptions.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs"
 
+  # SpeechTextEn-AnalysisSubsystem-PronunciationOverrides Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-PronunciationOverrides
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem PronunciationOverrides Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/pronunciation-overrides.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/pronunciation-overrides.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/pronunciation-overrides.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/PronunciationOverrides.cs"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/PronunciationOverrideEntry.cs"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/OverrideSyntax.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/PronunciationOverridesTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/TestData/overrides-dictionary.tsv"  # sample dictionary
+      - "test/DemaConsulting.Speech.Text.En.Tests/TestData/overrides-cases.tsv"  # golden test data
+
   # SpeechTextEn-AnalysisSubsystem-TextEnAnnotations Review (one per unit)
   - id: SpeechTextEn-AnalysisSubsystem-TextEnAnnotations
     title: >-

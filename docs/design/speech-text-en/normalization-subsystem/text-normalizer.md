@@ -9,7 +9,8 @@ clitic, apostrophe and dropped-character tables. It never rewrites the text and 
 `AcronymRecognizer` and an optional token-visited observer (a test seam; production passes null). It keeps no
 per-request state; the numeric rule uses the static `NumericExpressionRecognizer`. The static `Default`
 instance is created once, on first use, over the default lexicons.
-One pass runs in a private `ref struct` named `Pass` that holds the text, the token array, the builder, the
+One pass runs in a private `ref struct` named `Pass` that holds the text, the token array, the user directives
+and a cursor into them, the builder, the
 cancellation token, the index of the first token of the current tokenizer sentence, the cached
 "sentence is all capitals" decision (not yet computed, no, or yes) and the visited-token counter; it lives on
 the caller's stack. The constant `CancellationCheckInterval` is 256 and equals the part-of-speech adapter's.
@@ -20,14 +21,77 @@ its tokens (the next token processed is the one after it):
 
 | Rule | Condition | Result |
 | --- | --- | --- |
+| 0. User override | A directive from the host's pronunciation dictionary names this token | The directive wins over every rule below for the spoken form; the sentence-break edits of rules 3 and 4 are still made, see _User directives (rule 0)_ |
 | 1. Dropped | The token contains an invisible format character, or is a standalone bullet | One `Dropped` span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no other rule looks at that token |
 | 2. Clitic | The token is `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case) | A typographic apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is recorded |
 | 2a. Numeric expression | `NumericExpressionRecognizer.TryRecognize` accepts the token (a number, currency amount, percent, unit, time, date or digit group, alone or with its context tokens) or flags it as a numeric fallback | Up to two spans, emitted in order through `Emit`; the ambiguity and fallback counts are recorded; the tokens the expression consumed are skipped; a unit that may carry an abbreviation period uses the period and sentence rules (see _Numeric rule_) |
 | 3. Abbreviation | `AbbreviationResolver.TryResolve` accepts the token (alone, with its adjacent period token, or as an initial) | The period and sentence rules below decide the span, its period and the break edits |
-| 4. Acronym or initialism | `AcronymRecognizer.TryRecognize` accepts the token | A single `Initialism` span; a dotted form uses the period and sentence rules as class `Free` |
+| 4. Acronym or initialism | `AcronymRecognizer.TryRecognize` accepts the token | A single `Initialism` span (spelled); a dotted form uses the period and sentence rules as class `Free`; an ampersand initialism is decomposed, see _Spelled replacements_ |
 | 5. Symbol or mark | A standalone operator or mark, or a mark, `&` or `/` inside a word (tables below) | `Symbol` spans |
 | 6. Elision apostrophe | A typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`, `'cause`, `'em` | `Apostrophe` spans |
 | 7. Identity | Anything else | Nothing is recorded: the deferred capabilities and every number the recognizer does not read pass through |
+
+**User directives (rule 0).** `Normalize` takes a strictly ascending list of `TokenDirective(tokenIndex, kind,
+value)` values that the analyzer resolved from the host's dictionary (see _PronunciationOverrides Design_);
+the default is none, which gives exactly the behavior without overrides. The pass keeps a cursor into the list.
+At the start of each token it first discards every directive whose index is below the token: such a token was
+consumed as a follow-up token of an earlier multi-token match (the `kg` of `5 kg`, the `million` of `$5
+million`, the `pm` of `5 pm`), the match is atomic and wins, and each such directive is counted as **ignored**.
+A directive at the token's own index is applied and the token is done (`return index + 1`): rules 1, 2, 2a, 5
+and 6 do not run, and rules 3 and 4 run only in decision-only mode (below), so a directive beats clitics,
+symbols, numeric heads, lexicon abbreviations, the acronym table and rule, and ampersand initialisms for the
+spoken form. The four kinds:
+
+| Kind | Effect | Counted |
+| --- | --- | --- |
+| `Skip` | Nothing is emitted; the token is spoken as written | applied |
+| `Replace` | One `Override` span over the token whose spoken text is the directive's value, through `Emit` (so the A6 separating space applies); never spelled | applied |
+| `Spell` | One `Override` span, spelled, whose spoken text is the token's ASCII letters upper-cased and separated by single spaces (`GIF` gives `G I F`) | applied; a token that is empty or not only ASCII letters is spoken as written and counted **ignored** (defensive: the dictionary cannot produce it) |
+| `Pronounce` | One `PronunciationMark` over the token with the directive's `scheme:phonemes` value; no span | applied |
+
+A `Replace` or `Pronounce` directive without a value is defective and handled like a defective `Spell`
+(spoken as written, ignored). After the last token the directives that remain (consumed by the last match) are
+counted as ignored. A directive list that is not strictly ascending, or names an index outside the token list
+(checked without arithmetic, so extreme values cannot overflow), throws `ArgumentException` before any rule
+runs.
+
+**Sentence breaks under a directive (decision-only mode).** A directive changes how a word is spoken, never
+where a sentence ends, and the abbreviation and acronym period rules (rules 3 and 4) are the only producers of
+force and suppress edits for a word a host can override. Before applying a directive (applied or defective
+alike), the pass therefore calls `PreserveBreakEdits`. Only a period makes those rules touch breaks, so it
+returns at once unless the token ends with a period or a lone period token touches it (no lookup, no
+allocation, constant work); otherwise it runs the same chain as `ProcessToken` (an abbreviation match wins
+over the acronym rule) through the same `ApplyPeriodRules` and `TryApplyAcronym` bodies with the parameter
+`decisionOnly` set. In that mode the period rules still find the following token, apply `SuppressBreak` or
+`ForceBreak` (including the name-continuation rule), and then return before `CountAmbiguous` and `Emit`: no span
+is emitted, no count changes, and so no replacement of the built-in rule can overlap the directive's own span.
+The period token that follows an overridden word (`Fig` and `.`) is then visited normally and makes no edit of
+its own. Consequences: the reconciled sentence breaks are identical with and without the directive, for
+example `See Fig. 5 for details.` keeps no break (the tokenizer's break before `5` is suppressed exactly as
+for the built-in reading) and `Hello—Dr. Smith left.` keeps its suppression, where the tokenizer separates the
+period of `Dr`; a built-in reading that a directive bypassed is not counted as ambiguous; every token is
+still visited once, so the cancellation cadence is unchanged; and the extra work is constant per directive
+token, so the pass stays linear. A numeric rule never needs a decision for a directive token, because a
+numeric expression starts with a digit, sign, currency symbol or `#` and a dictionary key starts with a
+letter.
+
+**Spelled replacements.** `Emit` decides once whether a replacement is spelled: unless the kind is `Override`
+(whose `Replace` directive is never spelled and whose `Spell` directive is spelled by definition), the replacement
+is spelled when its spoken text, before the A6 padding, is `[A-Z]( [A-Z])*` (`SpelledGrammar.IsLetterSequence`).
+That covers every initialism of the table and rule, dotted initialisms (`U.S.`), single-letter initials
+(`J.`), dotted credentials (`Ph.D.` gives `P H D`, `M.D.` gives `M D`) and the
+meridiem tokens of the lexicon (`p.m.`). Word replacements (`Doctor`) are not spelled. The builder then rejects
+a span marked spelled whose value is not a letter sequence (A11). The meridiem of a glued time (`5:30pm`) is part
+of the numeric span `five thirty P M`, which is a `DateTime` replacement and stays `en.norm` (the residual
+consumer note of the _Alignment Contract_).
+
+**Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`, with an optional possessive tail `'s`) cannot be one spelled
+span because the ampersand is the word `and`. `EmitAmpersandInitialism` emits one `Initialism` span per group of
+capital letters (spelled, letters only: `A T`) and one ` and ` `Symbol` span per ampersand; a possessive tail is
+left outside the spans, glued to the last group (the last group is not padded on its right), and a typographic
+apostrophe in the tail gets the usual `Apostrophe` span. The spoken text, obtained by applying the spans, is
+identical to what the single span used to give: `A T and T's`, `R and D`, `Q and A`, and `AT&T’s` gives `A T and
+T's`. Where a letter group touches an adjacent replacement, `Emit` separates the two with exactly one space.
 
 **Numeric rule (2a).** The rule sits before the abbreviation lexicon so that `5 ft.` reads the unit and
 `Jan. 5` leaves the number to this rule. A token with an invisible character is dropped by rule 1 first, so a
@@ -157,8 +221,9 @@ forms and rule-spelled forms alone.
   throws `ArgumentNullException`
 - **Default**: the shared instance over the default lexicons, created on first use under `Lazy<T>`; nothing
   is loaded when an analyzer is constructed
-- **Normalize(text, tokens, classifyClitics, cancellationToken)**: checks the arguments, checks the token,
-  verifies that every token is non-empty, ascending, non-overlapping and inside the text, then runs one
+- **Normalize(text, tokens, classifyClitics, cancellationToken, directives)**: checks the arguments, checks the
+  token, verifies that every token is non-empty, ascending, non-overlapping and inside the text, validates the
+  directives (strictly ascending, in range; `ArgumentException` otherwise), then runs one
   `Pass` and returns the builder's `AlignedText`. The cancellation token is checked at the start and each
   time the visited-token count reaches a multiple of 256. The observer, if any, is called with the index of
   each processed token before it is processed
@@ -170,9 +235,16 @@ forms and rule-spelled forms alone.
   letter (`AlignedTextBuilder.TouchesPreviousSpokenLetter`), and one trailing space where a letter or digit of
   the source touches the span, provided the replacement starts (leading) or ends (trailing) with a letter
   (A6). Only the later of two adjacent replacements pads the shared boundary, so it carries exactly one space
-  and no offset moves; `Dropped` and `Apostrophe` replacements are never padded
+  and no offset moves; `Dropped` and `Apostrophe` replacements are never padded. It also decides the spelled
+  flag of the span (see _Spelled replacements_)
+- **ApplyDirective, SpellAsciiLetters, EmitAmpersandInitialism, SpellGroup** (inside the pass): the effect of
+  one directive, the letters of a token made only of ASCII letters (null otherwise), the decomposition of an
+  ampersand initialism, and the letter-group joiner
+- **PreserveBreakEdits** (inside the pass): makes the sentence-break edits the abbreviation and acronym rules
+  would make for a directive's token, through `ApplyPeriodRules` and `TryApplyAcronym` with `decisionOnly` set,
+  emitting and counting nothing (see _Sentence breaks under a directive_)
 
-**Error Handling**: a null text, null collaborator or malformed token list throws `ArgumentNullException` or
+**Error Handling**: a null text, null collaborator, malformed token list or malformed directive list throws `ArgumentNullException` or
 `ArgumentException` before any rule runs; a canceled token throws `OperationCanceledException` at the next
 check, and nothing partial is returned. An `ArgumentException` from `AlignedTextBuilder.Add` means a rule
 broke the alignment contract and propagates unchanged: it is a defect of this unit, not of any input, and

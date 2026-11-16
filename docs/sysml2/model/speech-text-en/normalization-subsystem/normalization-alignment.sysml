@@ -1,10 +1,14 @@
 package SpeechTextEn {
     part def NormalizationAlignment {
-        doc /* The alignment contract of the normalization: the public NormalizationKind and
-             * CliticKind enumerations and the internal token, span, segment, builder and result
-             * types. The builder rejects any span that would break an alignment invariant
-             * (overlap, wrong order, empty span, whitespace edge, surrogate cut), and the result
-             * exposes the spans, the identity gaps, the spoken text and the reconciled sentence
+        doc /* The alignment contract of the normalization: the public NormalizationKind (including
+             * the host-override kind) and CliticKind enumerations and the internal token, span,
+             * pronunciation mark, directive, segment, builder and result
+             * types. The builder rejects any span or pronunciation mark that would break an
+             * alignment invariant (overlap, wrong order, empty span, whitespace edge, surrogate cut,
+             * a spelled span that is not a letter sequence), counts the overrides applied and
+             * ignored, and the result
+             * exposes the spans, the pronunciation marks, the identity gaps, the spoken text and the
+             * reconciled sentence
              * breaks; it also reports whether the previous span directly touches a position and
              * ends with a letter. */
 

@@ -174,7 +174,7 @@ public sealed class AnalysisSubsystemTests
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks\.$", reported.Message);
+        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks, \d+ overrides applied, \d+ overrides ignored\.$", reported.Message);
         foreach (var word in text.Split([' ', '.', '!'], StringSplitOptions.RemoveEmptyEntries))
         {
             Assert.DoesNotContain(word, reported.Message, StringComparison.OrdinalIgnoreCase);
@@ -228,5 +228,71 @@ public sealed class AnalysisSubsystemTests
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat.", cancellation.Token));
         Assert.Empty(sink.Events);
+    }
+
+    /// <summary>Proves every action of a dictionary read from the documented format reaches a consumer through the typed readers, which is the only way a backend is meant to read them, and a consumer that applies the documented algorithm gets the expected spoken text and phonemes.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders()
+    {
+        // Arrange
+        const string text = "Nginx runs a GIF in Polish, US and FBI and AT&T's SQL.";
+        var overrides = PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the consumer algorithm of the documentation, written against the public readers only
+        var replacements = new List<(int Start, int End, string Spoken, bool Spelled)>();
+        var pronunciations = new List<(string Word, PronunciationScheme Scheme, string Phonemes)>();
+        foreach (var annotation in result.Annotations)
+        {
+            if (TextEnAnnotations.TryReadReplacement(annotation, out var spoken, out var spelled))
+            {
+                replacements.Add((annotation.Start, annotation.End, spoken, spelled));
+            }
+            else if (TextEnAnnotations.TryReadPronunciation(annotation, out var scheme, out var phonemes))
+            {
+                pronunciations.Add((text.Substring(annotation.Start, annotation.Length), scheme, phonemes));
+            }
+        }
+
+        var builder = new System.Text.StringBuilder();
+        var position = 0;
+        foreach (var replacement in replacements.OrderBy(item => item.Start))
+        {
+            builder.Append(text, position, replacement.Start - position).Append(replacement.Spoken);
+            position = replacement.End;
+        }
+
+        builder.Append(text, position, text.Length - position);
+        Assert.Equal("engine ex runs a G I F in Polish, US and FBI and A T and T's sequel.", builder.ToString());
+        Assert.Equal([("Polish", PronunciationScheme.Ipa, "\u02C8po\u028Al\u026A\u0283")], pronunciations);
+        Assert.Equal(["G I F", "A T", "T"], replacements.Where(item => item.Spelled).Select(item => item.Spoken));
+        Assert.Contains(replacements, item => item.Spoken == "sequel" && !item.Spelled);
+    }
+
+    /// <summary>Proves the replacement annotations of every kind (normalization and spelling) are ascending and disjoint as one sequence, and pronunciations are disjoint from them, for a text mixing every rule and every override action.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint()
+    {
+        // Arrange
+        const string text = "Dr. Smith & Nginx paid $5 for the GIF at 5 pm; Polish FBI US NASA's AT&T. J. Smith Jr. Ph.D. left, kg 5 kg.";
+        var overrides = PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        var covering = result.Annotations.Where(annotation => annotation.Kind != TextEnAnnotations.PartOfSpeech).OrderBy(annotation => annotation.Start).ToList();
+        for (var i = 1; i < covering.Count; i++)
+        {
+            Assert.True(covering[i - 1].End <= covering[i].Start, $"'{covering[i - 1].Kind}' overlaps '{covering[i].Kind}' at {covering[i].Start}");
+        }
+
+        Assert.Contains(covering, annotation => annotation.Kind == TextEnAnnotations.Pronunciation);
+        Assert.Contains(covering, annotation => annotation.Kind == TextEnAnnotations.SpellOut);
+        Assert.Contains(covering, annotation => annotation.Kind == TextEnAnnotations.Normalized);
     }
 }

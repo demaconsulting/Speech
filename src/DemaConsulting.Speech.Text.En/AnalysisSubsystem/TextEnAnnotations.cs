@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
@@ -10,10 +11,23 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 /// <remarks>
 ///     The core library carries <see cref="SegmentAnnotation"/>s opaquely, so the vocabulary has
 ///     to live with the package that produces it. All six kinds the package family defines are
-///     declared here so a backend can reference stable names from the first release, but only
-///     <see cref="PartOfSpeech"/> and <see cref="Normalized"/> are produced by this release; the
-///     others are reserved for later releases and are never emitted today. A backend must ignore
-///     any kind it does not recognize. The type is static and therefore thread-safe.
+///     declared here so a backend can reference stable names from the first release; this release
+///     produces <see cref="PartOfSpeech"/>, <see cref="Normalized"/>, <see cref="SpellOut"/> and
+///     <see cref="Pronunciation"/>, and <see cref="Reading"/> and <see cref="ReadingConfidence"/>
+///     are reserved for a later release and are never emitted today. A backend must ignore any
+///     kind it does not recognize. The type is static and therefore thread-safe.
+///     <para>
+///     <b>Replacement family.</b> <see cref="Normalized"/> and <see cref="SpellOut"/> are the two
+///     annotations that replace the spoken text of a span. Together they form one sequence of
+///     ascending, non-overlapping spans. To obtain the spoken text of a segment, read each with
+///     <see cref="TryReadReplacement"/>, sort by <c>Start</c>, emit the text between them unchanged
+///     and each value in place of its span; when <c>isSpelled</c> is true, speak each capital
+///     letter of the value by its letter name, never as a word (so a lone <c>A</c> or <c>I</c> is
+///     never the article or the pronoun). <see cref="Pronunciation"/> annotations replace nothing:
+///     a backend that supports the scheme uses the phonemes for the word the annotation covers
+///     and a backend that does not speaks the word as usual. Pronunciation annotations never
+///     overlap each other or a replacement.
+///     </para>
 /// </remarks>
 public static class TextEnAnnotations
 {
@@ -25,8 +39,9 @@ public static class TextEnAnnotations
     /// <remarks>
     ///     The analyzed text is never rewritten: a span is changed only where an annotation says
     ///     so, and unchanged text is never annotated. The <c>en.norm</c> annotations of one text
-    ///     never overlap each other.
-    ///     To obtain the spoken text of a segment, sort its <c>en.norm</c> annotations by
+    ///     never overlap each other (nor an <see cref="SpellOut"/> annotation).
+    ///     To obtain the spoken text of a segment, sort its replacement annotations (<c>en.norm</c>
+    ///     and <c>en.spell</c>, see <see cref="TryReadReplacement"/>) by
     ///     <c>Start</c>, then emit the text between them unchanged and each annotation's
     ///     <c>Value</c> in place of its span. A <c>Value</c> already carries any single space it
     ///     needs next to a touching word, so nothing is inserted between the pieces. Annotations
@@ -65,15 +80,33 @@ public static class TextEnAnnotations
     public const string ReadingConfidence = "en.reading-confidence";
 
     /// <summary>
-    ///     Reserved, not yet emitted: the <c>Value</c> is a host-supplied pronunciation override
-    ///     for the annotated word.
+    ///     The <c>Value</c> is a host-supplied pronunciation for the annotated word, always written
+    ///     <c>scheme:phonemes</c> with a lower-case scheme from the closed list <c>ipa</c> and
+    ///     <c>arpabet</c> (see <see cref="PronunciationScheme"/>). Emitted by this release when a
+    ///     <see cref="PronunciationOverrides"/> entry with the pronunciation action matches; see
+    ///     <see cref="TryReadPronunciation"/>.
     /// </summary>
+    /// <remarks>
+    ///     The span is exactly one word token and the word is not replaced. A backend that cannot
+    ///     use the scheme or the phonemes speaks the word as it would without the annotation.
+    ///     The value never contains a tag placeholder; the library checks the syntax of the
+    ///     phonemes but not whether they belong to a particular phoneme inventory.
+    /// </remarks>
     public const string Pronunciation = "en.pron";
 
     /// <summary>
-    ///     Reserved, not yet emitted: the <c>Value</c> is the letters to speak one by one for an
-    ///     initialism.
+    ///     The <c>Value</c> is the letters to speak one by one, by letter name: single capital
+    ///     ASCII letters separated by single spaces (<c>F B I</c>), with at most one padding space on
+    ///     either side where the span touches a letter. Emitted by this release for initialisms,
+    ///     dotted initialisms, single-letter initials, meridiem letters and the spell-out
+    ///     override; see <see cref="TryReadSpellOut"/>.
     /// </summary>
+    /// <remarks>
+    ///     It replaces the span exactly like <see cref="Normalized"/> (the two form one sequence of
+    ///     non-overlapping replacement spans, see <see cref="TryReadReplacement"/>), with the
+    ///     added promise that every letter is a letter name, never a word: a lone <c>A</c> is the
+    ///     letter, not the article, and a lone <c>I</c> is the letter, not the pronoun.
+    /// </remarks>
     public const string SpellOut = "en.spell";
 
     /// <summary>
@@ -148,6 +181,113 @@ public static class TextEnAnnotations
         }
 
         spokenText = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    ///     Reads the letters out of a <see cref="SpellOut"/> annotation.
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="spokenLetters">
+    ///     When this method returns <see langword="true"/>, the value exactly as stored (single
+    ///     capital letters separated by single spaces, possibly with one padding space on either
+    ///     side); otherwise an empty string.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="annotation"/> has kind
+    ///     <see cref="SpellOut"/> and a well-formed letter sequence; otherwise
+    ///     <see langword="false"/> (a wrong kind or malformed value is not an error).
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>Stateless and thread-safe.</remarks>
+    public static bool TryReadSpellOut(SegmentAnnotation annotation, out string spokenLetters)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        if (string.Equals(annotation.Kind, SpellOut, StringComparison.Ordinal) && SpelledGrammar.IsLetterSequence(annotation.Value))
+        {
+            spokenLetters = annotation.Value;
+            return true;
+        }
+
+        spokenLetters = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    ///     Reads the scheme and phonemes out of a <see cref="Pronunciation"/> annotation.
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="scheme">The phoneme notation when this method returns <see langword="true"/>; otherwise the default value.</param>
+    /// <param name="phonemes">
+    ///     When this method returns <see langword="true"/>, the phonemes after the first colon of
+    ///     the value, in the syntax of <paramref name="scheme"/>; otherwise an empty string.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="annotation"/> has kind
+    ///     <see cref="Pronunciation"/> and a value <c>scheme:phonemes</c> with a known scheme and
+    ///     phonemes that satisfy that scheme's syntax; otherwise <see langword="false"/> (a wrong
+    ///     kind, an unknown scheme or malformed phonemes are not an error: the backend then speaks
+    ///     the word as usual).
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>Stateless and thread-safe.</remarks>
+    public static bool TryReadPronunciation(SegmentAnnotation annotation, out PronunciationScheme scheme, out string phonemes)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        if (string.Equals(annotation.Kind, Pronunciation, StringComparison.Ordinal)
+            && OverrideSyntax.ParsePronunciation(annotation.Value, out scheme, out phonemes) is null)
+        {
+            return true;
+        }
+
+        scheme = default;
+        phonemes = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    ///     Reads the spoken replacement out of either replacement annotation: a
+    ///     <see cref="Normalized"/> one (words) or a <see cref="SpellOut"/> one (letters).
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="spokenText">
+    ///     When this method returns <see langword="true"/>, the exact replacement for the
+    ///     annotated span (possibly empty for a normalization that is spoken as nothing);
+    ///     otherwise an empty string.
+    /// </param>
+    /// <param name="isSpelled">
+    ///     <see langword="true"/> when the replacement is a letter sequence to be spoken by letter
+    ///     name (a <see cref="SpellOut"/> annotation); <see langword="false"/> for words.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> for a <see cref="Normalized"/> annotation, or for a
+    ///     <see cref="SpellOut"/> annotation with a well-formed letter sequence; otherwise
+    ///     <see langword="false"/> (another kind or a malformed spelled value).
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>
+    ///     The single entry point a backend uses to collect the replacement annotations of a
+    ///     segment. Stateless and thread-safe.
+    /// </remarks>
+    public static bool TryReadReplacement(SegmentAnnotation annotation, out string spokenText, out bool isSpelled)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        if (TryReadNormalized(annotation, out spokenText))
+        {
+            isSpelled = false;
+            return true;
+        }
+
+        if (TryReadSpellOut(annotation, out spokenText))
+        {
+            isSpelled = true;
+            return true;
+        }
+
+        isSpelled = false;
         return false;
     }
 }

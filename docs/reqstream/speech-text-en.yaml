@@ -9,8 +9,10 @@
 # depends on it. This is a preview: part-of-speech annotation, sentence boundaries and the
 # normalization of English text (abbreviations including month and weekday abbreviations, symbols,
 # apostrophes and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and
-# dates, delivered as annotations that never rewrite the text) are provided; later increments add
-# pronunciation overrides. Each requirement
+# dates, delivered as annotations that never rewrite the text), host-supplied pronunciation overrides
+# (whole words spoken as written, replaced by plain words, spelled letter by letter or given a
+# phoneme string) and the spell-out annotation for letter sequences are provided; later increments add
+# heteronym readings. Each requirement
 # states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Tests - see the subsystem/unit-level reqstream
@@ -95,7 +97,8 @@ sections:
         title: >-
           The library shall report one aggregate-counts event per analyzed text to a host-supplied
           diagnostics sink, counting sentences, tokens, annotations, unknown words, normalizations,
-          ambiguous readings and numeric fallbacks, shall never include any text content in it, and
+          ambiguous readings, numeric fallbacks, overrides applied and overrides ignored, shall
+          never include any text content or any content of a pronunciation dictionary in it, and
           shall not let a failing sink interrupt an analysis.
         tags: [system]
         justification: |
@@ -104,12 +107,16 @@ sections:
           normalizations, of readings chosen by default where the words around an abbreviation or
           a number did not decide (an abbreviation, a bare year, a month-first date) and of
           numeric text left as written tell a host how much the normalization changed and how
-          often it had to guess or give up, which is the evidence for tuning it. A diagnostics
-          sink is an observer, and a fault in it must never stop speech.
+          often it had to guess or give up, which is the evidence for tuning it. The counts of
+          overrides applied and ignored tell a host whether its dictionary is doing anything and
+          whether an entry is shadowed by a number or unit rule, without revealing a word of the
+          dictionary, which can hold names. A diagnostics sink is an observer, and a fault in it
+          must never stop speech.
         children:
           - SpeechTextEn-Analysis-DiagnosticsAggregation
         tests:
           - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+          - SpeechTextEn_Diagnostics_Overrides_ReportCountsOnlyAndNeverDictionaryContent
 
       - id: SpeechTextEn-Normalization-ReplacementAnnotations
         title: >-
@@ -317,24 +324,125 @@ sections:
         tests:
           - SpeechTextEn_Analyze_AcronymsAndInitialisms_AreCaseSensitive
 
+      - id: SpeechTextEn-Normalization-SpelledInitialisms
+        title: >-
+          The library shall annotate every replacement that is a sequence of single capital
+          letters (an initialism, a dotted initialism, a single-letter initial, a credential such
+          as Ph.D., the letters of a meridiem and a word a host asked to spell out) with a
+          spell-out annotation instead of a normalization annotation, shall give it a value of
+          capital letters separated by single spaces that a backend speaks by letter name and
+          never as a word, shall decompose an ampersand initialism into letter spans and an "and"
+          span, and shall leave the spoken text of every such replacement unchanged.
+        tags: [system]
+        justification: |
+          A phoneme backend that receives the replacement "A" or "I" as plain text cannot tell
+          the letter from the article or the pronoun, so a letter sequence has to carry its own
+          annotation kind that promises letter names. The ampersand of "AT&T" is the word "and",
+          not a letter, so such a token is split into spans that each keep that promise. Moving
+          initialisms to the new kind changes only the annotation kind, never the words a
+          consumer that applies both kinds speaks, so the earlier golden spoken texts hold.
+        children:
+          - SpeechTextEn-Analysis-SpelledInitialismAnnotations
+          - SpeechTextEn-Normalization-SpelledReplacements
+        tests:
+          - SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut
+          - SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans
+
+      - id: SpeechTextEn-Overrides-WordOverrides
+        title: >-
+          The library shall let a host supply a dictionary of pronunciation overrides, each
+          matching one whole word of the analyzed text, and shall apply the matching entry to that
+          word by annotation only, without rewriting the text: speaking the word as written,
+          replacing it with plain words (a normalization annotation), spelling it letter by letter
+          (a spell-out annotation) or giving a backend a phoneme string for it (a pronunciation
+          annotation, which replaces nothing), and shall reject a dictionary when normalization
+          is not selected.
+        tags: [system]
+        justification: |
+          No built-in table knows a product name, a brand or a person's name, and a model that
+          mispronounces it cannot be fixed by editing the library. A host must be able to say
+          how a word is spoken, as written, as other words, letter by letter or with exact
+          phonemes, and the Speech library's annotations are positions in the text it supplied, so
+          the override has to be an annotation like every other normalization. Overrides are applied
+          by the normalization pass, so accepting a dictionary and silently ignoring it would hide a
+          configuration mistake.
+        children:
+          - SpeechTextEn-Analysis-OverrideAnnotations
+          - SpeechTextEn-Normalization-TokenDirectives
+        tests:
+          - SpeechTextEn_Analyze_Overrides_AnnotateWholeWordsPerAction
+          - SpeechTextEn_Analyze_OverrideActions_ReadBackThroughTypedReaders
+
+      - id: SpeechTextEn-Overrides-Precedence
+        title: >-
+          The library shall let an override win over every built-in normalization rule for the
+          spoken form of its word, a case-sensitive entry over a case-insensitive one, shall leave
+          a word that an
+          earlier multi-token match has already consumed (the unit of "5 kg", the magnitude of
+          "$5 million", the meridiem of "5 pm") to that match, shall count such an override as
+          ignored, and shall leave the sentence breaks, and so the chunks, exactly as they are
+          without the override, even for an abbreviation word whose period the tokenizer separates
+          ("Fig" in "See Fig. 5 for details.").
+        tags: [system]
+        justification: |
+          A host that asks for "US" to be spoken as written must not be overruled by the
+          acronym table, and a name that differs from a common word only in case needs the exact
+          spelling to win. A number with its unit or magnitude is one construct that the number
+          rules read as a whole, so an override for the unit word cannot be applied to part of it;
+          doing so silently would be a surprise, so the override is ignored and the count says
+          that it happened. An override changes how a word is spoken, never where a sentence
+          ends: a changed break would split "See Fig." from "5 for details." in synthesis.
+        children:
+          - SpeechTextEn-Analysis-OverrideAnnotations
+          - SpeechTextEn-Normalization-TokenDirectives
+        tests:
+          - SpeechTextEn_Analyze_OverridePrecedence_UserOverridesBuiltInRules
+          - SpeechTextEn_Analyze_OverrideOnConsumedToken_IsIgnoredAndCounted
+          - SpeechTextEn_Analyze_OverrideOnAbbreviationWord_KeepsSentenceBreaksAndChunks
+
+      - id: SpeechTextEn-Overrides-Dictionary
+        title: >-
+          The library shall build a pronunciation dictionary from entries or from a tab-separated
+          file, validating every entry and bounding its size, shall report a bad entry or line by
+          its position and a fixed reason but never by its content, and shall keep the dictionary
+          immutable and safe to share across analyzers, requests and threads.
+        tags: [system]
+        justification: |
+          A dictionary is host configuration, usually a text file kept by someone who is not a
+          programmer, so a mistake must be reported with its line number; it may contain names that
+          must never appear in an error message or log; it comes from a file the host does not
+          control, so its size is bounded; and one instance serves every request of a model on
+          many threads, so it cannot change after it was validated.
+        children:
+          - SpeechTextEn-Analysis-OverrideDictionary
+        tests:
+          - SpeechTextEn_Overrides_SampleDictionaryFile_LoadsAndDrivesAnalysis
+          - SpeechTextEn_Overrides_SharedAnalyzerConcurrentRequests_ReturnIdenticalResults
+
       - id: SpeechTextEn-Normalization-AlignmentContract
         title: >-
-          The library shall place every normalization on exact spans of the analyzed text that
-          are in text order, do not overlap, start and end on non-whitespace characters, and
-          contain no whitespace and no semicolon (a comma or colon only between two digits of a
-          number), shall leave case and punctuation outside the spans untouched, shall drop no
+          The library shall place every normalization, every spell-out and every pronunciation
+          on exact spans of the analyzed text. The normalizations and spell-outs together shall be
+          in text order and not overlap, the pronunciations shall be in text order and overlap
+          neither each other nor a normalization or spell-out, and every span shall start and end
+          on non-whitespace characters and contain no whitespace and no semicolon (a comma or colon
+          only between two digits of a number); spell-out values shall be capital letters separated
+          by single spaces. The library shall leave case and punctuation outside the spans
+          untouched, shall drop no
           character of the text silently, shall give each token of a multi-token numeric
           construct (a date, an amount with a magnitude word, a mixed number) its own span, and
-          shall lose no normalization when the Speech library chunks the text, including a chunk
+          shall lose no annotation when the Speech library chunks the text, including a chunk
           that consists only of symbols and a sentence or clause cut between the tokens of a
-          date.
+          date or an overridden word.
         tags: [system]
         justification: |
           The Speech library re-bases annotations onto its chunks and discards one that starts
           or ends on trimmed whitespace, covers a placeholder or is split by a chunk boundary, so
           a span that breaks these rules would silently lose its normalization. A reader must
           also be able to trust that the only differences between the original text and its
-          spoken form are the annotated spans, which is what makes the normalization auditable.
+          spoken form are the annotated spans, which is what makes the normalization auditable;
+          a consumer applies the normalizations and the spell-outs as one sequence, so they cannot
+          overlap each other, and a pronunciation is attached to a word that is not also replaced.
           A text such as "&" has no letter or digit, so chunking that treated it as punctuation
           would discard the word it was normalized to. A numeric construct such as "January 5,
           2024" or "$5 million" crosses spaces and a comma that the chunker may cut at, so each
@@ -345,6 +453,8 @@ sections:
           - SpeechTextEn-Normalization-SpanContract
           - SpeechTextEn-Normalization-ChunkSafeSpans
           - SpeechTextEn-Normalization-DecomposedAnnotations
+          - SpeechTextEn-Normalization-SpelledReplacements
+          - SpeechTextEn-Normalization-TokenDirectives
         tests:
           - SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract
           - SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking
@@ -360,6 +470,9 @@ sections:
           - SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization
           - SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit
           - SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations
+          - SpeechTextEn_Analyze_Overrides_AnnotationsSatisfyAlignmentContract
+          - SpeechTextEn_SynthesisSession_OverrideAnnotations_SurviveChunking
+          - SpeechTextEn_SynthesisSession_OverridesAroundAudioTag_KeepEveryAnnotation
 
       - id: SpeechTextEn-Normalization-LinearTime
         title: >-

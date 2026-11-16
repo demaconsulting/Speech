@@ -30,8 +30,13 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     <para>
 ///     Normalization (selected by default) is an annotation over the original text, never a
 ///     rewrite: <see cref="TextEnAnnotations.Normalized"/> annotations name the spoken form of a
-///     span, and the sentence breaks are reconciled so an abbreviation period ends a sentence only
-///     where the abbreviation is its last word. It needs no tagger.
+///     span, <see cref="TextEnAnnotations.SpellOut"/> annotations name letters to be spoken by
+///     letter name (initialisms such as <c>FBI</c>), and the sentence breaks are reconciled so an
+///     abbreviation period ends a sentence only where the abbreviation is its last word. It needs
+///     no tagger. A host-supplied <see cref="PronunciationOverrides"/> dictionary
+///     (<see cref="EnglishTextAnalyzerOptions.Overrides"/>) is applied by the same pass and beats
+///     every built-in rule; its pronunciation entries become
+///     <see cref="TextEnAnnotations.Pronunciation"/> annotations.
 ///     </para>
 ///     <para>
 ///     Instances are immutable and thread-safe: one analyzer may serve any number of concurrent
@@ -77,6 +82,9 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <summary>Whether this analyzer normalizes and reconciles sentence breaks.</summary>
     private readonly bool _normalize;
 
+    /// <summary>The host-supplied overrides, or <see langword="null"/> when there are none (an empty dictionary is stored as none); immutable, so sharing the reference is the snapshot.</summary>
+    private readonly PronunciationOverrides? _overrides;
+
     /// <summary>
     ///     Initializes a new instance with the default options: part-of-speech and normalization
     ///     annotations on and no diagnostics sink.
@@ -94,6 +102,10 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     ///     affect this analyzer. Must not be null.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="options"/> carries a non-empty override dictionary but does not select
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/>.
+    /// </exception>
     public EnglishTextAnalyzer(EnglishTextAnalyzerOptions options)
         : this(options, PartOfSpeechAdapter.Shared)
     {
@@ -119,6 +131,10 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <param name="adapter">The part-of-speech seam to use. Must not be null.</param>
     /// <param name="normalizer">The normalizer to use, or <see langword="null"/> for the shared default.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> or <paramref name="adapter"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="options"/> carries a non-empty override dictionary but does not select
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/>, which is what applies overrides.
+    /// </exception>
     internal EnglishTextAnalyzer(EnglishTextAnalyzerOptions options, PartOfSpeechAdapter adapter, TextNormalizer? normalizer)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -130,6 +146,14 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         _diagnostics = new AnalysisDiagnostics(options.Diagnostics);
         _tagPartOfSpeech = options.Annotations.HasFlag(TextEnAnnotationSelection.PartOfSpeech);
         _normalize = options.Annotations.HasFlag(TextEnAnnotationSelection.Normalization);
+        _overrides = options.Overrides is { Count: > 0 } overrides ? overrides : null;
+
+        // Overrides are applied by the normalization pass; silently ignoring them would hide a
+        // configuration mistake, so the combination is rejected up front.
+        if (_overrides is not null && !_normalize)
+        {
+            throw new ArgumentException("Pronunciation overrides require the Normalization annotation family to be selected.", nameof(options));
+        }
     }
 
     /// <summary>
@@ -243,13 +267,26 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         var sentences = _adapter.Analyze(analysisText, _tagPartOfSpeech, cancellationToken);
 
         // Step 3: normalize over the same tokens, independently of tagging. Clitic roles are
-        // public detail, so only the detailed path pays for classifying them.
-        var aligned = _normalize
-            ? (_normalizer ?? TextNormalizer.Default).Normalize(analysisText, FlattenTokens(sentences), classifyClitics: detailedTokens is not null, cancellationToken)
-            : null;
+        // public detail, so only the detailed path pays for classifying them. User overrides are
+        // resolved to token directives first (one pass over the tokens, no per-token object).
+        TokenDirective[] directives = [];
+        AlignedText? aligned = null;
+        if (_normalize)
+        {
+            var normalizationTokens = FlattenTokens(sentences);
+            if (_overrides is not null)
+            {
+                directives = _overrides.Resolve(analysisText, normalizationTokens, cancellationToken);
+            }
+
+            aligned = (_normalizer ?? TextNormalizer.Default).Normalize(analysisText, normalizationTokens, classifyClitics: detailedTokens is not null, cancellationToken, directives);
+        }
+
         var spans = aligned?.Spans;
+        var pronunciations = aligned?.Pronunciations;
         var clitics = aligned?.Clitics;
         var spanIndex = 0;
+        var pronunciationIndex = 0;
         var cliticIndex = 0;
 
         // Step 4: build the tokens, annotations and tokenizer sentence breaks from the source text.
@@ -321,12 +358,20 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                     }
                 }
 
-                // Then every normalization that starts inside this token, so the annotations stay
-                // in text order with the part of speech before the normalization at equal starts.
+                // Then every replacement (normalization or spelling) that starts inside this token, and
+                // then every pronunciation, so the annotations stay in text order with the part of
+                // speech first at equal starts. A token carries either a replacement or a
+                // pronunciation, never both.
                 while (spans is not null && spanIndex < spans.Count && spans[spanIndex].Start < token.Start + token.Length)
                 {
                     AddNormalization(text, spans[spanIndex], annotations, detailedNormalizations);
                     spanIndex++;
+                }
+
+                while (pronunciations is not null && pronunciationIndex < pronunciations.Count && pronunciations[pronunciationIndex].Start < token.Start + token.Length)
+                {
+                    annotations.Add(new SegmentAnnotation(pronunciations[pronunciationIndex].Start, pronunciations[pronunciationIndex].Length, TextEnAnnotations.Pronunciation, pronunciations[pronunciationIndex].Value));
+                    pronunciationIndex++;
                 }
             }
         }
@@ -336,6 +381,12 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         {
             AddNormalization(text, spans[spanIndex], annotations, detailedNormalizations);
             spanIndex++;
+        }
+
+        while (pronunciations is not null && pronunciationIndex < pronunciations.Count)
+        {
+            annotations.Add(new SegmentAnnotation(pronunciations[pronunciationIndex].Start, pronunciations[pronunciationIndex].Length, TextEnAnnotations.Pronunciation, pronunciations[pronunciationIndex].Value));
+            pronunciationIndex++;
         }
 
         // Step 5: the breaks are the tokenizer's, reconciled with the normalization when selected.
@@ -354,13 +405,16 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             unknownWords,
             aligned?.Spans.Count ?? 0,
             aligned?.AmbiguousCount ?? 0,
-            aligned?.FallbackCount ?? 0));
+            aligned?.FallbackCount ?? 0,
+            aligned?.OverridesApplied ?? 0,
+            aligned?.OverridesIgnored ?? 0));
         return (annotations.AsReadOnly(), sentenceBreaks);
     }
 
     /// <summary>
-    ///     Adds the <see cref="TextEnAnnotations.Normalized"/> annotation of one span, and its
-    ///     detailed description when requested.
+    ///     Adds the <see cref="TextEnAnnotations.Normalized"/> or, for a spelled span, the
+    ///     <see cref="TextEnAnnotations.SpellOut"/> annotation of one span, and its detailed
+    ///     description when requested.
     /// </summary>
     /// <param name="text">The analyzed text.</param>
     /// <param name="span">The span.</param>
@@ -368,8 +422,8 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <param name="detailedNormalizations">The detailed list to append to, or <see langword="null"/>.</param>
     private static void AddNormalization(string text, NormalizedSpan span, List<SegmentAnnotation> annotations, List<AnalyzedNormalization>? detailedNormalizations)
     {
-        annotations.Add(new SegmentAnnotation(span.Start, span.Length, TextEnAnnotations.Normalized, span.Spoken));
-        detailedNormalizations?.Add(new AnalyzedNormalization(span.Start, span.Length, text.Substring(span.Start, span.Length), span.Spoken, span.Kind));
+        annotations.Add(new SegmentAnnotation(span.Start, span.Length, span.Spelled ? TextEnAnnotations.SpellOut : TextEnAnnotations.Normalized, span.Spoken));
+        detailedNormalizations?.Add(new AnalyzedNormalization(span.Start, span.Length, text.Substring(span.Start, span.Length), span.Spoken, span.Kind) { IsSpelled = span.Spelled });
     }
 
     /// <summary>

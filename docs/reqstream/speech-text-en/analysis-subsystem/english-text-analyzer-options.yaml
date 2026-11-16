@@ -61,3 +61,16 @@ sections:
                 tests:
                   - EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted
                   - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Overrides
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall carry an optional pronunciation
+                  dictionary that is null by default, can be set at initialization and replaced in a
+                  with-expression without changing the original, and is held by reference.
+                justification: |
+                  The dictionary is host configuration that belongs with the other analyzer
+                  options; it is immutable, so sharing the reference is safe and no copy of a
+                  possibly large dictionary is made, and the default keeps an analyzer without
+                  overrides exactly as it was.
+                tests:
+                  - EnglishTextAnalyzerOptions_Overrides_DefaultsToNullAndCopiesWithWith

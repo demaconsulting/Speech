@@ -28,7 +28,8 @@ sections:
               - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NormalizationCounts
                 title: >-
                   The AnalysisDiagnostics class shall carry in its event the number of
-                  normalizations, the number of readings that were chosen by default without a
+                  normalizations (replacements of the normalization and the spell-out kind), the
+                  number of readings that were chosen by default without a
                   clear context (abbreviations and numeric readings), and the number of numeric
                   fallbacks, and the analyzer shall supply them from the normalization result
                   of the request, counting sentences as the reconciled breaks plus one when the
@@ -42,6 +43,24 @@ sections:
                   - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
                   - AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers
                   - EnglishTextAnalyzer_Analyze_NormalizedText_ReportsNormalizationAndAmbiguityCounts
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-OverrideCounts
+                title: >-
+                  The AnalysisDiagnostics class shall carry in its event, after the other counts
+                  and in the fixed order, the number of pronunciation overrides applied to a word
+                  and the number ignored because an earlier multi-token match had already consumed
+                  the word, both zero without a dictionary, and the analyzer shall supply them from
+                  the normalization result of the request without reporting any word, key, payload,
+                  scheme or entry count of the dictionary.
+                justification: |
+                  The two counts tell a host whether its dictionary does anything and whether an
+                  entry is shadowed by a number or unit rule, which is the evidence for fixing the
+                  dictionary; the dictionary itself can hold names, so none of its content may reach
+                  a sink.
+                tests:
+                  - AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered
+                  - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
+                  - EnglishTextAnalyzer_Analyze_Overrides_ReportCountsAndNoContent
 
               - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
                 title: >-

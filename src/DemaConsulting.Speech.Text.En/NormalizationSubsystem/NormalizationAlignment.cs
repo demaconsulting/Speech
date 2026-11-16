@@ -63,6 +63,13 @@ public enum NormalizationKind
     ///     full and singular or plural by the number.
     /// </summary>
     Unit = 9,
+
+    /// <summary>
+    ///     A host-supplied override replaced the word's spoken text (<c>Say</c> and
+    ///     <c>SpellOut</c> pronunciation overrides); the replacement is exactly what the
+    ///     dictionary entry says.
+    /// </summary>
+    Override = 10,
 }
 
 /// <summary>
@@ -145,7 +152,12 @@ internal readonly record struct NormalizationToken(int Start, int Length, bool S
 ///     part of it); empty only for <see cref="NormalizationKind.Dropped"/>.
 /// </param>
 /// <param name="Kind">What produced the replacement.</param>
-internal readonly record struct NormalizedSpan(int Start, int Length, string Spoken, NormalizationKind Kind)
+/// <param name="Spelled">
+///     Whether the replacement is a letter sequence to be spoken by letter name
+///     (<c>[A-Z]( [A-Z])*</c> apart from one padding space per side); such a span is annotated
+///     <c>en.spell</c> instead of <c>en.norm</c>.
+/// </param>
+internal readonly record struct NormalizedSpan(int Start, int Length, string Spoken, NormalizationKind Kind, bool Spelled = false)
 {
     /// <summary>
     ///     Gets the exclusive end offset of the span.
@@ -162,6 +174,94 @@ internal readonly record struct NormalizedSpan(int Start, int Length, string Spo
 internal readonly record struct CliticMark(int Start, int Length, CliticKind Kind);
 
 /// <summary>
+///     What a user pronunciation override asks the normalizer to do with one token.
+/// </summary>
+internal enum TokenDirectiveKind
+{
+    /// <summary>Speak the token as written; every built-in rule is bypassed.</summary>
+    Skip = 0,
+
+    /// <summary>Replace the token by the directive's plain-word value.</summary>
+    Replace = 1,
+
+    /// <summary>Spell the token's ASCII letters one by one.</summary>
+    Spell = 2,
+
+    /// <summary>Attach the directive's <c>scheme:phonemes</c> value to the token without replacing it.</summary>
+    Pronounce = 3,
+}
+
+/// <summary>
+///     One decision about a single token, taken before the built-in rules run.
+/// </summary>
+/// <param name="TokenIndex">The index of the token in the token list; strictly ascending across a directive list.</param>
+/// <param name="Kind">What to do with the token.</param>
+/// <param name="Value">
+///     The replacement words (<see cref="TokenDirectiveKind.Replace"/>) or the
+///     <c>scheme:phonemes</c> value (<see cref="TokenDirectiveKind.Pronounce"/>); null for the
+///     other kinds.
+/// </param>
+internal readonly record struct TokenDirective(int TokenIndex, TokenDirectiveKind Kind, string? Value);
+
+/// <summary>
+///     A pronunciation attached to one token's exact source characters; the characters are not
+///     replaced.
+/// </summary>
+/// <param name="Start">The UTF-16 offset of the token.</param>
+/// <param name="Length">The token's length in UTF-16 code units.</param>
+/// <param name="Value">The <c>scheme:phonemes</c> value; never empty.</param>
+internal readonly record struct PronunciationMark(int Start, int Length, string Value)
+{
+    /// <summary>
+    ///     Gets the exclusive end offset of the mark.
+    /// </summary>
+    internal int End => Start + Length;
+}
+
+/// <summary>
+///     The grammar of a spelled replacement, shared by the alignment contract and the typed
+///     annotation readers so the two cannot drift apart.
+/// </summary>
+internal static class SpelledGrammar
+{
+    /// <summary>
+    ///     Tells whether a value is a letter sequence: one or more single ASCII capital letters
+    ///     separated by exactly one space each, with at most one padding space on either side.
+    /// </summary>
+    /// <param name="value">The value to test.</param>
+    /// <returns><see langword="true"/> for <c>[ ]?[A-Z]( [A-Z])*[ ]?</c>.</returns>
+    internal static bool IsLetterSequence(ReadOnlySpan<char> value)
+    {
+        if (!value.IsEmpty && value[0] == ' ')
+        {
+            value = value[1..];
+        }
+
+        if (!value.IsEmpty && value[^1] == ' ')
+        {
+            value = value[..^1];
+        }
+
+        // An odd length is required: n letters and n - 1 separators.
+        if (value.IsEmpty || (value.Length & 1) == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var valid = (i & 1) == 0 ? value[i] is >= 'A' and <= 'Z' : value[i] == ' ';
+            if (!valid)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+/// <summary>
 ///     One piece of the full partition of a text into changed spans and untouched gaps.
 /// </summary>
 /// <param name="Start">The UTF-16 offset of the piece.</param>
@@ -176,9 +276,11 @@ internal readonly record struct AlignedSegment(int Start, int Length, string Spo
 ///     a backend would misapply.
 /// </summary>
 /// <remarks>
-///     The contract (invariants A1 to A8 of the design) is: spans are ascending, disjoint and in
-///     bounds; every span is non-empty, starts and ends on non-whitespace, never covers a tag
-///     placeholder and never cuts a surrogate pair; break edits sit on token starts. The
+///     The contract (invariants A1 to A8 of the design) is: spans (and pronunciation marks) are
+///     ascending, disjoint and in bounds, spans and marks together forming one ascending
+///     sequence; every span is non-empty, starts and ends on non-whitespace, never covers a tag
+///     placeholder and never cuts a surrogate pair; a spelled span is a letter sequence; break
+///     edits sit on token starts. The
 ///     chunk-safety invariant (A5') - no whitespace, never a semicolon, a comma or colon only between
 ///     two ASCII digits - is guaranteed by the rules that create the spans (the recognizer's span
 ///     shapes) and verified by the property tests; the builder enforces the structural ones. A builder
@@ -193,6 +295,9 @@ internal sealed class AlignedTextBuilder
     /// <summary>The accepted spans, ascending.</summary>
     private readonly List<NormalizedSpan> _spans = [];
 
+    /// <summary>The accepted pronunciation marks, ascending.</summary>
+    private readonly List<PronunciationMark> _pronunciations = [];
+
     /// <summary>The offsets of breaks to force, in the order requested.</summary>
     private readonly List<int> _forcedBreaks = [];
 
@@ -205,6 +310,9 @@ internal sealed class AlignedTextBuilder
     /// <summary>The end of the last accepted span.</summary>
     private int _lastSpanEnd;
 
+    /// <summary>The end of the last accepted span or pronunciation mark, whichever ends later.</summary>
+    private int _lastCoveredEnd;
+
     /// <summary>Whether the spoken text of the last accepted span ends with a letter.</summary>
     private bool _lastSpokenEndsWithLetter;
     /// <summary>The end of the last accepted clitic mark.</summary>
@@ -215,6 +323,12 @@ internal sealed class AlignedTextBuilder
 
     /// <summary>The number of numeric fallbacks counted so far.</summary>
     private int _fallbacks;
+
+    /// <summary>The number of user overrides applied so far.</summary>
+    private int _overridesApplied;
+
+    /// <summary>The number of user overrides ignored so far.</summary>
+    private int _overridesIgnored;
 
     /// <summary>
     ///     Initializes a new builder for one pass over <paramref name="source"/>.
@@ -245,9 +359,9 @@ internal sealed class AlignedTextBuilder
             throw new ArgumentException("The span is empty or outside the text.", nameof(span));
         }
 
-        if (span.Start < _lastSpanEnd)
+        if (span.Start < _lastCoveredEnd)
         {
-            throw new ArgumentException("The span overlaps or precedes the previous span.", nameof(span));
+            throw new ArgumentException("The span overlaps or precedes the previous span or pronunciation.", nameof(span));
         }
 
         // A2: whitespace-free edges, no placeholder inside, no cut surrogate pair
@@ -284,9 +398,65 @@ internal sealed class AlignedTextBuilder
             throw new ArgumentException("Only a dropped span has an empty spoken text.", nameof(span));
         }
 
+        // A11: a spelled span speaks letters by name, so its text is exactly a letter sequence
+        if (span.Spelled && !SpelledGrammar.IsLetterSequence(span.Spoken))
+        {
+            throw new ArgumentException("A spelled span must be a sequence of single capital letters.", nameof(span));
+        }
+
         _spans.Add(span);
         _lastSpanEnd = span.End;
+        _lastCoveredEnd = span.End;
         _lastSpokenEndsWithLetter = span.Spoken.Length > 0 && char.IsLetter(span.Spoken[^1]);
+    }
+
+    /// <summary>
+    ///     Adds one pronunciation mark after checking it against the alignment contract.
+    /// </summary>
+    /// <param name="mark">The mark to add.</param>
+    /// <exception cref="ArgumentException">
+    ///     The mark is empty, out of bounds, out of order or overlapping a previous span or mark;
+    ///     starts or ends on whitespace; covers a tag placeholder; cuts a surrogate pair; or has a
+    ///     null, empty or placeholder-containing value.
+    /// </exception>
+    internal void AddPronunciation(PronunciationMark mark)
+    {
+        // The range is validated without computing Start + Length, which can overflow.
+        if (mark.Length <= 0 || mark.Start < 0 || mark.Start > _source.Length || mark.Length > _source.Length - mark.Start)
+        {
+            throw new ArgumentException("The pronunciation mark is empty or outside the text.", nameof(mark));
+        }
+
+        if (mark.Start < _lastCoveredEnd)
+        {
+            throw new ArgumentException("The pronunciation mark overlaps or precedes the previous span or mark.", nameof(mark));
+        }
+
+        var end = mark.Start + mark.Length;
+        if (char.IsWhiteSpace(_source[mark.Start]) || char.IsWhiteSpace(_source[end - 1]))
+        {
+            throw new ArgumentException("The pronunciation mark starts or ends on whitespace.", nameof(mark));
+        }
+
+        if (_source.AsSpan(mark.Start, mark.Length).Contains(TextAnalysisConventions.TagPlaceholder))
+        {
+            throw new ArgumentException("The pronunciation mark covers a tag placeholder.", nameof(mark));
+        }
+
+        var startsInsidePair = mark.Start > 0 && char.IsLowSurrogate(_source[mark.Start]) && char.IsHighSurrogate(_source[mark.Start - 1]);
+        var endsInsidePair = end < _source.Length && char.IsHighSurrogate(_source[end - 1]) && char.IsLowSurrogate(_source[end]);
+        if (startsInsidePair || endsInsidePair)
+        {
+            throw new ArgumentException("The pronunciation mark cuts a surrogate pair.", nameof(mark));
+        }
+
+        if (string.IsNullOrEmpty(mark.Value) || mark.Value.Contains(TextAnalysisConventions.TagPlaceholder))
+        {
+            throw new ArgumentException("The pronunciation value must be non-empty and free of tag placeholders.", nameof(mark));
+        }
+
+        _pronunciations.Add(mark);
+        _lastCoveredEnd = end;
     }
 
     /// <summary>
@@ -358,6 +528,17 @@ internal sealed class AlignedTextBuilder
     internal void CountFallback() => _fallbacks++;
 
     /// <summary>
+    ///     Counts one user override that was applied to its token.
+    /// </summary>
+    internal void CountOverrideApplied() => _overridesApplied++;
+
+    /// <summary>
+    ///     Counts one user override that was not applied because an earlier match had already
+    ///     consumed its token.
+    /// </summary>
+    internal void CountOverrideIgnored() => _overridesIgnored++;
+
+    /// <summary>
     ///     Finishes the pass.
     /// </summary>
     /// <returns>The immutable aligned text; the builder should not be used afterwards.</returns>
@@ -372,7 +553,10 @@ internal sealed class AlignedTextBuilder
             SortedDistinct(_suppressedBreaks),
             _clitics.ToArray(),
             _ambiguous,
-            _fallbacks);
+            _fallbacks,
+            _pronunciations.ToArray(),
+            _overridesApplied,
+            _overridesIgnored);
     }
 
     /// <summary>
@@ -437,6 +621,9 @@ internal sealed class AlignedText
     /// <param name="clitics">The clitic classifications, ascending.</param>
     /// <param name="ambiguousCount">The number of ambiguous resolutions.</param>
     /// <param name="fallbackCount">The number of numeric fallbacks; 0 when omitted.</param>
+    /// <param name="pronunciations">The pronunciation marks, ascending; none when omitted.</param>
+    /// <param name="overridesApplied">The number of user overrides applied; 0 when omitted.</param>
+    /// <param name="overridesIgnored">The number of user overrides ignored; 0 when omitted.</param>
     internal AlignedText(
         string source,
         IReadOnlyList<NormalizedSpan> spans,
@@ -444,7 +631,10 @@ internal sealed class AlignedText
         IReadOnlyList<int> suppressedBreaks,
         IReadOnlyList<CliticMark> clitics,
         int ambiguousCount,
-        int fallbackCount = 0)
+        int fallbackCount = 0,
+        IReadOnlyList<PronunciationMark>? pronunciations = null,
+        int overridesApplied = 0,
+        int overridesIgnored = 0)
     {
         Source = source;
         Spans = spans;
@@ -453,6 +643,9 @@ internal sealed class AlignedText
         Clitics = clitics;
         AmbiguousCount = ambiguousCount;
         FallbackCount = fallbackCount;
+        Pronunciations = pronunciations ?? [];
+        OverridesApplied = overridesApplied;
+        OverridesIgnored = overridesIgnored;
     }
 
     /// <summary>Gets the normalized text, exactly as it was supplied.</summary>
@@ -460,6 +653,15 @@ internal sealed class AlignedText
 
     /// <summary>Gets the changed spans only, ascending and disjoint; identity text is never listed.</summary>
     internal IReadOnlyList<NormalizedSpan> Spans { get; }
+
+    /// <summary>Gets the pronunciation marks, ascending and disjoint from each other and from every span; empty without overrides.</summary>
+    internal IReadOnlyList<PronunciationMark> Pronunciations { get; }
+
+    /// <summary>Gets the number of user overrides that were applied; 0 without overrides.</summary>
+    internal int OverridesApplied { get; }
+
+    /// <summary>Gets the number of user overrides that were not applied because an earlier match had consumed their token; 0 without overrides.</summary>
+    internal int OverridesIgnored { get; }
 
     /// <summary>Gets the offsets of tokens that must start a sentence, ascending and unique.</summary>
     internal IReadOnlyList<int> ForcedBreaks { get; }

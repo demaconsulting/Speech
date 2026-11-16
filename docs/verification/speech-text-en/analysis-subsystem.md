@@ -5,14 +5,16 @@
 The SpeechTextEn AnalysisSubsystem is verified through deterministic tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem` that need no network and no hardware. The
 subsystem-level tests in `AnalysisSubsystemTests.cs` exercise the units together through the public analyzer
-(the real options, annotation vocabulary, adapter and diagnostics reporter, over the real part-of-speech
-package, and, because the default options select normalization, the real NormalizationSubsystem too),
-observing tagger creation through a counting adapter so the shared process-wide tagger is never
-disturbed and "loaded once" and "never loaded" can be asserted. Each unit is verified in isolation by its own
+(the real options, annotation vocabulary, adapter, diagnostics reporter and pronunciation dictionary, over the real
+part-of-speech package, and, because the default options select normalization, the real NormalizationSubsystem
+too), observing tagger creation through a counting adapter so the shared process-wide tagger is never
+disturbed and "loaded once" and "never loaded" can be asserted. The override tests load the sample dictionary
+`TestData/overrides-dictionary.tsv` through its documented file format. Each unit is verified in isolation by its own
 test file (see the unit verification documents); the normalization pipeline of the analyzer (the order and
 merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detailed data, the selection
-flags, the cancellation inside normalization and the counts) is verified by the `EnglishTextAnalyzer` unit
-tests, and the normalization rules themselves by the NormalizationSubsystem tests (see _SpeechTextEn
+flags, the cancellation inside normalization and the counts) and the annotation of overrides and spelled
+initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary by the `PronunciationOverrides`
+unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see _SpeechTextEn
 NormalizationSubsystem Verification_).
 
 ### Test Environment
@@ -30,12 +32,16 @@ NormalizationSubsystem Verification_).
 The subsystem tests pass when: annotations read back through the typed reader at exactly the words they
 annotate; selecting no annotations yields none but still yields sentence breaks; breaks are authoritative
 and unaffected by abbreviations and tags, and an abbreviation title does not split a sentence under the default
-(normalizing) options; the normalization annotations read back at their spans, merged with the parts of speech,\nwith the sentence breaks reconciled; a placeholder is never covered and the analysis equals that of the
+(normalizing) options; the normalization annotations read back at their spans, merged with the parts of speech,
+with the sentence breaks reconciled; a placeholder is never covered and the analysis equals that of the
 same text with spaces; an unused analyzer, an untagged analysis and an empty text never load the tagger,
 while many concurrent requests load it exactly once and agree; one counts-only event (sentences, tokens,
-annotations, unknown words, normalizations, ambiguous readings, numeric fallbacks) is reported without any
-word and a throwing sink changes nothing; and cancellation, whether it arrives during tagger initialization or
-during the last sentence, throws `OperationCanceledException` and reports nothing.
+annotations, unknown words, normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides
+ignored) is reported without any word and a throwing sink changes nothing; every action of a pronunciation
+dictionary read from the documented file format reaches a consumer through the typed readers, which, applied by the
+documented algorithm, give the expected spoken text and phonemes; the replacement annotations of every kind form
+one ascending, disjoint sequence and the pronunciations are disjoint from them; and cancellation, whether it arrives
+during tagger initialization or during the last sentence, throws `OperationCanceledException` and reports nothing.
 
 ### Test Scenarios
 
@@ -81,8 +87,28 @@ all return the same annotations.
 `AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult`
 
 A text of invented words produces one Info event in the `TextEn.Analysis` category whose message matches the
-fixed template of six counts and contains none of the words; an analyzer whose sink throws returns the same
-result as one without a sink.
+fixed template of nine counts (ending with the overrides applied and ignored) and contains none of the words; an
+analyzer whose sink throws returns the same result as one without a sink.
+
+#### Pronunciation overrides through the typed readers
+
+**Test**: `AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders`
+
+The sample dictionary file is loaded and the text `Nginx runs a GIF in Polish, US and FBI and AT&T's SQL.` is
+analyzed. A consumer written only against `TextEnAnnotations.TryReadReplacement` and `TryReadPronunciation` applies
+the replacements in order and must obtain `engine ex runs a G I F in Polish, US and FBI and A T and T's sequel.`:
+the say entries become words, the spell entry and the ampersand initialism become letters, the skip entries leave
+`US` and `FBI` as written, and the one pronunciation (`Polish` with the IPA phonemes of the sample) is read with its
+scheme. The spelled values are `G I F`, `A T` and `T`, and the `sequel` replacement is not spelled.
+
+#### Disjoint replacements and pronunciations
+
+**Test**: `AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint`
+
+A text that mixes a title, an ampersand, an override, currency, a unit, a time, an initialism and a credential is
+analyzed with the sample dictionary. Every annotation other than the part of speech, in start order, ends before
+the next one starts, so the replacements of both kinds and the pronunciations form one non-overlapping sequence,
+and at least one pronunciation, one spell-out and one normalization annotation are present.
 
 #### Cancellation
 
@@ -94,5 +120,5 @@ a multi-sentence text; in the second it is canceled right after the only (last) 
 the analysis throws `OperationCanceledException`, returns no result and the sink receives no event.
 
 See also _SpeechTextEn System Verification_ and the unit documents `english-text-analyzer.md`,
-`english-text-analyzer-options.md`, `text-en-annotations.md`, `part-of-speech-adapter.md` and
-`analysis-diagnostics.md`.
+`english-text-analyzer-options.md`, `text-en-annotations.md`, `pronunciation-overrides.md`,
+`part-of-speech-adapter.md` and `analysis-diagnostics.md`.

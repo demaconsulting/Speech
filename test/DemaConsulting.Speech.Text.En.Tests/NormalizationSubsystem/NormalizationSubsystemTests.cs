@@ -719,13 +719,13 @@ public sealed class NormalizationSubsystemTests
                     var previous = result.Annotations[i - 1];
                     var current = result.Annotations[i];
                     Assert.True(
-                        previous.Start < current.Start || (previous.Start == current.Start && previous.Kind == TextEnAnnotations.PartOfSpeech && current.Kind == TextEnAnnotations.Normalized),
+                        previous.Start < current.Start || (previous.Start == current.Start && previous.Kind == TextEnAnnotations.PartOfSpeech && current.Kind is TextEnAnnotations.Normalized or TextEnAnnotations.SpellOut),
                         $"annotation order {context}");
                 }
 
                 Assert.Equal(
                     aligned.Spans.Select(span => (span.Start, span.Length, span.Spoken)),
-                    result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized).Select(annotation => (annotation.Start, annotation.Length, annotation.Value)));
+                    result.Annotations.Where(annotation => annotation.Kind is TextEnAnnotations.Normalized or TextEnAnnotations.SpellOut).Select(annotation => (annotation.Start, annotation.Length, annotation.Value)));
             }
         }
     }
@@ -947,6 +947,437 @@ public sealed class NormalizationSubsystemTests
     }
 
     /// <summary>
+    ///     Builds a deterministic random text from overridable words, numeric constructs, initialisms, punctuation, tag
+    ///     placeholders, whitespace variants and hostile characters.
+    /// </summary>
+    /// <param name="random">The generator.</param>
+    /// <param name="maxPieces">The most pieces to join.</param>
+    /// <returns>The text; may be empty.</returns>
+    private static string RandomOverrideText(Random random, int maxPieces)
+    {
+        string[] pieces =
+        [
+            "Nginx", "nginx", "NGINX", "Kubernetes", "kubernetes", "GIF", "gif", "Polish", "polish", "POLISH", "SQL", "sql", "NASA", "NASA's", "Nginx-based", "Wi-Fi", "Wi-Fi's", "Ph.D", "Ph.D.", "kg", "million",
+            "pm", "PM", "US", "us", "FBI", "CIA", "Mr", "Mr.", "Do", "Don't", "don't", "O'Brien", "O\u2019Brien", "\u0130stanbul", "ISTANBUL", "\U00010400\U00010401x", "Cafe", "AT&T", "AT&T's", "R&D", "Q&A",
+            "5", "$5", "$5 million", "5 kg", "5 pm", "5:30pm", "3 million", "J.", "U.S.", "p.m.", "Dr.", "St.", "&", "%", "50%", "January 5, 2024", "1,234.50",
+            ",", ".", ";", ":", "!", "?", "(", ")", "-", "/", "'", "\u2019", "\u200B", "\u2022", "\uD83D", "\uDE00", "\U0001F600", "e\u0301", "\u00E9", Tag, Tag + Tag, "\u00A0", "\0", new string('N', 70),
+        ];
+        string[] gaps = ["", " ", " ", " ", "\u00A0", "  ", "\t", "\n", ", ", "; "];
+        var builder = new StringBuilder();
+        var count = random.Next(0, maxPieces);
+        for (var i = 0; i < count; i++)
+        {
+            builder.Append(pieces[random.Next(pieces.Length)]).Append(gaps[random.Next(gaps.Length)]);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Loads the documented sample dictionary.</summary>
+    /// <returns>The dictionary.</returns>
+    private static PronunciationOverrides SampleOverrides() =>
+        PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+
+    /// <summary>Turns the result of a normalization into the annotations the analyzer would emit: replacements as <c>en.norm</c> or <c>en.spell</c>, pronunciations as <c>en.pron</c>.</summary>
+    /// <param name="aligned">The result.</param>
+    /// <returns>The annotations in text order.</returns>
+    private static List<SegmentAnnotation> ToAnnotations(AlignedText aligned) =>
+    [
+        .. aligned.Spans.Select(span => new SegmentAnnotation(span.Start, span.Length, span.Spelled ? "en.spell" : "en.norm", span.Spoken))
+            .Concat(aligned.Pronunciations.Select(mark => new SegmentAnnotation(mark.Start, mark.Length, "en.pron", mark.Value)))
+            .OrderBy(annotation => annotation.Start),
+    ];
+
+    /// <summary>
+    ///     Proves hostile random text with a real dictionary always yields results that satisfy the alignment contract:
+    ///     replacements (normalization and spelling together) and pronunciations are ascending and disjoint in bounds, spelled
+    ///     spans are letter sequences, every span and mark is chunk-safe, an independent applier agrees, and every directive is
+    ///     counted exactly once as applied or ignored.
+    /// </summary>
+    [Fact]
+    public void NormalizationSubsystem_AlignmentContract_RandomTextWithOverrides_SatisfiesAllInvariants()
+    {
+        // Arrange
+        var overrides = SampleOverrides();
+        var random = new Random(20260902);
+
+        for (var iteration = 0; iteration < 600; iteration++)
+        {
+            var text = RandomOverrideText(random, 30);
+            var neutralized = NormalizationHarness.Neutralize(text);
+            var tokens = NormalizationHarness.Tokenize(neutralized);
+            var directives = overrides.Resolve(neutralized, tokens, CancellationToken.None);
+            var context = $"in iteration {iteration}: '{Escape(text)}'";
+
+            // Act
+            var aligned = TextNormalizer.Default.Normalize(neutralized, tokens, false, CancellationToken.None, directives);
+
+            // Assert: every directive is counted exactly once
+            Assert.True(directives.Length == aligned.OverridesApplied + aligned.OverridesIgnored, $"directive count {context}");
+
+            // Assert A1', A12: one ascending, disjoint sequence of spans and marks, all in bounds
+            var covering = aligned.Spans.Select(span => (span.Start, span.End)).Concat(aligned.Pronunciations.Select(mark => (mark.Start, mark.End))).OrderBy(item => item.Start).ToList();
+            var previousEnd = 0;
+            foreach (var (start, end) in covering)
+            {
+                Assert.True(start >= previousEnd && end <= neutralized.Length && end > start, $"order or bounds {context}");
+                Assert.False(char.IsWhiteSpace(neutralized[start]) || char.IsWhiteSpace(neutralized[end - 1]), $"whitespace edge {context}");
+                Assert.False(start > 0 && char.IsLowSurrogate(neutralized[start]) && char.IsHighSurrogate(neutralized[start - 1]), $"cut pair {context}");
+                Assert.False(end < neutralized.Length && char.IsHighSurrogate(neutralized[end - 1]) && char.IsLowSurrogate(neutralized[end]), $"cut pair {context}");
+                previousEnd = end;
+            }
+
+            // Assert A11: spelled spans are letter sequences without whitespace, comma, semicolon or colon in their source
+            foreach (var span in aligned.Spans)
+            {
+                if (span.Spelled)
+                {
+                    Assert.Matches("^[A-Z]( [A-Z])*$", span.Spoken.Trim());
+                    Assert.True(span.Spoken.Length - span.Spoken.TrimStart().Length <= 1 && span.Spoken.Length - span.Spoken.TrimEnd().Length <= 1, $"padding {context}");
+                }
+
+                AssertChunkSafe(neutralized, span, context);
+            }
+
+            foreach (var mark in aligned.Pronunciations)
+            {
+                var source = neutralized.Substring(mark.Start, mark.Length);
+                Assert.DoesNotContain(source, character => char.IsWhiteSpace(character) || character is ',' or ';' or ':');
+                Assert.Contains(tokens, token => token.Start == mark.Start && token.Length == mark.Length);
+            }
+
+            // Assert: the independent consumer algorithm (en.norm and en.spell together) agrees with the production application
+            Assert.Equal(aligned.ApplySpokenForms(), NormalizationHarness.ApplyNormalizations(neutralized, ToAnnotations(aligned)));
+        }
+    }
+
+    /// <summary>
+    ///     Proves, with the real core <c>SentenceChunker.ChunkAligned</c>, that every replacement and pronunciation annotation of
+    ///     random override text lands in exactly one chunk on the same characters, at every length budget, with clause cuts,
+    ///     budget cuts and tag placeholders next to overridden words, and nothing is invented.
+    /// </summary>
+    [Fact]
+    public void NormalizationSubsystem_OverrideAnnotations_RealChunker_KeepEveryAnnotationInExactlyOneChunk()
+    {
+        // Arrange
+        var overrides = SampleOverrides();
+        string[] pieces =
+        [
+            "Nginx", "SQL", "Polish", "polish", "GIF", "kg", "US", "FBI", "CIA", "AT&T", "R&D", "5 kg", "$5 million", "U.S.", "J.", "Ph.D", "word", "and", "then", "Wi-Fi", "NASA's", "Cafe", Tag, "5:30pm",
+        ];
+        string[] separators = [" ", " ", " ", ", ", "; ", ": ", ". ", ", ", Tag, Tag + " "];
+        var random = new Random(20260903);
+
+        foreach (var budget in new[] { 200, 120, 60, 25 })
+        {
+            for (var iteration = 0; iteration < 150; iteration++)
+            {
+                var builder = new StringBuilder();
+                for (var i = 0; i < random.Next(3, 26); i++)
+                {
+                    builder.Append(pieces[random.Next(pieces.Length)]).Append(separators[random.Next(separators.Length)]);
+                }
+
+                var text = builder.ToString().TrimEnd();
+                var neutralized = NormalizationHarness.Neutralize(text);
+                var aligned = NormalizationHarness.NormalizeWithOverrides(text, overrides);
+                var annotations = ToAnnotations(aligned);
+                var breaks = aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
+
+                // Act: the chunker sees the text with its placeholders, as the session does
+                var chunks = SentenceChunker.ChunkAligned(text, annotations, breaks, budget);
+
+                // Assert: the sequence of (source characters, kind, value) the chunks carry equals the sequence emitted
+                var delivered = chunks
+                    .SelectMany(chunk => chunk.Annotations.Select(annotation => (chunk.Text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)))
+                    .ToList();
+                var emitted = annotations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)).ToList();
+                Assert.True(
+                    emitted.SequenceEqual(delivered),
+                    $"budget {budget}, iteration {iteration}: '{Escape(text)}' emitted {emitted.Count}, delivered {delivered.Count}");
+            }
+        }
+    }
+
+    /// <summary>Proves that for texts without any dictionary hit, a dictionary changes nothing: the whole result equals the result without a dictionary, and no override is counted.</summary>
+    [Fact]
+    public void NormalizationSubsystem_Normalize_DictionaryWithoutHits_EqualsNoDictionary()
+    {
+        // Arrange: a dictionary whose words never occur in the generated numeric texts
+        var overrides = PronunciationOverrides.Create(
+        [
+            PronunciationOverrideEntry.Say("Zorblax", "zor blax"),
+            PronunciationOverrideEntry.SpellOut("Qwerty", true),
+            PronunciationOverrideEntry.Pronounce("Frobnicate", PronunciationScheme.Ipa, "frobnikeit"),
+        ]);
+        var random = new Random(20260904);
+
+        for (var iteration = 0; iteration < 400; iteration++)
+        {
+            var text = RandomNumericText(random, 30);
+
+            // Act
+            var without = NormalizationHarness.Normalize(text);
+            var with = NormalizationHarness.NormalizeWithOverrides(text, overrides);
+
+            // Assert
+            Assert.True(Key(without) == Key(with), $"result differs in iteration {iteration}: '{Escape(text)}'");
+            Assert.Equal(0, with.OverridesApplied + with.OverridesIgnored);
+        }
+    }
+
+    /// <summary>Proves every override golden row passes unchanged under Turkish, Azeri, German, Thai and Persian current cultures: no culture-sensitive comparison or casing is involved.</summary>
+    [Fact]
+    public void NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults()
+    {
+        // Arrange
+        var cases = NormalizationHarness.ReadOverrideCases("overrides-cases.tsv");
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            foreach (var name in new[] { "tr-TR", "az-Latn-AZ", "de-DE", "th-TH", "fa-IR" })
+            {
+                CultureInfo.CurrentCulture = new CultureInfo(name);
+                CultureInfo.CurrentUICulture = new CultureInfo(name);
+                var overrides = SampleOverrides();
+
+                // Act / Assert
+                foreach (var row in cases)
+                {
+                    var aligned = NormalizationHarness.NormalizeWithOverrides(row.Input, overrides);
+                    Assert.True(row.Spoken == aligned.ApplySpokenForms(), $"{name}: row '{row.Id}' spoken '{aligned.ApplySpokenForms()}'");
+                    Assert.True(row.Applied == aligned.OverridesApplied && row.Ignored == aligned.OverridesIgnored, $"{name}: row '{row.Id}' counts");
+                }
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
+    }
+
+    /// <summary>The four directive kinds, with the value each needs, that the sentence-break differential test applies in turn.</summary>
+    private static readonly (TokenDirectiveKind Kind, string? Value)[] AllDirectiveKinds =
+    [
+        (TokenDirectiveKind.Skip, null),
+        (TokenDirectiveKind.Replace, "other words"),
+        (TokenDirectiveKind.Spell, null),
+        (TokenDirectiveKind.Pronounce, "ipa:abc"),
+    ];
+
+    /// <summary>
+    ///     Gets the reconciled sentence breaks of a normalization result: the tokenizer's breaks of the neutralized text with the
+    ///     result's forced breaks added and its suppressed breaks removed.
+    /// </summary>
+    /// <param name="aligned">The result.</param>
+    /// <param name="neutralized">The neutralized text the result indexes.</param>
+    /// <returns>The ascending break offsets.</returns>
+    private static IReadOnlyList<int> BreaksOf(AlignedText aligned, string neutralized) =>
+        aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
+
+    /// <summary>Builds a deterministic random text rich in abbreviations, acronyms, periods, dashes and placeholders.</summary>
+    /// <param name="random">The generator.</param>
+    /// <returns>The text; never empty.</returns>
+    private static string RandomAbbreviationText(Random random)
+    {
+        string[] pieces =
+        [
+            "Fig. 5", "Fig.", "Dr. Smith", "Dr.", "Maple Dr.", "St. Louis", "Main St.", "No. 5", "No.", "Jan. 5", "Jan.", "Mr Smith", "Mrs.", "Jr.", "Ph.D.", "Sr.", "etc.", "e.g.",
+            "U.S.", "U.S. Army", "J. Smith", "5 kg", "$5 million", "5 p.m.", "NASA", "FBI", "Hello\u2014Dr. Smith", "word", "Then", "He", "She", "It", "\"quoted.\"", "(see Elm St.)", "Wi-Fi", Tag,
+            "Fig", "Dr", "Jan", "St", "Ph.D", "Prof. Lee", "Mt. Everest", "Inc.", "vs.",
+        ];
+        string[] separators = [" ", " ", " ", ". ", ", ", "; ", ": ", "\n", " \u2014 ", Tag, Tag + " "];
+        var builder = new StringBuilder();
+        var count = random.Next(1, 12);
+        for (var i = 0; i < count; i++)
+        {
+            builder.Append(pieces[random.Next(pieces.Length)]).Append(separators[random.Next(separators.Length)]);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Proves, by a seeded differential test, that no directive on any token ever changes the reconciled sentence breaks:
+    ///     over random abbreviation-rich text, every directive kind on every sampled word token (always the words that a period
+    ///     touches) gives exactly the breaks of the text without it, counts the directive once, keeps the spans ascending and
+    ///     disjoint and puts no break inside a span; one run puts a directive on every eligible word at once.
+    /// </summary>
+    [Fact]
+    public void NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks()
+    {
+        // Arrange
+        var random = new Random(20261116);
+        var checkedDirectives = 0;
+
+        for (var iteration = 0; iteration < 400; iteration++)
+        {
+            var text = RandomAbbreviationText(random);
+            var neutralized = NormalizationHarness.Neutralize(text);
+            var tokens = NormalizationHarness.Tokenize(neutralized);
+            var baselineBreaks = BreaksOf(NormalizationHarness.Normalize(text), neutralized);
+
+            // The word tokens: those a period touches always, the others up to 16 at random
+            var touched = new List<int>();
+            var others = new List<int>();
+            for (var i = 0; i < tokens.Length; i++)
+            {
+                if (!char.IsLetter(neutralized[tokens[i].Start]))
+                {
+                    continue;
+                }
+
+                var periodAdjacent = (tokens[i].End < neutralized.Length && neutralized[tokens[i].End] == '.') || neutralized[tokens[i].End - 1] == '.';
+                (periodAdjacent ? touched : others).Add(i);
+            }
+
+            var sampled = touched.Concat(others.OrderBy(_ => random.Next()).Take(16)).Order().ToList();
+
+            foreach (var index in sampled)
+            {
+                var ascii = neutralized.Substring(tokens[index].Start, tokens[index].Length).All(character => character is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
+                foreach (var (kind, value) in AllDirectiveKinds)
+                {
+                    if (kind == TokenDirectiveKind.Spell && !ascii)
+                    {
+                        continue;
+                    }
+
+                    // Act
+                    var directive = new TokenDirective(index, kind, value);
+                    var aligned = NormalizationHarness.Normalize(text, false, [directive]);
+                    checkedDirectives++;
+
+                    // Assert
+                    AssertDirectiveKeepsBreaks(aligned, neutralized, baselineBreaks, 1, $"iteration {iteration}, token {index} ({kind}): '{Escape(text)}'");
+                }
+            }
+
+            // Act: a directive on every sampled word at once, kinds rotating
+            var all = new TokenDirective[sampled.Count];
+            for (var position = 0; position < all.Length; position++)
+            {
+                var index = sampled[position];
+                var ascii = neutralized.Substring(tokens[index].Start, tokens[index].Length).All(character => character is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
+                all[position] = (position % 4) switch
+                {
+                    1 => new TokenDirective(index, TokenDirectiveKind.Replace, "other words"),
+                    2 => new TokenDirective(index, TokenDirectiveKind.Pronounce, "ipa:abc"),
+                    3 when ascii => new TokenDirective(index, TokenDirectiveKind.Spell, null),
+                    _ => new TokenDirective(index, TokenDirectiveKind.Skip, null),
+                };
+            }
+
+            var together = NormalizationHarness.Normalize(text, false, all);
+
+            // Assert
+            AssertDirectiveKeepsBreaks(together, neutralized, baselineBreaks, all.Length, $"iteration {iteration}, all {all.Length} directives: '{Escape(text)}'");
+        }
+
+        Assert.True(checkedDirectives > 1000, $"only {checkedDirectives} directives were checked");
+    }
+
+    /// <summary>Asserts the contract of a directive result: the breaks equal the baseline, every directive is counted, and the alignment is well formed.</summary>
+    /// <param name="aligned">The result with the directives.</param>
+    /// <param name="neutralized">The neutralized text.</param>
+    /// <param name="baselineBreaks">The reconciled breaks without any directive.</param>
+    /// <param name="directiveCount">The number of directives given.</param>
+    /// <param name="context">The failure context.</param>
+    private static void AssertDirectiveKeepsBreaks(AlignedText aligned, string neutralized, IReadOnlyList<int> baselineBreaks, int directiveCount, string context)
+    {
+        var breaks = BreaksOf(aligned, neutralized);
+        Assert.True(baselineBreaks.SequenceEqual(breaks), $"breaks [{string.Join(",", breaks)}] instead of [{string.Join(",", baselineBreaks)}], {context}");
+        Assert.True(aligned.OverridesApplied + aligned.OverridesIgnored == directiveCount, $"directive count, {context}");
+        var previousEnd = 0;
+        foreach (var (start, end) in aligned.Spans.Select(span => (span.Start, span.End)).Concat(aligned.Pronunciations.Select(mark => (mark.Start, mark.End))).OrderBy(item => item.Start))
+        {
+            Assert.True(start >= previousEnd && end > start && end <= neutralized.Length, $"span order or bounds, {context}");
+            Assert.DoesNotContain(breaks, offset => offset > start && offset < end);
+            previousEnd = end;
+        }
+    }
+
+    /// <summary>
+    ///     Proves, with the real <c>PronunciationOverrides</c>, the real normalizer and the real core chunker, that an override
+    ///     on an abbreviation word never changes where a text is chunked: for every action, for case-sensitive and case-insensitive
+    ///     entries, mid-sentence and sentence-final, around an em dash and next to tag placeholders, at every budget, the chunks
+    ///     equal those of the text without a dictionary, and every annotation of the override is still delivered once.
+    /// </summary>
+    [Fact]
+    public void NormalizationSubsystem_Overrides_OnAbbreviations_RealChunker_ChunksEqualTheBuiltInChunks()
+    {
+        // Arrange
+        (string Text, string Word)[] rows =
+        [
+            ("See Fig. 5 for details.", "Fig"), ("We saw the plot in Fig. It was good.", "Fig"),
+            ("Dr. Smith lives here. He sleeps.", "Dr"), ("Dr. Smith lives on Maple Dr. He likes it.", "Dr"),
+            ("Visit St. Louis. Then go.", "St"), ("I live on Main St. It is nice.", "St"),
+            ("No. 5 is here. Then go.", "No"), ("He said No. I don't know.", "No"),
+            ("Jan. 5 was cold. Then go.", "Jan"), ("We met in Jan. It was cold.", "Jan"),
+            ("Hello\u2014Dr. Smith left.", "Dr"), ("Hello\u2014Dr. Smith left. Bye.", "Dr"),
+            ("John Smith Jr. Ph.D. spoke.", "Ph.D"), ("John Smith Jr. Ph.D. He spoke.", "Ph.D"),
+            (Tag + "Fig" + Tag + ". 5 for details.", "Fig"), ("Hello" + Tag + "\u2014Dr. Smith left.", "Dr"), ("See Fig." + Tag + "5 for details.", "Fig"),
+        ];
+        var applied = 0;
+
+        foreach (var (text, word) in rows)
+        {
+            var neutralized = NormalizationHarness.Neutralize(text);
+            var baseline = NormalizationHarness.Normalize(text);
+            var baselineBreaks = baseline.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
+
+            foreach (var caseSensitive in new[] { true, false })
+            {
+                var spelling = caseSensitive ? word : word.ToUpperInvariant();
+                var entries = new List<PronunciationOverrideEntry>
+                {
+                    PronunciationOverrideEntry.Skip(spelling, caseSensitive),
+                    PronunciationOverrideEntry.Say(spelling, "other words", caseSensitive),
+                    PronunciationOverrideEntry.Pronounce(spelling, PronunciationScheme.Ipa, "abc", caseSensitive),
+                };
+                if (spelling.All(char.IsAsciiLetter))
+                {
+                    entries.Add(PronunciationOverrideEntry.SpellOut(spelling, caseSensitive));
+                }
+
+                foreach (var entry in entries)
+                {
+                    // Act
+                    var aligned = NormalizationHarness.NormalizeWithOverrides(text, PronunciationOverrides.Create([entry]));
+                    var annotations = ToAnnotations(aligned);
+                    var breaks = aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
+                    applied += aligned.OverridesApplied;
+
+                    // Assert
+                    var context = $"'{Escape(text)}', {entry.Action} '{spelling}' (case-sensitive: {caseSensitive})";
+                    Assert.True(baselineBreaks.SequenceEqual(breaks), $"breaks [{string.Join(",", breaks)}] instead of [{string.Join(",", baselineBreaks)}]: {context}");
+                    foreach (var budget in new[] { SentenceChunker.DefaultMaxChunkLength, 60, 25 })
+                    {
+                        var expected = SentenceChunker.ChunkAligned(text, ToAnnotations(baseline), baselineBreaks, budget);
+                        var chunks = SentenceChunker.ChunkAligned(text, annotations, breaks, budget);
+                        Assert.True(
+                            expected.Select(chunk => (chunk.Text, chunk.EndsWithEllipsis)).SequenceEqual(chunks.Select(chunk => (chunk.Text, chunk.EndsWithEllipsis))),
+                            $"chunks differ at budget {budget}: {context}");
+
+                        var delivered = chunks.SelectMany(chunk => chunk.Annotations.Select(annotation => (chunk.Text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value))).ToList();
+                        var emitted = annotations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)).ToList();
+                        Assert.True(emitted.SequenceEqual(delivered), $"annotations differ at budget {budget}: {context}");
+                    }
+                }
+            }
+        }
+
+        // The review example, with a directive, is one chunk at every budget
+        var example = NormalizationHarness.NormalizeWithOverrides("See Fig. 5 for details.", PronunciationOverrides.Create([PronunciationOverrideEntry.Say("Fig", "figure")]));
+        var exampleBreaks = example.ReconcileBreaks(NormalizationHarness.TokenizerBreaks("See Fig. 5 for details."));
+        Assert.Equal(["See Fig. 5 for details."], SentenceChunker.ChunkAligned("See Fig. 5 for details.", ToAnnotations(example), exampleBreaks, 25).Select(chunk => chunk.Text));
+        Assert.True(applied > 0, "no override was ever applied");
+    }
+
+    /// <summary>
     ///     Builds a deterministic random text from numeric constructs, words, punctuation, tag placeholders, whitespace
     ///     variants and hostile characters.
     /// </summary>
@@ -1011,12 +1442,14 @@ public sealed class NormalizationSubsystemTests
     private static string Key(AlignedText aligned) =>
         string.Join(
             "|",
-            aligned.Spans.Select(span => $"{span.Start},{span.Length},{span.Spoken},{span.Kind}")
+            aligned.Spans.Select(span => $"{span.Start},{span.Length},{span.Spoken},{span.Kind},{span.Spelled}")
+                .Concat(aligned.Pronunciations.Select(mark => $"P{mark.Start},{mark.Length},{mark.Value}"))
                 .Concat(aligned.ForcedBreaks.Select(value => $"F{value}"))
                 .Concat(aligned.SuppressedBreaks.Select(value => $"S{value}"))
                 .Concat(aligned.Clitics.Select(mark => $"C{mark.Start},{mark.Length},{mark.Kind}"))
                 .Append($"A{aligned.AmbiguousCount}")
-                .Append($"N{aligned.FallbackCount}"));
+                .Append($"N{aligned.FallbackCount}")
+                .Append($"O{aligned.OverridesApplied},{aligned.OverridesIgnored}"));
 
     /// <summary>Makes control and invisible characters visible in a failure message.</summary>
     /// <param name="text">The text.</param>

@@ -21,9 +21,11 @@ this unit's file, `NormalizationAlignment.cs`, and are documented here.
 | `Currency` | 7 | A currency amount (`$5.50`), or the unit word of a currency code or of a magnitude after a symbol (`USD`, `million`) |
 | `DateTime` | 8 | A clock time, a meridiem, a numeric date, or a day or year next to a month name |
 | `Unit` | 9 | A unit of measure after a number (`kg`, `ft.`, `°F`), spoken in full, singular or plural by the number |
+| `Override` | 10 | A host pronunciation override replaced the word: a `Say` entry (words) or a `SpellOut` entry (letters); the replacement is exactly what the dictionary entry says |
 
-The four numeric members were added by the numeric normalization increment; the earlier members keep their
-names and values, so the addition is backward compatible. `CliticKind` (public) is the grammatical role of a
+The four numeric members were added by the numeric normalization increment and `Override` by the pronunciation
+override increment; the earlier members keep their
+names and values, so each addition is backward compatible. `CliticKind` (public) is the grammatical role of a
 clitic token, recorded for later increments and reported
 only by the detailed analysis (no annotation is emitted for it): `None` (0, not a clitic, or classification
 was not requested), `Possessive` (1), `Is` (2), `Has` (3), `Would` (4), `Had` (5), `Will` (6), `Have` (7),
@@ -35,28 +37,40 @@ The internal values are read-only record structs:
 - `NormalizationToken(Start, Length, StartsSentence)`: one token as the normalizer sees it; `End` is the
   exclusive end and `In(text)` returns the token's characters as a span without copying. `StartsSentence`
   is the tokenizer's opinion, before any reconciliation
-- `NormalizedSpan(Start, Length, Spoken, Kind)`: one replacement; `Spoken` is the exact spoken text, already
-  padded where A6 requires, empty only for `Dropped`
+- `NormalizedSpan(Start, Length, Spoken, Kind, Spelled)`: one replacement; `Spoken` is the exact spoken text,
+  already padded where A6 requires, empty only for `Dropped`; `Spelled` (false by default) says the spoken
+  text is a letter sequence to be spoken by letter name, so the analyzer annotates the span `en.spell` instead of
+  `en.norm`
+- `PronunciationMark(Start, Length, Value)`: a `scheme:phonemes` value attached to one token's exact source
+  characters; the characters are not replaced
+- `TokenDirective(TokenIndex, Kind, Value)` with `TokenDirectiveKind` (`Skip`, `Replace`, `Spell`, `Pronounce`):
+  one decision of the host's override dictionary about one token, passed in by the analyzer
+- `SpelledGrammar.IsLetterSequence(value)`: the shared test for `[ ]?[A-Z]( [A-Z])*[ ]?` (single ASCII capitals
+  separated by single spaces, at most one padding space per side), used by the builder and by the typed
+  annotation readers so the two cannot drift apart
 - `CliticMark(Start, Length, Kind)`: the role of one clitic token, never `None`
 - `AlignedSegment(Start, Length, Spoken, Kind)`: one piece of the full partition; `Kind` is null for an
   untouched gap, whose `Spoken` is the source slice
 
-`AlignedTextBuilder` is a sealed class holding the source text, the accepted spans, the requested forced and
-suppressed break offsets, the accepted clitic marks, the end of the last accepted span and clitic mark, and
-the ambiguity counter and the numeric fallback counter. It is single-threaded and used for exactly one pass. `AlignedText` is a sealed
-immutable class with `Source`, `Spans` (changed spans only, ascending and disjoint), `ForcedBreaks` and
+`AlignedTextBuilder` is a sealed class holding the source text, the accepted spans and pronunciation marks, the
+requested forced and
+suppressed break offsets, the accepted clitic marks, the end of the last accepted span, mark and clitic mark,
+and the ambiguity counter, the numeric fallback counter and the two override counters (applied and ignored). It is single-threaded and used for exactly one pass. `AlignedText` is a sealed
+immutable class with `Source`, `Spans` (changed spans only, ascending and disjoint), `Pronunciations` (the
+marks, ascending, disjoint from each other and from every span), `ForcedBreaks` and
 `SuppressedBreaks` (ascending, unique token-start offsets), `Clitics` (ascending; empty unless
-classification was requested), `AmbiguousCount` and `FallbackCount` (the number of numeric-looking
+classification was requested), `AmbiguousCount`, `OverridesApplied` and `OverridesIgnored` and `FallbackCount` (the number of numeric-looking
 expressions left as written or read digit by digit because of a documented limit or an unsupported numeric
-shape; it is the last constructor parameter and defaults to 0).
+shape); the fallback count, the marks and the two override counts are optional trailing constructor parameters
+that default to 0 or none.
 
 **Alignment invariants and where each is enforced** (the normative statement is in _SpeechTextEn System
 Design_, _Alignment Contract_):
 
 | # | Invariant | Enforced by |
 | --- | --- | --- |
-| A1 | Spans ascending, disjoint, in bounds | `AlignedTextBuilder.Add` throws `ArgumentException` for an empty, out-of-bounds, out-of-order or overlapping span |
-| A2 | Non-empty, non-whitespace edges, no placeholder, no cut surrogate pair, non-null replacement | `AlignedTextBuilder.Add` |
+| A1 | Spans ascending, disjoint, in bounds; **A1'** spans and pronunciation marks form one ascending, disjoint sequence | `AlignedTextBuilder.Add` and `AddPronunciation` throw `ArgumentException` for an empty, out-of-bounds, out-of-order or overlapping span or mark; both compare against one "end of the last covered text" value, so a span cannot overlap an earlier mark and a mark cannot overlap an earlier span (bounds are checked without computing `Start + Length`) |
+| A2 | Non-empty, non-whitespace edges, no placeholder, no cut surrogate pair, non-null replacement | `AlignedTextBuilder.Add`; `AddPronunciation` applies the same edge, placeholder and surrogate checks to a mark and also rejects an empty value or one that contains a placeholder |
 | A3 | Segments tile the text; identity segments equal the source | By construction in `Segments()`; applying every span as its own source text is the identity |
 | A4 | Nothing outside a span changes | By construction: only `Spans` carry replacements and no unit re-cases or re-punctuates text |
 | A5 | Chunk-safe spans (A5'): no whitespace, never `;`, `,` or `:` only between two ASCII digits; shapes S1 to S4 | `AlignedTextBuilder.Add` rejects whitespace edges and placeholders; the shape (one token, a token and its adjacent period token, a currency symbol and its adjacent number token, an apostrophe and its adjacent decade token, or one character inside a token) is the design of `TextNormalizer` and `NumericExpressionRecognizer`, verified by the subsystem property tests against the real chunker |
@@ -65,13 +79,18 @@ Design_, _Alignment Contract_):
 | A8 | Break edits on token starts, ascending and unique; no break strictly inside a span (A8b) | `ForceBreak` and `SuppressBreak` reject an offset outside the text after its first character, on whitespace or on a placeholder; `Build` sorts and de-duplicates; `ReconcileBreaks` merges without duplicates; `TextNormalizer` suppresses a tokenizer break inside a numeric span |
 | A9 | Deterministic and thread-safe | `AlignedText` and the values are immutable; a builder is never shared; no unit keeps per-request state |
 | A10 | Empty replacement only for `Dropped`, no placeholder, no stray edge space; numeric kinds have no ASCII digit and only letters, spaces and an apostrophe | `AlignedTextBuilder.Add` (empty exactly when `Dropped`, no placeholder); the A6 padding by `TextNormalizer`; the numeric vocabulary by `NumberVerbalizer`, verified by the closed-vocabulary property test |
+| A11 | A spelled span's value is a letter sequence (`[A-Z]( [A-Z])*` with at most one padding space per side) | `AlignedTextBuilder.Add` throws `ArgumentException` for a span marked `Spelled` whose value is not a letter sequence (`SpelledGrammar`); a span not marked spelled may hold any text |
+| A12 | Pronunciation marks are ascending, disjoint from each other and from every span, each one token with no whitespace edge, placeholder or cut surrogate pair, with a non-empty value | `AlignedTextBuilder.AddPronunciation` (see A1' and A2) |
 
 **Key Methods**:
 
 - **AlignedTextBuilder(source)**: stores the text; a null source throws `ArgumentNullException`
-- **Add(span)**: validates the span against A1, A2 and A10 and appends it; an invalid span throws
+- **Add(span)**: validates the span against A1, A2, A10 and A11 and appends it; an invalid span throws
   `ArgumentException`, and a span that is whitespace-edged, covers a placeholder or cuts a surrogate pair is
   always a defect of the calling rule, never of the input text
+- **AddPronunciation(mark)**: validates a pronunciation mark against A1', A2 and A12 and appends it (an
+  empty, out-of-bounds, overflowing, out-of-order, overlapping, whitespace-edged, placeholder-covering or
+  pair-cutting mark, or one with an empty or placeholder-bearing value, throws `ArgumentException`)
 - **ForceBreak(offset)** and **SuppressBreak(offset)**: record a break edit before the token starting at
   `offset`; an offset outside `[1, length - 1]`, on whitespace or on the placeholder character throws
   `ArgumentOutOfRangeException`. Requests may come in any order because a later rule can name an earlier
@@ -80,6 +99,9 @@ Design_, _Alignment Contract_):
   `ArgumentException`
 - **CountAmbiguous()**: adds one to the ambiguity counter
 - **CountFallback()**: adds one to the numeric fallback counter
+- **CountOverrideApplied()** and **CountOverrideIgnored()**: add one to the counter of user overrides that
+  took effect on a token, or that matched a token an earlier multi-token match had consumed (or were
+  defective); both are reported in the result and are zero without overrides
 - **TouchesPreviousSpokenLetter(start)**: true when the last accepted span ends exactly at `start` and its
   spoken text ends with a letter (false for a `Dropped` span, a space-ended or apostrophe-ended value, and any
   gap); the builder keeps one boolean, updated by `Add`, so the query is constant time. It lets the normalizer

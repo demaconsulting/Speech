@@ -10,8 +10,9 @@ from the real tokenizer of the part-of-speech package through the test helper `F
 (a test-only dependency; no tagger is involved), because the rules are written against the tokenizer's real
 token shapes. Tests that need exact control (cancellation, argument validation, the observer) hand-build
 `NormalizationToken` arrays, and the two that need a different lexicon build a `TextNormalizer` over custom
-tables parsed from a string. Most tests assert the exact spoken text that results, obtained by applying the
-spans to the source.
+tables parsed from a string. The directive tests pass hand-built directives, placed on tokens of the real
+tokenizer by token text, so the normalizer is tested without the dictionary. Most tests assert the exact spoken
+text that results, obtained by applying the spans to the source.
 
 #### Test Environment
 
@@ -41,7 +42,19 @@ numeric rule), emits the spans of a match in order and does not visit a consumed
 adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period
 (consumed mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no
 token that contains an invisible character as a number, observes cancellation in the middle of a numeric
-pass, and allocates nothing per token for lower-case text without digits.
+pass, and allocates nothing per token for lower-case text without digits. A user directive on a token wins over every
+built-in rule for the spoken form of that token, while the sentence-break edits of the abbreviation and acronym rules
+are still made (see _Directive sentence breaks_): a skip directive emits nothing, a replace directive emits one span of the override
+kind padded by at most one space, a spell directive spells ASCII letters (and leaves anything else as written, counted
+as ignored), and a pronounce directive adds a pronunciation mark without a span or a change of the spoken text. A
+directive on a token that an earlier multi-token match consumed is ignored, counted and leaves the match unchanged;
+every directive is counted exactly once as applied or ignored; directives that are out of order, repeated, negative
+or beyond the tokens are rejected without arithmetic on the index; the cancellation cadence counts every visited
+token with directives present; and thousands of directives over a large text complete within the time budget. The
+shape of a replacement decides whether it is spelled (letter-name replacements are, word, symbol and number
+replacements are not), an ampersand initialism is decomposed into spelled letter spans and an `and` span with
+unchanged spoken text and the possessive tail outside every span, and adjacent replacements are separated by
+exactly one space.
 
 #### Test Scenarios
 
@@ -164,3 +177,85 @@ outside the text throw `ArgumentException`. An empty text and token list yield n
 ambiguity count. Two runs over one text agree, and a normalizer over a custom lexicon in which only `Dr.` is
 listed reads `Doc Smith and Mr. Jones live on Main St.` while the default reads `Doctor Smith and Mister Jones
 live on Main Street.`
+
+##### User directives
+
+**Tests**: `TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied`,
+`TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding`,
+`TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly`,
+`TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan`
+
+A skip directive on `US` in `US troops` leaves no span and no mark, counts one applied override and leaves the text
+as written. A replace directive on `Nginx` in `use Nginx now` yields one span of the `Override` kind at offset 4,
+length 5, not spelled, with the value `engine ex`; with a trademark mark directly before the word (two hand-built
+tokens) the replacement gets exactly one separating space and the spoken text is `trademark engine ex`. A spell
+directive on `gif` yields the spelled span `G I F` (padded the same way after a mark); on `café` it yields no span
+and one ignored override, because the letter names exist only for ASCII letters. A pronounce directive on `Polish`
+yields a pronunciation mark with the exact token range and value, no span, an unchanged text and one applied
+override.
+
+##### Directive precedence and consumed tokens
+
+**Tests**: `TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule` (a theory over eleven texts:
+a clitic stem, a slash form, a symbol-bearing token, a lexicon abbreviation, listed and vowel-less acronyms, an
+elision, an ampersand initialism with and without a possessive, and an initial),
+`TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted` (a theory over a unit at the end and in
+the middle, a magnitude and a meridiem),
+`TextNormalizer_Normalize_MixedDirectives_CountAppliedAndIgnoredSeparately`
+
+With a skip directive on the token, no built-in span lies inside it; with a replace directive, the only span on the
+token is the override span with exactly the token's range. For a token consumed by a number match the spans and the
+spoken text equal those without the directive, nothing is applied and one override is ignored. Four skip directives
+over `US 5 kg FBI and $3 million` (two on free tokens, two on consumed ones) count two applied and two ignored.
+
+##### Directive sentence breaks
+
+**Tests**: `TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks` (a theory over fourteen
+texts: `Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-final, and `Dr` after an em dash),
+`TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak`,
+`TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks`,
+`TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce`,
+`TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn`,
+`NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks`
+
+For every row and for each of the four directive kinds (skip, replace, spell, pronounce) the reconciled breaks equal
+those of the text without the directive and the sentences match the pinned literals (`See Fig. 5 for details.` is
+one sentence; `We saw the plot in Fig. It was good.` splits after `Fig.`; `Hello—Dr. Smith left.` keeps its
+suppression, which closes the former limitation; `John Smith Jr. Ph.D. He spoke.` keeps the name continuation).
+The spans come from the directive alone: a replace or spell directive leaves exactly one override span with the
+token's range, which never covers a separate period token, and a skip or pronounce directive leaves none. The review
+example has the tokenizer break `[9]` suppressed with and without a `Say` directive. A defective directive (a
+replacement or pronunciation without a value, a spell-out of a token that is not ASCII letters) is ignored and
+counted, and still keeps the built-in breaks. With directives on abbreviations an observer sees every token index
+exactly once, in order. A directive on every capitalized word of a 20,000-word text without a period allocates no
+more than the built-in pass (the abbreviation lookup is not attempted). The seeded differential test (seed
+20261116, 400 random abbreviation-rich texts with periods, dashes and tag placeholders) puts each of the four kinds
+on every word token that a period touches and on up to 16 other word tokens, and once a directive on every sampled
+word at once; the reconciled breaks always equal those without directives, every directive is counted exactly
+once, spans and marks stay ascending and disjoint, and no break lies inside a span.
+
+##### Directive validation, cancellation and size
+
+**Tests**: `TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException` (a theory over repeated,
+descending, negative, too large and extreme indices for a text of two tokens),
+`TextNormalizer_Normalize_DirectivesWithCancellation_CountEveryVisitedToken`,
+`TextNormalizer_Normalize_ManyDirectives_CompletesWithinBudget`
+
+The indices are rejected with `ArgumentException`. For 1000 one-letter tokens with a skip directive on every tenth,
+an observer cancels while token 300 is visited and exactly the tokens 0 to 510 are visited (the next periodic check
+is at the 512th token); a second call with the canceled token throws again. For 200,000 tokens with a skip directive
+on every twentieth, all 10,000 directives are applied, no span is emitted and the pass stays within a generous
+time budget.
+
+##### Spelled replacements and ampersand initialisms
+
+**Tests**: `TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape`,
+`TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText`,
+`TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace`
+
+In a sentence with `FBI`, `U.S.`, `Dr.`, `&`, `J.`, `5 p.m.`, `$5`, `50%` and `3 kg`, exactly `FBI`, `U.S.`, `J.`
+and `p.m.` are spelled, every spelled value is a letter sequence and no other span is. `AT&T's` yields the spelled
+span `A T`, the symbol span ` and ` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
+possessive gives the same spoken text plus an apostrophe span; `Q&A and R&D` gives six spans, four of them spelled,
+and `Q and A and R and D`. With a trademark mark directly before `AT&T` the result is `trademark A T and T` with no
+double space.

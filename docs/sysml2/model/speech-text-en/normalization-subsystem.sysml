@@ -4,7 +4,7 @@ package SpeechTextEn {
              * and CliticKind enumerations and the internal builder and result that enforce
              * span invariants and reconcile sentence breaks), the TextNormalizer that decides
              * how abbreviations, symbols, apostrophes, initialisms and numeric expressions are
-             * spoken, as spans with exact source offsets (the text itself is never rewritten), the
+             * spoken (applying the host's token directives first), as spans with exact source offsets (the text itself is never rewritten), the
              * NumericExpressionRecognizer and NumberVerbalizer that read numbers, currency, units,
              * times and dates, the lexicon-backed AbbreviationResolver, and the AcronymRecognizer.
              * Production code of this subsystem is independent of the DemaConsulting.PartOfSpeech

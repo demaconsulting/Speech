@@ -18,9 +18,12 @@ written against the tokenizer's real conventions (which of `Dr.`, `Ave.` and `Se
 tokenizer breaks after a title), and a hand-built token list would test only the author's belief about them.
 That the conventions hold is itself verified as an OTS item (see _PartOfSpeech Verification_). The harness
 also supplies two things that must not share code with the production alignment model: an **independent
-annotation applier** that sorts the `en.norm` annotations by start, copies the gaps and inserts each value,
-following the documented consumer algorithm without using `AlignedText`, and the reader of
-the golden file with its escape decoding.
+annotation applier** that sorts the replacement annotations (`en.norm` and `en.spell`) by start, copies the gaps and
+inserts each value,
+following the documented consumer algorithm without using `AlignedText`, and the readers of the golden files with
+their escape decoding. The harness can also normalize with user directives (a directive-taking `Normalize`) and
+with a real dictionary (`NormalizeWithOverrides`, which resolves the dictionary over the real tokenizer's tokens
+exactly as the analyzer does); that is how the override tests reach the normalizer.
 
 **Golden file.** `TestData/normalization-cases.tsv` holds more than 80 rows with the columns `id`, `input`,
 `spoken`, `sentences`, `ambiguous` and `note` (the escapes `\t \n \r \uXXXX \\` are supported, and the
@@ -52,6 +55,12 @@ the en-dash rows (`range-en-dash-*`) pin the both-endpoints-read rule (`5–10`,
 `5–10kg` read; `1–2D`, `1,23–5`, `5–25:99`, `5–10x` keep the dash). A row's `fallbacks` column is the
 number of numeric fallbacks that were counted.
 
+**Override sample dictionary and golden file.** `TestData/overrides-dictionary.tsv` is the sample pronunciation
+dictionary and `TestData/overrides-cases.tsv` holds the golden rows that run against it (they are owned by the
+`PronunciationOverrides` unit tests, see _PronunciationOverrides Verification_). The subsystem tests use the
+dictionary for random text and reuse the rows for culture invariance. Only the behavior of the normalizer with
+directives is verified here; whether a backend can speak a phoneme string is not.
+
 **Independent reference.** `Fakes/ReferenceNumberWords.cs` implements the words of cardinals, ordinals, year
 pairs, clock times and day ordinals with a recursive decomposition over `ulong` values and vocabulary arrays of
 its own, deliberately a different algorithm from `NumberVerbalizer`; it also supplies the closed spoken
@@ -68,8 +77,9 @@ meets and a quadratic one does not.
 - **Framework**: xUnit v3 running under the .NET SDK, on every target framework of the test project
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Text.En.Tests`
-- **Files**: the golden files `TestData/normalization-cases.tsv` and `TestData/number-cases.tsv`, copied to the
-  output folder, and the two embedded lexicons of the library
+- **Files**: the golden files `TestData/normalization-cases.tsv` and `TestData/number-cases.tsv`, the override
+  sample dictionary `TestData/overrides-dictionary.tsv` and override golden file `TestData/overrides-cases.tsv`,
+  copied to the output folder, and the two embedded lexicons of the library
 - **Dependencies**: the real tokenizer of `DemaConsulting.PartOfSpeech` through the test helper
   `Fakes/NormalizationHarness.cs`; no network, no tagger, no audio hardware
 - **Isolation**: every test builds its own inputs and results; the shared default lexicons are immutable;
@@ -104,6 +114,17 @@ every repetitive numeric unit and single huge numeric tokens normalize within th
 supplementary-plane digits and combining marks next to numbers are never cut or read; and the existing
 abbreviation golden rows whose digits are now spoken (`Number five`, `Figure three`, `five P M`) carry the
 new expectations.
+
+The override behavior passes when: for 600 random hostile texts resolved against the sample dictionary every
+directive is counted exactly once as applied or ignored, replacements and pronunciation marks form one ascending,
+disjoint, in-bounds sequence with whitespace-free edges and no cut surrogate pair, spelled spans are letter
+sequences with at most one padding space, every span is chunk-safe, every mark lies on exactly one token and holds
+no whitespace, comma, semicolon or colon, and an independent consumer that applies the `en.norm` and `en.spell`
+annotations agrees with the production application; the real chunker keeps every replacement and pronunciation
+annotation in exactly one chunk on the same characters, for several chunk budgets, with clause cuts, budget cuts and
+tag placeholders next to overridden words; a dictionary that matches nothing gives a result equal in every respect
+to that of no dictionary and counts no override; and every row of the override golden file gives the same spoken
+text and counts under the Turkish, Azeri, German, Thai and Persian cultures.
 
 ### Test Scenarios
 
@@ -217,7 +238,7 @@ The first builds seeded random texts from a numeric alphabet (digits, the separa
 `$5.50`, `12/25/2024`, digit runs of 16, 64, 65, 128 and 129 characters, tag placeholders, surrogates,
 combining marks, invisible characters and whitespace variants including the no-break space) and checks
 invariants A1 to A8b and A10 of the _Alignment Contract_, outside-span text unchanged, determinism, and the
-analyzer-level order of the annotations (`en.upos` before `en.norm` at an equal start). The second feeds the
+analyzer-level order of the annotations (`en.upos` before `en.norm` or `en.spell` at an equal start). The second feeds the
 analyzer's annotations to the real Speech `SentenceChunker` for several budgets (200, 120, 60 and 25
 characters) and asserts that each `en.norm` annotation lands in exactly one chunk on the same covered
 characters. The third puts supplementary-plane digits and letters, lone surrogates and combining marks next to
@@ -242,6 +263,59 @@ One megabyte of each repetitive numeric unit (`1,234.50`, `$5.50`, `5:30pm`, `Ja
 `1.` repeated, `1-` repeated, `1/` repeated, `1:` repeated, `$` and a million digits, `5` and a million `k`)
 normalize under the time budget, and the time for four times as many tokens grows by less than a generous
 factor, so a quadratic or backtracking regression fails.
+
+#### Alignment contract with overrides
+
+**Test**: `NormalizationSubsystem_AlignmentContract_RandomTextWithOverrides_SatisfiesAllInvariants`
+
+Six hundred seeded random texts are built from overridable words (case variants, clitics, hyphen compounds,
+dotted and ampersand initialisms, numbers, units, currency amounts), punctuation, tag placeholders, a long word,
+surrogates, combining marks, no-break spaces and a NUL character. Each is tokenized by the real tokenizer, resolved
+against the sample dictionary and normalized with the directives. The test checks the invariants of the
+_Alignment Contract_ that concern overrides (the unified ascending order of spans and marks, the spelled-letter
+grammar, chunk safety of every span and mark, a mark on exactly one token, and the equality of the production
+application with an independent consumer that merges `en.norm` and `en.spell` annotations) and that every
+directive is counted exactly once, as applied or ignored.
+
+#### Override annotations and the real chunker
+
+**Test**: `NormalizationSubsystem_OverrideAnnotations_RealChunker_KeepEveryAnnotationInExactlyOneChunk`
+
+Random texts of overridable words, numbers, initialisms and tag placeholders separated by spaces, clause marks and
+placeholders are normalized with the sample dictionary, turned into the annotations the analyzer would emit (spans
+as `en.norm` or `en.spell`, marks as `en.pron`) and given to the real `SentenceChunker` for four budgets (200, 120,
+60 and 25 characters), 150 texts each. The sequence of (source characters, kind, value) delivered by the chunks
+must equal the sequence emitted, so no annotation is lost, duplicated, split or invented.
+
+#### Overrides on abbreviations and the real chunker
+
+**Test**: `NormalizationSubsystem_Overrides_OnAbbreviations_RealChunker_ChunksEqualTheBuiltInChunks`
+
+For seventeen texts (`Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-final, `Dr` after an em
+dash, and tag placeholders touching `Fig` and the dash) and a one-entry real dictionary for each action (skip, say,
+spell where the key is ASCII letters, pronounce), case-sensitive with the exact spelling and case-insensitive with
+upper case, the reconciled breaks equal those of the text without a dictionary. The real `SentenceChunker` is run at
+the default budget, 60 and 25 characters: the sequence of (chunk text, ends with ellipsis) equals that of the text
+without a dictionary, and every annotation of the override is delivered in exactly one chunk. For `Say("Fig",
+"figure")` and `See Fig. 5 for details.` the result is one chunk. Entries such as `Dr`, `St` and `No` do not match
+the single token `Dr.` (a key cannot contain the trailing period), which the test accepts: the chunks are equal
+either way.
+
+#### Dictionary without hits
+
+**Test**: `NormalizationSubsystem_Normalize_DictionaryWithoutHits_EqualsNoDictionary`
+
+For 400 random numeric texts, a dictionary whose words never occur gives a result equal in every field (spans and
+their kind and spelled flag, pronunciation marks, breaks, clitic marks and all counts) to that of no dictionary, and
+counts no override applied or ignored.
+
+#### Overrides under foreign cultures
+
+**Test**: `NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults`
+
+Every row of the override golden file is normalized with the sample dictionary under `tr-TR`, `az-Latn-AZ`, `de-DE`,
+`th-TH` and `fa-IR` as the current and current UI culture (restored in a `finally` block), and the spoken text and
+the applied and ignored counts must equal the documented row.
 
 See also the unit documents `normalization-alignment.md`, `text-normalizer.md`, `numeric-expression-recognizer.md`,
 `number-verbalizer.md`, `abbreviation-resolver.md`

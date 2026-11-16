@@ -1,0 +1,62 @@
+# Golden cases for the user pronunciation overrides (DemaConsulting.Speech.Text.En.Tests).
+# They run against overrides-dictionary.tsv, through the real tokenizer and the real normalizer.
+#
+# Columns (tab separated; '#' lines and blank lines are ignored; the first other line is the header):
+#   id        unique row name, quoted in failure messages
+#   input     the text; escapes: \t \n \r \uXXXX \\ (a tag placeholder is \uFFFC and is spoken as a space)
+#   spoken    the input with every replacement (en.norm and en.spell) applied (same escapes)
+#   pron      the pronunciation marks as source=value, joined by U+00A6; '-' for none
+#   spelled   the source text of every spelled (en.spell) replacement, joined by U+00A6; '-' for none
+#   applied   the expected number of overrides applied
+#   ignored   the expected number of overrides ignored (their token was consumed by an earlier match)
+#   note      what the row demonstrates
+id	input	spoken	pron	spelled	applied	ignored	note
+say-basic	Use Nginx today.	Use engine ex today.	-	-	1	0	a say entry replaces the word
+say-upper-insensitive	NGINX rocks	engine ex rocks	-	-	1	0	an insensitive entry ignores case
+say-lower-insensitive	nginx rocks	engine ex rocks	-	-	1	0	an insensitive entry ignores case
+say-sensitive-exact	Kubernetes runs	koo ber net eez runs	-	-	1	0	a sensitive entry matches its exact case
+say-sensitive-miss	kubernetes runs	kubernetes runs	-	-	0	0	a sensitive entry does not match another case
+say-possessive-stem	Nginx's config	engine ex's config	-	-	1	0	the stem of a split possessive matches
+say-start-and-end	Nginx	engine ex	-	-	1	0	an override that is the whole text
+say-end-of-text	I run SQL	I run sequel	-	-	1	0	an override at the end of the text
+say-adjacent	Nginx SQL	engine ex sequel	-	-	2	0	adjacent overrides are separated by exactly one space
+say-punctuation	Nginx, SQL; Nginx.	engine ex, sequel; engine ex.	-	-	3	0	clause punctuation around overrides is kept
+say-two-sentences	Use Nginx. Then SQL.	Use engine ex. Then sequel.	-	-	2	0	the sentence period stays
+say-after-number	3 Nginx servers	three engine ex servers	-	-	1	0	a word after a number is overridden
+say-placeholder	Nginx\uFFFCSQL	engine ex sequel	-	-	2	0	a tag placeholder separates two overrides
+say-apostrophe-typographic	O’Brien and O'Brien	oh brian and oh brian	-	-	2	0	both apostrophe styles match a key with an apostrophe
+say-hyphen-compound	Nginx-based apps	engine ex based apps	-	-	1	0	a hyphen compound matches only as a whole
+say-hyphen-other	Nginx-free apps	Nginx-free apps	-	-	0	0	a different compound does not match a part of it
+say-wifi	Wi-Fi works	why fie works	-	-	1	0	a hyphenated word is one token
+say-wifi-possessive	Wi-Fi's range	Wi-Fi's range	-	-	0	0	a possessive that stays in the token does not match
+say-title-case	Mr Smith	mister Smith	-	-	1	0	an override beats the abbreviation lexicon
+say-title-period	Mr. Smith	Mister Smith	-	-	0	0	a token with its period is not overridable
+say-contraction-stem	Don't go	Don't go	-	-	0	0	the stem of a split contraction never matches
+say-turkish-dotted	İstanbul is big	istanbul is big	-	-	1	0	a key with a dotted capital I matches itself
+say-turkish-upper	ISTANBUL is big	ISTANBUL is big	-	-	0	0	I does not fold to the dotted capital I
+say-turkish-shouted-tail	İSTANBUL is big	istanbul is big	-	-	1	0	the dotted capital I matches itself with the rest case-folded
+say-supplementary	𐐀𐐁x here	deseret here	-	-	1	0	a supplementary-plane key matches
+say-tail-kg	5 kg of rice	five kilograms of rice	-	-	0	1	a unit consumed by a number keeps the built-in reading
+say-head-kg	The kg is a unit	The kay gee is a unit	-	-	1	0	the same word on its own is overridden
+say-tail-million	$5 million	five million dollars	-	-	0	1	a magnitude consumed by a currency amount is not overridden
+say-tail-pm	at 5 pm today	at five P M today	-	pm	0	1	a meridiem consumed by a time is not overridden (and is spelled)
+say-phd-period	She has a Ph.D.	She has a doctor of philosophy.	-	-	1	0	the split-off period stays
+say-phd-continues	She has a Ph.D. in physics.	She has a doctor of philosophy. in physics.	-	-	1	0	the split-off period stays
+spell-sensitive	A GIF file	A G I F file	-	GIF	1	0	a spell entry spells the letters
+spell-case-miss	a gif file	a gif file	-	-	0	0	a sensitive spell entry does not match another case
+skip-us	US troops asked us	US troops asked us	-	-	1	0	a skip entry bypasses the acronym rule
+skip-fbi	The FBI and CIA	The FBI and C I A	-	CIA	1	0	a skip entry bypasses only its own word
+skip-nasa	NASA's launch	NASA's launch	-	-	1	0	a skip entry on a word that was already spoken as written
+pron-sensitive	Polish food	Polish food	Polish=ipa:ˈpoʊlɪʃ	-	1	0	a pronunciation entry keeps the word and adds the phonemes
+pron-insensitive	polish the shoes	polish the shoes	polish=ipa:ˈpɑːlɪʃ	-	1	0	the insensitive entry covers the other case
+pron-insensitive-upper	POLISH it	POLISH it	POLISH=ipa:ˈpɑːlɪʃ	-	1	0	the insensitive entry covers any case
+pron-arpabet	Cafe	Cafe	Cafe=arpabet:K AE0 F EY1	-	1	0	a pronunciation in the other scheme
+pron-two-words	Polish polish	Polish polish	Polish=ipa:ˈpoʊlɪʃ¦polish=ipa:ˈpɑːlɪʃ	-	2	0	sensitive beats insensitive for the same word
+builtin-initialism	The CIA is here	The C I A is here	-	CIA	0	0	spelled initialism
+builtin-dotted	the U.S. Army	the U S Army	-	U.S.	0	0	dotted initialism
+builtin-initial	J. Smith	J Smith	-	J.	0	0	single-letter initial
+builtin-credential	He is an M.D. here	He is an M D here	-	M.D.	0	0	a dotted credential
+builtin-ampersand	AT&T's network	A T and T's network	-	AT¦T	0	0	ampersand initialism decomposed into letter spans
+builtin-ampersand-typographic	AT&T’s network	A T and T's network	-	AT¦T	0	0	typographic possessive tail
+builtin-ampersand-groups	R&D and Q&A	R and D and Q and A	-	R¦D¦Q¦A	0	0	one-letter groups
+builtin-word-abbreviation	Dr. Smith	Doctor Smith	-	-	0	0	a word replacement is not spelled

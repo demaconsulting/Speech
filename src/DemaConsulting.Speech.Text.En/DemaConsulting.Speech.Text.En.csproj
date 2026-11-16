@@ -25,7 +25,7 @@
       tags the words of a speech request with their Universal Dependencies part of speech
       (through the DemaConsulting.PartOfSpeech tagger), describes how abbreviations, symbols,
       apostrophes and initialisms are spoken as replacement-span annotations over the original
-      text, and supplies authoritative sentence boundaries, for text-to-speech models that use
+      text (with host-supplied pronunciation overrides that take precedence), and supplies authoritative sentence boundaries, for text-to-speech models that use
       sentence-level context. A model package
       returns an EnglishTextAnalyzer from ISynthesisModel.TextAnalyzer; the analysis reaches an
       annotation-aware synthesis backend as language-neutral annotations on each speech segment.

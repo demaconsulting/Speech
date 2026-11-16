@@ -9,8 +9,12 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 /// </summary>
 /// <remarks>
 ///     One linear pass over the tokens applies an ordered list of rules, the first match winning:
-///     invisible characters, clitics, numeric expressions, lexicon abbreviations, acronyms and
-///     initialisms, symbols and marks, and elision apostrophes. Every rule looks at a constant
+///     user overrides (host-supplied directives, which win over every other rule for the spoken
+///     form; the sentence-break edits of the abbreviation rules are kept), invisible
+///     characters, clitics, numeric expressions, lexicon abbreviations, acronyms and
+///     initialisms, symbols and marks, and elision apostrophes. Replacements that are letter
+///     sequences (initialisms, initials, meridiems) are marked as spelled, so they are annotated
+///     <c>en.spell</c> rather than <c>en.norm</c>. Every rule looks at a constant
 ///     number of neighboring tokens, so the pass is linear in the text length whatever the text
 ///     contains. The rules are lexical and orthographic only; the part-of-speech tagger is never
 ///     consulted, so the result does not depend on which annotations the analyzer was asked for.
@@ -125,11 +129,18 @@ internal sealed class TextNormalizer
     /// <param name="cancellationToken">
     ///     Checked before any work and every <see cref="CancellationCheckInterval"/> tokens.
     /// </param>
+    /// <param name="directives">
+    ///     User overrides already resolved to token indices, strictly ascending; empty (the
+    ///     default) when there are none. A directive wins over every built-in rule for the spoken
+    ///     form of its token, but the sentence-break edits of the abbreviation and acronym rules
+    ///     are still made, so sentence breaks never depend on the directives; one whose token was
+    ///     consumed by an earlier multi-token match is ignored and counted.
+    /// </param>
     /// <returns>The aligned result; its spans, break edits and clitic marks all index <paramref name="text"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
-    /// <exception cref="ArgumentException">A token is empty, out of order or outside the text.</exception>
+    /// <exception cref="ArgumentException">A token is empty, out of order or outside the text, or a directive names a token that does not exist or is not in strictly ascending order.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is canceled.</exception>
-    internal AlignedText Normalize(string text, ReadOnlySpan<NormalizationToken> tokens, bool classifyClitics, CancellationToken cancellationToken)
+    internal AlignedText Normalize(string text, ReadOnlySpan<NormalizationToken> tokens, bool classifyClitics, CancellationToken cancellationToken, ReadOnlySpan<TokenDirective> directives = default)
     {
         ArgumentNullException.ThrowIfNull(text);
         cancellationToken.ThrowIfCancellationRequested();
@@ -153,8 +164,20 @@ internal sealed class TextNormalizer
             previousEnd = token.End;
         }
 
+        // Directives index the token list: strictly ascending and in range (no arithmetic on them).
+        var previousIndex = -1;
+        foreach (var directive in directives)
+        {
+            if (directive.TokenIndex <= previousIndex || directive.TokenIndex >= tokens.Length)
+            {
+                throw new ArgumentException("A directive names a token that does not exist or is out of order.", nameof(directives));
+            }
+
+            previousIndex = directive.TokenIndex;
+        }
+
         var builder = new AlignedTextBuilder(text);
-        var pass = new Pass(this, text, tokens, classifyClitics, builder, cancellationToken);
+        var pass = new Pass(this, text, tokens, classifyClitics, builder, cancellationToken, directives);
         pass.Run();
         return builder.Build();
     }
@@ -184,6 +207,12 @@ internal sealed class TextNormalizer
         /// <summary>The cancellation token.</summary>
         private readonly CancellationToken _cancellationToken;
 
+        /// <summary>The user overrides, resolved to token indices, strictly ascending.</summary>
+        private readonly ReadOnlySpan<TokenDirective> _directives;
+
+        /// <summary>The index of the first directive not yet applied or ignored.</summary>
+        private int _directiveCursor;
+
         /// <summary>The index of the first token of the current tokenizer sentence.</summary>
         private int _sentenceStart;
 
@@ -202,7 +231,8 @@ internal sealed class TextNormalizer
         /// <param name="classifyClitics">Whether to record clitic roles.</param>
         /// <param name="builder">The collector of decisions.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        internal Pass(TextNormalizer owner, string text, ReadOnlySpan<NormalizationToken> tokens, bool classifyClitics, AlignedTextBuilder builder, CancellationToken cancellationToken)
+        /// <param name="directives">The validated user overrides.</param>
+        internal Pass(TextNormalizer owner, string text, ReadOnlySpan<NormalizationToken> tokens, bool classifyClitics, AlignedTextBuilder builder, CancellationToken cancellationToken, ReadOnlySpan<TokenDirective> directives)
         {
             _owner = owner;
             _text = text;
@@ -210,6 +240,8 @@ internal sealed class TextNormalizer
             _classifyClitics = classifyClitics;
             _builder = builder;
             _cancellationToken = cancellationToken;
+            _directives = directives;
+            _directiveCursor = 0;
             _sentenceStart = 0;
             _allCapitals = 0;
             _visited = 0;
@@ -247,6 +279,12 @@ internal sealed class TextNormalizer
 
                 index = next;
             }
+
+            // Directives not reached were consumed as follow-up tokens of the last match.
+            for (; _directiveCursor < _directives.Length; _directiveCursor++)
+            {
+                _builder.CountOverrideIgnored();
+            }
         }
 
         /// <summary>
@@ -271,6 +309,36 @@ internal sealed class TextNormalizer
         {
             var token = _tokens[index];
             var span = token.In(_text);
+
+            // Rule 0: a user override wins over every built-in rule for its token's spoken form. A
+            // directive whose token lies before this one was consumed as a follow-up token of an
+            // earlier match ("5 kg"): the match is atomic and wins, so the override is ignored and
+            // counted.
+            while (_directiveCursor < _directives.Length && _directives[_directiveCursor].TokenIndex < index)
+            {
+                _builder.CountOverrideIgnored();
+                _directiveCursor++;
+            }
+
+            if (_directiveCursor < _directives.Length && _directives[_directiveCursor].TokenIndex == index)
+            {
+                // The directive changes how the word is spoken, never where a sentence ends: the
+                // sentence-break edits of the abbreviation and acronym rules are still made, even
+                // when the directive is defective and the token is spoken as written.
+                PreserveBreakEdits(index, span);
+
+                var directive = _directives[_directiveCursor++];
+                if (ApplyDirective(token, span, directive))
+                {
+                    _builder.CountOverrideApplied();
+                }
+                else
+                {
+                    _builder.CountOverrideIgnored();
+                }
+
+                return index + 1;
+            }
 
             // Rule 1: invisible characters (and a standalone bullet) are dropped explicitly. A token
             // that merely contains them is otherwise left alone.
@@ -325,6 +393,181 @@ internal sealed class TextNormalizer
             // Rule 6: elision apostrophes inside a word; everything else is identity.
             EmitElisionApostrophes(index, span);
             return index + 1;
+        }
+
+        /// <summary>
+        ///     Makes the sentence-break edits that the abbreviation (rule 3) and acronym (rule 4)
+        ///     rules would make for a token that a directive handles, without emitting or counting
+        ///     anything.
+        /// </summary>
+        /// <remarks>
+        ///     Both call paths share the same <see cref="ApplyPeriodRules"/> and
+        ///     <see cref="TryApplyAcronym"/> bodies, so the decisions cannot drift apart; the
+        ///     precedence (an abbreviation match wins over the acronym rule) mirrors
+        ///     <see cref="ProcessToken"/>. A built-in reading that the directive bypassed is not
+        ///     counted as an ambiguous reading.
+        /// </remarks>
+        /// <param name="index">The index of the directive's token.</param>
+        /// <param name="span">The token's characters.</param>
+        private void PreserveBreakEdits(int index, ReadOnlySpan<char> span)
+        {
+            // Only a period, inside the token or as a separate adjacent token, makes those rules
+            // touch sentence breaks; without one they are span-only and nothing is looked up.
+            if (span[^1] != '.' && !HasAdjacentPeriodToken(index))
+            {
+                return;
+            }
+
+            if (_owner._abbreviations.TryResolve(_text, _tokens, index, out var abbreviation))
+            {
+                var periodInToken = !abbreviation.IncludesPeriodToken && span[^1] == '.';
+                ApplyPeriodRules(index, abbreviation.Spoken, NormalizationKind.Abbreviation, abbreviation.Class, periodInToken, abbreviation.IncludesPeriodToken, abbreviation.UsedDefault, decisionOnly: true);
+                return;
+            }
+
+            TryApplyAcronym(index, span, out _, decisionOnly: true);
+        }
+
+        /// <summary>
+        ///     Applies a user override to its token.
+        /// </summary>
+        /// <param name="token">The token the directive names.</param>
+        /// <param name="span">The token's characters.</param>
+        /// <param name="directive">The directive.</param>
+        /// <returns>
+        ///     <see langword="true"/> when the directive was applied; <see langword="false"/> for a
+        ///     defective directive (a spell-out whose token is not made of ASCII letters only, or a
+        ///     replacement or pronunciation without a value), in which case the token is spoken as
+        ///     written and no built-in replacement is made for it.
+        /// </returns>
+        private readonly bool ApplyDirective(NormalizationToken token, ReadOnlySpan<char> span, TokenDirective directive)
+        {
+            switch (directive.Kind)
+            {
+                case TokenDirectiveKind.Skip:
+                    // Nothing is emitted: the token is spoken as written.
+                    return true;
+
+                case TokenDirectiveKind.Replace when !string.IsNullOrEmpty(directive.Value):
+                    Emit(token.Start, token.Length, directive.Value, NormalizationKind.Override, spelled: false);
+                    return true;
+
+                case TokenDirectiveKind.Spell:
+                    var spelling = SpellAsciiLetters(span);
+                    if (spelling is null)
+                    {
+                        return false;
+                    }
+
+                    Emit(token.Start, token.Length, spelling, NormalizationKind.Override, spelled: true);
+                    return true;
+
+                case TokenDirectiveKind.Pronounce when !string.IsNullOrEmpty(directive.Value):
+                    _builder.AddPronunciation(new PronunciationMark(token.Start, token.Length, directive.Value));
+                    return true;
+
+                default:
+                    // A directive without its value is defective: the token is left as written.
+                    return false;
+            }
+        }
+
+        /// <summary>
+        ///     Builds the spoken letters of a token made only of ASCII letters.
+        /// </summary>
+        /// <param name="letters">The token's characters.</param>
+        /// <returns>The upper-case letters separated by single spaces, or <see langword="null"/> when the token is empty or holds anything but ASCII letters.</returns>
+        private static string? SpellAsciiLetters(ReadOnlySpan<char> letters)
+        {
+            if (letters.IsEmpty)
+            {
+                return null;
+            }
+
+            var builder = new StringBuilder((letters.Length * 2) - 1);
+            for (var i = 0; i < letters.Length; i++)
+            {
+                if (letters[i] is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z'))
+                {
+                    return null;
+                }
+
+                if (i > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(char.ToUpperInvariant(letters[i]));
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
+        ///     Emits the spans of an ampersand initialism: one spelled span per group of capitals
+        ///     and one <c>and</c> span per ampersand, so every spelled span is letters only. A
+        ///     possessive tail is left outside the spans (its typographic apostrophe, if any,
+        ///     gets the usual apostrophe span), which keeps the spoken text identical to
+        ///     replacing the whole token.
+        /// </summary>
+        /// <param name="token">The token; already recognized as an ampersand initialism.</param>
+        /// <param name="span">The token's characters.</param>
+        private readonly void EmitAmpersandInitialism(NormalizationToken token, ReadOnlySpan<char> span)
+        {
+            var bodyLength = span.Length;
+            var hasTail = span.Length > 2 && span[^1] is 's' && IsApostrophe(span[^2]);
+            if (hasTail)
+            {
+                bodyLength -= 2;
+            }
+
+            var position = 0;
+            while (position < bodyLength)
+            {
+                if (span[position] == '&')
+                {
+                    Emit(token.Start + position, 1, " and ", NormalizationKind.Symbol);
+                    position++;
+                    continue;
+                }
+
+                var groupStart = position;
+                while (position < bodyLength && span[position] != '&')
+                {
+                    position++;
+                }
+
+                // The last group is not padded on its right when a possessive tail follows: the
+                // tail is glued to the letters, as in the spoken text of the whole token.
+                var glueTail = hasTail && position == bodyLength;
+                Emit(token.Start + groupStart, position - groupStart, SpellGroup(span[groupStart..position]), NormalizationKind.Initialism, allowRightPad: !glueTail);
+            }
+
+            if (hasTail && !IsPlainApostrophe(span[^2]))
+            {
+                Emit(token.Start + span.Length - 2, 1, "'", NormalizationKind.Apostrophe);
+            }
+        }
+
+        /// <summary>
+        ///     Joins the letters of one group with single spaces.
+        /// </summary>
+        /// <param name="letters">The capital letters.</param>
+        /// <returns>The letters separated by single spaces.</returns>
+        private static string SpellGroup(ReadOnlySpan<char> letters)
+        {
+            var builder = new StringBuilder((letters.Length * 2) - 1);
+            for (var i = 0; i < letters.Length; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(letters[i]);
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>
@@ -401,8 +644,14 @@ internal sealed class TextNormalizer
         /// <param name="periodInToken">Whether the token itself ends with the period.</param>
         /// <param name="periodToken">Whether a separate, adjacent period token follows.</param>
         /// <param name="ambiguous">Whether the reading is to be counted as ambiguous.</param>
+        /// <param name="decisionOnly">
+        ///     Whether to make only the sentence-break edits: nothing is emitted and nothing is
+        ///     counted. Used for a token that a user directive handles (see
+        ///     <see cref="PreserveBreakEdits"/>), so that the break decisions are exactly the ones the
+        ///     built-in path makes.
+        /// </param>
         /// <returns>The index of the next token still to be processed.</returns>
-        private int ApplyPeriodRules(int index, string spoken, NormalizationKind kind, AbbreviationClass abbreviationClass, bool periodInToken, bool periodToken, bool ambiguous)
+        private int ApplyPeriodRules(int index, string spoken, NormalizationKind kind, AbbreviationClass abbreviationClass, bool periodInToken, bool periodToken, bool ambiguous, bool decisionOnly = false)
         {
             var token = _tokens[index];
             var last = periodToken ? index + 1 : index;
@@ -472,6 +721,11 @@ internal sealed class TextNormalizer
                 }
             }
 
+            if (decisionOnly)
+            {
+                return last + 1;
+            }
+
             if (ambiguous)
             {
                 _builder.CountAmbiguous();
@@ -502,8 +756,12 @@ internal sealed class TextNormalizer
         /// <param name="index">The token's index.</param>
         /// <param name="span">The token's characters.</param>
         /// <param name="next">The index of the next token still to be processed when this method returns <see langword="true"/>.</param>
-        /// <returns><see langword="true"/> when a span was emitted.</returns>
-        private bool TryApplyAcronym(int index, ReadOnlySpan<char> span, out int next)
+        /// <param name="decisionOnly">
+        ///     Whether to make only the sentence-break edits of the period rules: nothing is emitted
+        ///     and nothing is counted.
+        /// </param>
+        /// <returns><see langword="true"/> when a span was emitted (or, in decision-only mode, would have been).</returns>
+        private bool TryApplyAcronym(int index, ReadOnlySpan<char> span, out int next, bool decisionOnly = false)
         {
             next = index + 1;
 
@@ -518,7 +776,7 @@ internal sealed class TextNormalizer
             var token = _tokens[index];
             if (match.TokenEndsWithPeriod)
             {
-                next = ApplyPeriodRules(index, match.Spoken, NormalizationKind.Initialism, AbbreviationClass.Free, periodInToken: true, periodToken: false, ambiguous: false);
+                next = ApplyPeriodRules(index, match.Spoken, NormalizationKind.Initialism, AbbreviationClass.Free, periodInToken: true, periodToken: false, ambiguous: false, decisionOnly: decisionOnly);
                 return true;
             }
 
@@ -531,7 +789,21 @@ internal sealed class TextNormalizer
                     return false;
                 }
 
-                next = ApplyPeriodRules(index, match.Spoken, NormalizationKind.Initialism, AbbreviationClass.Free, periodInToken: false, periodToken: true, ambiguous: false);
+                next = ApplyPeriodRules(index, match.Spoken, NormalizationKind.Initialism, AbbreviationClass.Free, periodInToken: false, periodToken: true, ambiguous: false, decisionOnly: decisionOnly);
+                return true;
+            }
+
+            // The remaining forms never touch sentence breaks, so there is nothing to decide.
+            if (decisionOnly)
+            {
+                return true;
+            }
+
+            // An ampersand initialism is decomposed into letter spans and "and" spans, so that every
+            // spelled span holds letters only; the spoken text is the same as for the whole token.
+            if (span.Contains('&'))
+            {
+                EmitAmpersandInitialism(token, span);
                 return true;
             }
 
@@ -718,8 +990,15 @@ internal sealed class TextNormalizer
         /// <param name="length">The span's length.</param>
         /// <param name="spoken">The replacement before padding.</param>
         /// <param name="kind">What produced the replacement.</param>
-        private readonly void Emit(int start, int length, string spoken, NormalizationKind kind)
+        /// <param name="spelled">
+        ///     Whether the replacement is spoken by letter name; <see langword="null"/> decides by
+        ///     shape (a letter sequence <c>[A-Z]( [A-Z])*</c> before padding is spelled).
+        /// </param>
+        /// <param name="allowRightPad">Whether the right-hand separating space may be added; false only where the next piece must stay glued.</param>
+        private readonly void Emit(int start, int length, string spoken, NormalizationKind kind, bool? spelled = null, bool allowRightPad = true)
         {
+            var isSpelled = spelled ?? (kind != NormalizationKind.Override && SpelledGrammar.IsLetterSequence(spoken));
+
             // Dropped and apostrophe replacements are never padded: one is empty and the other
             // must stay glued to its word.
             if (kind is not (NormalizationKind.Dropped or NormalizationKind.Apostrophe))
@@ -729,14 +1008,14 @@ internal sealed class TextNormalizer
                 // supplementary-plane letter or digit (a surrogate pair) counts as one.
                 var padLeft = char.IsLetter(spoken[0])
                     && (Rune.IsLetterOrDigit(RuneBefore(_text, start)) || _builder.TouchesPreviousSpokenLetter(start));
-                var padRight = Rune.IsLetterOrDigit(RuneAt(_text, end)) && char.IsLetter(spoken[^1]);
+                var padRight = allowRightPad && Rune.IsLetterOrDigit(RuneAt(_text, end)) && char.IsLetter(spoken[^1]);
                 if (padLeft || padRight)
                 {
                     spoken = (padLeft ? " " : string.Empty) + spoken + (padRight ? " " : string.Empty);
                 }
             }
 
-            _builder.Add(new NormalizedSpan(start, length, spoken, kind));
+            _builder.Add(new NormalizedSpan(start, length, spoken, kind, isSpelled));
         }
 
         /// <summary>

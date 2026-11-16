@@ -45,7 +45,7 @@ public sealed record AnalyzedToken(int Start, int Length, string Text, string? P
 }
 
 /// <summary>
-///     One <c>en.norm</c> replacement as <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>
+///     One replacement (<c>en.norm</c> or <c>en.spell</c>) as <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>
 ///     reports it: the source span, the words it is spoken as, and what produced it.
 /// </summary>
 /// <param name="Start">The zero-based UTF-16 offset of the span's first character in the analyzed text.</param>
@@ -57,7 +57,16 @@ public sealed record AnalyzedToken(int Start, int Length, string Text, string? P
 /// <param name="SpokenText">The exact replacement, equal to the <c>Value</c> of the matching annotation; empty for <see cref="NormalizationKind.Dropped"/>.</param>
 /// <param name="Kind">What produced the replacement.</param>
 /// <remarks>An immutable value, safe to share across threads.</remarks>
-public sealed record AnalyzedNormalization(int Start, int Length, string Text, string SpokenText, NormalizationKind Kind);
+public sealed record AnalyzedNormalization(int Start, int Length, string Text, string SpokenText, NormalizationKind Kind)
+{
+    /// <summary>
+    ///     Gets a value indicating whether the replacement is a letter sequence to be spoken by
+    ///     letter name (<c>F B I</c> for <c>FBI</c>); such a normalization is annotated
+    ///     <see cref="TextEnAnnotations.SpellOut"/> instead of <see cref="TextEnAnnotations.Normalized"/>.
+    ///     <see langword="false"/> by default.
+    /// </summary>
+    public bool IsSpelled { get; init; }
+}
 
 /// <summary>
 ///     The rich, local-only result of <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>: every
@@ -111,15 +120,17 @@ public sealed class EnglishTextAnalysis
     public IReadOnlyList<int> SentenceBreaks { get; }
 
     /// <summary>
-    ///     Gets the annotations in text order (a token's part of speech before the normalizations
-    ///     that start inside it); empty when nothing was selected or nothing could be annotated.
+    ///     Gets the annotations in text order (a token's part of speech before the replacement or
+    ///     pronunciation that starts inside it); empty when nothing was selected or nothing could
+    ///     be annotated.
     /// </summary>
     public IReadOnlyList<SegmentAnnotation> Annotations { get; }
 
     /// <summary>
     ///     Gets every normalization in text order: the same spans as the
-    ///     <see cref="TextEnAnnotations.Normalized"/> annotations; empty when normalization was
-    ///     not selected.
+    ///     <see cref="TextEnAnnotations.Normalized"/> and <see cref="TextEnAnnotations.SpellOut"/>
+    ///     annotations (a pronunciation override is an annotation but not a replacement, so it is
+    ///     not listed); empty when normalization was not selected.
     /// </summary>
     public IReadOnlyList<AnalyzedNormalization> Normalizations { get; }
 }

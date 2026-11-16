@@ -8,7 +8,10 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 /// <remarks>
 ///     <see cref="EnglishTextAnalyzer"/> is the entry point; a model package returns an instance
 ///     from <c>ISynthesisModel.TextAnalyzer</c>. <see cref="EnglishTextAnalyzerOptions"/> selects
-///     which annotations are produced and optionally supplies a counts-only diagnostics sink.
+///     which annotations are produced, optionally supplies a counts-only diagnostics sink and
+///     optionally a <see cref="PronunciationOverrides"/> dictionary of host-supplied pronunciation
+///     overrides (built with <see cref="PronunciationOverrides.Create"/> or
+///     <see cref="PronunciationOverrides.FromTsv"/>).
 ///     <see cref="TextEnAnnotations"/> names the annotation kinds this package defines and reads
 ///     them back for a backend. <see cref="EnglishTextAnalysis"/> is the richer, local-only
 ///     result of <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>. The package is a preview: the

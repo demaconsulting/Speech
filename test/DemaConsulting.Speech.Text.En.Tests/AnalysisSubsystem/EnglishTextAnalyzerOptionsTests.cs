@@ -76,4 +76,25 @@ public sealed class EnglishTextAnalyzerOptionsTests
         Assert.Equal(2, (int)TextEnAnnotationSelection.Normalization);
         Assert.True(typeof(TextEnAnnotationSelection).IsDefined(typeof(FlagsAttribute), false));
     }
+
+    /// <summary>Proves the options default to no overrides, keep the dictionary reference through a with-expression and a copy, and let a later copy replace it without changing the original.</summary>
+    [Fact]
+    public void EnglishTextAnalyzerOptions_Overrides_DefaultsToNullAndCopiesWithWith()
+    {
+        // Arrange
+        var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("word")]);
+
+        // Act
+        var defaults = new EnglishTextAnalyzerOptions();
+        var original = new EnglishTextAnalyzerOptions { Overrides = overrides };
+        var copy = original with { Annotations = TextEnAnnotationSelection.Normalization };
+        var replaced = original with { Overrides = null };
+
+        // Assert
+        Assert.Null(defaults.Overrides);
+        Assert.Same(overrides, original.Overrides);
+        Assert.Same(overrides, copy.Overrides);
+        Assert.Null(replaced.Overrides);
+        Assert.Same(overrides, original.Overrides);
+    }
 }

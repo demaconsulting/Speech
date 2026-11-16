@@ -22,7 +22,8 @@ sections:
                 justification: |
                   Backends reference the kinds by name, so the full vocabulary has to be stable
                   from the first release even though later releases will add the producers of the
-                  other kinds.
+                  other kinds. This release produces four of the six (normalization, part of
+                  speech, spell-out and pronunciation); the two reading kinds are reserved.
                 tests:
                   - TextEnAnnotations_Kinds_HaveDocumentedDistinctNames
 
@@ -48,6 +49,7 @@ sections:
                 tests:
                   - TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException
                   - TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException
+                  - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
 
               - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
                 title: >-
@@ -60,3 +62,49 @@ sections:
                 tests:
                   - TextEnAnnotations_TryReadNormalized_NormalizationAnnotation_ReturnsSpokenText
                   - TextEnAnnotations_TryReadNormalized_OtherKind_ReturnsFalse
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadSpellOut
+                title: >-
+                  The TextEnAnnotations class shall read the letters out of an annotation of the
+                  spell-out kind whose value is single capital ASCII letters separated by single
+                  spaces with at most one padding space on either side, returning the value exactly
+                  as stored, and shall report false, without throwing, for an annotation of
+                  another kind or with any other value.
+                justification: |
+                  A backend that speaks letters by name must be able to rely on the value being
+                  letters, so the reader accepts only the grammar the library produces and a
+                  malformed value from any other source is an ordinary "no" rather than a crash or
+                  a wrongly spoken word.
+                tests:
+                  - TextEnAnnotations_TryReadSpellOut_WellFormedLetters_ReturnsValueExactly
+                  - TextEnAnnotations_TryReadSpellOut_OtherKindOrMalformedValue_ReturnsFalse
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadPronunciation
+                title: >-
+                  The TextEnAnnotations class shall read the scheme and the phonemes out of an
+                  annotation of the pronunciation kind whose value is a scheme from the closed list
+                  (ipa or arpabet), a colon and phonemes that satisfy that scheme's syntax, splitting
+                  at the first colon, and shall report false, without throwing, for an annotation of
+                  another kind, an unknown scheme or malformed phonemes.
+                justification: |
+                  A backend that supports a notation uses the phonemes for the word, and one that
+                  does not must be able to tell that and speak the word as usual, so the reader
+                  returns a typed scheme and reports anything it cannot use as a plain "no".
+                tests:
+                  - TextEnAnnotations_TryReadPronunciation_WellFormedValue_ReturnsSchemeAndPhonemes
+                  - TextEnAnnotations_TryReadPronunciation_OtherKindOrMalformedValue_ReturnsFalse
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
+                title: >-
+                  The TextEnAnnotations class shall read the spoken replacement out of either a
+                  normalization annotation (reporting words, including the empty text of a dropped
+                  character) or a well-formed spell-out annotation (reporting letters to speak by
+                  letter name), and shall report false, without throwing, for any other kind or a
+                  malformed spelled value.
+                justification: |
+                  The two kinds replace the spoken text of a span and form one ascending sequence,
+                  so a backend collecting them needs one call that returns the value and whether it
+                  is letters, instead of two readers whose results it must merge.
+                tests:
+                  - TextEnAnnotations_TryReadReplacement_NormAndSpell_ReturnValueAndSpelledFlag
+                  - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows

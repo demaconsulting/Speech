@@ -24,7 +24,7 @@ and synthesize speech.
 - 🧩 Mockable, cross-platform audio interfaces
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
-- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates, times, and units (preview)
+- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates, times, units, and host pronunciation overrides (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
@@ -65,8 +65,11 @@ usage guide. The preview `DemaConsulting.Speech.Text.En` package (pre-release, d
 analyzed text, which violates the core `ITextAnalyzer` contract - see
 [PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an analyzer for English:
 `new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how abbreviations, symbols,
-apostrophes and initialisms are spoken as aligned replacement spans over the original text (`en.norm` annotations;
-the text is never rewritten; numbers, dates and units come later), and supplies sentence boundaries.
+apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned replacement spans over
+the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken by letter name;
+the text is never rewritten), supplies sentence boundaries, and lets a host override how individual words are
+spoken or pronounced with a dictionary of pronunciation overrides (`EnglishTextAnalyzerOptions.Overrides`, built
+in code or loaded from a tab-separated file; see the usage guide).
 
 ### PortAudio runtime support
 

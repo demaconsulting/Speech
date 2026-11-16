@@ -209,6 +209,7 @@ includes:
   - docs/reqstream/speech-text-en/analysis-subsystem.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer-options.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/pronunciation-overrides.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/text-en-annotations.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/part-of-speech-adapter.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/analysis-diagnostics.yaml

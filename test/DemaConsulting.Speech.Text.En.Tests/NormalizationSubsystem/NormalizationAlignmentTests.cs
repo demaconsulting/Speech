@@ -368,10 +368,161 @@ public sealed class NormalizationAlignmentTests
     {
         // Assert
         Assert.Equal(
-            ["Abbreviation=1", "Initialism=2", "Symbol=3", "Apostrophe=4", "Dropped=5", "Number=6", "Currency=7", "DateTime=8", "Unit=9"],
+            ["Abbreviation=1", "Initialism=2", "Symbol=3", "Apostrophe=4", "Dropped=5", "Number=6", "Currency=7", "DateTime=8", "Unit=9", "Override=10"],
             Enum.GetValues<NormalizationKind>().Select(value => $"{value}={(int)value}"));
         Assert.Equal(
             ["None=0", "Possessive=1", "Is=2", "Has=3", "Would=4", "Had=5", "Will=6", "Have=7", "Are=8", "Am=9", "Not=10", "Us=11"],
             Enum.GetValues<CliticKind>().Select(value => $"{value}={(int)value}"));
+    }
+
+    /// <summary>Proves the letter-sequence grammar of a spelled value: single capitals separated by single spaces, at most one padding space per side.</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="valid">Whether it is a letter sequence.</param>
+    [Theory]
+    [InlineData("A", true)]
+    [InlineData("A B", true)]
+    [InlineData("F B I", true)]
+    [InlineData(" A", true)]
+    [InlineData("A ", true)]
+    [InlineData(" A B ", true)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData("  ", false)]
+    [InlineData("a", false)]
+    [InlineData("AB", false)]
+    [InlineData("A  B", false)]
+    [InlineData("  A", false)]
+    [InlineData("A  ", false)]
+    [InlineData("A\tB", false)]
+    [InlineData("A-B", false)]
+    [InlineData("A B C and", false)]
+    [InlineData("\u00C9", false)]
+    [InlineData("A,B", false)]
+    public void SpelledGrammar_IsLetterSequence_AcceptsOnlyCapitalLettersWithSingleSpaces(string value, bool valid)
+    {
+        // Act / Assert
+        Assert.Equal(valid, SpelledGrammar.IsLetterSequence(value));
+    }
+
+    /// <summary>Proves a spelled span must be a letter sequence (padding allowed), while a span that merely has that shape without the flag is accepted as an ordinary replacement.</summary>
+    [Fact]
+    public void AlignedTextBuilder_Add_SpelledSpan_RequiresLetterSequence()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("FBI ab cd ef gh ij");
+
+        // Act / Assert: invalid spelled values
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(0, 3, "fbi", NormalizationKind.Initialism, true)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(0, 3, "FBI", NormalizationKind.Initialism, true)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(0, 3, "F  B", NormalizationKind.Initialism, true)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(0, 3, "Doctor", NormalizationKind.Abbreviation, true)));
+
+        // valid spelled value, with and without padding, and an unflagged letter sequence
+        builder.Add(new NormalizedSpan(0, 3, "F B I", NormalizationKind.Initialism, true));
+        builder.Add(new NormalizedSpan(4, 2, " A ", NormalizationKind.Override, true));
+        builder.Add(new NormalizedSpan(7, 2, "C D", NormalizationKind.Abbreviation));
+        var aligned = builder.Build();
+        Assert.Equal([true, true, false], aligned.Spans.Select(span => span.Spelled));
+    }
+
+    /// <summary>Proves the default of the spelled flag is false, so every pre-existing span stays an ordinary replacement.</summary>
+    [Fact]
+    public void NormalizedSpan_Spelled_DefaultsToFalse()
+    {
+        // Act / Assert
+        Assert.False(new NormalizedSpan(0, 1, "x", NormalizationKind.Symbol).Spelled);
+    }
+
+    /// <summary>Proves a pronunciation mark whose range is empty, out of bounds, or would overflow is rejected with ArgumentException, without arithmetic that can wrap.</summary>
+    /// <param name="start">The mark's start.</param>
+    /// <param name="length">The mark's length.</param>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0, -1)]
+    [InlineData(-1, 2)]
+    [InlineData(8, 1)]
+    [InlineData(5, 4)]
+    [InlineData(int.MaxValue, 1)]
+    [InlineData(1, int.MaxValue)]
+    [InlineData(int.MaxValue, int.MaxValue)]
+    public void AlignedTextBuilder_AddPronunciation_EmptyOrOutOfBoundsOrOverflowing_ThrowsArgumentException(int start, int length)
+    {
+        // Arrange: an eight-character text
+        var builder = new AlignedTextBuilder("abc defg");
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => builder.AddPronunciation(new PronunciationMark(start, length, "ipa:x")));
+    }
+
+    /// <summary>Proves pronunciation marks and replacement spans form one ascending, disjoint sequence in either order, and a mark may touch a span.</summary>
+    [Fact]
+    public void AlignedTextBuilder_AddPronunciation_UnifiedOrderingWithSpans()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("aaa bbb ccc ddd");
+
+        // Act: span, mark touching nothing, span after the mark
+        builder.Add(new NormalizedSpan(0, 3, "x", NormalizationKind.Abbreviation));
+        builder.AddPronunciation(new PronunciationMark(4, 3, "ipa:b"));
+        builder.Add(new NormalizedSpan(8, 3, "y", NormalizationKind.Abbreviation));
+
+        // Assert: a span overlapping or preceding the mark, a mark overlapping or preceding a span, and two marks overlapping are all rejected
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(5, 2, "z", NormalizationKind.Abbreviation)));
+        Assert.Throws<ArgumentException>(() => builder.AddPronunciation(new PronunciationMark(9, 2, "ipa:c")));
+        Assert.Throws<ArgumentException>(() => builder.AddPronunciation(new PronunciationMark(4, 3, "ipa:b")));
+        builder.AddPronunciation(new PronunciationMark(12, 3, "ipa:d"));
+        var aligned = builder.Build();
+        Assert.Equal([4, 12], aligned.Pronunciations.Select(mark => mark.Start));
+        Assert.Equal([0, 8], aligned.Spans.Select(span => span.Start));
+
+        // the other order: a mark first, then a span that overlaps it or starts before its end
+        var other = new AlignedTextBuilder("aaabbb");
+        other.AddPronunciation(new PronunciationMark(0, 3, "ipa:a"));
+        Assert.Throws<ArgumentException>(() => other.Add(new NormalizedSpan(2, 2, "x", NormalizationKind.Abbreviation)));
+        other.Add(new NormalizedSpan(3, 3, "x", NormalizationKind.Symbol));
+    }
+
+    /// <summary>Proves a pronunciation mark that starts or ends on whitespace, covers a tag placeholder or cuts a surrogate pair is rejected, as is a mark with an empty or placeholder-carrying value.</summary>
+    [Fact]
+    public void AlignedTextBuilder_AddPronunciation_WhitespacePlaceholderSurrogateOrBadValue_ThrowsArgumentException()
+    {
+        // Arrange
+        var whitespace = new AlignedTextBuilder("ab cd");
+        var placeholder = new AlignedTextBuilder("ab\uFFFCcd");
+        var pair = new AlignedTextBuilder("a\uD83D\uDE00b");
+        var value = new AlignedTextBuilder("abcd");
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => whitespace.AddPronunciation(new PronunciationMark(0, 3, "ipa:a")));
+        Assert.Throws<ArgumentException>(() => whitespace.AddPronunciation(new PronunciationMark(2, 2, "ipa:a")));
+        Assert.Throws<ArgumentException>(() => placeholder.AddPronunciation(new PronunciationMark(0, 5, "ipa:a")));
+        Assert.Throws<ArgumentException>(() => pair.AddPronunciation(new PronunciationMark(0, 2, "ipa:a")));
+        Assert.Throws<ArgumentException>(() => pair.AddPronunciation(new PronunciationMark(2, 2, "ipa:a")));
+        Assert.Throws<ArgumentException>(() => value.AddPronunciation(new PronunciationMark(0, 4, string.Empty)));
+        Assert.Throws<ArgumentException>(() => value.AddPronunciation(new PronunciationMark(0, 4, null!)));
+        Assert.Throws<ArgumentException>(() => value.AddPronunciation(new PronunciationMark(0, 4, "ipa:\uFFFC")));
+        pair.AddPronunciation(new PronunciationMark(0, 4, "ipa:a"));
+        Assert.Single(pair.Build().Pronunciations);
+    }
+
+    /// <summary>Proves the two override counters are independent, reported on the result, and zero by default.</summary>
+    [Fact]
+    public void AlignedTextBuilder_OverrideCounters_AreReportedOnTheResult()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("x");
+
+        // Act
+        builder.CountOverrideApplied();
+        builder.CountOverrideApplied();
+        builder.CountOverrideIgnored();
+        var aligned = builder.Build();
+
+        // Assert
+        Assert.Equal(2, aligned.OverridesApplied);
+        Assert.Equal(1, aligned.OverridesIgnored);
+        Assert.Equal(0, new AlignedText("x", [], [], [], [], 0).OverridesApplied);
+        Assert.Equal(0, new AlignedText("x", [], [], [], [], 0).OverridesIgnored);
+        Assert.Empty(new AlignedText("x", [], [], [], [], 0).Pronunciations);
     }
 }

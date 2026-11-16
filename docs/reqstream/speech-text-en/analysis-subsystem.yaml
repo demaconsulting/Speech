@@ -4,7 +4,8 @@
 # These requirements describe the subsystem-level behavior of the SpeechTextEn AnalysisSubsystem,
 # decomposing the system-level requirements in docs/reqstream/speech-text-en.yaml. This subsystem
 # supplies the English text analyzer (EnglishTextAnalyzer), its options
-# (EnglishTextAnalyzerOptions), the annotation vocabulary and typed reader (TextEnAnnotations), the
+# (EnglishTextAnalyzerOptions), the annotation vocabulary and typed readers (TextEnAnnotations), the
+# immutable dictionary of host-supplied pronunciation overrides (PronunciationOverrides), the
 # internal seam over the part-of-speech tagging package (PartOfSpeechAdapter), and the aggregate
 # diagnostics reporter (AnalysisDiagnostics). It drives the NormalizationSubsystem, which never
 # depends on it, and turns the normalization result into annotations and sentence breaks. Each
@@ -74,7 +75,8 @@ sections:
             title: >-
               The AnalysisSubsystem shall run the normalization on the tokens of the analyzed
               text when the options select it, without loading the tagger for it, shall emit each
-              normalization as an annotation of the normalization kind on its span, merged in
+              normalization as an annotation of the normalization kind (or, for a letter sequence,
+              the spell-out kind) on its span, merged in
               text order with the part-of-speech annotations (the part of speech first at an equal
               start), shall return sentence breaks reconciled with the abbreviation readings, shall
               name and read back the annotation through the documented vocabulary, and shall offer
@@ -152,15 +154,18 @@ sections:
             title: >-
               The AnalysisSubsystem shall report one event of counts per completed analysis to the
               optional diagnostics sink, counting sentences, tokens, annotations, unknown words,
-              normalizations, ambiguous readings and numeric fallbacks, built from fixed words and numbers only,
+              normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides
+              ignored, built from fixed words and numbers only,
               shall report nothing when no sink is configured or the analysis is canceled, and
               shall contain a failing sink.
             justification: |
               This decomposes the system diagnostics requirement into the reporter's observable
-              behavior: aggregate counts, one event, no text, and failure containment.
+              behavior: aggregate counts, one event, no text and no dictionary content, and failure
+              containment.
             children:
               - SpeechTextEn-Analysis-AnalysisDiagnostics-SingleCountsEvent
               - SpeechTextEn-Analysis-AnalysisDiagnostics-NormalizationCounts
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-OverrideCounts
               - SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
               - SpeechTextEn-Analysis-AnalysisDiagnostics-NullSink
               - SpeechTextEn-Analysis-AnalysisDiagnostics-SinkFailureContained
@@ -168,3 +173,85 @@ sections:
               - AnalysisSubsystem_Analyze_Request_ReportsOneCountsOnlyDiagnostic
               - AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult
               - AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing
+
+          - id: SpeechTextEn-Analysis-OverrideAnnotations
+            title: >-
+              The AnalysisSubsystem shall, when its options carry a non-empty pronunciation
+              dictionary and select normalization, resolve the dictionary against the tokens of
+              the analyzed text and annotate each matching word on its exact span (a normalization
+              annotation with the spoken words, a spell-out annotation with the letters, a
+              pronunciation annotation with the scheme and phonemes, and no annotation for a word
+              spoken as written), keeping the part-of-speech annotation of the word, shall never
+              change the analyzed text or the sentence breaks, shall read the annotations back
+              through typed readers, shall reject at construction a non-empty dictionary without
+              normalization, and shall give an override a source kind of its own in the detailed
+              result.
+            justification: |
+              This decomposes the system override requirements into the subsystem's behavior: the
+              analyzer asks the dictionary which tokens match, the normalization pass applies the
+              result, and the annotations carry it to a backend in the form the Speech library
+              delivers; the typed readers let a backend use the result without parsing strings. An
+              override changes how a word is spoken, not where a sentence ends, so the sentence
+              breaks are untouched.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Overrides
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-OverridesRequireNormalization
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Overrides
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadPronunciation
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
+              - SpeechTextEn-Analysis-PronunciationOverrides-Directives
+              - SpeechTextEn-Analysis-PronunciationOverrides-WholeWordMatching
+              - SpeechTextEn-Analysis-PronunciationOverrides-CaseRules
+              - SpeechTextEn-Analysis-PronunciationOverrides-CancellationAndAllocation
+            tests:
+              - AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders
+              - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
+              - EnglishTextAnalyzer_Analyze_OverridesDoNotChangeSentenceBreaks
+              - EnglishTextAnalyzer_Analyze_OverridesOnAbbreviations_DoNotChangeSentenceBreaks
+
+          - id: SpeechTextEn-Analysis-OverrideDictionary
+            title: >-
+              The AnalysisSubsystem shall supply the pronunciation dictionary as an immutable,
+              thread-safe value that is built from entries or from a tab-separated file, whose
+              entries (word, case flag, action and payload) and whole size are validated and
+              bounded, whose errors name a position and a reason but never content, and whose
+              file format is simple enough to maintain by hand.
+            justification: |
+              This decomposes the system dictionary requirement into the units that carry it:
+              the validation of an entry, the grammar of the payloads, the duplicate rule, the
+              limits, the file format and its validation, immutability and the argument checks of
+              the lookup.
+            children:
+              - SpeechTextEn-Analysis-PronunciationOverrides-EntryValidation
+              - SpeechTextEn-Analysis-PronunciationOverrides-PayloadGrammar
+              - SpeechTextEn-Analysis-PronunciationOverrides-DuplicateKeys
+              - SpeechTextEn-Analysis-PronunciationOverrides-Limits
+              - SpeechTextEn-Analysis-PronunciationOverrides-TsvLoading
+              - SpeechTextEn-Analysis-PronunciationOverrides-TsvValidation
+              - SpeechTextEn-Analysis-PronunciationOverrides-Immutability
+              - SpeechTextEn-Analysis-PronunciationOverrides-ArgumentValidation
+            tests:
+              - PronunciationOverrides_FromTsv_SampleDictionary_ParsesEntries
+              - PronunciationOverrides_FromTsv_EquivalentToCreate
+
+          - id: SpeechTextEn-Analysis-SpelledInitialismAnnotations
+            title: >-
+              The AnalysisSubsystem shall annotate each replacement that is a sequence of capital
+              letters with a spell-out annotation instead of a normalization annotation, with the
+              same span and the same value, shall list it in the detailed result with a spelled
+              flag, shall produce no spell-out annotation when normalization is not selected, and
+              shall name and read back the annotation through the documented vocabulary together
+              with the normalization annotation as one replacement family.
+            justification: |
+              This decomposes the system spelled-initialism requirement: the analyzer chooses the
+              annotation kind from the shape the normalizer decided, and the vocabulary lets a
+              backend read the two replacement kinds with one call and learn whether the value is
+              letters to speak by name.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-SpelledInitialisms
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadSpellOut
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
+            tests:
+              - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
+              - EnglishTextAnalyzer_Analyze_Initialisms_EmitSpellInsteadOfNorm
+              - EnglishTextAnalyzer_AnalyzeDetailed_ListsOverrideNormalizationKind

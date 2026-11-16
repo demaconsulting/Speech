@@ -191,6 +191,7 @@ input-files:
   - docs/verification/speech-text-en/analysis-subsystem.md
   - docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer.md
   - docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer-options.md
+  - docs/verification/speech-text-en/analysis-subsystem/pronunciation-overrides.md
   - docs/verification/speech-text-en/analysis-subsystem/text-en-annotations.md
   - docs/verification/speech-text-en/analysis-subsystem/part-of-speech-adapter.md
   - docs/verification/speech-text-en/analysis-subsystem/analysis-diagnostics.md

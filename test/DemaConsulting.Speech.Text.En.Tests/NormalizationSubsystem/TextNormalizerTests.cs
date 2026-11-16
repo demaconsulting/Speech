@@ -700,4 +700,515 @@ public sealed class TextNormalizerTests
         Assert.StartsWith("Doctor Smith and Mister Jones live on Main Street.", first, StringComparison.Ordinal);
         Assert.StartsWith("Doc Smith and Mr. Jones live on Main St. The FBI said it's w/o proof.", customSpoken, StringComparison.Ordinal);
     }
+
+    // ---------------------------------------------------------------- user directives and spelled spans
+
+    /// <summary>Finds the index of the first token whose characters equal a word.</summary>
+    /// <param name="text">The (neutralized) text.</param>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="word">The word.</param>
+    /// <returns>The token index.</returns>
+    private static int IndexOf(string text, NormalizationToken[] tokens, string word)
+    {
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (tokens[i].In(text).SequenceEqual(word))
+            {
+                return i;
+            }
+        }
+
+        throw new InvalidOperationException($"No token '{word}'.");
+    }
+
+    /// <summary>Normalizes a text with one directive on the first token equal to a word.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="word">The word whose token gets the directive.</param>
+    /// <param name="kind">The directive kind.</param>
+    /// <param name="value">The directive value.</param>
+    /// <returns>The aligned result.</returns>
+    private static AlignedText WithDirective(string text, string word, TokenDirectiveKind kind, string? value = null)
+    {
+        var tokens = NormalizationHarness.Tokenize(text);
+        return NormalizationHarness.Normalize(text, false, [new TokenDirective(IndexOf(text, tokens, word), kind, value)]);
+    }
+
+    /// <summary>Proves a skip directive emits nothing for its token and is counted as applied.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied()
+    {
+        // Act
+        var aligned = WithDirective("US troops", "US", TokenDirectiveKind.Skip);
+
+        // Assert
+        Assert.Empty(aligned.Spans);
+        Assert.Empty(aligned.Pronunciations);
+        Assert.Equal(1, aligned.OverridesApplied);
+        Assert.Equal(0, aligned.OverridesIgnored);
+        Assert.Equal("US troops", aligned.ApplySpokenForms());
+    }
+
+    /// <summary>Proves a replace directive emits one override span with the value, padded with exactly one space where a previous spoken letter touches it.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding()
+    {
+        // Arrange: the second text has a mark directly before the word, as two tokens
+        const string touchingText = "\u2122Nginx";
+        NormalizationToken[] touchingTokens = [new(0, 1, true), new(1, 5, false)];
+
+        // Act
+        var plain = WithDirective("use Nginx now", "Nginx", TokenDirectiveKind.Replace, "engine ex");
+        var touching = TextNormalizer.Default.Normalize(touchingText, touchingTokens, false, CancellationToken.None, [new TokenDirective(1, TokenDirectiveKind.Replace, "engine ex")]);
+
+        // Assert
+        var span = Assert.Single(plain.Spans);
+        Assert.Equal(new NormalizedSpan(4, 5, "engine ex", NormalizationKind.Override), span);
+        Assert.False(span.Spelled);
+        Assert.Equal(["trademark ", "engine ex"], touching.Spans.Select(item => item.Spoken));
+        Assert.Equal("trademark engine ex", touching.ApplySpokenForms());
+        Assert.DoesNotContain("  ", touching.ApplySpokenForms(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a spell directive spells the token's letters in capitals as a spelled override span, and a token that is not ASCII letters is left as written and counted as ignored.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly()
+    {
+        // Arrange: the padded case has a mark directly before the word, as two tokens
+        NormalizationToken[] touchingTokens = [new(0, 1, true), new(1, 3, false)];
+
+        // Act
+        var spelled = WithDirective("a gif b", "gif", TokenDirectiveKind.Spell);
+        var padded = TextNormalizer.Default.Normalize("\u2122gif", touchingTokens, false, CancellationToken.None, [new TokenDirective(1, TokenDirectiveKind.Spell, null)]);
+        var notLetters = WithDirective("a caf\u00E9 b", "caf\u00E9", TokenDirectiveKind.Spell);
+
+        // Assert
+        Assert.Equal(new NormalizedSpan(2, 3, "G I F", NormalizationKind.Override, true), Assert.Single(spelled.Spans));
+        Assert.Equal(1, spelled.OverridesApplied);
+        Assert.Equal(["trademark ", "G I F"], padded.Spans.Select(item => item.Spoken));
+        Assert.True(padded.Spans[^1].Spelled);
+        Assert.Equal("trademark G I F", padded.ApplySpokenForms());
+        Assert.Empty(notLetters.Spans);
+        Assert.Equal(0, notLetters.OverridesApplied);
+        Assert.Equal(1, notLetters.OverridesIgnored);
+    }
+
+    /// <summary>Proves a pronounce directive attaches a pronunciation mark to the exact token, emits no span and leaves the spoken text unchanged.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan()
+    {
+        // Act
+        var aligned = WithDirective("food Polish food", "Polish", TokenDirectiveKind.Pronounce, "ipa:abc");
+
+        // Assert
+        Assert.Empty(aligned.Spans);
+        Assert.Equal(new PronunciationMark(5, 6, "ipa:abc"), Assert.Single(aligned.Pronunciations));
+        Assert.Equal("food Polish food", aligned.ApplySpokenForms());
+        Assert.Equal(1, aligned.OverridesApplied);
+    }
+
+    /// <summary>Proves a directive wins over every built-in rule for its token: clitic stem, symbol-bearing token, lexicon abbreviation, listed acronym, vowel-less rule, elision and ampersand initialism.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="word">The token that gets a skip directive.</param>
+    [Theory]
+    [InlineData("NASA's launch", "NASA")]
+    [InlineData("he/she left", "he/she")]
+    [InlineData("a\u00A9b", "a\u00A9b")]
+    [InlineData("Mr Smith left", "Mr")]
+    [InlineData("US troops", "US")]
+    [InlineData("The CIA left", "CIA")]
+    [InlineData("a SQL query", "SQL")]
+    [InlineData("hello y\u2019all", "y\u2019all")]
+    [InlineData("the AT&T network", "AT&T")]
+    [InlineData("the AT&T's network", "AT&T's")]
+    [InlineData("I met J. Smith", "J.")]
+    public void TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule(string text, string word)
+    {
+        // Arrange
+        var neutralized = NormalizationHarness.Neutralize(text);
+        var tokens = NormalizationHarness.Tokenize(neutralized);
+        var index = IndexOf(neutralized, tokens, word);
+        var builtIn = NormalizationHarness.Normalize(text);
+
+        // Act
+        var skipped = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, TokenDirectiveKind.Skip, null)]);
+        var replaced = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, TokenDirectiveKind.Replace, "other words")]);
+
+        // Assert: the built-in rule fired without the directive (or the word was a clitic stem and nothing was spoken differently), and never with it
+        Assert.DoesNotContain(skipped.Spans, span => span.Start >= tokens[index].Start && span.End <= tokens[index].End);
+        Assert.Equal(1, skipped.OverridesApplied);
+        var overrideSpan = Assert.Single(replaced.Spans, span => span.Kind == NormalizationKind.Override);
+        Assert.Equal(tokens[index].Start, overrideSpan.Start);
+        Assert.Equal(tokens[index].Length, overrideSpan.Length);
+        Assert.DoesNotContain(replaced.Spans, span => span.Kind != NormalizationKind.Override && span.Start >= tokens[index].Start && span.End <= tokens[index].End);
+        Assert.True(builtIn.Spans.Count > 0 || word == "NASA");
+    }
+
+    /// <summary>Proves a directive on a token that an earlier multi-token match consumed (a unit, a magnitude, a meridiem, at the end of the text or in the middle) is ignored and counted, and the match is unchanged.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="word">The consumed token that gets a directive.</param>
+    [Theory]
+    [InlineData("5 kg of rice", "kg")]
+    [InlineData("rice 5 kg", "kg")]
+    [InlineData("$5 million", "million")]
+    [InlineData("at 5 pm today", "pm")]
+    public void TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted(string text, string word)
+    {
+        // Arrange
+        var neutralized = NormalizationHarness.Neutralize(text);
+        var tokens = NormalizationHarness.Tokenize(neutralized);
+        var baseline = NormalizationHarness.Normalize(text);
+
+        // Act
+        var aligned = NormalizationHarness.Normalize(text, false, [new TokenDirective(IndexOf(neutralized, tokens, word), TokenDirectiveKind.Replace, "other words")]);
+
+        // Assert
+        Assert.Equal(baseline.Spans, aligned.Spans);
+        Assert.Equal(baseline.ApplySpokenForms(), aligned.ApplySpokenForms());
+        Assert.Equal(0, aligned.OverridesApplied);
+        Assert.Equal(1, aligned.OverridesIgnored);
+    }
+
+    /// <summary>Proves several directives are all counted correctly in one pass: applied, ignored, and applied again after an ignored one.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_MixedDirectives_CountAppliedAndIgnoredSeparately()
+    {
+        // Arrange
+        const string text = "US 5 kg FBI and $3 million";
+        var tokens = NormalizationHarness.Tokenize(text);
+        TokenDirective[] directives =
+        [
+            new(IndexOf(text, tokens, "US"), TokenDirectiveKind.Skip, null),
+            new(IndexOf(text, tokens, "kg"), TokenDirectiveKind.Skip, null),
+            new(IndexOf(text, tokens, "FBI"), TokenDirectiveKind.Skip, null),
+            new(IndexOf(text, tokens, "million"), TokenDirectiveKind.Skip, null),
+        ];
+
+        // Act
+        var aligned = NormalizationHarness.Normalize(text, false, directives);
+
+        // Assert
+        Assert.Equal(2, aligned.OverridesApplied);
+        Assert.Equal(2, aligned.OverridesIgnored);
+    }
+
+    /// <summary>Proves directives that are out of order, duplicated, negative or name a token that does not exist are rejected with an ArgumentException, without arithmetic on the index.</summary>
+    /// <param name="first">The first directive's token index.</param>
+    /// <param name="second">The second directive's token index.</param>
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(1, 1)]
+    [InlineData(0, 2)]
+    [InlineData(0, 3)]
+    [InlineData(-1, 0)]
+    [InlineData(0, int.MaxValue)]
+    [InlineData(int.MinValue, 0)]
+    [InlineData(2, int.MinValue)]
+    public void TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException(int first, int second)
+    {
+        // Arrange: a text of exactly two tokens
+        const string text = "ab cd";
+        var tokens = NormalizationHarness.Tokenize(text);
+        Assert.Equal(2, tokens.Length);
+        TokenDirective[] directives = [new(first, TokenDirectiveKind.Skip, null), new(second, TokenDirectiveKind.Skip, null)];
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives));
+    }
+
+    /// <summary>Proves a pre-canceled request with directives still throws before any work, and directives do not disturb the cancellation cadence: every visited token counts.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_DirectivesWithCancellation_CountEveryVisitedToken()
+    {
+        // Arrange: 1000 single-letter tokens, a skip directive on every 10th, canceled while token 300 is visited
+        var text = string.Concat(Enumerable.Repeat("a ", 1000));
+        var tokens = NormalizationHarness.Tokenize(text);
+        var directives = Enumerable.Range(0, 100).Select(i => new TokenDirective(i * 10, TokenDirectiveKind.Skip, null)).ToArray();
+        using var cancellation = new CancellationTokenSource();
+        var visited = new List<int>();
+        var normalizer = new TextNormalizer(
+            AbbreviationResolver.Default,
+            AcronymRecognizer.Default,
+            index =>
+            {
+                visited.Add(index);
+                if (index == 300)
+                {
+                    cancellation.Cancel();
+                }
+            });
+
+        // Act
+        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
+
+        // Assert: stopped at the next check, the 512th visited token
+        Assert.Equal(Enumerable.Range(0, 511), visited);
+        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
+    }
+
+    /// <summary>Proves the shape-based spelling decision: letter-name replacements are spelled, word replacements, symbols and numbers are not.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape()
+    {
+        // Act
+        var aligned = NormalizationHarness.Normalize("The FBI and U.S. Army met Dr. Smith & J. Jones at 5 p.m. for $5 and 50% of 3 kg.");
+        var neutralized = aligned.Source;
+
+        // Assert
+        var spelled = aligned.Spans.Where(span => span.Spelled).Select(span => neutralized.Substring(span.Start, span.Length)).ToList();
+        Assert.Equal(["FBI", "U.S.", "J.", "p.m."], spelled);
+        Assert.All(aligned.Spans.Where(span => span.Spelled), span => Assert.Matches("^[A-Z]( [A-Z])*$", span.Spoken.Trim()));
+        Assert.All(aligned.Spans.Where(span => !span.Spelled), span => Assert.DoesNotMatch("^[A-Z]( [A-Z])*$", span.Spoken.Trim()));
+    }
+
+    /// <summary>Proves an ampersand initialism is decomposed into spelled letter spans and an <c>and</c> symbol span whose spoken text is the same as before, with the possessive tail outside every span.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText()
+    {
+        // Act
+        var possessive = NormalizationHarness.Normalize("AT&T's");
+        var typographic = NormalizationHarness.Normalize("AT&T\u2019s");
+        var groups = NormalizationHarness.Normalize("Q&A and R&D");
+
+        // Assert
+        Assert.Equal(
+            [new NormalizedSpan(0, 2, "A T", NormalizationKind.Initialism, true), new NormalizedSpan(2, 1, " and ", NormalizationKind.Symbol), new NormalizedSpan(3, 1, "T", NormalizationKind.Initialism, true)],
+            possessive.Spans);
+        Assert.Equal("A T and T's", possessive.ApplySpokenForms());
+        Assert.Equal("A T and T's", typographic.ApplySpokenForms());
+        Assert.Equal(new NormalizedSpan(4, 1, "'", NormalizationKind.Apostrophe), typographic.Spans[^1]);
+        Assert.Equal("Q and A and R and D", groups.ApplySpokenForms());
+        Assert.Equal(6, groups.Spans.Count);
+        Assert.Equal(4, groups.Spans.Count(span => span.Spelled));
+    }
+
+    /// <summary>Proves an ampersand initialism next to letters and replacements is padded by exactly one space and no span touches whitespace.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace()
+    {
+        // Arrange: a mark directly before the initialism, as two tokens
+        NormalizationToken[] tokens = [new(0, 1, true), new(1, 4, false)];
+
+        // Act
+        var aligned = TextNormalizer.Default.Normalize("\u2122AT&T", tokens, false, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("trademark A T and T", aligned.ApplySpokenForms());
+        Assert.DoesNotContain("  ", aligned.ApplySpokenForms(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a pass with thousands of directives over a large text is linear: it finishes within a generous budget and adds no per-token allocation for tokens without a directive.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_ManyDirectives_CompletesWithinBudget()
+    {
+        // Arrange: 200,000 tokens, a skip directive on every 20th
+        var text = string.Concat(Enumerable.Repeat("word ", 200_000));
+        var tokens = Enumerable.Range(0, 200_000).Select(i => new NormalizationToken(i * 5, 4, i == 0)).ToArray();
+        var directives = Enumerable.Range(0, 10_000).Select(i => new TokenDirective(i * 20, TokenDirectiveKind.Skip, null)).ToArray();
+
+        // Act
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var aligned = TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
+        stopwatch.Stop();
+
+        // Assert
+        Assert.Equal(10_000, aligned.OverridesApplied);
+        Assert.Empty(aligned.Spans);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20), $"took {stopwatch.Elapsed}");
+    }
+
+    /// <summary>The four directive kinds, with the value each needs, that the sentence-break tests apply in turn.</summary>
+    private static readonly (TokenDirectiveKind Kind, string? Value)[] AllDirectiveKinds =
+    [
+        (TokenDirectiveKind.Skip, null),
+        (TokenDirectiveKind.Replace, "other words"),
+        (TokenDirectiveKind.Spell, null),
+        (TokenDirectiveKind.Pronounce, "ipa:abc"),
+    ];
+
+    /// <summary>Finds the index of the n-th token that is a word, with or without its period.</summary>
+    /// <param name="text">The (neutralized) text.</param>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="word">The word, without a period.</param>
+    /// <param name="occurrence">The zero-based occurrence to find.</param>
+    /// <returns>The token index.</returns>
+    private static int IndexOfWord(string text, NormalizationToken[] tokens, string word, int occurrence)
+    {
+        var seen = 0;
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            var span = tokens[i].In(text);
+            if ((span.SequenceEqual(word) || (span.Length == word.Length + 1 && span[^1] == '.' && span[..^1].SequenceEqual(word))) && seen++ == occurrence)
+            {
+                return i;
+            }
+        }
+
+        throw new InvalidOperationException($"No token '{word}' number {occurrence}.");
+    }
+
+    /// <summary>Proves a directive on an abbreviation or an acronym never changes the sentence breaks: with any of the four kinds, mid-sentence or sentence-final, the reconciled breaks equal those of the text without the directive, while the spans and marks come from the directive alone.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="word">The abbreviation, without its period.</param>
+    /// <param name="occurrence">Which occurrence of the word gets the directive.</param>
+    /// <param name="expectedSentences">The expected sentences, without and with the directive, joined by the broken bar.</param>
+    [Theory]
+    [InlineData("See Fig. 5 for details.", "Fig", 0, "See Fig. 5 for details.")]
+    [InlineData("We saw the plot in Fig. It was good.", "Fig", 0, "We saw the plot in Fig.¦It was good.")]
+    [InlineData("Dr. Smith lives here. He sleeps.", "Dr", 0, "Dr. Smith lives here.¦He sleeps.")]
+    [InlineData("Dr. Smith lives on Maple Dr. He likes it.", "Dr", 1, "Dr. Smith lives on Maple Dr.¦He likes it.")]
+    [InlineData("Visit St. Louis. Then go.", "St", 0, "Visit St. Louis.¦Then go.")]
+    [InlineData("I live on Main St. It is nice.", "St", 0, "I live on Main St.¦It is nice.")]
+    [InlineData("No. 5 is here. Then go.", "No", 0, "No. 5 is here.¦Then go.")]
+    [InlineData("He said No. I don't know.", "No", 0, "He said No.¦I don't know.")]
+    [InlineData("Jan. 5 was cold. Then go.", "Jan", 0, "Jan. 5 was cold.¦Then go.")]
+    [InlineData("We met in Jan. It was cold.", "Jan", 0, "We met in Jan.¦It was cold.")]
+    [InlineData("Hello\u2014Dr. Smith left.", "Dr", 0, "Hello\u2014Dr. Smith left.")]
+    [InlineData("Hello\u2014Dr. Smith left. Bye.", "Dr", 0, "Hello\u2014Dr. Smith left.¦Bye.")]
+    [InlineData("John Smith Jr. Ph.D. spoke.", "Ph.D", 0, "John Smith Jr. Ph.D. spoke.")]
+    [InlineData("John Smith Jr. Ph.D. He spoke.", "Ph.D", 0, "John Smith Jr. Ph.D.¦He spoke.")]
+    public void TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks(string text, string word, int occurrence, string expectedSentences)
+    {
+        // Arrange
+        var neutralized = NormalizationHarness.Neutralize(text);
+        var tokens = NormalizationHarness.Tokenize(neutralized);
+        var index = IndexOfWord(neutralized, tokens, word, occurrence);
+        var token = tokens[index];
+        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(neutralized);
+        var baseline = NormalizationHarness.Normalize(text);
+        var baselineBreaks = baseline.ReconcileBreaks(tokenizerBreaks);
+        var periodSeparate = token.End < neutralized.Length && neutralized[token.End] == '.' && neutralized[token.End - 1] != '.';
+        var reach = token.End + (periodSeparate ? 1 : 0);
+        var lettersOnly = neutralized.Substring(token.Start, token.Length).All(character => character is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
+
+        foreach (var (kind, value) in AllDirectiveKinds)
+        {
+            var context = $"'{text}', {word} #{occurrence}, {kind}";
+
+            // Act
+            var aligned = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, kind, value)]);
+            var breaks = aligned.ReconcileBreaks(tokenizerBreaks);
+
+            // Assert: the breaks are the built-in ones, never changed by the directive
+            Assert.True(baselineBreaks.SequenceEqual(breaks), $"breaks differ: {context}: [{string.Join(",", breaks)}] instead of [{string.Join(",", baselineBreaks)}]");
+            Assert.Equal(expectedSentences, NormalizationHarness.JoinSentences(neutralized, baselineBreaks));
+            Assert.Equal(expectedSentences, NormalizationHarness.JoinSentences(neutralized, breaks));
+
+            // Assert: the directive is applied (a spell-out only for ASCII letters) and nothing else is spoken for the token
+            var expectedApplied = kind != TokenDirectiveKind.Spell || lettersOnly;
+            Assert.True(aligned.OverridesApplied == (expectedApplied ? 1 : 0) && aligned.OverridesIgnored == (expectedApplied ? 0 : 1), $"counts: {context}");
+            Assert.True(aligned.AmbiguousCount <= baseline.AmbiguousCount, $"ambiguous: {context}");
+            var touching = aligned.Spans.Where(span => span.Start < reach && span.End > token.Start).ToList();
+            if (kind is TokenDirectiveKind.Replace or TokenDirectiveKind.Spell && expectedApplied)
+            {
+                var span = Assert.Single(touching);
+                Assert.True(span.Kind == NormalizationKind.Override && span.Start == token.Start && span.Length == token.Length && span.Spelled == (kind == TokenDirectiveKind.Spell), $"span: {context}");
+            }
+            else
+            {
+                Assert.True(touching.Count == 0, $"unexpected span: {context}");
+            }
+
+            Assert.Equal(kind == TokenDirectiveKind.Pronounce ? 1 : 0, aligned.Pronunciations.Count(mark => mark.Start == token.Start && mark.Length == token.Length));
+        }
+    }
+
+    /// <summary>Proves the pinned review example: with a directive on <c>Fig</c> the text <c>See Fig. 5 for details.</c> still has no sentence break, where the tokenizer alone would break after the period.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak()
+    {
+        // Arrange
+        const string text = "See Fig. 5 for details.";
+        var tokens = NormalizationHarness.Tokenize(text);
+        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(text);
+
+        // Act
+        var plain = NormalizationHarness.Normalize(text);
+        var replaced = WithDirective(text, "Fig", TokenDirectiveKind.Replace, "figure");
+
+        // Assert
+        Assert.Equal([9], tokenizerBreaks);
+        Assert.Empty(plain.ReconcileBreaks(tokenizerBreaks));
+        Assert.Empty(replaced.ReconcileBreaks(tokenizerBreaks));
+        Assert.Equal([new NormalizedSpan(tokens[1].Start, 3, "figure", NormalizationKind.Override), new NormalizedSpan(tokens[3].Start, 1, "five", NormalizationKind.Number)], replaced.Spans);
+        Assert.Equal("See figure. five for details.", replaced.ApplySpokenForms());
+        Assert.Equal([9], replaced.SuppressedBreaks);
+    }
+
+    /// <summary>Proves a defective directive (a spell-out of a token that is not ASCII letters only, a replacement or pronunciation without a value) is ignored and counted, the token is spoken as written, and the built-in sentence breaks are still kept.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="word">The token, with or without its period, that gets the defective directive.</param>
+    /// <param name="kindName">The name of the defective directive's kind; it never has a value.</param>
+    [Theory]
+    [InlineData("See Fig. 5 for details.", "Fig", "Replace")]
+    [InlineData("Hello\u2014Dr. Smith left.", "Dr", "Replace")]
+    [InlineData("Hello\u2014Dr. Smith left.", "Dr", "Pronounce")]
+    [InlineData("Dr. Smith lives here. He sleeps.", "Dr", "Spell")]
+    [InlineData("We met in caf\u00E9. It was cold.", "caf\u00E9", "Spell")]
+    public void TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks(string text, string word, string kindName)
+    {
+        // Arrange
+        var kind = Enum.Parse<TokenDirectiveKind>(kindName);
+        var neutralized = NormalizationHarness.Neutralize(text);
+        var tokens = NormalizationHarness.Tokenize(neutralized);
+        var index = IndexOfWord(neutralized, tokens, word, 0);
+        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(neutralized);
+        var baselineBreaks = NormalizationHarness.Normalize(text).ReconcileBreaks(tokenizerBreaks);
+
+        // Act
+        var aligned = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, kind, null)]);
+
+        // Assert
+        Assert.Equal(0, aligned.OverridesApplied);
+        Assert.Equal(1, aligned.OverridesIgnored);
+        Assert.DoesNotContain(aligned.Spans, span => span.Start < tokens[index].End && span.End > tokens[index].Start);
+        Assert.Empty(aligned.Pronunciations);
+        Assert.True(baselineBreaks.SequenceEqual(aligned.ReconcileBreaks(tokenizerBreaks)), $"breaks differ for '{text}'");
+    }
+
+    /// <summary>Proves directives on abbreviations do not disturb the cancellation cadence: every token is visited exactly once, in order, as without directives.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce()
+    {
+        // Arrange
+        const string text = "See Fig. 5 for details. Hello\u2014Dr. Smith left. Jan. 5 was cold.";
+        var tokens = NormalizationHarness.Tokenize(text);
+        TokenDirective[] directives =
+        [
+            new(IndexOf(text, tokens, "Fig"), TokenDirectiveKind.Skip, null),
+            new(IndexOf(text, tokens, "Dr"), TokenDirectiveKind.Replace, "doctor"),
+            new(IndexOf(text, tokens, "Jan"), TokenDirectiveKind.Pronounce, "ipa:abc"),
+        ];
+        var visited = new List<int>();
+        var normalizer = new TextNormalizer(AbbreviationResolver.Default, AcronymRecognizer.Default, visited.Add);
+
+        // Act
+        var aligned = normalizer.Normalize(text, tokens, false, CancellationToken.None, directives);
+
+        // Assert
+        Assert.Equal(Enumerable.Range(0, tokens.Length), visited);
+        Assert.Equal(3, aligned.OverridesApplied);
+    }
+
+    /// <summary>Proves a directive on words without a period costs no more allocation than the built-in path: the abbreviation lookup is not attempted for a token that no period touches.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn()
+    {
+        // Arrange: 20,000 capitalized words without a period, a skip directive on every one
+        var text = string.Concat(Enumerable.Repeat("Alpha Beta Gamma Delta ", 5_000)).TrimEnd();
+        var tokens = NormalizationHarness.Tokenize(text);
+        var directives = Enumerable.Range(0, tokens.Length).Select(i => new TokenDirective(i, TokenDirectiveKind.Skip, null)).ToArray();
+        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None);
+        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
+
+        // Act
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None);
+        var without = GC.GetAllocatedBytesForCurrentThread() - before;
+        before = GC.GetAllocatedBytesForCurrentThread();
+        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
+        var with = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // Assert
+        Assert.True(with <= without + 4096, $"{with} bytes with directives, {without} without");
+    }
 }
