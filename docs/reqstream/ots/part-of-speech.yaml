@@ -1,0 +1,67 @@
+---
+# DemaConsulting.PartOfSpeech OTS Software Requirements
+#
+# Requirements for the DemaConsulting.PartOfSpeech package used by SpeechTextEn to tokenize and tag
+# English text. The tests are integration tests of the real package through exactly the members the
+# English text analysis uses.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: DemaConsulting.PartOfSpeech Requirements
+        requirements:
+          - id: Speech-OTS-PartOfSpeech-DefaultTagger
+            title: >-
+              DemaConsulting.PartOfSpeech shall provide a shared, ready-to-use tagger that
+              requires no model file and assigns each token of an English text one of the 17
+              Universal Dependencies part-of-speech tags.
+            justification: |
+              The English text analysis annotates words with their part of speech and must not
+              ship or load its own model; one shared tagger avoids a second copy of the data in
+              memory. The API-presence test fails to compile if a member the analysis uses is
+              removed or reshaped by a different package version.
+            tags: [ots]
+            tests:
+              - PartOfSpeech_DefaultTagger_TagsSentence_ReturnsUniversalTagPerToken
+              - PartOfSpeech_DefaultTagger_SharedInstance_ReturnsSameTagger
+              - PartOfSpeech_PublicApi_MembersUsedByTextEn_ArePresent
+
+          - id: Speech-OTS-PartOfSpeech-TokenizationOffsets
+            title: >-
+              DemaConsulting.PartOfSpeech shall split a text into sentences and tokens whose
+              offsets and lengths index the exact text that was given, and shall tag a sentence on
+              its own with the same result as tagging the whole text.
+            justification: |
+              Annotations and sentence breaks must index the text the Speech library supplied, and
+              the analysis tags sentence by sentence so that cancellation can be honored between
+              sentences without changing the result.
+            tags: [ots]
+            tests:
+              - PartOfSpeech_Tag_MultiSentenceText_TokenOffsetsIndexSourceText
+              - PartOfSpeech_Tokenizer_Tokenize_MultiSentenceText_TokenOffsetsIndexSourceText
+              - PartOfSpeech_TagSentence_PerSentence_MatchesWholeTextTagging
+
+          - id: Speech-OTS-PartOfSpeech-ConfidenceAndKnownWord
+            title: >-
+              DemaConsulting.PartOfSpeech shall report for each tagged token a confidence between
+              0 and 1 and whether its lexicon knows the token's spelling.
+            justification: |
+              The detailed analysis result exposes the confidence, and the analysis counts the
+              tokens the tagger's lexicon does not know, so both values must be present and
+              meaningful.
+            tags: [ots]
+            tests:
+              - PartOfSpeech_Tag_Tokens_ConfidenceIsProbabilityInRange
+              - PartOfSpeech_Tag_Tokens_KnownWordFlagReflectsLexicon
+
+          - id: Speech-OTS-PartOfSpeech-ThreadSafety
+            title: >-
+              DemaConsulting.PartOfSpeech shall allow its shared tagger to be used by many threads
+              at the same time, with every call giving the same result as a sequential call.
+            justification: |
+              The Speech library may run several analyses at once on thread-pool threads, all
+              through the one shared tagger; a data race would corrupt speech annotations without
+              any error.
+            tags: [ots]
+            tests:
+              - PartOfSpeech_DefaultTagger_ConcurrentTagging_ReturnsSameResultsAsSequential

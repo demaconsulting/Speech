@@ -24,6 +24,7 @@ and synthesize speech.
 - 🧩 Mockable, cross-platform audio interfaces
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
+- 🔤 English part-of-speech text analysis for synthesis models (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
@@ -59,7 +60,10 @@ TTS model via `.AddChatterboxTurboModels(options)`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone. A synthesis model can optionally supply an
 `ITextAnalyzer` whose language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the
-usage guide.
+usage guide. The preview `DemaConsulting.Speech.Text.En` package (pre-release, depends on the
+`DemaConsulting.PartOfSpeech` tagger) supplies such an analyzer for English:
+`new EnglishTextAnalyzer()` annotates each word with its part of speech and supplies sentence
+boundaries.
 
 ### PortAudio runtime support
 
@@ -506,6 +510,12 @@ details.
 The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU Pronouncing Dictionary
 (a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
 its `THIRD-PARTY-NOTICES.md` file at the package root.
+
+The preview `DemaConsulting.Speech.Text.En` package is licensed under the MIT License (its `PACKAGE-LICENSE.md`
+declares MIT only) and embeds no third-party data. It depends on the separate `DemaConsulting.PartOfSpeech`
+package, which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0,
+derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
+`THIRD-PARTY-NOTICES.md` file, a dependency notice, reproduces that attribution for your convenience.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 

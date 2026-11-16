@@ -10,7 +10,10 @@ pipeline-evidence-based verification. For the Speech library's runtime PortAudio
 System.Numerics.Tensors dependency, the SpeechSherpa library's sherpa-onnx and SharpCompress
 dependencies, and the SpeechOnnx libraries' Microsoft.ML.OnnxRuntime dependency, automated
 verification focuses on deterministic integration logic, while true end-to-end physical audio I/O
-and real native speech inference remain manual/local verification only. For the
+and real native speech inference remain manual/local verification only. For the SpeechTextEn
+library's DemaConsulting.PartOfSpeech dependency, automated verification runs the real, fully
+managed tokenizer and tagger, because the package embeds its own model and needs no hardware or
+native runtime. For the
 SpeechDemo application's Avalonia and CommunityToolkit.Mvvm dependencies, automated verification
 covers application-host configuration and the generated MVVM members, while visual appearance and
 interactive behavior remain manual/local verification only.
@@ -34,6 +37,7 @@ is the OTS requirements' own tests and pipeline output.
 | Avalonia | Deterministic application-host configuration tests; manual/local UI verification |
 | CommunityToolkit.Mvvm | Deterministic tests over the generated properties and commands |
 | DemaConsulting.TestResults | Deterministic tests over the TRX and JUnit XML files written by SpeechCli self-validation |
+| DemaConsulting.PartOfSpeech | Deterministic integration tests of the real tokenizer and shared tagger through the members SpeechTextEn uses, including an API-presence check |
 | BuildMark | Self-validation CLI suite plus pipeline evidence via build-notes document |
 | FileAssert | Self-validation CLI suite plus transitive evidence from document assertions |
 | Pandoc | Pipeline evidence: FileAssert assertions on each generated HTML document |

@@ -1,0 +1,204 @@
+using DemaConsulting.Speech.Diagnostics;
+using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
+using DemaConsulting.Speech.Text.En.Tests.Fakes;
+
+namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
+
+/// <summary>
+///     Subsystem tests for the AnalysisSubsystem: the analyzer, its options, the annotation
+///     vocabulary, the part-of-speech adapter and the diagnostics reporter working together.
+///     Tagger creation is observed through counting adapters.
+/// </summary>
+public sealed class AnalysisSubsystemTests
+{
+    /// <summary>The tag placeholder as a string, for building test texts.</summary>
+    private const string Tag = "\uFFFC";
+
+    /// <summary>Proves the annotations of an analysis can be read back through the typed reader at the words they annotate.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_Sentence_AnnotationsReadBackThroughTypedReader()
+    {
+        // Arrange
+        const string text = "The cat sat on the mat.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: every annotation reads back as a part of speech at its word
+        var read = result.Annotations
+            .Select(annotation => TextEnAnnotations.TryReadPartOfSpeech(annotation, out var tag)
+                ? (Word: text.Substring(annotation.Start, annotation.Length), Tag: tag)
+                : default)
+            .ToList();
+        Assert.Equal(
+            [("The", "DET"), ("cat", "NOUN"), ("sat", "VERB"), ("on", "ADP"), ("the", "DET"), ("mat", "NOUN")],
+            read);
+    }
+
+    /// <summary>Proves part-of-speech annotation can be switched off through the options, leaving sentence breaks.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks()
+    {
+        // Arrange
+        const string text = "He left home. She stayed.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(result.Annotations);
+        Assert.Equal([text.IndexOf("She", StringComparison.Ordinal)], result.SentenceBreaks);
+    }
+
+    /// <summary>Proves several sentences, an abbreviation and a tag placeholder together give authoritative breaks at the later sentence starts only.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_MultiSentenceText_ReturnsAuthoritativeBreaks()
+    {
+        // Arrange
+        var text = $"Dr. Smith arrived. {Tag} He left. Nobody knew why.";
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([text.IndexOf("He", StringComparison.Ordinal), text.IndexOf("Nobody", StringComparison.Ordinal)], result.SentenceBreaks);
+    }
+
+    /// <summary>Proves a placeholder is never covered and the tagging context is carried across it.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_PlaceholderBetweenWords_IsNeverCoveredAndContextIsCarried()
+    {
+        // Arrange
+        var withTag = $"I will {Tag} record it.";
+        var withSpace = "I will   record it.";
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var tagged = analyzer.Analyze(withTag, TestContext.Current.CancellationToken);
+        var spaced = analyzer.Analyze(withSpace, TestContext.Current.CancellationToken);
+
+        // Assert: identical to the space version, and "record" is a verb because "will" before the tag is still context
+        Assert.Equal(spaced.Annotations, tagged.Annotations);
+        Assert.DoesNotContain(tagged.Annotations, annotation => annotation.Start <= 7 && 7 < annotation.End);
+        var record = tagged.Annotations.Single(annotation => withTag.Substring(annotation.Start, annotation.Length) == "record");
+        Assert.Equal("VERB", record.Value);
+    }
+
+    /// <summary>Proves constructing analyzers and analyzing without part-of-speech annotation never creates the tagger.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_UnusedOrUntaggedAnalyzer_NeverLoadsTagger()
+    {
+        // Arrange
+        var source = new CountingTaggerSource();
+        var unused = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), source.CreateAdapter());
+        var untagged = new EnglishTextAnalyzer(
+            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None },
+            source.CreateAdapter());
+
+        // Act
+        _ = untagged.Analyze("He left home. She stayed.", TestContext.Current.CancellationToken);
+        _ = unused.Analyze(string.Empty, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, source.Count);
+    }
+
+    /// <summary>Proves many analyzers and requests sharing one adapter load the tagger once and agree on every result.</summary>
+    [Fact]
+    public async Task AnalysisSubsystem_Analyze_ManyConcurrentRequests_LoadTaggerOnceAndAgree()
+    {
+        // Arrange: several analyzers over one adapter, as a shared process-wide tagger would serve them
+        var source = new CountingTaggerSource();
+        var adapter = source.CreateAdapter();
+        var analyzers = Enumerable.Range(0, 4).Select(_ => new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), adapter)).ToArray();
+        const string text = "Please read the record. I will record it later. Then we leave.";
+
+        // Act
+        var tasks = Enumerable.Range(0, 32)
+            .Select(index => Task.Run(
+                () => string.Join(',', analyzers[index % analyzers.Length].Analyze(text, TestContext.Current.CancellationToken).Annotations),
+                TestContext.Current.CancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        Assert.Single(results.Distinct());
+        Assert.Equal(1, source.Count);
+    }
+
+    /// <summary>Proves a request reports one counts-only event, in the documented category, that contains no word of the text.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_Request_ReportsOneCountsOnlyDiagnostic()
+    {
+        // Arrange: words chosen so none can occur in the fixed message
+        const string text = "Quokka gazelles zigzag. Marmoset wombats yodel!";
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
+
+        // Act
+        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        var reported = Assert.Single(sink.Events);
+        Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
+        Assert.Equal("TextEn.Analysis", reported.Category);
+        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words\.$", reported.Message);
+        foreach (var word in text.Split([' ', '.', '!'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            Assert.DoesNotContain(word, reported.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>Proves a diagnostics sink that throws never interrupts or changes the analysis.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult()
+    {
+        // Arrange
+        const string text = "The cat sat. The dog ran.";
+        var throwing = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = new RecordingDiagnostics(throwOnReport: true) });
+        var quiet = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
+
+        // Act
+        var result = throwing.Analyze(text, TestContext.Current.CancellationToken);
+        var expected = quiet.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(expected.Annotations, result.Annotations);
+        Assert.Equal(expected.SentenceBreaks, result.SentenceBreaks);
+    }
+
+    /// <summary>Proves cancellation requested during analysis is honored with an OperationCanceledException and reports nothing.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing()
+    {
+        // Arrange: canceled as soon as the tagger is first requested, i.e. during the first sentence
+        using var cancellation = new CancellationTokenSource();
+        var source = new CountingTaggerSource(cancellation.Cancel);
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink }, source.CreateAdapter());
+
+        // Act / Assert
+        Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat. The dog ran. A bird flew.", cancellation.Token));
+        Assert.Empty(sink.Events);
+    }
+
+    /// <summary>Proves cancellation requested during the last sentence is honored with an OperationCanceledException and reports nothing.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_CancellationDuringLastSentence_ThrowsOperationCanceledExceptionAndReportsNothing()
+    {
+        // Arrange: canceled right after the only sentence was tagged
+        using var cancellation = new CancellationTokenSource();
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(
+            new EnglishTextAnalyzerOptions { Diagnostics = sink },
+            new CountingTaggerSource().CreateAdapter(_ => cancellation.Cancel()));
+
+        // Act / Assert
+        Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat.", cancellation.Token));
+        Assert.Empty(sink.Events);
+    }
+}

@@ -29,6 +29,11 @@ Three optional packages add raw ONNX Runtime models that do not need sherpa-onnx
 Together with the Sherpa package, the library supplies seven models through four model packages
 (see "Managing speech models" below).
 
+One further optional package is a preview and ships no model: the pre-release
+`DemaConsulting.Speech.Text.En` supplies an English text analyzer (part-of-speech annotations and
+sentence boundaries) that a model package can return from `ISynthesisModel.TextAnalyzer`; see "Text
+analysis for model authors" in the usage guide.
+
 The core package references `PortAudioSharp2`, whose transitive native runtime packages cover
 `win-x64`, `linux-x64`, `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64`
 PortAudio runtime package is available through that dependency chain.

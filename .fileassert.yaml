@@ -51,6 +51,35 @@ tests:
               text:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
+  - name: TextEn_Package_LicenseFilesPackaged
+    description: "Text.En NuGet package ships its MIT license file and its dependency notice at the package root"
+    tags: [api-docs]
+    files:
+      - pattern: "src/DemaConsulting.Speech.Text.En/bin/Release/DemaConsulting.Speech.Text.En.*.nupkg"
+        count: 1
+        zip:
+          files:
+            - pattern: "PACKAGE-LICENSE.md"
+              min: 1
+              max: 1
+              text:
+                # The line break makes the match exact: the declaration is MIT only, never a longer expression that merely starts with MIT.
+                - contains: "SPDX-License-Identifier: MIT\n\n# License of the DemaConsulting.Speech.Text.En Package"
+                - contains: "THIRD-PARTY-NOTICES.md"
+            - pattern: "THIRD-PARTY-NOTICES.md"
+              min: 1
+              max: 1
+              text:
+                - contains: "Dependency Notice"
+                - contains: "Princeton University"
+                - contains: "Manually Annotated Sub-Corpus"
+                - contains: "https://github.com/demaconsulting/PartOfSpeech/issues/29"
+            - pattern: "DemaConsulting.Speech.Text.En.nuspec"
+              min: 1
+              max: 1
+              text:
+                - contains: 'type="file">PACKAGE-LICENSE.md</license>'
+
   # --- BUILD NOTES ---
 
   - name: Pandoc_BuildNotesHtml
