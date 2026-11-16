@@ -273,10 +273,14 @@ each word one annotation of kind `"en.upos"` whose value is the word's Universal
 speech (for example `"NOUN"`), skips punctuation and symbols, and supplies authoritative sentence
 boundaries so an abbreviation such as "Dr." does not split a sentence. By default it also normalizes the
 text: each abbreviation, symbol, apostrophe, initialism, or number it can read (for example "Dr.", "&", a
-typographic apostrophe, "FBI", or "$5.50") gets one annotation of kind `"en.norm"` whose range is the original
-text and whose value is the words to speak instead.
+typographic apostrophe, "FBI", or "$5.50") gets one annotation whose range is the original
+text and whose value is the words to speak instead: kind `"en.norm"` for words, and kind `"en.spell"` for a
+sequence of letters that is spoken by letter name (an initialism such as "FBI" gives the value `"F B I"`; see
+*Spelled letters* below).
 Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix
 stays in one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke.").
+A host can also override how individual words are spoken or pronounced with a dictionary of
+*pronunciation overrides* (see *Pronunciation overrides for English text analysis* below).
 
 *What is read.* The numeric normalization reads en-US text only (a comma separates thousands, a period is the
 decimal point, and a numeric date is month first): cardinal numbers and numbers with thousands separators
@@ -301,28 +305,41 @@ e-mail, and markup.
 
 *Spoken-text conventions.* The value of every number annotation is plain lowercase words separated by single
 spaces, with no hyphens, commas, or digits ("twenty four", never "twenty-four"). The apostrophe appears only in
-"o'clock", and capital letters only in month names, "P M" and "A M", and "Fahrenheit" and "Celsius". A value
+"o'clock", and capital letters only in month names, "Fahrenheit" and "Celsius", and the separate `"en.spell"`
+annotation of a meridiem ("P M" and "A M", see *Spelled letters*). A value
 is at most 1,024 characters long. The words of one construct belong to separate annotations: "January 5, 2024"
 annotates the "5" and the "2024" and leaves the month name and the comma alone, and "$5 million" annotates
 "$5" as "five" and "million" as "million dollars"; apply each annotation on its own range. A number the
 analyzer cannot read is not annotated, so a backend must still be prepared to receive digits.
 
-Read an annotation with `TextEnAnnotations.TryReadPartOfSpeech` or `TextEnAnnotations.TryReadNormalized`, and
-ignore the other kinds in `TextEnAnnotations`, which are reserved for later releases. The analyzer is
+Read an annotation with `TextEnAnnotations.TryReadPartOfSpeech`, `TextEnAnnotations.TryReadReplacement` (the
+`"en.norm"` and `"en.spell"` annotations), or `TextEnAnnotations.TryReadPronunciation` (the `"en.pron"`
+annotations of the overrides), and ignore the other kinds in `TextEnAnnotations`, which are reserved for
+later releases (`"en.reading"` and `"en.reading-confidence"`) or that your backend does not use. The analyzer is
 thread-safe and cheap to share; the first request that needs tags loads the tagger (about 1.3 MB of embedded
 data), so that request is slower than the rest. `EnglishTextAnalyzerOptions` selects the annotation families
 with the `TextEnAnnotationSelection` flags (`PartOfSpeech` and the new `Normalization`, both on by default;
-numbers are normalized whenever `Normalization` is selected, there is no separate option)
+numbers are normalized whenever `Normalization` is selected, there is no separate option), carries the optional
+`Overrides` dictionary,
 and supplies a diagnostics sink, which receives only counts, never text: one event per analyzed text with the
 message `Analyzed one text: N sentences, N tokens, N annotations, N unknown words, N normalizations, N
-ambiguous readings, N numeric fallbacks.` The "ambiguous readings" count covers abbreviations and numbers that
-were read by a default, and "numeric fallbacks" the numbers that were left as written or read digit by digit
-because of a limit; the message is informational and is not meant to be parsed.
+ambiguous readings, N numeric fallbacks, N overrides applied, N overrides ignored.` The "ambiguous readings"
+count covers abbreviations and numbers that
+were read by a default, "numeric fallbacks" the numbers that were left as written or read digit by digit
+because of a limit, and "overrides applied" and "overrides ignored" the words your override dictionary changed
+and the entries that matched a word but were overruled (see *Overrides that are ignored*); the message is
+informational and is not meant to be parsed. It never contains a word, and never any content of your
+dictionary.
 
-A backend applies the `"en.norm"` annotations of a chunk in four steps: sort them by `Start` (they never
-overlap), copy each gap of the original text between them unchanged, insert each annotation's `Value` in
+A backend applies the replacement annotations (`"en.norm"` and `"en.spell"`) of a chunk in four steps: read
+each with `TextEnAnnotations.TryReadReplacement`, sort them by `Start` (they never overlap), copy each gap of
+the original text between them unchanged, insert each annotation's `Value` in
 place of its range, and speak the result. A value that is an empty string means the range is spoken as
-nothing, and a value already carries any single space the replacement needs, so the backend adds none.
+nothing, and a value already carries any single space the replacement needs, so the backend adds none. When
+`TryReadReplacement` reports `isSpelled`, speak each capital letter of the value by its letter name, never as a
+word (see *Spelled letters*). Only `isSpelled` (the `"en.spell"` kind) means spell out: the value of an
+`"en.norm"` annotation is always spoken as words, whatever letters it holds, so never infer spelling from an
+`"en.norm"` value.
 
 *Preview note: retained text; not yet published to NuGet.* The analyzer itself keeps no reference to the
 text it analyzes after a call returns, but the pre-release `DemaConsulting.PartOfSpeech` tagger
@@ -351,6 +368,229 @@ foreach (var annotation in annotations)
     }
 }
 ```
+
+#### Pronunciation overrides for English text analysis
+
+No built-in table knows a product name, a brand, or a person's name, and some words (an acronym that is
+said as a word, an initialism that must be spelled) are read wrongly by any general rule. A host can correct
+them with a **pronunciation override dictionary**: a list of whole words, each with an action, that the
+analyzer applies before its built-in rules. Overrides are applied by annotation only: the analyzed text is
+never rewritten, so every offset stays valid. The dictionary is part of the `DemaConsulting.Speech.Text.En`
+preview package and has the same preview status as the rest of it.
+
+**Spelled letters (`"en.spell"`).** An initialism (`FBI`), a dotted initialism (`U.S.`), a single-letter
+initial (`J.`), a credential (`M.D.`), the letters of a meridiem (a separate `p.m.`, or the `pm` glued to a
+number as in `5pm`) and the letters of an
+ampersand initialism (`AT&T`, `R&D`, `Q&A`) are annotated `"en.spell"` rather than `"en.norm"`. The value is
+single capital letters separated by single spaces (`"F B I"`), and the annotation is a promise: speak each
+letter **by its letter name, never as a word**. That matters for a phoneme backend, because a lone `"A"` is
+the letter in `"A T and T"`, not the article, and a lone `"I"` is not the pronoun. The spoken text is the
+same as before. An ampersand initialism is split into letter annotations and an `"and"` annotation:
+`AT&T's network` is annotated `AT` (`"A T"`), `&` (`" and "`, kind `"en.norm"`, with the padding spaces that a
+value may carry) and `T` (`"T"`), and the `'s`
+stays as written, so the replacements give `A T and T's network`. A meridiem glued to its time or hour
+(`5:30pm`, `5pm`, `5PM`) is split inside its token into two adjacent annotations that never overlap: the number
+or time as `"en.norm"` words and the meridiem letters as `"en.spell"`. `5pm` is annotated `5` (`"five"`, kind
+`"en.norm"`) and `pm` (`" P M"`, kind `"en.spell"`, with the padding space that a value may carry), and
+`5:30pm` is annotated `5:30` (`"five thirty"`) and `pm` (`" P M"`); a separate meridiem (`5 p.m.`) is already
+its own `"en.spell"` annotation. The kind is the only signal: `"en.spell"` means spell out, and an `"en.norm"`
+value is always spoken as words, even when it is a single capital letter (a host's `Say("foo", "I")` override
+gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` value.
+
+**The four actions.** Each entry has a word, a case flag, an action and, for two actions, a payload:
+
+| Action | Payload | What the matching word gets | Example |
+| --- | --- | --- | --- |
+| `Skip` (`skip`) | none | Spoken as written; no built-in rule runs for it and nothing is annotated | `NASA` stays `NASA` (and `NASA's launch` stays as written) |
+| `Say` (`say`) | plain words | One `"en.norm"` annotation whose value is the payload | `Use Nginx today.` is spoken `Use engine ex today.` |
+| `SpellOut` (`spell`) | none | One `"en.spell"` annotation: the word's letters in capitals | `A GIF file` is spoken `A G I F file` |
+| `Pronunciation` (`pron`) | `ipa:...` or `arpabet:...` | One `"en.pron"` annotation on the word; **the word is not replaced** | `Polish food` keeps its text, and a backend that supports the notation receives the phonemes |
+
+A `Say` payload is plain words: letters, apostrophes, hyphens, and single spaces, with no digit and no
+punctuation, so it can never change how a backend splits clauses (write a number in words). A selection of a
+heteronym reading (the noun or the verb of "record") is reserved for a later release and is not an action yet.
+
+**Precedence.** Several sources can decide how a word is spoken. The first row that applies wins:
+
+| Rank | Source | Notes |
+| --- | --- | --- |
+| 1 | An entry with a case-sensitive match (exact characters) | `Polish` beats `polish` for the word `Polish` |
+| 2 | An entry with a case-insensitive match | consulted only when no case-sensitive entry matches |
+| 3 | The built-in rules: abbreviations, acronyms and initialisms, symbols, numbers | an override wins over all of them for its word |
+| 4 | The part of speech | independent: an overridden word still gets its `"en.upos"` |
+
+The one exception is a word that an *earlier* match of a number or unit has already used (see *Overrides
+that are ignored*).
+
+An override changes how a word is spoken, never where a sentence ends: the sentence breaks, and therefore the
+chunk boundaries, are identical with and without the dictionary, even when the overridden word is an
+abbreviation whose period the tokenizer splits off (`See Fig. 5 for details.` stays one sentence when `Fig` is
+overridden). A title such as `Dr.` or `St.` is one token with its period and is never matched by a key (see
+*How a word is matched*), so it is not affected at all.
+
+**How a word is matched.**
+
+- **Whole words only.** An entry matches one whole word of the text, never a part of a word and never several
+  words together: an entry for `Ann` does not touch `Annual`, and an entry cannot contain a space (a phrase is
+  overridden word by word). The characters before and after the word must not be a letter, a combining mark,
+  or a digit.
+- **Case.** A case-sensitive entry compares the exact characters. A case-insensitive entry ignores letter case
+  using the invariant rules, never the machine's culture: `nginx`, `Nginx`, and `NGINX` all match `Nginx`, on a
+  Turkish computer as well, and the Turkish dotted `İ` and dotless `ı` match neither `I` nor `i`. No Unicode
+  normalization form is applied, so write keys in normalization form C. A case-sensitive entry beats a
+  case-insensitive one for the same word. Prefer a case-sensitive entry for a name or an acronym that differs
+  from a common word only by case (`US` and `us`, `Polish` and `polish`).
+- **Apostrophes.** A word with an apostrophe matches with the plain `'` and with the typographic `’`
+  (`O'Brien` matches `O’Brien`); one key must not mix the two.
+- **The tokenizer decides what a word is.** The text is split the way the part-of-speech tagger splits it, so a
+  key must be a word that survives as one piece. A possessive that the tokenizer splits off leaves the stem
+  alone: `NASA's` is `NASA` and `'s`, so the key `NASA` matches. A hyphenated compound is one word and matches
+  only as a whole: the key `Nginx` does not match inside `Nginx-based`, so add `Nginx-based` as its own key,
+  and the key `Wi-Fi` does not match `Wi-Fi's`. A contraction that the tokenizer splits (`Don't` is `Do` and
+  `n't`) is never matched by its written form, and the `Do` of it is never matched on its own.
+- **A key cannot end with a period.** A word such as `Dr.`, `Mr.`, or `U.S.` belongs to the built-in
+  abbreviation rules and cannot be a key. A word followed by a period that the tokenizer splits off (`Ph.D` and
+  the final `.` of `She has a Ph.D.`) matches its key (`Ph.D`) and the period stays as written.
+- **A key starts with a letter and ends with a letter or a digit**, is at most 64 characters, and contains only
+  letters, combining marks, digits, and `'` `’` `-` `.` `&` `/` `_`. A key that ends in a combining mark (as
+  decomposed text can) is rejected, so keep keys in normalization form C.
+
+**Overrides that are ignored.** A number with its unit or magnitude is one construct that is read as a whole.
+When an override is for the *later* word of such a construct, the built-in reading wins and the override is
+counted as ignored in the diagnostics. With an entry that says `kg` is `kay gee`:
+
+| Text | Result | Applied / ignored |
+| --- | --- | --- |
+| `5 kg of rice` | `five kilograms of rice` | 0 / 1 (`kg` is the unit of `5`) |
+| `The kg is a unit` | `The kay gee is a unit` | 1 / 0 (`kg` is the first word of its own construct) |
+| `$5 million` with an entry for `million` | `five million dollars` | 0 / 1 |
+| `at 5 pm today` with an entry for `pm` | `at five P M today` | 0 / 1 |
+
+An entry for the *first* word of a construct always wins (an entry for `US` beats the acronym table), and
+`Skip` is the way to stop a built-in rule from touching a word.
+
+**Building a dictionary in code.** The dictionary is immutable and thread-safe; build it once and share it:
+
+```csharp
+using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
+
+var overrides = PronunciationOverrides.Create(
+[
+    PronunciationOverrideEntry.Say("Nginx", "engine ex"),                  // case-insensitive by default
+    PronunciationOverrideEntry.Say("Kubernetes", "koo ber net eez", caseSensitive: true),
+    PronunciationOverrideEntry.SpellOut("GIF", caseSensitive: true),
+    PronunciationOverrideEntry.Pronounce("Polish", PronunciationScheme.Ipa, "ˈpoʊlɪʃ", caseSensitive: true),
+    PronunciationOverrideEntry.Pronounce("polish", PronunciationScheme.Ipa, "ˈpɑːlɪʃ"),
+    PronunciationOverrideEntry.Say("SQL", "sequel"),
+    PronunciationOverrideEntry.Skip("NASA", caseSensitive: true),
+]);
+
+var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+```
+
+`Create` validates every entry and throws an `ArgumentException` for the first bad one, with the message
+`Entry 3: <reason>.` (the zero-based position and a fixed reason; never the word or the payload, because a
+dictionary can hold names that must not reach a log). A duplicate (the same word, compared the way the
+entry's case flag says, with the same case flag) is an error, never "the last one wins", but a case-sensitive
+and a case-insensitive entry for the same word are allowed, as above.
+
+**The tab-separated file.** The same dictionary can be kept in a text file that someone who is not a
+programmer maintains, and loaded with `PronunciationOverrides.FromTsv`:
+
+```csharp
+using var reader = File.OpenText("pronunciations.tsv");
+var overrides = PronunciationOverrides.FromTsv(reader);
+```
+
+One entry per line: `word`, `case`, `action` and, for `say` and `pron`, a `payload`, separated by tab
+characters (shown here as `→`):
+
+```text
+# domain terms
+Nginx→insensitive→say→engine ex
+Kubernetes→sensitive→say→koo ber net eez
+GIF→sensitive→spell
+Polish→sensitive→pron→ipa:ˈpoʊlɪʃ
+polish→insensitive→pron→ipa:ˈpɑːlɪʃ
+SQL→insensitive→say→sequel
+NASA→sensitive→skip
+```
+
+The format rules:
+
+- the `case` column is exactly `sensitive` or `insensitive`, and the `action` column exactly `skip`, `say`,
+  `spell`, or `pron`; `skip` and `spell` take no payload (an empty fourth column is tolerated); `say` and `pron`
+  require one; no column may start or end with whitespace; there is no quoting and no header row
+- empty lines and lines whose first character is `#` are ignored; a line of only whitespace is an error
+- lines end with LF or CRLF (a lone carriage return is an error), a byte-order mark at the start of the file is
+  skipped, and a control character other than the tab separator is an error on any line, comments included
+- limits: at most 10,000 entries, 1,024 characters per line, 50,000 lines (blank and comment lines count), a
+  payload of at most 256 characters; an endless input is rejected rather than read forever
+- the reader is read to its end and is neither disposed nor kept, and its own exceptions pass through
+- a malformed file throws an `InvalidDataException` with the message `Line 4: <reason>.` (the one-based line
+  number and a fixed reason, never the content of the line)
+
+**Phonemes (`"en.pron"`).** A `Pronunciation` entry carries `ipa:` or `arpabet:` followed by the phonemes, and
+the annotation value is always that same `scheme:phonemes` text with a lower-case scheme. The list of schemes is
+closed (`PronunciationScheme.Ipa` and `PronunciationScheme.Arpabet`); a new notation arrives with a new
+release. The library checks only that the phonemes are written in the notation's syntax (`ipa`: 1 to 128
+characters without whitespace or control characters; `arpabet`: 1 to 32 phones of one to three capital letters
+with an optional stress digit 0 to 2, separated by single spaces, such as `K AE0 F EY1`); whether a symbol is
+in your backend's phoneme inventory is for the backend to decide. A backend that cannot use a scheme, or a
+particular phoneme string, speaks the word as it would without the annotation.
+
+**Turning it on, and what it needs.** Set `EnglishTextAnalyzerOptions.Overrides`. Overrides are applied by
+the normalization step, so a non-empty dictionary needs `TextEnAnnotationSelection.Normalization` (selected by
+default): the `EnglishTextAnalyzer` constructor throws an `ArgumentException` for a non-empty dictionary
+without it, instead of quietly ignoring it. An empty dictionary is accepted and changes nothing.
+
+**Reading the result in a backend.** Collect the replacement annotations as before, and use the pronunciation
+annotations for the words they cover:
+
+```csharp
+var replacements = new List<(int Start, int Length, string Value, bool IsSpelled)>();
+foreach (var annotation in annotations)
+{
+    if (TextEnAnnotations.TryReadReplacement(annotation, out var spoken, out var isSpelled))
+    {
+        replacements.Add((annotation.Start, annotation.Length, spoken, isSpelled));
+    }
+    else if (TextEnAnnotations.TryReadPronunciation(annotation, out var scheme, out var phonemes))
+    {
+        // The word text.Substring(annotation.Start, annotation.Length) keeps its text; when the backend
+        // supports `scheme` (Ipa or Arpabet), speak `phonemes` for that word instead of the
+        // backend's own letter-to-sound result. Otherwise speak the word as usual.
+    }
+}
+
+replacements.Sort((a, b) => a.Start.CompareTo(b.Start));
+// Copy the text between the replacements unchanged and insert each Value in place of its range.
+// For an IsSpelled value, speak each capital letter by its letter name, never as a word.
+```
+
+A replacement and a pronunciation never overlap, because a word is either replaced or pronounced, and
+`"en.upos"` is independent of both.
+
+**Names and acronyms: recipes.**
+
+| Goal | Entry | Result |
+| --- | --- | --- |
+| Say a product name as words | `Nginx`, insensitive, `say`, `engine ex` | `Use Nginx today.` is spoken `Use engine ex today.` |
+| Say a name the way it sounds | `Kubernetes`, sensitive, `say`, `koo ber net eez` | `Kubernetes runs` is spoken `koo ber net eez runs`; `kubernetes runs` is not changed |
+| Spell an initialism that is not in the table | `GIF`, sensitive, `spell` | `A GIF file` is spoken `A G I F file` |
+| Speak a listed initialism as written | `FBI`, sensitive, `skip` | `The FBI and CIA` is spoken `The FBI and C I A` (`CIA` is still spelled) |
+| Keep the country `US` as written | `US`, sensitive, `skip` | `US troops asked us` is not changed |
+| Give a name its own phonemes | `Polish`, sensitive, `pron`, `ipa:ˈpoʊlɪʃ` and `polish`, insensitive, `pron`, `ipa:ˈpɑːlɪʃ` | `Polish polish` gets one `"en.pron"` annotation per word, each with its own phonemes |
+| Replace a whole hyphenated word | `Nginx-based`, insensitive, `say`, `engine ex based` | `Nginx-based apps` is spoken `engine ex based apps`; `Nginx-free apps` is not changed |
+
+The same text with a key that cannot match is simply left alone: `Mr. Smith` is read by the abbreviation rules
+(`Mister Smith`) because a key cannot end with a period, and `Don't go` is not changed by a key for `Do`.
+
+*Preview note.* The override dictionary and the new annotation kinds are part of the same preview as the rest
+of the package: they are not yet published to NuGet (see the retained-text note above), and the details of the
+annotation values may still change before the first release.
+
+#### Further public building blocks for model authors
 
 Two further building blocks are public so a model with its own tag syntax does not have to copy
 them. **`DefaultModelCapabilityProfile`** exposes its `Instance` singleton, a

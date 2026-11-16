@@ -5,7 +5,8 @@
 # alignment types AlignedTextBuilder and AlignedText that check, hold and apply the replacement
 # spans, the forced and suppressed sentence breaks and the clitic records of one normalization
 # pass, together with the small value types they use (NormalizationToken, NormalizedSpan,
-# CliticMark and AlignedSegment) and the public NormalizationKind and CliticKind vocabularies.
+# CliticMark and AlignedSegment) and the public NormalizationKind and CliticKind vocabularies,
+# including the spelled flag of a span and the pronunciation marks of host overrides.
 # They decompose the parent SpeechTextEn NormalizationSubsystem requirements. Each requirement
 # states one observable behavior.
 #
@@ -89,10 +90,11 @@ sections:
                 title: >-
                   The NormalizationKind and CliticKind enumerations shall keep their documented
                   member names and numeric values, including the numeric kinds Number (6), Currency
-                  (7), DateTime (8) and Unit (9) that were added after the earlier members.
+                  (7), DateTime (8) and Unit (9) that were added after the earlier members and the
+                  host-override kind Override (10) added after them.
                 justification: |
                   The kinds are part of the public analysis result, so a renamed or renumbered
-                  member would silently change what a caller reads, and the numeric members must be
+                  member would silently change what a caller reads, and the later members must be
                   purely additive.
                 tests:
                   - NormalizationKindAndCliticKind_Members_KeepNamesAndValues
@@ -157,3 +159,54 @@ sections:
                   as written; a text without numbers must report exactly zero.
                 tests:
                   - AlignedTextBuilder_CountFallback_IsReportedOnTheResult
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-SpelledSpans
+                title: >-
+                  The AlignedTextBuilder class shall reject with ArgumentException a span marked
+                  spelled whose spoken text, without at most one padding space on either side, is
+                  not single capital ASCII letters separated by single spaces, shall accept a span
+                  that is not marked spelled whatever its text, and shall treat a span as not
+                  spelled by default; and the shared letter-sequence grammar shall accept exactly
+                  that form.
+                justification: |
+                  The builder is the enforcement point of the alignment contract: a span marked as
+                  letters that is not letters would make a backend speak a word by letter names (or a
+                  letter as a word), and it must fail where the defective rule made it, not at a
+                  backend. One grammar shared with the annotation readers means that what the
+                  builder accepts and what a reader accepts cannot drift apart.
+                tests:
+                  - SpelledGrammar_IsLetterSequence_AcceptsOnlyCapitalLettersWithSingleSpaces
+                  - AlignedTextBuilder_Add_SpelledSpan_RequiresLetterSequence
+                  - NormalizedSpan_Spelled_DefaultsToFalse
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-PronunciationMarks
+                title: >-
+                  The AlignedTextBuilder class shall accept a pronunciation mark only when it is
+                  non-empty, inside the text (checked without arithmetic that can overflow), after
+                  every previous span and mark and not overlapping them, not starting or ending on
+                  whitespace, not covering a tag placeholder, not cutting a surrogate pair, and with
+                  a non-empty value free of tag placeholders, shall reject any other mark with
+                  ArgumentException, and shall report the marks in the aligned text it builds,
+                  ascending.
+                justification: |
+                  A pronunciation is attached to a word that is not replaced, so it must obey the
+                  same edge rules as a span and must never share characters with a span or another
+                  mark (a word is either replaced or pronounced, never both); the unified ordering
+                  is what lets a consumer walk both sequences once, and the overflow-safe bounds
+                  keep hostile offsets from wrapping around.
+                tests:
+                  - AlignedTextBuilder_AddPronunciation_EmptyOrOutOfBoundsOrOverflowing_ThrowsArgumentException
+                  - AlignedTextBuilder_AddPronunciation_UnifiedOrderingWithSpans
+                  - AlignedTextBuilder_AddPronunciation_WhitespacePlaceholderSurrogateOrBadValue_ThrowsArgumentException
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-OverrideCounts
+                title: >-
+                  The AlignedTextBuilder class shall count the user overrides applied and the user
+                  overrides ignored independently and shall report both in the aligned text it
+                  builds, as zero when none was counted.
+                justification: |
+                  The two counts are results of the same pass as the spans and have to travel with
+                  them to the diagnostics; a text without overrides must report exactly zero for
+                  both.
+                tests:
+                  - AlignedTextBuilder_OverrideCounters_AreReportedOnTheResult

@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     The number of word tokens (not punctuation, symbols or numbers) the tagger's lexicon does
 ///     not know; 0 when the text was not tagged.
 /// </param>
-/// <param name="Normalizations">The number of <c>en.norm</c> replacements found; 0 when normalization was not selected.</param>
+/// <param name="Normalizations">The number of replacements (<c>en.norm</c> and <c>en.spell</c>) found; 0 when normalization was not selected.</param>
 /// <param name="AmbiguousReadings">
 ///     The number of resolutions that fell back to a documented default or chose between
 ///     competing cues (abbreviations and numeric readings such as a year or a month-first
@@ -24,7 +24,12 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     because of a documented size limit or an unsupported numeric shape; 0 when normalization
 ///     was not selected.
 /// </param>
-internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords, int Normalizations, int AmbiguousReadings, int NumericFallbacks);
+/// <param name="OverridesApplied">The number of user pronunciation overrides applied to a word; 0 without overrides.</param>
+/// <param name="OverridesIgnored">
+///     The number of user pronunciation overrides that matched a word but were not applied because
+///     an earlier multi-token match had already consumed it; 0 without overrides.
+/// </param>
+internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords, int Normalizations, int AmbiguousReadings, int NumericFallbacks, int OverridesApplied = 0, int OverridesIgnored = 0);
 
 /// <summary>
 ///     Reports one aggregate-counts event per analyzed request to an optional host-supplied
@@ -55,14 +60,14 @@ internal sealed class AnalysisDiagnostics
     }
 
     /// <summary>
-    ///     Builds the report message for a request: fixed text plus the seven counts.
+    ///     Builds the report message for a request: fixed text plus the nine counts.
     /// </summary>
     /// <param name="counts">The aggregate counts of the request.</param>
     /// <returns>The message; contains digits and fixed words only.</returns>
     internal static string FormatMessage(AnalysisCounts counts) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words, {counts.Normalizations} normalizations, {counts.AmbiguousReadings} ambiguous readings, {counts.NumericFallbacks} numeric fallbacks.");
+            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words, {counts.Normalizations} normalizations, {counts.AmbiguousReadings} ambiguous readings, {counts.NumericFallbacks} numeric fallbacks, {counts.OverridesApplied} overrides applied, {counts.OverridesIgnored} overrides ignored.");
 
     /// <summary>
     ///     Reports the counts of one completed request, once.

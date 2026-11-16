@@ -550,13 +550,20 @@ public sealed class NumericExpressionRecognizerTests
     [Fact]
     public void NumericExpressionRecognizer_Meridiem_GluedSeparateAndDotted()
     {
-        // Assert: glued is one span
-        Assert.Equal("five thirty P M", SpokenAt("5:30pm", 0));
-        Assert.Equal("five thirty P M", SpokenAt("5:30PM", 0));
-        Assert.Equal("five P M", SpokenAt("5pm", 0));
-        Assert.Equal("five P M", SpokenAt("5PM", 0));
-        Assert.Equal("twelve A M", SpokenAt("12:00am", 0));
-        Assert.Equal("five P M", SpokenAt("5:00pm", 0));
+        // Assert: glued is two adjacent spans inside the one token: the hour or time as words and the meridiem letters
+        Assert.Equal("five thirty|P M", SpokenAt("5:30pm", 0));
+        Assert.Equal("five thirty|P M", SpokenAt("5:30PM", 0));
+        Assert.Equal("five|P M", SpokenAt("5pm", 0));
+        Assert.Equal("five|P M", SpokenAt("5PM", 0));
+        Assert.Equal("twelve|A M", SpokenAt("12:00am", 0));
+        Assert.Equal("five|P M", SpokenAt("5:00pm", 0));
+
+        // Assert: the offsets of the two halves of 5pm and 5:30pm abut exactly, cover the whole token and never overlap
+        Assert.True(Try("5pm", 0, out var hourMatch));
+        Assert.Equal((0, 1, 1, 2), (hourMatch[0].Start, hourMatch[0].Length, hourMatch[1].Start, hourMatch[1].Length));
+        Assert.True(Try("5:30pm", 0, out var timeMatch));
+        Assert.Equal((0, 4, 4, 2), (timeMatch[0].Start, timeMatch[0].Length, timeMatch[1].Start, timeMatch[1].Length));
+        Assert.Equal(1, timeMatch.TokensConsumed);
 
         // Assert: separate lowercase is a second span; uppercase and dotted forms are left to the initialism rule
         Assert.Equal("five|P M", SpokenAt("5 pm", 0));
@@ -1057,9 +1064,24 @@ public sealed class NumericExpressionRecognizerTests
                         }
                     }
 
-                    // Assert: a span covers one token or two adjacent tokens (symbol or apostrophe and the token after it)
+                    // Assert: a span covers one token or two adjacent tokens (symbol or apostrophe and the token after it),
+                    // except the two halves of a glued meridiem, which split one token into the hour or time and the meridiem letters
                     var coveredTokens = tokens.Count(token => token.Start >= span.Start && token.Start + token.Length <= span.Start + span.Length);
-                    Assert.InRange(coveredTokens, 1, 2);
+                    if (coveredTokens == 0)
+                    {
+                        Assert.Equal(2, match.SpanCount);
+                        Assert.Equal(1, match.TokensConsumed);
+                        Assert.Equal(NormalizationKind.DateTime, span.Kind);
+                        var own = tokens[index];
+                        var isTimePart = s == 0 && span.Start == own.Start && match[1].Start == span.Start + span.Length;
+                        var isMeridiemPart = s == 1 && span.Start + span.Length == own.Start + own.Length && span.Spoken is "P M" or "A M";
+                        Assert.True(isTimePart || isMeridiemPart, $"{context}: sub-token span '{covered}'");
+                    }
+                    else
+                    {
+                        Assert.InRange(coveredTokens, 1, 2);
+                    }
+
                     if (coveredTokens == 2)
                     {
                         Assert.True(covered[0] is '$' or '\u20AC' or '\u00A3' or '\u00A5' or '\'' or '\u2019' or '\u2018', $"{context}: two-token span '{covered}'");

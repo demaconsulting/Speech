@@ -57,9 +57,13 @@ words:
   - alsa
   - aoede
   - argmax
+  # The ARPAbet phoneme notation (a pronunciation scheme of the Text.En overrides)
+  - arpabet
   - autoregressive
   - autoregressively
   - axaml
+  # Azerbaijani, the language whose current culture the Text.En case-folding tests run under
+  - azeri
   - bountless
   - cdecl
   - cconj
@@ -78,7 +82,11 @@ words:
   - demaconsultingnugetkey
   - demaspeech
   - denoise
+  # The Deseret alphabet (supplementary-plane letters used to test case folding of overrides)
+  - deseret
   - disableable
+  # The dotless Turkish i (U+0131), which never folds into the ASCII letters
+  - dotless
   - downmix
   - downmixed
   - downmixes
@@ -116,6 +124,8 @@ words:
   - logits
   - lstm
   - mancha
+  # Plural of meridiem (am and pm), as in "the meridiems of glued times"
+  - meridiems
   - middleboxes
   - misaki
   - misroute
@@ -140,6 +150,8 @@ words:
   - polyphase
   - portaudio
   - precheck
+  # Unicode precomposed characters (a letter with its accent as one code point), as opposed to decomposed text
+  - precomposed
   - preemphasis
   - propn
   - provisionals
@@ -273,6 +285,43 @@ overrides:
   - filename: '**/{EnglishTextAnalyzerTests.cs,PartOfSpeechAdapterTests.cs,PartOfSpeechTests.cs,part-of-speech.md,.textlint.yaml}'
     words:
       - qzxvbnk
+  # The Text.En override tests and fixtures use invented words, sentinel strings and fragments of escaped
+  # text (the parts of a word on either side of an escaped non-ASCII letter) to prove matching and that no
+  # dictionary content reaches a diagnostics sink or an exception message
+  - filename: '{test/DemaConsulting.Speech.Text.En.Tests/**,.textlint.yaml}'
+    words:
+      - aaabbb
+      - aelvin
+      - arpa
+      - blax
+      - brien
+      - defg
+      - fffcsql
+      - frob
+      - frobnicate
+      - frobnikeit
+      - frobsentinel
+      - nginxes
+      - pronme
+      - quuxsentinel
+      - sayme
+      - sentinelx
+      - skipme
+      - stanbul
+      - stra
+      - strasse
+      - tarpabet
+      - txsampa
+      - wxyz
+      - wxyzsentinel
+      - xsampa
+      - zmir
+      - zorblax
+      - zorblaxsentinel
+  # IPA phoneme strings (letters of the International Phonetic Alphabet are not words) in the override examples
+  - filename: '**/{PronunciationOverrideEntry.cs,speech-text-en.md,usage.md,.textlint.yaml}'
+    ignoreRegExpList:
+      - /\S*[\u0250-\u02FF]\S*/
   # Names and terms of the attribution notices that the licenses of the tagger package's data require verbatim
   - filename: '**/{THIRD-PARTY-NOTICES.md,.textlint.yaml}'
     words:

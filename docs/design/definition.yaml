@@ -194,6 +194,7 @@ input-files:
   - docs/design/speech-text-en/analysis-subsystem.md
   - docs/design/speech-text-en/analysis-subsystem/english-text-analyzer.md
   - docs/design/speech-text-en/analysis-subsystem/english-text-analyzer-options.md
+  - docs/design/speech-text-en/analysis-subsystem/pronunciation-overrides.md
   - docs/design/speech-text-en/analysis-subsystem/text-en-annotations.md
   - docs/design/speech-text-en/analysis-subsystem/part-of-speech-adapter.md
   - docs/design/speech-text-en/analysis-subsystem/analysis-diagnostics.md

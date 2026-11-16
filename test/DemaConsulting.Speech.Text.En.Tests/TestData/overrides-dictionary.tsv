@@ -1,0 +1,26 @@
+# Pronunciation override dictionary used by the tests and shown in the user guide.
+# Columns (tab separated): word, case (sensitive or insensitive), action (skip, say, spell or pron), payload.
+Nginx	insensitive	say	engine ex
+Kubernetes	sensitive	say	koo ber net eez
+GIF	sensitive	spell
+Polish	sensitive	pron	ipa:ˈpoʊlɪʃ
+polish	insensitive	pron	ipa:ˈpɑːlɪʃ
+SQL	insensitive	say	sequel
+NASA	sensitive	skip
+# Further entries used by the golden rows of overrides-cases.tsv.
+Nginx-based	insensitive	say	engine ex based
+Wi-Fi	insensitive	say	why fie
+Ph.D	sensitive	say	doctor of philosophy
+kg	insensitive	say	kay gee
+million	insensitive	say	mill yon
+pm	insensitive	say	post meridiem
+US	sensitive	skip
+FBI	sensitive	skip
+Mr	insensitive	say	mister
+Do	insensitive	say	dew
+don't	insensitive	say	do not
+İstanbul	insensitive	say	istanbul
+𐐀𐐁x	insensitive	say	deseret
+O'Brien	sensitive	say	oh brian
+Cafe	sensitive	pron	arpabet:K AE0 F EY1
+foo	sensitive	say	I

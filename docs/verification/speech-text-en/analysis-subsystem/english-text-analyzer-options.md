@@ -4,7 +4,8 @@
 
 `EnglishTextAnalyzerOptions` and `TextEnAnnotationSelection` are verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs`. The only
-collaborator is a recording diagnostics sink used as an opaque value.
+collaborators are a recording diagnostics sink, used as an opaque value, and a small real `PronunciationOverrides`
+dictionary, used as an opaque reference.
 
 #### Test Environment
 
@@ -20,7 +21,9 @@ values and a with-expression copies without changing the original; every combina
 (none, each family alone and both) is accepted; an undefined flag throws `ArgumentOutOfRangeException` at
 initialization and in a with-expression (including the formerly undefined value 4 combined with a defined
 flag); and the selection enumeration is a flags enumeration with `None` equal to zero, `PartOfSpeech` equal
-to one and `Normalization` equal to two.
+to one and `Normalization` equal to two. The pronunciation dictionary defaults to null, can be set at
+initialization, is kept by reference through a with-expression of another property and can be replaced without
+changing the original.
 
 #### Test Scenarios
 
@@ -44,3 +47,13 @@ combinations of the two defined flags)
 ##### Enumeration shape
 
 **Test**: `TextEnAnnotationSelection_Members_AreFlagsWithNoneZero`
+
+##### Pronunciation dictionary
+
+**Test**: `EnglishTextAnalyzerOptions_Overrides_DefaultsToNullAndCopiesWithWith`
+
+The default options hold no dictionary. Options built with a dictionary return the same instance, a with-expression
+that changes the annotation selection returns the same dictionary instance, and a with-expression that sets the
+dictionary to null gives null while the original keeps its dictionary. The dictionary is validated when it is
+built, not here, and the combination with the selection is validated by the analyzer constructor (see the
+`EnglishTextAnalyzer` verification).

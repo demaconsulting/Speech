@@ -19,6 +19,18 @@ namespace DemaConsulting.Speech.Text.En.Tests.Fakes;
 internal sealed record NormalizationCase(string Id, string Input, string Spoken, string Sentences, int Ambiguous, int Fallbacks = 0);
 
 /// <summary>
+///     One row of the override golden file: an input text and what the dictionary must make of it.
+/// </summary>
+/// <param name="Id">The row's identifier, quoted in every failure message.</param>
+/// <param name="Input">The input text (placeholders as U+FFFC).</param>
+/// <param name="Spoken">The text with every replacement (<c>en.norm</c> and <c>en.spell</c>) applied.</param>
+/// <param name="Pronunciations">The expected pronunciation marks as <c>source=value</c>, in order; empty for none.</param>
+/// <param name="Spelled">The expected source text of every spelled replacement, in order; empty for none.</param>
+/// <param name="Applied">The expected number of overrides applied.</param>
+/// <param name="Ignored">The expected number of overrides ignored.</param>
+internal sealed record OverrideCase(string Id, string Input, string Spoken, IReadOnlyList<string> Pronunciations, IReadOnlyList<string> Spelled, int Applied, int Ignored);
+
+/// <summary>
 ///     Test helper that feeds the normalizer with the tokens the real tokenizer produces (no
 ///     tagger is involved), applies annotations independently of the production
 ///     <c>AlignedText</c> code, and reads the golden file.
@@ -65,11 +77,27 @@ internal static class NormalizationHarness
     /// </summary>
     /// <param name="text">The text; placeholders are neutralized first.</param>
     /// <param name="classifyClitics">Whether to classify clitics.</param>
+    /// <param name="directives">User override directives resolved to token indices; none when null.</param>
     /// <returns>The aligned result over the neutralized text.</returns>
-    public static AlignedText Normalize(string text, bool classifyClitics = false)
+    public static AlignedText Normalize(string text, bool classifyClitics = false, TokenDirective[]? directives = null)
     {
         var neutralized = Neutralize(text);
-        return TextNormalizer.Default.Normalize(neutralized, Tokenize(neutralized), classifyClitics, CancellationToken.None);
+        return TextNormalizer.Default.Normalize(neutralized, Tokenize(neutralized), classifyClitics, CancellationToken.None, directives);
+    }
+
+    /// <summary>
+    ///     Resolves a dictionary against a text with the real tokenizer and normalizes the text
+    ///     with the resulting directives, exactly as the analyzer does.
+    /// </summary>
+    /// <param name="text">The text; placeholders are neutralized first.</param>
+    /// <param name="overrides">The dictionary.</param>
+    /// <returns>The aligned result over the neutralized text.</returns>
+    public static AlignedText NormalizeWithOverrides(string text, DemaConsulting.Speech.Text.En.AnalysisSubsystem.PronunciationOverrides overrides)
+    {
+        var neutralized = Neutralize(text);
+        var tokens = Tokenize(neutralized);
+        var directives = overrides.Resolve(neutralized, tokens, CancellationToken.None);
+        return TextNormalizer.Default.Normalize(neutralized, tokens, classifyClitics: false, CancellationToken.None, directives);
     }
 
     /// <summary>
@@ -121,18 +149,19 @@ internal static class NormalizationHarness
     }
 
     /// <summary>
-    ///     Applies <c>en.norm</c> annotations to a text the way a backend would, without using any
-    ///     production alignment code: sort by start, copy the gaps, insert each value.
+    ///     Applies the replacement annotations (<c>en.norm</c> and <c>en.spell</c>) to a text the
+    ///     way a backend would, without using any production alignment code: sort by start, copy
+    ///     the gaps, insert each value.
     /// </summary>
     /// <param name="text">The text the annotations index.</param>
     /// <param name="annotations">The annotations; those of other kinds are ignored.</param>
     /// <returns>The spoken text.</returns>
-    /// <exception cref="InvalidOperationException">Two normalization annotations overlap or one lies outside the text.</exception>
+    /// <exception cref="InvalidOperationException">Two replacement annotations overlap or one lies outside the text.</exception>
     public static string ApplyNormalizations(string text, IEnumerable<SegmentAnnotation> annotations)
     {
         var builder = new StringBuilder();
         var position = 0;
-        foreach (var annotation in annotations.Where(a => a.Kind == "en.norm").OrderBy(a => a.Start))
+        foreach (var annotation in annotations.Where(a => a.Kind is "en.norm" or "en.spell").OrderBy(a => a.Start))
         {
             if (annotation.Start < position || annotation.End > text.Length)
             {
@@ -198,6 +227,59 @@ internal static class NormalizationHarness
 
         return cases;
     }
+
+    /// <summary>
+    ///     Reads the override golden file next to the test assembly.
+    /// </summary>
+    /// <param name="fileName">The file name inside the <c>TestData</c> folder.</param>
+    /// <returns>The rows in file order.</returns>
+    /// <exception cref="InvalidDataException">A row is malformed (the message names the line).</exception>
+    public static IReadOnlyList<OverrideCase> ReadOverrideCases(string fileName)
+    {
+        const int columnCount = 8;
+        var path = Path.Combine(AppContext.BaseDirectory, "TestData", fileName);
+        var cases = new List<OverrideCase>();
+        var headerSeen = false;
+        var lineNumber = 0;
+        foreach (var rawLine in File.ReadAllLines(path))
+        {
+            lineNumber++;
+            if (rawLine.Length == 0 || rawLine[0] == '#')
+            {
+                continue;
+            }
+
+            var columns = rawLine.Split('\t');
+            if (columns.Length != columnCount)
+            {
+                throw new InvalidDataException($"{fileName} line {lineNumber}: expected {columnCount} columns, found {columns.Length}.");
+            }
+
+            if (!headerSeen)
+            {
+                headerSeen = true;
+                continue;
+            }
+
+            cases.Add(new OverrideCase(
+                columns[0],
+                Unescape(columns[1]),
+                Unescape(columns[2]),
+                SplitList(columns[3]),
+                SplitList(columns[4]),
+                int.Parse(columns[5], CultureInfo.InvariantCulture),
+                int.Parse(columns[6], CultureInfo.InvariantCulture)));
+        }
+
+        return cases;
+    }
+
+    /// <summary>
+    ///     Splits a list cell of the override golden file at U+00A6; a lone hyphen is the empty list.
+    /// </summary>
+    /// <param name="cell">The cell text.</param>
+    /// <returns>The items.</returns>
+    private static string[] SplitList(string cell) => cell == "-" ? [] : cell.Split(SentenceSeparator);
 
     /// <summary>
     ///     Decodes the escapes of the golden file: <c>\t</c>, <c>\n</c>, <c>\r</c>,

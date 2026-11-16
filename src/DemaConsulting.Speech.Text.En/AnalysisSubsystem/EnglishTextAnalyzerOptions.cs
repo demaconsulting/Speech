@@ -55,10 +55,24 @@ public sealed record EnglishTextAnalyzerOptions
     /// <remarks>
     ///     The library's diagnostics contract forbids sending text content to a sink, so the
     ///     analyzer reports only counts (sentences, tokens, annotations, unknown words,
-    ///     normalizations, ambiguous abbreviations) and never a word. A sink that throws never
-    ///     interrupts an analysis.
+    ///     normalizations, ambiguous abbreviations, numeric fallbacks, overrides applied and
+    ///     overrides ignored) and never a word. A sink that throws never interrupts an analysis.
     /// </remarks>
     public ISpeechDiagnostics? Diagnostics { get; init; }
+
+    /// <summary>
+    ///     Gets the host-supplied pronunciation overrides to apply, or <see langword="null"/> (the
+    ///     default) for none.
+    /// </summary>
+    /// <remarks>
+    ///     Overrides are applied by the normalization pass, so a non-empty dictionary requires
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/> in <see cref="Annotations"/>;
+    ///     <see cref="EnglishTextAnalyzer"/> rejects the combination when it is constructed. The
+    ///     dictionary is immutable, so the analyzer simply keeps the reference; an empty
+    ///     dictionary is the same as none. Dictionary content is never reported to the diagnostics
+    ///     sink.
+    /// </remarks>
+    public PronunciationOverrides? Overrides { get; init; }
 
     /// <summary>
     ///     Gets the annotation families to produce. Defaults to

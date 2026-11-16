@@ -104,7 +104,8 @@ no number before it are left alone.
 `NumericExpressionRecognizer_Meridiem_GluedSeparateAndDotted`
 
 Every valid time of the table and the invalid `25:99`, `3:2`, `5:60`, `5:30:15`, `1:1:1`, `13:30pm`, `0pm` and `13pm`;
-`5:30pm`, `5pm`, `12:00am` glued, `5 pm`, `5:30 pm` and `5 am` as a time and a meridiem span, and `5:30 p.m.` and `5
+`5:30pm`, `5pm`, `12:00am` glued as two adjacent spans inside the token (the time or hour words, then the meridiem letters, with
+the offsets `[0,1)` and `[1,3)` for `5pm` and `[0,4)` and `[4,6)` for `5:30pm`), `5 pm`, `5:30 pm` and `5 am` as a time and a meridiem span, and `5:30 p.m.` and `5
 PM` as a time span only (the initialism rule reads the dotted and the upper-case letters).
 
 ##### Dates
@@ -161,7 +162,8 @@ Seeded generated token sequences from the numeric alphabet are recognized at eve
 match is checked: inside the text, non-empty, in ascending order and disjoint, no whitespace, no `;`, a `,` or `:`
 only between two ASCII digits, a spoken text that matches `[A-Za-z' ]+` with no digit, at most two spans and at
 least one consumed token, and an S3 or S4 span only for a currency symbol or apostrophe token with its adjacent
-number or decade token.
+number or decade token, or a span that is one of the two halves of a glued meridiem token (the first starts at the token
+start and abuts the second, the second is `P M` or `A M` and ends at the token end).
 
 ##### Limits and hostile tokens
 

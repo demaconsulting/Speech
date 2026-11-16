@@ -123,4 +123,157 @@ public sealed class TextEnAnnotationsTests
         // Act / Assert
         Assert.Throws<ArgumentNullException>(() => TextEnAnnotations.TryReadPartOfSpeech(null!, out _));
     }
+
+    /// <summary>Proves a spell annotation with a well-formed letter sequence is read back exactly as stored, padding included.</summary>
+    /// <param name="value">The annotation value.</param>
+    [Theory]
+    [InlineData("F B I")]
+    [InlineData("A")]
+    [InlineData(" A B")]
+    [InlineData("A B ")]
+    [InlineData(" A B ")]
+    [InlineData("P H D")]
+    public void TextEnAnnotations_TryReadSpellOut_WellFormedLetters_ReturnsValueExactly(string value)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 3, TextEnAnnotations.SpellOut, value);
+
+        // Act
+        var read = TextEnAnnotations.TryReadSpellOut(annotation, out var letters);
+
+        // Assert
+        Assert.True(read);
+        Assert.Equal(value, letters);
+    }
+
+    /// <summary>Proves a spell annotation of another kind, or with a malformed letter sequence, is not read.</summary>
+    /// <param name="kind">The annotation kind.</param>
+    /// <param name="value">The annotation value.</param>
+    [Theory]
+    [InlineData("en.norm", "F B I")]
+    [InlineData("EN.SPELL", "F B I")]
+    [InlineData("en.spell", "")]
+    [InlineData("en.spell", " ")]
+    [InlineData("en.spell", "  ")]
+    [InlineData("en.spell", "f b i")]
+    [InlineData("en.spell", "FBI")]
+    [InlineData("en.spell", "F  B")]
+    [InlineData("en.spell", "F\tB")]
+    [InlineData("en.spell", "  F B")]
+    [InlineData("en.spell", "F B  ")]
+    [InlineData("en.spell", "F-B")]
+    [InlineData("en.spell", "\u00C9 B")]
+    [InlineData("en.spell", "A B and")]
+    public void TextEnAnnotations_TryReadSpellOut_OtherKindOrMalformedValue_ReturnsFalse(string kind, string value)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 3, kind, value);
+
+        // Act
+        var read = TextEnAnnotations.TryReadSpellOut(annotation, out var letters);
+
+        // Assert
+        Assert.False(read);
+        Assert.Equal(string.Empty, letters);
+    }
+
+    /// <summary>Proves a pronunciation annotation is split at the first colon into its scheme and phonemes.</summary>
+    /// <param name="value">The annotation value.</param>
+    /// <param name="scheme">The expected scheme.</param>
+    /// <param name="phonemes">The expected phonemes.</param>
+    [Theory]
+    [InlineData("ipa:\u02C8po\u028Al\u026A\u0283", PronunciationScheme.Ipa, "\u02C8po\u028Al\u026A\u0283")]
+    [InlineData("ipa:p\u0251\u02D0:l", PronunciationScheme.Ipa, "p\u0251\u02D0:l")]
+    [InlineData("arpabet:P OW1 L IH0 SH", PronunciationScheme.Arpabet, "P OW1 L IH0 SH")]
+    [InlineData("arpabet:K", PronunciationScheme.Arpabet, "K")]
+    public void TextEnAnnotations_TryReadPronunciation_WellFormedValue_ReturnsSchemeAndPhonemes(string value, PronunciationScheme scheme, string phonemes)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, value);
+
+        // Act
+        var read = TextEnAnnotations.TryReadPronunciation(annotation, out var readScheme, out var readPhonemes);
+
+        // Assert
+        Assert.True(read);
+        Assert.Equal(scheme, readScheme);
+        Assert.Equal(phonemes, readPhonemes);
+    }
+
+    /// <summary>Proves a pronunciation annotation of another kind, with an unknown scheme or with malformed phonemes is not read.</summary>
+    /// <param name="kind">The annotation kind.</param>
+    /// <param name="value">The annotation value.</param>
+    [Theory]
+    [InlineData("en.norm", "ipa:abc")]
+    [InlineData("en.pron", "")]
+    [InlineData("en.pron", "abc")]
+    [InlineData("en.pron", "ipa")]
+    [InlineData("en.pron", "ipa:")]
+    [InlineData("en.pron", "IPA:abc")]
+    [InlineData("en.pron", "xsampa:abc")]
+    [InlineData("en.pron", " ipa:abc")]
+    [InlineData("en.pron", "ipa:a b")]
+    [InlineData("en.pron", "ipa:a\u0007b")]
+    [InlineData("en.pron", "arpabet:")]
+    [InlineData("en.pron", "arpabet:p ow1")]
+    [InlineData("en.pron", "arpabet:P  OW1")]
+    [InlineData("en.pron", "arpabet:P OW3")]
+    [InlineData("en.pron", "arpabet:PHON1")]
+    [InlineData("en.pron", "arpabet:P ")]
+    public void TextEnAnnotations_TryReadPronunciation_OtherKindOrMalformedValue_ReturnsFalse(string kind, string value)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 6, kind, value);
+
+        // Act
+        var read = TextEnAnnotations.TryReadPronunciation(annotation, out var scheme, out var phonemes);
+
+        // Assert
+        Assert.False(read);
+        Assert.Equal(default, scheme);
+        Assert.Equal(string.Empty, phonemes);
+    }
+
+    /// <summary>Proves the combined replacement reader accepts both replacement kinds and flags only the spelled one.</summary>
+    [Fact]
+    public void TextEnAnnotations_TryReadReplacement_NormAndSpell_ReturnValueAndSpelledFlag()
+    {
+        // Arrange
+        var norm = new SegmentAnnotation(0, 3, TextEnAnnotations.Normalized, "Doctor");
+        var empty = new SegmentAnnotation(0, 1, TextEnAnnotations.Normalized, string.Empty);
+        var spell = new SegmentAnnotation(0, 3, TextEnAnnotations.SpellOut, " F B I");
+
+        // Act / Assert
+        Assert.True(TextEnAnnotations.TryReadReplacement(norm, out var normText, out var normSpelled));
+        Assert.Equal("Doctor", normText);
+        Assert.False(normSpelled);
+        Assert.True(TextEnAnnotations.TryReadReplacement(empty, out var emptyText, out var emptySpelled));
+        Assert.Equal(string.Empty, emptyText);
+        Assert.False(emptySpelled);
+        Assert.True(TextEnAnnotations.TryReadReplacement(spell, out var spellText, out var spellSpelled));
+        Assert.Equal(" F B I", spellText);
+        Assert.True(spellSpelled);
+    }
+
+    /// <summary>Proves the combined replacement reader rejects other kinds, a malformed spelled value and a null annotation.</summary>
+    [Fact]
+    public void TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows()
+    {
+        // Arrange
+        var upos = new SegmentAnnotation(0, 3, TextEnAnnotations.PartOfSpeech, "NOUN");
+        var pron = new SegmentAnnotation(0, 3, TextEnAnnotations.Pronunciation, "ipa:abc");
+        var badSpell = new SegmentAnnotation(0, 3, TextEnAnnotations.SpellOut, "fbi");
+
+        // Act / Assert
+        foreach (var annotation in new[] { upos, pron, badSpell })
+        {
+            Assert.False(TextEnAnnotations.TryReadReplacement(annotation, out var text, out var spelled));
+            Assert.Equal(string.Empty, text);
+            Assert.False(spelled);
+        }
+
+        Assert.Throws<ArgumentNullException>(() => TextEnAnnotations.TryReadReplacement(null!, out _, out _));
+        Assert.Throws<ArgumentNullException>(() => TextEnAnnotations.TryReadSpellOut(null!, out _));
+        Assert.Throws<ArgumentNullException>(() => TextEnAnnotations.TryReadPronunciation(null!, out _, out _));
+    }
 }

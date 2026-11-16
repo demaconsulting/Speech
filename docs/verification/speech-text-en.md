@@ -22,6 +22,18 @@ check its observable result: the `en.norm` annotations a caller reads, the text 
 an independent applier that follows the documented consumer algorithm, the sentence breaks, and what a real
 session delivers to a backend after chunking.
 
+The system tests of the pronunciation overrides use the sample dictionary file
+`TestData/overrides-dictionary.tsv` (the sample of the user guide plus the entries of the golden rows), loaded
+through a `StreamReader` as a host would. They check the observable result of an analysis with a dictionary: the
+`en.norm`, `en.spell` and `en.pron` annotations a caller reads through the typed readers
+`TryReadReplacement`, `TryReadSpellOut` and `TryReadPronunciation`, the text produced by a consumer that follows the
+documented algorithm using only those public readers, the precedence of a user override over the built-in rules,
+the diagnostics counts, concurrent use of one shared analyzer, and what a real session delivers to a backend after
+chunking. The same statements are checked on hostile random text by property tests (the fuzz test of the
+alignment contract of the public analyzer here, and the unit and subsystem property tests below this level).
+Verifying that a phoneme string is correct is out of scope: only the syntax of a pronunciation is verified, and
+the backends own their phoneme inventories and the decision whether and how to speak a pronunciation.
+
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences:
 the analyzer relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only
 sentences whose tags the tagger assigns with full confidence. The accuracy of the abbreviation readings is
@@ -29,7 +41,10 @@ claimed only for the documented cases (the golden file records the known wrong-b
 `Wall St. Journal` and `Elm St. Louis` explicitly); the numeric readings are claimed only for the documented
 en-US policy (the golden file marks readings that are wrong by default, such as `1500 stars` without a cue),
 and URLs, e-mail, markup, Roman numerals, hyphenated digit compounds, prefix currency codes and the hyphen
-policy are deferred and are verified only as unchanged text.
+policy are deferred and are verified only as unchanged text. The documented limitations of the overrides (a
+multi-word entry or a key with a trailing period never matches, an override on the tail token of a split word or
+on a word consumed by a number rule is not applied) are not defects: they are pinned by rows of the golden file and
+by unit tests, so a change of the tokenizer or of the number rules cannot silently change them.
 
 System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project.
 
@@ -38,8 +53,9 @@ System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` p
 - **Framework**: xUnit v3 running under the .NET SDK, on every target framework of the library
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: no external services, no network access, no native runtime and no audio hardware; the
-  part-of-speech package's embedded model and the library's own two embedded lexicon tables are the only data
-  used
+  part-of-speech package's embedded model, the library's own two embedded lexicon tables and the sample
+  pronunciation dictionary file `TestData/overrides-dictionary.tsv` (copied next to the test assembly) are the only
+  data used
 - **Isolation**: each end-to-end test uses a fresh scratch model directory and its own recording backend
 
 ## External Interface Simulation
@@ -92,8 +108,9 @@ words of that chunk, with exactly the annotations the analyzer produced.
 `SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly`
 
 Verifies that one event in the `TextEn.Analysis` category reaches the sink with counts only (sentences,
-tokens, annotations, unknown words, normalizations, ambiguous readings and numeric fallbacks, in the message
-`... N normalizations, X ambiguous readings, F numeric fallbacks.`) and none of the words of the
+tokens, annotations, unknown words, normalizations, ambiguous readings, numeric fallbacks, overrides applied and
+overrides ignored, in the message `... N normalizations, X ambiguous readings, F numeric fallbacks, P overrides
+applied, I overrides ignored.`) and none of the words of the
 text, and that an analyzer whose sink throws still returns its full result. The numeric test analyzes a text
 with a bare year, a month-first date and an oversized digit run and asserts the exact ambiguity and fallback
 counts in the message and that no digit or spoken word of the text appears in it.
@@ -133,7 +150,7 @@ chunk that contains them. Also verifies that `John Smith Jr. Ph.D. spoke.` and `
 left.` stay one sentence each (breaks only before the next sentence and before the sentence starters `I`
 and `He` of `I met John Smith Jr. He left.`), with `Junior`, `Esquire`, `P H D` and `M D` as the spoken forms,
 and that the first reaches the real session's backend as one chunk annotated `Jr.` to `Junior` and `Ph.D.`
-to `P H D`.
+to `P H D` (the latter an `en.spell` annotation).
 
 ### Symbols, Apostrophes, Invisible Characters and Clitics
 
@@ -169,7 +186,7 @@ Verifies that `US`, `IT`, `FBI` and `U.S.` are spoken letter by letter while the
 `SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`,
 `SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`
 
-Verifies that for 200 random, deliberately hostile texts every `en.norm` annotation is ordered, disjoint, in
+Verifies that for 200 random, deliberately hostile texts every replacement annotation (`en.norm` or `en.spell`) is ordered, disjoint, in
 bounds, free of whitespace edges, placeholders, clause separators and cut surrogate pairs, and that nothing
 outside the annotations is changed; that a text of more than 800 characters mixing every rule reaches a real
 session's backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own (same
@@ -244,11 +261,111 @@ Verifies that for random, deliberately hostile numeric texts every `en.norm` ann
 alignment contract (no whitespace, no semicolon, a comma or colon only between two digits, no break strictly
 inside a span, no digit in a numeric value), that a long text mixing every numeric form reaches a real session's
 backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own, that
-`January 5, 2024, then left` and `$1,234.50, $5 million; 5:30pm: 50 %` keep every per-token annotation although
+`January 5, 2024, then left` and `$1,234.50, $5 million; 5:30pm: 50 %` keep every per-token annotation (the `5:30`
+words span as `en.norm` and its `pm` letters as a delivered `en.spell` span) although
 the clause cuts fall between the tokens of the date, that a chunk that consists only of `%` keeps its
 annotation, that no annotation is split where the 200-character budget cut falls near a number (the
 text is constructed so that the cut falls between `$5` and `million`), and that `5` followed by a tag and `kg`
 keeps both annotations and covers no placeholder.
+
+### Spelled Initialisms
+
+**Tests**: `SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut`,
+`SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans`,
+`SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans`,
+`SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled`
+
+Verifies that in `A. Smith met the FBI at 5 p.m. in the U.S. with J. Doe, Ph.D.` every spelled replacement (the
+single-letter initials `A.` and `J.`, `FBI`, the meridiem `p.m.`, `U.S.` and the credential) is an `en.spell`
+annotation whose value reads back through `TryReadSpellOut` as capital letters, that no `en.norm` annotation has
+the shape of a letter sequence (so a backend never mistakes a lone `A` or `I` for a word), and that applying the
+annotations speaks `A Smith met the F B I at five P M in the U S with J Doe, P H D.`. It also verifies that `AT&T's R&D and Q&A.` is decomposed into letter-group spans
+of kind `en.spell` (`AT`, `T`, `R`, `D`, `Q`, `A`) and `&` spans of kind `en.norm` with the value ` and `, speaking
+`A T and T's R and D and Q and A.`, with the possessive tail outside every span. For the meridiem, `at 5pm today`,
+`at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each annotated as exactly two
+non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`, `twelve`; the glued
+ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the single
+separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with
+`isSpelled` false for the first and true for the second, and the applied text has exactly one space between the
+words. Finally a `Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which
+`TryReadReplacement` reports as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out
+promise and a backend must not infer spelling from its value.
+
+### Pronunciation Overrides
+
+**Tests**: `SpeechTextEn_Analyze_Overrides_AnnotateWholeWordsPerAction`,
+`SpeechTextEn_Analyze_OverrideActions_ReadBackThroughTypedReaders`
+
+Verifies, with the sample dictionary file and normalization only, that in a sentence that holds `Nginx`, a longer
+word that merely starts with `nginx`, `GIF`, `Polish`, `SQL`, `NASA's` and `US` exactly four words are annotated,
+each on its own characters and in text order: `Nginx` as an
+`en.norm` annotation `engine ex`, `GIF` as an `en.spell` annotation `G I F`, `Polish` as an `en.pron` annotation
+with the IPA phonemes of the sample, and `SQL` as an `en.norm` annotation `sequel`; the longer word that merely
+starts with `nginx` (a different word), and the skipped `NASA` and `US`, get none, and the analyzed text is
+unchanged. Through the `ITextAnalyzer`
+interface and the default options, a consumer written only against `TryReadReplacement` and `TryReadPronunciation`
+applies the replacements to `Nginx runs Kubernetes and kubernetes, a GIF and Polish food.` and must obtain
+`engine ex runs koo ber net eez and kubernetes, a G I F and Polish food.` (the case-sensitive entry does not apply to
+the lower-case word), with exactly one replacement flagged as spelled and exactly one pronunciation, on `Polish`.
+
+### Override Precedence
+
+**Tests**: `SpeechTextEn_Analyze_OverridePrecedence_UserOverridesBuiltInRules`,
+`SpeechTextEn_Analyze_OverrideOnConsumedToken_IsIgnoredAndCounted`,
+`SpeechTextEn_Analyze_OverrideOnAbbreviationWord_KeepsSentenceBreaksAndChunks`
+
+Verifies, for seven texts analyzed with and without a one-entry dictionary, that a user override wins over the
+built-in rule for its word and that the built-in reading returns without it: a skip entry keeps `US`, `AT&T` and
+`y’all` as written (otherwise `U S`, `A T and T` and `y'all`), say entries give `sequel` and `see eye ay` instead of
+`S Q L` and `C I A` and `mister` instead of `Mister`, and a spell entry for `FBI` agrees with the built-in rule. A
+case-sensitive entry for `Polish` is not applied to `polish`. The second test verifies that an override on a word
+that a number or currency match consumed (`kg` in `5 kg`, `million` in `$3 million`) is ignored, the built-in reading
+`five kilograms` and `three million dollars` stands, the diagnostics event ends `0 overrides applied, 2 overrides
+ignored.`, while the same words on their own are overridden (`The kay gee and the mill yon.`, ending `2 overrides
+applied, 0 overrides ignored.`). The third test verifies, through the public analyzer and the real chunker, that
+`Say("Fig", "figure")` on `See Fig. 5 for details.` leaves no sentence break, annotates `Fig` as `figure` and yields
+exactly one chunk, and that `Skip("Dr")` on `Hello—Dr. Smith left.` keeps the breaks of the analyzer without a
+dictionary (none) and one chunk.
+
+### Override Dictionary
+
+**Tests**: `SpeechTextEn_Overrides_SampleDictionaryFile_LoadsAndDrivesAnalysis`,
+`SpeechTextEn_Overrides_SharedAnalyzerConcurrentRequests_ReturnIdenticalResults`
+
+Verifies that the sample dictionary file loads through a `StreamReader` into 22 entries and drives an analysis end to
+end: `Wi-Fi and Nginx-based Kubernetes apps; Cafe,` followed by the Turkish place name with a dotted capital I,
+speaks as `why fie and engine ex based koo ber net eez
+apps; Cafe,` followed by that name in lower case (the sample entry for it says `istanbul`), with one `arpabet:K AE0 F EY1` pronunciation on `Cafe`. It also verifies that one analyzer
+with one dictionary, used by 32 concurrent workers that each analyze 20 of five different texts, returns for every
+request exactly the result (annotations and breaks) that a sequential analysis of the same text returned.
+
+### Override Alignment Contract and Chunk Survival
+
+**Tests**: `SpeechTextEn_Analyze_Overrides_AnnotationsSatisfyAlignmentContract`,
+`SpeechTextEn_SynthesisSession_OverrideAnnotations_SurviveChunking`,
+`SpeechTextEn_SynthesisSession_OverridesAroundAudioTag_KeepEveryAnnotation`
+
+Verifies, for 300 seeded random hostile texts analyzed with the sample dictionary (one analyzer with normalization
+only, and every fifth text with the default options), that both entry points and a repeated call agree, that every
+replacement annotation (`en.norm` or `en.spell`) is readable through `TryReadReplacement` with a spelled flag that
+matches its kind, ascending, disjoint and in bounds, with whitespace-free edges, no clause separator inside, and no
+placeholder in its characters or value, that every annotation other than the part of speech is disjoint from the
+others, and that every pronunciation reads back and holds no whitespace or clause separator. Through a real
+synthesis session, a text of more than 800 characters repeating a paragraph that mixes every override action,
+built-in rules, clause cuts and a budget cut is delivered in several backend calls whose replacement, spelling and
+pronunciation annotations equal, in order and on the same source characters, those of the analyzer (more than 60,
+including both kinds), so none is lost, duplicated or moved. A request `Nginx [whispers] SQL, Polish [laughs] GIF
+done.` delivers the four override annotations (`engine ex`, `sequel`, the IPA pronunciation and `G I F`), in order,
+from both sides of the two audio tags.
+
+### Override Diagnostics
+
+**Test**: `SpeechTextEn_Diagnostics_Overrides_ReportCountsOnlyAndNeverDictionaryContent`
+
+Verifies that a dictionary of sentinel keys, a sentinel payload, a phoneme string and the skipped unit `kg`, applied
+to a text that uses three of them and a unit after a number, produces one `TextEn.Analysis` event that matches the
+fixed template with `3 overrides applied, 1 overrides ignored`, and that the message contains none of the
+sentinel words, payloads, scheme names, phonemes or words of the analyzed text.
 
 ### Linear Time
 
@@ -294,13 +411,17 @@ System Design_, _Release Gate_), together with the retention test required there
 
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions,
 every subsystem and unit suite passes, and the automated verification boundary remains honest: structure,
-offsets, wiring, sentence breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm`
-annotations (including their survival through real chunking, also for numeric constructs whose tokens are
+offsets, wiring, sentence breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm` and
+`en.spell` replacement annotations and the `en.pron` pronunciation annotations (including their survival through real chunking, also for numeric constructs whose tokens are
 separated by clause cuts and budget cuts), the documented abbreviation, symbol, clitic, initialism and
-numeric behavior (the golden readings, the documented defaults and their counts), the linear-time guard and the packaging configuration are
+numeric behavior (the golden readings, the documented defaults and their counts), the behavior of user
+pronunciation overrides (whole-word matching, one annotation per action on the exact source characters, precedence
+over the built-in rules, counts only in the diagnostics, identical results under concurrent use, and the documented
+limitations pinned by the golden rows), the spelled-initialism annotations, the linear-time guard and the packaging configuration are
 claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
 own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
-readings only for the documented en-US policy, and the
+readings only for the documented en-US policy, the correctness of the phonemes of a pronunciation override (only its
+syntax is verified; the backends own their phoneme inventories) is not claimed, and the
 retention of analyzed words inside the tagging package's private buffer (a known
 limitation of the dependency that violates the core `ITextAnalyzer` no-retention contract, and the reason
 the package is gated) is documented rather than claimed as verified. The package license files are also

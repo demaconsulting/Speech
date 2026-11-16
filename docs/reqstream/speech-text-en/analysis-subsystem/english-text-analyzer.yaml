@@ -110,8 +110,8 @@ sections:
                   neither return a result nor report diagnostics, when the cancellation token is
                   already canceled (before doing any work) and when it is canceled at any later
                   point: during tagger initialization, while a sentence (including the only or the
-                  last one) is being tagged, while the text is being normalized, or while the
-                  result is being built.
+                  last one) is being tagged, while the pronunciation overrides are looked up,
+                  while the text is being normalized, or while the result is being built.
                 justification: |
                   The Speech library passes the operation's token to the analyzer and a stop or
                   dispose waits for the analyzer to return, so a long text must stop promptly; and
@@ -123,6 +123,7 @@ sections:
                   - EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing
+                  - EnglishTextAnalyzer_Analyze_CanceledDuringOverrideLookup_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_NotCanceled_ReportsOneDiagnosticsEvent
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ArgumentValidation
@@ -217,3 +218,71 @@ sections:
                   - EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles
                   - EnglishTextAnalyzer_AnalyzeDetailed_NormalizationNotSelected_HasNoNormalizationsAndNoCliticRoles
                   - EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-Overrides
+                title: >-
+                  The EnglishTextAnalyzer class shall, when its options carry a non-empty
+                  pronunciation dictionary and select normalization, annotate each word the
+                  dictionary matches on exactly that token with a normalization annotation (a say
+                  entry), a spell-out annotation (a spell entry), a pronunciation annotation (a
+                  pronounce entry) or no annotation (a skip entry), shall still emit the
+                  part-of-speech annotation of the word before it, shall annotate around a tag
+                  placeholder, shall list a say or spell override in the detailed analysis with the
+                  override kind, shall return the same annotations and breaks from both analysis
+                  methods, shall never change the sentence breaks, and shall allocate nothing per
+                  token for a dictionary that matches nothing.
+                justification: |
+                  An override changes how one word is spoken, so it must sit on exactly that word
+                  and in the order a backend expects, beside the part of speech that selects among
+                  the readings of other words; the dictionary decides how a word is spoken, never
+                  where a sentence ends, including when the word is an abbreviation whose period
+                  the tokenizer separates, and the common case of a dictionary that matches nothing
+                  in most requests must stay cheap.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_SayOverride_EmitsNormAndKeepsPartOfSpeech
+                  - EnglishTextAnalyzer_Analyze_SpellOutOverride_EmitsSpell
+                  - EnglishTextAnalyzer_Analyze_PronunciationOverride_EmitsPron
+                  - EnglishTextAnalyzer_Analyze_SkipOverride_EmitsNothingForToken
+                  - EnglishTextAnalyzer_Analyze_OverrideAdjacentToAudioTag_AnnotatesAroundPlaceholder
+                  - EnglishTextAnalyzer_AnalyzeDetailed_ListsOverrideNormalizationKind
+                  - EnglishTextAnalyzer_Analyze_AnalyzeAndDetailed_ProduceSameAnnotationsWithOverrides
+                  - EnglishTextAnalyzer_Analyze_OverridesDoNotChangeSentenceBreaks
+                  - EnglishTextAnalyzer_Analyze_OverridesOnAbbreviations_DoNotChangeSentenceBreaks
+                  - EnglishTextAnalyzer_Analyze_GoldenCases_MatchThroughThePublicApi
+                  - EnglishTextAnalyzer_Analyze_OverridesWithoutHits_AddNoPerTokenAllocation
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-OverridesRequireNormalization
+                title: >-
+                  The EnglishTextAnalyzer constructor shall throw ArgumentException, with the
+                  parameter name options, for options that carry a non-empty pronunciation
+                  dictionary without the normalization annotation family, shall accept an empty
+                  dictionary whatever the selection, and shall copy the dictionary reference at
+                  construction so that a later with-copy of the options has no effect.
+                justification: |
+                  Overrides are applied by the normalization pass, so a dictionary with
+                  normalization switched off would be silently ignored, which hides a configuration
+                  mistake; an empty dictionary changes nothing and is harmless.
+                tests:
+                  - EnglishTextAnalyzer_Ctor_OverridesWithoutNormalization_Throws
+                  - EnglishTextAnalyzer_Ctor_EmptyOverridesWithoutNormalization_IsAccepted
+                  - EnglishTextAnalyzer_Ctor_OptionsCopiedAtConstruction_IgnoresLaterWith
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-SpelledInitialisms
+                title: >-
+                  The EnglishTextAnalyzer class shall annotate an initialism (FBI), a dotted
+                  initialism (U.S.), a single-letter initial (A.), a dotted credential (Ph.D.),
+                  the letters of a meridiem (p.m.) and the letter groups of an ampersand initialism
+                  (AT&T, R&D, Q&A, AT&T's) with a spell-out annotation instead of a normalization
+                  annotation, with an unchanged spoken text, shall annotate the "and" of an
+                  ampersand initialism and every word replacement (Dr.) as a normalization, and
+                  shall emit no spell-out annotation when normalization is not selected.
+                justification: |
+                  A letter sequence must reach a backend as letters to speak by name, so that a
+                  lone A or I is never read as the article or the pronoun; a word replacement is
+                  not letters and keeps the normalization kind, and without normalization nothing
+                  is replaced at all.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_Initialisms_EmitSpellInsteadOfNorm
+                  - EnglishTextAnalyzer_Analyze_WordReplacement_StaysNorm
+                  - EnglishTextAnalyzer_Analyze_AmpersandInitialism_EmitsLetterSpansAndAndNorm
+                  - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_EmitsNoSpell

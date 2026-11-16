@@ -9,7 +9,9 @@
 # word builder behind the numeric rule (NumericExpressionRecognizer and NumberVerbalizer), and the
 # two lexicons behind the abbreviation and initialism rules (AbbreviationResolver and
 # AcronymRecognizer). It never rewrites the text and never
-# depends on the part-of-speech tagger. Each requirement states one observable behavior.
+# depends on the part-of-speech tagger. It also applies host-supplied token directives (the
+# pronunciation overrides of the AnalysisSubsystem, resolved to token indices) before every
+# built-in rule. Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-text-en/normalization-subsystem/. Covered by
@@ -329,7 +331,8 @@ sections:
               separate lower-case meridiem for an hour from 1 to 12, and shall leave an invalid
               time unchanged.
             justification: |
-              "5:30pm" is "five thirty P M", "5:00" is "five o'clock" and "17:00" is "seventeen
+              "5:30pm" is "five thirty" followed by the spelled letters "P M", "5:00" is "five
+              o'clock" and "17:00" is "seventeen
               hundred". A time that is not valid (an hour above 23, minutes above 59, a seconds
               field) must not be guessed, and every hour and minute is checked against an
               independent reference implementation.
@@ -463,3 +466,65 @@ sections:
               - SpeechTextEn-Normalization-NumberVerbalizer-InvariantCulture
             tests:
               - NormalizationSubsystem_Normalize_UnderForeignCultures_GivesIdenticalResults
+
+          - id: SpeechTextEn-Normalization-TokenDirectives
+            title: >-
+              The NormalizationSubsystem shall accept, with the tokens of a text, user directives
+              that name tokens by index (speak as written, replace with plain words, spell by
+              letter name, attach a pronunciation), shall apply a directive to its token before
+              every built-in rule so that it wins over them, shall record a pronunciation as a mark
+              on the exact token that replaces nothing and neither overlaps another mark nor a
+              span, shall leave a token that an earlier multi-token match has consumed to that
+              match and count the directive as ignored, shall count the directives applied and
+              ignored, shall keep the built-in sentence-break decisions for the token of a
+              directive so that the sentence breaks never depend on the directives, shall reject
+              directives that are not strictly ascending or name a token that does not exist, and
+              shall give the same result as a pass without directives when no directive is
+              supplied.
+            justification: |
+              The override table lives in the analysis, but whether an override can be applied to a
+              token depends on what the built-in rules did with the tokens before it, which only
+              the normalization pass knows; handing it token-indexed directives keeps the
+              subsystem independent of the dictionary, the matching rules and the analyzer, and one
+              pass with a cursor keeps the time linear. A number with its unit is one construct,
+              so the unit word cannot be overridden on its own, and the count says so.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-Directives
+              - SpeechTextEn-Normalization-TextNormalizer-DirectivePrecedence
+              - SpeechTextEn-Normalization-TextNormalizer-DirectiveSentenceBreaks
+              - SpeechTextEn-Normalization-TextNormalizer-DirectiveConflicts
+              - SpeechTextEn-Normalization-TextNormalizer-DirectiveValidation
+              - SpeechTextEn-Normalization-NormalizationAlignment-PronunciationMarks
+              - SpeechTextEn-Normalization-NormalizationAlignment-OverrideCounts
+            tests:
+              - NormalizationSubsystem_AlignmentContract_RandomTextWithOverrides_SatisfiesAllInvariants
+              - NormalizationSubsystem_Normalize_DictionaryWithoutHits_EqualsNoDictionary
+              - NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks
+              - NormalizationSubsystem_Overrides_OnAbbreviations_RealChunker_ChunksEqualTheBuiltInChunks
+              - NormalizationSubsystem_OverrideAnnotations_RealChunker_KeepEveryAnnotationInExactlyOneChunk
+              - NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults
+
+          - id: SpeechTextEn-Normalization-SpelledReplacements
+            title: >-
+              The NormalizationSubsystem shall mark every replacement whose spoken text is a
+              sequence of single capital letters separated by single spaces (a listed or ruled
+              initialism, a dotted initialism, a single-letter initial, a dotted credential, a
+              meridiem token, a word a directive asked to spell) as spelled, shall refuse a span
+              that is marked spelled but is not such a sequence, shall decompose an ampersand
+              initialism (AT&T, R&D, Q&A, with or without a possessive tail) into one spelled span
+              per letter group and one "and" span per ampersand so that every spelled span holds
+              letters only, and shall keep the spoken text of every such token unchanged.
+            justification: |
+              The Speech library carries a letter sequence to a backend as a distinct annotation
+              kind that promises letter names, so the decision has to be made once, where the
+              replacement is created, and enforced where the span is accepted, so that no mislabeled
+              span can reach a backend. The ampersand of "AT&T" is a word, so keeping it in one
+              spelled span would break that promise; splitting it leaves the words that a
+              consumer speaks exactly as before.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-SpelledReplacements
+              - SpeechTextEn-Normalization-TextNormalizer-AmpersandInitialisms
+              - SpeechTextEn-Normalization-NormalizationAlignment-SpelledSpans
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_AlignmentContract_RandomTextWithOverrides_SatisfiesAllInvariants

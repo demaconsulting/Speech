@@ -89,6 +89,9 @@ acr-dotted	He lives in the U.S. now.	He lives in the U S now.	He lives in the U.
 acr-dotted-end	He lives in the U.S. He works.	He lives in the U S. He works.	He lives in the U.S.¦He works.	0	dotted initialism at a sentence end
 acr-usa	The U.S.A. is large.	The U S A is large.	The U.S.A. is large.	0	three letters
 acr-pm	Meet at 5 p.m. Then sleep.	Meet at five P M. Then sleep.	Meet at 5 p.m.¦Then sleep.	0	lower-case dotted form; the hour is now spoken
+acr-pm-glued	Meet at 5pm. Then sleep.	Meet at five P M. Then sleep.	Meet at 5pm.¦Then sleep.	0	glued meridiem: the hour words and the spelled meridiem are two adjacent spans in one token
+acr-pm-glued-upper	Meet at 5PM. Then sleep.	Meet at five P M. Then sleep.	Meet at 5PM.¦Then sleep.	0	glued uppercase meridiem, same two-span reading
+acr-pm-glued-time	Meet at 5:30pm. Then sleep.	Meet at five thirty P M. Then sleep.	Meet at 5:30pm.¦Then sleep.	0	glued meridiem after a time, same two-span reading
 acr-jrr	J.R.R. Tolkien wrote it.	J R R Tolkien wrote it.	J.R.R. Tolkien wrote it.	0	dotted initials
 acr-possessive	AT&T's plan worked.	A T and T's plan worked.	AT&T's plan worked.	0	ampersand initialism with a possessive
 initial-names	J. Smith and A. B. Jones left.	J Smith and A B Jones left.	J. Smith and A. B. Jones left.	0	single-letter initials

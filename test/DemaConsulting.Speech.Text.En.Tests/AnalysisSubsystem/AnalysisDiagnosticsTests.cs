@@ -19,13 +19,13 @@ public sealed class AnalysisDiagnosticsTests
         var diagnostics = new AnalysisDiagnostics(sink);
 
         // Act
-        diagnostics.ReportRequest(new AnalysisCounts(3, 17, 12, 2, 4, 1, 5));
+        diagnostics.ReportRequest(new AnalysisCounts(3, 17, 12, 2, 4, 1, 5, 6, 7));
 
         // Assert
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Equal("Analyzed one text: 3 sentences, 17 tokens, 12 annotations, 2 unknown words, 4 normalizations, 1 ambiguous readings, 5 numeric fallbacks.", reported.Message);
+        Assert.Equal("Analyzed one text: 3 sentences, 17 tokens, 12 annotations, 2 unknown words, 4 normalizations, 1 ambiguous readings, 5 numeric fallbacks, 6 overrides applied, 7 overrides ignored.", reported.Message);
     }
 
     /// <summary>Proves the message is built from fixed words and numbers only.</summary>
@@ -33,12 +33,25 @@ public sealed class AnalysisDiagnosticsTests
     public void AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers()
     {
         // Act
-        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(0, 1234567, 8, 9, 10, 11, 12));
+        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(0, 1234567, 8, 9, 10, 11, 12, 13, 14));
 
-        // Assert: strip the fixed template and nothing but the seven numbers remains
+        // Assert: strip the fixed template and nothing but the nine numbers remains
         Assert.Matches(
-            new Regex(@"^Analyzed one text: \d+ sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks\.$", RegexOptions.CultureInvariant),
+            new Regex(@"^Analyzed one text: \d+ sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks, \d+ overrides applied, \d+ overrides ignored\.$", RegexOptions.CultureInvariant),
             message);
+    }
+
+    /// <summary>Proves the two override counts are part of the message, and the counts that existed before keep their wording, so a count can never be mistaken for another.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered()
+    {
+        // Act
+        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7, 8, 9));
+
+        // Assert
+        Assert.EndsWith("7 numeric fallbacks, 8 overrides applied, 9 overrides ignored.", message, StringComparison.Ordinal);
+        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesApplied);
+        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesIgnored);
     }
 
     /// <summary>Proves a missing sink is allowed and silently reports nothing.</summary>

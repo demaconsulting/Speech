@@ -205,12 +205,16 @@ Speech, not a subsystem of it, and the library must never depend on it:
   implementation of Speech's `ITextAnalyzer` seam that annotates the words of a speech request with
   their Universal Dependencies part of speech, describes with replacement-span annotations how
   English text (abbreviations, symbols, apostrophes, acronyms and initialisms, and en-US numbers,
-  currency, units, times and dates) is spoken, and
+  currency, units, times and dates) is spoken, marks letter sequences to be spoken by letter name,
+  lets a host override how individual words are spoken or pronounced, and
   supplies authoritative sentence boundaries reconciled with that normalization, built
   on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
   detailed-result types, the `EnglishTextAnalyzerOptions` options, the `TextEnAnnotations`
-  vocabulary and typed readers, the internal `PartOfSpeechAdapter` seam over the tagging package, and
+  vocabulary and typed readers, the `PronunciationOverrides` dictionary of host-supplied
+  pronunciation overrides (with its `PronunciationOverrideEntry` record, `OverrideAction` and
+  `PronunciationScheme` enumerations and the internal `OverrideSyntax` grammars), the internal
+  `PartOfSpeechAdapter` seam over the tagging package, and
   the internal `AnalysisDiagnostics` counts-only reporter
 - **NormalizationSubsystem (Subsystem of SpeechTextEn)** — The alignment model with its public
   `NormalizationKind` and `CliticKind` enumerations (`NormalizationAlignment`), the internal
@@ -366,7 +370,8 @@ analyzer to them:
   and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
 - `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two
   subsystems, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
-  vocabulary, the part-of-speech adapter and the counts-only diagnostics reporter) and
+  vocabulary, the pronunciation-override dictionary, the part-of-speech adapter and the counts-only
+  diagnostics reporter) and
   `NormalizationSubsystem` (the alignment model, the text normalizer, the numeric expression recognizer,
   the number verbalizer, the abbreviation resolver and the
   acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
@@ -546,8 +551,12 @@ file of their own, and are documented with that owning unit:
 - `AnalyzedToken` and `AnalyzedNormalization` are declared in `EnglishTextAnalysis.cs`, and
   `TextEnAnnotationSelection` in `EnglishTextAnalyzerOptions.cs`; all are documented with the unit that
   owns them (SpeechTextEn).
+- `PronunciationOverrideEntry`, `OverrideAction` and `PronunciationScheme` are declared in
+  `PronunciationOverrideEntry.cs`, and the internal `OverrideSyntax` grammars in `OverrideSyntax.cs`; all are
+  documented with the PronunciationOverrides unit.
 - `NormalizationKind` and `CliticKind` (the public enumerations of the NormalizationSubsystem) are
-  declared in `NormalizationAlignment.cs` and are documented with the NormalizationAlignment unit.
+  declared in `NormalizationAlignment.cs` and are documented with the NormalizationAlignment unit, as are
+  the internal `TokenDirective`, `TokenDirectiveKind`, `PronunciationMark` and `SpelledGrammar` declared there.
 - `NumericSpan` and `NumericMatch` are declared in `NumericExpressionRecognizer.cs`, and `SpokenWriter`
   in `NumberVerbalizer.cs`; all are internal and are documented with the unit that owns them.
 
@@ -764,6 +773,9 @@ src/DemaConsulting.Speech.Text.En/
 │   ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result with its token and normalization records
 │   ├── EnglishTextAnalyzerOptions.cs                      — Options record and the annotation-selection flags enum
 │   ├── TextEnAnnotations.cs                               — Annotation kind constants and typed readers
+│   ├── PronunciationOverrides.cs                          — Immutable dictionary of host pronunciation overrides, TSV loader and token lookup
+│   ├── PronunciationOverrideEntry.cs                      — Override entry record, its factories and the OverrideAction/PronunciationScheme enums
+│   ├── OverrideSyntax.cs                                  — Internal key, payload and pronunciation grammars shared by the loader and the readers
 │   ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
 │   ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
 │   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
