@@ -10,8 +10,9 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 ///     <see cref="NormalizationKind"/> and <see cref="CliticKind"/>, which the public analysis
 ///     result reports. <c>EnglishTextAnalyzer</c> (in the analysis subsystem) drives it: it hands
 ///     the normalizer the tokens of the text and turns the aligned result into <c>en.norm</c>
-///     annotations and reconciled sentence breaks. This release normalizes non-numeric text
-///     only; numbers, dates, currency and pronunciation overrides arrive in later releases.
+///     annotations and reconciled sentence breaks. Numbers, ordinals, years, currency, percent,
+///     units, times and dates (en-US) are normalized by this release; URLs, markup, Roman
+///     numerals and pronunciation overrides arrive in later releases.
 /// </remarks>
 internal static class NamespaceDoc
 {

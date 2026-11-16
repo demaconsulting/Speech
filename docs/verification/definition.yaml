@@ -197,6 +197,8 @@ input-files:
   - docs/verification/speech-text-en/normalization-subsystem.md
   - docs/verification/speech-text-en/normalization-subsystem/normalization-alignment.md
   - docs/verification/speech-text-en/normalization-subsystem/text-normalizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/numeric-expression-recognizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md
   - docs/verification/speech-sherpa.md

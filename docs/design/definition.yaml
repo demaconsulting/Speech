@@ -200,6 +200,8 @@ input-files:
   - docs/design/speech-text-en/normalization-subsystem.md
   - docs/design/speech-text-en/normalization-subsystem/normalization-alignment.md
   - docs/design/speech-text-en/normalization-subsystem/text-normalizer.md
+  - docs/design/speech-text-en/normalization-subsystem/numeric-expression-recognizer.md
+  - docs/design/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/design/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/design/speech-text-en/normalization-subsystem/acronym-recognizer.md
   - docs/design/speech-sherpa.md

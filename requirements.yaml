@@ -215,6 +215,8 @@ includes:
   - docs/reqstream/speech-text-en/normalization-subsystem.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/normalization-alignment.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/text-normalizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/numeric-expression-recognizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/number-verbalizer.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml

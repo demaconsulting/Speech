@@ -143,7 +143,7 @@ clitic roles `Not` and `Possessive`; without normalization the list is empty and
 **Test**: `EnglishTextAnalyzer_Analyze_NormalizedText_ReportsNormalizationAndAmbiguityCounts`
 
 The event for `Dr. Smith & Jones said They St. said so.` reports one sentence, three normalizations and one
-ambiguous abbreviation (the inconclusive `They St.`), in the fixed message template.
+ambiguous reading (the inconclusive `They St.`) and no numeric fallback, in the fixed message template.
 
 ##### Concurrency and no retained references
 

@@ -17,7 +17,7 @@ header; every other line is one reading of one written form, in six columns:
 | `spoken` | The words spoken instead; for class `word`, the written word itself (it is never applied) |
 | `class` | `prefix` (precedes a name or number), `suffix` (follows a name or street), `free` (either way) or `word` (the ordinary word followed by a real period) |
 | `default` | `yes` on exactly one row per form: the reading used when the context is inconclusive |
-| `guard` | `-` for none, or conditions joined by `+`: `next-cap` (the next token starts with an upper-case letter), `next-digit` (the next token starts with a digit), `prev-not-number` (the previous token does not start with a digit) |
+| `guard` | `-` for none, or conditions joined by `+`: `next-cap` (the next token starts with an upper-case letter), `next-digit` (the next token starts with a digit), `prev-not-number` (the previous token does not start with a digit), `next-date` (the next token starts with an ASCII digit or is a month name or abbreviation) and `prev-number` (the previous token starts with an ASCII digit) |
 | `note` | Free text |
 
 Several rows with the same `form` are alternative readings. `Count` is the number of rows (alternatives
@@ -30,19 +30,41 @@ The lexicon covers these groups (US English spoken forms):
 | --- | --- | --- |
 | Titles and ranks | `Mr.` Mister, `Mrs.` Missus, `Ms.` Miz, `Messrs.` Messieurs, `Mmes.` Mesdames, `Prof.` Professor, `Rev.` Reverend, `Gen.` General, `Col.` Colonel, `Capt.` Captain, `Lt.` Lieutenant, `Sgt.` Sergeant, `Cpl.` Corporal, `Maj.` Major, `Cmdr.` Commander, `Adm.` Admiral, `Sen.` Senator, `Gov.` Governor, `Pres.` President, `Supt.` Superintendent, `Mt.` Mount | prefix, no guard |
 | Titles without a period | `Mr`, `Mrs`, `Ms`, `Messrs`, `Prof` (same spoken forms) | prefix, `next-cap` |
-| Guarded | `Ft.` Fort | prefix, `next-cap+prev-not-number` (so `5 ft.` is left for the unit rules of a later increment) |
+| Guarded | `Ft.` Fort | prefix, `next-cap+prev-not-number` (so `5 ft.` is never read as Fort; the numeric rule reads it as the unit `feet`, and `5 Ft. Worth` is read as `five feet. Worth` because the number before it wins) |
 | References | `Fig.` Figure, `Vol.` Volume | prefix, `next-digit` (never ends a sentence) |
 | Name suffixes | `Jr.` Junior, `Esq.` Esquire | suffix |
 | Address suffixes | `Ave.` Avenue, `Blvd.` Boulevard, `Rd.` Road, `Ln.` Lane, `Ct.` Court, `Pl.` Place, `Sq.` Square, `Hwy.` Highway, `Pkwy.` Parkway, `Apt.` Apartment, `Ste.` Suite, `Bldg.` Building, `Dept.` Department | suffix |
 | Business suffixes | `Inc.` Incorporated, `Ltd.` Limited, `Corp.` Corporation, `Co.` Company, `Bros.` Brothers | suffix |
 | Ambiguous | `St.`: Saint (prefix) or Street (suffix, default); `Dr.`: Doctor (prefix, default) or Drive (suffix); `Sr.`: Sister (prefix) or Senior (suffix, default); `No.`: Number (prefix, `next-digit`) or `No` (word, default) | see the decision order below |
+| Months with a period | `Jan.` January, `Feb.` February, `Apr.` April, `Jun.` June, `Jul.` July, `Aug.` August, `Sep.` and `Sept.` September, `Oct.` October, `Nov.` November, `Dec.` December | two rows per form: prefix with `next-date`; suffix, no guard, the default |
+| `Mar.` | March (it collides with the verb `mar`) | prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Mar.` has no reading and stays as written |
+| Months without a period | `Jan`, `Feb`, `Mar`, `Apr`, `Jun`, `Jul`, `Aug`, `Sep`, `Sept`, `Oct`, `Nov`, `Dec` (`May` is a word and has no row) | one row each: prefix, `next-digit`, default (`Jan 5`, `Sept 11`) |
+| Weekdays with a period | `Mon.`, `Tue.`, `Tues.`, `Wed.`, `Thu.`, `Thur.`, `Thurs.`, `Fri.`, `Sat.` (Monday to Saturday) | two rows per form: prefix with `next-date`; suffix, no guard, the default |
+| `Sun.` | Sunday (it collides with the star and the newspaper) | prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Sun.` stays as written |
 | Latin and general | `vs.` versus, `etc.` et cetera, `e.g.` for example, `E.g.` For example, `i.e.` that is, `I.e.` That is, `a.k.a.` also known as, `viz.` namely, `approx.` approximately, `misc.` miscellaneous, `cf.` compare, `Ph.D.` P H D | free |
 | Slash forms | `w/` with, `w/o` without, `N/A` and `n/a` not applicable, `c/o` care of, `and/or` and or | free |
 
 `Fig.` and `Vol.` are class `prefix` rather than `free` because the tokenizer splits `Fig` from its period
 and breaks before the digit: a prefix period is consumed and that break suppressed, so `Fig. 3` is spoken
-`Figure 3` in one sentence. Months, weekdays, `est.`, `min.`, `max.`, `avg.`, `Rep.`, `Hon.` and `Fl.` are
-deliberately not listed (ambiguous, or dependent on a date or number context).
+`Figure 3` in one sentence. The month and weekday rows follow the same idea. The tokenizer breaks after
+`Jan.` and `Sat.` even in `Jan. 5, Feb. 3` and `Sat. 5 Jan. 2024 and Sun. Mar. 5`, so a month or weekday
+abbreviation followed by a date (a digit or another month) is a prefix, which consumes the period and
+suppresses the false break; elsewhere it is a suffix, which keeps the period and forces a break before a
+capitalized next word (`He left Mon. He came Tue.` keeps both sentence ends) and consumes the period before
+a lower-case word (`Then Fri. ended.` gives `Then Friday ended.`). A prefix reading whose guard passes
+replaces the suffix alternative, so no cue analysis is needed and no month resolution is counted as
+ambiguous. `est.`, `min.`, `max.`, `avg.`, `Rep.`, `Hon.`, `Fl.` and the full month and weekday names are
+deliberately not listed (ambiguous, or dependent on a number context; `min.` and `ft.` after a number are
+read by the numeric rule). `May` and the weekdays written without a period are never rows. Because the full
+month names and `May` have no row, the break the tokenizer places after a period that follows one of them is
+kept (`We finished in May. 5 people stayed.` has a sentence end after `May.`), and the numeric date context
+ignores that period as well, so `5` there is a cardinal and not a day.
+
+_The month vocabulary_ is shared with the numeric rule: the `next-date` guard asks
+`NumericExpressionRecognizer.IsMonthToken` whether a token is a month, so the lexicon and the numeric rule
+agree on what a month is, and a test cross-checks the recognizer's month and weekday abbreviation lists
+against the rows of the table. The two new guards test the **ASCII digits** only (a date is written with
+`0-9`); the three older guards keep `char.IsDigit`, which is unchanged and documented.
 
 _The sentence-starting words_ (`SentenceStarters`, a code constant, matched exactly and case-sensitively) are
 capitalized words that begin a sentence and are therefore no evidence of a name: The, A, An, He, She, It,

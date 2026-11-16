@@ -5,14 +5,17 @@
 # NormalizationSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-text-en.yaml. This subsystem turns the tokens of an English text into a
 # description of how parts of it are spoken: the alignment types that carry and check the result
-# (NormalizationAlignment), the rule pass that produces it (TextNormalizer), and the two lexicons
-# behind it (AbbreviationResolver and AcronymRecognizer). It never rewrites the text and never
+# (NormalizationAlignment), the rule pass that produces it (TextNormalizer), the recognizer and the
+# word builder behind the numeric rule (NumericExpressionRecognizer and NumberVerbalizer), and the
+# two lexicons behind the abbreviation and initialism rules (AbbreviationResolver and
+# AcronymRecognizer). It never rewrites the text and never
 # depends on the part-of-speech tagger. Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-text-en/normalization-subsystem/. Covered by
 # test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationSubsystemTests.cs,
-# which drives the real normalizer on the tokens of the real tokenizer.
+# which drives the real normalizer on the tokens of the real tokenizer, with the golden files
+# TestData/normalization-cases.tsv and TestData/number-cases.tsv.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -28,14 +31,18 @@ sections:
               punctuation outside the spans unchanged, shall separate a spoken word from a
               neighboring letter or digit with a space, and two adjacent word-producing
               replacements from each other with exactly one space, shall leave a text that needs no
-              normalization without any span, and shall let a span omit a source character only
-              inside a dropped span or as the consumed period of its own abbreviation.
+              normalization without any span, shall let a span omit a source character only
+              inside a dropped span, as the consumed period of its own abbreviation, or inside a
+              recognized numeric expression whose characters are all represented in its spoken
+              words, and shall give a span of the numeric kinds a spoken text of letters, spaces
+              and the apostrophe of o'clock only, never a digit.
             justification: |
               These are the invariants every consumer of the spans relies on: the Speech library
               drops an annotation that breaks them, a backend that applies the spans must get
               exactly the spoken text, and a reader can audit the normalization only if nothing
               outside the spans can change. They hold for arbitrary user text, including hostile
-              input.
+              input. A spoken number that contained a digit would defeat the purpose of reading
+              it.
             children:
               - SpeechTextEn-Normalization-NormalizationAlignment-SpanOrdering
               - SpeechTextEn-Normalization-NormalizationAlignment-SpanEdges
@@ -48,32 +55,39 @@ sections:
               - SpeechTextEn-Normalization-TextNormalizer-ArgumentValidation
             tests:
               - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
               - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
               - NormalizationSubsystem_Normalize_SurrogatePairsNextToRules_AreNeverCut
               - NormalizationSubsystem_Normalize_CombiningMarksAroundAbbreviations_KeepSpansOnTokenEdges
+              - NormalizationSubsystem_Normalize_NumericSurrogatesAndCombiningMarks_AreNeverCutOrRecognized
               - NormalizationSubsystem_Normalize_PlainText_ChangesNothing
 
           - id: SpeechTextEn-Normalization-ChunkSafeSpans
             title: >-
-              The NormalizationSubsystem shall limit a span to one token, or one token together
-              with its adjacent period token, so that a span contains no whitespace and none of
-              the clause separators comma, semicolon and colon.
+              The NormalizationSubsystem shall limit a span to one token, one token together with
+              its adjacent period token, a currency symbol token with its adjacent number token, or
+              an apostrophe token with its adjacent decade token, so that a span contains no
+              whitespace and no semicolon, and a comma or colon only between two digits inside it.
             justification: |
               The Speech library splits text into chunks at sentence and clause punctuation and
               at whitespace, and drops an annotation that a chunk boundary would split. A span
-              that contains neither can never be split, so no normalization is lost to
-              chunking.
+              that contains neither whitespace nor a clause separator can never be split, and a
+              comma or colon between two digits (such as in "1,234.50" or "5:30") is not a clause
+              separator to the chunker, so no normalization is lost to chunking.
             children:
               - SpeechTextEn-Normalization-NormalizationAlignment-SpanEdges
               - SpeechTextEn-Normalization-TextNormalizer-Spans
             tests:
               - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
               - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
 
           - id: SpeechTextEn-Normalization-AbbreviationResolution
             title: >-
               The NormalizationSubsystem shall give the spoken form of every abbreviation in its
-              lexicon, shall resolve an abbreviation that has several readings from the words
+              lexicon, including the month and weekday abbreviations (read as a prefix before a
+              date and as a suffix elsewhere, with a bare March or Sunday left as written),
+              shall resolve an abbreviation that has several readings from the words
               before and after it, shall use the reading marked as the default and count it where
               those words do not decide, and shall load its lexicon from a validated table.
             justification: |
@@ -81,12 +95,16 @@ sections:
               usually decide. The documented cases where they do not (for example "Wall St.
               Journal") must follow a stated default and be counted, so that a host can see how
               often the choice was a guess, and a malformed lexicon must fail loudly rather than
-              be half used. A golden file of inputs with their expected spoken text, sentences
+              be half used. A month or weekday abbreviation before a date ("Jan. 5", "Sat. 5 Jan.
+              2024") never ends a sentence, whereas one elsewhere may, so its reading follows the
+              date context. A golden file of inputs with their expected spoken text, sentences
               and ambiguity counts, which must name every lexicon form, pins the behavior.
             children:
               - SpeechTextEn-Normalization-AbbreviationResolver-Table
               - SpeechTextEn-Normalization-AbbreviationResolver-ContextCues
               - SpeechTextEn-Normalization-AbbreviationResolver-Guards
+              - SpeechTextEn-Normalization-AbbreviationResolver-DateGuards
+              - SpeechTextEn-Normalization-AbbreviationResolver-MonthAndWeekdayRows
               - SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
               - SpeechTextEn-Normalization-AbbreviationResolver-LoaderValidation
               - SpeechTextEn-Normalization-AbbreviationResolver-ThreadSafeLoad
@@ -94,6 +112,7 @@ sections:
               - SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
             tests:
               - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
               - NormalizationSubsystem_GoldenFile_Coverage_ContainsEveryLexiconForm
 
           - id: SpeechTextEn-Normalization-SentenceBoundaryReconciliation
@@ -192,19 +211,255 @@ sections:
           - id: SpeechTextEn-Normalization-LinearTimeAndCancellation
             title: >-
               The NormalizationSubsystem shall normalize a text in time linear in its length,
-              including one very long token and adversarial repetitions, shall observe
-              cancellation at the start and periodically while it works, and shall keep no
-              per-request state, so that repeated and concurrent requests give identical results.
+              including one very long token, digit-heavy text and adversarial repetitions of every
+              numeric form, shall observe cancellation at the start and periodically while it
+              works, and shall keep no per-request state, so that repeated and concurrent requests
+              give identical results.
             justification: |
               The subsystem runs on every synthesis request on thread-pool threads. A rule that
               looked back over a whole token for every character would make a pasted megabyte
-              stall speech, a stop or dispose waits for the analyzer to return, and one shared
+              stall speech, a number scanner with backtracking would make a long digit run
+              exponential, a stop or dispose waits for the analyzer to return, and one shared
               instance serves many requests at the same time.
             children:
               - SpeechTextEn-Normalization-TextNormalizer-Cancellation
               - SpeechTextEn-Normalization-TextNormalizer-Concurrency
+              - SpeechTextEn-Normalization-TextNormalizer-NumericCancellationAndAllocation
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Concurrency
             tests:
               - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget
+              - NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_CompleteWithinBudget
               - NormalizationSubsystem_Normalize_OneHugeToken_CompletesWithinBudget
               - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
+              - NormalizationSubsystem_Normalize_ConcurrentNumericRequests_ReturnIdenticalResults
               - EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing
+
+          - id: SpeechTextEn-Normalization-NumberReading
+            title: >-
+              The NormalizationSubsystem shall give the spoken words of an en-US cardinal number,
+              a number with thousands separators, a signed number, a decimal, an ordinal, a hash
+              number and a number with leading zeros, in lowercase plain words without a digit,
+              hyphen or comma, shall read an ordinal only where its suffix matches its number, and
+              shall leave a number with letters mixed in, a non-ASCII digit and the other
+              documented unsupported forms unchanged without counting them.
+            justification: |
+              A phoneme-driven model cannot pronounce digits. The words follow one fixed
+              convention (no "and", no hyphens: "twenty four") so that a backend needs no number
+              parser, a leading zero marks an identifier that is read digit by digit, and a number
+              the library cannot read safely (a hexadecimal literal, a compound such as "3-D",
+              digits of another script) stays as written instead of being guessed. A golden file
+              of inputs with their expected spoken text pins every reading, and an independent
+              reference implementation checks the cardinals and ordinals exhaustively.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-Cardinals
+              - SpeechTextEn-Normalization-NumberVerbalizer-Ordinals
+              - SpeechTextEn-Normalization-NumberVerbalizer-Decimals
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-IntegerAndDecimalShapes
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-OrdinalsAndDecades
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-NonNumericUntouched
+              - SpeechTextEn-Normalization-TextNormalizer-NumericRule
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Numbers_NoDigitsInSpokenText_AndOnlyClosedVocabulary
+
+          - id: SpeechTextEn-Normalization-YearsAndDecades
+            title: >-
+              The NormalizationSubsystem shall read a four-digit number from 1000 to 2099 as a
+              year after a year cue, a month, a date context or an era, as a cardinal after a
+              quantity cue or before a unit, a currency or a counted noun, and otherwise by a
+              documented default, and shall read the decades 1990s, 90s and 1990's (and the
+              apostrophe form '90s) as plural decade words.
+            justification: |
+              "In 1999" is "nineteen ninety nine" and "about 1500 people" is "one thousand five
+              hundred", and the words around the number usually tell which. The cue lists are
+              closed and documented so the reading is predictable, the years that both readings
+              speak alike are never reported as a guess, and a decade is spoken as a word such as
+              "nineties" rather than as a number followed by a letter.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-Years
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-OrdinalsAndDecades
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-YearPolicy
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Years_EveryYearFrom1000To2099_ReadAsReference
+
+          - id: SpeechTextEn-Normalization-CurrencyReading
+            title: >-
+              The NormalizationSubsystem shall give the spoken words of an amount with a dollar,
+              euro, pound or yen symbol or a USD, EUR, GBP or JPY code, with dollars and cents (or
+              euros, pounds, pence and yen) in singular for exactly one and plural otherwise, with
+              cents only for a symbol-prefixed amount of exactly two fraction digits, with a
+              magnitude word or letter, and shall leave a prefix currency code unchanged.
+            justification: |
+              "$5.50" is "five dollars and fifty cents" and "$1" is "one dollar"; a model that
+              read the symbol as written would say neither. A suffix code is read per token as a
+              plain amount, which is why it never produces cents, and the prefix code form is
+              left alone because reading it would need a span across a space that a chunk cut
+              could split.
+            children:
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Currency
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Currency_SingularPluralAndCents_AreCorrect
+
+          - id: SpeechTextEn-Normalization-UnitsReading
+            title: >-
+              The NormalizationSubsystem shall read a percent sign after a number as percent and
+              a unit of its closed, case-sensitive table after a number (glued or after one space)
+              as the unit's full words, singular for exactly one and plural otherwise, shall
+              consume the abbreviation period of a unit in mid-sentence and keep it at the end of
+              a sentence, and shall leave a unit that is not in the table unchanged.
+            justification: |
+              "50%" is "fifty percent" and "5 kg" is "five kilograms". The units that are single
+              letters or ordinary words ("m", "g", "in") are excluded because they are too
+              ambiguous to read after a number, the table is case-sensitive so that "MB" and "mb"
+              are not confused, and the period of "ft." must neither be lost at the end of a
+              sentence nor end a sentence in its middle.
+            children:
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-PercentAndUnits
+              - SpeechTextEn-Normalization-TextNormalizer-NumericPeriodRules
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Units_SingularPluralAndPeriods_AreCorrect
+
+          - id: SpeechTextEn-Normalization-TimeReading
+            title: >-
+              The NormalizationSubsystem shall give the spoken words of a clock time written
+              h:mm for an hour from 0 to 23 and minutes from 00 to 59, with an optional glued or
+              separate lower-case meridiem for an hour from 1 to 12, and shall leave an invalid
+              time unchanged.
+            justification: |
+              "5:30pm" is "five thirty P M", "5:00" is "five o'clock" and "17:00" is "seventeen
+              hundred". A time that is not valid (an hour above 23, minutes above 59, a seconds
+              field) must not be guessed, and every hour and minute is checked against an
+              independent reference implementation.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-Clock
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Times
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Times_EveryHourAndMinute_ReadAsReference
+
+          - id: SpeechTextEn-Normalization-DateReading
+            title: >-
+              The NormalizationSubsystem shall give the spoken words of a numeric date (month
+              first, or day first only where the first part is above 12, or year first), shall read
+              the day and the year next to a month name per token as an ordinal and a year, shall
+              give no date reading to a number after the period of a full month name or May (the
+              period ends the sentence), shall match month names in Title Case only, and shall
+              request sentence breaks only where a sentence ends around a number, a date or a month
+              or weekday abbreviation.
+            justification: |
+              "12/25/2024" is "December twenty fifth twenty twenty four" and "January 5, 2024"
+              keeps its month name and comma while the day and year are spoken. The tokenizer
+              breaks sentences after "Jan." even in the middle of a date and the period after a
+              number can end a sentence, so the sentence breaks must follow the reading of the
+              date, not the punctuation. The period after "May" or "January" is not consumed by
+              the abbreviation lexicon, so the sentence end there is kept and the number after it
+              is not part of a date.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-Calendar
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Dates
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_SentenceBreaks_NumbersAndDates_BreakOnlyWhereTheSentenceEnds
+
+          - id: SpeechTextEn-Normalization-DigitGroupReading
+            title: >-
+              The NormalizationSubsystem shall read two hyphen-separated numbers as a range, other
+              hyphen-separated digit groups (phone numbers and identifiers) digit by digit,
+              three or more period-separated groups as a dotted number whose groups are cardinals
+              or digit sequences, simple fractions, mixed numbers and the vulgar fraction
+              characters as fractions, and an en dash between two numbers that are both read as
+              numbers as the word to, and shall leave a slash form that is not a fraction or a date
+              unchanged.
+            justification: |
+              "5-10" is a range, "555-1234" is a phone number that must be read digit by digit,
+              "3.2.1" is a version and "1/2" is "one half"; the same characters in "24/7" or
+              "10.0.0.1/24" are not fractions. Fixed, documented shape rules make each reading
+              predictable.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-Decimals
+              - SpeechTextEn-Normalization-NumberVerbalizer-Fractions
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-DigitGroups
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+
+          - id: SpeechTextEn-Normalization-NumberAmbiguity
+            title: >-
+              The NormalizationSubsystem shall count as ambiguous, once per reading, a four-digit
+              number read as a year or a cardinal by default (not one that both readings speak
+              alike), a numeric date whose month and day could be exchanged, and a fraction that
+              could be a date, and shall report the count with the aligned text.
+            justification: |
+              These are the readings that no cue decides and that therefore follow a default. The
+              count is the evidence a host needs to know how often the normalization guessed, so
+              it must count each default once, never a clear reading, and never a number whose
+              readings are identical.
+            children:
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-YearPolicy
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Dates
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-DigitGroups
+              - SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
+              - SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+
+          - id: SpeechTextEn-Normalization-NumberLimits
+            title: >-
+              The NormalizationSubsystem shall read a cardinal of at most 15 digits, a decimal of
+              at most 32 fraction digits and a digit run of 16 to 64 digits digit by digit, shall
+              leave a longer number, a token of more than 128 characters, a number of more than
+              eight groups and a number written with other than en-US separators unchanged, shall
+              count each number that was spelled out or left as written because of these limits as
+              a numeric fallback, shall keep every spoken value within 1,024 characters, and shall
+              reject digits or sizes outside the limits when a caller asks for a reading.
+            justification: |
+              A text may contain digit runs of any length. Reading millions of digits aloud or
+              building an unbounded spoken value would stall speech, so every reading has a
+              documented limit, an oversized number is left as it was written, and a count tells
+              the host that this happened. A caller that asks for a reading beyond the limits has
+              a defect, which must fail loudly.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-OutputBounds
+              - SpeechTextEn-Normalization-NumberVerbalizer-ArgumentValidation
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-Limits
+              - SpeechTextEn-Normalization-NormalizationAlignment-FallbackCount
+            tests:
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_Normalize_OneHugeNumericToken_CompletesWithinBudget
+
+          - id: SpeechTextEn-Normalization-DecomposedAnnotations
+            title: >-
+              The NormalizationSubsystem shall express a numeric construct that spans several
+              tokens as one span per token, or per currency symbol with its adjacent number, or
+              per apostrophe with its adjacent decade, in source order, never reordered and never
+              across whitespace, with a comma or colon inside a span only between two digits and
+              no sentence break strictly inside a span, and shall carry the spoken words of a unit
+              or currency word on the token that holds it.
+            justification: |
+              The Speech library drops an annotation that a chunk boundary splits. A construct
+              such as "January 5, 2024" or "$5 million" crosses spaces and a clause comma, so one
+              span across it could be lost; a span per token always lies wholly inside one chunk.
+              The tokenizer's own sentence breaks inside a date must be removed so that no span is
+              cut. The real chunker is used to prove that every annotation survives.
+            children:
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-SpanShapes
+              - SpeechTextEn-Normalization-TextNormalizer-NumericSeparation
+            tests:
+              - NormalizationSubsystem_AlignmentContract_RandomNumericText_SatisfiesAllInvariants
+              - NormalizationSubsystem_NumericSpans_RealChunker_KeepsEveryAnnotationInExactlyOneChunk
+
+          - id: SpeechTextEn-Normalization-NumericCultureInvariance
+            title: >-
+              The NormalizationSubsystem shall give the same spoken words for a text under any
+              current culture, using the en-US conventions only.
+            justification: |
+              A host runs under any culture (Turkish, Arabic, Thai) and the library must say
+              "one thousand" for "1,000" regardless. Any culture
+              sensitive parsing, formatting or casing would change a result between machines, and
+              no rule of another locale (a decimal comma, a day-first date) is supported.
+            children:
+              - SpeechTextEn-Normalization-NumberVerbalizer-InvariantCulture
+            tests:
+              - NormalizationSubsystem_Normalize_UnderForeignCultures_GivesIdenticalResults

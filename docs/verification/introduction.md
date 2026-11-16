@@ -82,7 +82,8 @@ The following software items of the SpeechTextEn system are also covered; it is 
   (a preview), verified through its public API and end to end through the real Speech synthesis
   session, with its **AnalysisSubsystem** (the analyzer, its options, the annotation vocabulary,
   the part-of-speech adapter and the diagnostics reporter) and its **NormalizationSubsystem** (the
-  alignment model, the text normalizer, the abbreviation resolver and the acronym recognizer, whose
+  alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the
+  abbreviation resolver and the acronym recognizer, whose
   tests feed the real tokenizer's tokens to the normalizer through a test helper)
 
 The following software items of the SpeechCli system are also covered:

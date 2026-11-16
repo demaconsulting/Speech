@@ -35,7 +35,13 @@ word; the word reading of `No.` adds a break but no span; each ambiguous resolut
 shouting guard applies per sentence; a dotted initialism needs its period token; a pre-canceled token and a
 cancellation observed mid-pass throw `OperationCanceledException`; the observer sees every processed token in
 order; invalid arguments are rejected; an empty text normalizes to nothing; and repeated normalization is
-deterministic while a custom lexicon changes the outcome.
+deterministic while a custom lexicon changes the outcome. The numeric rule runs after the invisible-character
+and clitic rules and before the abbreviation rule (so `5 ft.` is a unit and `Jan. 5` leaves the number to the
+numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
+adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period
+(consumed mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no
+token that contains an invisible character as a number, observes cancellation in the middle of a numeric
+pass, and allocates nothing per token for lower-case text without digits.
 
 #### Test Scenarios
 
@@ -49,7 +55,9 @@ operators and the cases `&` alone, `a&b`, `a=b`, `(+)` and `a +b`),
 
 Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks` and
 `A™B` becomes `A trademark B`; adjacent marks are separate words (`A™®B` becomes `A trademark registered B`,
-`§§ 5` becomes `section section 5`, `x™©2025` becomes `x trademark copyright 2025`), the two replacements of
+`§§ 5` becomes `section section five`, `© 2025` becomes `copyright twenty twenty five` (the digits are read by the
+numeric rule), `x™©2025` becomes `x trademark copyright 2025` (the number is part of the token and is left
+alone), the two replacements of
 `A™®B` being `trademark` and ` registered ` at offsets 1 and 2 with no double space; `he/she` becomes `he slash she` while `km/h`, `a/b`, `24/7`, `a/b/cc` and
 `he/sh3` stay, and `and/or` and `w/o` are the lexicon forms `and or` and `without`.
 
@@ -102,17 +110,48 @@ nothing is left after reconciliation; in `I met John Smith Jr. He left.` the onl
 `TextNormalizer_Normalize_DottedFormWithoutPeriodToken_IsIdentity`
 
 `The US team won. LET US GO NOW.` speaks the first `US` letter by letter and leaves the shouted one; `5 p.m.
-Then sleep.` yields one `Initialism` span `P M`; `x.y` yields none.
+Then sleep.` yields the number span `five` and one `Initialism` span `P M`; `x.y` yields none.
+
+##### Numeric rule
+
+**Tests**: `TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations`,
+`TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain`,
+`TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity`,
+`TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace`,
+`TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd`
+
+`Meet at 5 p.m. Then sleep.` yields `five`, then the acronym rule's `P M` with its period kept; `6 ft. tall` (the
+unit with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then he left.` (the span covering `ft`
+only and a forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the
+period rules, and `5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD` and the
+observer, hand-wired to the normalizer, never sees the index of `million` as a started token, but counts it as
+visited. `50%` produces `fifty` and `percent` with one space between the two replacements and no moved
+offset, and `5–10` produces `five`, ` to ` and `ten`; a numeric token with a zero-width space inside produces
+only the dropped span.
+
+##### Numeric cancellation and allocation
+
+**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`,
+`TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken`
+
+For a long hand-built numeric text, an observer cancels the token mid-pass and the pass stops at the next periodic
+check (at most 256 tokens later). For 100,000 lower-case word tokens the bytes allocated by the pass do not
+depend on the number of tokens beyond the builder's fixed lists (a generous threshold calibrated by the test), so
+the numeric rule adds no per-token allocation to text without numbers.
 
 ##### Cancellation and observer
 
 **Tests**: `TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException`,
 `TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder`
+`TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder`,
+`TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens`
 
 A canceled token throws before any work. For 1000 hand-built one-letter tokens, an observer cancels the
 token while token 300 is visited, and the pass stops at the next periodic check: more than 300 and at most
 600 tokens are visited, not all 1000. The observer sees the indexes 0, 1 and 2 of a three-token text, in order.
+For 400 repeated `5 kg` matches (800 tokens) an observer cancels at the first token and the check fires at the
+256th visited token, inside the 128th match: the observer has been called 128 times, because each token a
+match consumed counts as visited.
 
 ##### Arguments, empty text and determinism
 

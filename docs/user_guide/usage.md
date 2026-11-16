@@ -272,17 +272,52 @@ package (it depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). It
 each word one annotation of kind `"en.upos"` whose value is the word's Universal Dependencies part of
 speech (for example `"NOUN"`), skips punctuation and symbols, and supplies authoritative sentence
 boundaries so an abbreviation such as "Dr." does not split a sentence. By default it also normalizes the
-text: each abbreviation, symbol, apostrophe or initialism it can read (for example "Dr.", "&", a typographic
-apostrophe, or "FBI") gets one annotation of kind `"en.norm"` whose range is the original text and whose value
-is the words to speak instead; numbers, dates, and units are not normalized yet and pass through unchanged.
+text: each abbreviation, symbol, apostrophe, initialism, or number it can read (for example "Dr.", "&", a
+typographic apostrophe, "FBI", or "$5.50") gets one annotation of kind `"en.norm"` whose range is the original
+text and whose value is the words to speak instead.
 Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix
 stays in one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke.").
+
+*What is read.* The numeric normalization reads en-US text only (a comma separates thousands, a period is the
+decimal point, and a numeric date is month first): cardinal numbers and numbers with thousands separators
+("1,234" is "one thousand two hundred thirty four"), negatives, decimals ("3.5" is "three point five"),
+ordinals ("22nd" is "twenty second"), percentages, fractions ("3 1/2" is "three and one half"), years and
+decades ("in 1999" is "in nineteen ninety nine", "1990s" is "nineteen nineties"), currency (the symbols
+`$ € £ ¥` and the codes USD, EUR, GBP, and JPY: "$5.50" is "five dollars and fifty cents"), a closed list of
+units ("5 kg" is "five kilograms", "72°F" is "seventy two degrees Fahrenheit", "6 ft."), clock times ("5:30pm"
+is "five thirty P M", "17:00" is "seventeen hundred"), dates ("12/25/2024" and "January 5, 2024"), ranges,
+phone numbers and dotted numbers ("5-10" is "five to ten", "555-1234" is read digit by digit; an en dash is read
+as "to" only when both numbers around it are read, so "5–10" is "five to ten" but "1–2D" keeps its dash), and
+the month and weekday abbreviations ("Jan. 5", "Sat."). A period after a full month name such as "May." ends the
+sentence and gives the next number no date reading, while the abbreviation period of "Jan. 5" does not. Only the
+ASCII digits are numbers. Where the words around a
+number do not decide its reading, a documented default is used and counted (a bare "1999" is a year and a bare
+"1066" a quantity, "3/4/2024" is March fourth, "7/16" is a fraction); a number beyond the limits (a cardinal of
+at most 15 digits, 16 to 64 digits read digit by digit, anything longer, or a token of more than 128 characters,
+left as written) or written with another locale's separators ("1,23") is left as written. These are not read
+yet and pass through unchanged: Roman numerals ("World War II"), hyphenated compounds with digits ("5-year-old",
+"F-16"), prefix currency codes ("USD 5"), "h:mm:ss" times and ratios, `10k` without a currency symbol, URLs,
+e-mail, and markup.
+
+*Spoken-text conventions.* The value of every number annotation is plain lowercase words separated by single
+spaces, with no hyphens, commas, or digits ("twenty four", never "twenty-four"). The apostrophe appears only in
+"o'clock", and capital letters only in month names, "P M" and "A M", and "Fahrenheit" and "Celsius". A value
+is at most 1,024 characters long. The words of one construct belong to separate annotations: "January 5, 2024"
+annotates the "5" and the "2024" and leaves the month name and the comma alone, and "$5 million" annotates
+"$5" as "five" and "million" as "million dollars"; apply each annotation on its own range. A number the
+analyzer cannot read is not annotated, so a backend must still be prepared to receive digits.
+
 Read an annotation with `TextEnAnnotations.TryReadPartOfSpeech` or `TextEnAnnotations.TryReadNormalized`, and
 ignore the other kinds in `TextEnAnnotations`, which are reserved for later releases. The analyzer is
 thread-safe and cheap to share; the first request that needs tags loads the tagger (about 1.3 MB of embedded
 data), so that request is slower than the rest. `EnglishTextAnalyzerOptions` selects the annotation families
-with the `TextEnAnnotationSelection` flags (`PartOfSpeech` and the new `Normalization`, both on by default)
-and supplies a diagnostics sink, which receives only counts, never text.
+with the `TextEnAnnotationSelection` flags (`PartOfSpeech` and the new `Normalization`, both on by default;
+numbers are normalized whenever `Normalization` is selected, there is no separate option)
+and supplies a diagnostics sink, which receives only counts, never text: one event per analyzed text with the
+message `Analyzed one text: N sentences, N tokens, N annotations, N unknown words, N normalizations, N
+ambiguous readings, N numeric fallbacks.` The "ambiguous readings" count covers abbreviations and numbers that
+were read by a default, and "numeric fallbacks" the numbers that were left as written or read digit by digit
+because of a limit; the message is informational and is not meant to be parsed.
 
 A backend applies the `"en.norm"` annotations of a chunk in four steps: sort them by `Start` (they never
 overlap), copy each gap of the original text between them unchanged, insert each annotation's `Value` in

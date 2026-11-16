@@ -1,10 +1,13 @@
 package SpeechTextEn {
     part def TextNormalizer {
         doc /* Internal, stateless orchestrator that makes one linear pass over the tokens of a
-             * text and produces aligned replacements for abbreviations, initialisms, symbols and
+             * text and produces aligned replacements for numeric expressions (through the
+             * NumericExpressionRecognizer), abbreviations, initialisms, symbols and
              * marks, typographic apostrophes and invisible format characters, optionally
              * classifying clitics. It decides which sentence breaks a consumed period forces or
-             * suppresses (including keeping a name suffix together with its credentials), separates
+             * suppresses (including keeping a name suffix together with its credentials and a
+             * date together), applies the abbreviation period rules to units such as ft.,
+             * counts ambiguous readings and numeric fallbacks, separates
              * adjacent word-producing replacements with exactly one space, honors cancellation, and
              * leaves every unhandled token unchanged. */
 

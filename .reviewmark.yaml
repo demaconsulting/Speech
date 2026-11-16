@@ -3347,6 +3347,7 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
       - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationSubsystemTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/TestData/normalization-cases.tsv"  # golden test data
+      - "test/DemaConsulting.Speech.Text.En.Tests/TestData/number-cases.tsv"  # numeric golden test data
       - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/NormalizationHarness.cs"
 
   # SpeechTextEn-NormalizationSubsystem-NormalizationAlignment Review (one per unit)
@@ -3380,6 +3381,39 @@ reviews:
       - "docs/verification/speech-text-en/normalization-subsystem/text-normalizer.md"
       - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/TextNormalizer.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/TextNormalizerTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-NumericExpressionRecognizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-NumericExpressionRecognizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem NumericExpressionRecognizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/numeric-expression-recognizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/numeric-expression-recognizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/numeric-expression-recognizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/NumericExpressionRecognizer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NumericExpressionRecognizerTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-NumberVerbalizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-NumberVerbalizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem NumberVerbalizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/number-verbalizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/number-verbalizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/number-verbalizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/NumberVerbalizer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NumberVerbalizerTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/ReferenceNumberWords.cs"  # independent reference implementation
 
   # SpeechTextEn-NormalizationSubsystem-AbbreviationResolver Review (one per unit)
   - id: SpeechTextEn-NormalizationSubsystem-AbbreviationResolver

@@ -148,7 +148,7 @@ public sealed class SpeechTextEnTests
         // Assert
         var reported = Assert.Single(recording.Events);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous abbreviations\.$", reported.Message);
+        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks\.$", reported.Message);
         Assert.DoesNotContain("Quokka", reported.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(3, faultyResult.Annotations.Count);
     }
@@ -421,8 +421,8 @@ public sealed class SpeechTextEnTests
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert
-        var normalization = Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
+        // Assert: the first normalization is the abbreviation (the number after it is read by the numeric rule)
+        var normalization = result.Annotations.First(annotation => annotation.Kind == TextEnAnnotations.Normalized);
         Assert.Equal(source, text.Substring(normalization.Start, normalization.Length));
         Assert.Equal(spoken, normalization.Value);
     }
@@ -800,6 +800,430 @@ public sealed class SpeechTextEnTests
                 .Select(annotation => (Source: call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
             .ToList();
         Assert.Equal([("Dr.", "Doctor"), ("&", "and")], delivered);
+    }
+
+    /// <summary>Proves numbers (cardinals, decimals, ordinals, hash numbers, decades) are annotated with their spoken words, the text itself is never rewritten, and every value is plain words.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_Numbers_AreSpokenAsWordsWithoutChangingText()
+    {
+        // Arrange
+        const string text = "I have 5 apples, 1,234 pears, 3.5 plums, the 21st, #5 and the 1990s.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the annotations name the source characters and their words; the source is untouched
+        var normalizations = result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized).ToList();
+        Assert.Equal(
+            [("5", "five"), ("1,234", "one thousand two hundred thirty four"), ("3.5", "three point five"), ("21st", "twenty first"), ("#5", "number five"), ("1990s", "nineteen nineties")],
+            normalizations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value)));
+        Assert.Equal(
+            "I have five apples, one thousand two hundred thirty four pears, three point five plums, the twenty first, number five and the nineteen nineties.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+        Assert.All(normalizations, annotation => Assert.Matches("^[A-Za-z' ]+$", annotation.Value));
+        Assert.Equal("I have 5 apples, 1,234 pears, 3.5 plums, the 21st, #5 and the 1990s.", text);
+    }
+
+    /// <summary>Proves the sentence breaks around numbers, decimals, amounts, abbreviated dates and units fall exactly where the sentences end.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd()
+    {
+        // Arrange: a decimal, an amount, a number and an abbreviated month before a period are not sentence ends by themselves
+        const string text = "It costs $1.25. Then $2. Pi is 3.14. Item 5. Jan. 5, 2024 was cold. He left at 5 p.m. Then slept. He is 5 ft. tall. She is 5 ft. Then left.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            "It costs $1.25.¦Then $2.¦Pi is 3.14.¦Item 5.¦Jan. 5, 2024 was cold.¦He left at 5 p.m.¦Then slept.¦He is 5 ft. tall.¦She is 5 ft.¦Then left.",
+            NormalizationHarness.JoinSentences(text, result.SentenceBreaks!));
+    }
+
+    /// <summary>Proves currency amounts, percent and units are spoken as words, per token, with singular and plural.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_CurrencyAndUnits_AreSpokenAsWords()
+    {
+        // Arrange
+        const string text = "Pay $1,234.50, \u20AC5 and 50 % of 5 million USD for 3 kg, 1 ft. and 72\u00B0F.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            "Pay one thousand two hundred thirty four dollars and fifty cents, five euros and fifty percent of five million dollars for three kilograms, one foot and seventy two degrees Fahrenheit.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+        var covered = result.Annotations.Select(annotation => text.Substring(annotation.Start, annotation.Length)).ToList();
+        Assert.Contains("$1,234.50", covered);
+        Assert.Contains("\u20AC5", covered);
+        Assert.Contains("%", covered);
+        Assert.Contains("USD", covered);
+        Assert.Contains("72\u00B0F", covered);
+    }
+
+    /// <summary>Proves times, numeric dates and month-name dates are spoken as words.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_DatesAndTimes_AreSpokenAsWords()
+    {
+        // Arrange
+        const string text = "On January 5th, 2024 at 5:30pm, 12/25/2024 at 17:45 and 7 am.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            "On January fifth, twenty twenty four at five thirty P M, December twenty fifth twenty twenty four at seventeen forty five and seven A M.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+    }
+
+    /// <summary>Proves month and weekday abbreviations resolve from the date around them, keep the sentence breaks that are real and drop the ones the tokenizer invented.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext()
+    {
+        // Arrange
+        const string text = "Sat. 5 Jan. 2024 and Sun. Mar. 5 and Wed. 7:30. He left Mon. He came Tue.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: one sentence for the dates (no false break after any abbreviation), then the two real ones
+        Assert.Equal(
+            "Saturday fifth January twenty twenty four and Sunday March fifth and Wednesday seven thirty. He left Monday. He came Tuesday.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+        Assert.Equal(
+            [text.IndexOf("He left", StringComparison.Ordinal), text.IndexOf("He came", StringComparison.Ordinal)],
+            result.SentenceBreaks);
+    }
+
+    /// <summary>Proves a period after a full month name or May ends the sentence and gives the next number no date reading, while a month abbreviation's period keeps the date together.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_FullMonthPeriod_EndsTheSentenceAndGivesNoDateContext()
+    {
+        // Arrange
+        const string text = "We finished in May. 5 people stayed. Born Jan. 5, 2024.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: "5 people" is a cardinal after the sentence end; "Jan. 5, 2024" is one date
+        Assert.Equal(
+            "We finished in May. five people stayed. Born January fifth, twenty twenty four.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+        Assert.Equal(
+            [text.IndexOf("5 people", StringComparison.Ordinal), text.IndexOf("Born", StringComparison.Ordinal)],
+            result.SentenceBreaks);
+    }
+
+    /// <summary>Proves the documented defaults for ambiguous numbers (a bare year, a month-first date, a fraction) are applied and counted, and cued or equal readings are not.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_AmbiguousNumbers_UseDocumentedDefaultsAndAreCounted()
+    {
+        // Arrange: four ambiguous readings (1999, 3/4, 3/4/2024, 1500) among cued and unambiguous ones
+        const string text = "And 1999, 3/4, 3/4/2024, 1500, in 1066, about 1500 people, 12/25/2024, 12/12/2024, 2000.";
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Diagnostics = sink });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the defaults
+        Assert.Equal(
+            "And nineteen ninety nine, three quarters, March fourth twenty twenty four, fifteen hundred, in ten sixty six, about one thousand five hundred people, December twenty fifth twenty twenty four, December twelfth twenty twenty four, two thousand.",
+            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+
+        // Assert: counted once each, and only the ambiguous ones
+        var reported = Assert.Single(sink.Events);
+        Assert.Matches(@"\d+ normalizations, 4 ambiguous readings, 0 numeric fallbacks\.$", reported.Message);
+    }
+
+    /// <summary>Proves the diagnostics event carries the numeric counts and counts only: no digit of the analyzed text, no word, no spoken value.</summary>
+    [Fact]
+    public void SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly()
+    {
+        // Arrange: one ambiguous year, one number in an unsupported shape (left as written)
+        const string text = "He read 1999 and 1,23 pages.";
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Diagnostics = sink });
+
+        // Act
+        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        var reported = Assert.Single(sink.Events);
+        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, 1 normalizations, 1 ambiguous readings, 1 numeric fallbacks\.$", reported.Message);
+        Assert.DoesNotContain("1999", reported.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("1,23", reported.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("nineteen", reported.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("pages", reported.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves oversized numbers are bounded and counted: 16 to 64 digits are read digit by digit, longer ones and long fractions are left as written, and no value exceeds the documented size.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted()
+    {
+        // Arrange: a 16-digit number, a 65-digit number and a fraction of 33 digits
+        var sixteen = "1234567890123456";
+        var sixtyFive = new string('7', 65);
+        var fraction = "0." + new string('1', 33);
+        var text = $"A {sixteen} and {sixtyFive} and {fraction} end.";
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Diagnostics = sink });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: only the 16-digit number is annotated (digit by digit); the other two stay as written
+        var normalization = Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
+        Assert.Equal(sixteen, text.Substring(normalization.Start, normalization.Length));
+        Assert.Equal("one two three four five six seven eight nine zero one two three four five six", normalization.Value);
+        Assert.All(result.Annotations, annotation => Assert.True(annotation.Value.Length <= NumberVerbalizer.MaxSpokenLength));
+        Assert.Matches(@"3 numeric fallbacks\.$", Assert.Single(sink.Events).Message);
+    }
+
+    /// <summary>Proves hostile random numeric text always yields normalization annotations that satisfy the alignment contract, checked by an applier independent of the production code.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_NumericText_AnnotationsSatisfyAlignmentContract()
+    {
+        // Arrange
+        string[] pieces =
+        [
+            "5", "50", "007", "1,234", "1,234.50", "3.5", ".5", "-5", "1,23", "$", "\u20AC", "$5", "$5.50", "5$", "5USD", "USD", "5:30", "5:30pm", "5pm", "pm", "p.m.", "12/25/2024", "2024-12-25",
+            "5-10", "555-1234", "3.2.1", "1/2", "24/7", "\u00BD", "1st", "22nd", "1990s", "'90s", "\u2013", "%", "50%", "kg", "5kg", "ft.", "lbs.", "mph", "72\u00B0F", "million", "$5M", "January", "Jan.", "Mar.",
+            "Sun.", "2024", "1999", "#5", ",", ".", ";", ":", "-", "/", "the", "No.", "Dr.", "&", "\u200B", "\u2022", Tag, "\U0001F600", "\uD835\uDFD9", "e\u0301", "\uD83D", "\uDE00", "\0", "(", ")",
+            new string('9', 20), " ", "  ", "\t", "\n", "\u00A0",
+        ];
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+        var random = new Random(20260806);
+
+        for (var iteration = 0; iteration < 300; iteration++)
+        {
+            var text = string.Concat(Enumerable.Range(0, random.Next(0, 40)).Select(_ => pieces[random.Next(pieces.Length)] + (random.Next(3) == 0 ? string.Empty : " ")));
+
+            // Act
+            var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+            // Assert: ordered, disjoint, in bounds, whitespace-free edges, no placeholder, no cut pair, chunk-safe content (A5')
+            var previousEnd = 0;
+            foreach (var annotation in result.Annotations)
+            {
+                Assert.Equal(TextEnAnnotations.Normalized, annotation.Kind);
+                Assert.True(annotation.Start >= previousEnd && annotation.End <= text.Length, $"order or bounds in iteration {iteration}");
+                var covered = text.Substring(annotation.Start, annotation.Length);
+                Assert.False(char.IsWhiteSpace(covered[0]) || char.IsWhiteSpace(covered[^1]), $"whitespace edge in iteration {iteration}");
+                Assert.DoesNotContain(Tag, covered, StringComparison.Ordinal);
+                Assert.DoesNotContain(covered, character => char.IsWhiteSpace(character) || character == ';');
+                for (var i = 0; i < covered.Length; i++)
+                {
+                    if (covered[i] is ',' or ':')
+                    {
+                        Assert.True(i > 0 && i < covered.Length - 1 && covered[i - 1] is >= '0' and <= '9' && covered[i + 1] is >= '0' and <= '9', $"separator not between digits in iteration {iteration}: '{covered}'");
+                    }
+                }
+
+                Assert.False(annotation.Start > 0 && char.IsLowSurrogate(text[annotation.Start]) && char.IsHighSurrogate(text[annotation.Start - 1]), $"cut pair in iteration {iteration}");
+                Assert.False(annotation.End < text.Length && char.IsHighSurrogate(text[annotation.End - 1]) && char.IsLowSurrogate(text[annotation.End]), $"cut pair in iteration {iteration}");
+                Assert.DoesNotContain(Tag, annotation.Value, StringComparison.Ordinal);
+                previousEnd = annotation.End;
+            }
+
+            // Assert: no reconciled sentence break lies strictly inside an annotation
+            Assert.All(result.SentenceBreaks!, offset => Assert.DoesNotContain(result.Annotations, annotation => annotation.Start < offset && offset < annotation.End));
+
+            // Assert: everything outside the annotations is spoken exactly as written
+            var outside = new System.Text.StringBuilder();
+            var position = 0;
+            foreach (var annotation in result.Annotations)
+            {
+                outside.Append(text, position, annotation.Start - position);
+                position = annotation.End;
+            }
+
+            outside.Append(text, position, text.Length - position);
+            Assert.Equal(text.Length - result.Annotations.Sum(annotation => annotation.Length), outside.Length);
+        }
+    }
+
+    /// <summary>
+    ///     Proves every normalization annotation of a long text that mixes every numeric construct (so both the clause pass and the
+    ///     whitespace-budget path of the core chunker run) reaches exactly one backend call, on the same source characters.
+    /// </summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_NumericText_AnnotationsSurviveChunking()
+    {
+        // Arrange: well over 800 characters
+        const string paragraph = "Dr. Smith paid $1,234.50 at 5:30pm on January 5, 2024, then 50 % of 3 1/2 kg; he ran 5 ft. in the 1990s: #5, 1st, 22nd, 3.5, 12/25/2024. In 1999 about 1500 people saw 5 million USD, 72\u00B0F, 555-1234 and Jan. 7. ";
+        var text = string.Concat(Enumerable.Repeat(paragraph, 5)).TrimEnd();
+        Assert.True(text.Length > 800);
+        var analyzer = new EnglishTextAnalyzer();
+        var expected = analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations
+            .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
+            .Select(annotation => (Source: text.Substring(annotation.Start, annotation.Length), annotation.Value))
+            .ToList();
+        var backend = new RecordingAnnotatedBackend();
+
+        // Act
+        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
+
+        // Assert: the sequence of (source characters, value) the backend sees equals the analyzer's, so nothing was lost or moved
+        var delivered = DeliveredNormalizations(backend.Calls);
+        Assert.True(backend.Calls.Count > 3);
+        Assert.True(expected.Count > 60, "the text must carry many numeric annotations");
+        Assert.Equal(expected, delivered);
+    }
+
+    /// <summary>Proves a date whose day and year are on opposite sides of a clause cut keeps the annotation of every token.</summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_DateAcrossClauseCut_KeepsEveryTokenAnnotation()
+    {
+        // Arrange: the comma between the day and the year is a clause cut, so the two numbers land in different chunks
+        const string text = "He was born on January 5, 2024, then paid $1,234.50 at 5:30pm: 50 % done.";
+        var backend = new RecordingAnnotatedBackend();
+
+        // Act
+        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
+
+        // Assert: every token of the date, the amount, the time and the percent is delivered once
+        Assert.True(backend.Calls.Count >= 3);
+        Assert.Equal(
+            [("5", "fifth"), ("2024", "twenty twenty four"), ("$1,234.50", "one thousand two hundred thirty four dollars and fifty cents"), ("5:30pm", "five thirty P M"), ("50", "fifty"), ("%", "percent")],
+            DeliveredNormalizations(backend.Calls));
+    }
+
+    /// <summary>Proves a percent sign that ends up alone in a chunk (the budget cut falls between the number and the sign) keeps its normalization.</summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization()
+    {
+        // Arrange: slide the budget cut across the gap between "50" and "%"
+        var backend = new RecordingAnnotatedBackend();
+        var sawLoneSign = false;
+
+        // Act / Assert
+        await WithEngineAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), async engine =>
+        {
+            for (var padding = 185; padding <= 199; padding++)
+            {
+                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " 50 %";
+                var before = backend.Calls.Count;
+                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+                var calls = backend.Calls.Skip(before).ToList();
+                Assert.Equal(
+                    [("50", "fifty"), ("%", "percent")],
+                    DeliveredNormalizations(calls));
+                sawLoneSign |= calls.Any(call => call.Text == "%");
+            }
+        });
+        Assert.True(sawLoneSign, "no padding put the percent sign alone in a chunk");
+    }
+
+    /// <summary>Proves that wherever the 200-character budget cut falls (every padding is tried), no numeric annotation is split or lost, and two-token amounts stay whole.</summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit()
+    {
+        // Arrange
+        var backend = new RecordingAnnotatedBackend();
+
+        // Act / Assert
+        await WithEngineAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), async engine =>
+        {
+            for (var padding = 150; padding <= 199; padding++)
+            {
+                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " $5 million at 5:30pm on January 5 2024 for 5 kg and 1,234.50 or 12/25/2024 end";
+                var before = backend.Calls.Count;
+                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+
+                // Assert: the sequence the analyzer produced is the sequence delivered
+                var expected = new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations
+                    .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
+                    .Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value))
+                    .ToList();
+                Assert.True(expected.Count >= 9);
+                Assert.Equal(expected, DeliveredNormalizations(backend.Calls.Skip(before).ToList()));
+            }
+        });
+    }
+
+    /// <summary>Proves a number, an audio tag and a unit with no spaces between them keep both annotations and the tag is never covered.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations()
+    {
+        // Arrange: "5<tag>kg" is a number and a unit around a placeholder
+        var text = "It weighs 5" + Tag + "kg now, and $" + Tag + "5 or 50" + Tag + "% too.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: "5" and "kg" are each annotated, "50" and "%" too, the symbol before a tag is left alone, and no annotation covers a placeholder
+        var normalizations = result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized).ToList();
+        Assert.Equal(
+            [("5", "five"), ("kg", "kilograms"), ("5", "five"), ("50", "fifty"), ("%", "percent")],
+            normalizations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value)));
+        Assert.All(normalizations, annotation => Assert.DoesNotContain(Tag, text.Substring(annotation.Start, annotation.Length), StringComparison.Ordinal));
+    }
+
+    /// <summary>Proves one megabyte of every numeric construct, repeated, analyzes within the time budget.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget()
+    {
+        // Arrange: normalization only, so no tagger is involved
+        string[] units = ["1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "1/2 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ", "555-123-4567 ", "1990s ", "3 1/2 ", "1999 "];
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+
+        foreach (var unit in units)
+        {
+            var text = string.Concat(Enumerable.Repeat(unit, (1_000_000 / unit.Length) + 1));
+
+            // Act
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var result = analyzer.Analyze(text, cancellation.Token);
+            stopwatch.Stop();
+
+            // Assert
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(45), $"'{unit}' took {stopwatch.Elapsed}");
+            Assert.NotEmpty(result.Annotations);
+        }
+    }
+
+    /// <summary>
+    ///     Reads the normalization annotations every backend call received, as pairs of the source characters and the value.
+    /// </summary>
+    /// <param name="calls">The backend calls, in arrival order.</param>
+    /// <returns>The pairs, in the order delivered.</returns>
+    private static List<(string Source, string Value)> DeliveredNormalizations(IReadOnlyList<(string Text, IReadOnlyList<SegmentAnnotation> Annotations)> calls) =>
+        calls
+            .SelectMany(call => call.Annotations
+                .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
+                .Select(annotation => (Source: call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
+            .ToList();
+
+    /// <summary>Loads a real engine for a model once, runs an action against it, then disposes the engine and the scratch model directory.</summary>
+    /// <param name="model">The model whose analyzer and backend are under test.</param>
+    /// <param name="action">The action to run against the engine.</param>
+    /// <returns>A task that completes when the action has finished.</returns>
+    private static async Task WithEngineAsync(AnalyzingSynthesisModel model, Func<ISpeechSynthesizerEngine, Task> action)
+    {
+        var directory = Directory.CreateTempSubdirectory("text-en-model-");
+        try
+        {
+            await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                model,
+                directory.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            await action(engine);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     /// <summary>Proves one megabyte of realistic and of adversarially repetitive text analyzes within the time budget, and a quadratic regression fails instead of hanging.</summary>

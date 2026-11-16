@@ -14,11 +14,17 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     not know; 0 when the text was not tagged.
 /// </param>
 /// <param name="Normalizations">The number of <c>en.norm</c> replacements found; 0 when normalization was not selected.</param>
-/// <param name="AmbiguousAbbreviations">
-///     The number of abbreviation resolutions that fell back to a documented default or chose
-///     between competing cues; 0 when normalization was not selected.
+/// <param name="AmbiguousReadings">
+///     The number of resolutions that fell back to a documented default or chose between
+///     competing cues (abbreviations and numeric readings such as a year or a month-first
+///     date); 0 when normalization was not selected.
 /// </param>
-internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords, int Normalizations, int AmbiguousAbbreviations);
+/// <param name="NumericFallbacks">
+///     The number of numeric-looking expressions left as written, or read digit by digit,
+///     because of a documented size limit or an unsupported numeric shape; 0 when normalization
+///     was not selected.
+/// </param>
+internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords, int Normalizations, int AmbiguousReadings, int NumericFallbacks);
 
 /// <summary>
 ///     Reports one aggregate-counts event per analyzed request to an optional host-supplied
@@ -49,14 +55,14 @@ internal sealed class AnalysisDiagnostics
     }
 
     /// <summary>
-    ///     Builds the report message for a request: fixed text plus the six counts.
+    ///     Builds the report message for a request: fixed text plus the seven counts.
     /// </summary>
     /// <param name="counts">The aggregate counts of the request.</param>
     /// <returns>The message; contains digits and fixed words only.</returns>
     internal static string FormatMessage(AnalysisCounts counts) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words, {counts.Normalizations} normalizations, {counts.AmbiguousAbbreviations} ambiguous abbreviations.");
+            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words, {counts.Normalizations} normalizations, {counts.AmbiguousReadings} ambiguous readings, {counts.NumericFallbacks} numeric fallbacks.");
 
     /// <summary>
     ///     Reports the counts of one completed request, once.

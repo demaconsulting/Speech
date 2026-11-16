@@ -11,7 +11,9 @@
 #   class    prefix = precedes a name; suffix = follows a name or street; free = either;
 #            word = the ordinary word followed by a real period
 #   default  yes on exactly one row per form: the reading used when the context is inconclusive
-#   guard    '-' for none, or '+'-joined conditions: next-cap, next-digit, prev-not-number
+#   guard    '-' for none, or '+'-joined conditions: next-cap, next-digit, prev-not-number,
+#            next-date (next token starts with an ASCII digit or is a month name or abbreviation),
+#            prev-number (previous token starts with an ASCII digit)
 #   note     free text
 # Several rows with the same form are alternative readings (see the design documentation).
 form	spoken	class	default	guard	note
@@ -90,3 +92,59 @@ N/A	not applicable	free	yes	-	slash form
 n/a	not applicable	free	yes	-	slash form
 c/o	care of	free	yes	-	slash form
 and/or	and or	free	yes	-	slash form
+Jan.	January	prefix	no	next-date	month before a date; never ends a sentence
+Jan.	January	suffix	yes	-	month at the end of a clause
+Feb.	February	prefix	no	next-date	month before a date; never ends a sentence
+Feb.	February	suffix	yes	-	month at the end of a clause
+Mar.	March	prefix	no	next-date	month before a date; the verb 'mar' needs a number before it to be a month at the end
+Mar.	March	suffix	yes	prev-number	month after a day number ('5 Mar.'); a bare 'Mar.' is left alone
+Apr.	April	prefix	no	next-date	month before a date; never ends a sentence
+Apr.	April	suffix	yes	-	month at the end of a clause
+Jun.	June	prefix	no	next-date	month before a date; never ends a sentence
+Jun.	June	suffix	yes	-	month at the end of a clause
+Jul.	July	prefix	no	next-date	month before a date; never ends a sentence
+Jul.	July	suffix	yes	-	month at the end of a clause
+Aug.	August	prefix	no	next-date	month before a date; never ends a sentence
+Aug.	August	suffix	yes	-	month at the end of a clause
+Sep.	September	prefix	no	next-date	month before a date; never ends a sentence
+Sep.	September	suffix	yes	-	month at the end of a clause
+Sept.	September	prefix	no	next-date	month before a date; never ends a sentence
+Sept.	September	suffix	yes	-	month at the end of a clause
+Oct.	October	prefix	no	next-date	month before a date; never ends a sentence
+Oct.	October	suffix	yes	-	month at the end of a clause
+Nov.	November	prefix	no	next-date	month before a date; never ends a sentence
+Nov.	November	suffix	yes	-	month at the end of a clause
+Dec.	December	prefix	no	next-date	month before a date; never ends a sentence
+Dec.	December	suffix	yes	-	month at the end of a clause
+Jan	January	prefix	yes	next-digit	periodless month before a day or year
+Feb	February	prefix	yes	next-digit	periodless month before a day or year
+Mar	March	prefix	yes	next-digit	periodless month before a day or year
+Apr	April	prefix	yes	next-digit	periodless month before a day or year
+Jun	June	prefix	yes	next-digit	periodless month before a day or year
+Jul	July	prefix	yes	next-digit	periodless month before a day or year
+Aug	August	prefix	yes	next-digit	periodless month before a day or year
+Sep	September	prefix	yes	next-digit	periodless month before a day or year
+Sept	September	prefix	yes	next-digit	periodless month before a day or year
+Oct	October	prefix	yes	next-digit	periodless month before a day or year
+Nov	November	prefix	yes	next-digit	periodless month before a day or year
+Dec	December	prefix	yes	next-digit	periodless month before a day or year
+Mon.	Monday	prefix	no	next-date	weekday before a date; never ends a sentence
+Mon.	Monday	suffix	yes	-	weekday at the end of a clause
+Tue.	Tuesday	prefix	no	next-date	weekday before a date; never ends a sentence
+Tue.	Tuesday	suffix	yes	-	weekday at the end of a clause
+Tues.	Tuesday	prefix	no	next-date	weekday before a date; never ends a sentence
+Tues.	Tuesday	suffix	yes	-	weekday at the end of a clause
+Wed.	Wednesday	prefix	no	next-date	weekday before a date; never ends a sentence
+Wed.	Wednesday	suffix	yes	-	weekday at the end of a clause
+Thu.	Thursday	prefix	no	next-date	weekday before a date; never ends a sentence
+Thu.	Thursday	suffix	yes	-	weekday at the end of a clause
+Thur.	Thursday	prefix	no	next-date	weekday before a date; never ends a sentence
+Thur.	Thursday	suffix	yes	-	weekday at the end of a clause
+Thurs.	Thursday	prefix	no	next-date	weekday before a date; never ends a sentence
+Thurs.	Thursday	suffix	yes	-	weekday at the end of a clause
+Fri.	Friday	prefix	no	next-date	weekday before a date; never ends a sentence
+Fri.	Friday	suffix	yes	-	weekday at the end of a clause
+Sat.	Saturday	prefix	no	next-date	weekday before a date; never ends a sentence
+Sat.	Saturday	suffix	yes	-	weekday at the end of a clause
+Sun.	Sunday	prefix	no	next-date	weekday before a date; never ends a sentence
+Sun.	Sunday	suffix	yes	prev-number	weekday after a number; a bare 'Sun.' is left alone (the star, the newspaper)

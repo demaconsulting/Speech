@@ -6,8 +6,9 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
 /// <summary>
 ///     An <see cref="ITextAnalyzer"/> for English: it tags the word tokens of a speech request with
-///     their Universal Dependencies part of speech, describes how abbreviations, symbols and
-///     initialisms are spoken, and supplies authoritative sentence boundaries, so a
+///     their Universal Dependencies part of speech, describes how abbreviations, symbols, initialisms,
+///     numbers, currency, units, times and dates are spoken, and supplies authoritative sentence
+///     boundaries, so a
 ///     phoneme-driven synthesis model can use sentence-level context the library's chunking would
 ///     otherwise remove.
 /// </summary>
@@ -352,7 +353,8 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             annotations.Count,
             unknownWords,
             aligned?.Spans.Count ?? 0,
-            aligned?.AmbiguousCount ?? 0));
+            aligned?.AmbiguousCount ?? 0,
+            aligned?.FallbackCount ?? 0));
         return (annotations.AsReadOnly(), sentenceBreaks);
     }
 

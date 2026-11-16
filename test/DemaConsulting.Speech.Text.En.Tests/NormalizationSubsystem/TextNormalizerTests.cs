@@ -50,18 +50,18 @@ public sealed class TextNormalizerTests
     /// <param name="text">The text.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
-    [InlineData("\u00A9 2025", "copyright 2025")]
+    [InlineData("\u00A9 2025", "copyright twenty twenty five")]
     [InlineData("Acme\u00AE rocks", "Acme registered rocks")]
     [InlineData("Brand\u2122 rocks", "Brand trademark rocks")]
-    [InlineData("\u00A7 5", "section 5")]
-    [InlineData("\u00B6 3", "paragraph 3")]
+    [InlineData("\u00A7 5", "section five")]
+    [InlineData("\u00B6 3", "paragraph three")]
     [InlineData("A\u2122B", "A trademark B")]
     [InlineData("Brand\u2122&Co", "Brand trademark&Co")]
     [InlineData("A\u2122\u00AEB", "A trademark registered B")]
     [InlineData("A\u2122\u00AE", "A trademark registered")]
     [InlineData("\u2122\u00AE", "trademark registered")]
     [InlineData("\u00A9\u2122\u00AE", "copyright trademark registered")]
-    [InlineData("\u00A7\u00A7 5", "section section 5")]
+    [InlineData("\u00A7\u00A7 5", "section section five")]
     [InlineData("x\u2122\u00A92025", "x trademark copyright 2025")]
     public void TextNormalizer_Normalize_Marks_AreSpoken(string text, string spoken)
     {
@@ -348,8 +348,11 @@ public sealed class TextNormalizerTests
         // Act
         var aligned = NormalizationHarness.Normalize("Meet at 5 p.m. Then sleep.");
 
-        // Assert
-        var span = Assert.Single(aligned.Spans);
+        // Assert: the hour is read by the numeric rule and the dotted form by the initialism rule
+        Assert.Equal(2, aligned.Spans.Count);
+        Assert.Equal(NormalizationKind.Number, aligned.Spans[0].Kind);
+        Assert.Equal("five", aligned.Spans[0].Spoken);
+        var span = aligned.Spans[1];
         Assert.Equal(NormalizationKind.Initialism, span.Kind);
         Assert.Equal("P M", span.Spoken);
     }
@@ -405,6 +408,31 @@ public sealed class TextNormalizerTests
         Assert.InRange(visited, 301, 600);
     }
 
+    /// <summary>Proves the periodic cancellation check counts the tokens a numeric match consumed: repeated two-token expressions are checked within 256 visited tokens.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens()
+    {
+        // Arrange: 400 "5 kg" matches, 800 tokens; the observer cancels while the first token is visited
+        var text = string.Concat(Enumerable.Repeat("5 kg ", 400));
+        var tokens = NormalizationHarness.Tokenize(text);
+        using var cancellation = new CancellationTokenSource();
+        var seen = new List<int>();
+        var normalizer = new TextNormalizer(
+            AbbreviationResolver.Default,
+            AcronymRecognizer.Default,
+            index =>
+            {
+                seen.Add(index);
+                cancellation.Cancel();
+            });
+
+        // Act / Assert: the check fires at the 256th visited token (inside the 128th match), not at the 256th match
+        Assert.Equal(800, tokens.Length);
+        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
+        Assert.Equal(TextNormalizer.CancellationCheckInterval / 2, seen.Count);
+        Assert.True(seen[^1] < TextNormalizer.CancellationCheckInterval);
+    }
+
     /// <summary>Proves the token-visited observer is called once per processed token, in order.</summary>
     [Fact]
     public void TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder()
@@ -420,6 +448,147 @@ public sealed class TextNormalizerTests
 
         // Assert
         Assert.Equal([0, 1, 2], seen);
+    }
+
+    /// <summary>Proves a numeric token is recognized before the abbreviation lexicon: <c>5 ft.</c> is a unit while <c>Ft. Worth</c> is still Fort, and <c>No. 5</c> reads both.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations()
+    {
+        // Act
+        var unit = NormalizationHarness.Normalize("He is 5 ft. tall.");
+        var fort = NormalizationHarness.Normalize("Ft. Worth is far.");
+        var reference = NormalizationHarness.Normalize("Item No. 5 shipped.");
+
+        // Assert: the unit rule owns "ft." after a number; the lexicon owns it before a name; both rules fire in a reference
+        Assert.Equal("He is five feet tall.", unit.ApplySpokenForms());
+        Assert.Equal([NormalizationKind.Number, NormalizationKind.Unit], unit.Spans.Select(span => span.Kind));
+        Assert.Equal("Fort Worth is far.", fort.ApplySpokenForms());
+        Assert.Equal(NormalizationKind.Abbreviation, Assert.Single(fort.Spans).Kind);
+        Assert.Equal("Item Number five shipped.", reference.ApplySpokenForms());
+        Assert.Equal([NormalizationKind.Abbreviation, NormalizationKind.Number], reference.Spans.Select(span => span.Kind));
+    }
+
+    /// <summary>Proves a token consumed by a numeric match (the unit after a number, both tokens of a currency pair) is not visited again.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain()
+    {
+        // Arrange: "$5 million" is three tokens and one match; "3 kg" two tokens and one match; "a" is visited on its own
+        const string text = "$5 million a 3 kg";
+        var tokens = NormalizationHarness.Tokenize(text);
+        var seen = new List<int>();
+        var normalizer = new TextNormalizer(AbbreviationResolver.Default, AcronymRecognizer.Default, seen.Add);
+
+        // Act
+        var aligned = normalizer.Normalize(text, tokens, false, CancellationToken.None);
+
+        // Assert: tokens 0 ($, 5, million), 3 (a) and 4 (3, kg) are visited; the consumed ones are skipped
+        Assert.Equal(6, tokens.Length);
+        Assert.Equal([0, 3, 4], seen);
+        Assert.Equal("five million dollars a three kilograms", aligned.ApplySpokenForms());
+    }
+
+    /// <summary>Proves a numeric-looking token that contains an invisible character is left to the invisible-character rule: only a dropped span, no number.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity()
+    {
+        // Act
+        var aligned = NormalizationHarness.Normalize("5\u200B0 and $\u200B5 and 1,\u00AD234");
+
+        // Assert: only the invisible characters are dropped, and nothing is read as a number
+        Assert.All(aligned.Spans, span => Assert.Equal(NormalizationKind.Dropped, span.Kind));
+        Assert.Equal("50 and $5 and 1,234", aligned.ApplySpokenForms());
+    }
+
+    /// <summary>Proves two adjacent numeric spans are separated by exactly one space, with the source offsets unchanged.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace()
+    {
+        // Act
+        var percent = NormalizationHarness.Normalize("50%");
+        var range = NormalizationHarness.Normalize("5\u201310");
+
+        // Assert: "fifty" and " percent"; "five", " to " and "ten"
+        Assert.Equal(["fifty", " percent"], percent.Spans.Select(span => span.Spoken));
+        Assert.Equal([(0, 2), (2, 1)], percent.Spans.Select(span => (span.Start, span.Length)));
+        Assert.Equal("fifty percent", percent.ApplySpokenForms());
+        Assert.Equal(["five", " to ", "ten"], range.Spans.Select(span => span.Spoken));
+        Assert.Equal("five to ten", range.ApplySpokenForms());
+    }
+
+    /// <summary>Proves a unit with an abbreviation period consumes the period mid-sentence and keeps it, with a forced break, where a capitalized word follows or the text ends.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd()
+    {
+        // Act
+        var middle = NormalizationHarness.Normalize("He is 6 ft. tall.");
+        var end = NormalizationHarness.Normalize("He is 6 ft.");
+        var capital = NormalizationHarness.Normalize("He is 6 ft. Then left.");
+        var separate = NormalizationHarness.Normalize("It weighs 180 lbs. now.");
+        var separateEnd = NormalizationHarness.Normalize("It weighs 180 lbs.");
+        var glued = NormalizationHarness.Normalize("He is 6ft. tall.");
+
+        // Assert: consumed, kept, kept with a forced break
+        Assert.Equal("He is six feet tall.", middle.ApplySpokenForms());
+        Assert.Equal("He is six feet.", end.ApplySpokenForms());
+        Assert.Equal("He is six feet. Then left.", capital.ApplySpokenForms());
+        Assert.Equal([capital.Source.IndexOf("Then", StringComparison.Ordinal)], capital.ForcedBreaks);
+        Assert.Empty(middle.ForcedBreaks);
+        Assert.Equal("It weighs one hundred eighty pounds now.", separate.ApplySpokenForms());
+        Assert.Equal("It weighs one hundred eighty pounds.", separateEnd.ApplySpokenForms());
+        Assert.Equal("He is six feet tall.", glued.ApplySpokenForms());
+    }
+
+    /// <summary>Proves cancellation requested in the middle of a long numeric text is observed at the next periodic check.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException()
+    {
+        // Arrange: 1,000 one-digit numbers; the observer cancels while token 300 is visited
+        var text = string.Concat(Enumerable.Repeat("5 ", 1000));
+        var tokens = Enumerable.Range(0, 1000).Select(i => new NormalizationToken(i * 2, 1, i == 0)).ToArray();
+        using var cancellation = new CancellationTokenSource();
+        var visited = 0;
+        var normalizer = new TextNormalizer(
+            AbbreviationResolver.Default,
+            AcronymRecognizer.Default,
+            index =>
+            {
+                visited++;
+                if (index == 300)
+                {
+                    cancellation.Cancel();
+                }
+            });
+
+        // Act / Assert: the numeric pass checks the token like every other pass
+        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
+        Assert.InRange(visited, 301, 600);
+    }
+
+    /// <summary>Proves lowercase words (no number, no symbol, no abbreviation) cost nothing per token: the allocation of a pass does not grow with the number of tokens.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken()
+    {
+        // Arrange: the same text at two sizes; tokens are built outside the measured pass
+        static (string Text, NormalizationToken[] Tokens) Build(int count)
+        {
+            var text = string.Concat(Enumerable.Repeat("word ", count));
+            return (text, Enumerable.Range(0, count).Select(i => new NormalizationToken(i * 5, 4, i == 0)).ToArray());
+        }
+
+        var small = Build(10_000);
+        var large = Build(100_000);
+
+        // Act: warm up, then measure each pass on this thread
+        TextNormalizer.Default.Normalize(small.Text, small.Tokens, false, CancellationToken.None);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        TextNormalizer.Default.Normalize(small.Text, small.Tokens, false, CancellationToken.None);
+        var smallBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        before = GC.GetAllocatedBytesForCurrentThread();
+        TextNormalizer.Default.Normalize(large.Text, large.Tokens, false, CancellationToken.None);
+        var largeBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // Assert: ten times the tokens, no more than a small fixed amount more memory (the builder's empty lists)
+        Assert.True(largeBytes - smallBytes < 16 * 1024, $"10,000 tokens allocated {smallBytes} bytes, 100,000 tokens {largeBytes} bytes");
     }
 
     /// <summary>Proves bad arguments are rejected: null text, null collaborators, and malformed token lists.</summary>

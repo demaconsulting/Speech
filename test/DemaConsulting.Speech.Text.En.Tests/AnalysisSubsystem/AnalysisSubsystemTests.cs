@@ -174,7 +174,7 @@ public sealed class AnalysisSubsystemTests
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous abbreviations\.$", reported.Message);
+        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks\.$", reported.Message);
         foreach (var word in text.Split([' ', '.', '!'], StringSplitOptions.RemoveEmptyEntries))
         {
             Assert.DoesNotContain(word, reported.Message, StringComparison.OrdinalIgnoreCase);

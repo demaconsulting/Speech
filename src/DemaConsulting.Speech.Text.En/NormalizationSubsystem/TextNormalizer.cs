@@ -9,13 +9,15 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 /// </summary>
 /// <remarks>
 ///     One linear pass over the tokens applies an ordered list of rules, the first match winning:
-///     invisible characters, clitics, lexicon abbreviations, acronyms and initialisms, symbols and
-///     marks, and elision apostrophes. Every rule looks at a constant number of neighboring
-///     tokens, so the pass is linear in the text length whatever the text contains. The rules are
-///     lexical and orthographic only; the part-of-speech tagger is never consulted, so the result
-///     does not depend on which annotations the analyzer was asked for. Numbers, dates, currency,
-///     units, URLs, markup and hyphen policy are deliberately not handled yet and pass through
-///     untouched. An instance keeps no per-request state and is thread-safe.
+///     invisible characters, clitics, numeric expressions, lexicon abbreviations, acronyms and
+///     initialisms, symbols and marks, and elision apostrophes. Every rule looks at a constant
+///     number of neighboring tokens, so the pass is linear in the text length whatever the text
+///     contains. The rules are lexical and orthographic only; the part-of-speech tagger is never
+///     consulted, so the result does not depend on which annotations the analyzer was asked for.
+///     Numbers, ordinals, years, currency, percent, units, times, dates and digit groups are read
+///     by <see cref="NumericExpressionRecognizer"/> (en-US only); URLs, markup, Roman numerals,
+///     hyphenated digit compounds and the hyphen policy are deliberately not handled yet and pass
+///     through untouched. An instance keeps no per-request state and is thread-safe.
 /// </remarks>
 internal sealed class TextNormalizer
 {
@@ -223,11 +225,7 @@ internal sealed class TextNormalizer
             {
                 // Look at the cancellation token periodically; the interval counts visited
                 // tokens so a multi-token span cannot skip a check.
-                _visited++;
-                if (_visited % CancellationCheckInterval == 0)
-                {
-                    _cancellationToken.ThrowIfCancellationRequested();
-                }
+                CountVisited();
 
                 _owner._tokenVisited?.Invoke(index);
 
@@ -238,7 +236,29 @@ internal sealed class TextNormalizer
                     _allCapitals = 0;
                 }
 
-                index = ProcessToken(index);
+                var next = ProcessToken(index);
+
+                // Each follow-up token the match consumed counts as visited too (the observer is not
+                // called for it), so the check cadence holds for multi-token matches.
+                for (var consumed = index + 1; consumed < next; consumed++)
+                {
+                    CountVisited();
+                }
+
+                index = next;
+            }
+        }
+
+        /// <summary>
+        ///     Counts one visited token and checks the cancellation token at every
+        ///     <see cref="CancellationCheckInterval"/>th one.
+        /// </summary>
+        private void CountVisited()
+        {
+            _visited++;
+            if (_visited % CancellationCheckInterval == 0)
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
             }
         }
 
@@ -276,6 +296,13 @@ internal sealed class TextNormalizer
                 return index + 1;
             }
 
+            // Rule 2a: numeric expressions (numbers, currency, percent, units, times, dates), before the
+            // lexicon so that "5 ft." reads the unit and "Jan. 5" leaves the number to this rule.
+            if (NumericExpressionRecognizer.TryRecognize(_text, _tokens, index, out var numeric))
+            {
+                return ApplyNumeric(index, numeric);
+            }
+
             // Rule 3: lexicon abbreviations, resolved from their neighbors.
             if (_owner._abbreviations.TryResolve(_text, _tokens, index, out var abbreviation))
             {
@@ -298,6 +325,69 @@ internal sealed class TextNormalizer
             // Rule 6: elision apostrophes inside a word; everything else is identity.
             EmitElisionApostrophes(index, span);
             return index + 1;
+        }
+
+        /// <summary>
+        ///     Emits the spans of a numeric match and applies the counts, the break edits and, for
+        ///     a unit that may carry an abbreviation period, the period and sentence rules.
+        /// </summary>
+        /// <param name="index">The index of the match's first token.</param>
+        /// <param name="match">The numeric match.</param>
+        /// <returns>The index of the next token still to be processed.</returns>
+        private int ApplyNumeric(int index, in NumericMatch match)
+        {
+            if (match.Fallback)
+            {
+                _builder.CountFallback();
+            }
+
+            if (match.Ambiguous)
+            {
+                _builder.CountAmbiguous();
+            }
+
+            // A tokenizer sentence that starts inside the expression (the tokenizer cut "Dec." from
+            // "25", or a currency symbol from its number) must not end a sentence there, and a
+            // consumed token that starts a sentence moves the sentence start used by the shouting guard.
+            var last = index + match.TokensConsumed - 1;
+            for (var i = index + 1; i <= last; i++)
+            {
+                if (!_tokens[i].StartsSentence)
+                {
+                    continue;
+                }
+
+                _sentenceStart = i;
+                _allCapitals = 0;
+                for (var s = 0; s < match.SpanCount; s++)
+                {
+                    var covered = match[s];
+                    if (_tokens[i].Start > covered.Start && _tokens[i].Start < covered.Start + covered.Length)
+                    {
+                        _builder.SuppressBreak(_tokens[i].Start);
+                    }
+                }
+            }
+
+            var next = last + 1;
+            for (var s = 0; s < match.SpanCount; s++)
+            {
+                var span = match[s];
+                if (s == match.SpanCount - 1 && match.PeriodUnit)
+                {
+                    // The unit token is the last token consumed; its period (inside the token or a
+                    // separate adjacent token) is consumed or kept by the abbreviation period rules.
+                    var unit = _tokens[last];
+                    var periodInToken = unit.Length > 1 && _text[unit.End - 1] == '.';
+                    next = ApplyPeriodRules(last, span.Spoken, span.Kind, AbbreviationClass.Suffix, periodInToken, !periodInToken && HasAdjacentPeriodToken(last), false);
+                }
+                else
+                {
+                    Emit(span.Start, span.Length, span.Spoken, span.Kind);
+                }
+            }
+
+            return next;
         }
 
         /// <summary>

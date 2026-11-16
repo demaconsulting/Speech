@@ -1,0 +1,161 @@
+---
+# Software Unit Requirements for NumberVerbalizer
+#
+# These requirements describe the design-level behavior of the NumberVerbalizer unit, the stateless
+# builder of the English words of a number (cardinals, ordinals, years, decades, decimals, digit
+# sequences, fractions, clock times and calendar dates) over a bounded buffer, decomposing the parent
+# SpeechTextEn NormalizationSubsystem requirements. It reads ASCII digits only, uses no
+# culture-sensitive API and is checked against an independent reference implementation in the tests.
+# Each requirement states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NumberVerbalizerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: NumberVerbalizer Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Cardinals
+                title: >-
+                  The NumberVerbalizer class shall give the cardinal words of a number of up to 15
+                  significant ASCII digits in lowercase words separated by single spaces, with no
+                  hyphen, comma or "and", ignoring leading zeros, with the scale words thousand,
+                  million, billion and trillion, and zero for a value of zero.
+                justification: |
+                  Every integer the recognizer reads is spelled by this unit, so a wrong word here
+                  is a wrong reading everywhere. Matching an independent reference implementation
+                  for every value from 0 to 9999, for random values of up to 15 digits and at
+                  every scale boundary proves the words, including the spelling of forty and the
+                  skipping of empty groups.
+                tests:
+                  - NumberVerbalizer_Cardinal_EveryValueFrom0To9999_MatchesReference
+                  - NumberVerbalizer_Cardinal_RandomValuesUpTo15Digits_MatchesReference
+                  - NumberVerbalizer_Cardinal_ScaleBoundaries_UseCorrectScaleWords
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Ordinals
+                title: >-
+                  The NumberVerbalizer class shall give the ordinal words of a number by replacing
+                  only the last word of its cardinal (first, second, third, fifth, eighth, ninth,
+                  twelfth, the ieth form of the tens and the th form of every other word), and the
+                  ordinal suffix of a number shall be the one that its last digits require.
+                justification: |
+                  Ordinals and days of the month are spelled this way, and the irregular words are
+                  the usual source of errors. The reference comparison covers every value from 0 to
+                  9999, and the suffix rule (1st, 2nd, 3rd, 11th, 12th, 13th, 21st) is checked for
+                  every number from 1 to 1000.
+                tests:
+                  - NumberVerbalizer_Ordinal_EveryValueFrom0To9999_MatchesReference
+                  - NumberVerbalizer_OrdinalSuffix_MatchesNumber_For1To1000
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Years
+                title: >-
+                  The NumberVerbalizer class shall give the year words of a four-digit number from
+                  1000 to 2099 as two pairs (nineteen ninety nine, nineteen oh five, nineteen
+                  hundred, twenty twenty four), shall give every other four-digit number and the
+                  years that both readings speak alike (1000, 2000 and 2001 to 2009) as the
+                  cardinal, and shall give the plural decade words of a two-digit or four-digit
+                  decade.
+                justification: |
+                  A year is spoken in pairs, not as a quantity, and a decade as a plural word such
+                  as "nineties". Reporting which years read differently from the cardinal lets the
+                  recognizer count a guess only where the two readings really differ. The year
+                  reading is checked for every year from 1000 to 2099 against the reference.
+                tests:
+                  - NumberVerbalizer_Year_EveryYearFrom1000To2099_MatchesReference
+                  - NumberVerbalizer_Decade_Forms_AreSpoken
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Decimals
+                title: >-
+                  The NumberVerbalizer class shall give the words of a decimal as its integer part,
+                  the word point and the fraction digits one by one with zeros kept (leaving out the
+                  integer part when it is empty), shall read an integer part with a leading zero and
+                  more than one digit digit by digit, and shall give a digit sequence as one word
+                  per digit.
+                justification: |
+                  "3.14" is "three point one four", not "three point fourteen", and "007" and
+                  "555-1234" are read digit by digit. A fixed rule for the fraction digits and the
+                  identifiers keeps the reading of decimals and phone numbers predictable.
+                tests:
+                  - NumberVerbalizer_Decimal_FractionDigitsAreSpelledIncludingZeros
+                  - NumberVerbalizer_Digits_SpellsEveryDigit
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Fractions
+                title: >-
+                  The NumberVerbalizer class shall give the words of a fraction as the numerator
+                  and the denominator word, singular for a numerator of one and plural otherwise,
+                  with half, quarter and hundredth for the denominators 2, 4 and 100 and the
+                  denominator's ordinal for every other denominator up to 100.
+                justification: |
+                  "1/2" is "one half" and "3/4" is "three quarters", while "7/16" is "seven
+                  sixteenths". The special words and the plural rule are the only irregular parts
+                  of reading a fraction.
+                tests:
+                  - NumberVerbalizer_Fraction_SingularPluralAndSpecialDenominators
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Clock
+                title: >-
+                  The NumberVerbalizer class shall give the words of a clock time from an hour of
+                  one or two digits (0 to 23) and a two-digit minute (00 to 59), reading a minute of
+                  one to nine as oh and the digit, minute 00 as o'clock for an hour from 1 to 12 and
+                  as hundred otherwise, a written leading zero of the hour as oh, and leaving the
+                  minute out when a meridiem follows and the minute is 00.
+                justification: |
+                  "5:05" is "five oh five", "5:00" is "five o'clock" and "17:00" is "seventeen
+                  hundred". Every combination of hour and minute is compared with the reference so
+                  that no clock time is spoken wrongly.
+                tests:
+                  - NumberVerbalizer_Clock_AllHoursAndMinutes_MatchReference
+                  - NumberVerbalizer_Clock_OClockHundredAndLeadingZeroForms
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-Calendar
+                title: >-
+                  The NumberVerbalizer class shall give the capitalized name of a month, the
+                  ordinal words of a day from 1 to 31, and the words of a date as the month name,
+                  the day ordinal and the year (a four-digit year as a year, a two-digit year as a
+                  cardinal with oh for a leading zero).
+                justification: |
+                  Dates are spoken as "December twenty fifth twenty twenty four". The month names
+                  are the only words with capital letters in a spoken number.
+                tests:
+                  - NumberVerbalizer_Calendar_MonthNamesAndDayOrdinals_AreSpoken
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-OutputBounds
+                title: >-
+                  The NumberVerbalizer class shall never produce a spoken value of more than 1,024
+                  characters for any input within its documented limits, and every value it produces
+                  shall consist of letters, single spaces and the apostrophe of o'clock only, drawn
+                  from a closed vocabulary, with no digit.
+                justification: |
+                  A bounded value keeps the cost of a number constant and its memory on the stack,
+                  and a value without a digit or an unknown word is what lets a backend treat it as
+                  plain words. The worst-case inputs and a closed-vocabulary property over generated
+                  inputs prove both.
+                tests:
+                  - NumberVerbalizer_WorstCaseInputs_StayWithinOutputBound
+                  - NumberVerbalizer_AnyOutput_HasNoDigitAndOnlyReferenceVocabulary
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-InvariantCulture
+                title: >-
+                  The NumberVerbalizer class shall give the same words under every current culture.
+                justification: |
+                  Words built with a culture-sensitive conversion could differ between machines (the
+                  Turkish upper-case i is the classic case); char arithmetic only is the guarantee,
+                  and running the unit under several cultures proves it.
+                tests:
+                  - NumberVerbalizer_UnderForeignCultures_GivesIdenticalWords
+
+              - id: SpeechTextEn-Normalization-NumberVerbalizer-ArgumentValidation
+                title: >-
+                  The NumberVerbalizer class shall throw ArgumentException for an empty digit span,
+                  for a character other than the ASCII digits 0 to 9, and for a digit count, hour,
+                  minute or year length outside its documented limits.
+                justification: |
+                  The recognizer checks every limit before it asks for a reading, so a call outside
+                  them is a defect that must fail where it is made rather than produce a truncated
+                  or wrong spoken value. Digits of other scripts are rejected explicitly because
+                  they are not numbers this library reads.
+                tests:
+                  - NumberVerbalizer_InvalidDigits_ThrowArgumentException

@@ -204,7 +204,8 @@ Speech, not a subsystem of it, and the library must never depend on it:
 - **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` library (a preview), an English
   implementation of Speech's `ITextAnalyzer` seam that annotates the words of a speech request with
   their Universal Dependencies part of speech, describes with replacement-span annotations how
-  non-numeric text (abbreviations, symbols, apostrophes, acronyms and initialisms) is spoken, and
+  English text (abbreviations, symbols, apostrophes, acronyms and initialisms, and en-US numbers,
+  currency, units, times and dates) is spoken, and
   supplies authoritative sentence boundaries reconciled with that normalization, built
   on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
@@ -213,7 +214,9 @@ Speech, not a subsystem of it, and the library must never depend on it:
   the internal `AnalysisDiagnostics` counts-only reporter
 - **NormalizationSubsystem (Subsystem of SpeechTextEn)** — The alignment model with its public
   `NormalizationKind` and `CliticKind` enumerations (`NormalizationAlignment`), the internal
-  `TextNormalizer` orchestrator, the internal `AbbreviationResolver` with its embedded abbreviation
+  `TextNormalizer` orchestrator, the internal `NumericExpressionRecognizer` that finds numeric
+  expressions and decides how each token of one is spoken, the internal `NumberVerbalizer` that builds
+  the English words of a number, the internal `AbbreviationResolver` with its embedded abbreviation
   lexicon, and the internal `AcronymRecognizer` with its embedded initialism lexicon
 
 The following OTS items are also covered:
@@ -364,7 +367,8 @@ analyzer to them:
 - `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two
   subsystems, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
   vocabulary, the part-of-speech adapter and the counts-only diagnostics reporter) and
-  `NormalizationSubsystem` (the alignment model, the text normalizer, the abbreviation resolver and the
+  `NormalizationSubsystem` (the alignment model, the text normalizer, the numeric expression recognizer,
+  the number verbalizer, the abbreviation resolver and the
   acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
   implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on
   the `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime.
@@ -544,6 +548,8 @@ file of their own, and are documented with that owning unit:
   owns them (SpeechTextEn).
 - `NormalizationKind` and `CliticKind` (the public enumerations of the NormalizationSubsystem) are
   declared in `NormalizationAlignment.cs` and are documented with the NormalizationAlignment unit.
+- `NumericSpan` and `NumericMatch` are declared in `NumericExpressionRecognizer.cs`, and `SpokenWriter`
+  in `NumberVerbalizer.cs`; all are internal and are documented with the unit that owns them.
 
 Several small internal helper types are likewise documented inside the unit that owns them rather
 than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
@@ -764,6 +770,8 @@ src/DemaConsulting.Speech.Text.En/
 └── NormalizationSubsystem/
     ├── NormalizationAlignment.cs                          — Alignment model, contract-enforcing builder and the public NormalizationKind/CliticKind enums
     ├── TextNormalizer.cs                                  — Internal rule-ordered normalization pass over the tokens
+    ├── NumericExpressionRecognizer.cs                     — Internal token-local recognizer of numeric expressions (with the NumericSpan and NumericMatch values)
+    ├── NumberVerbalizer.cs                                — Internal builder of the English words of a number (with the SpokenWriter helper)
     ├── AbbreviationResolver.cs                            — Internal abbreviation lexicon and neighbor-based reading choice
     ├── AcronymRecognizer.cs                               — Internal case-sensitive initialism lexicon and rules
     └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)

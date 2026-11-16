@@ -25,7 +25,8 @@ or has a null, placeholder-containing, or wrongly empty (or wrongly non-empty fo
 it accepts ascending and touching spans and a whole surrogate pair. A break edit must be inside the text after
 its first character and on a token start, otherwise `ArgumentOutOfRangeException`; the built break lists are
 sorted and free of duplicates whatever the request order. Clitic marks must be ordered, in bounds, non-empty
-and classified, and the ambiguity counter accumulates. A null source throws `ArgumentNullException`. The
+and classified, and the ambiguity counter and the numeric fallback counter accumulate (the fallback count is
+zero when none was counted). A null source throws `ArgumentNullException`. The
 segments tile the text exactly (an empty text has none and a text without spans is one gap),
 `ApplySpokenForms` replaces only the spans, `ReconcileBreaks` unions the tokenizer breaks with the forced ones
 and removes the suppressed ones, ascending and unique (a null list throws), a token reports its end and its
@@ -66,10 +67,14 @@ theory), `AlignedTextBuilder_ForceBreak_OnPlaceholder_ThrowsArgumentOutOfRangeEx
 An offset at the start, negative, at the end or on whitespace is rejected for both edits, as is one on the
 placeholder character; break requests made out of order and repeated come back ascending and unique.
 
-##### Clitic marks and the ambiguity counter
+##### Clitic marks and the counters
 
 **Tests**: `AlignedTextBuilder_MarkCliticAndCountAmbiguous_ValidateAndAccumulate`,
+`AlignedTextBuilder_CountFallback_IsReportedOnTheResult`,
 `AlignedTextBuilder_TouchesPreviousSpokenLetter_ReportsAdjacencyOnlyAfterLetterEndedSpan`
+
+Two numeric fallbacks counted on a builder are reported as `FallbackCount` 2 by the built `AlignedText`, a
+builder without any gives 0, and the count is independent of the ambiguity count.
 
 The adjacency query is false before any span, true when the last span ends exactly at the asked offset and its
 spoken text ends with a letter, and false after a gap, after a space-ended value and after a dropped span.
@@ -94,5 +99,6 @@ leaves case, punctuation and whitespace outside the spans as written.
 **Tests**: `NormalizationToken_EndAndIn_DescribeTheTokenSpan`,
 `NormalizationKindAndCliticKind_Members_KeepNamesAndValues`
 
-The enumeration test asserts the documented names and the numeric values of `NormalizationKind` (1 to 5) and
-`CliticKind` (0 to 11), which are part of the public contract.
+The enumeration test asserts the documented names and the numeric values of `NormalizationKind` (1 to 5 as
+before, and `Number` 6, `Currency` 7, `DateTime` 8 and `Unit` 9, which were added without changing the earlier
+members) and `CliticKind` (0 to 11), which are part of the public contract.

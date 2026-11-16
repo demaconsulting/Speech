@@ -4,8 +4,9 @@ package SpeechTextEn {
              * abbreviations lexicon with strict validation, looks a token up case-sensitively,
              * and picks between alternative readings of one form (for example St. as Saint or
              * Street) from the neighboring tokens alone, counting the choices that fell back to
-             * the default reading. It also recognizes the name suffixes and credentials (Jr.,
-             * Ph.D., III) that continue a name. */
+             * the default reading. It also holds the month and weekday abbreviations, read as a
+             * prefix before a date and as a suffix elsewhere, and recognizes the name suffixes and
+             * credentials (Jr., Ph.D., III) that continue a name. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AbbreviationResolver.cs, src/DemaConsulting.Speech.Text.En/Resources/abbreviations.tsv */
         comment testRef /* Test: test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AbbreviationResolverTests.cs */

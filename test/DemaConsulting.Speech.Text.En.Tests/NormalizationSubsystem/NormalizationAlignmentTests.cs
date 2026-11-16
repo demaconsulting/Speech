@@ -202,6 +202,28 @@ public sealed class NormalizationAlignmentTests
         var aligned = builder.Build();
         Assert.Equal(2, aligned.Clitics.Count);
         Assert.Equal(2, aligned.AmbiguousCount);
+        Assert.Equal(0, aligned.FallbackCount);
+    }
+
+    /// <summary>Proves numeric fallbacks are counted separately from ambiguous readings and reported on the result; a result built with no count reports none.</summary>
+    [Fact]
+    public void AlignedTextBuilder_CountFallback_IsReportedOnTheResult()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("1,23 and 1.234,5");
+
+        // Act
+        builder.CountFallback();
+        builder.CountFallback();
+        builder.CountFallback();
+        builder.CountAmbiguous();
+        var aligned = builder.Build();
+
+        // Assert: independent counters, and the constructor default is zero
+        Assert.Equal(3, aligned.FallbackCount);
+        Assert.Equal(1, aligned.AmbiguousCount);
+        Assert.Equal(0, new AlignedText("x", [], [], [], [], 0).FallbackCount);
+        Assert.Equal(0, new AlignedTextBuilder("x").Build().FallbackCount);
     }
 
     /// <summary>Proves a clitic mark whose range would overflow or leaves the text is rejected with ArgumentException and does not disturb later marks.</summary>
@@ -346,7 +368,7 @@ public sealed class NormalizationAlignmentTests
     {
         // Assert
         Assert.Equal(
-            ["Abbreviation=1", "Initialism=2", "Symbol=3", "Apostrophe=4", "Dropped=5"],
+            ["Abbreviation=1", "Initialism=2", "Symbol=3", "Apostrophe=4", "Dropped=5", "Number=6", "Currency=7", "DateTime=8", "Unit=9"],
             Enum.GetValues<NormalizationKind>().Select(value => $"{value}={(int)value}"));
         Assert.Equal(
             ["None=0", "Possessive=1", "Is=2", "Has=3", "Would=4", "Had=5", "Will=6", "Have=7", "Are=8", "Am=9", "Not=10", "Us=11"],

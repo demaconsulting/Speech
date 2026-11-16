@@ -3,8 +3,10 @@ package SpeechTextEn {
         doc /* The English text normalization: the alignment contract (the public NormalizationKind
              * and CliticKind enumerations and the internal builder and result that enforce
              * span invariants and reconcile sentence breaks), the TextNormalizer that decides
-             * how abbreviations, symbols, apostrophes and initialisms are spoken, as spans with
-             * exact source offsets (the text itself is never rewritten), the lexicon-backed AbbreviationResolver, and the AcronymRecognizer.
+             * how abbreviations, symbols, apostrophes, initialisms and numeric expressions are
+             * spoken, as spans with exact source offsets (the text itself is never rewritten), the
+             * NumericExpressionRecognizer and NumberVerbalizer that read numbers, currency, units,
+             * times and dates, the lexicon-backed AbbreviationResolver, and the AcronymRecognizer.
              * Production code of this subsystem is independent of the DemaConsulting.PartOfSpeech
              * package and of the Analysis subsystem; the Analysis subsystem depends on it, never
              * the reverse. */
@@ -17,6 +19,8 @@ package SpeechTextEn {
 
         part normalizationAlignment : NormalizationAlignment;
         part textNormalizer : TextNormalizer;
+        part numericExpressionRecognizer : NumericExpressionRecognizer;
+        part numberVerbalizer : NumberVerbalizer;
         part abbreviationResolver : AbbreviationResolver;
         part acronymRecognizer : AcronymRecognizer;
     }

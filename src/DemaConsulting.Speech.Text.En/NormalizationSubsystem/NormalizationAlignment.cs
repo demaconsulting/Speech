@@ -38,6 +38,31 @@ public enum NormalizationKind
     ///     text is empty.
     /// </summary>
     Dropped = 5,
+
+    /// <summary>
+    ///     A number spoken as words: a cardinal, ordinal, decimal, fraction, year, decade,
+    ///     percent sign, <c>#</c> number, range, or a group of digits read one by one. The
+    ///     spoken text has no digits.
+    /// </summary>
+    Number = 6,
+
+    /// <summary>
+    ///     A currency amount: the number and its currency unit (<c>$5.50</c>), or the unit word
+    ///     of a currency code or magnitude (<c>USD</c>, <c>million</c> after a symbol).
+    /// </summary>
+    Currency = 7,
+
+    /// <summary>
+    ///     A date or time: a clock time, a meridiem, a numeric date, or a day or year written
+    ///     next to a month name.
+    /// </summary>
+    DateTime = 8,
+
+    /// <summary>
+    ///     A unit of measure after a number (<c>kg</c>, <c>ft.</c>, <c>&#176;F</c>), spoken in
+    ///     full and singular or plural by the number.
+    /// </summary>
+    Unit = 9,
 }
 
 /// <summary>
@@ -153,7 +178,10 @@ internal readonly record struct AlignedSegment(int Start, int Length, string Spo
 /// <remarks>
 ///     The contract (invariants A1 to A8 of the design) is: spans are ascending, disjoint and in
 ///     bounds; every span is non-empty, starts and ends on non-whitespace, never covers a tag
-///     placeholder and never cuts a surrogate pair; break edits sit on token starts. A builder
+///     placeholder and never cuts a surrogate pair; break edits sit on token starts. The
+///     chunk-safety invariant (A5') - no whitespace, never a semicolon, a comma or colon only between
+///     two ASCII digits - is guaranteed by the rules that create the spans (the recognizer's span
+///     shapes) and verified by the property tests; the builder enforces the structural ones. A builder
 ///     is single-threaded and used for exactly one pass; it keeps the source text only for the
 ///     duration of that pass.
 /// </remarks>
@@ -184,6 +212,9 @@ internal sealed class AlignedTextBuilder
 
     /// <summary>The number of ambiguous resolutions counted so far.</summary>
     private int _ambiguous;
+
+    /// <summary>The number of numeric fallbacks counted so far.</summary>
+    private int _fallbacks;
 
     /// <summary>
     ///     Initializes a new builder for one pass over <paramref name="source"/>.
@@ -321,6 +352,12 @@ internal sealed class AlignedTextBuilder
     internal void CountAmbiguous() => _ambiguous++;
 
     /// <summary>
+    ///     Counts one numeric-looking token or expression that was left as written, or read digit
+    ///     by digit, because it is beyond the documented size limits or is not an en-US shape.
+    /// </summary>
+    internal void CountFallback() => _fallbacks++;
+
+    /// <summary>
     ///     Finishes the pass.
     /// </summary>
     /// <returns>The immutable aligned text; the builder should not be used afterwards.</returns>
@@ -334,7 +371,8 @@ internal sealed class AlignedTextBuilder
             SortedDistinct(_forcedBreaks),
             SortedDistinct(_suppressedBreaks),
             _clitics.ToArray(),
-            _ambiguous);
+            _ambiguous,
+            _fallbacks);
     }
 
     /// <summary>
@@ -398,13 +436,15 @@ internal sealed class AlignedText
     /// <param name="suppressedBreaks">The suppressed break offsets, ascending and unique.</param>
     /// <param name="clitics">The clitic classifications, ascending.</param>
     /// <param name="ambiguousCount">The number of ambiguous resolutions.</param>
+    /// <param name="fallbackCount">The number of numeric fallbacks; 0 when omitted.</param>
     internal AlignedText(
         string source,
         IReadOnlyList<NormalizedSpan> spans,
         IReadOnlyList<int> forcedBreaks,
         IReadOnlyList<int> suppressedBreaks,
         IReadOnlyList<CliticMark> clitics,
-        int ambiguousCount)
+        int ambiguousCount,
+        int fallbackCount = 0)
     {
         Source = source;
         Spans = spans;
@@ -412,6 +452,7 @@ internal sealed class AlignedText
         SuppressedBreaks = suppressedBreaks;
         Clitics = clitics;
         AmbiguousCount = ambiguousCount;
+        FallbackCount = fallbackCount;
     }
 
     /// <summary>Gets the normalized text, exactly as it was supplied.</summary>
@@ -431,6 +472,9 @@ internal sealed class AlignedText
 
     /// <summary>Gets the number of resolutions that used a default or chose between competing cues.</summary>
     internal int AmbiguousCount { get; }
+
+    /// <summary>Gets the number of numeric expressions left as written or read digit by digit because of a documented limit or an unsupported numeric shape.</summary>
+    internal int FallbackCount { get; }
 
     /// <summary>
     ///     Enumerates the full partition of the text: every changed span and every untouched gap

@@ -7,7 +7,8 @@ clitic, apostrophe and dropped-character tables. It never rewrites the text and 
 
 **Data Model**: `TextNormalizer` is a sealed class holding the `AbbreviationResolver`, the
 `AcronymRecognizer` and an optional token-visited observer (a test seam; production passes null). It keeps no
-per-request state. The static `Default` instance is created once, on first use, over the default lexicons.
+per-request state; the numeric rule uses the static `NumericExpressionRecognizer`. The static `Default`
+instance is created once, on first use, over the default lexicons.
 One pass runs in a private `ref struct` named `Pass` that holds the text, the token array, the builder, the
 cancellation token, the index of the first token of the current tokenizer sentence, the cached
 "sentence is all capitals" decision (not yet computed, no, or yes) and the visited-token counter; it lives on
@@ -21,14 +22,39 @@ its tokens (the next token processed is the one after it):
 | --- | --- | --- |
 | 1. Dropped | The token contains an invisible format character, or is a standalone bullet | One `Dropped` span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no other rule looks at that token |
 | 2. Clitic | The token is `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case) | A typographic apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is recorded |
+| 2a. Numeric expression | `NumericExpressionRecognizer.TryRecognize` accepts the token (a number, currency amount, percent, unit, time, date or digit group, alone or with its context tokens) or flags it as a numeric fallback | Up to two spans, emitted in order through `Emit`; the ambiguity and fallback counts are recorded; the tokens the expression consumed are skipped; a unit that may carry an abbreviation period uses the period and sentence rules (see _Numeric rule_) |
 | 3. Abbreviation | `AbbreviationResolver.TryResolve` accepts the token (alone, with its adjacent period token, or as an initial) | The period and sentence rules below decide the span, its period and the break edits |
 | 4. Acronym or initialism | `AcronymRecognizer.TryRecognize` accepts the token | A single `Initialism` span; a dotted form uses the period and sentence rules as class `Free` |
 | 5. Symbol or mark | A standalone operator or mark, or a mark, `&` or `/` inside a word (tables below) | `Symbol` spans |
 | 6. Elision apostrophe | A typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`, `'cause`, `'em` | `Apostrophe` spans |
-| 7. Identity | Anything else | Nothing is recorded: digits and every deferred capability pass through |
+| 7. Identity | Anything else | Nothing is recorded: the deferred capabilities and every number the recognizer does not read pass through |
+
+**Numeric rule (2a).** The rule sits before the abbreviation lexicon so that `5 ft.` reads the unit and
+`Jan. 5` leaves the number to this rule. A token with an invisible character is dropped by rule 1 first, so a
+numeric token that contains one (`5` + U+200B + `0`) is never read as a number. For a match, `ApplyNumeric`:
+
+1. counts a numeric fallback (`CountFallback`) and an ambiguous reading (`CountAmbiguous`, at most once per
+   match) when the match asks for them;
+2. moves the "sentence start" bookkeeping when a token the expression consumed started a tokenizer sentence
+   (the tokenizer cuts `Jan.` from `5`, and sometimes a `$` from its number), and suppresses a tokenizer
+   break that would lie strictly inside a span (A8b);
+3. emits each span through `Emit`, so the A6 padding and "exactly one separator between adjacent
+   replacements" apply (`50%` gives `fifty` and `percent`; `5–10` gives `five`, ` to ` and `ten`);
+4. for a unit that may carry an abbreviation period (`ft`, `lb`, `lbs`, `oz`, `yd`, `mi`, `hr`, `hrs`, `min`
+   and `Ft`), applies the period and sentence rules below to the unit token as class `Suffix`: the period
+   (inside the token, or a separate adjacent token) is consumed in the middle of a sentence and kept at the
+   end of one, and a capitalized next word forces a break (`He is 6 ft. tall.` gives `six feet tall`;
+   `He is 6 ft. Then he left.` keeps the period and forces a break before `Then`; `5 Ft. Worth` gives
+   `five feet. Worth`, because the suffix rules keep the period and force the break before any capitalized
+   word, even a name);
+5. returns the index after the last consumed token. A consumed token with no span of its own (the word
+   `million` in `5 million USD`) is not visited again, but counts as visited for the cancellation cadence.
+
+The span extent, spoken words and policy are decided by the recognizer (see _NumericExpressionRecognizer
+Design_); this unit adds only the counting, the break edits and the period rules.
 
 **Period and sentence rules.** They apply when the candidate has a period, either inside the token (`Dr.`,
-`etc.`, `U.S.`) or as a separate adjacent token (`Ave` and `.`, `p.m` and `.`). Let `last` be the period
+`etc.`, `U.S.`, `ft.`, `Fri.`) or as a separate adjacent token (`Ave` and `.`, `p.m` and `.`, `lbs` and `.`). Let `last` be the period
 token (or the token itself), `following` the first token after `last` that is not a closing quote or bracket,
 and `endsSentence` true when there is no `following` token or the tokenizer starts a sentence at
 `following` (or at a closing mark before it).
@@ -40,7 +66,7 @@ and `endsSentence` true when there is no `following` token or the tokenizer star
 | `Free` (`etc.`, `e.g.`, `U.S.`) | None (the tokenizer already decides) | Kept outside the span if `endsSentence`; otherwise consumed |
 
 For the `Word` reading (`No.` the word) no span is emitted: only the break edit is recorded. **Continuing a
-name.** A candidate whose class is not `Prefix` *continues a name* when `following` is the very next token
+name.** A candidate whose class is not `Prefix` _continues a name_ when `following` is the very next token
 after `last` (no closing mark between) and both the candidate token and `following` are listed name
 suffixes or credentials (`AbbreviationResolver.IsNameContinuation`: `Jr`, `Sr`, `Esq`, `II`, `III`, `IV`,
 `Ph.D`, `PhD`, `M.D`, `D.D.S`, `D.M.D`, `D.V.M`, `D.O`, `J.D`, `R.N`, `C.P.A`, `MBA`, `CPA`, with or without
@@ -59,8 +85,11 @@ Street. It is nice.` versus `Doctor Smith`). A resolution that used the default 
 is counted once as ambiguous, whichever class it ends up with. Examples: `I live on Main St. It is nice.`
 annotates `St` as `Street` and forces a break before `It`; `Sen. Smith spoke.` consumes the period (the tokenizer splits `Sen` from its period
 and may break before `Smith`, which is suppressed because a title never ends a sentence);
-`pens, etc. and more` consumes the period of `etc.`; `Meet at 5 p.m. Then sleep.` annotates `p.m` (the period
-kept), with the digit left for a later increment.
+`pens, etc. and more` consumes the period of `etc.`; `Meet at 5 p.m. Then sleep.` annotates `5` (`five`) and
+`p.m` (`P M`, the period kept); `Jan. 5, 2024` reads the month abbreviation as a prefix (period consumed, the
+tokenizer's break after it suppressed) and `Then Fri. ended.` reads `Fri.` as a suffix with a lower-case next
+word, so the period is consumed and no break is forced (`Then Friday ended.`), while `He left Mon. He came
+Tue.` keeps the period and forces a break before the capitalized next word.
 
 **Standalone operators** (class `Symbol`): the token is exactly the character and whitespace or a text edge
 lies on both sides, so `<b>`, `(+)` and `a=b` stay identity.
@@ -148,10 +177,14 @@ forms and rule-spelled forms alone.
 check, and nothing partial is returned. An `ArgumentException` from `AlignedTextBuilder.Add` means a rule
 broke the alignment contract and propagates unchanged: it is a defect of this unit, not of any input, and
 the property tests are there to prove it never happens. A malformed embedded lexicon (a defective build)
-propagates from `Default` as an `InvalidDataException`. Input text can never cause any other failure, because
+propagates from `Default` as an `InvalidDataException`. A numeric match that the recognizer reports is
+trusted only through the builder: its spans are validated like any other (a numeric span that broke the
+contract would throw `ArgumentException`, a defect of the recognizer that the property tests exclude). Input
+text can never cause any other failure, because
 every neighbor access is bounds-checked and every span is validated.
 
-**Dependencies**: `AbbreviationResolver`, `AcronymRecognizer` and the *NormalizationAlignment* unit (the
-builder, tokens, spans and enumerations). No other unit and no OTS item.
+**Dependencies**: `NumericExpressionRecognizer`, `AbbreviationResolver`, `AcronymRecognizer` and the
+_NormalizationAlignment_ unit (the builder, tokens, spans and enumerations). `NumberVerbalizer` is reached
+only through the recognizer. No other unit and no OTS item.
 
 **Callers**: `EnglishTextAnalyzer`, and the tests.

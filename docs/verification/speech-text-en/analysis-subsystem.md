@@ -33,7 +33,7 @@ and unaffected by abbreviations and tags, and an abbreviation title does not spl
 (normalizing) options; the normalization annotations read back at their spans, merged with the parts of speech,\nwith the sentence breaks reconciled; a placeholder is never covered and the analysis equals that of the
 same text with spaces; an unused analyzer, an untagged analysis and an empty text never load the tagger,
 while many concurrent requests load it exactly once and agree; one counts-only event (sentences, tokens,
-annotations, unknown words, normalizations, ambiguous abbreviations) is reported without any
+annotations, unknown words, normalizations, ambiguous readings, numeric fallbacks) is reported without any
 word and a throwing sink changes nothing; and cancellation, whether it arrives during tagger initialization or
 during the last sentence, throws `OperationCanceledException` and reports nothing.
 

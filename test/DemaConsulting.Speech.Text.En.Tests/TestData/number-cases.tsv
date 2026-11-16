@@ -1,0 +1,524 @@
+# Golden cases for the English numeric normalization (DemaConsulting.Speech.Text.En.Tests).
+#
+# Written from scratch by DEMA Consulting; every row is authored from the documented reading
+# policy (docs/design/speech-text-en/normalization-subsystem/numeric-expression-recognizer.md),
+# not generated from the implementation.
+#
+# Columns (tab separated; '#' lines and blank lines are ignored; the first other line is the header):
+#   id         unique row name, quoted in failure messages
+#   input      the text; escapes: \t \n \r \uXXXX \\ (a tag placeholder is \uFFFC)
+#   spoken     the input with every normalization applied (same escapes)
+#   sentences  the reconciled sentences, each trimmed, joined by the broken bar (U+00A6)
+#   ambiguous  the number of readings counted as ambiguous
+#   fallbacks  the number of numeric fallbacks counted (limits and unsupported numeric shapes)
+#   note       free text
+id	input	spoken	sentences	ambiguous	fallbacks	note
+int-0	0	zero	0	0	0	zero
+int-7	7	seven	7	0	0	one digit
+int-10	10	ten	10	0	0	ten
+int-13	13	thirteen	13	0	0	teens
+int-19	19	nineteen	19	0	0	last teen
+int-20	20	twenty	20	0	0	first tens word
+int-21	21	twenty one	21	0	0	no hyphen
+int-40	40	forty	40	0	0	spelled forty not fourty
+int-42	42	forty two	42	0	0	tens and ones
+int-99	99	ninety nine	99	0	0	two-digit maximum
+int-100	100	one hundred	100	0	0	hundred
+int-101	101	one hundred one	101	0	0	no and
+int-110	110	one hundred ten	110	0	0	hundred and teen
+int-999	999	nine hundred ninety nine	999	0	0	three-digit maximum
+int-1000	1000	one thousand	1000	0	0	four digits, year and cardinal agree
+int-9999	9999	nine thousand nine hundred ninety nine	9999	0	0	outside the year range
+int-2100	2100	two thousand one hundred	2100	0	0	just above the year range
+int-12345	12345	twelve thousand three hundred forty five	12345	0	0	five digits
+int-100000	100000	one hundred thousand	100000	0	0	zero groups are skipped
+int-1000000	1000000	one million	1000000	0	0	million
+int-1234567	1234567	one million two hundred thirty four thousand five hundred sixty seven	1234567	0	0	seven digits
+int-1e9	1000000000	one billion	1000000000	0	0	ten digits have no phone guess
+int-10digits	1234567890	one billion two hundred thirty four million five hundred sixty seven thousand eight hundred ninety	1234567890	0	0	ten digits
+int-15digits	999999999999999	nine hundred ninety nine trillion nine hundred ninety nine billion nine hundred ninety nine million nine hundred ninety nine thousand nine hundred ninety nine	999999999999999	0	0	largest cardinal
+int-trillion	1000000000000	one trillion	1000000000000	0	0	trillion
+int-mixed-zero	1000001	one million one	1000001	0	0	inner zero groups
+year-1500-default	1500	fifteen hundred	1500	1	0	no cue: year default, counted
+year-1999-default	1999	nineteen ninety nine	1999	1	0	no cue: year default
+year-1905	1905	nineteen oh five	1905	1	0	oh for a single digit
+year-1900	1900	nineteen hundred	1900	1	0	hundred
+year-1100	1100	eleven hundred	1100	1	0	lowest default year
+year-2000	2000	two thousand	2000	0	0	same either way, never counted
+year-2001	2001	two thousand one	2001	0	0	same either way
+year-2009	2009	two thousand nine	2009	0	0	same either way
+year-2010	2010	twenty ten	2010	1	0	pair reading
+year-2024	2024	twenty twenty four	2024	1	0	pair reading
+year-2099	2099	twenty ninety nine	2099	1	0	highest year
+year-1066-card	1066	one thousand sixty six	1066	1	0	below 1100 the default is the cardinal, counted
+year-1001-card	1001	one thousand one	1001	1	0	below 1100 the default is the cardinal
+year-in-1066	in 1066	in ten sixty six	in 1066	0	0	a year cue makes it a year
+year-since-1999	since 1999	since nineteen ninety nine	since 1999	0	0	year cue word
+year-by-2030	by 2030	by twenty thirty	by 2030	0	0	year cue word
+year-before-1900	before 1900	before nineteen hundred	before 1900	0	0	year cue word
+year-circa-1500	circa 1500	circa fifteen hundred	circa 1500	0	0	year cue word
+year-In-capital	In 1999 it ended.	In nineteen ninety nine it ended.	In 1999 it ended.	0	0	the cue word is case-insensitive
+year-ad	1066 AD	ten sixty six AD	1066 AD	0	0	an era word after the number
+year-bc	500 BC	five hundred B C	500 BC	0	0	not four digits: a cardinal; BC is spelled by the initialism rule
+year-about-1500	about 1500 people	about one thousand five hundred people	about 1500 people	0	0	a quantity cue before
+year-1500-people	1500 people	one thousand five hundred people	1500 people	0	0	a counted noun after
+year-1999-kg	1999 kg	one thousand nine hundred ninety nine kilograms	1999 kg	0	0	a unit after is a quantity
+year-over-2024	over 2024	over two thousand twenty four	over 2024	0	0	quantity cue: cardinal
+year-2024-percent	2024%	two thousand twenty four percent	2024%	0	0	a percent sign makes it a quantity
+year-in-2024-dot	We met in 2024.	We met in twenty twenty four.	We met in 2024.	0	0	year at the end of a sentence
+sign-minus	-5	minus five	-5	0	0	glued minus
+sign-unicode-minus	\u22127	minus seven	\u22127	0	0	the minus sign U+2212
+sign-plus	+3	plus three	+3	0	0	glued plus
+sign-plus-one	+1	plus one	+1	0	0	plus one
+sign-minus-decimal	-3.5	minus three point five	-3.5	0	0	signed decimal
+sign-minus-year-like	-1999	minus one thousand nine hundred ninety nine	-1999	0	0	a signed number is never a year
+sign-op-spaced	2 + 2	two plus two	2 + 2	0	0	a spaced plus stays an operator
+zero-007	007	zero zero seven	007	0	0	leading zero is an identifier
+zero-00	00	zero zero	00	0	0	two zeros
+zero-0123	0123	zero one two three	0123	0	0	leading zero
+thou-1234	1,234	one thousand two hundred thirty four	1,234	0	0	thousands separator
+thou-12345	12,345	twelve thousand three hundred forty five	12,345	0	0	thousands separator
+thou-million	1,000,000	one million	1,000,000	0	0	two separators
+thou-max	999,999,999,999,999	nine hundred ninety nine trillion nine hundred ninety nine billion nine hundred ninety nine million nine hundred ninety nine thousand nine hundred ninety nine	999,999,999,999,999	0	0	fifteen grouped digits
+thou-decimal	1,234.5	one thousand two hundred thirty four point five	1,234.5	0	0	grouping with a fraction
+thou-1500-comma	1,500	one thousand five hundred	1,500	0	0	a comma means a cardinal, not a year
+thou-bad-short	1,23	1,23	1,23	0	1	not en-US grouping: left as written
+thou-bad-indian	12,34,567	12,34,567	12,34,567	0	1	not en-US grouping
+thou-bad-european	1.234,5	1.234,5	1.234,5	0	1	decimal comma is not supported
+thou-bad-pair	1,2,3	1,2,3	1,2,3	0	1	not en-US grouping
+dec-3-5	3.5	three point five	3.5	0	0	decimal
+dec-0-5	0.5	zero point five	0.5	0	0	zero point
+dec-dot5	.5	point five	.5	0	0	leading point
+dec-5-0	5.0	five point zero	5.0	0	0	trailing zero kept
+dec-1-234	1.234	one point two three four	1.234	0	0	never thousands
+dec-0-05	0.05	zero point zero five	0.05	0	0	zeros kept
+dec-10-25	10.25	ten point two five	10.25	0	0	two-digit integer part
+dec-pi	3.14159	three point one four one five nine	3.14159	0	0	long fraction
+dec-neg-dot	-.5	minus point five	-.5	0	0	signed leading point
+dec-sentence	It is 3.5 miles.	It is three point five miles.	It is 3.5 miles.	0	0	no sentence break inside a decimal
+dec-sentence-2	Pi is 3.14. Then 2.71 follows.	Pi is three point one four. Then two point seven one follows.	Pi is 3.14.¦Then 2.71 follows.	0	0	two decimals, one real break
+ord-1st	1st	first	1st	0	0	first
+ord-2nd	2nd	second	2nd	0	0	second
+ord-3rd	3rd	third	3rd	0	0	third
+ord-4th	4th	fourth	4th	0	0	fourth
+ord-5th	5th	fifth	5th	0	0	fifth
+ord-8th	8th	eighth	8th	0	0	eighth
+ord-9th	9th	ninth	9th	0	0	ninth
+ord-11th	11th	eleventh	11th	0	0	teen exception
+ord-12th	12th	twelfth	12th	0	0	teen exception
+ord-13th	13th	thirteenth	13th	0	0	teen exception
+ord-20th	20th	twentieth	20th	0	0	tens ordinal
+ord-21st	21st	twenty first	21st	0	0	compound ordinal
+ord-22nd	22nd	twenty second	22nd	0	0	compound ordinal
+ord-23rd	23rd	twenty third	23rd	0	0	compound ordinal
+ord-40th	40th	fortieth	40th	0	0	fortieth
+ord-90th	90th	ninetieth	90th	0	0	ninetieth
+ord-100th	100th	one hundredth	100th	0	0	hundredth
+ord-101st	101st	one hundred first	101st	0	0	hundred and first
+ord-111th	111th	one hundred eleventh	111th	0	0	teen after a hundred
+ord-1000th	1,000th	one thousandth	1,000th	0	0	with a separator
+ord-million	1,000,000th	one millionth	1,000,000th	0	0	millionth
+ord-0th	0th	zeroth	0th	0	0	zeroth
+ord-upper	1ST	first	1ST	0	0	the suffix is case-insensitive
+ord-wrong-1th	1th	1th	1th	0	0	the suffix must match the number
+ord-wrong-2st	2st	2st	2st	0	0	the suffix must match the number
+ord-wrong-11st	11st	11st	11st	0	0	teens take th
+ord-leading-zero	01st	01st	01st	0	0	a leading zero is an identifier, not an ordinal
+ord-context	Finish in 3rd place.	Finish in third place.	Finish in 3rd place.	0	0	in a sentence
+hash-5	#5	number five	#5	0	0	hash number
+hash-1	#1	number one	#1	0	0	hash number
+hash-007	#007	number zero zero seven	#007	0	0	hash with a leading zero
+hash-spaced	# 5	# five	# 5	0	0	a hash apart from its number stays
+hash-context	See item #12 now.	See item number twelve now.	See item #12 now.	0	0	hash in a sentence
+dec-s-1990s	1990s	nineteen nineties	1990s	0	0	decade
+dec-s-90s	90s	nineties	90s	0	0	two-digit decade
+dec-s-1900s	1900s	nineteen hundreds	1900s	0	0	century decade
+dec-s-2000s	2000s	two thousands	2000s	0	0	two thousands
+dec-s-2010s	2010s	twenty tens	2010s	0	0	twenty tens
+dec-s-1800s	1800s	eighteen hundreds	1800s	0	0	hundreds
+dec-s-1000s	1000s	one thousands	1000s	0	0	thousands
+dec-s-apostrophe	1990's	nineteen nineties	1990's	0	0	apostrophe s
+dec-s-90-apostrophe	90's	nineties	90's	0	0	two-digit apostrophe s
+dec-s-10s	10s	tens	10s	0	0	tens
+dec-s-20s	20s	twenties	20s	0	0	twenties
+dec-s-leading-apostrophe	'90s	nineties	'90s	0	0	leading apostrophe spans two tokens
+dec-s-typographic	\u201990s	nineties	\u201990s	0	0	typographic leading apostrophe
+dec-s-opening-quote	\u201890s	nineties	\u201890s	0	0	opening single quote
+dec-s-context	Music of the 1990s was loud.	Music of the nineteen nineties was loud.	Music of the 1990s was loud.	0	0	in a sentence
+dec-s-glued-apostrophe	rock'90s	rock'90s	rock'90s	0	0	an apostrophe inside a word is not a decade
+dec-s-5s	5s	5s	5s	0	0	not a decade
+dec-s-10000s	10000s	10000s	10000s	0	0	too many digits
+dec-s-1995s	1995s	1995s	1995s	0	0	not ending in zero
+dec-s-2100s	2100s	2100s	2100s	0	0	outside the year range
+dec-s-00s	00s	00s	00s	0	0	leading zero
+cur-5	$5	five dollars	$5	0	0	whole dollars
+cur-1	$1	one dollar	$1	0	0	singular only for exactly one
+cur-0	$0	zero dollars	$0	0	0	zero is plural
+cur-5-50	$5.50	five dollars and fifty cents	$5.50	0	0	cents
+cur-1-01	$1.01	one dollar and one cent	$1.01	0	0	singular cent
+cur-0-99	$0.99	ninety nine cents	$0.99	0	0	cents only
+cur-dot99	$.99	ninety nine cents	$.99	0	0	cents only, leading point
+cur-5-00	$5.00	five dollars	$5.00	0	0	zero cents are not spoken
+cur-0-01	$0.01	one cent	$0.01	0	0	one cent
+cur-0-00	$0.00	zero dollars	$0.00	0	0	zero
+cur-1-00	$1.00	one dollar	$1.00	0	0	exactly one
+cur-1-50	$1.50	one dollar and fifty cents	$1.50	0	0	singular dollar with cents
+cur-5-5	$5.5	five point five dollars	$5.5	0	0	one fraction digit is a decimal
+cur-5-123	$5.123	five point one two three dollars	$5.123	0	0	three fraction digits are a decimal
+cur-1-5	$1.5	one point five dollars	$1.5	0	0	plural after a decimal
+cur-1234-50	$1,234.50	one thousand two hundred thirty four dollars and fifty cents	$1,234.50	0	0	grouping and cents
+cur-big	$1,234,567.89	one million two hundred thirty four thousand five hundred sixty seven dollars and eighty nine cents	$1,234,567.89	0	0	grouping and cents
+cur-euro	\u20AC5.50	five euros and fifty cents	\u20AC5.50	0	0	euro
+cur-euro-1	\u20AC1	one euro	\u20AC1	0	0	singular euro
+cur-pound	\u00A33	three pounds	\u00A33	0	0	pound
+cur-pound-0-50	\u00A30.50	fifty pence	\u00A30.50	0	0	pence
+cur-pound-1-01	\u00A31.01	one pound and one penny	\u00A31.01	0	0	penny
+cur-pound-1	\u00A31	one pound	\u00A31	0	0	singular pound
+cur-yen	\u00A5500	five hundred yen	\u00A5500	0	0	yen has no plural
+cur-yen-decimal	\u00A55.5	five point five yen	\u00A55.5	0	0	yen takes no cents
+cur-yen-1	\u00A51	one yen	\u00A51	0	0	one yen
+cur-yen-2-digits	\u00A55.25	five point two five yen	\u00A55.25	0	0	yen never takes cents
+cur-neg-glued	-$5	minus five dollars	-$5	0	0	glued sign
+cur-neg-after	$-5	minus five dollars	$-5	0	0	sign after the symbol
+cur-neg-unicode	\u2212$5	minus five dollars	\u2212$5	0	0	unicode minus
+cur-neg-cents	-$0.99	minus ninety nine cents	-$0.99	0	0	negative cents
+cur-million	$5 million	five million dollars	$5 million	0	0	symbol and number, then a magnitude word
+cur-billion	$2.5 billion	two point five billion dollars	$2.5 billion	0	0	decimal amount and magnitude word
+cur-thousand	$3 thousand	three thousand dollars	$3 thousand	0	0	magnitude word
+cur-trillion	$1 trillion	one trillion dollars	$1 trillion	0	0	magnitude word is always plural
+cur-letter-m	$5M	five million dollars	$5M	0	0	glued magnitude letter
+cur-letter-decimal	$5.5M	five point five million dollars	$5.5M	0	0	glued magnitude letter with a fraction
+cur-letter-k	$10k	ten thousand dollars	$10k	0	0	lowercase k
+cur-letter-b	$3B	three billion dollars	$3B	0	0	billion
+cur-letter-lower-m	$1.5m	one point five million dollars	$1.5m	0	0	lowercase m
+cur-euro-million	\u20AC5 million	five million euros	\u20AC5 million	0	0	euro magnitude
+cur-suffix-glued	5$	five dollars	5$	0	0	glued suffix symbol
+cur-suffix-euro-glued	5\u20AC	five euros	5\u20AC	0	0	glued suffix euro
+cur-suffix-apart	5 \u20AC	five euros	5 \u20AC	0	0	spaced suffix symbol
+cur-code-usd	5 USD	five dollars	5 USD	0	0	suffix code
+cur-code-one	1 USD	one dollar	1 USD	0	0	singular
+cur-code-decimal	5.50 EUR	five point five zero euros	5.50 EUR	0	0	a code never makes cents
+cur-code-million	5 million USD	five million dollars	5 million USD	0	0	code after a magnitude word
+cur-code-jpy	500 JPY	five hundred yen	500 JPY	0	0	yen
+cur-code-gbp	3 GBP	three pounds	3 GBP	0	0	pound
+cur-code-glued	5USD	five dollars	5USD	0	0	glued code
+cur-code-year-like	1500 USD	one thousand five hundred dollars	1500 USD	0	0	a code after a four-digit number is a quantity
+cur-prefix-code	US$5	US$5	US$5	0	0	prefix codes are deferred
+cur-spaced-symbol	$ 5	$ five	$ 5	0	0	a symbol apart from its number is left alone
+cur-bad-grouping	$1,23	$1,23	$1,23	0	1	the number is not en-US
+cur-sentence	It costs $1.25. Then $2.	It costs one dollar and twenty five cents. Then two dollars.	It costs $1.25.¦Then $2.	0	0	period after an amount ends the sentence
+cur-sentence-2	Pay $5.50 now, then $1,000.	Pay five dollars and fifty cents now, then one thousand dollars.	Pay $5.50 now, then $1,000.	0	0	two amounts
+pct-50	50%	fifty percent	50%	0	0	percent
+pct-spaced	50 %	fifty percent	50 %	0	0	one space before the sign
+pct-decimal	3.5%	three point five percent	3.5%	0	0	decimal percent
+pct-neg	-5%	minus five percent	-5%	0	0	negative percent
+pct-100	100%	one hundred percent	100%	0	0	hundred percent
+pct-0	0%	zero percent	0%	0	0	zero percent
+pct-alone	%	%	%	0	0	a sign with no number stays
+pct-context	Up 50%. Then flat.	Up fifty percent. Then flat.	Up 50%.¦Then flat.	0	0	percent before a period
+pct-two-spaces	50  %	fifty  %	50  %	0	0	two spaces: not joined
+unit-5kg-spaced	5 kg	five kilograms	5 kg	0	0	unit
+unit-1kg	1 kg	one kilogram	1 kg	0	0	singular
+unit-5kg-glued	5kg	five kilograms	5kg	0	0	glued unit
+unit-1-5kg	1.5 kg	one point five kilograms	1.5 kg	0	0	decimal is plural
+unit-1-0kg	1.0 kg	one point zero kilograms	1.0 kg	0	0	exactly one only
+unit-72F	72\u00B0F	seventy two degrees Fahrenheit	72\u00B0F	0	0	glued temperature
+unit-72F-spaced	72 \u00B0F	seventy two degrees Fahrenheit	72 \u00B0F	0	0	spaced temperature
+unit-72C	72\u00B0C	seventy two degrees Celsius	72\u00B0C	0	0	Celsius
+unit-1C	1\u00B0C	one degree Celsius	1\u00B0C	0	0	singular Celsius
+unit-5deg	5\u00B0	five degrees	5\u00B0	0	0	bare degrees
+unit-1deg	1\u00B0	one degree	1\u00B0	0	0	one degree
+unit-neg-temp	-5\u00B0C	minus five degrees Celsius	-5\u00B0C	0	0	negative temperature
+unit-mph	60 mph	sixty miles per hour	60 mph	0	0	speed
+unit-1mph	1 mph	one mile per hour	1 mph	0	0	singular speed
+unit-kmh-glued	10km/h	ten kilometers per hour	10km/h	0	0	glued speed
+unit-kmh	5 km/h	five kilometers per hour	5 km/h	0	0	spaced speed
+unit-mm	5 mm	five millimeters	5 mm	0	0	millimeter
+unit-cm	5 cm	five centimeters	5 cm	0	0	centimeter
+unit-km	5 km	five kilometers	5 km	0	0	kilometer
+unit-mg	5 mg	five milligrams	5 mg	0	0	milligram
+unit-oz	5 oz	five ounces	5 oz	0	0	ounce
+unit-ml	5 ml	five milliliters	5 ml	0	0	milliliter
+unit-yd	5 yd	five yards	5 yd	0	0	yard
+unit-mi	5 mi	five miles	5 mi	0	0	mile
+unit-KB	5 KB	five kilobytes	5 KB	0	0	kilobyte
+unit-MB	5 MB	five megabytes	5 MB	0	0	megabyte
+unit-GB	5 GB	five gigabytes	5 GB	0	0	gigabyte
+unit-TB	2 TB	two terabytes	2 TB	0	0	terabyte
+unit-Hz	440 Hz	four hundred forty hertz	440 Hz	0	0	hertz
+unit-1Hz	1 Hz	one hertz	1 Hz	0	0	one hertz
+unit-kHz	5 kHz	five kilohertz	5 kHz	0	0	kilohertz
+unit-MHz	3 MHz	three megahertz	3 MHz	0	0	megahertz
+unit-GHz	2.4 GHz	two point four gigahertz	2.4 GHz	0	0	gigahertz
+unit-ms	5 ms	five milliseconds	5 ms	0	0	millisecond
+unit-1ms	1 ms	one millisecond	1 ms	0	0	singular millisecond
+unit-hr	5 hr	five hours	5 hr	0	0	hour
+unit-min	5 min	five minutes	5 min	0	0	minute
+unit-lb	5 lb	five pounds	5 lb	0	0	pound weight
+unit-1lb	1 lb	one pound	1 lb	0	0	singular pound weight
+unit-ft-bare	5 ft	five feet	5 ft	0	0	feet
+unit-1ft-bare	1 ft	one foot	1 ft	0	0	foot
+unit-Ft-bare	5 Ft	five feet	5 Ft	0	0	capital Ft after a number is a unit
+unit-ft-mid	He is 6 ft. tall.	He is six feet tall.	He is 6 ft. tall.	0	0	period consumed mid-sentence
+unit-ft-end	He is 6 ft.	He is six feet.	He is 6 ft.	0	0	period kept at the end
+unit-ft-break	He is 6 ft. Then he left.	He is six feet. Then he left.	He is 6 ft.¦Then he left.	0	0	break forced before a capitalized word
+unit-1ft-end	1 ft.	one foot.	1 ft.	0	0	one foot, period kept
+unit-Ft-break	5 Ft. Worth	five feet. Worth	5 Ft.¦Worth	0	0	the number before wins over Fort
+unit-lbs-end	180 lbs.	one hundred eighty pounds.	180 lbs.	0	0	separate period token kept at the end
+unit-lbs-mid	180 lbs. now	one hundred eighty pounds now	180 lbs. now	0	0	separate period token consumed
+unit-min-mid	a 5 min. read	a five minutes read	a 5 min. read	0	0	period consumed
+unit-glued-ft	5ft. tall	five feet tall	5ft. tall	0	0	glued unit with its period
+unit-glued-ft-end	Height: 5ft.	Height: five feet.	Height: 5ft.	0	0	glued unit, period kept
+unit-in-excluded	5 in	five in	5 in	0	0	ambiguous word units are excluded
+unit-m-excluded	5 m	five m	5 m	0	0	single-letter units are excluded
+unit-g-excluded	5 g	five g	5 g	0	0	single-letter units are excluded
+unit-case-sensitive	5 Kg	five Kg	5 Kg	0	0	units are case-sensitive
+unit-year-like	1500 kg	one thousand five hundred kilograms	1500 kg	0	0	a unit after four digits makes a quantity
+unit-no-number	kg	kg	kg	0	0	a unit alone stays
+time-5-30	5:30	five thirty	5:30	0	0	time
+time-12-30	12:30	twelve thirty	12:30	0	0	time
+time-5-05	5:05	five oh five	5:05	0	0	oh for a single minute digit
+time-5-00	5:00	five o'clock	5:00	0	0	o'clock
+time-12-00	12:00	twelve o'clock	12:00	0	0	o'clock
+time-17-45	17:45	seventeen forty five	17:45	0	0	24-hour clock
+time-17-00	17:00	seventeen hundred	17:00	0	0	hundred
+time-07-05	07:05	oh seven oh five	07:05	0	0	leading zero
+time-07-00	07:00	oh seven hundred	07:00	0	0	leading zero and hundred
+time-0-30	0:30	zero thirty	0:30	0	0	hour zero
+time-00-00	00:00	zero hundred	00:00	0	0	midnight
+time-23-59	23:59	twenty three fifty nine	23:59	0	0	last minute
+time-pm-glued	5:30pm	five thirty P M	5:30pm	0	0	glued meridiem
+time-PM-glued	5:30PM	five thirty P M	5:30PM	0	0	glued uppercase meridiem
+time-hour-pm	5pm	five P M	5pm	0	0	hour and meridiem
+time-hour-PM	5PM	five P M	5PM	0	0	hour and uppercase meridiem
+time-am-noon	12:00am	twelve A M	12:00am	0	0	zero minutes dropped with a meridiem
+time-5-00pm	5:00pm	five P M	5:00pm	0	0	zero minutes dropped with a meridiem
+time-11-59pm	11:59pm	eleven fifty nine P M	11:59pm	0	0	last minute of the day
+time-separate-pm	5 pm	five P M	5 pm	0	0	separate lowercase meridiem
+time-separate-am	5 am	five A M	5 am	0	0	separate lowercase meridiem
+time-separate-minutes-pm	5:30 pm	five thirty P M	5:30 pm	0	0	separate meridiem after a time
+time-separate-zero-pm	5:00 pm	five P M	5:00 pm	0	0	zero minutes dropped
+time-dotted	5:30 p.m.	five thirty P M.	5:30 p.m.	0	0	dotted meridiem is the existing initialism rule (its period ends the text)
+time-upper-apart	5 PM	five P M	5 PM	0	0	spaced uppercase meridiem
+time-sentence	Meet at 5:30pm. Then go.	Meet at five thirty P M. Then go.	Meet at 5:30pm.¦Then go.	0	0	period after a time
+time-invalid-25	25:99	25:99	25:99	0	0	invalid time
+time-invalid-short	3:2	3:2	3:2	0	0	ratio, deferred
+time-invalid-seconds	5:30:15	5:30:15	5:30:15	0	0	h:mm:ss is deferred
+time-invalid-ones	1:1:1	1:1:1	1:1:1	0	0	deferred
+time-invalid-hour-pm	13:30pm	13:30pm	13:30pm	0	0	24-hour hour with a meridiem
+time-invalid-zero-pm	0pm	0pm	0pm	0	0	hour zero with a meridiem
+time-invalid-13pm	13pm	13pm	13pm	0	0	hour above 12 with a meridiem
+time-invalid-minute	5:60	5:60	5:60	0	0	minute 60
+date-us	12/25/2024	December twenty fifth twenty twenty four	12/25/2024	0	0	month first
+date-day-first	25/12/2024	December twenty fifth twenty twenty four	25/12/2024	0	0	day first: first part above 12
+date-iso	2024-12-25	December twenty fifth twenty twenty four	2024-12-25	0	0	year first
+date-iso-slash	2024/12/25	December twenty fifth twenty twenty four	2024/12/25	0	0	year first with slashes
+date-hyphen-us	12-25-2024	December twenty fifth twenty twenty four	12-25-2024	0	0	month first with hyphens
+date-ambiguous	3/4/2024	March fourth twenty twenty four	3/4/2024	1	0	month first by default, counted
+date-ambiguous-2yr	1/2/24	January second twenty four	1/2/24	1	0	two-digit year, counted
+date-ambiguous-hyphen	03-04-2024	March fourth twenty twenty four	03-04-2024	1	0	hyphens, counted
+date-same-parts	12/12/2024	December twelfth twenty twenty four	12/12/2024	0	0	equal parts: not ambiguous
+date-jan-first	1/1/2000	January first two thousand	1/1/2000	0	0	equal parts
+date-1999	6/15/1999	June fifteenth nineteen ninety nine	6/15/1999	0	0	1999
+date-2076	7/4/2076	July fourth twenty seventy six	7/4/2076	1	0	year pair; month and day differ, counted
+date-end-of-year	12/31/1999	December thirty first nineteen ninety nine	12/31/1999	0	0	day 31
+date-day-first-31	31/12/2024	December thirty first twenty twenty four	31/12/2024	0	0	day first
+date-two-digit-oh	1/1/05	January first oh five	1/1/05	0	0	two-digit year with a leading zero
+date-no-calendar-check	2/30/2024	February thirtieth twenty twenty four	2/30/2024	0	0	no calendar validation, documented
+date-iso-day-30	2024-02-30	February thirtieth twenty twenty four	2024-02-30	0	0	no calendar validation
+date-invalid-13-13	13/13/2024	13/13/2024	13/13/2024	0	0	neither part is a month
+date-invalid-zero	0/5/2024	0/5/2024	0/5/2024	0	0	month zero
+date-invalid-32	2/32/2024	2/32/2024	2/32/2024	0	0	day 32
+date-invalid-year-00	1/1/00	1/1/00	1/1/00	0	0	year 00 is not a year
+date-invalid-short-year	5/5/5	5/5/5	5/5/5	0	0	one-digit year
+date-iso-bad-month	2024-13-01	two zero two four one three zero one	2024-13-01	0	0	not a date: an identifier read digit by digit
+date-dotted	12.25.2024	twelve point twenty five point two zero two four	12.25.2024	0	0	dots are never a date
+date-sentence	Due 12/25/2024. Then rest.	Due December twenty fifth twenty twenty four. Then rest.	Due 12/25/2024.¦Then rest.	0	0	date before a period
+mdate-comma	January 5, 2024	January fifth, twenty twenty four	January 5, 2024	0	0	month day, year
+mdate-ordinal	January 5th, 2024	January fifth, twenty twenty four	January 5th, 2024	0	0	ordinal day
+mdate-day-first-ordinal	5th January 2024	fifth January twenty twenty four	5th January 2024	0	0	ordinal day first
+mdate-day-first	5 January 2024	fifth January twenty twenty four	5 January 2024	0	0	day first
+mdate-month-day	December 25	December twenty fifth	December 25	0	0	month and day
+mdate-month-year	May 2024	May twenty twenty four	May 2024	0	0	month and year
+mdate-in-month-year	in May 2024	in May twenty twenty four	in May 2024	0	0	month and year after a word
+mdate-may-5	May 5	May fifth	May 5	0	0	May is a month before a number
+mdate-abbr-year	Dec 25 2024	December twenty fifth twenty twenty four	Dec 25 2024	0	0	periodless abbreviation
+mdate-not-day	May 45	May forty five	May 45	0	0	above 31 is not a day
+mdate-day-then-noun	May 5 people	May fifth people	May 5 people	0	0	still a day
+mdate-lower-may	may 5	may five	may 5	0	0	lowercase may is a verb
+mdate-abbr-dot	Jan. 5	January fifth	Jan. 5	0	0	abbreviation with a period before a day
+mdate-abbr-dot-year	Jan. 5, 2024	January fifth, twenty twenty four	Jan. 5, 2024	0	0	period consumed, no break
+mdate-sept-11	Sept. 11, 2001 was a Tuesday.	September eleventh, two thousand one was a Tuesday.	Sept. 11, 2001 was a Tuesday.	0	0	a date with an abbreviation
+mdate-multi	Sat. 5 Jan. 2024 and Sun. Mar. 5 and Wed. 7:30.	Saturday fifth January twenty twenty four and Sunday March fifth and Wednesday seven thirty.	Sat. 5 Jan. 2024 and Sun. Mar. 5 and Wed. 7:30.	0	0	every false tokenizer break is removed
+mdate-suffix-break	5 Jan. He left.	fifth January. He left.	5 Jan.¦He left.	0	0	a month at a sentence end keeps its break
+mdate-in-dec	in Dec. She left.	in December. She left.	in Dec.¦She left.	0	0	suffix reading
+mdate-number-mar	5 Mar.	fifth March.	5 Mar.	0	0	month after a day number
+mdate-bare-mar	Mar.	Mar.	Mar.	0	0	a bare Mar. stays (the verb)
+mdate-bare-sun	Sun.	Sun.	Sun.	0	0	a bare Sun. stays
+mdate-weekday-break	He left Mon. He came Tue.	He left Monday. He came Tuesday.	He left Mon.¦He came Tue.	0	0	weekday at a sentence end keeps its break
+mdate-weekday-lower	Then Fri. ended.	Then Friday ended.	Then Fri. ended.	0	0	weekday suffix keeps the tokenizer opinion: no break, so the period is consumed
+mdate-sun-after-number	5 Sun.	five Sunday.	5 Sun.	0	0	Sun. after a number is the weekday
+mdate-bare-may-sentence	May I go?	May I go?	May I go?	0	0	May before a word is the verb
+mdate-may-period-sentence	We finished in May. 5 people stayed.	We finished in May. five people stayed.	We finished in May.¦5 people stayed.	0	0	a period after May ends the sentence; no date context
+mdate-january-period-sentence	We finished in January. 5 people stayed.	We finished in January. five people stayed.	We finished in January.¦5 people stayed.	0	0	a full month name
+mdate-january-period-year-noun	January. 1999 people	January. one thousand nine hundred ninety nine people	January.¦1999 people	0	0	the quantity noun decides, not a date year
+mdate-full-period-year-default	It is May. 1999 was a year.	It is May. nineteen ninety nine was a year.	It is May.¦1999 was a year.	1	0	no date context: the no-cue year default is counted
+mdate-full-period-day-year	May. 5, 2024	May. five, twenty twenty four	May.¦5, 2024	1	0	neither number is date context
+mdate-day-full-period-then-number	5 May. 5 people	fifth May. five people	5 May.¦5 people	0	0	day before a month by look-ahead; the next number is not
+mdate-day-full-period-year	5 May. 2024	fifth May. twenty twenty four	5 May.¦2024	1	0	the year after a full-name period has no date context
+mdate-abbr-period-year	He left Mar. 2024.	He left March twenty twenty four.	He left Mar. 2024.	0	0	an abbreviation period keeps the date context
+mdate-full-march-period-year	He left March. 2024.	He left March. twenty twenty four.	He left March.¦2024.	1	0	full name: sentence end
+mdate-abbr-day-sentence-end	Jan. 5. He left.	January fifth. He left.	Jan. 5.¦He left.	0	0	abbreviation period, day, real sentence end
+mdate-abbr-period-noun-residual	We left in Dec. 25 people stayed.	We left in December twenty fifth people stayed.	We left in Dec. 25 people stayed.	0	0	documented residual: abbreviation plus number is a date
+mdate-paragraph-break-day	We left in May\n\n5 people stayed.	We left in May\n\nfive people stayed.	We left in May¦5 people stayed.	0	0	a retained break without a period
+mdate-paragraph-break-year	Month: May\n\n1999 people	Month: May\n\none thousand nine hundred ninety nine people	Month: May¦1999 people	0	0	a retained break without a period before a year
+mdate-day-year-paragraph-break	Dec 25\n\n2024 people	December twenty fifth\n\ntwo thousand twenty four people	Dec 25¦2024 people	0	0	a break between a day and a year ends the date
+mdate-abbr-day-year-paragraph-break	Jan. 5\n\n2024 people	January fifth\n\ntwo thousand twenty four people	Jan. 5¦2024 people	0	0	the same after an abbreviation period
+abbr-months-dot-1	Jan. 5, Feb. 3, Mar. 9, Apr. 1.	January fifth, February third, March ninth, April first.	Jan. 5, Feb. 3, Mar. 9, Apr. 1.	0	0	month abbreviations with periods
+abbr-months-dot-2	Jun. 6, Jul. 7, Aug. 8, Sep. 9, Sept. 10, Oct. 11, Nov. 12, Dec. 13.	June sixth, July seventh, August eighth, September ninth, September tenth, October eleventh, November twelfth, December thirteenth.	Jun. 6, Jul. 7, Aug. 8, Sep. 9, Sept. 10, Oct. 11, Nov. 12, Dec. 13.	0	0	month abbreviations with periods
+abbr-months-bare	Jan 5, Feb 3, Mar 9, Apr 1, Jun 6, Jul 7, Aug 8, Sep 9, Sept 10, Oct 11, Nov 12, Dec 13.	January fifth, February third, March ninth, April first, June sixth, July seventh, August eighth, September ninth, September tenth, October eleventh, November twelfth, December thirteenth.	Jan 5, Feb 3, Mar 9, Apr 1, Jun 6, Jul 7, Aug 8, Sep 9, Sept 10, Oct 11, Nov 12, Dec 13.	0	0	periodless month abbreviations
+abbr-weekdays	Mon. 5, Tue. 6, Tues. 7, Wed. 8, Thu. 9, Thur. 10, Thurs. 11, Fri. 12, Sat. 13, Sun. 14.	Monday five, Tuesday six, Tuesday seven, Wednesday eight, Thursday nine, Thursday ten, Thursday eleven, Friday twelve, Saturday thirteen, Sunday fourteen.	Mon. 5, Tue. 6, Tues. 7, Wed. 8, Thu. 9, Thur. 10, Thurs. 11, Fri. 12, Sat. 13, Sun. 14.	0	0	weekday abbreviations before a number
+range-5-10	5-10	five to ten	5-10	0	0	range
+range-100-200	100-200	one hundred to two hundred	100-200	0	0	range
+range-5-3	5-3	five to three	5-3	0	0	a score reads the same
+range-years	1990-2000	nineteen ninety to two thousand	1990-2000	0	0	years in order
+range-years-2	2020-2024	twenty twenty to twenty twenty four	2020-2024	0	0	years in order
+range-years-reversed	2024-2020	two thousand twenty four to two thousand twenty	2024-2020	0	0	reversed years are cardinals
+range-en-dash	5\u201310	five to ten	5\u201310	0	0	en dash between numbers, per token
+range-en-dash-years	1990\u20132000	nineteen ninety to two thousand	1990\u20132000	1	0	en dash years; only 1990 has two readings, so one count
+range-en-dash-spaced	5 \u2013 10	five \u2013 ten	5 \u2013 10	0	0	a spaced dash stays
+range-en-dash-letters	a\u2013b	a\u2013b	a\u2013b	0	0	no numbers
+range-en-dash-bad-letter	1\u20132D	one\u20132D	1\u20132D	0	0	the right endpoint is not a number
+range-en-dash-bad-glued	5\u201310x	five\u201310x	5\u201310x	0	0	a glued letter is not a unit
+range-en-dash-bad-glued-2	5\u201310D	five\u201310D	5\u201310D	0	0	a glued capital letter
+range-en-dash-bad-time	5\u201325:99	five\u201325:99	5\u201325:99	0	0	invalid time, identity, not a fallback
+range-en-dash-bad-thousands	1,23\u20135	1,23\u2013five	1,23\u20135	0	1	a non-en-US left endpoint stays and is counted once
+range-en-dash-bad-both	1,23\u20135,67	1,23\u20135,67	1,23\u20135,67	0	2	both endpoints stay and are counted
+range-en-dash-bad-chain	1\u20132D\u20133	one\u20132D\u2013three	1\u20132D\u20133	0	0	a chain through an unread endpoint
+range-en-dash-thousands	1,234\u20135,678	one thousand two hundred thirty four to five thousand six hundred seventy eight	1,234\u20135,678	0	0	thousands endpoints are read
+range-en-dash-decimals	5.5\u20136.5	five point five to six point five	5.5\u20136.5	0	0	decimal endpoints are read
+range-en-dash-times	5:30\u20136:30	five thirty to six thirty	5:30\u20136:30	0	0	time endpoints are read
+range-en-dash-unit	5\u201310kg	five to ten kilograms	5\u201310kg	0	0	a unit on the right endpoint
+range-en-dash-percent	5\u201310%	five to ten percent	5\u201310%	0	0	a percent sign on the right endpoint
+range-en-dash-chain	1\u20132\u20133	one to two to three	1\u20132\u20133	0	0	a chain of read endpoints
+range-context	Read pages 5-10 today.	Read pages five to ten today.	Read pages 5-10 today.	0	0	range in a sentence
+range-leading-zero	01-02	zero one zero two	01-02	0	0	a leading zero is an identifier
+range-huge-group	1234567890-5	one two three four five six seven eight nine zero five	1234567890-5	0	0	a group above nine digits is an identifier
+phone-local	555-1234	five five five one two three four	555-1234	0	0	local number
+phone-us	555-123-4567	five five five one two three four five six seven	555-123-4567	0	0	phone number
+phone-1-800	1-800-555-1234	one eight zero zero five five five one two three four	1-800-555-1234	0	0	toll free
+phone-ssn	123-45-6789	one two three four five six seven eight nine	123-45-6789	0	0	identifier
+phone-area-code	(555) 123-4567	(five five five) one two three four five six seven	(555) 123-4567	0	0	area code in parentheses
+phone-parens-alone	(555) only	(five hundred fifty five) only	(555) only	0	0	parentheses alone are a cardinal
+phone-context	Call 555-1234 now.	Call five five five one two three four now.	Call 555-1234 now.	0	0	phone number in a sentence
+dot-version	3.2.1	three point two point one	3.2.1	0	0	version
+dot-version-2	2.0.1	two point zero point one	2.0.1	0	0	version with zero
+dot-address	192.168.0.1	one hundred ninety two point one hundred sixty eight point zero point one	192.168.0.1	0	0	address
+dot-four	1.2.3.4	one point two point three point four	1.2.3.4	0	0	four groups
+dot-leading-zero	1.02.3	one point zero two point three	1.02.3	0	0	a group with a leading zero is read digit by digit
+dot-slash-mask	10.0.0.1/24	10.0.0.1/24	10.0.0.1/24	0	0	mixed separators stay
+dot-too-many	1.1.1.1.1.1.1.1.1	1.1.1.1.1.1.1.1.1	1.1.1.1.1.1.1.1.1	0	1	more than eight groups
+frac-1-2	1/2	one half	1/2	1	0	could be a date
+frac-2-3	2/3	two thirds	2/3	1	0	plural third
+frac-3-4	3/4	three quarters	3/4	1	0	quarters
+frac-1-3	1/3	one third	1/3	1	0	third
+frac-1-4	1/4	one quarter	1/4	1	0	quarter
+frac-1-5	1/5	one fifth	1/5	1	0	fifth
+frac-1-7	1/7	one seventh	1/7	1	0	seventh
+frac-5-8	5/8	five eighths	5/8	1	0	eighths
+frac-9-10	9/10	nine tenths	9/10	1	0	tenths
+frac-7-16	7/16	seven sixteenths	7/16	1	0	sixteenths
+frac-15-16	15/16	fifteen sixteenths	15/16	0	0	numerator above 12 cannot be a month
+frac-3-32	3/32	three thirty seconds	3/32	0	0	denominator above 31 cannot be a day
+frac-63-64	63/64	sixty three sixty fourths	63/64	0	0	sixty fourths
+frac-1-100	1/100	one hundredth	1/100	0	0	hundredth
+frac-37-100	37/100	thirty seven hundredths	37/100	0	0	hundredths
+frac-24-7	24/7	24/7	24/7	0	0	not a fraction
+frac-9-11	9/11	9/11	9/11	0	0	denominator not in the set
+frac-5-5	5/5	5/5	5/5	0	0	numerator not below the denominator
+frac-1-1	1/1	1/1	1/1	0	0	numerator not below the denominator
+frac-0-5	0/5	0/5	0/5	0	0	zero numerator
+frac-leading-zero	01/2	01/2	01/2	0	0	leading zero
+frac-mixed	3 1/2 cups	three and one half cups	3 1/2 cups	0	0	mixed number, per token
+frac-mixed-5	5 1/2	five and one half	5 1/2	0	0	mixed number
+frac-mixed-vulgar	3 \u00BD	three and one half	3 \u00BD	0	0	mixed number with a vulgar fraction
+frac-vulgar-half	\u00BD	one half	\u00BD	0	0	vulgar half
+frac-vulgar-third	\u2153	one third	\u2153	0	0	vulgar third
+frac-vulgar-two-thirds	\u2154	two thirds	\u2154	0	0	vulgar two thirds
+frac-vulgar-quarter	\u00BC	one quarter	\u00BC	0	0	vulgar quarter
+frac-vulgar-three-quarters	\u00BE	three quarters	\u00BE	0	0	vulgar three quarters
+frac-vulgar-eighth	\u215B	one eighth	\u215B	0	0	vulgar eighth
+frac-vulgar-3-8	\u215C	three eighths	\u215C	0	0	vulgar three eighths
+frac-vulgar-5-8	\u215D	five eighths	\u215D	0	0	vulgar five eighths
+frac-vulgar-7-8	\u215E	seven eighths	\u215E	0	0	vulgar seven eighths
+frac-glued-vulgar	5\u00BD	five and one half	5\u00BD	0	0	glued mixed number
+frac-context	Add 1/2 cup of milk.	Add one half cup of milk.	Add 1/2 cup of milk.	1	0	fraction in a sentence
+lim-16-digits	1234567890123456	one two three four five six seven eight nine zero one two three four five six	1234567890123456	0	1	16 digits: digit by digit, counted
+lim-64-digits	1234567890123456789012345678901234567890123456789012345678901234	one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four	1234567890123456789012345678901234567890123456789012345678901234	0	1	64 digits: digit by digit, counted
+lim-65-digits	12345678901234567890123456789012345678901234567890123456789012345	12345678901234567890123456789012345678901234567890123456789012345	12345678901234567890123456789012345678901234567890123456789012345	0	1	65 digits: left as written
+lim-zero-64	0123456789012345678901234567890123456789012345678901234567890123	zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three	0123456789012345678901234567890123456789012345678901234567890123	0	0	64 digits with a leading zero: an identifier, not a fallback
+lim-zero-65	01234567890123456789012345678901234567890123456789012345678901234	01234567890123456789012345678901234567890123456789012345678901234	01234567890123456789012345678901234567890123456789012345678901234	0	1	65 digits with a leading zero: left as written
+lim-fraction-33	0.123456789012345678901234567890123	0.123456789012345678901234567890123	0.123456789012345678901234567890123	0	1	more than 32 fraction digits
+lim-fraction-32	0.12345678901234567890123456789012	zero point one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two	0.12345678901234567890123456789012	0	0	32 fraction digits
+lim-ordinal-16	1234567890123456th	1234567890123456th	1234567890123456th	0	1	ordinal beyond 15 digits
+id-hyphen-compound	5-year-old	5-year-old	5-year-old	0	0	hyphenated compounds are deferred
+id-3d	3-D	3-D	3-D	0	0	deferred
+id-f16	F-16	F-16	F-16	0	0	deferred
+id-seven-eleven	7-Eleven	7-Eleven	7-Eleven	0	0	deferred
+id-mid-1990s	mid-1990s	mid-1990s	mid-1990s	0	0	deferred
+id-20-something	20-something	20-something	20-something	0	0	deferred
+id-roman-henry	Henry VIII ruled.	Henry VIII ruled.	Henry VIII ruled.	0	0	Roman numerals are deferred
+id-roman-war	World War II ended.	World War II ended.	World War II ended.	0	0	Roman numerals are deferred
+id-roman-chapter	Chapter IV begins.	Chapter IV begins.	Chapter IV begins.	0	0	Roman numerals are deferred
+id-q3	Q3 2024	Q3 twenty twenty four	Q3 2024	1	0	a quarter label is left alone; the year is read
+id-exp	1e5	1e5	1e5	0	0	exponent form is deferred
+id-hex	0x1F	0x1F	0x1F	0	0	hexadecimal is deferred
+id-underscore	1_000	1_000	1_000	0	0	deferred
+id-3d-lower	3D	3D	3D	0	0	letters after digits
+id-101a	101A	101A	101A	0	0	letters after digits
+id-bare-10k	10k	10k	10k	0	0	bare magnitude letters are deferred
+id-bare-1-5M	1.5M	1.5M	1.5M	0	0	bare magnitude letters are deferred
+id-fullwidth	\uFF15	\uFF15	\uFF15	0	0	only ASCII digits are numbers
+id-arabic-indic	\u0663	\u0663	\u0663	0	0	only ASCII digits are numbers
+id-superscript	5\u00B2	5\u00B2	5\u00B2	0	0	only ASCII digits are numbers
+id-math-digit	\uD835\uDFD9	\uD835\uDFD9	\uD835\uDFD9	0	0	a supplementary-plane digit is not a number
+id-math-digit-next	5 \uD835\uDFD9	five \uD835\uDFD9	5 \uD835\uDFD9	0	0	a supplementary-plane digit next to a number
+id-emoji-next	x\uD83D\uDE00 5	x\uD83D\uDE00 five	x\uD83D\uDE00 5	0	0	an emoji before a number
+id-emoji-glued	5\uD83D\uDE00	5\uD83D\uDE00	5\uD83D\uDE00	0	0	an emoji glued to a number
+id-deseret-letter	5\uD801\uDC00	5\uD801\uDC00	5\uD801\uDC00	0	0	a supplementary-plane letter glued to a number
+id-lone-surrogate	5 \uD83D 6	five \uD83D six	5 \uD83D 6	0	0	a lone surrogate between numbers
+id-word-5	version5	version5	version5	0	0	letters before digits
+id-word-ordinal	the1st	the1st	the1st	0	0	letters before digits
+id-combining	5\u0301	5\u0301	5\u0301	0	0	a combining mark after a digit
+id-invisible	5\u200B0	50	5\u200B0	0	0	an invisible character inside a number token: rule 1 drops it and the number rule never sees the token
+ctx-in-sentence	I have 5 apples and 12 pears.	I have five apples and twelve pears.	I have 5 apples and 12 pears.	0	0	numbers in a sentence
+ctx-list	1, 2, 3	one, two, three	1, 2, 3	0	0	numbers separated by commas
+ctx-quoted	He said "5" and left.	He said "five" and left.	He said "5" and left.	0	0	quoted number
+ctx-parens	(5)	(five)	(5)	0	0	parenthesized number
+ctx-brackets	[5]	[five]	[5]	0	0	bracketed number
+ctx-colon	Step 5: begin	Step five: begin	Step 5: begin	0	0	number before a colon
+ctx-semicolon	5; 6; 7	five; six; seven	5; 6; 7	0	0	semicolons stay outside spans
+ctx-item-sentence	Item 5.	Item five.	Item 5.	0	0	a number at a sentence end
+ctx-item-sentence-2	Item 5. Then item 6.	Item five. Then item six.	Item 5.¦Then item 6.	0	0	two sentences
+ctx-no-dot	No. 5 is here.	Number five is here.	No. 5 is here.	0	0	number reference
+ctx-pm-break	He left at 5 p.m. Then slept.	He left at five P M. Then slept.	He left at 5 p.m.¦Then slept.	0	0	the break after p.m. is kept
+ctx-pm-break-2	He left at 5 p.m. He left.	He left at five P M. He left.	He left at 5 p.m.¦He left.	0	0	the break after p.m. is kept
+ctx-version-sentence	Version 3.2.1 is out.	Version three point two point one is out.	Version 3.2.1 is out.	0	0	version in a sentence
+ctx-ellipsis	5...	five...	5...	0	0	ellipsis after a number
+ctx-trailing-dots	5..	five..	5..	0	0	two periods after a number
+ctx-two-sentences-numbers	It is 5. It was 6.	It is five. It was six.	It is 5.¦It was 6.	0	0	numbers at sentence ends
+ctx-all-caps	THE 5 MEN WENT	THE five MEN WENT	THE 5 MEN WENT	0	0	a number in an all-capital sentence
+tag-between-unit	5\uFFFCkg	five\uFFFCkilograms	5\uFFFCkg	0	0	a tag between a number and its unit: both are spoken, the tag is never covered
+tag-after-symbol	$\uFFFC5	$\uFFFCfive	$\uFFFC5	0	0	a tag after a symbol breaks the pair
+tag-before-number	\uFFFC5	\uFFFCfive	\uFFFC5	0	0	a tag before a number
+tag-after-number	5\uFFFC	five\uFFFC	5\uFFFC	0	0	a tag after a number
+tag-inside-number	1\uFFFC000	one\uFFFCzero zero zero	1\uFFFC000	0	0	a tag splits a number into two
+tag-percent	50\uFFFC%	fifty\uFFFCpercent	50\uFFFC%	0	0	a tag between a number and a percent sign
+gap-nbsp	5\u00A0kg	five\u00A0kilograms	5\u00A0kg	0	0	a no-break space joins a unit
+gap-narrow-nbsp	5\u202Fkg	five\u202Fkilograms	5\u202Fkg	0	0	a narrow no-break space joins a unit
+gap-crlf	5\r\nkg	five\r\nkg	5\r\nkg	0	0	a line break does not join
+gap-two-spaces	5  kg	five  kg	5  kg	0	0	two spaces do not join
+gap-tab	5\tkg	five\tkg	5\tkg	0	0	a tab does not join
+gap-nbsp-percent	50\u00A0%	fifty\u00A0percent	50\u00A0%	0	0	a no-break space before a percent sign
+gap-nbsp-currency	5\u00A0USD	five\u00A0dollars	5\u00A0USD	0	0	a no-break space before a code
+gap-nbsp-time	5\u00A0pm	five\u00A0P M	5\u00A0pm	0	0	a no-break space before a meridiem

@@ -17,7 +17,7 @@ sink that can be told to throw.
 
 One request produces exactly one Info event in the `TextEn.Analysis` category with the documented message
 (`Analyzed one text: {S} sentences, {T} tokens, {A} annotations, {U} unknown words, {N} normalizations, {X}
-ambiguous abbreviations.`); the message matches a template of fixed words and six numbers for any counts,
+ambiguous readings, {F} numeric fallbacks.`); the message matches a template of fixed words and seven numbers for any counts,
 including large ones, so no word, spoken replacement or annotation value can appear; a missing sink is
 accepted and reports nothing; and a sink that throws is contained, with the event still delivered to it.
 
@@ -27,9 +27,15 @@ accepted and reports nothing; and a sink that throws is contained, with the even
 
 **Test**: `AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts`
 
+The event's message states all seven counts (the test uses distinct values so that a swapped count fails),
+including the ambiguous readings and the numeric fallbacks.
+
 ##### Message contains only fixed words and numbers
 
 **Test**: `AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers`
+
+The message must match the template `Analyzed one text: N sentences, N tokens, N annotations, N unknown words,
+N normalizations, N ambiguous readings, N numeric fallbacks.` for any seven counts.
 
 ##### No sink
 
