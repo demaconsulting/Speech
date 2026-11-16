@@ -706,14 +706,22 @@ public readonly record struct SentenceChunk(string Text, bool EndsWithEllipsis)
     ///     Gets the annotations lying wholly inside this chunk, with offsets relative to
     ///     <see cref="Text"/>; empty when there are none, including for a default struct.
     /// </summary>
+    /// <remarks>
+    ///     The assigned list is defensively copied into a read-only collection, so later changes
+    ///     to the caller's list never affect the chunk. As with <see cref="SpeechSegment"/>, the
+    ///     compiler-generated equality compares the stored list by reference, so two chunks are
+    ///     equal only when they share the same copy (for example, one derived from the other
+    ///     with <see langword="with"/>) or both have none.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+    /// <exception cref="ArgumentException">Thrown when the list contains null.</exception>
     public IReadOnlyList<SegmentAnnotation> Annotations
     {
         get => _annotations ?? AnnotationList.Empty;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
-            _annotations = value.Count == 0 ? null : value;
+            var copy = AnnotationList.Copy(value, nameof(Annotations));
+            _annotations = copy.Count == 0 ? null : copy;
         }
     }
 }

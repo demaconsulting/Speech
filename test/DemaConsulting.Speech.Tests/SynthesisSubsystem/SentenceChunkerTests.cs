@@ -436,6 +436,30 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
+    ///     Proves mutating the list assigned to <see cref="SentenceChunk.Annotations"/> after
+    ///     construction does not change the chunk, and a null element is rejected.
+    /// </summary>
+    [Fact]
+    public void SentenceChunk_Annotations_SourceListMutatedAfterAssignment_ChunkUnchanged()
+    {
+        // Arrange
+        var source = new List<SegmentAnnotation> { new(0, 5, "k", "v") };
+        var chunk = new SentenceChunk("Hello world.", false) { Annotations = source };
+
+        // Act
+        source.Add(new SegmentAnnotation(6, 5, "k2", "v2"));
+        source[0] = new SegmentAnnotation(1, 1, "x", "y");
+
+        // Assert
+        var annotation = Assert.Single(chunk.Annotations);
+        Assert.Equal(0, annotation.Start);
+        Assert.Equal("k", annotation.Kind);
+        Assert.False(chunk.Annotations is List<SegmentAnnotation>);
+        Assert.Throws<ArgumentException>(() => new SentenceChunk("x", false) { Annotations = [null!] });
+        Assert.Throws<ArgumentNullException>(() => new SentenceChunk("x", false) { Annotations = null! });
+    }
+
+    /// <summary>
     ///     Proves leading whitespace that chunking trims is accounted for in the offset.
     /// </summary>
     [Fact]

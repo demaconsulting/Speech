@@ -167,7 +167,12 @@ public sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
         {
             if (buffer.Length == 0)
             {
+                // An empty plain span can still have recorded breaks or annotations; drop them
+                // so they cannot leak into the next non-empty segment's analysis.
                 pendingOverrides = null;
+                bufferAnnotations.Clear();
+                bufferBreaks.Clear();
+                breaksAuthoritative = false;
                 return;
             }
 
@@ -203,6 +208,14 @@ public sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
         {
             if (span.Kind == TaggedTextSpanKind.PlainText)
             {
+                // An empty span contributes no text, so whatever analysis it carries (breaks at
+                // offset 0, empty annotations) must not mark the buffer authoritative for the
+                // text that follows.
+                if (span.Text.Length == 0)
+                {
+                    continue;
+                }
+
                 // Span-local offsets shift by whatever is already buffered, which also accounts
                 // for stripped tags (nothing buffered) and native tags (their text is buffered).
                 var offset = buffer.Length;

@@ -151,8 +151,8 @@ safety role.
 - **Third-party data and notices**: the package embeds two data files that are not covered by the
   repository's MIT License: a word-to-phoneme lexicon (its word list is derived from the CMUdict
   word list, which has a BSD-style license that requires its copyright notice and conditions to be
-  reproduced in binary distributions; its phoneme strings were generated with misaki, which is
-  Apache-2.0 licensed) and the Kokoro v1.0 tokenizer (from the Apache-2.0 licensed
+  reproduced in binary distributions; its phoneme strings were generated with misaki, whose
+  repository is distributed under Apache-2.0) and the Kokoro v1.0 tokenizer (from the Apache-2.0 licensed
   `onnx-community/Kokoro-82M-v1.0-ONNX` export). The package therefore names a license file,
   `PACKAGE-LICENSE.md`, instead of a license expression, and ships `THIRD-PARTY-NOTICES.md` with
   the verbatim third-party license texts; both files are packed at the package root. They are

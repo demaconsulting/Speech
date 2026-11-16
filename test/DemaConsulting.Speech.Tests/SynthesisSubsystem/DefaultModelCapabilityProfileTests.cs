@@ -595,6 +595,59 @@ public class DefaultModelCapabilityProfileTests
     }
 
     /// <summary>
+    ///     Proves a sentence-break list on an empty plain span does not leak into the next
+    ///     non-empty span: that span, which has no analysis of its own, keeps its normal
+    ///     punctuation splits.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_EmptySpanWithBreaks_DoesNotMakeNextSpanAuthoritative()
+    {
+        // Arrange: the empty span's [0] must be discarded when it is flushed away
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText(string.Empty, [], [0]),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.ShortPause),
+            TaggedTextSpan.PlainText("One. Two."),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(
+            ["One.", "Two."],
+            plan.Segments.Where(segment => segment.Text.Length > 0).Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves a sentence-break list on an empty plain span does not leak into a following
+    ///     non-empty span even when no flush intervenes (a parameter-mapped tag on an empty
+    ///     buffer, or no tag at all).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DefaultModelCapabilityProfile_Render_EmptySpanWithBreaksNoFlush_NextSpanKeepsPunctuationSplits(bool withTag)
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.ParameterMapped);
+        var spans = new List<TaggedTextSpan> { TaggedTextSpan.PlainText(string.Empty, [], [0]) };
+        if (withTag)
+        {
+            spans.Add(TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast));
+        }
+
+        spans.Add(TaggedTextSpan.PlainText("One. Two."));
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(["One.", "Two."], plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
     ///     Builds the span run <c>First</c>, two tags, <c>Second</c> where the first tag carries
     ///     the given sentence breaks and the plain spans carry authoritative empty break lists.
     /// </summary>
