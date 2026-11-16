@@ -24,7 +24,7 @@ and synthesize speech.
 - 🧩 Mockable, cross-platform audio interfaces
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
-- 🔤 English part-of-speech and text normalization analysis for synthesis models (preview)
+- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates, times, and units (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS

@@ -3,7 +3,9 @@
 #
 # These requirements describe the design-level behavior of the TextNormalizer unit, the stateless
 # rule pass that turns the tokens of a text into an aligned description of how parts of it are
-# spoken, decomposing the parent SpeechTextEn NormalizationSubsystem requirements. The tests feed
+# spoken, decomposing the parent SpeechTextEn NormalizationSubsystem requirements. Its rules are applied
+# in a fixed order: invisible characters, clitics, numeric expressions (through
+# NumericExpressionRecognizer), abbreviations, acronyms, symbols and apostrophes. The tests feed
 # it the tokens of the real DemaConsulting.PartOfSpeech tokenizer through a test harness, which is
 # the unit's only dependency on the OTS package and exists in the tests only. Each requirement
 # states one observable behavior.
@@ -21,8 +23,10 @@ sections:
               - id: SpeechTextEn-Normalization-TextNormalizer-Spans
                 title: >-
                   The TextNormalizer class shall visit every token of the text once, in order,
-                  shall describe each replacement as a span on the exact characters of one token or
-                  of one token with its adjacent period token, shall keep the period of an
+                  shall describe each replacement as a span on the exact characters of one token,
+                  of one token with its adjacent period token, or of a numeric span the
+                  recognizer produced (a token, a currency symbol with its number, an apostrophe
+                  with its decade), shall keep the period of an
                   abbreviation outside the span at the end of a sentence and inside the span in the
                   middle of one, and shall produce nothing for an empty text or an empty token
                   list.
@@ -34,6 +38,67 @@ sections:
                   - TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder
                   - TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence
                   - TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-NumericRule
+                title: >-
+                  The TextNormalizer class shall apply the numeric recognizer to each token after
+                  the invisible-character and clitic rules and before the abbreviation rule, shall
+                  emit the spans of a match in order and skip the tokens the match consumed
+                  without visiting them again, shall forward the match's ambiguity and fallback
+                  counts, shall suppress a tokenizer sentence break that would lie strictly inside
+                  a span, and shall not read a token that contains an invisible character as a
+                  number.
+                justification: |
+                  The numeric rule must run before the abbreviation lexicon so that "5 ft." is a
+                  unit and "Jan. 5" leaves the number to it, and the invisible-character rule must
+                  run first so that a number with a hidden character in it is never half read. A
+                  consumed follow-up token (the word "million", a percent sign) belongs to its
+                  number and must not be processed a second time. A break inside a date would cut
+                  a span.
+                tests:
+                  - TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations
+                  - TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain
+                  - TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-NumericSeparation
+                title: >-
+                  The TextNormalizer class shall separate a spoken numeric word from a touching
+                  letter or digit and two adjacent numeric replacements from each other with
+                  exactly one space, without moving any offset.
+                justification: |
+                  "50%" becomes "fifty" and "percent", and "5–10" becomes "five", "to" and "ten";
+                  without the separating space the words would run together, and a padded value
+                  keeps every offset of the source text valid.
+                tests:
+                  - TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-NumericPeriodRules
+                title: >-
+                  The TextNormalizer class shall apply the abbreviation period and sentence rules
+                  of a suffix to a unit that may carry an abbreviation period (inside its token or
+                  as an adjacent period token): consuming the period in the middle of a sentence,
+                  keeping it at the end of one, and forcing a sentence break before a capitalized
+                  next word.
+                justification: |
+                  "He is 6 ft. tall." continues after the period while "He is 6 ft." and "He is 6
+                  ft. Then he left." end the sentence, and the period of a unit must neither be
+                  lost at a sentence end nor be taken for the end of a sentence in its middle; the
+                  same rules already serve the street abbreviations.
+                tests:
+                  - TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-NumericCancellationAndAllocation
+                title: >-
+                  The TextNormalizer class shall observe cancellation during a pass over numeric
+                  text, counting a token that a numeric match consumed as visited, and shall
+                  allocate nothing per token for text without numeric expressions.
+                justification: |
+                  A long numeric text must stop promptly when the request is canceled, even though
+                  a match consumes several tokens at once, and the numeric rule must not slow the
+                  common case of text without digits by allocating for every word.
+                tests:
+                  - TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException
+                  - TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken
 
               - id: SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
                 title: >-
@@ -70,11 +135,12 @@ sections:
               - id: SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
                 title: >-
                   The TextNormalizer class shall count an abbreviation resolution as ambiguous once
-                  when the default reading was used or the cues for the two readings competed, and
-                  shall not count a clear reading.
+                  when the default reading was used or the cues for the two readings competed, shall
+                  count a numeric match once when it asks for it, shall count each numeric
+                  fallback, and shall not count a clear reading.
                 justification: |
-                  The count is the evidence of how often the normalization had to guess, so it must
-                  count each guess once and nothing else.
+                  The counts are the evidence of how often the normalization had to guess or give
+                  up, so they must count each guess once and nothing else.
                 tests:
                   - TextNormalizer_Normalize_AmbiguousResolutions_AreCountedOnce
 

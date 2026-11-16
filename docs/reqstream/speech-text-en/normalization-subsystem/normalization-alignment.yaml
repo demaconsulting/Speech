@@ -88,10 +88,12 @@ sections:
               - id: SpeechTextEn-Normalization-NormalizationAlignment-EnumVocabulary
                 title: >-
                   The NormalizationKind and CliticKind enumerations shall keep their documented
-                  member names and numeric values.
+                  member names and numeric values, including the numeric kinds Number (6), Currency
+                  (7), DateTime (8) and Unit (9) that were added after the earlier members.
                 justification: |
                   The kinds are part of the public analysis result, so a renamed or renumbered
-                  member would silently change what a caller reads.
+                  member would silently change what a caller reads, and the numeric members must be
+                  purely additive.
                 tests:
                   - NormalizationKindAndCliticKind_Members_KeepNamesAndValues
 
@@ -129,7 +131,8 @@ sections:
               - id: SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
                 title: >-
                   The AlignedTextBuilder class shall record clitic classifications and the count of
-                  ambiguous abbreviation resolutions, shall reject a classification that is
+                  ambiguous resolutions (abbreviations and numeric readings), shall reject a
+                  classification that is
                   out of bounds, out of order, empty or of kind None, and shall report both in the
                   aligned text it builds, and shall report whether the previous replacement ends
                   exactly where a following one starts with its spoken text ending in a letter.
@@ -141,3 +144,16 @@ sections:
                 tests:
                   - AlignedTextBuilder_MarkCliticAndCountAmbiguous_ValidateAndAccumulate
                   - AlignedTextBuilder_TouchesPreviousSpokenLetter_ReportsAdjacencyOnlyAfterLetterEndedSpan
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-FallbackCount
+                title: >-
+                  The AlignedTextBuilder class shall count each numeric fallback (a numeric-looking
+                  expression left as written or read digit by digit because of a documented limit)
+                  and shall report the count in the aligned text it builds, as zero when none was
+                  counted.
+                justification: |
+                  The fallback count is a result of the same pass as the spans and has to travel
+                  with them to the diagnostics, where it tells a host how often numbers were left
+                  as written; a text without numbers must report exactly zero.
+                tests:
+                  - AlignedTextBuilder_CountFallback_IsReportedOnTheResult

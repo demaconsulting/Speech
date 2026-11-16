@@ -7,9 +7,10 @@
 # Speech: it supplies an English implementation of the Speech library's ITextAnalyzer seam,
 # ships as its own package, and is versioned as part of this repository. The Speech library never
 # depends on it. This is a preview: part-of-speech annotation, sentence boundaries and the
-# non-numeric part of English text normalization (abbreviations, symbols, apostrophes and
-# initialisms, delivered as annotations that never rewrite the text) are provided; later
-# increments add numbers, dates, currency, units and pronunciation overrides. Each requirement
+# normalization of English text (abbreviations including month and weekday abbreviations, symbols,
+# apostrophes and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and
+# dates, delivered as annotations that never rewrite the text) are provided; later increments add
+# pronunciation overrides. Each requirement
 # states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Tests - see the subsystem/unit-level reqstream
@@ -93,16 +94,18 @@ sections:
       - id: SpeechTextEn-Analysis-Diagnostics
         title: >-
           The library shall report one aggregate-counts event per analyzed text to a host-supplied
-          diagnostics sink, counting sentences, tokens, annotations, unknown words, normalizations
-          and ambiguous abbreviations, shall never include any text content in it, and shall not
-          let a failing sink interrupt an analysis.
+          diagnostics sink, counting sentences, tokens, annotations, unknown words, normalizations,
+          ambiguous readings and numeric fallbacks, shall never include any text content in it, and
+          shall not let a failing sink interrupt an analysis.
         tags: [system]
         justification: |
           The Speech library's diagnostics contract forbids synthesized text in any report, so
           the analyzer can tell a host only how much it did, never what it read. The counts of
-          normalizations and of abbreviations resolved without a clear context tell a host how
-          much the normalization changed and how often it had to guess, which is the evidence for
-          tuning it. A diagnostics sink is an observer, and a fault in it must never stop speech.
+          normalizations, of readings chosen by default where the words around an abbreviation or
+          a number did not decide (an abbreviation, a bare year, a month-first date) and of
+          numeric text left as written tell a host how much the normalization changed and how
+          often it had to guess or give up, which is the evidence for tuning it. A diagnostics
+          sink is an observer, and a fault in it must never stop speech.
         children:
           - SpeechTextEn-Analysis-DiagnosticsAggregation
         tests:
@@ -147,6 +150,108 @@ sections:
           - SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText
           - SpeechTextEn_Analyze_ContextDependentAbbreviations_ResolveFromNeighbors
           - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+
+      - id: SpeechTextEn-Normalization-Numbers
+        title: >-
+          The library shall annotate cardinal numbers, negative numbers, thousands-separated
+          numbers, decimals, ordinals, percentages, fractions, years, decades and digit groups
+          (ranges, phone numbers, identifiers and dotted numbers) of en-US text with their spoken
+          words, in plain lowercase words that contain no digit, hyphen or comma, shall never
+          rewrite the text, and shall leave text that is not a number it reads unchanged.
+        tags: [system]
+        justification: |
+          A phoneme-driven model cannot pronounce digits: it needs "1,234" as "one thousand two
+          hundred thirty four" and "1990s" as "nineteen nineties". The spoken words must be plain
+          words that a backend can feed to its lexicon without a number parser, so the value
+          holds no digit, hyphen or comma that would change how the text is split into clauses.
+          Numbers inside identifiers, compounds and other scripts are not numbers the library can
+          read safely, so they stay as written rather than being guessed.
+        children:
+          - SpeechTextEn-Normalization-NumberReading
+          - SpeechTextEn-Normalization-YearsAndDecades
+          - SpeechTextEn-Normalization-DigitGroupReading
+          - SpeechTextEn-Normalization-NumericCultureInvariance
+        tests:
+          - SpeechTextEn_Analyze_Numbers_AreSpokenAsWordsWithoutChangingText
+          - SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd
+
+      - id: SpeechTextEn-Normalization-CurrencyAndUnits
+        title: >-
+          The library shall annotate currency amounts written with the symbols $, euro, pound and
+          yen or the codes USD, EUR, GBP and JPY (with cents, singular and plural, and magnitude
+          words), percentages and the listed units of measure after a number with their spoken
+          words, singular for exactly one and plural otherwise.
+        tags: [system]
+        justification: |
+          "$5.50" is "five dollars and fifty cents" and "1 kg" is "one kilogram"; a model that
+          reads the symbols and the letters of the units as written would say neither. The
+          singular and plural agree with the amount, and a closed, documented table of units
+          keeps ambiguous letters such as "m" and "in" from being reworded.
+        children:
+          - SpeechTextEn-Normalization-CurrencyReading
+          - SpeechTextEn-Normalization-UnitsReading
+        tests:
+          - SpeechTextEn_Analyze_CurrencyAndUnits_AreSpokenAsWords
+
+      - id: SpeechTextEn-Normalization-DatesAndTimes
+        title: >-
+          The library shall annotate clock times (with or without a meridiem), numeric dates and
+          dates written with a month name with their spoken words, shall give the spoken form of
+          the month and weekday abbreviations from the date context around them, and shall report
+          the sentence breaks that follow from those abbreviations.
+        tags: [system]
+        justification: |
+          "5:30pm" is "five thirty P M" and "12/25/2024" is a date, not a fraction; the day and the
+          year next to a month name are read as an ordinal and a year. "Jan. 5" and "Sat. 5 Jan.
+          2024" contain periods that do not end a sentence, whereas "He left Mon. He came Tue."
+          contains two that do, so the abbreviation's reading must set the sentence breaks the
+          tokenizer gets wrong. "We finished in May. 5 people stayed." keeps its sentence end and
+          reads the number as a cardinal, while "Jan. 5" stays one date.
+        children:
+          - SpeechTextEn-Normalization-TimeReading
+          - SpeechTextEn-Normalization-DateReading
+          - SpeechTextEn-Normalization-AbbreviationResolution
+        tests:
+          - SpeechTextEn_Analyze_DatesAndTimes_AreSpokenAsWords
+          - SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext
+          - SpeechTextEn_Analyze_FullMonthPeriod_EndsTheSentenceAndGivesNoDateContext
+
+      - id: SpeechTextEn-Normalization-NumericAmbiguity
+        title: >-
+          The library shall read a number whose reading the words around it do not decide (a
+          four-digit year or quantity, a month-first or day-first numeric date, a fraction that
+          could be a date) by a documented default, shall count each such reading in the
+          diagnostics, and shall never guess silently.
+        tags: [system]
+        justification: |
+          "1999" can be a year or a quantity and "3/4/2024" can be March or April; no rule is
+          right for all text. A documented default makes the choice predictable, and the count of
+          defaults tells a host how often the normalization had to guess, which is the evidence
+          for refining the rules.
+        children:
+          - SpeechTextEn-Normalization-NumberAmbiguity
+          - SpeechTextEn-Analysis-DiagnosticsAggregation
+        tests:
+          - SpeechTextEn_Analyze_AmbiguousNumbers_UseDocumentedDefaultsAndAreCounted
+          - SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly
+
+      - id: SpeechTextEn-Normalization-NumericLimits
+        title: >-
+          The library shall bound the numbers it reads (at most 15 digits as a cardinal, a longer
+          digit run read digit by digit up to 64 digits, a longer one or one outside the supported
+          shapes left as written), shall count each number it could not read as written in the
+          diagnostics, and shall keep every spoken value to a fixed maximum size.
+        tags: [system]
+        justification: |
+          A text may contain digit runs of any length, such as hashes, serial numbers or pasted
+          data. Reading a million digits aloud, or building a spoken value of unbounded size, would
+          stall speech and exhaust memory, so the numbers are bounded by documented limits, the
+          ones beyond them are left as they were written, and the count tells a host that it
+          happened.
+        children:
+          - SpeechTextEn-Normalization-NumberLimits
+        tests:
+          - SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted
 
       - id: SpeechTextEn-Normalization-SentenceBoundaries
         title: >-
@@ -216,10 +321,13 @@ sections:
         title: >-
           The library shall place every normalization on exact spans of the analyzed text that
           are in text order, do not overlap, start and end on non-whitespace characters, and
-          contain no whitespace or clause separator, shall leave case and punctuation outside
-          the spans untouched, shall drop no character of the text silently, and shall lose no
-          normalization when the Speech library chunks the text, including a chunk that consists
-          only of symbols.
+          contain no whitespace and no semicolon (a comma or colon only between two digits of a
+          number), shall leave case and punctuation outside the spans untouched, shall drop no
+          character of the text silently, shall give each token of a multi-token numeric
+          construct (a date, an amount with a magnitude word, a mixed number) its own span, and
+          shall lose no normalization when the Speech library chunks the text, including a chunk
+          that consists only of symbols and a sentence or clause cut between the tokens of a
+          date.
         tags: [system]
         justification: |
           The Speech library re-bases annotations onto its chunks and discards one that starts
@@ -228,10 +336,15 @@ sections:
           also be able to trust that the only differences between the original text and its
           spoken form are the annotated spans, which is what makes the normalization auditable.
           A text such as "&" has no letter or digit, so chunking that treated it as punctuation
-          would discard the word it was normalized to.
+          would discard the word it was normalized to. A numeric construct such as "January 5,
+          2024" or "$5 million" crosses spaces and a comma that the chunker may cut at, so each
+          of its tokens carries its own span rather than one span across the gap, and the only
+          comma or colon inside a span is the one inside a number ("1,234.50", "5:30"), which the
+          chunker never cuts.
         children:
           - SpeechTextEn-Normalization-SpanContract
           - SpeechTextEn-Normalization-ChunkSafeSpans
+          - SpeechTextEn-Normalization-DecomposedAnnotations
         tests:
           - SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract
           - SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking
@@ -241,21 +354,30 @@ sections:
           - SpeechTextEn_SynthesisSession_InvisibleOnlyClause_KeepsDroppedAnnotationWithItsNeighbor
           - SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
           - SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
+          - SpeechTextEn_Analyze_NumericText_AnnotationsSatisfyAlignmentContract
+          - SpeechTextEn_SynthesisSession_NumericText_AnnotationsSurviveChunking
+          - SpeechTextEn_SynthesisSession_DateAcrossClauseCut_KeepsEveryTokenAnnotation
+          - SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization
+          - SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit
+          - SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations
 
       - id: SpeechTextEn-Normalization-LinearTime
         title: >-
           The library shall normalize a text in time that grows linearly with its length, also
-          for adversarial repetitions, and shall stop normalizing when the request is canceled.
+          for adversarial repetitions and digit-heavy texts, and shall stop normalizing when the
+          request is canceled.
         tags: [system]
         justification: |
-          The analyzer runs on every synthesis request, including texts pasted from documents,
-          so a pathological text must not be able to stall speech or a thread-pool thread, and a
-          stopped or disposed engine waits for the analyzer to return.
+          The analyzer runs on every synthesis request, including texts pasted from documents
+          and data, so a pathological text (a megabyte of numbers, or one enormous digit run)
+          must not be able to stall speech or a thread-pool thread, and a stopped or disposed
+          engine waits for the analyzer to return.
         children:
           - SpeechTextEn-Normalization-LinearTimeAndCancellation
         tests:
           - SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget
           - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
+          - SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget
 
       - id: SpeechTextEn-Packaging-LicenseNotices
         title: >-

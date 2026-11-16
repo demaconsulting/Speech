@@ -708,7 +708,7 @@ public sealed class EnglishTextAnalyzerTests
 
         // Assert
         var reported = Assert.Single(sink.Events);
-        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, 3 normalizations, 1 ambiguous abbreviations\.$", reported.Message);
+        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, 3 normalizations, 1 ambiguous readings, 0 numeric fallbacks\.$", reported.Message);
     }
 
     /// <summary>Proves cancellation requested inside normalization (a long text, canceled mid-pass) stops the request without a result or a report.</summary>

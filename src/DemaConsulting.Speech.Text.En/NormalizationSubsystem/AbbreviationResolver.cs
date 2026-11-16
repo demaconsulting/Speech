@@ -581,6 +581,8 @@ internal sealed class AbbreviationResolver
                     "next-cap" => GuardKinds.NextCap,
                     "next-digit" => GuardKinds.NextDigit,
                     "prev-not-number" => GuardKinds.PrevNotNumber,
+                    "next-date" => GuardKinds.NextDate,
+                    "prev-number" => GuardKinds.PrevNumber,
                     _ => throw new InvalidDataException($"Line {lineNumber}: unknown guard '{name}'."),
                 };
             }
@@ -604,6 +606,12 @@ internal sealed class AbbreviationResolver
 
         /// <summary>The previous token does not start with a digit.</summary>
         PrevNotNumber = 4,
+
+        /// <summary>The next token starts with an ASCII digit or is a month name or abbreviation (a date follows).</summary>
+        NextDate = 8,
+
+        /// <summary>The previous token starts with an ASCII digit (a number precedes).</summary>
+        PrevNumber = 16,
     }
 
     /// <summary>
@@ -645,7 +653,36 @@ internal sealed class AbbreviationResolver
                 return false;
             }
 
+            // The two date guards use the ASCII digits only: a date is written with 0-9, and the
+            // month test is the recognizer's own vocabulary, so the lexicon and the numeric
+            // rule always agree on what a month is. (The older guards keep char.IsDigit.)
+            if (Guards.HasFlag(GuardKinds.NextDate) && (next < 0 || !StartsDateLike(text, tokens[next])))
+            {
+                return false;
+            }
+
+            if (Guards.HasFlag(GuardKinds.PrevNumber) && (index == 0 || !IsAsciiDigit(text[tokens[index - 1].Start])))
+            {
+                return false;
+            }
+
             return !Guards.HasFlag(GuardKinds.PrevNotNumber) || index == 0 || !char.IsDigit(text[tokens[index - 1].Start]);
         }
+
+        /// <summary>
+        ///     Tells whether a token starts a date: an ASCII digit, or a month name or abbreviation.
+        /// </summary>
+        /// <param name="text">The text.</param>
+        /// <param name="token">The token.</param>
+        /// <returns><see langword="true"/> when a date can follow the abbreviation.</returns>
+        private static bool StartsDateLike(string text, NormalizationToken token) =>
+            IsAsciiDigit(text[token.Start]) || NumericExpressionRecognizer.IsMonthToken(token.In(text));
+
+        /// <summary>
+        ///     Tells whether a character is an ASCII digit.
+        /// </summary>
+        /// <param name="character">The character.</param>
+        /// <returns><see langword="true"/> for <c>0</c> to <c>9</c>.</returns>
+        private static bool IsAsciiDigit(char character) => character is >= '0' and <= '9';
     }
 }

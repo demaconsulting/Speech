@@ -15,7 +15,8 @@ namespace DemaConsulting.Speech.Text.En.Tests.Fakes;
 /// <param name="Spoken">The text with every normalization applied.</param>
 /// <param name="Sentences">The reconciled sentences, each trimmed, joined by U+00A6.</param>
 /// <param name="Ambiguous">The expected number of ambiguous resolutions.</param>
-internal sealed record NormalizationCase(string Id, string Input, string Spoken, string Sentences, int Ambiguous);
+/// <param name="Fallbacks">The expected number of numeric fallbacks; 0 for a file without that column.</param>
+internal sealed record NormalizationCase(string Id, string Input, string Spoken, string Sentences, int Ambiguous, int Fallbacks = 0);
 
 /// <summary>
 ///     Test helper that feeds the normalizer with the tokens the real tokenizer produces (no
@@ -27,8 +28,11 @@ internal static class NormalizationHarness
     /// <summary>The separator that joins the sentences in the golden file.</summary>
     private const char SentenceSeparator = '\u00A6';
 
-    /// <summary>The number of tab-separated columns of the golden file.</summary>
+    /// <summary>The number of tab-separated columns of a golden file without the fallbacks column.</summary>
     private const int GoldenColumnCount = 6;
+
+    /// <summary>The number of tab-separated columns of a golden file with the fallbacks column.</summary>
+    private const int GoldenColumnCountWithFallbacks = 7;
 
     /// <summary>
     ///     Replaces every tag placeholder by a space, as the analyzer does before normalizing.
@@ -148,13 +152,13 @@ internal static class NormalizationHarness
     ///     Reads the golden file next to the test assembly.
     /// </summary>
     /// <param name="fileName">The file name inside the <c>TestData</c> folder.</param>
-    /// <returns>The rows in file order.</returns>
+    /// <returns>The rows in file order; the fallbacks column is optional (0 when the file has six columns).</returns>
     /// <exception cref="InvalidDataException">A row is malformed (the message names the line).</exception>
     public static IReadOnlyList<NormalizationCase> ReadCases(string fileName)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", fileName);
         var cases = new List<NormalizationCase>();
-        var headerSeen = false;
+        var columnCount = 0;
         var lineNumber = 0;
         foreach (var rawLine in File.ReadAllLines(path))
         {
@@ -164,16 +168,23 @@ internal static class NormalizationHarness
                 continue;
             }
 
-            if (!headerSeen)
+            var columns = rawLine.Split('\t');
+
+            // The first data line is the header and fixes the column count of the file.
+            if (columnCount == 0)
             {
-                headerSeen = true;
+                columnCount = columns.Length;
+                if (columnCount is not (GoldenColumnCount or GoldenColumnCountWithFallbacks) || columns[0] != "id")
+                {
+                    throw new InvalidDataException($"{fileName} line {lineNumber}: the header must start with 'id' and have {GoldenColumnCount} or {GoldenColumnCountWithFallbacks} columns.");
+                }
+
                 continue;
             }
 
-            var columns = rawLine.Split('\t');
-            if (columns.Length != GoldenColumnCount)
+            if (columns.Length != columnCount)
             {
-                throw new InvalidDataException($"{fileName} line {lineNumber}: expected {GoldenColumnCount} columns, found {columns.Length}.");
+                throw new InvalidDataException($"{fileName} line {lineNumber}: expected {columnCount} columns, found {columns.Length}.");
             }
 
             cases.Add(new NormalizationCase(
@@ -181,7 +192,8 @@ internal static class NormalizationHarness
                 Unescape(columns[1]),
                 Unescape(columns[2]),
                 Unescape(columns[3]),
-                int.Parse(columns[4], CultureInfo.InvariantCulture)));
+                int.Parse(columns[4], CultureInfo.InvariantCulture),
+                columnCount == GoldenColumnCountWithFallbacks ? int.Parse(columns[5], CultureInfo.InvariantCulture) : 0));
         }
 
         return cases;

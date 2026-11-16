@@ -23,8 +23,8 @@ addr-st-saint	Visit St. Louis. Then go.	Visit Saint Louis. Then go.	Visit St. Lo
 addr-st-patricks	St. Patrick's St. is closed.	Saint Patrick's Street is closed.	St. Patrick's St. is closed.	0	saint then street in one sentence
 addr-dr-drive	Maple Dr. He likes it.	Maple Drive. He likes it.	Maple Dr.¦He likes it.	0	drive at the end of a sentence
 addr-parenthesis	(see Elm St.) Then go.	(see Elm Street.) Then go.	(see Elm St.)¦Then go.	0	closing bracket after the period
-addr-5th-st	Turn left on 5th St. Louis is ahead.	Turn left on 5th Street. Louis is ahead.	Turn left on 5th St.¦Louis is ahead.	0	number before it is strong suffix evidence
-addr-123-elm-dr	Go to 123 Elm Dr. Smith lives there.	Go to 123 Elm Drive. Smith lives there.	Go to 123 Elm Dr.¦Smith lives there.	0	house number two tokens before
+addr-5th-st	Turn left on 5th St. Louis is ahead.	Turn left on fifth Street. Louis is ahead.	Turn left on 5th St.¦Louis is ahead.	0	number before it is strong suffix evidence; the ordinal is now spoken
+addr-123-elm-dr	Go to 123 Elm Dr. Smith lives there.	Go to one hundred twenty three Elm Drive. Smith lives there.	Go to 123 Elm Dr.¦Smith lives there.	0	house number two tokens before; the number is now spoken
 addr-the-dr	The Dr. said hello.	The Doctor said hello.	The Dr. said hello.	0	determiner before it
 addr-avenue	He lives on Fifth Ave. near the park.	He lives on Fifth Avenue near the park.	He lives on Fifth Ave. near the park.	0	period token consumed mid sentence
 addr-blvd-end	We met on Sunset Blvd. Everyone came.	We met on Sunset Boulevard. Everyone came.	We met on Sunset Blvd.¦Everyone came.	0	period token kept at a forced break
@@ -35,8 +35,8 @@ addr-no-cues	They St. said so.	They Street said so.	They St. said so.	1	no cue: 
 suffix-sr	John Smith Sr. He left.	John Smith Senior. He left.	John Smith Sr.¦He left.	0	senior
 prefix-sr	Sr. Maria prayed.	Sister Maria prayed.	Sr. Maria prayed.	0	sister
 word-no	No. I don't know.	No. I don't know.	No.¦I don't know.	0	the word no ends its sentence
-number-no	No. I don't know. No. 5 is here.	No. I don't know. Number 5 is here.	No.¦I don't know.¦No. 5 is here.	0	number before a digit
-number-item	Item No. 5 shipped.	Item Number 5 shipped.	Item No. 5 shipped.	0	number reference
+number-no	No. I don't know. No. 5 is here.	No. I don't know. Number five is here.	No.¦I don't know.¦No. 5 is here.	0	number before a digit; the digit is now spoken
+number-item	Item No. 5 shipped.	Item Number five shipped.	Item No. 5 shipped.	0	number reference; the digit is now spoken
 biz-inc	Acme Inc. Smith left.	Acme Incorporated. Smith left.	Acme Inc.¦Smith left.	0	business suffix before a capitalized word
 biz-bros-co	Smith Bros. and Co. were here.	Smith Brothers and Company were here.	Smith Bros. and Co. were here.	0	two business suffixes mid sentence
 latin-etc-end	We bought pens, etc. The end.	We bought pens, et cetera. The end.	We bought pens, etc.¦The end.	0	free abbreviation at a sentence end keeps its period
@@ -47,7 +47,7 @@ latin-vs	Cats vs. dogs is old.	Cats versus dogs is old.	Cats vs. dogs is old.	0	
 latin-phd	She holds a Ph.D. in physics.	She holds a P H D in physics.	She holds a Ph.D. in physics.	0	degree spelled out
 latin-aka	Bob a.k.a. Robert left.	Bob also known as Robert left.	Bob a.k.a. Robert left.	0	also known as
 latin-approx	It takes approx. ten minutes.	It takes approximately ten minutes.	It takes approx. ten minutes.	0	approximately
-ref-fig	See Fig. 3 for details.	See Figure 3 for details.	See Fig. 3 for details.	0	figure before a digit
+ref-fig	See Fig. 3 for details.	See Figure three for details.	See Fig. 3 for details.	0	figure before a digit; the digit is now spoken
 ref-fig-guard	Fig. leaves fall.	Fig. leaves fall.	Fig. leaves fall.	0	guard: no digit follows
 ref-ft-fort	Ft. Worth is big.	Fort Worth is big.	Ft. Worth is big.	0	fort before a capitalized word
 slash-wo	Coffee w/o sugar, please.	Coffee without sugar, please.	Coffee w/o sugar, please.	0	listed slash form
@@ -59,11 +59,11 @@ slash-247	Open 24/7 now.	Open 24/7 now.	Open 24/7 now.	0	digits left alone
 sym-amp	Tom & Jerry ran.	Tom and Jerry ran.	Tom & Jerry ran.	0	standalone ampersand
 sym-amp-word	Johnson&Johnson ran.	Johnson and Johnson ran.	Johnson&Johnson ran.	0	ampersand between letters
 sym-amp-initialism	AT&T and R&D grew.	A T and T and R and D grew.	AT&T and R&D grew.	0	ampersand initialisms
-sym-ops	Sum 2 + 2 = 4 @ home.	Sum 2 plus 2 equals 4 at home.	Sum 2 + 2 = 4 @ home.	0	standalone operators
+sym-ops	Sum 2 + 2 = 4 @ home.	Sum two plus two equals four at home.	Sum 2 + 2 = 4 @ home.	0	standalone operators; the digits are now spoken
 sym-angle	Use <b> tags and a=b.	Use <b> tags and a=b.	Use <b> tags and a=b.	0	touching operators left alone
-sym-marks	Brand\u2122 and \u00A9 2025 are marks.	Brand trademark and copyright 2025 are marks.	Brand\u2122 and \u00A9 2025 are marks.	0	marks may touch a word
-sym-section	See \u00A7 5 for more.	See section 5 for more.	See \u00A7 5 for more.	0	section sign
-sym-math	3 \u00D7 4 \u00F7 2 \u2248 6.	3 times 4 divided by 2 approximately equal to 6.	3 \u00D7 4 \u00F7 2 \u2248 6.	0	math signs
+sym-marks	Brand\u2122 and \u00A9 2025 are marks.	Brand trademark and copyright twenty twenty five are marks.	Brand\u2122 and \u00A9 2025 are marks.	1	marks may touch a word; the bare year has no cue, so its default reading is counted
+sym-section	See \u00A7 5 for more.	See section five for more.	See \u00A7 5 for more.	0	section sign; the digit is now spoken
+sym-math	3 \u00D7 4 \u00F7 2 \u2248 6.	three times four divided by two approximately equal to six.	3 \u00D7 4 \u00F7 2 \u2248 6.	0	math signs; the digits are now spoken
 sym-backslash	Path a \\ b ok.	Path a backslash b ok.	Path a \\ b ok.	0	backslash
 drop-bullet	\u2022 First item	 First item	\u2022 First item	0	bullet spoken as nothing
 drop-zwsp	a\u200Bb c	ab c	a\u200Bb c	0	zero-width space dropped
@@ -88,7 +88,7 @@ acr-roman	Chapter CDXL ends.	Chapter CDXL ends.	Chapter CDXL ends.	0	roman numer
 acr-dotted	He lives in the U.S. now.	He lives in the U S now.	He lives in the U.S. now.	0	dotted initialism mid sentence
 acr-dotted-end	He lives in the U.S. He works.	He lives in the U S. He works.	He lives in the U.S.¦He works.	0	dotted initialism at a sentence end
 acr-usa	The U.S.A. is large.	The U S A is large.	The U.S.A. is large.	0	three letters
-acr-pm	Meet at 5 p.m. Then sleep.	Meet at 5 P M. Then sleep.	Meet at 5 p.m.¦Then sleep.	0	lower-case dotted form
+acr-pm	Meet at 5 p.m. Then sleep.	Meet at five P M. Then sleep.	Meet at 5 p.m.¦Then sleep.	0	lower-case dotted form; the hour is now spoken
 acr-jrr	J.R.R. Tolkien wrote it.	J R R Tolkien wrote it.	J.R.R. Tolkien wrote it.	0	dotted initials
 acr-possessive	AT&T's plan worked.	A T and T's plan worked.	AT&T's plan worked.	0	ampersand initialism with a possessive
 initial-names	J. Smith and A. B. Jones left.	J Smith and A B Jones left.	J. Smith and A. B. Jones left.	0	single-letter initials
@@ -103,7 +103,7 @@ sym-marks-adjacent	A\u2122\u00AEB	A trademark registered B	A\u2122\u00AEB	0	adja
 sym-marks-trailing	A\u2122\u00AE	A trademark registered	A\u2122\u00AE	0	adjacent marks at the end
 sym-marks-leading	\u2122\u00AE	trademark registered	\u2122\u00AE	0	adjacent marks alone
 sym-marks-three	\u00A9\u2122\u00AE	copyright trademark registered	\u00A9\u2122\u00AE	0	three adjacent marks
-sym-section-double	\u00A7\u00A7 5	section section 5	\u00A7\u00A7 5	0	repeated section sign
+sym-section-double	\u00A7\u00A7 5	section section five	\u00A7\u00A7 5	0	repeated section sign; the digit is now spoken
 sym-marks-digit	x\u2122\u00A92025	x trademark copyright 2025	x\u2122\u00A92025	0	adjacent marks between a letter and digits
 cred-jr-phd	John Smith Jr. Ph.D. spoke.	John Smith Junior P H D spoke.	John Smith Jr. Ph.D. spoke.	0	credential after a name suffix stays in the sentence
 cred-jr-esq	John Smith Jr. Esq. spoke.	John Smith Junior Esquire spoke.	John Smith Jr. Esq. spoke.	0	Esq. after a name suffix

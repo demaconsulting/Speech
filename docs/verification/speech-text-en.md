@@ -26,8 +26,10 @@ Automated coverage does not extend to the accuracy of the tagger beyond a few un
 the analyzer relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only
 sentences whose tags the tagger assigns with full confidence. The accuracy of the abbreviation readings is
 claimed only for the documented cases (the golden file records the known wrong-by-default readings
-`Wall St. Journal` and `Elm St. Louis` explicitly); numbers, dates, currency, units, URLs, e-mail, markup
-and the hyphen policy are deferred and are verified only as unchanged text.
+`Wall St. Journal` and `Elm St. Louis` explicitly); the numeric readings are claimed only for the documented
+en-US policy (the golden file marks readings that are wrong by default, such as `1500 stars` without a cue),
+and URLs, e-mail, markup, Roman numerals, hyphenated digit compounds, prefix currency codes and the hyphen
+policy are deferred and are verified only as unchanged text.
 
 System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project.
 
@@ -86,11 +88,15 @@ words of that chunk, with exactly the annotations the analyzer produced.
 
 ### Diagnostics
 
-**Test**: `SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained`
+**Tests**: `SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained`,
+`SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly`
 
 Verifies that one event in the `TextEn.Analysis` category reaches the sink with counts only (sentences,
-tokens, annotations, unknown words, normalizations and ambiguous abbreviations) and none of the words of the
-text, and that an analyzer whose sink throws still returns its full result.
+tokens, annotations, unknown words, normalizations, ambiguous readings and numeric fallbacks, in the message
+`... N normalizations, X ambiguous readings, F numeric fallbacks.`) and none of the words of the
+text, and that an analyzer whose sink throws still returns its full result. The numeric test analyzes a text
+with a bare year, a month-first date and an oversized digit run and asserts the exact ambiguity and fallback
+counts in the message and that no digit or spoken word of the text appears in it.
 
 ### Normalization Annotations
 
@@ -176,13 +182,84 @@ empty-valued annotation, also with the default analyzer (the part-of-speech tagg
 a lone `*` between commas as a word, but the analyzer gives a token without a letter or digit no part of
 speech, so such a clause is not mistaken for content), and `Hello, *, there` is likewise two chunks.
 
+### Numbers
+
+**Tests**: `SpeechTextEn_Analyze_Numbers_AreSpokenAsWordsWithoutChangingText`,
+`SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd`
+
+Verifies, through the public analyzer, that cardinals, thousands-separated numbers, negatives, decimals,
+ordinals, percentages, fractions, years, decades, ranges and phone numbers (for example `1,234`, `-5`,
+`3.5`, `22nd`, `50%`, `3 1/2`, `in 1999`, `1990s`, `5-10`, `555-1234`) get `en.norm` annotations whose values,
+read with the typed reader, contain only letters, spaces and the apostrophe and no digit, that applying the
+annotations with the independent applier gives the expected spoken sentence, and that the analyzed text is
+unchanged and no annotation covers an unchanged word. The second test verifies that the sentence breaks
+follow the sentence end around numbers (`Item 5. Then item 6.` breaks before `Then`, `It is 3.5 miles.` has
+no break inside `3.5`, `$1.25. Then $2.` breaks once).
+
+### Currency and Units
+
+**Test**: `SpeechTextEn_Analyze_CurrencyAndUnits_AreSpokenAsWords`
+
+Verifies `$5.50`, `$1`, `€5`, `£0.50`, `¥500`, `$5 million`, `$5M`, `5 USD`, `50 %`, `5 kg`, `1 kg`, `72°F` and
+`6 ft.` (a period consumed mid-sentence) spoken as `five dollars and fifty cents`, `one dollar`, `five euros`,
+`fifty pence`, `five hundred yen`, `five` with `million dollars`, `five million dollars`, `five` with
+`dollars`, `fifty percent`, `five` with `kilograms`, `one` with `kilogram`, `seventy two degrees Fahrenheit`
+and `six` with `feet`, and that a text without a unit table entry (`5 m`) is unchanged.
+
+### Dates and Times
+
+**Tests**: `SpeechTextEn_Analyze_DatesAndTimes_AreSpokenAsWords`,
+`SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext`,
+`SpeechTextEn_Analyze_FullMonthPeriod_EndsTheSentenceAndGivesNoDateContext`
+
+Verifies `5:30pm`, `17:00`, `12/25/2024`, `2024-12-25` and `January 5, 2024` spoken as `five thirty P M`,
+`seventeen hundred`, `December twenty fifth twenty twenty four` (twice) and `January fifth, twenty twenty
+four` (the month name and the comma untouched), and that `Jan. 5, 2024`, `Sat. 5 Jan. 2024` and `Sept. 11,
+2001 was a Tuesday.` read their month and weekday abbreviations without a sentence break inside the date,
+while `He left Mon. He came Tue.` keeps both sentence ends and a bare `Mar.` or `Sun.` is left as written.
+In `We finished in May. 5 people stayed. Born Jan. 5, 2024.` the period after `May` keeps its sentence end and
+`5` is read as `five`, while `Jan. 5, 2024` stays one date (`January fifth, twenty twenty four`).
+
+### Numeric Ambiguity and Limits
+
+**Tests**: `SpeechTextEn_Analyze_AmbiguousNumbers_UseDocumentedDefaultsAndAreCounted`,
+`SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted`
+
+Verifies that a bare `1999` is read as a year and a bare `1066` as a cardinal, that `3/4/2024` is read month
+first and `7/16` as a fraction, each with the documented default and one counted ambiguity (detailed counts
+through the diagnostics sink), and that `about 1500 people`, `in 1999` and `12/25/2024` are not counted. For
+limits, a 16-digit run is read digit by digit, a 65-digit run, a 129-character token and `1,23` are left as
+written, each counted as one numeric fallback, and no spoken value exceeds 1,024 characters.
+
+### Numeric Alignment Contract and Chunk Survival
+
+**Tests**: `SpeechTextEn_Analyze_NumericText_AnnotationsSatisfyAlignmentContract`,
+`SpeechTextEn_SynthesisSession_NumericText_AnnotationsSurviveChunking`,
+`SpeechTextEn_SynthesisSession_DateAcrossClauseCut_KeepsEveryTokenAnnotation`,
+`SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization`,
+`SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit`,
+`SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations`
+
+Verifies that for random, deliberately hostile numeric texts every `en.norm` annotation satisfies the amended
+alignment contract (no whitespace, no semicolon, a comma or colon only between two digits, no break strictly
+inside a span, no digit in a numeric value), that a long text mixing every numeric form reaches a real session's
+backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own, that
+`January 5, 2024, then left` and `$1,234.50, $5 million; 5:30pm: 50 %` keep every per-token annotation although
+the clause cuts fall between the tokens of the date, that a chunk that consists only of `%` keeps its
+annotation, that no annotation is split where the 200-character budget cut falls near a number (the
+text is constructed so that the cut falls between `$5` and `million`), and that `5` followed by a tag and `kg`
+keeps both annotations and covers no placeholder.
+
 ### Linear Time
 
-**Test**: `SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget`
+**Tests**: `SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget`,
+`SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget`
 
 Verifies, with normalization only (so no tagger is involved), that one megabyte of realistic text and of
 adversarially repeated `St.`, `A.`, `&` and `Dr. He` (each followed by a space) analyzes within a generous time budget under a
-cancellation safety limit, so a quadratic regression fails instead of hanging.
+cancellation safety limit, so a quadratic regression fails instead of hanging; and that one megabyte of each
+repetitive numeric unit (`1,234.50`, `$5.50`, `5:30pm`, `January 5, 2024`, `1/2`, `12/25/2024`, `5 kg`,
+`50 %`, `Jan. 5`, `5 ft.`) does the same.
 
 ### Package Files
 
@@ -218,10 +295,12 @@ System Design_, _Release Gate_), together with the retention test required there
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions,
 every subsystem and unit suite passes, and the automated verification boundary remains honest: structure,
 offsets, wiring, sentence breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm`
-annotations (including their survival through real chunking), the documented abbreviation, symbol, clitic and
-initialism behavior, the linear-time guard and the packaging configuration are
+annotations (including their survival through real chunking, also for numeric constructs whose tokens are
+separated by clause cuts and budget cuts), the documented abbreviation, symbol, clitic, initialism and
+numeric behavior (the golden readings, the documented defaults and their counts), the linear-time guard and the packaging configuration are
 claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
-own evaluation, the abbreviation readings are claimed only for the documented cases and cues, and the
+own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
+readings only for the documented en-US policy, and the
 retention of analyzed words inside the tagging package's private buffer (a known
 limitation of the dependency that violates the core `ITextAnalyzer` no-retention contract, and the reason
 the package is gated) is documented rather than claimed as verified. The package license files are also

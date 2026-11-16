@@ -12,10 +12,11 @@ supplies an English implementation of the Speech library's `ITextAnalyzer` seam.
 an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech library then runs the analyzer
 once per speech request over the whole request text and delivers the result to an annotation-aware
 synthesis backend as language-neutral annotations on each speech segment. The system is a preview: this
-release provides part-of-speech annotation, alignment-preserving normalization of non-numeric English text
-(abbreviations, symbols, apostrophes, acronyms and initialisms) and authoritative sentence boundaries, and
-later releases are planned to add numeric normalization, pronunciation readings and host overrides on top of
-the same two subsystems.
+release provides part-of-speech annotation, alignment-preserving normalization of English text
+(abbreviations including month and weekday abbreviations, symbols, apostrophes, acronyms and initialisms,
+and en-US numbers, ordinals, years, currency, percent, units, times and dates) and authoritative sentence
+boundaries, and later releases are planned to add pronunciation readings and host overrides on top of the
+same two subsystems.
 
 SpeechTextEn is a sibling system to Speech rather than a subsystem of it, for the same reasons the model
 packages are: it is a separately built, separately packaged software item with its own dependency, and
@@ -34,7 +35,9 @@ The library consists of two subsystems:
 - **NormalizationSubsystem**: the alignment model (`NormalizationAlignment.cs`, which also declares the
   public `NormalizationKind` and `CliticKind` enumerations), the internal `TextNormalizer` that decides
   which spans are spoken differently, the internal `AbbreviationResolver` with its embedded abbreviation
-  lexicon, and the internal `AcronymRecognizer` with its embedded initialism lexicon - see _SpeechTextEn
+  lexicon, the internal `AcronymRecognizer` with its embedded initialism lexicon, the internal
+  `NumericExpressionRecognizer` that finds numeric expressions and decides how each token of one is
+  spoken, and the internal `NumberVerbalizer` that builds the English words of a number - see _SpeechTextEn
   NormalizationSubsystem Design_
 
 The dependency between the subsystems is one way: the AnalysisSubsystem uses the NormalizationSubsystem,
@@ -100,8 +103,8 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
    one array of token offsets (each marked with whether it opens a tokenizer sentence) and hands it, with
    the neutralized text, to `TextNormalizer`. One linear pass applies the ordered rules and returns the
    changed spans (each with its spoken replacement and kind), the sentence-break edits (breaks to force and
-   to suppress), the ambiguity count and, only for `AnalyzeDetailed`, the clitic roles. It needs no tagger
-   and does not look at the tags
+   to suppress), the ambiguity count, the numeric fallback count and, only for `AnalyzeDetailed`, the clitic
+   roles. It needs no tagger and does not look at the tags
 6. **Result building**: the analyzer emits one `en.upos` annotation per word token (tokens tagged `PUNCT`
    or `SYM`, and tokens without a letter or digit, are skipped) followed by the `en.norm` annotations of the spans that start inside that token,
    so annotations are in text order and, at an equal start, the part of speech precedes the normalization.
@@ -124,7 +127,9 @@ title such as `Doctor`) never ends a sentence, so a tokenizer break after it is 
 credential (`Jr.`, `Esq.`, `Ph.D.`, `M.D.`, `III`) directly followed by another one (`John Smith Jr. Ph.D.
 spoke.`) is part of the same name and behaves like a prefix, so no break is forced between them and a
 tokenizer break there is suppressed; a break before a genuine sentence starter (`I met John Smith Jr. He
-left.`) is unaffected. Without the
+left.`) is unaffected. Month and weekday abbreviations follow the same rule: `Jan. 5` (a date follows) reads
+the period as consumed and removes the tokenizer's break after it, while `He left Mon. He came Tue.` keeps both
+sentence ends. Without the
 reconciliation the chunker would either keep two sentences in one chunk or split inside `Dr. Smith`.
 
 **Why tagging runs on raw tokens.** The tagger was trained on ordinary written text, and tagging the
@@ -150,12 +155,12 @@ words that replace it when the text is spoken.
 | A2 | Every span is non-empty, starts and ends on a non-whitespace character, never contains a tag placeholder and never cuts a surrogate pair; its replacement is never null |
 | A3 | The spans and the untouched gaps between them tile the text exactly: no gap, no overlap, lengths summing to the text length; applying every span as its own source text returns the input unchanged |
 | A4 | Nothing outside a span is changed, re-cased or re-punctuated; unchanged text is never annotated |
-| A5 | A span is chunk-safe: it contains no whitespace and none of `,` `;` `:`, and it is at most one tokenizer token, or one token and its adjacent period token, so it always lies wholly inside one chunk of the Speech library |
+| A5 | A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one of four shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'` `90s`). A construct of several tokens (`January 5, 2024`, `$5 million`, `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies wholly inside one chunk of the Speech library |
 | A6 | Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement carries one separating space on that side (`he/she` becomes the replacement ` slash ` for the `/`; `A™®B` gives `trademark` and ` registered `). Dropped and apostrophe replacements are never padded, and two adjacent replacements are separated by exactly one space (the later one pads its own left side, so no offset moves) |
-| A7 | No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the only source periods that vanish are those consumed inside an abbreviation or initialism span |
-| A8 | Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null) |
+| A7 | No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The digits, separators and symbols of a recognized numeric expression are consumed into its spoken words (all of them are represented in the `Value`); numeric-looking text that is not recognized is never partially consumed |
+| A8 | Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null). **A8b**: no reconciled break lies strictly inside a span (a tokenizer break inside a numeric expression, for example after `Jan.` in `Jan. 5`, is suppressed) |
 | A9 | The analysis is deterministic and thread-safe: repeated and concurrent analysis of one text yields identical annotations and breaks; neither the analyzer nor the normalizer keeps per-request state |
-| A10 | An `en.norm` value is non-empty except for a `Dropped` span, contains no tag placeholder and has no leading or trailing space except the A6 padding (a leading space is also the A6 separator after a directly adjacent replacement that ends with a letter) |
+| A10 | An `en.norm` value is non-empty except for a `Dropped` span, contains no tag placeholder and has no leading or trailing space except the A6 padding (a leading space is also the A6 separator after a directly adjacent replacement that ends with a letter). The value of a numeric span (kinds `Number`, `Currency`, `DateTime` and `Unit`) contains no ASCII digit and only letters, spaces and the apostrophe of `o'clock`, and is at most 1,024 characters long |
 
 **Consumer algorithm.** To obtain the spoken text of a segment, a backend that reads `en.norm`:
 
@@ -179,6 +184,78 @@ request text before analysis, so a model that rewrote `Dr.` itself would hand th
 that abbreviation no longer exists, and the two normalizations would disagree about what is spoken. A model
 that deliberately selects part of speech only may keep its own normalization hook.
 
+## Spoken-Text Conventions
+
+This section is normative for consumers. Every `en.norm` value produced for a numeric span (the kinds
+`Number`, `Currency`, `DateTime` and `Unit`) follows these conventions, so a phoneme backend sees only plain
+words and needs no number parser of its own:
+
+- **Plain words**: lowercase ASCII letters separated by single spaces, with **no hyphens, no commas, no
+  digits and no other punctuation**: `twenty four`, never `twenty-four` or `24`. No clause punctuation can
+  enter a value, so a value never changes how a backend splits clauses
+- **Closed exceptions**: the apostrophe appears only in `o'clock`; capital letters appear only in the month
+  names (`January`), in the meridiem letters `P M` and `A M`, and in `Fahrenheit` and `Celsius`
+- **Bounded**: a numeric value is never longer than 1,024 characters
+- **Padding**: a value may carry one leading or trailing space for the separation rule A6 (`50%` gives the
+  value `fifty` for the digits and `percent` for the sign); a backend applies the values as they are
+- **The word `and`**: it appears only in a currency amount with cents (`five dollars and fifty cents`) and in
+  a mixed number (`three and one half`); there is no `and` inside a cardinal (`one hundred one`)
+- **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a
+  hyphenated compound such as `5-year-old`, a number beyond the documented limits) is left unannotated, and a
+  backend must be prepared to receive digits for it. Where the library found a numeric-looking text that it
+  cannot read, it counts a numeric fallback (see _Diagnostics are counts only_ under _Design Constraints_)
+
+A numeric span covers the digits, separators and symbols of one token (or a currency symbol or apostrophe
+with its adjacent number token); the words that belong to the same construct but are separate tokens get
+spans of their own. For example `$5 million` has the span `$5` (`five`) and the span `million` (`million
+dollars`); `January 5, 2024` has the spans `5` (`fifth`) and `2024` (`twenty twenty four`) and leaves the
+word `January` and the comma untouched. A consumer applies each span independently, in text order, as
+described in the _Consumer algorithm_.
+
+### Numeric Normalization
+
+The library reads the numeric expressions of en-US text. The policy is fixed and lexical (digits, separators,
+symbols, units, month names and a few cue words around the number; never the part of speech), and every
+choice between readings that the words around a number do not decide uses a documented default that is
+counted in the diagnostics:
+
+| Family | Examples (written, then spoken) |
+| --- | --- |
+| Integers, negatives, thousands separators | `42` `forty two`; `1,234` `one thousand two hundred thirty four`; `-5` `minus five`; `+3` `plus three`; `007` `zero zero seven` |
+| Decimals | `3.5` `three point five`; `.5` `point five`; `1.234` `one point two three four` (never thousands) |
+| Ordinals | `1st` `first`; `22nd` `twenty second`; `1,000th` `one thousandth`; a suffix that does not match (`1th`) is left alone |
+| Years and decades | `in 1066` `in ten sixty six`; `2024` `twenty twenty four`; `1990s` `nineteen nineties`; `'90s` `nineties` |
+| Currency | `$5.50` `five dollars and fifty cents`; `£3` `three pounds`; `$5 million` `five` + `million dollars`; `5 USD` `five` + `dollars` |
+| Percent and units | `50%` `fifty percent`; `5 kg` `five kilograms`; `72°F` `seventy two degrees Fahrenheit`; `6 ft.` `six feet` |
+| Times | `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty P M` |
+| Dates | `12/25/2024` `December twenty fifth twenty twenty four`; `January 5, 2024` `January fifth, twenty twenty four` |
+| Digit groups | `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2` `one half`; `3 1/2` `three and one half` |
+| Month and weekday abbreviations | `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps both sentence breaks |
+
+The complete reading policy (every row, its notes and the limits) is in _NumericExpressionRecognizer Design_
+and _NumberVerbalizer Design_. The points a consumer most needs to know:
+
+- **Only the ASCII digits `0-9` are numbers.** Full-width, Arabic-Indic, mathematical and superscript digits
+  are never read, and a number with letters mixed in (`3D`, `101A`, `1e5`, `0x1F`, `1_000`, `Q3`) is left alone
+- **en-US conventions only**: `,` separates thousands and `.` the decimal point; a month comes before the
+  day in a numeric date unless the first part can only be a day (above 12). A number written with other
+  conventions (`1,23`, `1.234,5`, `12,34,567`) is left as written and counted as a numeric fallback
+- **Years versus quantities**: a four-digit number from 1000 to 2099 is a year after a year cue (`in`, `since`,
+  a month name, an era such as `AD`) and a quantity (cardinal) after a quantity cue (`about`, `over`) or
+  before a unit or a counted noun (`1500 people`); with no cue it is read as a year (from 1100) or a
+  cardinal (1000 to 1099) and the choice is counted as an ambiguous reading
+- **Limits**: a cardinal has at most 15 digits (999 trillion); 16 to 64 digits are read digit by digit and
+  counted as a numeric fallback; more than 64 digits, a token longer than 128 characters or a decimal with
+  more than 32 fraction digits is left as written and counted as a numeric fallback
+- **Nothing is guessed silently**: the readings that were chosen by default (bare years, `3/4/2024`, a
+  fraction that could also be a date) are counted in the _ambiguous readings_ count, and the numeric-looking
+  text that was left as written is counted in the _numeric fallbacks_ count, both counts only, never text
+
+A span of the numeric kinds always replaces whole tokens of the source, and the sentence structure follows the
+text: a period that ends a sentence after a number (`Item 5.`) is never part of a span, and the period of a
+unit abbreviation (`5 ft.`) is consumed in the middle of a sentence and kept, with a sentence break forced,
+where a capitalized word follows (`5 ft. Then ...`).
+
 ## Design Constraints
 
 - **Speech must never depend on SpeechTextEn**: the dependency direction is one way. Speech carries no
@@ -193,13 +270,16 @@ that deliberately selects part of speech only may keep its own normalization hoo
   still resolved from the name after it); a sentence break is placed at the next word, never at the
   placeholder
 - **Diagnostics are counts only**: the library's diagnostics contract forbids synthesized text in any
-  report. The analyzer reports sentence, token, annotation, unknown-word, normalization and ambiguous
-  abbreviation counts built from fixed words and numbers, never a word or a spoken replacement, and
+  report. The analyzer reports sentence, token, annotation, unknown-word, normalization, ambiguous-reading
+  (abbreviations and numeric defaults) and numeric-fallback counts built from fixed words and numbers, never a word or a spoken replacement, and
   detailed per-word data is available only through `AnalyzeDetailed`, which returns it to the caller
   instead of a sink
-- **Linear time**: every normalization rule looks at a constant number of neighboring tokens, and the
+- **Linear time**: every normalization rule looks at a constant number of neighboring tokens (the numeric
+  scanners read each token's characters a constant number of times, behind a 128-character token limit and a
+  limit on the number of digit groups, and use no regular expression), and the
   normalizer checks the cancellation token every 256 visited tokens, so the pass is linear in the text
-  length, including for adversarial repetitions and for one huge token, and a canceled request stops
+  length, including for adversarial repetitions, digit-heavy texts and for one huge token, and a canceled
+  request stops
 - **US English only**: the lexicons, the spelling of the spoken forms (`Miz`, `Mount`, `Avenue`) and the
   context cues are those of written US English; other English varieties and other languages are not
   handled and their text is passed through unchanged
@@ -220,15 +300,24 @@ that deliberately selects part of speech only may keep its own normalization hoo
 
 ### Deferred Capabilities
 
-The normalization in this release is deliberately limited to non-numeric text. Everything below is passed
-through unchanged (identity, never annotated) and is documented here so a host does not assume it:
+The normalization in this release reads the numeric expressions listed under _Numeric Normalization_ and
+the non-numeric text described elsewhere in this document. Everything below is passed through unchanged
+(identity, never annotated) and is documented here so a host does not assume it; each of these is asserted by
+a golden row, so a later increment changes it knowingly:
 
 - **URLs, e-mail addresses, markup and Markdown, and the hyphen and dash policy**: deferred to a later small
   increment and recorded as a follow-up that needs a decision of the repository owner (a URL contains `:`,
   which the core chunker treats as a clause boundary, so it needs evidence about annotation loss first)
-- **Numbers, dates, times, currency, percentages, ordinals, Roman numerals, units, and month and weekday
-  abbreviations** (`Mar.`, `Sat.`, `5 ft.`): planned for the next increment, because they need the digits
-  and the date context that this release does not interpret
+- **Roman numerals** (`Henry VIII`, `World War II`, `Chapter IV`) and **hyphenated compounds that contain
+  digits** (`5-year-old`, `3-D`, `F-16`, `COVID-19`, `mid-1990s`, `20-something`): there is no safe lexical
+  rule without a name and part-of-speech lexicon. Only purely numeric hyphen groups (ranges, phone numbers,
+  identifiers, dates) are read
+- **Prefix currency codes** (`USD 5`, `US$5`): they need a span that reorders words across a space, which the
+  core chunker can lose at a size cut; suffix codes (`5 USD`, `5 million EUR`) are read
+- **Other numeric forms**: `h:mm:ss` times and ratios (`3:2`), non-ASCII digits, `1e5`, `0x1F`, `1_000`, bare
+  magnitude letters without a currency symbol (`10k`, `1.5M`), feet and inches (`5'10"`), the numero sign,
+  `Q3 2024`-style quarter names, decimal-comma locales and other en-GB or non-English conventions, and the
+  single-letter and word-like units (`m`, `g`, `l`, `s`, `in`), which are too ambiguous to read after a number
 - **Host overrides and the `en.spell` spell-out annotation**: planned for a later increment; the
   `en.spell`, `en.reading`, `en.reading-confidence` and `en.pron` kinds stay reserved and are never emitted
 - **Plural initialisms** (`DVDs`) and acronyms spoken as words (`NASA`)

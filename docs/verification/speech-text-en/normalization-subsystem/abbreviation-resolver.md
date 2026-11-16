@@ -34,7 +34,9 @@ present, and a clear one is not; the period shape is reported; a single-letter i
 name or another initial; ordinary words and words that merely start like a form are not abbreviations; a
 lexicon without a prefix and suffix pair is decided by its default without counting; the loader accepts
 comments, blank lines and CRLF and rejects malformed rows with an error naming the one-based line number; a
-null reader throws; and racing first use yields one instance.
+null reader throws; the month and weekday rows resolve as a prefix before a date and as a suffix elsewhere,
+`Mar.` and `Sun.` resolve only after a number, `May` and the weekdays written without a period have no row, and the
+recognizer's month and weekday vocabulary equals the rows of the table; and racing first use yields one instance.
 
 #### Test Scenarios
 
@@ -70,11 +72,31 @@ because the credential is not taken for the name of a Sister. The name-continuat
 `AbbreviationResolver_TryResolve_InconclusiveContext_UsesDefaultAndIsCounted`,
 `AbbreviationResolver_FromTsv_NonPairAlternatives_UseDefaultWithoutCounting`
 
-`Ft.` resolves before a capitalized word but not after a number or before a lower-case word; `Fig.` needs a
+`Ft.` resolves before a capitalized word but not after a number or before a lower-case word (a number before it
+is the unit `ft.` of the numeric rule); `Fig.` needs a
 digit next; `Mr` and `Ms` need a capitalized next word. `They St. said so.` reads Street and `They Dr. said so.`
 reads Doctor, both by default and flagged; `Go see Jones St. Smith` reads Saint and is flagged; `Dr. Smith` is
 not. A custom lexicon whose alternatives are a free and a word reading is decided by the default without a
 flag.
+
+##### Date guards and month and weekday rows
+
+**Tests**: `AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings`,
+`AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary`,
+`AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms`
+
+The guard test uses small custom tables: `next-date` passes before an ASCII digit and before a month name or
+abbreviation (with or without its period) and fails before a lower-case word, a capitalized non-month and a
+non-ASCII digit; `prev-number` passes after an ASCII digit and fails after a letter, at the start of the text and
+after a non-ASCII digit; the two names are accepted by the loader and a misspelled guard is still rejected. The
+table test reads the shipped lexicon and asserts that the rows are exactly the month abbreviations with and
+without a period and the weekday abbreviations of `NumericExpressionRecognizer`, that every period form has
+a prefix row guarded by `next-date` and a default suffix row, that `Mar.` and `Sun.` have `prev-number` on the
+suffix reading, that the months written without a period are prefix rows with `next-digit`, and that there is no row for `May`.
+The resolution test asserts, on the real tokenizer's tokens, that `Jan. 5` and `Sat. 5 Jan. 2024` resolve to the
+prefix reading (period consumed, not counted ambiguous), that `in Dec. She left.` and `He left Mon. He came
+Tue.` resolve to the suffix reading, that `Then Fri. ended.` resolves to Friday, that `Jan 5` and `Sept 11` resolve
+without a period, and that a bare `Mar.`, a bare `Sun.` and the word `May` do not resolve.
 
 ##### Period shape and initials
 

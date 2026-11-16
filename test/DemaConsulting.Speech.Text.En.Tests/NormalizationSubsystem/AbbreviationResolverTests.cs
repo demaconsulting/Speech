@@ -197,6 +197,141 @@ public sealed class AbbreviationResolverTests
         Assert.False(Resolve("Ms is fine.", "Ms").Found);
     }
 
+    /// <summary>Proves the date guards restrict the month and weekday readings: a prefix reading needs a date next, <c>Mar.</c> and <c>Sun.</c> need a number before them, and only ASCII digits count.</summary>
+    [Fact]
+    public void AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings()
+    {
+        // Assert: a date next makes the prefix reading
+        var (marchFound, march) = Resolve("Mar. 5 is late.", "Mar");
+        Assert.True(marchFound);
+        Assert.Equal("March", march.Spoken);
+        Assert.Equal(AbbreviationClass.Prefix, march.Class);
+        var (sundayFound, sunday) = Resolve("Sun. Mar. 5 is late.", "Sun");
+        Assert.True(sundayFound);
+        Assert.Equal(AbbreviationClass.Prefix, sunday.Class);
+
+        // Assert: Mar. and Sun. have no unguarded reading: bare, they are left alone (the verb, the star)
+        Assert.False(Resolve("Mar.", "Mar").Found);
+        Assert.False(Resolve("Do not Mar. the floor.", "Mar").Found);
+        Assert.False(Resolve("Sun.", "Sun").Found);
+        Assert.False(Resolve("The Sun. rose.", "Sun").Found);
+
+        // Assert: a number before them makes the suffix reading
+        var (afterNumber, suffixMarch) = Resolve("5 Mar.", "Mar");
+        Assert.True(afterNumber);
+        Assert.Equal(AbbreviationClass.Suffix, suffixMarch.Class);
+        var (sunAfter, suffixSun) = Resolve("5 Sun.", "Sun");
+        Assert.True(sunAfter);
+        Assert.Equal(AbbreviationClass.Suffix, suffixSun.Class);
+
+        // Assert: the other months and weekdays take the suffix reading when no date follows, the prefix reading when one does
+        Assert.Equal(AbbreviationClass.Suffix, Resolve("in Dec. She left.", "Dec").Match.Class);
+        Assert.Equal(AbbreviationClass.Prefix, Resolve("Dec. 25 is near.", "Dec").Match.Class);
+        Assert.Equal(AbbreviationClass.Suffix, Resolve("He left Mon. He came.", "Mon").Match.Class);
+        Assert.Equal(AbbreviationClass.Prefix, Resolve("Mon. 5 Jan is near.", "Mon").Match.Class);
+        Assert.Equal(AbbreviationClass.Prefix, Resolve("Sat. Jan. 5 is near.", "Sat").Match.Class);
+
+        // Assert: only ASCII digits make a date (an Arabic-Indic digit does not), for both guards
+        Assert.Equal(AbbreviationClass.Suffix, Resolve("Dec. \u0665 is odd.", "Dec").Match.Class);
+        Assert.False(Resolve("\u0665 Mar.", "Mar").Found);
+        Assert.False(Resolve("\uFF15 Sun.", "Sun").Found);
+
+        // Assert: the loader accepts the new guard names, alone and joined, and still rejects an unknown one
+        var resolver = AbbreviationResolver.FromTsv(new StringReader(
+            Header + "Zz.\tZed\tprefix\tno\tnext-date+prev-number\tn\nZz.\tZed\tsuffix\tyes\t-\tn\n"));
+        Assert.Equal(2, resolver.Count);
+        Assert.Throws<InvalidDataException>(() => AbbreviationResolver.FromTsv(new StringReader(Header + "Zz.\tZed\tprefix\tyes\tnext-time\tn\n")));
+    }
+
+    /// <summary>Proves the month and weekday abbreviations resolve in their prefix, suffix and no-period forms to the full name.</summary>
+    [Fact]
+    public void AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms()
+    {
+        // Arrange: (text, token start, expected spoken, expected class, includes a period token)
+        (string Text, string Word, string Spoken, AbbreviationClass Class)[] cases =
+        [
+            ("Jan. 5 is cold.", "Jan", "January", AbbreviationClass.Prefix),
+            ("It was Jan.", "Jan", "January", AbbreviationClass.Suffix),
+            ("Jan 5 is cold.", "Jan", "January", AbbreviationClass.Prefix),
+            ("Feb 3 is cold.", "Feb", "February", AbbreviationClass.Prefix),
+            ("Sept 11 was sad.", "Sept", "September", AbbreviationClass.Prefix),
+            ("Sept. 11 was sad.", "Sept", "September", AbbreviationClass.Prefix),
+            ("Sep. 9 was sad.", "Sep", "September", AbbreviationClass.Prefix),
+            ("Oct. 5 is near.", "Oct", "October", AbbreviationClass.Prefix),
+            ("Thurs. 7 is near.", "Thurs", "Thursday", AbbreviationClass.Prefix),
+            ("Thur. 7 is near.", "Thur", "Thursday", AbbreviationClass.Prefix),
+            ("Tues. 7 is near.", "Tues", "Tuesday", AbbreviationClass.Prefix),
+            ("He left Fri.", "Fri", "Friday", AbbreviationClass.Suffix),
+            ("He left Wed.", "Wed", "Wednesday", AbbreviationClass.Suffix),
+        ];
+
+        // Act / Assert
+        foreach (var (text, word, spoken, abbreviationClass) in cases)
+        {
+            var (found, match) = Resolve(text, word);
+            Assert.True(found, text);
+            Assert.Equal(spoken, match.Spoken);
+            Assert.Equal(abbreviationClass, match.Class);
+            Assert.False(match.UsedDefault, text);
+        }
+
+        // Assert: May is a word and never an abbreviation; lowercase months and weekdays written without a period are left alone
+        Assert.False(Resolve("May 5 is near.", "May").Found);
+        Assert.False(Resolve("jan. 5 is near.", "jan").Found);
+        Assert.False(Resolve("Mon 5 is near.", "Mon").Found);
+        Assert.False(Resolve("Jan is near.", "Jan").Found);
+    }
+
+    /// <summary>Proves the lexicon's month and weekday rows agree with the recognizer's month vocabulary: one prefix and one suffix row per abbreviation with a period, one row per month written without a period, and every spoken form the full name.</summary>
+    [Fact]
+    public void AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary()
+    {
+        // Arrange: the rows of the embedded lexicon, read the way the loader reads them
+        using var stream = typeof(AbbreviationResolver).Assembly.GetManifestResourceStream("DemaConsulting.Speech.Text.En.Resources.abbreviations.tsv");
+        Assert.NotNull(stream);
+        using var reader = new StreamReader(stream);
+        var rows = reader.ReadToEnd().Split('\n')
+            .Where(line => line.Length > 0 && line[0] != '#')
+            .Skip(1)
+            .Select(line => line.Split('\t'))
+            .Select(columns => (Form: columns[0], Spoken: columns[1], Class: columns[2], Default: columns[3], Guard: columns[4]))
+            .ToList();
+        string[] weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+        // Assert: each month abbreviation is a month token, has the full name as its spoken form, and the documented rows
+        foreach (var abbreviation in NumericExpressionRecognizer.MonthAbbreviations)
+        {
+            var name = NumericExpressionRecognizer.MonthNames.Single(candidate => candidate.StartsWith(abbreviation, StringComparison.Ordinal) && candidate != "May");
+            Assert.True(NumericExpressionRecognizer.IsMonthToken(abbreviation));
+            Assert.True(NumericExpressionRecognizer.IsMonthToken(abbreviation + "."));
+            var plain = rows.Where(row => row.Form == abbreviation).ToList();
+            var dotted = rows.Where(row => row.Form == abbreviation + ".").ToList();
+            Assert.Equal(name, Assert.Single(plain).Spoken);
+            Assert.Equal(("prefix", "next-digit"), (plain[0].Class, plain[0].Guard));
+            Assert.Equal(2, dotted.Count);
+            Assert.All(dotted, row => Assert.Equal(name, row.Spoken));
+            Assert.Single(dotted, row => row is { Class: "prefix", Guard: "next-date" });
+            Assert.Single(dotted, row => row.Class == "suffix" && row.Default == "yes");
+        }
+
+        // Assert: weekday rows exist for every abbreviation with a period and speak a full weekday name starting with it
+        foreach (var abbreviation in NumericExpressionRecognizer.WeekdayAbbreviations)
+        {
+            var dotted = rows.Where(row => row.Form == abbreviation + ".").ToList();
+            Assert.Equal(2, dotted.Count);
+            Assert.All(dotted, row => Assert.Contains(row.Spoken, weekdays));
+            Assert.All(dotted, row => Assert.StartsWith(abbreviation, row.Spoken, StringComparison.Ordinal));
+            Assert.Single(dotted, row => row is { Class: "prefix", Guard: "next-date" });
+            Assert.DoesNotContain(rows, row => row.Form == abbreviation);
+        }
+
+        // Assert: no other row speaks a month or weekday, and May is never a row
+        var vocabulary = NumericExpressionRecognizer.MonthAbbreviations.Concat(NumericExpressionRecognizer.WeekdayAbbreviations).ToHashSet(StringComparer.Ordinal);
+        var named = rows.Where(row => NumericExpressionRecognizer.MonthNames.Contains(row.Spoken) || weekdays.Contains(row.Spoken)).ToList();
+        Assert.All(named, row => Assert.Contains(row.Form.TrimEnd('.'), vocabulary));
+        Assert.DoesNotContain(rows, row => row.Form.TrimEnd('.') == "May");
+    }
+
     /// <summary>Proves a resolution that fell back to the default, or chose with both cues present, is flagged for counting; clear ones are not.</summary>
     [Fact]
     public void AbbreviationResolver_TryResolve_InconclusiveContext_UsesDefaultAndIsCounted()

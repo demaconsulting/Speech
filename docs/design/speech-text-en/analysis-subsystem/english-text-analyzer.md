@@ -56,7 +56,7 @@ detailed list was supplied, its `AnalyzedNormalization`. A final flush adds any 
 ever lost. The sentence breaks are the tokenizer breaks reconciled by `AlignedText.ReconcileBreaks` when
 normalization is selected, and the tokenizer breaks unchanged otherwise. Finally report the counts (sentences
 = reconciled breaks plus one when there is at least one token; tokens; annotations of both kinds; unknown
-words; normalizations; ambiguous abbreviations) and return the lists as read-only. Because tokens come from
+words; normalizations; ambiguous readings; numeric fallbacks) and return the lists as read-only. A span of the numeric shapes S3 and S4 (a currency symbol or an apostrophe with its adjacent number token) starts inside the symbol token, which carries no `en.upos` annotation, so its `en.norm` annotation follows the part of speech of the previous word and precedes that of the number, which keeps the annotations in text order. Because tokens come from
 the tokenizer and spans from the normalizer, an annotation never contains whitespace or a placeholder and so
 starts and ends on non-whitespace; the surrogate-pair guard on `en.upos` is a defensive check, and the
 normalizer's builder enforces the same for `en.norm`. A text without tokens yields no annotations and an

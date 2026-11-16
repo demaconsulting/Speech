@@ -3,7 +3,7 @@
 #
 # These requirements describe the design-level behavior of the AbbreviationResolver unit, the
 # lexicon of written-English abbreviations embedded in the package (written from scratch and
-# released under the package's MIT License) with the rules that choose between the readings of an
+# released under the package's MIT License), including the month and weekday abbreviations, with the rules that choose between the readings of an
 # ambiguous abbreviation from its neighboring tokens. It decomposes the parent SpeechTextEn
 # NormalizationSubsystem requirements. It uses no tagger. Each requirement states one observable
 # behavior.
@@ -66,6 +66,39 @@ sections:
                   - AbbreviationResolver_TryResolve_No_IsNumberBeforeDigitAndWordOtherwise
                   - AbbreviationResolver_TryResolve_Guards_RestrictReadingsToTheirContext
 
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-DateGuards
+                title: >-
+                  The AbbreviationResolver class shall accept the guards next-date (the next token
+                  starts with an ASCII digit or is a month name or abbreviation) and prev-number (the
+                  previous token starts with an ASCII digit), shall test the ASCII digits only for
+                  these two guards, and shall use the numeric recognizer's own definition of a
+                  month.
+                justification: |
+                  "Jan. 5" and "Sat. 5 Jan. 2024" are dates in which the period does not end a
+                  sentence, whereas "Mar." with no number before it is the verb. The guards select
+                  the reading from the date context, a date is written with the ASCII digits, and
+                  one definition of a month keeps the lexicon and the numeric rule in agreement.
+                tests:
+                  - AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-MonthAndWeekdayRows
+                title: >-
+                  The AbbreviationResolver class shall contain the month and weekday abbreviations
+                  with a period (a prefix reading before a date and a suffix reading elsewhere, the
+                  suffix reading of Mar. and Sun. only after a number) and the month abbreviations
+                  without a period before a digit, shall contain no row for May or for a weekday
+                  written without a period, and shall agree with the month and weekday vocabulary of the numeric
+                  recognizer.
+                justification: |
+                  The tokenizer breaks sentences after "Jan." and "Sat." even in the middle of a
+                  date, so the abbreviation's reading has to remove that break, and a bare "Mar." or
+                  "Sun." (the verb, the star) must stay as written. The word May and the weekday
+                  names are ordinary words that need no rows, and a test keeps the two vocabularies
+                  from drifting apart.
+                tests:
+                  - AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary
+                  - AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms
+
               - id: SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
                 title: >-
                   The AbbreviationResolver class shall use the reading marked as the default and
@@ -84,7 +117,8 @@ sections:
                 title: >-
                   The AbbreviationResolver class shall parse a lexicon in the documented tab-separated
                   format, accepting comments, blank lines and CRLF line ends, shall throw
-                  InvalidDataException that names the line number for a malformed row, and shall
+                  InvalidDataException that names the line number for a malformed row or an unknown
+                  guard name (the five documented guards being accepted), and shall
                   throw ArgumentNullException for a null reader.
                 justification: |
                   A defective lexicon is a build defect and must fail at once and point at the row,
