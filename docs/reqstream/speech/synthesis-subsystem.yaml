@@ -895,13 +895,17 @@ sections:
             title: >-
               The SynthesisSubsystem shall deliver each analysis annotation with the segment that
               contains its text, with offsets relative to that segment's text, regardless of how
-              inline audio tags split the text or how chunking divides it, and shall drop rather
-              than misplace an annotation that cannot be represented inside one segment.
+              inline audio tags split the text or how chunking divides it, shall drop rather
+              than misplace an annotation that cannot be represented inside one segment, and shall
+              not discard a punctuation-only chunk that carries an annotation with something to
+              speak.
             justification: |
               A backend synthesizes one segment at a time and can only interpret offsets relative
               to that segment's text. An annotation that points at the wrong word would make a
               phoneme-driven model mispronounce it, so an annotation that cannot be placed
-              faithfully is better omitted than misplaced.
+              faithfully is better omitted than misplaced. A symbol that an analysis normalized
+              to words has no letter or digit, and chunking that treated it as punctuation would
+              silently lose those words.
             children:
               - Speech-Synthesis-TextAnalysis-AnnotationValidation
               - Speech-Synthesis-TextAnalysis-ResultValidation
@@ -913,11 +917,14 @@ sections:
               - Speech-Synthesis-SentenceChunker-AnnotationRebasing
               - Speech-Synthesis-SentenceChunker-UnrepresentableAnnotationDropped
               - Speech-Synthesis-SentenceChunker-ScalarAwareContentDetection
+              - Speech-Synthesis-SentenceChunker-AnnotatedPunctuationKept
             tests:
               - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationAcrossStrippedTag_AnnotatedBackendReceivesRebasedOffsets
               - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationsAcrossChunks_EachChunkReceivesOwnOffsets
               - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationSpanningTag_IsDropped
               - SynthesisSession_SynthesizeAsync_AnalyzerBreakAfterSurrogatePair_KeepsChunkAndAnnotation
+              - SynthesisSession_SynthesizeAsync_AnnotatedSymbolOnlyText_ReachesAnnotatedBackend
+              - SynthesisSession_SynthesizeAsync_AnnotatedSymbolBeforeClause_KeepsAnnotationOnFirstChunk
 
           - id: Speech-Synthesis-AnalyzerSentenceBoundaries
             title: >-

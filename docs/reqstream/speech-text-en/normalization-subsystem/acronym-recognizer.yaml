@@ -1,0 +1,91 @@
+---
+# Software Unit Requirements for AcronymRecognizer
+#
+# These requirements describe the design-level behavior of the AcronymRecognizer unit, the
+# lexicon of initialisms embedded in the package (written from scratch and released under the
+# package's MIT License) with the rules that recognize an initialism in a token and give its
+# letter-by-letter spoken form. It decomposes the parent SpeechTextEn NormalizationSubsystem
+# requirements. Each requirement states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AcronymRecognizerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: AcronymRecognizer Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-CaseSensitivity
+                title: >-
+                  The AcronymRecognizer class shall recognize a listed initialism only in its exact
+                  capitalization.
+                justification: |
+                  "US" is the country and "us" is a pronoun; only the case tells them apart.
+                tests:
+                  - AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive
+
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-SpelledForms
+                title: >-
+                  The AcronymRecognizer class shall speak a recognized initialism as its capital
+                  letters separated by spaces.
+                justification: |
+                  A model reads "FBI" as three letters only if it is given the letters.
+                tests:
+                  - AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter
+
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-ShoutingGuard
+                title: >-
+                  The AcronymRecognizer class shall leave an ambiguous listed form alone in a
+                  sentence written entirely in capitals, while still speaking an unambiguous listed
+                  form and a dotted form in it.
+                justification: |
+                  In an all-capital sentence "IT" and "US" are ordinary words in capitals, while
+                  "FBI" remains an initialism.
+                tests:
+                  - AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms
+
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-NoVowelRule
+                title: >-
+                  The AcronymRecognizer class shall spell an unlisted token of two to five capital
+                  letters that contains no vowel and is not Roman-numeral-shaped, shall leave
+                  unlisted capitals that contain a vowel, Roman-numeral-shaped capitals, over-long or
+                  one-letter tokens unchanged, and shall suspend the rule in an all-capital
+                  sentence.
+                justification: |
+                  A token such as "HTTP" has no vowel to pronounce and is spelled, while "NASA"
+                  reads as a word and "XIV" as a numeral; leaving everything else unchanged keeps
+                  the rule from rewording ordinary capitalized words.
+                tests:
+                  - AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized
+                  - AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms
+
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-DottedAndAmpersand
+                title: >-
+                  The AcronymRecognizer class shall speak dotted letter forms upper-cased and
+                  spaced and report whether the token itself ends with the period, and shall speak
+                  an ampersand initialism group by group joined with the word and, keeping a
+                  possessive tail.
+                justification: |
+                  "U.S.A." and "AT&T" are initialisms written with punctuation; the period decides
+                  the sentence handling, so the recognizer must say whether it is part of the
+                  token.
+                tests:
+                  - AcronymRecognizer_TryRecognize_DottedLetters_AreSpelled
+                  - AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd
+
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-LoaderValidation
+                title: >-
+                  The AcronymRecognizer class shall build a recognizer from a lexicon in the
+                  documented tab-separated format and use exactly that lexicon, shall throw
+                  InvalidDataException that names the line number for a malformed row, shall throw
+                  ArgumentNullException for a null reader, and shall load the embedded lexicon
+                  lazily so that concurrent first uses share one instance.
+                justification: |
+                  A defective lexicon is a build defect and must fail at once and point at the row;
+                  constructing an analyzer must not read the lexicon.
+                tests:
+                  - AcronymRecognizer_FromTsv_CustomLexicon_IsUsed
+                  - AcronymRecognizer_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine
+                  - AcronymRecognizer_FromTsvAndDefault_NullReaderAndConcurrentFirstUse_BehaveAsDocumented

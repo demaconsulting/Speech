@@ -68,6 +68,54 @@ public sealed class TextEnAnnotationsTests
         Assert.Equal(string.Empty, partOfSpeech);
     }
 
+    /// <summary>Proves a normalization annotation is read back with its exact spoken text, including the empty value that means "speak nothing".</summary>
+    /// <param name="value">The annotation value.</param>
+    [Theory]
+    [InlineData("Doctor")]
+    [InlineData(" slash ")]
+    [InlineData("'")]
+    [InlineData("")]
+    public void TextEnAnnotations_TryReadNormalized_NormalizationAnnotation_ReturnsSpokenText(string value)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 3, TextEnAnnotations.Normalized, value);
+
+        // Act
+        var read = TextEnAnnotations.TryReadNormalized(annotation, out var spoken);
+
+        // Assert
+        Assert.True(read);
+        Assert.Equal(value, spoken);
+    }
+
+    /// <summary>Proves an annotation of another kind (or a differently cased kind) is not a normalization.</summary>
+    /// <param name="kind">The annotation kind.</param>
+    [Theory]
+    [InlineData("en.upos")]
+    [InlineData("EN.NORM")]
+    [InlineData("en.norm ")]
+    [InlineData("en.spell")]
+    public void TextEnAnnotations_TryReadNormalized_OtherKind_ReturnsFalse(string kind)
+    {
+        // Arrange
+        var annotation = new SegmentAnnotation(0, 3, kind, "NOUN");
+
+        // Act
+        var read = TextEnAnnotations.TryReadNormalized(annotation, out var spoken);
+
+        // Assert
+        Assert.False(read);
+        Assert.Equal(string.Empty, spoken);
+    }
+
+    /// <summary>Proves a null annotation is rejected by the normalization reader.</summary>
+    [Fact]
+    public void TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException()
+    {
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => TextEnAnnotations.TryReadNormalized(null!, out _));
+    }
+
     /// <summary>Proves a null annotation is rejected.</summary>
     [Fact]
     public void TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException()

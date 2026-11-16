@@ -6,7 +6,9 @@
 # supplies the English text analyzer (EnglishTextAnalyzer), its options
 # (EnglishTextAnalyzerOptions), the annotation vocabulary and typed reader (TextEnAnnotations), the
 # internal seam over the part-of-speech tagging package (PartOfSpeechAdapter), and the aggregate
-# diagnostics reporter (AnalysisDiagnostics). Each requirement states one observable behavior.
+# diagnostics reporter (AnalysisDiagnostics). It drives the NormalizationSubsystem, which never
+# depends on it, and turns the normalization result into annotations and sentence breaks. Each
+# requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-text-en/analysis-subsystem/. Covered by
@@ -49,11 +51,11 @@ sections:
               The AnalysisSubsystem shall annotate each word token of the analyzed text with its
               Universal Dependencies part of speech on the word's exact source span, shall name
               and read back that annotation through a documented vocabulary, and shall let the
-              options switch it off.
+              options switch it off independently of the normalization annotations.
             justification: |
               This decomposes the system part-of-speech requirement: the analyzer produces the
-              annotation, the options select it, and the vocabulary gives a backend a typed way
-              to read it.
+              annotation, the options select it (together with the normalization annotations by
+              default), and the vocabulary gives a backend a typed way to read it.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-WordAnnotations
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-WellFormedAnnotations
@@ -67,6 +69,35 @@ sections:
             tests:
               - AnalysisSubsystem_Analyze_Sentence_AnnotationsReadBackThroughTypedReader
               - AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks
+
+          - id: SpeechTextEn-Analysis-NormalizationAnnotations
+            title: >-
+              The AnalysisSubsystem shall run the normalization on the tokens of the analyzed
+              text when the options select it, without loading the tagger for it, shall emit each
+              normalization as an annotation of the normalization kind on its span, merged in
+              text order with the part-of-speech annotations (the part of speech first at an equal
+              start), shall return sentence breaks reconciled with the abbreviation readings, shall
+              name and read back the annotation through the documented vocabulary, and shall offer
+              the normalizations and clitic roles in the detailed result.
+            justification: |
+              The normalization subsystem describes how spans are spoken and edits the sentence
+              breaks; this subsystem puts the result in the language-neutral form the Speech
+              library carries to a backend, keeps the annotations in the order the library
+              expects, and, since the sentence breaks are the analyzer's single opinion, hands
+              over the reconciled list. The richer result gives a model package and tests the
+              data that has no place in the annotations.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-NormalizationAnnotations
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedNormalization
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-NormalizationSelection
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
+            tests:
+              - AnalysisSubsystem_Analyze_NormalizedText_AnnotationsReadBackAndBreaksAreReconciled
+              - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
+              - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
+              - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization
+              - EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles
 
           - id: SpeechTextEn-Analysis-SharedTagger
             title: >-
@@ -90,7 +121,8 @@ sections:
             title: >-
               The AnalysisSubsystem shall supply, as a non-null list, the offset of the first word
               of every sentence after the first, with sentences determined by the tagger package's
-              tokenizer and offsets that index the exact analyzed text.
+              tokenizer (and, when normalization is selected, reconciled with the readings of
+              abbreviations) and offsets that index the exact analyzed text.
             justification: |
               A non-null list is what makes the analyzer's opinion authoritative to the Speech
               library even when it finds no break, and offsets into the exact input are what the
@@ -119,14 +151,16 @@ sections:
           - id: SpeechTextEn-Analysis-DiagnosticsAggregation
             title: >-
               The AnalysisSubsystem shall report one event of counts per completed analysis to the
-              optional diagnostics sink, built from fixed words and numbers only, shall report
-              nothing when no sink is configured or the analysis is canceled, and shall contain a
-              failing sink.
+              optional diagnostics sink, counting sentences, tokens, annotations, unknown words,
+              normalizations and ambiguous abbreviations, built from fixed words and numbers only,
+              shall report nothing when no sink is configured or the analysis is canceled, and
+              shall contain a failing sink.
             justification: |
               This decomposes the system diagnostics requirement into the reporter's observable
               behavior: aggregate counts, one event, no text, and failure containment.
             children:
               - SpeechTextEn-Analysis-AnalysisDiagnostics-SingleCountsEvent
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-NormalizationCounts
               - SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
               - SpeechTextEn-Analysis-AnalysisDiagnostics-NullSink
               - SpeechTextEn-Analysis-AnalysisDiagnostics-SinkFailureContained

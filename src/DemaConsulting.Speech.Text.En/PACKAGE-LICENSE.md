@@ -36,9 +36,11 @@ SOFTWARE.
 
 ## Data Embedded in This Package
 
-This package embeds no data of its own in this release. Its assembly contains only compiled code, all of it under the
-MIT License above. If a later release embeds data (for example a lexicon or trained weights), this file and
-`THIRD-PARTY-NOTICES.md` will describe it and state its license.
+This package embeds two small lexicon tables of its own: a list of written-English abbreviations with their spoken
+forms and a list of initialisms. DEMA Consulting wrote both from scratch for this package; no third-party list was
+copied. They are released under the MIT License above, like the code, and the package embeds no third-party data. If
+a later release embeds data from a third party (for example trained weights), this file and `THIRD-PARTY-NOTICES.md`
+will describe it and state its license.
 
 ## Dependency: DemaConsulting.PartOfSpeech
 

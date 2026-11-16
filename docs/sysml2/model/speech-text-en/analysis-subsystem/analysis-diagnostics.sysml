@@ -1,7 +1,9 @@
 package SpeechTextEn {
     part def AnalysisDiagnostics {
-        doc /* Internal reporter of one aggregate-counts diagnostics event per completed analysis,
-             * built from fixed words and numbers only so no text content can reach the sink, and
+        doc /* Internal reporter of one aggregate-counts diagnostics event per completed analysis
+             * (sentences, tokens, annotations, unknown words, normalizations and ambiguous
+             * abbreviations), built from fixed words and numbers only so no text content can
+             * reach the sink, and
              * containing any failure of the sink. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/AnalysisDiagnostics.cs */

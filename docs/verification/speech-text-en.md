@@ -15,12 +15,19 @@ annotations survive chunking of a long text, that its sentence breaks (not the p
 where sentences are split, and that audio tags inside a request leave the words around them annotated.
 
 Below the system level, the unit and subsystem behavior is verified by the AnalysisSubsystem tests (see
-_SpeechTextEn AnalysisSubsystem Verification_), and the part-of-speech package the analysis builds on is
-verified separately as an OTS item (see _PartOfSpeech Verification_).
+_SpeechTextEn AnalysisSubsystem Verification_) and the NormalizationSubsystem tests (see _SpeechTextEn
+NormalizationSubsystem Verification_), and the part-of-speech package the analysis builds on is
+verified separately as an OTS item (see _PartOfSpeech Verification_). The system tests of the normalization
+check its observable result: the `en.norm` annotations a caller reads, the text they produce when applied by
+an independent applier that follows the documented consumer algorithm, the sentence breaks, and what a real
+session delivers to a backend after chunking.
 
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences:
 the analyzer relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only
-sentences whose tags the tagger assigns with full confidence.
+sentences whose tags the tagger assigns with full confidence. The accuracy of the abbreviation readings is
+claimed only for the documented cases (the golden file records the known wrong-by-default readings
+`Wall St. Journal` and `Elm St. Louis` explicitly); numbers, dates, currency, units, URLs, e-mail, markup
+and the hyphen policy are deferred and are verified only as unchanged text.
 
 System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project.
 
@@ -29,7 +36,8 @@ System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` p
 - **Framework**: xUnit v3 running under the .NET SDK, on every target framework of the library
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: no external services, no network access, no native runtime and no audio hardware; the
-  part-of-speech package's embedded model is the only data used
+  part-of-speech package's embedded model and the library's own two embedded lexicon tables are the only data
+  used
 - **Isolation**: each end-to-end test uses a fresh scratch model directory and its own recording backend
 
 ## External Interface Simulation
@@ -80,8 +88,101 @@ words of that chunk, with exactly the annotations the analyzer produced.
 
 **Test**: `SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained`
 
-Verifies that one event in the `TextEn.Analysis` category reaches the sink with counts only and none of the
-words of the text, and that an analyzer whose sink throws still returns its full result.
+Verifies that one event in the `TextEn.Analysis` category reaches the sink with counts only (sentences,
+tokens, annotations, unknown words, normalizations and ambiguous abbreviations) and none of the words of the
+text, and that an analyzer whose sink throws still returns its full result.
+
+### Normalization Annotations
+
+**Tests**: `SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText`,
+`SpeechTextEn_Analyze_NormalizationNotSelected_ProducesNoNormAnnotations`
+
+Verifies that `Dr. Smith lives here.` yields exactly one `en.norm` annotation over the exact characters
+`Dr.`, which the typed reader returns as `Doctor`, that applying it gives `Doctor Smith lives here.` while the
+analyzed text is unchanged and no unchanged word is annotated, that selecting part of speech only yields no
+`en.norm` annotation, and that selecting normalization only yields only `en.norm` annotations and never
+creates the tagger.
+
+### Abbreviations
+
+**Test**: `SpeechTextEn_Analyze_ContextDependentAbbreviations_ResolveFromNeighbors` (a theory)
+
+Verifies, for seven texts, that `St.`, `Dr.`, `Sr.` and `No.` are resolved from their neighbors: `Visit St.
+Louis` reads Saint and `Main St. It` reads Street, `Dr. Smith` reads Doctor and `Maple Dr. He` reads Drive,
+`Sr. Maria` reads Sister and `Smith Sr. He` reads Senior, and `No. 5` reads Number; each annotation covers
+the expected source characters (the period stays outside the span where it ends a sentence).
+
+### Sentence Boundaries
+
+**Tests**: `SpeechTextEn_Analyze_AbbreviationAtSentenceEnd_BreaksAfterItAndKeepsThePeriod`,
+`SpeechTextEn_SynthesisSession_AbbreviationBreaks_DriveChunkBoundaries`,
+`SpeechTextEn_Analyze_CredentialsAfterNameSuffix_StayInOneSentence`,
+`SpeechTextEn_SynthesisSession_NameWithCredentials_IsOneChunk`
+
+Verifies that in `I live on Main St. It is nice. Dr. Smith agrees. No. I don't know.` the breaks sit exactly
+before `It`, `Dr.`, `No.` and the following `I` (a break added after a sentence-final abbreviation, none
+inside `Dr. Smith`), and that through the real session the text reaches the backend as the chunks `I live on
+Main St.`, `It is nice.` and `Dr. Smith agrees.`, with the `en.norm` annotations on `St` and `Dr.` inside the
+chunk that contains them. Also verifies that `John Smith Jr. Ph.D. spoke.` and `Ann Lee Esq. Ph.D. M.D.
+left.` stay one sentence each (breaks only before the next sentence and before the sentence starters `I`
+and `He` of `I met John Smith Jr. He left.`), with `Junior`, `Esquire`, `P H D` and `M D` as the spoken forms,
+and that the first reaches the real session's backend as one chunk annotated `Jr.` to `Junior` and `Ph.D.`
+to `P H D`.
+
+### Symbols, Apostrophes, Invisible Characters and Clitics
+
+**Tests**: `SpeechTextEn_Analyze_Symbols_AreSpokenAsWords`,
+`SpeechTextEn_Analyze_AdjacentMarks_AreSpokenAsSeparateWords`,
+`SpeechTextEn_Analyze_TypographicApostrophes_AreCanonicalized`,
+`SpeechTextEn_Analyze_InvisibleCharacters_AreDroppedExplicitly`,
+`SpeechTextEn_AnalyzeDetailed_Clitics_RecordTheirRole`
+
+Verifies that applying the annotations speaks `&`, `=`, `@`, a slash between words, the copyright sign, `w/o`
+and `AT&T` as words; that adjacent marks (`A™®B`, `©™®`) are spoken as separate words with one space between
+them and one annotation per mark; that typographic apostrophes in contractions and elisions become plain
+apostrophes while
+quote marks stay; that a soft hyphen, a zero-width space and a byte-order mark are annotated with an empty
+value (read as "speak nothing") rather than lost silently; and that the detailed analysis records `Has`,
+`Possessive` and `Not` for the clitics of a sample sentence.
+
+### Acronyms and Initialisms
+
+**Test**: `SpeechTextEn_Analyze_AcronymsAndInitialisms_AreCaseSensitive`
+
+Verifies that `US`, `IT`, `FBI` and `U.S.` are spoken letter by letter while the pronoun `us` and the word
+`NASA` are untouched.
+
+### Alignment Contract and Chunk Survival
+
+**Tests**: `SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract`,
+`SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking`,
+`SpeechTextEn_SynthesisSession_NormalizedTextWithAudioTag_KeepsBothAnnotations`,
+`SpeechTextEn_SynthesisSession_SymbolOnlyText_KeepsItsNormalization`,
+`SpeechTextEn_SynthesisSession_SymbolBeforeClausePunctuation_KeepsItsNormalization`,
+`SpeechTextEn_SynthesisSession_InvisibleOnlyClause_KeepsDroppedAnnotationWithItsNeighbor`,
+`SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`,
+`SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`
+
+Verifies that for 200 random, deliberately hostile texts every `en.norm` annotation is ordered, disjoint, in
+bounds, free of whitespace edges, placeholders, clause separators and cut surrogate pairs, and that nothing
+outside the annotations is changed; that a text of more than 800 characters mixing every rule reaches a real
+session's backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own (same
+source characters and values, nothing lost or moved); and that an audio tag between an abbreviation and the
+name it belongs to leaves both `Dr.` and `&` annotated. Also verifies that a symbol-only text (`&`) reaches
+the backend as one chunk annotated `&` to `and`, that `©; Brand` reaches it as the chunks `©;` (annotated
+`©` to `copyright`) and `Brand` instead of losing the symbol, and that for a normalization-only analysis
+the invisible-only clause of `Hello, <zero-width space>, there` is still merged into the first chunk with its
+empty-valued annotation, also with the default analyzer (the part-of-speech tagger labels a zero-width space or
+a lone `*` between commas as a word, but the analyzer gives a token without a letter or digit no part of
+speech, so such a clause is not mistaken for content), and `Hello, *, there` is likewise two chunks.
+
+### Linear Time
+
+**Test**: `SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget`
+
+Verifies, with normalization only (so no tagger is involved), that one megabyte of realistic text and of
+adversarially repeated `St.`, `A.`, `&` and `Dr. He` (each followed by a space) analyzes within a generous time budget under a
+cancellation safety limit, so a quadratic regression fails instead of hanging.
 
 ### Package Files
 
@@ -94,9 +195,11 @@ words of the text, and that an analyzer whose sink throws still returns its full
 
 Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression)
 and packs both it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file starts with the
-SPDX line `MIT` and nothing else, contains the MIT license text, and describes the tagging package as a
-separate dependency that is not bundled, carries its own license files, and whose data this package does
-not embed; that the notices are scoped as a dependency notice, reproduce the Manually Annotated Sub-Corpus
+SPDX line `MIT` and nothing else, contains the MIT license text, describes the tagging package as a
+separate dependency that is not bundled and carries its own license files, and states that this package
+embeds two small lexicon tables of its own, written from scratch by DEMA Consulting under the same license,
+and no third-party data; that the notices are scoped as a dependency notice, state that this package embeds
+no third-party data in this release, reproduce the Manually Annotated Sub-Corpus
 and Open English WordNet attribution and the Princeton WordNet notice, and record the dependency's
 text-retention limitation with its upstream issue link; that the project pins the tagging package with
 an exact version range, references only the Speech project, and references no ONNX package; and that the
@@ -114,10 +217,14 @@ System Design_, _Release Gate_), together with the retention test required there
 
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions,
 every subsystem and unit suite passes, and the automated verification boundary remains honest: structure,
-offsets, wiring, sentence breaks, placeholder handling, diagnostics and the packaging configuration are
+offsets, wiring, sentence breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm`
+annotations (including their survival through real chunking), the documented abbreviation, symbol, clitic and
+initialism behavior, the linear-time guard and the packaging configuration are
 claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
-own evaluation, and the retention of analyzed words inside the tagging package's private buffer (a known
+own evaluation, the abbreviation readings are claimed only for the documented cases and cues, and the
+retention of analyzed words inside the tagging package's private buffer (a known
 limitation of the dependency that violates the core `ITextAnalyzer` no-retention contract, and the reason
 the package is gated) is documented rather than claimed as verified. The package license files are also
 part of the acceptance criteria: both must be present, the project must pack them at the package root, the
-license declaration must be MIT only, and the dependency notice must keep the attribution chain intact.
+license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
+absence of third-party data, and the dependency notice must keep the attribution chain intact.

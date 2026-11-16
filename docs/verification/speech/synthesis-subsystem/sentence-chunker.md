@@ -131,18 +131,18 @@ for trimming, whitespace collapsed by a budget-split join, and merged punctuatio
 **Tests**: `SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk`,
 `SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim`,
 `SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace`,
-`SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved`
+`SentenceChunker_ChunkAligned_DegenerateMerge_EmptyValueAnnotationOnMergedPunctuation_Preserved`
 
 ##### Unrepresentable Annotations Are Dropped
 
-**Stimulus**: Annotations that cross a chunk boundary, start or end on trimmed whitespace, lie on
-a dropped leading degenerate run, or lie outside the text.
+**Stimulus**: Annotations that cross a chunk boundary, start or end on trimmed whitespace, lie (with
+an empty value) on a dropped leading degenerate run, or lie outside the text.
 
 **Expected**: Each is dropped and no exception is thrown; no annotation is ever misplaced.
 
 **Tests**: `SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped`,
 `SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped`,
-`SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped`,
+`SentenceChunker_ChunkAligned_LeadingDegenerateRunEmptyValueAnnotation_Dropped`,
 `SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped`
 
 ##### Analyzer-Supplied Sentence Boundaries
@@ -181,6 +181,53 @@ not a letter or digit.
 `SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithAnnotationsOnly_Retained`,
 `SentenceChunker_Chunk_SurrogatePairLetterChunkNoAnalysis_KeepsLegacyFiltering`,
 `SentenceChunker_ChunkAligned_SurrogatePairEmoji_StillDegenerate`
+
+##### Annotated Punctuation-Only Pieces Are Kept
+
+**Stimulus**: On the analyzed path: `"&"` with a non-empty-valued annotation over it; `"©; Brand"`
+with a non-empty-valued annotation over the symbol, with `null` and with empty breaks; `"Hello. &"`
+with the annotation on the ampersand; `"&, ,"` with the annotation on the ampersand;
+`"Hello, \u200B, there"` with an *empty-valued* annotation on the invisible character; and
+`"Wait , , stop."` with a non-empty annotation that crosses the two commas. Without analysis:
+`Chunk("&")`, `ChunkWithMetadata("&")` and `ChunkAligned("&", ...)` with `null` or empty
+annotations and `null` or empty breaks.
+
+**Expected**: The annotated symbol is kept as its own chunk with its annotation (`["&"]`,
+`["©;", "Brand"]`, `["Hello.", "&"]`); a following unannotated punctuation-only piece merges onto
+it (`["&, ,"]`); an empty-valued annotation or a crossing annotation does not keep a piece
+(`["Hello, \u200B,", "there"]` and `["Wait , ,", "stop."]`, the seam annotation re-based); and with
+no annotations every no-analysis call still returns no chunks for `"&"`.
+
+**Tests**: `SentenceChunker_ChunkAligned_AnnotatedSymbolOnlyText_IsKept`,
+`SentenceChunker_ChunkAligned_AnnotatedSymbolBeforeClausePunctuation_KeepsChunkAndAnnotation`,
+`SentenceChunker_ChunkAligned_AnnotatedSymbolAfterSentence_IsNotMergedIntoPreviousChunk`,
+`SentenceChunker_ChunkAligned_UnannotatedPunctuationAfterAnnotatedSymbol_MergesOntoIt`,
+`SentenceChunker_ChunkAligned_EmptyValueAnnotationOnPunctuation_StillMergedOrDropped`,
+`SentenceChunker_ChunkAligned_AnnotationCrossingPunctuationBoundary_DoesNotKeepChunk`,
+`SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped`
+
+##### No-Analyzer Differential Check Against `main`
+
+**Stimulus**: The unchanged-path guarantee is proven by a differential run, repeated for every
+change to the chunker: the `main` sources of `SentenceChunker`, `SegmentAnnotation` and
+`AnnotationList` are built as a separate assembly (from `git archive`, in a temporary folder
+outside the repository) and compared with the working-tree assembly under extern aliases over
+300,000 random hostile texts (ellipses, spaced dots, symbols, invisible characters,
+supplementary-plane letters, emoji, lone surrogates, numerals) at budgets 200, 1, 5, 12 and 40,
+with random sentence breaks (including `null`).
+
+**Expected**: Mode A (`Chunk`, `ChunkWithMetadata` and `ChunkAligned` with `null` or empty
+annotations; 9,000,000 comparisons) and Mode B (only empty-valued annotations; 1,500,000
+comparisons) show **0 differences** in chunk text, ellipsis flag and re-based annotations. Mode C
+(mixed values; 1,500,000 runs) shows 0 invariant violations (every chunk non-empty and trimmed,
+every letter-less chunk carries a non-empty-valued annotation, every annotation in range); 177,779
+outputs differ from `main`, all of them annotated symbol chunks. The same result was recorded for
+the P2-2 review-fix change (see the agent log `developer-text-en-p2-2-fixes-*`).
+
+**Tests**: `SentenceChunker_Chunk_RepresentativeCorpus_MatchesGoldenChunks`,
+`SentenceChunker_ChunkAligned_NoAnnotationsNoBreaks_EqualsChunkWithMetadata`,
+`SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped` (the differential run itself is a
+throwaway tool, not a repository test)
 
 ##### Public Surface and Argument Validation
 

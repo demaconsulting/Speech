@@ -197,6 +197,11 @@ input-files:
   - docs/design/speech-text-en/analysis-subsystem/text-en-annotations.md
   - docs/design/speech-text-en/analysis-subsystem/part-of-speech-adapter.md
   - docs/design/speech-text-en/analysis-subsystem/analysis-diagnostics.md
+  - docs/design/speech-text-en/normalization-subsystem.md
+  - docs/design/speech-text-en/normalization-subsystem/normalization-alignment.md
+  - docs/design/speech-text-en/normalization-subsystem/text-normalizer.md
+  - docs/design/speech-text-en/normalization-subsystem/abbreviation-resolver.md
+  - docs/design/speech-text-en/normalization-subsystem/acronym-recognizer.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md
   - docs/design/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

@@ -1,26 +1,36 @@
+using System.Text;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
 /// <summary>
 ///     An <see cref="ITextAnalyzer"/> for English: it tags the word tokens of a speech request with
-///     their Universal Dependencies part of speech and supplies authoritative sentence
-///     boundaries, so a phoneme-driven synthesis model can use sentence-level context the
-///     library's chunking would otherwise remove.
+///     their Universal Dependencies part of speech, describes how abbreviations, symbols and
+///     initialisms are spoken, and supplies authoritative sentence boundaries, so a
+///     phoneme-driven synthesis model can use sentence-level context the library's chunking would
+///     otherwise remove.
 /// </summary>
 /// <remarks>
 ///     A model package returns an instance from <c>ISynthesisModel.TextAnalyzer</c>; the session
 ///     then runs <see cref="Analyze"/> once per request over the whole text, in which every audio
 ///     tag is one <see cref="TextAnalysisConventions.TagPlaceholder"/>.
 ///     <para>
-///     Placeholders are neutralized to a same-length space for tokenizing and tagging only, so
-///     every offset still indexes the exact input, a placeholder is never part of a word or an
-///     annotation, and the words on both sides of a tag are analyzed as one sentence (context is
-///     carried across the tag). The part of speech comes from the shared <c>Tagger.Default</c>,
-///     which is created lazily at most once per process; constructing an analyzer, analyzing an
-///     empty text, and selecting no annotations all leave it unloaded. Its first use inflates
-///     about 1.3 MB of embedded data, so the first request that needs tags is slower than the
-///     rest.
+///     Placeholders are neutralized to a same-length space for tokenizing, tagging and
+///     normalizing only, so every offset still indexes the exact input, a placeholder is never
+///     part of a word or an annotation, and the words on both sides of a tag are analyzed as one
+///     sentence (context is carried across the tag). The part of speech comes from the shared
+///     <c>Tagger.Default</c>, which is created lazily at most once per process; constructing an
+///     analyzer, analyzing an empty text, and not selecting part-of-speech annotations all leave
+///     it unloaded. Its first use inflates about 1.3 MB of embedded data, so the first request
+///     that needs tags is slower than the rest. Tagging runs on the raw tokens, never on
+///     normalized text, so the tags are those the tagger was trained on.
+///     </para>
+///     <para>
+///     Normalization (selected by default) is an annotation over the original text, never a
+///     rewrite: <see cref="TextEnAnnotations.Normalized"/> annotations name the spoken form of a
+///     span, and the sentence breaks are reconciled so an abbreviation period ends a sentence only
+///     where the abbreviation is its last word. It needs no tagger.
 ///     </para>
 ///     <para>
 ///     Instances are immutable and thread-safe: one analyzer may serve any number of concurrent
@@ -54,15 +64,21 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <summary>The seam over the part-of-speech package.</summary>
     private readonly PartOfSpeechAdapter _adapter;
 
+    /// <summary>The normalizer to use, or <see langword="null"/> for the shared default (resolved on first use, so construction loads no lexicon).</summary>
+    private readonly TextNormalizer? _normalizer;
+
     /// <summary>The aggregate-counts reporter.</summary>
     private readonly AnalysisDiagnostics _diagnostics;
 
     /// <summary>Whether this analyzer tags tokens and emits part-of-speech annotations.</summary>
     private readonly bool _tagPartOfSpeech;
 
+    /// <summary>Whether this analyzer normalizes and reconciles sentence breaks.</summary>
+    private readonly bool _normalize;
+
     /// <summary>
-    ///     Initializes a new instance with the default options: part-of-speech annotations on and
-    ///     no diagnostics sink.
+    ///     Initializes a new instance with the default options: part-of-speech and normalization
+    ///     annotations on and no diagnostics sink.
     /// </summary>
     public EnglishTextAnalyzer()
         : this(new EnglishTextAnalyzerOptions())
@@ -90,14 +106,29 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <param name="adapter">The part-of-speech seam to use. Must not be null.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> or <paramref name="adapter"/> is null.</exception>
     internal EnglishTextAnalyzer(EnglishTextAnalyzerOptions options, PartOfSpeechAdapter adapter)
+        : this(options, adapter, null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance over a specific adapter and normalizer, so tests can observe
+    ///     and cancel inside normalization.
+    /// </summary>
+    /// <param name="options">The options. Must not be null.</param>
+    /// <param name="adapter">The part-of-speech seam to use. Must not be null.</param>
+    /// <param name="normalizer">The normalizer to use, or <see langword="null"/> for the shared default.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> or <paramref name="adapter"/> is null.</exception>
+    internal EnglishTextAnalyzer(EnglishTextAnalyzerOptions options, PartOfSpeechAdapter adapter, TextNormalizer? normalizer)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(adapter);
 
         // Snapshot everything needed now so the analyzer is immutable from here on.
         _adapter = adapter;
+        _normalizer = normalizer;
         _diagnostics = new AnalysisDiagnostics(options.Diagnostics);
         _tagPartOfSpeech = options.Annotations.HasFlag(TextEnAnnotationSelection.PartOfSpeech);
+        _normalize = options.Annotations.HasFlag(TextEnAnnotationSelection.Normalization);
     }
 
     /// <summary>
@@ -109,8 +140,9 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// </param>
     /// <param name="cancellationToken">
     ///     Cancels the analysis; checked before any work, after the tagger is obtained, after each
-    ///     sentence is tagged and periodically while the result is built, so a canceled request
-    ///     never returns a result or reports diagnostics, wherever the cancellation arrives.
+    ///     sentence is tagged, periodically while the text is normalized and while the result is
+    ///     built, so a canceled request never returns a result or reports diagnostics, wherever
+    ///     the cancellation arrives.
     /// </param>
     /// <returns>
     ///     The selected annotations, with offsets relative to the exact <paramref name="text"/>,
@@ -127,14 +159,14 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     {
         // This is the path every synthesis request takes, so it runs the shared core without a
         // detailed-token list: no AnalyzedToken and no per-token text copy is ever built.
-        var (annotations, sentenceBreaks) = AnalyzeCore(text, detailedTokens: null, cancellationToken);
+        var (annotations, sentenceBreaks) = AnalyzeCore(text, detailedTokens: null, detailedNormalizations: null, cancellationToken);
         return new TextAnalysisResult(annotations, sentenceBreaks);
     }
 
     /// <summary>
     ///     Analyzes a text like <see cref="Analyze"/> and returns the rich, local-only result:
-    ///     every token with its tag, confidence and known-word flag, plus the sentence breaks and
-    ///     annotations.
+    ///     every token with its tag, confidence, known-word flag and clitic role, every
+    ///     normalization, plus the sentence breaks and annotations.
     /// </summary>
     /// <param name="text">
     ///     The text to analyze; see <see cref="Analyze"/>. Must not be null; not retained.
@@ -148,15 +180,16 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is canceled.</exception>
     /// <remarks>
     ///     When part-of-speech annotation is not selected, the text is only split (which needs no
-    ///     tagger): tokens then have a null <see cref="AnalyzedToken.PartOfSpeech"/>, no
-    ///     annotations are produced, and the sentence breaks are still supplied. Thread-safe.
+    ///     tagger): tokens then have a null <see cref="AnalyzedToken.PartOfSpeech"/>, no part of
+    ///     speech annotations are produced, and the sentence breaks are still supplied. Thread-safe.
     /// </remarks>
     public EnglishTextAnalysis AnalyzeDetailed(string text, CancellationToken cancellationToken)
     {
-        // Run the shared core, asking it to materialize every token as it walks them.
+        // Run the shared core, asking it to materialize every token and normalization as it walks them.
         var tokens = new List<AnalyzedToken>();
-        var (annotations, sentenceBreaks) = AnalyzeCore(text, tokens, cancellationToken);
-        return new EnglishTextAnalysis(tokens.AsReadOnly(), sentenceBreaks, annotations);
+        var normalizations = new List<AnalyzedNormalization>();
+        var (annotations, sentenceBreaks) = AnalyzeCore(text, tokens, normalizations, cancellationToken);
+        return new EnglishTextAnalysis(tokens.AsReadOnly(), sentenceBreaks, annotations, normalizations.AsReadOnly());
     }
 
     /// <summary>
@@ -170,23 +203,29 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// </param>
     /// <param name="detailedTokens">
     ///     When not null, a list that receives one <see cref="AnalyzedToken"/> (including its
-    ///     text copy) per token; when null, no token object and no text copy is created.
+    ///     text copy and clitic role) per token; when null, no token object and no text copy is
+    ///     created and clitics are not classified.
+    /// </param>
+    /// <param name="detailedNormalizations">
+    ///     When not null, a list that receives one <see cref="AnalyzedNormalization"/> per
+    ///     normalization; null exactly when <paramref name="detailedTokens"/> is null.
     /// </param>
     /// <param name="cancellationToken">Cancels the analysis cooperatively.</param>
     /// <returns>
     ///     The read-only annotations and sentence breaks (never null), built from the same walk
-    ///     whatever <paramref name="detailedTokens"/> is.
+    ///     whatever the detailed lists are.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is canceled.</exception>
     /// <remarks>
-    ///     Keeps no state beyond the call (the only mutation is of the caller's own
-    ///     <paramref name="detailedTokens"/>), so it is thread-safe; reports one counts-only event
-    ///     to the optional diagnostics sink.
+    ///     Keeps no state beyond the call (the only mutation is of the caller's own detailed
+    ///     lists), so it is thread-safe; reports one counts-only event to the optional diagnostics
+    ///     sink.
     /// </remarks>
     private (IReadOnlyList<SegmentAnnotation> Annotations, IReadOnlyList<int> SentenceBreaks) AnalyzeCore(
         string text,
         List<AnalyzedToken>? detailedTokens,
+        List<AnalyzedNormalization>? detailedNormalizations,
         CancellationToken cancellationToken)
     {
         // Reject bad input and an already-canceled operation before any work, including before
@@ -198,12 +237,23 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         var analysisText = NeutralizePlaceholders(text);
 
         // Step 2: split (and, when selected, tag) the neutralized text; offsets index both the
-        // neutralized text and, because the lengths are equal, the source.
+        // neutralized text and, because the lengths are equal, the source. Tagging deliberately
+        // sees the raw tokens: the tagger was trained on them and normalized text tags worse.
         var sentences = _adapter.Analyze(analysisText, _tagPartOfSpeech, cancellationToken);
 
-        // Step 3: build the tokens, annotations and sentence breaks from the source text.
+        // Step 3: normalize over the same tokens, independently of tagging. Clitic roles are
+        // public detail, so only the detailed path pays for classifying them.
+        var aligned = _normalize
+            ? (_normalizer ?? TextNormalizer.Default).Normalize(analysisText, FlattenTokens(sentences), classifyClitics: detailedTokens is not null, cancellationToken)
+            : null;
+        var spans = aligned?.Spans;
+        var clitics = aligned?.Clitics;
+        var spanIndex = 0;
+        var cliticIndex = 0;
+
+        // Step 4: build the tokens, annotations and tokenizer sentence breaks from the source text.
         var annotations = new List<SegmentAnnotation>();
-        var sentenceBreaks = new List<int>();
+        var tokenizerBreaks = new List<int>();
         var tokenCount = 0;
         var unknownWords = 0;
         for (var sentenceIndex = 0; sentenceIndex < sentences.Count; sentenceIndex++)
@@ -215,7 +265,7 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             // sentence has no break before it.
             if (sentenceIndex > 0)
             {
-                sentenceBreaks.Add(sentence[0].Start);
+                tokenizerBreaks.Add(sentence[0].Start);
             }
 
             foreach (var token in sentence)
@@ -227,40 +277,124 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                 }
 
                 // Only the detailed path pays for the token object and its text copy.
-                detailedTokens?.Add(new AnalyzedToken(
-                    token.Start,
-                    token.Length,
-                    text.Substring(token.Start, token.Length),
-                    token.Tag,
-                    token.Confidence,
-                    token.IsKnownWord));
+                if (detailedTokens is not null)
+                {
+                    var clitic = CliticKind.None;
+                    if (clitics is not null && cliticIndex < clitics.Count && clitics[cliticIndex].Start == token.Start)
+                    {
+                        clitic = clitics[cliticIndex].Kind;
+                        cliticIndex++;
+                    }
+
+                    detailedTokens.Add(new AnalyzedToken(
+                        token.Start,
+                        token.Length,
+                        text.Substring(token.Start, token.Length),
+                        token.Tag,
+                        token.Confidence,
+                        token.IsKnownWord)
+                    {
+                        Clitic = clitic,
+                    });
+                }
+
                 tokenCount++;
 
-                if (token.Tag is null || token.Tag is PunctuationTag or SymbolTag)
+                // The token's part of speech first (punctuation, symbols, untagged tokens and any token
+                // without a letter or digit have none: the tagger labels a lone "*", "~" or invisible
+                // character as a word in some contexts, but such a token speaks nothing of its own and
+                // must not make a clause of it look like content to the Speech library's chunker).
+                if (token.Tag is not null && token.Tag is not (PunctuationTag or SymbolTag)
+                    && !HasNoLetterOrDigit(text, token.Start, token.Length))
                 {
-                    continue;
+                    if (!token.IsKnownWord && token.Tag != NumeralTag)
+                    {
+                        unknownWords++;
+                    }
+
+                    // Never annotate half of a surrogate pair; the tokenizer does not split one, but
+                    // an annotation that did would no longer name valid text.
+                    if (!SplitsSurrogatePair(text, token.Start, token.Length))
+                    {
+                        annotations.Add(new SegmentAnnotation(token.Start, token.Length, TextEnAnnotations.PartOfSpeech, token.Tag));
+                    }
                 }
 
-                if (!token.IsKnownWord && token.Tag != NumeralTag)
+                // Then every normalization that starts inside this token, so the annotations stay
+                // in text order with the part of speech before the normalization at equal starts.
+                while (spans is not null && spanIndex < spans.Count && spans[spanIndex].Start < token.Start + token.Length)
                 {
-                    unknownWords++;
-                }
-
-                // Never annotate half of a surrogate pair; the tokenizer does not split one, but
-                // an annotation that did would no longer name valid text.
-                if (!SplitsSurrogatePair(text, token.Start, token.Length))
-                {
-                    annotations.Add(new SegmentAnnotation(token.Start, token.Length, TextEnAnnotations.PartOfSpeech, token.Tag));
+                    AddNormalization(text, spans[spanIndex], annotations, detailedNormalizations);
+                    spanIndex++;
                 }
             }
         }
 
-        // Step 4: a request canceled while the result was being built (including during its last
+        // A span cannot start outside every token, but flush any remainder so none is ever lost.
+        while (spans is not null && spanIndex < spans.Count)
+        {
+            AddNormalization(text, spans[spanIndex], annotations, detailedNormalizations);
+            spanIndex++;
+        }
+
+        // Step 5: the breaks are the tokenizer's, reconciled with the normalization when selected.
+        IReadOnlyList<int> sentenceBreaks = aligned is null
+            ? tokenizerBreaks.AsReadOnly()
+            : aligned.ReconcileBreaks(tokenizerBreaks);
+
+        // Step 6: a request canceled while the result was being built (including during its last
         // sentence) must neither return nor report; then report one aggregate-counts event and
         // return the immutable result.
         cancellationToken.ThrowIfCancellationRequested();
-        _diagnostics.ReportRequest(new AnalysisCounts(sentences.Count, tokenCount, annotations.Count, unknownWords));
-        return (annotations.AsReadOnly(), sentenceBreaks.AsReadOnly());
+        _diagnostics.ReportRequest(new AnalysisCounts(
+            sentenceBreaks.Count + (tokenCount > 0 ? 1 : 0),
+            tokenCount,
+            annotations.Count,
+            unknownWords,
+            aligned?.Spans.Count ?? 0,
+            aligned?.AmbiguousCount ?? 0));
+        return (annotations.AsReadOnly(), sentenceBreaks);
+    }
+
+    /// <summary>
+    ///     Adds the <see cref="TextEnAnnotations.Normalized"/> annotation of one span, and its
+    ///     detailed description when requested.
+    /// </summary>
+    /// <param name="text">The analyzed text.</param>
+    /// <param name="span">The span.</param>
+    /// <param name="annotations">The annotation list to append to.</param>
+    /// <param name="detailedNormalizations">The detailed list to append to, or <see langword="null"/>.</param>
+    private static void AddNormalization(string text, NormalizedSpan span, List<SegmentAnnotation> annotations, List<AnalyzedNormalization>? detailedNormalizations)
+    {
+        annotations.Add(new SegmentAnnotation(span.Start, span.Length, TextEnAnnotations.Normalized, span.Spoken));
+        detailedNormalizations?.Add(new AnalyzedNormalization(span.Start, span.Length, text.Substring(span.Start, span.Length), span.Spoken, span.Kind));
+    }
+
+    /// <summary>
+    ///     Flattens the tokenizer sentences into the one token array the normalizer takes, marking
+    ///     the first token of each sentence.
+    /// </summary>
+    /// <param name="sentences">The sentences, each with at least one token.</param>
+    /// <returns>One exact-size array of every token in text order.</returns>
+    private static NormalizationToken[] FlattenTokens(IReadOnlyList<IReadOnlyList<AdaptedToken>> sentences)
+    {
+        var total = 0;
+        foreach (var sentence in sentences)
+        {
+            total += sentence.Count;
+        }
+
+        var tokens = new NormalizationToken[total];
+        var position = 0;
+        foreach (var sentence in sentences)
+        {
+            for (var i = 0; i < sentence.Count; i++)
+            {
+                tokens[position++] = new NormalizationToken(sentence[i].Start, sentence[i].Length, i == 0);
+            }
+        }
+
+        return tokens;
     }
 
     /// <summary>
@@ -297,5 +431,28 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         var startsInsidePair = start > 0 && char.IsLowSurrogate(text[start]) && char.IsHighSurrogate(text[start - 1]);
         var endsInsidePair = end < text.Length && char.IsHighSurrogate(text[end - 1]) && char.IsLowSurrogate(text[end]);
         return startsInsidePair || endsInsidePair;
+    }
+
+    /// <summary>
+    ///     Tells whether a span of <paramref name="text"/> has no letter or digit (counted per
+    ///     Unicode scalar): it is made only of punctuation, symbols and invisible characters, so
+    ///     it is not a word however the tagger labels it.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="start">The span's start.</param>
+    /// <param name="length">The span's length.</param>
+    /// <returns><see langword="true"/> when the span contains no letter or digit; also for an empty span.</returns>
+    private static bool HasNoLetterOrDigit(string text, int start, int length)
+    {
+        // A lone surrogate enumerates as U+FFFD, which is not a letter, like the chunker's check.
+        foreach (var rune in text.AsSpan(start, length).EnumerateRunes())
+        {
+            if (Rune.IsLetterOrDigit(rune))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

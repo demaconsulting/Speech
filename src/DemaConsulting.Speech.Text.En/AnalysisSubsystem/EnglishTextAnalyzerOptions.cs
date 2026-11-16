@@ -7,13 +7,12 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 /// </summary>
 /// <remarks>
 ///     A <see cref="FlagsAttribute"/> enumeration so later releases can add families (for
-///     example normalization or heteronym readings) without changing the meaning of existing
-///     values.
+///     example heteronym readings) without changing the meaning of existing values.
 /// </remarks>
 [Flags]
 public enum TextEnAnnotationSelection
 {
-    /// <summary>No annotations; the analyzer then supplies only sentence boundaries.</summary>
+    /// <summary>No annotations; the analyzer then supplies only the tokenizer's sentence boundaries.</summary>
     None = 0,
 
     /// <summary>
@@ -21,6 +20,13 @@ public enum TextEnAnnotationSelection
     ///     it is what makes the analyzer load the part-of-speech tagger.
     /// </summary>
     PartOfSpeech = 1,
+
+    /// <summary>
+    ///     <see cref="TextEnAnnotations.Normalized"/> annotations naming how spans such as
+    ///     abbreviations, symbols and initialisms are spoken, and sentence boundaries reconciled
+    ///     with them. It needs no tagger.
+    /// </summary>
+    Normalization = 2,
 }
 
 /// <summary>
@@ -36,8 +42,11 @@ public enum TextEnAnnotationSelection
 /// </remarks>
 public sealed record EnglishTextAnalyzerOptions
 {
+    /// <summary>The selection that covers every annotation family this release defines.</summary>
+    private const TextEnAnnotationSelection AllFamilies = TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization;
+
     /// <summary>Backing field for <see cref="Annotations"/>.</summary>
-    private readonly TextEnAnnotationSelection _annotations = TextEnAnnotationSelection.PartOfSpeech;
+    private readonly TextEnAnnotationSelection _annotations = AllFamilies;
 
     /// <summary>
     ///     Gets the sink the analyzer reports one aggregate-counts event per analyzed request to,
@@ -45,14 +54,16 @@ public sealed record EnglishTextAnalyzerOptions
     /// </summary>
     /// <remarks>
     ///     The library's diagnostics contract forbids sending text content to a sink, so the
-    ///     analyzer reports only counts (sentences, tokens, annotations, unknown words) and never
-    ///     a word. A sink that throws never interrupts an analysis.
+    ///     analyzer reports only counts (sentences, tokens, annotations, unknown words,
+    ///     normalizations, ambiguous abbreviations) and never a word. A sink that throws never
+    ///     interrupts an analysis.
     /// </remarks>
     public ISpeechDiagnostics? Diagnostics { get; init; }
 
     /// <summary>
     ///     Gets the annotation families to produce. Defaults to
-    ///     <see cref="TextEnAnnotationSelection.PartOfSpeech"/>.
+    ///     <see cref="TextEnAnnotationSelection.PartOfSpeech"/> combined with
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">
     ///     The value contains a flag this release does not define.
@@ -64,7 +75,7 @@ public sealed record EnglishTextAnalyzerOptions
         {
             // Reject undefined bits so a typo or a value from a newer release fails loudly here
             // rather than being silently treated as "something selected".
-            if ((value & ~TextEnAnnotationSelection.PartOfSpeech) != 0)
+            if ((value & ~AllFamilies) != 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value, "The annotation selection contains an undefined flag.");
             }

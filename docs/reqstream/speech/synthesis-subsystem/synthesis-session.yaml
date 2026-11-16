@@ -569,9 +569,12 @@ sections:
                 justification: |
                   The annotated path exists to deliver information, so it is used exactly when a
                   segment carries annotations, whether they came from an analysis or from a model's
-                  own rendering strategy.
+                  own rendering strategy, including a segment that consists only of symbols whose
+                  analysis normalized them to words.
                 tests:
                   - SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText
+                  - SynthesisSession_SynthesizeAsync_AnnotatedSymbolOnlyText_ReachesAnnotatedBackend
+                  - SynthesisSession_SynthesizeAsync_AnnotatedSymbolBeforeClause_KeepsAnnotationOnFirstChunk
                   - SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate
                   - SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer
 
@@ -597,6 +600,7 @@ sections:
                   - SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore
                   - SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer
                   - SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer
+                  - SynthesisSession_SynthesizeAsync_SymbolOnlyTextWithoutAnalysis_StillProducesNoChunks
 
               - id: Speech-Synthesis-SynthesisSession-AnalyzerFaultContained
                 title: >-

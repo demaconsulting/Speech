@@ -672,11 +672,18 @@ profile singleton, `RenderText`, and the pause constants are public and usable f
 `SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk`,
 `SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim`,
 `SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace`,
-`SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved`,
+`SentenceChunker_ChunkAligned_DegenerateMerge_EmptyValueAnnotationOnMergedPunctuation_Preserved`,
 `SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped`,
 `SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped`,
-`SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped`,
+`SentenceChunker_ChunkAligned_LeadingDegenerateRunEmptyValueAnnotation_Dropped`,
 `SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped`,
+`SentenceChunker_ChunkAligned_AnnotatedSymbolOnlyText_IsKept`,
+`SentenceChunker_ChunkAligned_AnnotatedSymbolBeforeClausePunctuation_KeepsChunkAndAnnotation`,
+`SentenceChunker_ChunkAligned_AnnotatedSymbolAfterSentence_IsNotMergedIntoPreviousChunk`,
+`SentenceChunker_ChunkAligned_UnannotatedPunctuationAfterAnnotatedSymbol_MergesOntoIt`,
+`SentenceChunker_ChunkAligned_EmptyValueAnnotationOnPunctuation_StillMergedOrDropped`,
+`SentenceChunker_ChunkAligned_AnnotationCrossingPunctuationBoundary_DoesNotKeepChunk`,
+`SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped`,
 `SentenceChunker_ChunkAligned_AnalyzerBreaks_OverridePunctuationHeuristic`,
 `SentenceChunker_ChunkAligned_AnalyzerBreaks_SplitWithoutPunctuation`,
 `SentenceChunker_ChunkAligned_EmptyBreaksList_NoPrimarySplitButClauseSplitStillApplies`,
@@ -694,7 +701,12 @@ Verifies that the refactored chunker still produces, for a representative corpus
 inputs, exactly the chunks and ellipsis flags recorded from the pre-refactor implementation; that
 each chunk receives only the annotations wholly inside it, re-based through trimming, whitespace
 collapsing, and punctuation merges; that an annotation crossing a chunk boundary, on trimmed
-whitespace, on a dropped degenerate run, or out of range is dropped; that supplied sentence breaks
+whitespace, with an empty value on a dropped degenerate run, or out of range is dropped; that a
+punctuation-only piece wholly containing a non-empty-valued annotation (a normalized symbol such
+as `&` or the copyright sign) is kept as its own chunk on the analyzed path while an empty-valued
+annotation, a crossing annotation, or no annotation at all leaves the legacy merge/drop behavior
+(a 300,000-text differential run against `main` showed 0 differences without annotations, see the
+SentenceChunker verification); that supplied sentence breaks
 replace the punctuation pass while the clause and budget passes still apply, an empty list means no
 sentence splits, and out-of-range breaks are ignored; that a chunk whose only letters are
 supplementary-plane characters is kept (with its annotation) when annotations or breaks are
@@ -744,12 +756,15 @@ backend receives the text.
 
 **Tests**: `SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText`,
 `SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate`,
+`SynthesisSession_SynthesizeAsync_AnnotatedSymbolOnlyText_ReachesAnnotatedBackend`,
+`SynthesisSession_SynthesizeAsync_AnnotatedSymbolBeforeClause_KeepsAnnotationOnFirstChunk`,
 `SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer`,
 `SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun`
 
 Verifies that an annotation-accepting backend receives `GenerateAnnotated` with the segment's text
 and annotations only for segments that have annotations, and plain `Generate` for those that do not;
-that annotations a capability profile attaches to its own segments reach the backend with no
+that a symbol-only text an analyzer normalized (`&`) reaches the annotated backend as one segment
+with its annotation, and `©; Brand` keeps the annotation on its first chunk; that annotations a capability profile attaches to its own segments reach the backend with no
 analyzer involved; and that a legacy backend receives text identical to the annotated backend's
 segment texts and to a run with no analyzer.
 
@@ -757,11 +772,13 @@ segment texts and to a run with no analyzer.
 
 **Tests**: `SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore`,
 `SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer`,
-`SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer`
+`SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer`,
+`SynthesisSession_SynthesizeAsync_SymbolOnlyTextWithoutAnalysis_StillProducesNoChunks`
 
 Verifies that no analyzer, an analyzer returning `null`, and an analyzer returning an empty result
 all produce the backend texts a run before text analysis existed produced, and never call
-`GenerateAnnotated`.
+`GenerateAnnotated`, and that a symbol-only text (`&`) without an analyzer still produces no
+synthesis calls at all (the legacy chunking is unchanged).
 
 #### Session: Analyzer Fault Containment and Cancellation
 

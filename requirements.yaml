@@ -212,6 +212,11 @@ includes:
   - docs/reqstream/speech-text-en/analysis-subsystem/text-en-annotations.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/part-of-speech-adapter.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/analysis-diagnostics.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/normalization-alignment.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/text-normalizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

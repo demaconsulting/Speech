@@ -16,13 +16,14 @@ sections:
             requirements:
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Defaults
                 title: >-
-                  The EnglishTextAnalyzerOptions record shall default to selecting part-of-speech
-                  annotations and to having no diagnostics sink.
+                  The EnglishTextAnalyzerOptions record shall default to selecting both the
+                  part-of-speech and the normalization annotations and to having no diagnostics
+                  sink.
                 justification: |
                   A host that just constructs an analyzer gets the useful behavior without
                   configuration and no reporting it did not ask for.
                 tests:
-                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNoSink
+                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Initialization
                 title: >-
@@ -46,3 +47,17 @@ sections:
                 tests:
                   - EnglishTextAnalyzerOptions_Annotations_UndefinedFlag_ThrowsArgumentOutOfRangeException
                   - TextEnAnnotationSelection_Members_AreFlagsWithNoneZero
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-NormalizationSelection
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall accept every combination of the
+                  defined selection flags (none, part of speech, normalization, or both), so that a
+                  host can select the normalization annotations independently of the
+                  part-of-speech annotations.
+                justification: |
+                  Normalization needs no tagger and the part of speech needs no normalization, so
+                  a host may want either alone; the combinations must be valid rather than merely
+                  not undefined.
+                tests:
+                  - EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted
+                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink

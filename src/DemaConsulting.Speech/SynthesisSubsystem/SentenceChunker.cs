@@ -33,6 +33,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     lone comma or a whitespace-spaced run of dots) is never emitted as its own chunk: its
 ///     punctuation is instead appended to the immediately preceding non-empty chunk, or dropped
 ///     entirely if there is no preceding chunk (a degenerate run at the very start of the text).
+///     The one exception applies only when annotations are supplied: such a piece that wholly
+///     contains at least one annotation with a non-empty value (for example a symbol that an
+///     analyzer normalized to a spoken word) is content, so it is kept as its own chunk with its
+///     annotation instead of being merged or dropped. An annotation with an empty value, or one
+///     that crosses into the piece, does not keep it.
 ///     This is a best-effort UX quality heuristic, not a correctness requirement: an oversized or
 ///     undersized chunk still synthesizes and plays correctly.
 ///     <para>
@@ -166,8 +171,10 @@ public static class SentenceChunker
     ///     Annotations with offsets (UTF-16 code unit indices) relative to <paramref name="text"/>,
     ///     or <see langword="null"/> for none. Each chunk receives the annotations lying wholly
     ///     inside it, re-based to the chunk's own text, in input order. An annotation that crosses
-    ///     a chunk boundary, starts or ends on whitespace that chunking trims, lies on a dropped
-    ///     degenerate run, or lies outside the text is dropped rather than misplaced.
+    ///     a chunk boundary, starts or ends on whitespace that chunking trims, has an empty value and
+    ///     lies on a dropped degenerate run, or lies outside the text is dropped rather than
+    ///     misplaced. A non-empty-valued annotation wholly inside a punctuation-only piece keeps
+    ///     that piece as its own chunk.
     /// </param>
     /// <param name="sentenceBreaks">
     ///     <see langword="null"/> to use the sentence-punctuation heuristic; otherwise the
@@ -233,7 +240,8 @@ public static class SentenceChunker
         // "word content" per Unicode scalar, so a supplementary-plane letter is not mistaken for
         // punctuation; text with neither keeps the legacy per-UTF-16-code-unit predicate unchanged.
         var scalarAware = sentenceBreaks is not null || annotations is { Count: > 0 };
-        var merged = MergeDegeneratePunctuationPieces(pieces, scalarAware);
+        var annotated = annotations is { Count: > 0 } ? FindAnnotatedPieces(text.Length, pieces, annotations) : null;
+        var merged = MergeDegeneratePunctuationPieces(pieces, scalarAware, annotated);
         var rebased = annotations is { Count: > 0 } ? RebaseAnnotations(text.Length, merged, annotations) : null;
 
         var chunks = new SentenceChunk[merged.Count];
@@ -264,29 +272,12 @@ public static class SentenceChunker
         List<Piece> pieces,
         IReadOnlyList<SegmentAnnotation> annotations)
     {
-        // Flatten every run, in ascending source order, so a binary search finds the run holding
-        // any given source index; a dropped degenerate piece contributes no runs, so annotations
-        // on it find nothing.
-        var runs = new List<(int PieceIndex, SourceRun Run)>();
-        for (var i = 0; i < pieces.Count; i++)
-        {
-            foreach (var run in pieces[i].Runs)
-            {
-                runs.Add((i, run));
-            }
-        }
+        var runs = FlattenRuns(pieces);
 
         var result = new List<SegmentAnnotation>?[pieces.Count];
         foreach (var annotation in annotations)
         {
-            if (annotation is null || annotation.End > textLength)
-            {
-                continue;
-            }
-
-            var first = FindRun(runs, annotation.Start);
-            var last = FindRun(runs, annotation.End - 1);
-            if (first < 0 || last < 0 || runs[first].PieceIndex != runs[last].PieceIndex)
+            if (!TryLocate(runs, annotation, textLength, out var first, out var last))
             {
                 continue;
             }
@@ -302,6 +293,98 @@ public static class SentenceChunker
         }
 
         return result;
+    }
+
+    /// <summary>
+    ///     Finds the pieces that wholly contain at least one annotation with a non-empty value,
+    ///     using the same placement test as <see cref="RebaseAnnotations"/>. Such a piece carries
+    ///     something to speak (for example a normalized symbol) and is therefore content even when
+    ///     it has no letter or digit.
+    /// </summary>
+    /// <param name="textLength">The length of the original source text.</param>
+    /// <param name="pieces">The pieces, in source order, before degenerate-piece merging.</param>
+    /// <param name="annotations">The annotations, relative to the original source text.</param>
+    /// <returns>
+    ///     One flag per piece, or <see langword="null"/> when no piece qualifies. An annotation
+    ///     with an empty value (it speaks nothing) or one crossing a piece boundary (it will be
+    ///     dropped) does not qualify its piece.
+    /// </returns>
+    private static bool[]? FindAnnotatedPieces(
+        int textLength,
+        List<Piece> pieces,
+        IReadOnlyList<SegmentAnnotation> annotations)
+    {
+        var runs = FlattenRuns(pieces);
+
+        bool[]? result = null;
+        foreach (var annotation in annotations)
+        {
+            if (annotation is null
+                || annotation.Value.Length == 0
+                || !TryLocate(runs, annotation, textLength, out var first, out _))
+            {
+                continue;
+            }
+
+            result ??= new bool[pieces.Count];
+            result[runs[first].PieceIndex] = true;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Flattens every run of every piece, in ascending source order, so a binary search finds
+    ///     the run holding any given source index. A dropped degenerate piece contributes no
+    ///     runs, so annotations on it find nothing.
+    /// </summary>
+    /// <param name="pieces">The pieces, in source order.</param>
+    /// <returns>The runs, each tagged with the index of the piece that owns it.</returns>
+    private static List<(int PieceIndex, SourceRun Run)> FlattenRuns(List<Piece> pieces)
+    {
+        var runs = new List<(int PieceIndex, SourceRun Run)>();
+        for (var i = 0; i < pieces.Count; i++)
+        {
+            foreach (var run in pieces[i].Runs)
+            {
+                runs.Add((i, run));
+            }
+        }
+
+        return runs;
+    }
+
+    /// <summary>
+    ///     Locates the runs holding the first and last character of an annotation, succeeding
+    ///     only when both exist and belong to the same piece.
+    /// </summary>
+    /// <param name="runs">The flattened runs.</param>
+    /// <param name="annotation">The annotation to place; <see langword="null"/> never succeeds.</param>
+    /// <param name="textLength">The length of the original source text.</param>
+    /// <param name="first">Receives the index of the run holding the annotation's first character.</param>
+    /// <param name="last">Receives the index of the run holding the annotation's last character.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the annotation lies wholly inside one piece;
+    ///     <see langword="false"/> when it is <see langword="null"/>, outside the text, or
+    ///     not wholly inside one piece.
+    /// </returns>
+    private static bool TryLocate(
+        List<(int PieceIndex, SourceRun Run)> runs,
+        SegmentAnnotation? annotation,
+        int textLength,
+        out int first,
+        out int last)
+    {
+        first = -1;
+        last = -1;
+        if (annotation is null || annotation.End > textLength)
+        {
+            return false;
+        }
+
+        first = FindRun(runs, annotation.Start);
+        last = FindRun(runs, annotation.End - 1);
+        return first >= 0 && last >= 0 && runs[first].PieceIndex == runs[last].PieceIndex;
     }
 
     /// <summary>
@@ -340,20 +423,31 @@ public static class SentenceChunker
     ///     (just punctuation and/or whitespace, e.g. a lone comma or a whitespace-spaced run of
     ///     dots) onto the end of the immediately preceding non-empty piece, joined by a single
     ///     space; drops such a piece entirely when there is no preceding piece to merge into (a
-    ///     degenerate run at the very start of the text).
+    ///     degenerate run at the very start of the text). A piece flagged in
+    ///     <paramref name="annotated"/> is content, so it is kept as its own piece.
     /// </summary>
     /// <param name="pieces">The ordered, already-split, non-empty pieces to merge.</param>
     /// <param name="scalarAware">
     ///     <see langword="true"/> to detect word content per Unicode scalar (analyzed text);
     ///     <see langword="false"/> for the legacy per-code-unit detection.
     /// </param>
-    /// <returns>An ordered list of pieces with no degenerate, word-less entries.</returns>
-    private static List<Piece> MergeDegeneratePunctuationPieces(IReadOnlyList<Piece> pieces, bool scalarAware)
+    /// <param name="annotated">
+    ///     One flag per piece marking a piece that wholly contains a non-empty-valued annotation,
+    ///     or <see langword="null"/> (always the case without annotations) for none.
+    /// </param>
+    /// <returns>
+    ///     An ordered list of pieces with no degenerate, word-less entries other than annotated ones.
+    /// </returns>
+    private static List<Piece> MergeDegeneratePunctuationPieces(
+        IReadOnlyList<Piece> pieces,
+        bool scalarAware,
+        bool[]? annotated)
     {
         var merged = new List<Piece>();
-        foreach (var piece in pieces)
+        for (var index = 0; index < pieces.Count; index++)
         {
-            if (HasWordContent(piece.Text, scalarAware))
+            var piece = pieces[index];
+            if ((annotated is not null && annotated[index]) || HasWordContent(piece.Text, scalarAware))
             {
                 merged.Add(piece);
                 continue;

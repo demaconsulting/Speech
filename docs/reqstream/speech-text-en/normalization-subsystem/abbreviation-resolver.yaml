@@ -1,0 +1,105 @@
+---
+# Software Unit Requirements for AbbreviationResolver
+#
+# These requirements describe the design-level behavior of the AbbreviationResolver unit, the
+# lexicon of written-English abbreviations embedded in the package (written from scratch and
+# released under the package's MIT License) with the rules that choose between the readings of an
+# ambiguous abbreviation from its neighboring tokens. It decomposes the parent SpeechTextEn
+# NormalizationSubsystem requirements. It uses no tagger. Each requirement states one observable
+# behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AbbreviationResolverTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: AbbreviationResolver Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-Table
+                title: >-
+                  The AbbreviationResolver class shall load the embedded lexicon with its rows,
+                  shall return the spoken form of every listed abbreviation matched
+                  case-sensitively and exactly, shall report whether the match includes a separate
+                  period token, and shall not treat an ordinary word as an abbreviation.
+                justification: |
+                  The lexicon is the single place that says how an abbreviation is spoken; an exact,
+                  case-sensitive match keeps ordinary words such as "no" or "dr" untouched.
+                tests:
+                  - AbbreviationResolver_Default_Lexicon_LoadsWithRows
+                  - AbbreviationResolver_TryResolve_ListedForm_ReturnsSpokenForm
+                  - AbbreviationResolver_TryResolve_PeriodShapes_AreReported
+                  - AbbreviationResolver_TryResolve_OrdinaryWords_AreNotAbbreviations
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-ContextCues
+                title: >-
+                  The AbbreviationResolver class shall choose between the prefix and the suffix
+                  reading of an ambiguous abbreviation from the neighboring tokens only (a
+                  following name, a preceding name, number or determiner), shall skip a possessive
+                  before the abbreviation, shall not take a name suffix or credential (Ph.D.,
+                  Esq., III) that follows Sr. for the name of a Sister, and shall resolve a
+                  single-letter initial only before a name or another initial.
+                justification: |
+                  "Dr. Smith" is a doctor and "Maple Dr. He" is a drive; the words around the
+                  abbreviation usually decide, and using only tokens keeps the rule independent of
+                  the tagger and its cost. "John Smith Sr. Ph.D." is a senior, not a Sister whose
+                  name is Ph.D.
+                tests:
+                  - AbbreviationResolver_TryResolve_AmbiguousForm_FollowsTheNeighborCues
+                  - AbbreviationResolver_IsNameContinuation_ListedFormsOnly
+                  - AbbreviationResolver_TryResolve_PossessiveBeforeAbbreviation_IsSkippedForContext
+                  - AbbreviationResolver_TryResolve_Initials_ResolveOnlyBeforeNames
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-Guards
+                title: >-
+                  The AbbreviationResolver class shall apply a reading only where its guard holds
+                  (for example the number reading of No. only before a digit), shall let a reading
+                  whose guard holds replace the unguarded alternatives of the same form, and shall
+                  leave the form unresolved when no reading remains.
+                justification: |
+                  "No. 5" is a number and "No. I don't know" is the word; a guard keeps a reading
+                  to the context it was written for, and a form without a valid reading must stay
+                  as written.
+                tests:
+                  - AbbreviationResolver_TryResolve_No_IsNumberBeforeDigitAndWordOtherwise
+                  - AbbreviationResolver_TryResolve_Guards_RestrictReadingsToTheirContext
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
+                title: >-
+                  The AbbreviationResolver class shall use the reading marked as the default and
+                  report the resolution as ambiguous where the neighboring tokens do not decide
+                  between two readings or give competing cues, shall report a clear reading as not
+                  ambiguous, and shall use the default without counting it for alternatives that
+                  are not a prefix and suffix pair.
+                justification: |
+                  A documented default makes the unclear cases predictable, and the ambiguity flag
+                  is what the diagnostics count so a host can see how often the choice was a guess.
+                tests:
+                  - AbbreviationResolver_TryResolve_InconclusiveContext_UsesDefaultAndIsCounted
+                  - AbbreviationResolver_FromTsv_NonPairAlternatives_UseDefaultWithoutCounting
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-LoaderValidation
+                title: >-
+                  The AbbreviationResolver class shall parse a lexicon in the documented tab-separated
+                  format, accepting comments, blank lines and CRLF line ends, shall throw
+                  InvalidDataException that names the line number for a malformed row, and shall
+                  throw ArgumentNullException for a null reader.
+                justification: |
+                  A defective lexicon is a build defect and must fail at once and point at the row,
+                  rather than silently resolve abbreviations wrongly.
+                tests:
+                  - AbbreviationResolver_FromTsv_CommentsBlankLinesAndCrLf_AreAccepted
+                  - AbbreviationResolver_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine
+                  - AbbreviationResolver_FromTsv_NullReader_ThrowsArgumentNullException
+
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-ThreadSafeLoad
+                title: >-
+                  The AbbreviationResolver class shall load the embedded lexicon lazily and at most
+                  once, so that concurrent first uses share one instance.
+                justification: |
+                  Constructing an analyzer must not read the lexicon, and several requests may be
+                  the first to need it at the same time.
+                tests:
+                  - AbbreviationResolver_Default_ConcurrentFirstUse_ReturnsOneInstance

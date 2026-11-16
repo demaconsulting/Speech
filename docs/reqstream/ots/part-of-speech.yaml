@@ -65,3 +65,22 @@ sections:
             tags: [ots]
             tests:
               - PartOfSpeech_DefaultTagger_ConcurrentTagging_ReturnsSameResultsAsSequential
+
+          - id: Speech-OTS-PartOfSpeech-TokenizationConventions
+            title: >-
+              DemaConsulting.PartOfSpeech shall tokenize English text by the conventions the
+              normalization relies on: abbreviations keep their period inside one token or are
+              split into a word and an adjacent period token, contractions split into a host and
+              a clitic token that keeps a typographic apostrophe, standalone symbols are single
+              tokens while the listed joined forms stay one token, and a title or a street
+              abbreviation before a name does not end a sentence.
+            justification: |
+              The normalization sees only the tokens and the sentence breaks of the tokenizer: its
+              rules for the period of an abbreviation, for clitics and for symbols are written
+              against these token shapes. A different tokenization in a later package version
+              would change which text is rewritten and where sentences end without any error, so
+              the exact conventions are tested against the pinned version, and a version bump that
+              changes them fails loudly.
+            tags: [ots]
+            tests:
+              - PartOfSpeech_Tokenizer_NormalizationRelevantConventions_HoldForPinnedVersion

@@ -30,7 +30,7 @@ Together with the Sherpa package, the library supplies seven models through four
 (see "Managing speech models" below).
 
 One further optional package is a preview and ships no model: `DemaConsulting.Speech.Text.En` supplies an
-English text analyzer (part-of-speech annotations and
+English text analyzer (part-of-speech and normalization annotations and
 sentence boundaries) that a model package can return from `ISynthesisModel.TextAnalyzer`; see "Text
 analysis for model authors" in the usage guide. **It is not yet published to NuGet**: the tagger it
 depends on (`DemaConsulting.PartOfSpeech`) keeps analyzed text in memory, which violates the core

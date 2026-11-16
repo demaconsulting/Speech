@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
@@ -29,20 +30,47 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     <see langword="false"/> when the token was not tagged.
 /// </param>
 /// <remarks>An immutable value, safe to share across threads.</remarks>
-public sealed record AnalyzedToken(int Start, int Length, string Text, string? PartOfSpeech, double Confidence, bool IsKnownWord);
+public sealed record AnalyzedToken(int Start, int Length, string Text, string? PartOfSpeech, double Confidence, bool IsKnownWord)
+{
+    /// <summary>
+    ///     Gets the grammatical role of this token when it is a clitic such as <c>'s</c> or
+    ///     <c>n't</c>; <see cref="CliticKind.None"/> for every other token, and always
+    ///     <see cref="CliticKind.None"/> when normalization was not selected.
+    /// </summary>
+    /// <remarks>
+    ///     Derived from the neighboring words only (not from the part of speech), so it is a
+    ///     heuristic: <c>the dog's training session</c> reads as a contraction.
+    /// </remarks>
+    public CliticKind Clitic { get; init; }
+}
+
+/// <summary>
+///     One <c>en.norm</c> replacement as <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>
+///     reports it: the source span, the words it is spoken as, and what produced it.
+/// </summary>
+/// <param name="Start">The zero-based UTF-16 offset of the span's first character in the analyzed text.</param>
+/// <param name="Length">The number of UTF-16 code units the span covers; always positive.</param>
+/// <param name="Text">
+///     The source characters of the span. This is part of the user's text, so it is for local
+///     use and must not be sent to a diagnostics sink.
+/// </param>
+/// <param name="SpokenText">The exact replacement, equal to the <c>Value</c> of the matching annotation; empty for <see cref="NormalizationKind.Dropped"/>.</param>
+/// <param name="Kind">What produced the replacement.</param>
+/// <remarks>An immutable value, safe to share across threads.</remarks>
+public sealed record AnalyzedNormalization(int Start, int Length, string Text, string SpokenText, NormalizationKind Kind);
 
 /// <summary>
 ///     The rich, local-only result of <see cref="EnglishTextAnalyzer.AnalyzeDetailed"/>: every
-///     token with its tag and confidence, the sentence boundaries, and the annotations the
-///     language-neutral <see cref="ITextAnalyzer"/> path would have produced.
+///     token with its tag and confidence, every normalization, the sentence boundaries, and the
+///     annotations the language-neutral <see cref="ITextAnalyzer"/> path would have produced.
 /// </summary>
 /// <remarks>
 ///     Unlike <see cref="TextAnalysisResult"/>, this result carries the words themselves
-///     (<see cref="AnalyzedToken.Text"/>) and per-token confidence, so it is meant for the
-///     caller's own use (tests, tooling, a model package's own pipeline) and must never be
-///     forwarded to a diagnostics sink. All offsets index the exact text that was analyzed. The
-///     class is immutable: it can be created only by the analyzer, and its lists are read-only
-///     private copies, so it is safe to share across threads.
+///     (<see cref="AnalyzedToken.Text"/>, <see cref="AnalyzedNormalization.Text"/>) and per-token
+///     confidence, so it is meant for the caller's own use (tests, tooling, a model package's own
+///     pipeline) and must never be forwarded to a diagnostics sink. All offsets index the exact
+///     text that was analyzed. The class is immutable: it can be created only by the analyzer,
+///     and its lists are read-only private copies, so it is safe to share across threads.
 /// </remarks>
 public sealed class EnglishTextAnalysis
 {
@@ -52,15 +80,18 @@ public sealed class EnglishTextAnalysis
     /// </summary>
     /// <param name="tokens">Every token, in text order.</param>
     /// <param name="sentenceBreaks">The sentence-break offsets, ascending.</param>
-    /// <param name="annotations">The annotations, in token order.</param>
+    /// <param name="annotations">The annotations, in text order.</param>
+    /// <param name="normalizations">The normalizations, in text order.</param>
     internal EnglishTextAnalysis(
         IReadOnlyList<AnalyzedToken> tokens,
         IReadOnlyList<int> sentenceBreaks,
-        IReadOnlyList<SegmentAnnotation> annotations)
+        IReadOnlyList<SegmentAnnotation> annotations,
+        IReadOnlyList<AnalyzedNormalization> normalizations)
     {
         Tokens = tokens;
         SentenceBreaks = sentenceBreaks;
         Annotations = annotations;
+        Normalizations = normalizations;
     }
 
     /// <summary>
@@ -72,14 +103,23 @@ public sealed class EnglishTextAnalysis
     /// <summary>
     ///     Gets the authoritative sentence boundaries in the sense of
     ///     <see cref="TextAnalysisResult.SentenceBreaks"/>: each value is the offset of the first
-    ///     token of a sentence after the first. Never null; empty when the text has at most one
-    ///     sentence.
+    ///     token of a sentence after the first. When normalization was selected they are the
+    ///     tokenizer's breaks reconciled with the normalization (a sentence-final abbreviation
+    ///     ends its sentence; a title never does). Never null; empty when the text has at most
+    ///     one sentence.
     /// </summary>
     public IReadOnlyList<int> SentenceBreaks { get; }
 
     /// <summary>
-    ///     Gets the annotations in token order; empty when nothing was selected or no token could
-    ///     be annotated.
+    ///     Gets the annotations in text order (a token's part of speech before the normalizations
+    ///     that start inside it); empty when nothing was selected or nothing could be annotated.
     /// </summary>
     public IReadOnlyList<SegmentAnnotation> Annotations { get; }
+
+    /// <summary>
+    ///     Gets every normalization in text order: the same spans as the
+    ///     <see cref="TextEnAnnotations.Normalized"/> annotations; empty when normalization was
+    ///     not selected.
+    /// </summary>
+    public IReadOnlyList<AnalyzedNormalization> Normalizations { get; }
 }

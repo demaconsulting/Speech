@@ -19,6 +19,31 @@ repository treats it as an OTS item and pins it to one exact version in
   known-word flag
 - The tag-name conversion, which gives the Universal Dependencies spelling of a tag (for example `NOUN`)
 
+### Tokenizer Conventions Relied Upon
+
+The NormalizationSubsystem never names a type of this package: it receives plain token offsets from the
+analyzer and is written against the tokenizer's observable conventions, which are therefore part of the
+contract this repository relies on and are locked by a test that fails when a version change alters them
+(see _PartOfSpeech Verification_):
+
+- **Abbreviations that keep their period inside one token**: `Dr.`, `St.`, `Mr.`, `Prof.`, `Capt.`, `Sgt.`,
+  `Mt.`, `Ft.`, `Co.`, `Ltd.`, `Corp.`, `Sr.`, `Jr.`, `e.g.`, `i.e.`, `etc.`, `vs.`, the single initial `J.`,
+  and the dotted forms `J.R.R.`, `U.S.`, `U.S.A.`, `p.m.` and `a.m.`. The abbreviation resolver therefore
+  tries both the token alone and the token with a separate period
+- **Abbreviations split into a word and an adjacent period token**: `Ave`, `Blvd`, `Rd`, `Ln`, `Apt`, `Ste`,
+  `Dept` and `Bldg`; the resolver accepts either shape for every lexicon form
+- **Clitics split from their host**: `do` and `n’t`, `it` and `’s`, `I` and `'d`, with a typographic
+  apostrophe part of the clitic token; a leading elision such as `’til` becomes a lone apostrophe token and the
+  word, while `’Tis` and `’em` stay whole
+- **Standalone symbols are single tokens** when set apart by whitespace (`&`, `@`, `+`, `=`, `<`, `>`, `/`),
+  and these joined forms stay one token: `he/she`, `and/or`, `w/o`, `N/A`, `24/7`, `km/h`, `R&D`, `Q&A`,
+  `AT&T`, `Johnson&Johnson`, a mark glued to a word (`Brand™`), and an invisible character inside a word
+  (the zero-width space and the soft hyphen)
+- **Sentence rules for titles**: titles and `St.`, `Dr.`, `No.` never end a sentence, so `Dr. Smith lives on
+  Maple Dr. He likes it.`, `I live on Main St. It is nice.` and `No. I don't know.` are each one tokenizer
+  sentence, while a business suffix can end one (`Acme Inc. Smith left.` is two). The analyzer reconciles
+  these breaks with the normalization's decisions instead of trusting the tokenizer alone
+
 ### Integration Pattern
 
 SpeechTextEn references the package from `DemaConsulting.Speech.Text.En.csproj` with an exact version range.
@@ -27,7 +52,9 @@ each sentence with the shared tagger obtained lazily under a lock (retried after
 results into its own plain values. No other unit and no public API of this library names a type of the
 package, so it can be upgraded or replaced by changing the adapter alone. The first use of the shared tagger
 inflates and validates about 1.3 MB of embedded data once per process; the adapter therefore never obtains
-the tagger for a text without tokens or when tagging is not requested.
+the tagger for a text without tokens or when tagging is not requested. The NormalizationSubsystem tests also
+call the tokenizer directly, as a test-only dependency, to feed the normalizer the same token offsets the
+adapter would supply; no production code outside the adapter uses the package.
 
 The package is a separate NuGet dependency: it is not bundled in this library's package, which declares the
 MIT License only. The package embeds data under licenses other than MIT, whose attribution this library's

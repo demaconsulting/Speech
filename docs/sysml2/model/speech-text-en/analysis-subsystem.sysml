@@ -1,9 +1,12 @@
 package SpeechTextEn {
     part def AnalysisSubsystem {
         doc /* The English text analyzer (EnglishTextAnalyzer and its detailed-result types), its
-             * options, the annotation vocabulary and typed reader (TextEnAnnotations), the internal
+             * options, the annotation vocabulary and typed readers (TextEnAnnotations), the internal
              * adapter that isolates the DemaConsulting.PartOfSpeech package (PartOfSpeechAdapter),
-             * and the internal counts-only diagnostics reporter (AnalysisDiagnostics). */
+             * and the internal counts-only diagnostics reporter (AnalysisDiagnostics). The analyzer
+             * drives the Normalization subsystem (NormalizationSubsystem) to produce en.norm
+             * annotations and reconciled sentence breaks; this dependency is one way, from Analysis
+             * to Normalization. */
 
         comment designRef /* Design: docs/design/speech-text-en/analysis-subsystem.md */
         comment verificationRef /* Verification: docs/verification/speech-text-en/analysis-subsystem.md */

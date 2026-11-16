@@ -6,8 +6,11 @@
 # consuming it, without specifying implementation details. SpeechTextEn is a sibling system to
 # Speech: it supplies an English implementation of the Speech library's ITextAnalyzer seam,
 # ships as its own package, and is versioned as part of this repository. The Speech library never
-# depends on it. This is a preview: only part-of-speech annotation and sentence boundaries are
-# provided; later increments add further analysis. Each requirement states one observable behavior.
+# depends on it. This is a preview: part-of-speech annotation, sentence boundaries and the
+# non-numeric part of English text normalization (abbreviations, symbols, apostrophes and
+# initialisms, delivered as annotations that never rewrite the text) are provided; later
+# increments add numbers, dates, currency, units and pronunciation overrides. Each requirement
+# states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Tests - see the subsystem/unit-level reqstream
 # files under docs/reqstream/speech-text-en/ for the full tests: lists these system requirements
@@ -65,6 +68,7 @@ sections:
           sentence structure; the library's own punctuation heuristic does not.
         children:
           - SpeechTextEn-Analysis-SentenceBoundaries
+          - SpeechTextEn-Analysis-NormalizationAnnotations
         tests:
           - SpeechTextEn_Analyze_MultipleSentencesAndTag_ReturnsAuthoritativeBreaks
           - SpeechTextEn_SynthesisSession_AnalyzerSentenceBreaks_DriveChunkBoundaries
@@ -89,36 +93,192 @@ sections:
       - id: SpeechTextEn-Analysis-Diagnostics
         title: >-
           The library shall report one aggregate-counts event per analyzed text to a host-supplied
-          diagnostics sink, shall never include any text content in it, and shall not let a
-          failing sink interrupt an analysis.
+          diagnostics sink, counting sentences, tokens, annotations, unknown words, normalizations
+          and ambiguous abbreviations, shall never include any text content in it, and shall not
+          let a failing sink interrupt an analysis.
         tags: [system]
         justification: |
           The Speech library's diagnostics contract forbids synthesized text in any report, so
-          the analyzer can tell a host only how much it did, never what it read. A diagnostics
-          sink is an observer, and a fault in it must never stop speech.
+          the analyzer can tell a host only how much it did, never what it read. The counts of
+          normalizations and of abbreviations resolved without a clear context tell a host how
+          much the normalization changed and how often it had to guess, which is the evidence for
+          tuning it. A diagnostics sink is an observer, and a fault in it must never stop speech.
         children:
           - SpeechTextEn-Analysis-DiagnosticsAggregation
         tests:
           - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
 
+      - id: SpeechTextEn-Normalization-ReplacementAnnotations
+        title: >-
+          The library shall deliver English text normalization as annotations that name the
+          spoken form of a span of the analyzed text, shall never rewrite the analyzed text or
+          annotate text that needs no change, and shall let a host switch normalization off
+          without needing the part-of-speech tagger for it.
+        tags: [system]
+        justification: |
+          A synthesis backend needs to know how written English is spoken (an abbreviation in
+          full, a symbol as words), but the Speech library's annotations are positions in the
+          text it supplied, so rewriting the text would move every position and lose the user's
+          own words. Annotating only what changes keeps the cost proportional to the work done,
+          a host that wants only the part of speech must be able to leave normalization out, and
+          normalization works on the tokens alone, so it must not load the tagger.
+        children:
+          - SpeechTextEn-Normalization-SpanContract
+          - SpeechTextEn-Analysis-NormalizationAnnotations
+        tests:
+          - SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText
+          - SpeechTextEn_Analyze_NormalizationNotSelected_ProducesNoNormAnnotations
+
+      - id: SpeechTextEn-Normalization-Abbreviations
+        title: >-
+          The library shall give the spoken form of the common written English abbreviations,
+          shall resolve the ambiguous ones (St., Dr., Sr. and No.) from the words around them,
+          and shall use a documented default, counted in the diagnostics, where the words around
+          an ambiguous abbreviation do not decide.
+        tags: [system]
+        justification: |
+          A phoneme-driven model cannot pronounce "Dr." or "St." from their letters, and the two
+          readings of "St. Louis" and "Main St." differ in meaning. The neighboring words decide
+          most cases; where they do not, a documented default is predictable and a count of such
+          cases tells a host how often the normalization had to guess.
+        children:
+          - SpeechTextEn-Normalization-AbbreviationResolution
+        tests:
+          - SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText
+          - SpeechTextEn_Analyze_ContextDependentAbbreviations_ResolveFromNeighbors
+          - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+
+      - id: SpeechTextEn-Normalization-SentenceBoundaries
+        title: >-
+          The library shall end a sentence after an abbreviation period only where the
+          abbreviation is read as the last word of its sentence, shall keep a name suffix and
+          its credentials ("John Smith Jr. Ph.D.") in one sentence, and shall report the
+          sentence breaks accordingly.
+        tags: [system]
+        justification: |
+          A period after "Dr." does not end a sentence, but the period after "Main St." in "I
+          live on Main St. It is nice." does. The tokenizer cannot tell them apart without
+          knowing how the abbreviation is read, and a wrong break gives a model a fragment
+          without its context or a run-on sentence, so the reported breaks must follow the
+          reading chosen for the abbreviation. A break between a name suffix and its credential
+          would cut a name in two.
+        children:
+          - SpeechTextEn-Normalization-SentenceBoundaryReconciliation
+          - SpeechTextEn-Analysis-NormalizationAnnotations
+        tests:
+          - SpeechTextEn_Analyze_AbbreviationAtSentenceEnd_BreaksAfterItAndKeepsThePeriod
+          - SpeechTextEn_SynthesisSession_AbbreviationBreaks_DriveChunkBoundaries
+          - SpeechTextEn_Analyze_CredentialsAfterNameSuffix_StayInOneSentence
+          - SpeechTextEn_SynthesisSession_NameWithCredentials_IsOneChunk
+
+      - id: SpeechTextEn-Normalization-SymbolsAndClitics
+        title: >-
+          The library shall give the spoken form of non-numeric symbols that stand for words
+          (speaking adjacent symbols as separate words),
+          shall canonicalize typographic apostrophes inside contractions and elisions, shall
+          drop invisible formatting characters only as explicit annotated edits, and shall make
+          the role of each clitic available to the caller.
+        tags: [system]
+        justification: |
+          A model reads "&" and the copyright sign as nothing unless it is told the words, and a
+          typographic apostrophe in "don't" can defeat a lexicon lookup that expects an ASCII one.
+          Invisible characters such as a soft hyphen or a zero-width space would be heard as a
+          break or as
+          noise, so they are dropped, but never silently. Knowing whether "'s" is a possessive or
+          a contraction of "is" or "has" lets a model package choose the pronunciation without
+          re-parsing the text.
+        children:
+          - SpeechTextEn-Normalization-SymbolsAndMarks
+          - SpeechTextEn-Normalization-ApostropheAndClitics
+        tests:
+          - SpeechTextEn_Analyze_Symbols_AreSpokenAsWords
+          - SpeechTextEn_Analyze_AdjacentMarks_AreSpokenAsSeparateWords
+          - SpeechTextEn_Analyze_TypographicApostrophes_AreCanonicalized
+          - SpeechTextEn_Analyze_InvisibleCharacters_AreDroppedExplicitly
+          - SpeechTextEn_AnalyzeDetailed_Clitics_RecordTheirRole
+
+      - id: SpeechTextEn-Normalization-AcronymsAndInitialisms
+        title: >-
+          The library shall recognize acronyms and initialisms case-sensitively, shall speak the
+          initialisms letter by letter, and shall leave acronyms that are spoken as words, and
+          the ordinary words that merely resemble an initialism, unchanged.
+        tags: [system]
+        justification: |
+          "FBI" is spelled out and "NASA" is a word; "US" is the country and "us" is a pronoun.
+          Only the exact capitalization carries that information, so matching must be
+          case-sensitive and must not treat every capitalized word as an acronym.
+        children:
+          - SpeechTextEn-Normalization-AcronymHandling
+        tests:
+          - SpeechTextEn_Analyze_AcronymsAndInitialisms_AreCaseSensitive
+
+      - id: SpeechTextEn-Normalization-AlignmentContract
+        title: >-
+          The library shall place every normalization on exact spans of the analyzed text that
+          are in text order, do not overlap, start and end on non-whitespace characters, and
+          contain no whitespace or clause separator, shall leave case and punctuation outside
+          the spans untouched, shall drop no character of the text silently, and shall lose no
+          normalization when the Speech library chunks the text, including a chunk that consists
+          only of symbols.
+        tags: [system]
+        justification: |
+          The Speech library re-bases annotations onto its chunks and discards one that starts
+          or ends on trimmed whitespace, covers a placeholder or is split by a chunk boundary, so
+          a span that breaks these rules would silently lose its normalization. A reader must
+          also be able to trust that the only differences between the original text and its
+          spoken form are the annotated spans, which is what makes the normalization auditable.
+          A text such as "&" has no letter or digit, so chunking that treated it as punctuation
+          would discard the word it was normalized to.
+        children:
+          - SpeechTextEn-Normalization-SpanContract
+          - SpeechTextEn-Normalization-ChunkSafeSpans
+        tests:
+          - SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract
+          - SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking
+          - SpeechTextEn_SynthesisSession_NormalizedTextWithAudioTag_KeepsBothAnnotations
+          - SpeechTextEn_SynthesisSession_SymbolOnlyText_KeepsItsNormalization
+          - SpeechTextEn_SynthesisSession_SymbolBeforeClausePunctuation_KeepsItsNormalization
+          - SpeechTextEn_SynthesisSession_InvisibleOnlyClause_KeepsDroppedAnnotationWithItsNeighbor
+          - SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
+          - SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
+
+      - id: SpeechTextEn-Normalization-LinearTime
+        title: >-
+          The library shall normalize a text in time that grows linearly with its length, also
+          for adversarial repetitions, and shall stop normalizing when the request is canceled.
+        tags: [system]
+        justification: |
+          The analyzer runs on every synthesis request, including texts pasted from documents,
+          so a pathological text must not be able to stall speech or a thread-pool thread, and a
+          stopped or disposed engine waits for the analyzer to return.
+        children:
+          - SpeechTextEn-Normalization-LinearTimeAndCancellation
+        tests:
+          - SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget
+          - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
+
       - id: SpeechTextEn-Packaging-LicenseNotices
         title: >-
           The package shall declare the MIT License only, through a license file that starts with
-          the SPDX expression MIT and contains the MIT license text, shall state that the
-          part-of-speech tagging package it requires is a separate dependency with its own license
-          files and that this package embeds no data, and shall carry a dependency notice that
+          the SPDX expression MIT and contains the MIT license text, shall state that it embeds
+          two lexicon tables of its own (abbreviations and initialisms) under that license and
+          no third-party data, and that the part-of-speech tagging package it requires is a
+          separate dependency with its own license files, and shall carry a dependency notice that
           reproduces the attribution of that dependency's embedded data; both files shall be
           packed at the package root.
         tags: [system]
         justification: |
-          What the package contains is only code under the MIT License, so that is all it may
-          declare; claiming the licenses of a dependency's data would misstate what a consumer
-          receives. The required package, DemaConsulting.PartOfSpeech, is restored separately and
-          carries its own license files, but its embedded lexicon and weights come from Open
-          English WordNet (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated
-          Sub-Corpus (CC BY 3.0 US), so a consumer of this package should be able to see what the
+          What the package contains is code and two small lexicon tables that DEMA Consulting
+          wrote from scratch, all under the MIT License, so that is all it may declare; claiming
+          the licenses of a dependency's data would misstate what a consumer receives, and saying
+          nothing of the tables would hide that the package now embeds data. The required
+          package, DemaConsulting.PartOfSpeech, is restored separately and carries its own
+          license files, but its embedded lexicon and weights come from Open English WordNet
+          (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated Sub-Corpus
+          (CC BY 3.0 US), so a consumer of this package should be able to see what the
           dependency contains and under which licenses. The dependency notice (clearly scoped as
-          such) does that, and will be revisited if a later increment embeds data in this package.
+          such) does that, and will be revisited if a later increment embeds third-party data in
+          this package.
           While the package is not packable (see SpeechTextEn-Packaging-ReleaseGate) no built
           package exists, so the packed-at-root property is verified at the project-file level
           (the files exist and the project packs them at the package root) and the content of

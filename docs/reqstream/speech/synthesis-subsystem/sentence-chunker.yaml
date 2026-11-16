@@ -143,7 +143,8 @@ sections:
                 title: >-
                   The SentenceChunker class shall never emit a chunk whose trimmed text contains
                   no letter or digit character at all, for both primary and secondary boundary
-                  punctuation.
+                  punctuation, except a chunk that wholly contains an annotation with a non-empty
+                  value (see the AnnotatedPunctuationKept requirement).
                 justification: |
                   A piece that is nothing but punctuation and/or whitespace - for example a lone
                   comma or a whitespace-spaced run of dots such as ". . . . ." - is not a
@@ -153,6 +154,7 @@ sections:
                   - SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk
                   - SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk
                   - SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped
+                  - SentenceChunker_ChunkAligned_EmptyValueAnnotationOnPunctuation_StillMergedOrDropped
 
               - id: Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerged
                 title: >-
@@ -164,6 +166,7 @@ sections:
                 tests:
                   - SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk
                   - SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk
+                  - SentenceChunker_ChunkAligned_UnannotatedPunctuationAfterAnnotatedSymbol_MergesOntoIt
 
               - id: Speech-Synthesis-SentenceChunker-DegeneratePunctuationDropped
                 title: >-
@@ -174,6 +177,31 @@ sections:
                   carries nothing to speak, so it is discarded rather than emitted as a chunk.
                 tests:
                   - SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped
+                  - SentenceChunker_ChunkAligned_LeadingDegenerateRunEmptyValueAnnotation_Dropped
+
+              - id: Speech-Synthesis-SentenceChunker-AnnotatedPunctuationKept
+                title: >-
+                  The SentenceChunker class shall, for text that carries annotations, keep a
+                  punctuation-only piece as its own chunk, with its annotations, when at least
+                  one annotation with a non-empty value lies wholly inside that piece, and shall
+                  not let an annotation with an empty value, an annotation that crosses the
+                  piece's boundary, or the absence of annotations keep such a piece.
+                justification: |
+                  An analyzer can normalize a symbol that has no letter or digit (for example
+                  "&" to "and" or the copyright sign to "copyright"); discarding or merging that
+                  piece as punctuation-only silently loses the words the analysis produced. A
+                  non-empty value is something to speak, so the piece is content. An empty value
+                  speaks nothing (a dropped invisible character), a crossing annotation is going
+                  to be dropped anyway, and text without annotations keeps the legacy behavior
+                  exactly, so none of those may keep a piece.
+                tests:
+                  - SentenceChunker_ChunkAligned_AnnotatedSymbolOnlyText_IsKept
+                  - SentenceChunker_ChunkAligned_AnnotatedSymbolBeforeClausePunctuation_KeepsChunkAndAnnotation
+                  - SentenceChunker_ChunkAligned_AnnotatedSymbolAfterSentence_IsNotMergedIntoPreviousChunk
+                  - SentenceChunker_ChunkAligned_UnannotatedPunctuationAfterAnnotatedSymbol_MergesOntoIt
+                  - SentenceChunker_ChunkAligned_EmptyValueAnnotationOnPunctuation_StillMergedOrDropped
+                  - SentenceChunker_ChunkAligned_AnnotationCrossingPunctuationBoundary_DoesNotKeepChunk
+                  - SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped
 
               - id: Speech-Synthesis-SentenceChunker-EllipsisMetadata
                 title: >-
@@ -215,21 +243,22 @@ sections:
                   - SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk
                   - SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim
                   - SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace
-                  - SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved
+                  - SentenceChunker_ChunkAligned_DegenerateMerge_EmptyValueAnnotationOnMergedPunctuation_Preserved
 
               - id: Speech-Synthesis-SentenceChunker-UnrepresentableAnnotationDropped
                 title: >-
                   The SentenceChunker class shall drop an annotation that crosses a chunk boundary,
-                  starts or ends on whitespace that chunking removes, lies on a punctuation-only
-                  piece that is discarded, or lies outside the text.
+                  starts or ends on whitespace that chunking removes, has an empty value and lies
+                  on a punctuation-only piece that is discarded, or lies outside the text.
                 justification: |
                   Such an annotation has no faithful position inside any chunk, and a misplaced
                   annotation could make a phoneme-driven model mispronounce the wrong word, so it
-                  is omitted rather than moved or clipped.
+                  is omitted rather than moved or clipped. An annotation with a non-empty value
+                  on a punctuation-only piece is not dropped because that piece is kept.
                 tests:
                   - SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped
                   - SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped
-                  - SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped
+                  - SentenceChunker_ChunkAligned_LeadingDegenerateRunEmptyValueAnnotation_Dropped
                   - SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped
 
               - id: Speech-Synthesis-SentenceChunker-AnalyzerBoundaries
@@ -277,6 +306,7 @@ sections:
                 tests:
                   - SentenceChunker_Chunk_RepresentativeCorpus_MatchesGoldenChunks
                   - SentenceChunker_ChunkAligned_NoAnnotationsNoBreaks_EqualsChunkWithMetadata
+                  - SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped
 
               - id: Speech-Synthesis-SentenceChunker-PublicSurface
                 title: >-

@@ -508,18 +508,19 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
-    ///     Proves annotations survive a punctuation-only merge, including one on the merged
-    ///     punctuation itself.
+    ///     Proves annotations survive a punctuation-only merge, including an empty-valued one on
+    ///     the merged punctuation itself (an empty value speaks nothing, so it does not keep the
+    ///     punctuation as its own chunk).
     /// </summary>
     [Fact]
-    public void SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved()
+    public void SentenceChunker_ChunkAligned_DegenerateMerge_EmptyValueAnnotationOnMergedPunctuation_Preserved()
     {
         // Arrange: "Wait , , stop." yields "Wait , ," and "stop."
         const string text = "Wait , , stop.";
         var annotations = new[]
         {
             new SegmentAnnotation(0, 4, "word", "Wait"),
-            new SegmentAnnotation(7, 1, "punctuation", "comma"),
+            new SegmentAnnotation(7, 1, "punctuation", string.Empty),
             new SegmentAnnotation(9, 4, "word", "stop"),
         };
 
@@ -575,17 +576,17 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
-    ///     Proves an annotation on a dropped leading degenerate run is dropped, while one on the
-    ///     following word is kept.
+    ///     Proves an empty-valued annotation on a dropped leading degenerate run is dropped with
+    ///     it, while one on the following word is kept.
     /// </summary>
     [Fact]
-    public void SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped()
+    public void SentenceChunker_ChunkAligned_LeadingDegenerateRunEmptyValueAnnotation_Dropped()
     {
         // Arrange: ". . . Hello." drops the leading dots; "Hello" starts at index 6
         const string text = ". . . Hello.";
         var annotations = new[]
         {
-            new SegmentAnnotation(0, 1, "k", "dot"),
+            new SegmentAnnotation(0, 1, "k", string.Empty),
             new SegmentAnnotation(6, 5, "k", "hello"),
         };
 
@@ -596,6 +597,153 @@ public class SentenceChunkerTests
         var annotation = Assert.Single(chunk.Annotations);
         Assert.Equal("hello", annotation.Value);
         Assert.Equal("Hello", chunk.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves that on the analyzed path a symbol-only text that carries a non-empty-valued
+    ///     annotation is kept as one chunk instead of vanishing as punctuation-only.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_AnnotatedSymbolOnlyText_IsKept()
+    {
+        // Arrange: "&" has no letter or digit but carries a spoken replacement
+        var annotations = new[] { new SegmentAnnotation(0, 1, "en.norm", "and") };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned("&", annotations, null);
+
+        // Assert
+        var chunk = Assert.Single(chunks);
+        Assert.Equal("&", chunk.Text);
+        var annotation = Assert.Single(chunk.Annotations);
+        Assert.Equal(0, annotation.Start);
+        Assert.Equal(1, annotation.Length);
+        Assert.Equal("and", annotation.Value);
+    }
+
+    /// <summary>
+    ///     Proves an annotated leading symbol keeps its own chunk and annotation instead of being
+    ///     dropped as a degenerate leading run, with and without an authoritative empty break list.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_AnnotatedSymbolBeforeClausePunctuation_KeepsChunkAndAnnotation()
+    {
+        // Arrange: "\u00A9;" is a symbol and a clause separator; "Brand" follows
+        const string text = "\u00A9; Brand";
+        var annotations = new[] { new SegmentAnnotation(0, 1, "en.norm", "copyright") };
+
+        // Act
+        var withNullBreaks = SentenceChunker.ChunkAligned(text, annotations, null);
+        var withEmptyBreaks = SentenceChunker.ChunkAligned(text, annotations, []);
+
+        // Assert
+        foreach (var chunks in new[] { withNullBreaks, withEmptyBreaks })
+        {
+            Assert.Equal(["\u00A9;", "Brand"], chunks.Select(chunk => chunk.Text));
+            var annotation = Assert.Single(chunks[0].Annotations);
+            Assert.Equal(0, annotation.Start);
+            Assert.Equal(1, annotation.Length);
+            Assert.Equal("copyright", annotation.Value);
+            Assert.Empty(chunks[1].Annotations);
+        }
+    }
+
+    /// <summary>
+    ///     Proves an annotated symbol after a sentence is not merged into the previous chunk.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_AnnotatedSymbolAfterSentence_IsNotMergedIntoPreviousChunk()
+    {
+        // Arrange: the "&" is at index 7
+        var annotations = new[] { new SegmentAnnotation(7, 1, "en.norm", "and") };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned("Hello. &", annotations, null);
+
+        // Assert
+        Assert.Equal(["Hello.", "&"], chunks.Select(chunk => chunk.Text));
+        Assert.Empty(chunks[0].Annotations);
+        var annotation = Assert.Single(chunks[1].Annotations);
+        Assert.Equal(0, annotation.Start);
+        Assert.Equal(1, annotation.Length);
+    }
+
+    /// <summary>
+    ///     Proves a following unannotated punctuation-only piece still merges onto an annotated
+    ///     symbol chunk.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_UnannotatedPunctuationAfterAnnotatedSymbol_MergesOntoIt()
+    {
+        // Arrange: pieces "&," and "," ; only the first carries an annotation
+        var annotations = new[] { new SegmentAnnotation(0, 1, "en.norm", "and") };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned("&, ,", annotations, null);
+
+        // Assert
+        var chunk = Assert.Single(chunks);
+        Assert.Equal("&, ,", chunk.Text);
+        Assert.Single(chunk.Annotations);
+    }
+
+    /// <summary>
+    ///     Proves an empty-valued annotation (it speaks nothing) does not keep a punctuation-only
+    ///     piece: the piece is still merged and the annotation re-based.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_EmptyValueAnnotationOnPunctuation_StillMergedOrDropped()
+    {
+        // Arrange: U+200B at index 7 is an invisible character with a "speak nothing" annotation
+        const string text = "Hello, \u200B, there";
+        var annotations = new[] { new SegmentAnnotation(7, 1, "en.norm", string.Empty) };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned(text, annotations, null);
+
+        // Assert
+        Assert.Equal(["Hello, \u200B,", "there"], chunks.Select(chunk => chunk.Text));
+        var annotation = Assert.Single(chunks[0].Annotations);
+        Assert.Equal(7, annotation.Start);
+        Assert.Equal(1, annotation.Length);
+        Assert.Empty(chunks[1].Annotations);
+    }
+
+    /// <summary>
+    ///     Proves an annotation that crosses a piece boundary does not keep a punctuation-only
+    ///     piece: the piece is merged and the seam annotation is re-based over the merged chunk.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_AnnotationCrossingPunctuationBoundary_DoesNotKeepChunk()
+    {
+        // Arrange: the annotation covers ", ," (indices 5 to 7), crossing two clause pieces
+        const string text = "Wait , , stop.";
+        var annotations = new[] { new SegmentAnnotation(5, 3, "k", "v") };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned(text, annotations, null);
+
+        // Assert
+        Assert.Equal(["Wait , ,", "stop."], chunks.Select(chunk => chunk.Text));
+        var annotation = Assert.Single(chunks[0].Annotations);
+        Assert.Equal(5, annotation.Start);
+        Assert.Equal(3, annotation.Length);
+        Assert.Equal(", ,", chunks[0].Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Pins the unchanged no-analysis behavior: a symbol-only text is still dropped when there
+    ///     are no annotations (null or empty), with or without a breaks list.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_Chunk_SymbolOnlyNoAnalysis_IsStillDropped()
+    {
+        // Act and Assert
+        Assert.Empty(SentenceChunker.Chunk("&"));
+        Assert.Empty(SentenceChunker.ChunkWithMetadata("&"));
+        Assert.Empty(SentenceChunker.ChunkAligned("&", null, null));
+        Assert.Empty(SentenceChunker.ChunkAligned("&", [], null));
+        Assert.Empty(SentenceChunker.ChunkAligned("&", null, []));
     }
 
     /// <summary>

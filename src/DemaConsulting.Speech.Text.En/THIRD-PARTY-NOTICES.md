@@ -3,8 +3,9 @@
 ## Scope of This File: a Dependency Notice
 
 This file is a notice about a **dependency**, not about content of this package. The package
-`DemaConsulting.Speech.Text.En` embeds no third-party data in this release: its assembly contains only compiled code
-under the MIT License (see `PACKAGE-LICENSE.md`). It does require the separate NuGet package
+`DemaConsulting.Speech.Text.En` embeds no third-party data in this release: its assembly contains compiled code and two
+small lexicon tables (abbreviations and initialisms) that DEMA Consulting wrote from scratch, all under the MIT License
+(see `PACKAGE-LICENSE.md`). It does require the separate NuGet package
 `DemaConsulting.PartOfSpeech`, a package of DEMA Consulting that is restored next to this one. That package
 carries its own license files and embeds data adapted from the third-party works below. This file reproduces the
 attribution and license notices of those works, as their licenses require of that package, for your convenience and so
@@ -33,8 +34,9 @@ strict requirement that no analyzed text outlive a request must account for this
 
 ## Data Embedded in This Package
 
-None in this release. This package embeds no data of its own; its assembly contains only compiled code. This section
-will describe any data that a later release embeds.
+None in this release. This package embeds no third-party data. The only data it embeds are two small lexicon tables
+(abbreviations and initialisms) written from scratch by DEMA Consulting under the MIT License; see
+`PACKAGE-LICENSE.md`. This section will describe any third-party data that a later release embeds.
 
 ## The Manually Annotated Sub-Corpus (MASC)
 
