@@ -9,8 +9,8 @@ namespace DemaConsulting.Speech.Text.En.Tests;
 /// <summary>
 ///     System-level tests for SpeechTextEn: the English text analysis exercised through its public
 ///     API, end to end through the real core <c>SynthesisSession</c> and an annotation-aware
-///     backend, and the package license files. The packed package itself is asserted by the
-///     <c>TextEn_Package_LicenseFilesPackaged</c> FileAssert test.
+///     backend, and the package license files. The content of the license files is also asserted by the
+///     <c>TextEn_PackageLicenseFiles_Content</c> FileAssert test; the package is not packable while it is gated.
 /// </summary>
 public sealed class SpeechTextEnTests
 {
@@ -335,6 +335,24 @@ public sealed class SpeechTextEnTests
         Assert.Matches(@"^\[[0-9A-Za-z.\-+]+\]$", version);
         Assert.Equal(["..\\DemaConsulting.Speech\\DemaConsulting.Speech.csproj"], projectReferences);
         Assert.DoesNotContain(packageReferences.Keys, name => name.Contains("Onnx", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Proves the project is not packable and states why, so the package cannot be built or published while the tagger package retains analyzed text.</summary>
+    [Fact]
+    public void SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText()
+    {
+        // Arrange
+        var projectPath = FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj");
+
+        // Act
+        var project = XDocument.Load(projectPath);
+        var isPackable = project.Descendants("IsPackable").Select(element => element.Value.Trim()).ToList();
+        var projectText = File.ReadAllText(projectPath);
+
+        // Assert: packing is switched off, and the project file explains the gate and names the upstream issue
+        Assert.Equal(["false"], isPackable);
+        Assert.Contains("RELEASE GATE", projectText, StringComparison.Ordinal);
+        Assert.Contains("https://github.com/demaconsulting/PartOfSpeech/issues/29", projectText, StringComparison.Ordinal);
     }
 
     /// <summary>Synthesizes a text with a real engine for a model, then disposes the engine and the scratch model directory.</summary>

@@ -54,9 +54,10 @@ Design_), so a later request retries.
 
 **Retention**: the analyzer keeps no reference to the analyzed text or to a result in its own state after
 the call returns (no field holds either, and a weak-reference test proves that). That claim is scoped to
-this unit: the tagging package keeps token characters in a private, never-cleared per-thread buffer (see
-_SpeechTextEn System Design_, _Known Limitations_, and upstream issue
-<https://github.com/demaconsulting/PartOfSpeech/issues/29>).
+this unit: the tagging package keeps token characters in a private, never-cleared per-thread buffer, which
+currently violates the core `ITextAnalyzer` contract that an analyzer must not retain the text, so the
+package is gated and not published (see _SpeechTextEn System Design_, _Known Limitations_ and _Release
+Gate_, and upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
 
 **Dependencies**: `PartOfSpeechAdapter` (splitting and tagging), `AnalysisDiagnostics` (reporting),
 `EnglishTextAnalyzerOptions` and `TextEnAnnotationSelection` (configuration), `TextEnAnnotations` (the kind

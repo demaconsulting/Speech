@@ -61,7 +61,9 @@ catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthe
 implementation - can depend on the core package alone. A synthesis model can optionally supply an
 `ITextAnalyzer` whose language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the
 usage guide. The preview `DemaConsulting.Speech.Text.En` package (pre-release, depends on the
-`DemaConsulting.PartOfSpeech` tagger) supplies such an analyzer for English:
+`DemaConsulting.PartOfSpeech` tagger; **not yet published to NuGet**, because that tagger currently retains
+analyzed text, which violates the core `ITextAnalyzer` contract - see
+[PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an analyzer for English:
 `new EnglishTextAnalyzer()` annotates each word with its part of speech and supplies sentence
 boundaries.
 
@@ -511,7 +513,7 @@ The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU
 (a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
 its `THIRD-PARTY-NOTICES.md` file at the package root.
 
-The preview `DemaConsulting.Speech.Text.En` package is licensed under the MIT License (its `PACKAGE-LICENSE.md`
+The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its `PACKAGE-LICENSE.md`
 declares MIT only) and embeds no third-party data. It depends on the separate `DemaConsulting.PartOfSpeech`
 package, which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0,
 derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's

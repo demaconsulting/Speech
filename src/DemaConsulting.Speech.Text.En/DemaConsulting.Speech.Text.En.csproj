@@ -8,6 +8,14 @@
     <RootNamespace>DemaConsulting.Speech.Text.En</RootNamespace>
     <AssemblyName>DemaConsulting.Speech.Text.En</AssemblyName>
 
+    <!-- RELEASE GATE: this package is NOT published (dotnet pack produces no package for it) until
+         DemaConsulting.PartOfSpeech fixes issue #29 (https://github.com/demaconsulting/PartOfSpeech/issues/29:
+         the tagger keeps the characters of analyzed tokens in a never-cleared thread-static buffer, which
+         violates the "must not retain the text" contract of the core ITextAnalyzer) and the pin below is
+         bumped to the fixed version. Remove this property only as part of that bump, together with the
+         release-gate steps in docs/design/speech-text-en.md. -->
+    <IsPackable>false</IsPackable>
+
     <!-- NuGet Package Configuration -->
     <PackageId>DemaConsulting.Speech.Text.En</PackageId>
     <Version>0.0.0</Version>

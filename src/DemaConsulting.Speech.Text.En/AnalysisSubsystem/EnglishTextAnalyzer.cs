@@ -33,6 +33,12 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     request; a host with a strict requirement that no text outlive a request must account
 ///     for this until the tagger package is fixed.
 ///     </para>
+///     <para>
+///     Because the core <c>ITextAnalyzer</c> contract requires an analyzer not to retain the text, this
+///     retention is a violation of that contract by the current tagger package. The
+///     <c>DemaConsulting.Speech.Text.En</c> package is therefore not packed or published until the
+///     tagger package fixes the issue and the version pin is updated.
+///     </para>
 /// </remarks>
 public sealed class EnglishTextAnalyzer : ITextAnalyzer
 {

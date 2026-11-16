@@ -43,5 +43,6 @@ from the process memory after the request has returned, although the analyzer ho
 text or the results. This library cannot fix it and does not reach into the dependency's private state; the
 defect is filed upstream as <https://github.com/demaconsulting/PartOfSpeech/issues/29>. Requirements and
 tests that say SpeechTextEn "retains no text" are scoped to this library's own state. Moving the exact
-version pin to a release that clears the buffer closes the limitation; until then a host with a strict
-no-retained-text requirement must account for it (see _SpeechTextEn System Design_, _Known Limitations_).
+version pin to a release that clears the buffer closes the limitation; until then the SpeechTextEn package is
+gated (not packed or published) and a host that builds it from source with a strict no-retained-text
+requirement must account for it (see _SpeechTextEn System Design_, _Known Limitations_ and _Release Gate_).

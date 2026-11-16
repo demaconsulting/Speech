@@ -25,9 +25,11 @@ attribution, are shipped in that package.
 `DemaConsulting.PartOfSpeech` 0.1.0-beta.4 keeps the characters of the tokens it tags in a per-thread working buffer
 that it never clears, so words analyzed on a thread can remain recoverable from the process memory after the request
 ends. This package keeps no reference to the analyzed text or to its results after a call returns, but it cannot clear
-the dependency's private buffer. The issue is tracked upstream at
-<https://github.com/demaconsulting/PartOfSpeech/issues/29>. A host with a strict requirement that no analyzed text
-outlive a request must account for this until the dependency is fixed.
+the dependency's private buffer, so `EnglishTextAnalyzer` currently does not meet the core `ITextAnalyzer` contract
+that an analyzer must not retain the text. The issue is tracked upstream at
+<https://github.com/demaconsulting/PartOfSpeech/issues/29>. For that reason this package is not yet published to
+NuGet: it is gated until the dependency is fixed and the pin is bumped. A host that builds it from source and has a
+strict requirement that no analyzed text outlive a request must account for this.
 
 ## Data Embedded in This Package
 

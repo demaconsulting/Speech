@@ -88,3 +88,6 @@ buffer of its tag decoder that is never cleared, so words analyzed on a thread r
 process memory after the request (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
 No requirement of this OTS item asserts otherwise, and no test inspects or clears that private state; the
 SpeechTextEn retention requirement and its weak-reference test are scoped to SpeechTextEn's own state.
+Because this violates the core `ITextAnalyzer` no-retention contract, SpeechTextEn is not packed or published
+until a fixed version is pinned and a retention test is added (see _SpeechTextEn System Design_, _Release
+Gate_); that retention test will also be cited here, by version, when it exists.

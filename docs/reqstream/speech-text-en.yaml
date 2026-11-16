@@ -119,11 +119,33 @@ sections:
           Sub-Corpus (CC BY 3.0 US), so a consumer of this package should be able to see what the
           dependency contains and under which licenses. The dependency notice (clearly scoped as
           such) does that, and will be revisited if a later increment embeds data in this package.
+          While the package is not packable (see SpeechTextEn-Packaging-ReleaseGate) no built
+          package exists, so the packed-at-root property is verified at the project-file level
+          (the files exist and the project packs them at the package root) and the content of
+          the two files is verified in the repository; the inspection of the built package is
+          reinstated when packaging is re-enabled.
         tests:
           - SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
           - SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice
           - SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData
-          - TextEn_Package_LicenseFilesPackaged
+          - TextEn_PackageLicenseFiles_Content
+
+      - id: SpeechTextEn-Packaging-ReleaseGate
+        title: >-
+          The package shall not be packable or published while the part-of-speech tagging
+          package it depends on retains analyzed text, and its project file shall say why.
+        tags: [system]
+        justification: |
+          The core ITextAnalyzer contract requires an analyzer not to retain the request text,
+          but DemaConsulting.PartOfSpeech 0.1.0-beta.4 keeps the characters of tagged tokens in
+          a never-cleared thread-static buffer (upstream issue
+          https://github.com/demaconsulting/PartOfSpeech/issues/29), so the analyzer cannot
+          currently honor that contract. Documentation alone is not enough, so the package is
+          not shipped until the dependency is fixed and the pin is bumped. Gating at the project
+          file is enforced by the build (a non-packable project yields no package, and the pack
+          verification skips it) and checked by a test.
+        tests:
+          - SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText
 
       - id: SpeechTextEn-Packaging-PinnedDependency
         title: >-

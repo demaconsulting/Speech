@@ -89,7 +89,8 @@ words of the text, and that an analyzer whose sink throws still returns its full
 `SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice`,
 `SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData`,
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime`,
-`TextEn_Package_LicenseFilesPackaged`
+`SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText`,
+`TextEn_PackageLicenseFiles_Content`
 
 Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression)
 and packs both it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file starts with the
@@ -97,19 +98,26 @@ SPDX line `MIT` and nothing else, contains the MIT license text, and describes t
 separate dependency that is not bundled, carries its own license files, and whose data this package does
 not embed; that the notices are scoped as a dependency notice, reproduce the Manually Annotated Sub-Corpus
 and Open English WordNet attribution and the Princeton WordNet notice, and record the dependency's
-text-retention limitation with its upstream issue link; and that the project pins the tagging package with
-an exact version range, references only the Speech project, and references no ONNX package. The first four
-run in the test project against the repository files; the last is a FileAssert test that, after
-`dotnet pack`, confirms the built `.nupkg` contains both files, that the license file's declaration is
-exactly `MIT`, and that its `.nuspec` references the license file.
+text-retention limitation with its upstream issue link; that the project pins the tagging package with
+an exact version range, references only the Speech project, and references no ONNX package; and that the
+project is not packable (`IsPackable` is `false`) and its comment names the release gate and the upstream
+issue. The first five run in the test project against the repository files; the last is a FileAssert test
+that confirms the content of the two license files in the repository (the license declaration is exactly
+`MIT`, and the notices carry the attribution and the issue link).
+
+**Pending while the package is gated**: the package is not packable, so no `.nupkg` exists and the built
+package is not inspected. The former FileAssert assertion over the built package (both files at the package
+root and the `.nuspec` license reference) is reinstated when packaging is re-enabled (see _SpeechTextEn
+System Design_, _Release Gate_), together with the retention test required there.
 
 ## Acceptance Criteria
 
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions,
 every subsystem and unit suite passes, and the automated verification boundary remains honest: structure,
-offsets, wiring, sentence breaks, placeholder handling, diagnostics and packaging are claimed as automated
-coverage, while the linguistic accuracy of the tagger is left to the tagging package's own evaluation, and
-the retention of analyzed words inside the tagging package's private buffer (a known limitation of the
-dependency) is documented rather than claimed as verified. The package license files are also part of the
-acceptance criteria: both must be present at the package root, the license declaration must be MIT only,
-and the dependency notice must keep the attribution chain intact.
+offsets, wiring, sentence breaks, placeholder handling, diagnostics and the packaging configuration are
+claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
+own evaluation, and the retention of analyzed words inside the tagging package's private buffer (a known
+limitation of the dependency that violates the core `ITextAnalyzer` no-retention contract, and the reason
+the package is gated) is documented rather than claimed as verified. The package license files are also
+part of the acceptance criteria: both must be present, the project must pack them at the package root, the
+license declaration must be MIT only, and the dependency notice must keep the attribution chain intact.
