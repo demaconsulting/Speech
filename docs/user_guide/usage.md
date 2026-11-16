@@ -262,6 +262,46 @@ public sealed class MyBackend : IAnnotatedSynthesisBackend
 }
 ```
 
+**English text analysis (preview; not yet published to NuGet).** Instead of writing your own analyzer, a model for English can
+return the `EnglishTextAnalyzer` of the optional, pre-release `DemaConsulting.Speech.Text.En`
+package (it depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). Its analysis gives
+each word one annotation of kind `"en.upos"` whose value is the word's Universal Dependencies part of
+speech (for example `"NOUN"`), skips punctuation and symbols, and supplies authoritative sentence
+boundaries so an abbreviation such as "Dr." does not split a sentence. Read an annotation with
+`TextEnAnnotations.TryReadPartOfSpeech`, and ignore the other kinds in `TextEnAnnotations`, which are
+reserved for later releases. The analyzer is thread-safe and cheap to share; the first request that
+needs tags loads the tagger (about 1.3 MB of embedded data), so that request is slower than the rest.
+`EnglishTextAnalyzerOptions` can switch the part-of-speech annotations off and supply a diagnostics
+sink, which receives only counts, never text.
+
+*Preview note: retained text; not yet published to NuGet.* The analyzer itself keeps no reference to the
+text it analyzes after a call returns, but the pre-release `DemaConsulting.PartOfSpeech` tagger
+(0.1.0-beta.4) keeps the characters of analyzed words in a private per-thread buffer that it never clears,
+so analyzed words can remain in process memory after the request. That currently violates the core
+`ITextAnalyzer` contract, which requires an analyzer not to retain `text`
+([upstream issue](https://github.com/demaconsulting/PartOfSpeech/issues/29)). For that reason the
+`DemaConsulting.Speech.Text.En` package is **not yet published to NuGet**: it will not be published until
+the tagger is fixed and its version pin is updated. Until then it can be built from source only, and a
+host that must guarantee that no spoken text outlives a request must not rely on it.
+
+```csharp
+using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
+
+// In your ISynthesisModel implementation:
+//     private static readonly ITextAnalyzer Analyzer = new EnglishTextAnalyzer();
+//     public ITextAnalyzer? TextAnalyzer => Analyzer;
+
+// In your IAnnotatedSynthesisBackend.GenerateAnnotated:
+foreach (var annotation in annotations)
+{
+    if (TextEnAnnotations.TryReadPartOfSpeech(annotation, out var partOfSpeech))
+    {
+        var word = text.Substring(annotation.Start, annotation.Length);
+        // Use partOfSpeech (for example "VERB") to pick the pronunciation of `word`.
+    }
+}
+```
+
 Two further building blocks are public so a model with its own tag syntax does not have to copy
 them. **`DefaultModelCapabilityProfile`** exposes its `Instance` singleton, a
 `RenderText(text, annotations, sentenceBreaks, parameterOverrides)` chunk-then-render step, and the

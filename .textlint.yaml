@@ -62,6 +62,7 @@ words:
   - axaml
   - bountless
   - cdecl
+  - cconj
   - chatterboxturbo
   - chokepoint
   - chunker
@@ -96,6 +97,7 @@ words:
   - huggingface
   - ieth
   - interruptible
+  - intj
   - jieba
   - kaldi
   - kokoro
@@ -137,7 +139,9 @@ words:
   - portaudio
   - precheck
   - preemphasis
+  - propn
   - provisionals
+  - punct
   - realtek
   - reentrantly
   - resampler
@@ -145,6 +149,7 @@ words:
   - rnnt
   - scipy
   - scriptable
+  - sconj
   - sinc
   - slaney
   - snupkg
@@ -257,3 +262,19 @@ overrides:
       - ustar
       - vorbis
       - voxserv
+  # The Text.En tests use an invented spelling that the tagger's lexicon cannot know, to prove the known-word flag
+  - filename: '**/{EnglishTextAnalyzerTests.cs,PartOfSpeechAdapterTests.cs,PartOfSpeechTests.cs,part-of-speech.md,.textlint.yaml}'
+    words:
+      - qzxvbnk
+  # Names and terms of the attribution notices that the licenses of the tagger package's data require verbatim
+  - filename: '**/{THIRD-PARTY-NOTICES.md,.textlint.yaml}'
+    words:
+      - christiane
+      - crae
+      - fellbaum
+      - lrec
+      - moby
+      - oanc
+      - passonneau
+      - treebank
+      - wndb

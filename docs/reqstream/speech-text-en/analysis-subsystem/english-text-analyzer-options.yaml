@@ -1,0 +1,48 @@
+---
+# Software Unit Requirements for EnglishTextAnalyzerOptions
+#
+# These requirements describe the design-level behavior of the EnglishTextAnalyzerOptions unit (and
+# the TextEnAnnotationSelection enumeration declared with it), decomposing the parent SpeechTextEn
+# AnalysisSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: AnalysisSubsystem Requirements
+        sections:
+          - title: EnglishTextAnalyzerOptions Requirements
+            requirements:
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Defaults
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall default to selecting part-of-speech
+                  annotations and to having no diagnostics sink.
+                justification: |
+                  A host that just constructs an analyzer gets the useful behavior without
+                  configuration and no reporting it did not ask for.
+                tests:
+                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNoSink
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Initialization
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall accept the annotation selection and
+                  the diagnostics sink at initialization, and a copy made with a with-expression
+                  shall leave the original unchanged.
+                justification: |
+                  Options are shared configuration; a derived copy must never change the options
+                  an existing analyzer was built from.
+                tests:
+                  - EnglishTextAnalyzerOptions_Initialization_SetsValuesAndWithExpressionCopies
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-SelectionValidation
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall throw ArgumentOutOfRangeException for
+                  an annotation selection that contains a flag the library does not define, and
+                  the selection enumeration shall be a flags enumeration whose None value is zero.
+                justification: |
+                  An undefined flag is a typo or a value from a newer release; failing loudly is
+                  safer than silently treating it as a selection.
+                tests:
+                  - EnglishTextAnalyzerOptions_Annotations_UndefinedFlag_ThrowsArgumentOutOfRangeException
+                  - TextEnAnnotationSelection_Members_AreFlagsWithNoneZero

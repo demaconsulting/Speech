@@ -25,9 +25,10 @@ This document is intended for:
 This document covers the detailed design of the Speech system and its constituent software
 items, of the SpeechDemo application system and its constituent software items, of the
 SpeechCli command-line tool system and its constituent software items, of the SpeechSherpa
-model-provider library system and its constituent software items, and of the four ONNX
+model-provider library system and its constituent software items, of the four ONNX
 Runtime-based sibling library systems (SpeechOnnx, SpeechOnnxKokoro, SpeechOnnxNemotronStt, and
-SpeechOnnxChatterboxTurbo) and their constituent software items, specifically:
+SpeechOnnxChatterboxTurbo) and their constituent software items, and of the SpeechTextEn English
+text-analysis library system and its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -197,6 +198,18 @@ any of them:
 - **SynthesisSubsystem (Subsystem of SpeechOnnxChatterboxTurbo)** — The synthesis engine, ONNX
   networks, token selector, reference-clip conditioning, and capability profile
 
+The following software items of the SpeechTextEn system are also covered. It is a sibling system to
+Speech, not a subsystem of it, and the library must never depend on it:
+
+- **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` library (a preview), an English
+  implementation of Speech's `ITextAnalyzer` seam that annotates the words of a speech request with
+  their Universal Dependencies part of speech and supplies authoritative sentence boundaries, built
+  on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
+- **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
+  detailed-result types, the `EnglishTextAnalyzerOptions` options, the `TextEnAnnotations`
+  vocabulary and typed reader, the internal `PartOfSpeechAdapter` seam over the tagging package, and
+  the internal `AnalysisDiagnostics` counts-only reporter
+
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
@@ -218,6 +231,8 @@ The following OTS items are also covered:
 - **SysML2Tools** — architecture model lint and diagram rendering tool
 - **TestResults** (`DemaConsulting.TestResults`) — TRX and JUnit serializer used by SpeechCli's
   `--validate --results` self-validation output
+- **PartOfSpeech** (`DemaConsulting.PartOfSpeech`) — pre-release English tokenizer and
+  part-of-speech tagger, with its own embedded model, used by SpeechTextEn
 - **VersionMark** — tool-version documentation tool
 - **WeasyPrint** — HTML-to-PDF conversion tool
 - **xUnit** — unit-testing framework
@@ -321,7 +336,8 @@ dependency still runs one way only: `SpeechSherpa` references `Speech`, and `Spe
 references nor knows about `SpeechSherpa`, naming no sherpa-onnx type even internally.
 
 Four further sibling systems extend `Speech` in the same way, each a separately packaged library
-that `Speech` neither references nor knows about:
+that `Speech` neither references nor knows about, and a fifth, `SpeechTextEn`, supplies a language
+analyzer to them:
 
 - `SpeechOnnx` (`DemaConsulting.Speech.Onnx`) holds shared ONNX Runtime infrastructure in one
   subsystem, `OnnxRuntimeSubsystem`, whose `OnnxExecutionProviderSelector` creates inference
@@ -339,6 +355,11 @@ that `Speech` neither references nor knows about:
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
   (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
   and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
+- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in one
+  subsystem, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
+  vocabulary, the part-of-speech adapter and the counts-only diagnostics reporter). It implements
+  Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on
+  the `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -510,6 +531,8 @@ file of their own, and are documented with that owning unit:
 - `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
   `SpeechModelDownloader.cs`.
 - `SentenceChunk` is declared in `SentenceChunker.cs`.
+- `AnalyzedToken` is declared in `EnglishTextAnalysis.cs`, and `TextEnAnnotationSelection` in
+  `EnglishTextAnalyzerOptions.cs`; both are documented with the unit that owns them (SpeechTextEn).
 
 Several small internal helper types are likewise documented inside the unit that owns them rather
 than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
@@ -708,6 +731,22 @@ src/DemaConsulting.Speech.Onnx.NemotronStt/
     ├── NemotronRnntGreedyDecoder.cs                       — RNN-T greedy decoding
     ├── DitherNoise.cs                                     — Dither noise source
     └── SilenceRunLimiter.cs                               — Leading-silence mitigation
+```
+
+The SpeechTextEn library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Text.En/
+├── PACKAGE-LICENSE.md                                     — Package license file (packaging file, not a software item)
+├── THIRD-PARTY-NOTICES.md                                 — Notices for the dependency's embedded data (packaging file, not a software item)
+└── AnalysisSubsystem/
+    ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech and sentence breaks
+    ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result and its token record
+    ├── EnglishTextAnalyzerOptions.cs                      — Options record and the annotation-selection flags enum
+    ├── TextEnAnnotations.cs                               — Annotation kind constants and typed reader
+    ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
+    ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
+    └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ```
 
 ## Document Conventions

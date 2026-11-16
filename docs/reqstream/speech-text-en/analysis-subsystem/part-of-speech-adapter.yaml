@@ -1,0 +1,103 @@
+---
+# Software Unit Requirements for PartOfSpeechAdapter
+#
+# These requirements describe the design-level behavior of the PartOfSpeechAdapter unit, the one
+# internal seam over the DemaConsulting.PartOfSpeech package, decomposing the parent SpeechTextEn
+# AnalysisSubsystem requirements. Each requirement states one observable behavior. The OTS
+# requirements of the tagging package are children of the requirements that depend on them.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/PartOfSpeechAdapterTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: AnalysisSubsystem Requirements
+        sections:
+          - title: PartOfSpeechAdapter Requirements
+            requirements:
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-SourceOffsets
+                title: >-
+                  The PartOfSpeechAdapter class shall split a text into sentences and tokens in
+                  text order, with every token's offset and length indexing exactly the text that
+                  was given, including after line breaks.
+                justification: |
+                  Annotations and sentence breaks must index the text the Speech library supplied,
+                  so the adapter must report positions in that text and never in a rebuilt one.
+                children:
+                  - Speech-OTS-PartOfSpeech-TokenizationOffsets
+                tests:
+                  - PartOfSpeechAdapter_Analyze_MultiSentenceText_TokenOffsetsIndexSourceInSentenceOrder
+
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-TagReporting
+                title: >-
+                  The PartOfSpeechAdapter class shall report, for each tagged token, its
+                  Universal Dependencies tag name, a confidence from 0 to 1 and whether the
+                  tagger's lexicon knows the token's spelling.
+                justification: |
+                  The analyzer needs the tag for its annotation and the confidence and
+                  known-word flag for its detailed result and its unknown-word count, without any
+                  tagger type leaving the adapter.
+                children:
+                  - Speech-OTS-PartOfSpeech-ConfidenceAndKnownWord
+                tests:
+                  - PartOfSpeechAdapter_Analyze_TagTrue_ReportsTagConfidenceAndKnownWord
+
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-LazySingleTagger
+                title: >-
+                  The PartOfSpeechAdapter class shall obtain its tagger only when text with tokens
+                  is first tagged, at most once successfully even when many threads start at the
+                  same moment, shall not remember a failed attempt (the next request that needs
+                  the tagger shall try again), and the shared adapter shall be one process-wide
+                  instance.
+                justification: |
+                  The tagger is large to load and is shared by every analyzer; loading it per
+                  analyzer, per request, or under a race would waste time and memory. A failure
+                  to load it (for example a transient out-of-memory condition) must not disable
+                  English analysis for the rest of the process, so a failed creation is not cached.
+                children:
+                  - Speech-OTS-PartOfSpeech-DefaultTagger
+                  - Speech-OTS-PartOfSpeech-ThreadSafety
+                tests:
+                  - PartOfSpeechAdapter_Analyze_RepeatedCalls_CreateTaggerLazilyAndOnce
+                  - PartOfSpeechAdapter_Analyze_ConcurrentFirstUses_CreateTaggerOnce
+                  - PartOfSpeechAdapter_Analyze_FactoryFailsOnce_NextCallRetriesAndSucceeds
+                  - PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_CreateTaggerOnceSuccessfully
+                  - PartOfSpeechAdapter_Analyze_FactoryReturnsNull_ThrowsInvalidOperationException
+                  - PartOfSpeechAdapter_Shared_ReturnsSameInstance
+
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-SplitWithoutTagger
+                title: >-
+                  The PartOfSpeechAdapter class shall split a text into sentences and tokens
+                  without creating the tagger when tagging is not requested, and shall not create
+                  the tagger for a text that has no tokens.
+                justification: |
+                  Sentence boundaries do not need the tagger, so a host that wants only boundaries,
+                  or an empty request, must not pay for loading it.
+                tests:
+                  - PartOfSpeechAdapter_Analyze_TagFalse_ReportsUntaggedTokensAndCreatesNoTagger
+                  - PartOfSpeechAdapter_Analyze_TextWithoutTokens_ReturnsNoSentencesAndCreatesNoTagger
+
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-Cancellation
+                title: >-
+                  The PartOfSpeechAdapter class shall throw OperationCanceledException for an
+                  already-canceled token before splitting the text or creating the tagger, and
+                  shall check the token before each sentence, after the tagger is obtained, after
+                  each sentence (including the only or last one) is tagged, and periodically
+                  while tokens are copied into the result.
+                justification: |
+                  Cancellation has to be honored wherever it arrives, not only between sentences,
+                  so a long text stops promptly and a canceled request never returns a result.
+                tests:
+                  - PartOfSpeechAdapter_Analyze_CanceledToken_ThrowsWithoutCreatingTagger
+                  - PartOfSpeechAdapter_Analyze_CanceledDuringTaggerInitialization_ThrowsBeforeTaggingAnySentence
+                  - PartOfSpeechAdapter_Analyze_CanceledAfterOnlySentenceTagged_Throws
+                  - PartOfSpeechAdapter_Analyze_CanceledAfterFinalSentenceTagged_Throws
+
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-ArgumentValidation
+                title: >-
+                  The PartOfSpeechAdapter class shall throw ArgumentNullException for a null
+                  tagger factory and for a null text.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - PartOfSpeechAdapter_NullArguments_ThrowArgumentNullException

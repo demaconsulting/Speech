@@ -205,6 +205,13 @@ includes:
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.yaml
+  - docs/reqstream/speech-text-en.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer-options.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/text-en-annotations.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/part-of-speech-adapter.yaml
+  - docs/reqstream/speech-text-en/analysis-subsystem/analysis-diagnostics.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml
@@ -224,3 +231,4 @@ includes:
   - docs/reqstream/ots/avalonia.yaml
   - docs/reqstream/ots/community-toolkit-mvvm.yaml
   - docs/reqstream/ots/test-results.yaml
+  - docs/reqstream/ots/part-of-speech.yaml

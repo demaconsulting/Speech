@@ -143,6 +143,18 @@ package SpeechCli {
     }
 }
 
+package SpeechTextEn {
+    part def PartOfSpeech {
+        doc /* Managed English tokenizer and Universal Dependencies part-of-speech tagger
+             * (DemaConsulting.PartOfSpeech, a pre-release package with its own embedded model and
+             * lexicon) consumed only by the SpeechTextEn PartOfSpeechAdapter unit. */
+
+        comment designRef /* Design: docs/design/ots/part-of-speech.md */
+        comment verificationRef /* Verification: docs/verification/ots/part-of-speech.md */
+        comment reqRef /* Requirements: docs/reqstream/ots/part-of-speech.yaml */
+    }
+}
+
 package SpeechDemo {
     part def Avalonia {
         doc /* Cross-platform XAML desktop UI framework providing the application host,

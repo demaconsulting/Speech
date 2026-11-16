@@ -187,6 +187,13 @@ input-files:
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
   - docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md
+  - docs/verification/speech-text-en.md
+  - docs/verification/speech-text-en/analysis-subsystem.md
+  - docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer.md
+  - docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer-options.md
+  - docs/verification/speech-text-en/analysis-subsystem/text-en-annotations.md
+  - docs/verification/speech-text-en/analysis-subsystem/part-of-speech-adapter.md
+  - docs/verification/speech-text-en/analysis-subsystem/analysis-diagnostics.md
   - docs/verification/speech-sherpa.md
   - docs/verification/speech-sherpa/model-management-subsystem.md
   - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md
@@ -208,6 +215,7 @@ input-files:
   - docs/verification/ots/avalonia.md
   - docs/verification/ots/community-toolkit-mvvm.md
   - docs/verification/ots/test-results.md
+  - docs/verification/ots/part-of-speech.md
   - docs/verification/ots/buildmark.md
   - docs/verification/ots/fileassert.md
   - docs/verification/ots/pandoc.md

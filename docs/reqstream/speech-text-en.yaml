@@ -1,0 +1,161 @@
+---
+# Software System Requirements for SpeechTextEn
+#
+# These requirements describe the externally visible behavior of the SpeechTextEn library
+# (DemaConsulting.Speech.Text.En) from the perspective of a model package or host application
+# consuming it, without specifying implementation details. SpeechTextEn is a sibling system to
+# Speech: it supplies an English implementation of the Speech library's ITextAnalyzer seam,
+# ships as its own package, and is versioned as part of this repository. The Speech library never
+# depends on it. This is a preview: only part-of-speech annotation and sentence boundaries are
+# provided; later increments add further analysis. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests - see the subsystem/unit-level reqstream
+# files under docs/reqstream/speech-text-en/ for the full tests: lists these system requirements
+# decompose into.
+
+sections:
+  - title: SpeechTextEn Requirements
+    requirements:
+      - id: SpeechTextEn-Analysis-TextAnalyzer
+        title: >-
+          The library shall provide an English text analyzer that a synthesis model can supply
+          to the Speech library's text-analysis seam, that is safe for concurrent use, and that
+          honors cancellation.
+        tags: [system]
+        justification: |
+          A phoneme-driven model needs sentence-level English context that no chunk or
+          tag-delimited fragment carries. The Speech library is language-neutral, so an English
+          analyzer has to be supplied by a separate package through the library's analyzer seam;
+          that seam runs one analyzer instance for many requests and expects cancellation to stop
+          it.
+        children:
+          - SpeechTextEn-Analysis-AnalyzerContract
+        tests:
+          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesPartOfSpeechAnnotationsThatSurviveChunking
+          - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
+          - SpeechTextEn_Analyze_ConcurrentRequestsOnSharedAnalyzer_ReturnIdenticalResults
+
+      - id: SpeechTextEn-Analysis-PartOfSpeech
+        title: >-
+          The library shall annotate each word of an English text with its Universal Dependencies
+          part of speech, as an annotation positioned on the word that a synthesis backend can
+          read, and shall let a host switch this annotation off.
+        tags: [system]
+        justification: |
+          The part of speech is the context that selects the pronunciation of many English words
+          (for example "record" as a noun or a verb). A backend needs it attached to the word, in
+          a form it can read without parsing strings itself, and a host that does not need it
+          must be able to avoid its cost.
+        children:
+          - SpeechTextEn-Analysis-PartOfSpeechAnnotations
+          - SpeechTextEn-Analysis-SharedTagger
+        tests:
+          - SpeechTextEn_Analyze_Sentence_AnnotatesWordsWithReadablePartOfSpeech
+          - SpeechTextEn_Analyze_PartOfSpeechDisabled_ProducesNoAnnotations
+          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesPartOfSpeechAnnotationsThatSurviveChunking
+
+      - id: SpeechTextEn-Analysis-SentenceBreaks
+        title: >-
+          The library shall supply the sentence boundaries of the analyzed text so that the Speech
+          library splits sentences where the analysis says, rather than at every period.
+        tags: [system]
+        justification: |
+          A period after an abbreviation such as "Dr." does not end a sentence, and splitting
+          there would give a model a fragment without its context. The analysis knows English
+          sentence structure; the library's own punctuation heuristic does not.
+        children:
+          - SpeechTextEn-Analysis-SentenceBoundaries
+        tests:
+          - SpeechTextEn_Analyze_MultipleSentencesAndTag_ReturnsAuthoritativeBreaks
+          - SpeechTextEn_SynthesisSession_AnalyzerSentenceBreaks_DriveChunkBoundaries
+
+      - id: SpeechTextEn-Analysis-PlaceholderHandling
+        title: >-
+          The library shall treat the Speech library's audio-tag placeholder as an opaque
+          separator that is never part of a word or covered by an annotation, while still
+          analyzing the words on both sides of it as one running text.
+        tags: [system]
+        justification: |
+          The Speech library replaces each recognized audio tag with one placeholder character
+          before analysis, and drops any annotation that covers a placeholder. An analysis that
+          treated the placeholder as text would lose annotations, and one that cut the text at
+          every tag would lose the context that tags such as "[whispers]" sit in the middle of.
+        children:
+          - SpeechTextEn-Analysis-PlaceholderNeutrality
+        tests:
+          - SpeechTextEn_Analyze_TagPlaceholder_IsNeverCoveredByAnAnnotation
+          - SpeechTextEn_SynthesisSession_TextWithAudioTag_AnnotatesWordsAroundTheTag
+
+      - id: SpeechTextEn-Analysis-Diagnostics
+        title: >-
+          The library shall report one aggregate-counts event per analyzed text to a host-supplied
+          diagnostics sink, shall never include any text content in it, and shall not let a
+          failing sink interrupt an analysis.
+        tags: [system]
+        justification: |
+          The Speech library's diagnostics contract forbids synthesized text in any report, so
+          the analyzer can tell a host only how much it did, never what it read. A diagnostics
+          sink is an observer, and a fault in it must never stop speech.
+        children:
+          - SpeechTextEn-Analysis-DiagnosticsAggregation
+        tests:
+          - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+
+      - id: SpeechTextEn-Packaging-LicenseNotices
+        title: >-
+          The package shall declare the MIT License only, through a license file that starts with
+          the SPDX expression MIT and contains the MIT license text, shall state that the
+          part-of-speech tagging package it requires is a separate dependency with its own license
+          files and that this package embeds no data, and shall carry a dependency notice that
+          reproduces the attribution of that dependency's embedded data; both files shall be
+          packed at the package root.
+        tags: [system]
+        justification: |
+          What the package contains is only code under the MIT License, so that is all it may
+          declare; claiming the licenses of a dependency's data would misstate what a consumer
+          receives. The required package, DemaConsulting.PartOfSpeech, is restored separately and
+          carries its own license files, but its embedded lexicon and weights come from Open
+          English WordNet (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated
+          Sub-Corpus (CC BY 3.0 US), so a consumer of this package should be able to see what the
+          dependency contains and under which licenses. The dependency notice (clearly scoped as
+          such) does that, and will be revisited if a later increment embeds data in this package.
+          While the package is not packable (see SpeechTextEn-Packaging-ReleaseGate) no built
+          package exists, so the packed-at-root property is verified at the project-file level
+          (the files exist and the project packs them at the package root) and the content of
+          the two files is verified in the repository; the inspection of the built package is
+          reinstated when packaging is re-enabled.
+        tests:
+          - SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
+          - SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice
+          - SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData
+          - TextEn_PackageLicenseFiles_Content
+
+      - id: SpeechTextEn-Packaging-ReleaseGate
+        title: >-
+          The package shall not be packable or published while the part-of-speech tagging
+          package it depends on retains analyzed text, and its project file shall say why.
+        tags: [system]
+        justification: |
+          The core ITextAnalyzer contract requires an analyzer not to retain the request text,
+          but DemaConsulting.PartOfSpeech 0.1.0-beta.4 keeps the characters of tagged tokens in
+          a never-cleared thread-static buffer (upstream issue
+          https://github.com/demaconsulting/PartOfSpeech/issues/29), so the analyzer cannot
+          currently honor that contract. Documentation alone is not enough, so the package is
+          not shipped until the dependency is fixed and the pin is bumped. Gating at the project
+          file is enforced by the build (a non-packable project yields no package, and the pack
+          verification skips it) and checked by a test.
+        tests:
+          - SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText
+
+      - id: SpeechTextEn-Packaging-PinnedDependency
+        title: >-
+          The package shall depend on exactly one version of the part-of-speech tagging package
+          and on no speech-engine inference runtime.
+        tags: [system]
+        justification: |
+          The tagging package is a pre-release package whose results can change between
+          versions, so a floating version would silently change the analysis a model builds on.
+          The analysis is plain managed text processing and must stay usable by any model
+          package, so it must not drag an inference runtime into every consumer.
+        tests:
+          - SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime

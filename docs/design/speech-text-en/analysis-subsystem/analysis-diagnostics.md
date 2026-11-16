@@ -1,0 +1,28 @@
+### AnalysisDiagnostics
+
+**Purpose**: Report what an analysis did, and nothing else, to the optional host-supplied diagnostics sink.
+The library's diagnostics contract forbids synthesized text in any report, so this unit can tell a host how
+much work was done but never what was read.
+
+**Data Model**: `AnalysisDiagnostics` is a sealed class holding one nullable `ISpeechDiagnostics`.
+`AnalysisCounts` is an internal read-only record struct of four counts: sentences, tokens, annotations and
+unknown words (word tokens that are not punctuation, symbols or numerals and that the tagger's lexicon
+does not know; zero when the text was not tagged). The category is the constant `TextEn.Analysis`.
+
+**Key Methods**:
+
+- **FormatMessage(counts)**: builds the message `Analyzed one text: {n} sentences, {n} tokens, {n}
+  annotations, {n} unknown words.` with invariant-culture numbers. The message is built only from fixed
+  words and the four numbers, so no word, token or annotation value can be in it - a leak is impossible by
+  construction rather than merely avoided
+- **ReportRequest(counts)**: does nothing without a sink; otherwise sends one Info-level event in the
+  `TextEn.Analysis` category. One report is made per completed request; a canceled or failed request
+  reports nothing
+
+**Error Handling**: any exception from the sink is caught and discarded here, because a diagnostics sink is
+an observer whose contract forbids throwing, and a fault in it must never interrupt the speech request it
+observes. This unit throws nothing else.
+
+**Dependencies**: the Speech library's `ISpeechDiagnostics` and `SpeechDiagnosticLevel`.
+
+**Callers**: `EnglishTextAnalyzer`.

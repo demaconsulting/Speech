@@ -1,0 +1,160 @@
+---
+# Software Unit Requirements for EnglishTextAnalyzer
+#
+# These requirements describe the design-level behavior of the EnglishTextAnalyzer unit (and the
+# EnglishTextAnalysis/AnalyzedToken result types it returns, which are documented with it),
+# decomposing the parent SpeechTextEn AnalysisSubsystem requirements. Each requirement states one
+# observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: AnalysisSubsystem Requirements
+        sections:
+          - title: EnglishTextAnalyzer Requirements
+            requirements:
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-WordAnnotations
+                title: >-
+                  The EnglishTextAnalyzer class shall annotate each word token of a text with one
+                  part-of-speech annotation whose span is exactly that word in the analyzed text,
+                  in text order, using the tag the tagger chooses in the context of the sentence,
+                  and shall give punctuation and symbol tokens no annotation.
+                justification: |
+                  A backend selects a pronunciation from the word's part of speech, so the
+                  annotation must sit on exactly the word and reflect its sentence context;
+                  tagging punctuation would add volume without information.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_SimpleSentence_AnnotatesEachWordOnItsSourceSpan
+                  - EnglishTextAnalyzer_Analyze_UnambiguousSentence_ProducesExpectedUniversalTags
+                  - EnglishTextAnalyzer_Analyze_SameSpellingInDifferentContext_UsesContextForTag
+                  - EnglishTextAnalyzer_Analyze_PunctuationAndSymbols_CarryNoAnnotation
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-WellFormedAnnotations
+                title: >-
+                  The EnglishTextAnalyzer class shall produce only annotations that lie within the
+                  analyzed text, start and end on non-whitespace characters, never cut a UTF-16
+                  surrogate pair, never cover a tag placeholder, and carry a part of speech from
+                  the Universal Dependencies tag set, for any input text.
+                justification: |
+                  The Speech library drops an annotation that starts or ends on trimmed
+                  whitespace or covers a placeholder, and a backend that receives a half
+                  surrogate pair would receive invalid text; annotation correctness must hold for
+                  arbitrary user text, including emoji and malformed text.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_RandomText_AnnotationsAndBreaksAreWellFormed
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-OptionsSelection
+                title: >-
+                  The EnglishTextAnalyzer class shall produce part-of-speech annotations only when
+                  its options select them, and shall still supply sentence breaks and tokens when
+                  they are not selected.
+                justification: |
+                  A host that needs only sentence boundaries should not pay for tagging, and the
+                  boundaries must not depend on the annotation selection.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-SentenceBreaks
+                title: >-
+                  The EnglishTextAnalyzer class shall return a non-null list of sentence breaks
+                  holding the offset of the first token of every sentence after the first, shall
+                  not break a sentence at an abbreviation period, and shall return an empty list
+                  for a text with at most one sentence.
+                justification: |
+                  The Speech library treats a non-null list as authoritative, so even a text with
+                  one sentence must return an empty list rather than null; a break at an
+                  abbreviation would hand a model a fragment.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_MultipleSentences_ReturnsBreaksAtLaterSentenceStarts
+                  - EnglishTextAnalyzer_Analyze_AbbreviationPeriod_DoesNotBreakSentence
+                  - EnglishTextAnalyzer_Analyze_SingleSentence_ReturnsEmptyNonNullBreaks
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-Placeholders
+                title: >-
+                  The EnglishTextAnalyzer class shall treat each tag placeholder as a separator
+                  that is never part of a word or covered by an annotation, shall analyze the
+                  text on both sides of it as running text, and shall place a sentence break at
+                  the next word rather than at the placeholder.
+                justification: |
+                  Placeholders replace audio tags inside a request; the words around a tag belong
+                  to the same sentence, and an annotation over a placeholder would be discarded
+                  by the Speech library.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_PlaceholderBetweenWords_IsNeverCovered
+                  - EnglishTextAnalyzer_Analyze_PlaceholderBetweenWords_EqualsAnalysisWithSpaceInItsPlace
+                  - EnglishTextAnalyzer_Analyze_PlaceholderTouchingWords_SeparatesTheWords
+                  - EnglishTextAnalyzer_Analyze_PlaceholderAtSentenceBoundary_BreaksBeforeNextWord
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-EmptyText
+                title: >-
+                  The EnglishTextAnalyzer class shall return no annotations and an empty, non-null
+                  list of sentence breaks for a text without word tokens (empty, whitespace only,
+                  or only tag placeholders), without loading the tagger.
+                justification: |
+                  A request may consist of nothing but tags or spaces; it must produce a valid
+                  empty analysis cheaply.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndLoadsNoTagger
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-Cancellation
+                title: >-
+                  The EnglishTextAnalyzer class shall throw OperationCanceledException, and shall
+                  neither return a result nor report diagnostics, when the cancellation token is
+                  already canceled (before doing any work) and when it is canceled at any later
+                  point: during tagger initialization, while a sentence (including the only or the
+                  last one) is being tagged, or while the result is being built.
+                justification: |
+                  The Speech library passes the operation's token to the analyzer and a stop or
+                  dispose waits for the analyzer to return, so a long text must stop promptly; and
+                  a canceled request that returned normally would materialize everything and
+                  report an event for work the caller abandoned.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsWithoutLoadingTagger
+                  - EnglishTextAnalyzer_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException
+                  - EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing
+                  - EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing
+                  - EnglishTextAnalyzer_Analyze_NotCanceled_ReportsOneDiagnosticsEvent
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ArgumentValidation
+                title: >-
+                  The EnglishTextAnalyzer class shall throw ArgumentNullException for a null text
+                  and for null options.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_NullText_ThrowsArgumentNullException
+                  - EnglishTextAnalyzer_Constructor_NullOptions_ThrowsArgumentNullException
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndNoRetainedReferences
+                title: >-
+                  The EnglishTextAnalyzer class shall give identical results to any number of
+                  concurrent requests on one instance, and shall keep no reference to an analyzed
+                  text or to a result in its own state after the request returns.
+                justification: |
+                  One model instance may back several engines, so its analyzer is called
+                  concurrently; the library requires that an analyzer not retain the request text,
+                  which is the user's speech content. This requirement covers the analyzer's own
+                  state only: the tagging package keeps the characters of tagged tokens in an
+                  internal per-thread buffer it never clears (a known limitation of the
+                  dependency, documented in the design and tracked upstream as
+                  https://github.com/demaconsulting/PartOfSpeech/issues/29), which this library
+                  cannot clear and which is therefore not claimed to be fixed here.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResultsAndLoadTaggerOnce
+                  - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
+                title: >-
+                  The EnglishTextAnalyzer class shall offer a detailed analysis that lists every
+                  token with its span, text, part of speech, confidence and known-word flag
+                  together with the same annotations and sentence breaks the language-neutral
+                  analysis returns.
+                justification: |
+                  A model package or a test needs the confidence and the known-word flag, which
+                  have no place in the language-neutral annotations, and must be able to rely on
+                  the two results agreeing.
+                tests:
+                  - EnglishTextAnalyzer_AnalyzeDetailed_Sentence_ListsTokensWithTagConfidenceAndKnownWordFlag
+                  - EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_ReturnsSameAnnotationsAndBreaks

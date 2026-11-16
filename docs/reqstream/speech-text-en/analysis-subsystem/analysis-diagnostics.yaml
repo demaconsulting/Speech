@@ -1,0 +1,55 @@
+---
+# Software Unit Requirements for AnalysisDiagnostics
+#
+# These requirements describe the design-level behavior of the AnalysisDiagnostics unit, decomposing
+# the parent SpeechTextEn AnalysisSubsystem requirements. Each requirement states one observable
+# behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: AnalysisSubsystem Requirements
+        sections:
+          - title: AnalysisDiagnostics Requirements
+            requirements:
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-SingleCountsEvent
+                title: >-
+                  The AnalysisDiagnostics class shall report exactly one Info-level event per
+                  completed request to its sink, in the category TextEn.Analysis, carrying the
+                  number of sentences, tokens, annotations and unknown words.
+                justification: |
+                  A host can group and filter by category and wants a summary of the work done,
+                  not an event per word.
+                tests:
+                  - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
+                title: >-
+                  The AnalysisDiagnostics class shall build its message from fixed words and
+                  numbers only, so no word, token or annotation value can appear in it.
+                justification: |
+                  The library's diagnostics contract forbids synthesized text content in any
+                  report; building the message from counts alone makes a leak impossible rather
+                  than merely unlikely.
+                tests:
+                  - AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NullSink
+                title: >-
+                  The AnalysisDiagnostics class shall accept a missing sink and report nothing.
+                justification: |
+                  Diagnostics are optional; an analyzer without a sink must work unchanged.
+                tests:
+                  - AnalysisDiagnostics_ReportRequest_NullSink_DoesNothing
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-SinkFailureContained
+                title: >-
+                  The AnalysisDiagnostics class shall contain any exception thrown by its sink,
+                  so that reporting never interrupts the analysis it observes.
+                justification: |
+                  A diagnostics sink is an observer whose contract forbids throwing; if one throws
+                  anyway, the speech request it was observing must still complete.
+                tests:
+                  - AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained

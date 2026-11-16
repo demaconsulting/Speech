@@ -24,9 +24,9 @@ This document is intended for:
 
 This document covers the verification design for the Speech system and its constituent software
 items, for the SpeechSherpa library system, for the SpeechOnnx, SpeechOnnxKokoro,
-SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo library systems, for the SpeechCli command-line
-tool system, and for the SpeechDemo application system, each with its constituent software items,
-specifically:
+SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo library systems, for the SpeechTextEn library
+system, for the SpeechCli command-line tool system, and for the SpeechDemo application system, each
+with its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -75,6 +75,14 @@ sibling system that `Speech` must never depend on:
   reference voice) and **SynthesisSubsystem** (engine, networks, token selector, capability
   profile)
 
+The following software items of the SpeechTextEn system are also covered; it is a sibling system that
+`Speech` must never depend on:
+
+- **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` English text-analysis package
+  (a preview), verified through its public API and end to end through the real Speech synthesis
+  session, with its **AnalysisSubsystem** (the analyzer, its options, the annotation vocabulary,
+  the part-of-speech adapter and the diagnostics reporter)
+
 The following software items of the SpeechCli system are also covered:
 
 - **SpeechCli (System)** — The cross-platform `speech-cli` .NET global tool, with its five
@@ -111,6 +119,7 @@ The following OTS items are also covered:
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx libraries
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
+- **DemaConsulting.PartOfSpeech** — English tokenizer and part-of-speech tagger used by SpeechTextEn
 - **BuildMark** — build-notes documentation tool
 - **FileAssert** — document assertion tool
 - **Pandoc** — Markdown-to-HTML conversion tool
@@ -154,8 +163,8 @@ The SpeechSherpa system follows the same pattern as a sibling system: its verifi
 lives under `docs/verification/speech-sherpa/` (system document `docs/verification/speech-sherpa.md`),
 its design under `docs/design/speech-sherpa/`, its source under `src/DemaConsulting.Speech.Sherpa/`,
 and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`. The SpeechCli, SpeechDemo, SpeechOnnx,
-SpeechOnnxKokoro, SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo systems follow the same
-sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`.
+SpeechOnnxKokoro, SpeechOnnxNemotronStt, SpeechOnnxChatterboxTurbo, and SpeechTextEn systems follow the
+same sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`.
 
 OTS items have parallel artifacts in:
 

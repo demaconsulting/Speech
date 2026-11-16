@@ -1,0 +1,49 @@
+---
+# Software Unit Requirements for TextEnAnnotations
+#
+# These requirements describe the design-level behavior of the TextEnAnnotations unit, decomposing
+# the parent SpeechTextEn AnalysisSubsystem requirements. Each requirement states one observable
+# behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/TextEnAnnotationsTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: AnalysisSubsystem Requirements
+        sections:
+          - title: TextEnAnnotations Requirements
+            requirements:
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-KindNames
+                title: >-
+                  The TextEnAnnotations class shall declare the six annotation kind names of the
+                  package family (normalization, part of speech, reading, reading confidence,
+                  pronunciation and spell-out) as distinct constants.
+                justification: |
+                  Backends reference the kinds by name, so the full vocabulary has to be stable
+                  from the first release even though later releases will add the producers of the
+                  other kinds.
+                tests:
+                  - TextEnAnnotations_Kinds_HaveDocumentedDistinctNames
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadPartOfSpeech
+                title: >-
+                  The TextEnAnnotations class shall read the part of speech out of an annotation
+                  of the part-of-speech kind whose value is a Universal Dependencies tag, and
+                  shall report false, without throwing, for an annotation of another kind or with
+                  a value outside the tag set.
+                justification: |
+                  A backend calls the reader on every annotation of a segment, most of which may
+                  be of other kinds, and must not parse kind and value strings itself.
+                tests:
+                  - TextEnAnnotations_TryReadPartOfSpeech_PartOfSpeechAnnotation_ReturnsTagName
+                  - TextEnAnnotations_TryReadPartOfSpeech_OtherKindOrUnknownValue_ReturnsFalse
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadArgumentValidation
+                title: >-
+                  The TextEnAnnotations class's part-of-speech reader shall throw
+                  ArgumentNullException for a null annotation.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException

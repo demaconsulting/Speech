@@ -1,0 +1,23 @@
+### EnglishTextAnalyzerOptions
+
+**Purpose**: Carry the host's configuration of an `EnglishTextAnalyzer`: which annotation families to
+produce and an optional counts-only diagnostics sink. The `TextEnAnnotationSelection` flags enumeration
+that expresses the selection is documented with this unit.
+
+**Data Model**: `EnglishTextAnalyzerOptions` is a sealed record with two `init` properties. `Diagnostics`
+is an `ISpeechDiagnostics?`, null by default. `Annotations` is a `TextEnAnnotationSelection`, defaulting to
+`PartOfSpeech`. `TextEnAnnotationSelection` is a `[Flags]` enumeration with `None` (0) and `PartOfSpeech`
+(1); later releases add families such as normalization or readings as further flags without changing these
+values. The analyzer copies the values it needs when it is constructed, so a later `with` copy never
+affects an existing analyzer.
+
+**Key Methods**: the `Annotations` initializer validates its value on every initialization, including in a
+`with` expression: any bit other than `PartOfSpeech` throws `ArgumentOutOfRangeException`, so a typo or a
+value from a newer release fails loudly rather than being treated as "something selected".
+
+**Error Handling**: `ArgumentOutOfRangeException` for an undefined flag; nothing else.
+
+**Dependencies**: the Speech library's `ISpeechDiagnostics`.
+
+**Callers**: `EnglishTextAnalyzer` (reads the values at construction) and the host application or model
+package that builds the options.

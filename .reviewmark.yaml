@@ -16,6 +16,8 @@ needs-review:
   - "docs/sysml2/**/*.sysml"     # SysML2 architecture model
   - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"      # Kokoro package license file
   - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"  # Kokoro third-party notices
+  - "src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md"          # Text.En package license file
+  - "src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md"      # Text.En third-party notices
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -3192,6 +3194,144 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/DitherNoiseTests.cs"
 
+  # SpeechTextEn-Architecture Review (one per system)
+  - id: SpeechTextEn-Architecture
+    title: Review that SpeechTextEn Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-text-en.yaml"                     # system requirements
+      - "docs/design/speech-text-en.md"                          # system design
+      - "docs/verification/speech-text-en.md"                    # system verification
+      - "src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md"       # package license file
+      - "src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md"   # third-party notices
+      - "test/DemaConsulting.Speech.Text.En.Tests/SpeechTextEnTests.cs"  # system tests
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/AnalyzingSynthesisModel.cs"  # system test doubles
+
+  # SpeechTextEn-Design Review (one per system)
+  - id: SpeechTextEn-Design
+    title: Review that SpeechTextEn Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/design/speech-text-en.md"                          # system design
+      - "docs/design/speech-text-en/**/*.md"                     # all system design documents
+
+  # SpeechTextEn-Verification Review (one per system)
+  - id: SpeechTextEn-Verification
+    title: Review that SpeechTextEn Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/verification/speech-text-en.md"                    # system verification
+      - "docs/verification/speech-text-en/**/*.md"               # all verification documents
+
+  # SpeechTextEn-AllRequirements Review (one per system)
+  - id: SpeechTextEn-AllRequirements
+    title: Review that All SpeechTextEn Requirements are Complete
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/**/*.yaml"                # SpeechTextEn subsystem/unit requirements files
+
+  # SpeechTextEn-AnalysisSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-AnalysisSubsystem
+    title: Review that SpeechTextEn AnalysisSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"       # subsystem requirements
+      - "docs/design/speech-text-en/analysis-subsystem.md"            # subsystem design
+      - "docs/verification/speech-text-en/analysis-subsystem.md"      # subsystem verification
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisSubsystemTests.cs"
+
+  # SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzer Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzer
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem EnglishTextAnalyzer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/english-text-analyzer.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalyzer.cs"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalysis.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs"
+
+  # SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzerOptions Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzerOptions
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem EnglishTextAnalyzerOptions Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/english-text-analyzer-options.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/english-text-analyzer-options.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/english-text-analyzer-options.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalyzerOptions.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs"
+
+  # SpeechTextEn-AnalysisSubsystem-TextEnAnnotations Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-TextEnAnnotations
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem TextEnAnnotations Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/text-en-annotations.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/text-en-annotations.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/text-en-annotations.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/TextEnAnnotations.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/TextEnAnnotationsTests.cs"
+
+  # SpeechTextEn-AnalysisSubsystem-PartOfSpeechAdapter Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-PartOfSpeechAdapter
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem PartOfSpeechAdapter Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/part-of-speech-adapter.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/part-of-speech-adapter.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/part-of-speech-adapter.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/PartOfSpeechAdapter.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/PartOfSpeechAdapterTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/CountingTaggerSource.cs"
+
+  # SpeechTextEn-AnalysisSubsystem-AnalysisDiagnostics Review (one per unit)
+  - id: SpeechTextEn-AnalysisSubsystem-AnalysisDiagnostics
+    title: >-
+      Review that SpeechTextEn AnalysisSubsystem AnalysisDiagnostics Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/analysis-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/analysis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/analysis-subsystem/analysis-diagnostics.yaml"
+      - "docs/design/speech-text-en/analysis-subsystem/analysis-diagnostics.md"
+      - "docs/verification/speech-text-en/analysis-subsystem/analysis-diagnostics.md"
+      - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/AnalysisDiagnostics.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/RecordingDiagnostics.cs"
+
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2
     title: Review that PortAudioSharp2 Provides Required Functionality
@@ -3354,3 +3494,12 @@ reviews:
       - "docs/verification/ots/test-results.md"                                   # OTS verification
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"                # OTS integration tests (TRX)
       - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"                    # OTS integration tests (JUnit)
+
+  # OTS-PartOfSpeech Review (one per OTS item)
+  - id: OTS-PartOfSpeech
+    title: Review that DemaConsulting.PartOfSpeech Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/part-of-speech.yaml"                                  # OTS requirements
+      - "docs/design/ots/part-of-speech.md"                                       # OTS integration design
+      - "docs/verification/ots/part-of-speech.md"                                 # OTS verification
+      - "test/DemaConsulting.Speech.Text.En.Tests/Ots/PartOfSpeechTests.cs"       # OTS integration tests
