@@ -143,11 +143,15 @@ the numeric rule adds no per-token allocation to text without numbers.
 
 **Tests**: `TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException`,
 `TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder`
+`TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder`,
+`TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens`
 
 A canceled token throws before any work. For 1000 hand-built one-letter tokens, an observer cancels the
 token while token 300 is visited, and the pass stops at the next periodic check: more than 300 and at most
 600 tokens are visited, not all 1000. The observer sees the indexes 0, 1 and 2 of a three-token text, in order.
+For 400 repeated `5 kg` matches (800 tokens) an observer cancels at the first token and the check fires at the
+256th visited token, inside the 128th match: the observer has been called 128 times, because each token a
+match consumed counts as visited.
 
 ##### Arguments, empty text and determinism
 

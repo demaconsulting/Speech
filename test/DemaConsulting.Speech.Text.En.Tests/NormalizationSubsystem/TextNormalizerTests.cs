@@ -408,6 +408,31 @@ public sealed class TextNormalizerTests
         Assert.InRange(visited, 301, 600);
     }
 
+    /// <summary>Proves the periodic cancellation check counts the tokens a numeric match consumed: repeated two-token expressions are checked within 256 visited tokens.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens()
+    {
+        // Arrange: 400 "5 kg" matches, 800 tokens; the observer cancels while the first token is visited
+        var text = string.Concat(Enumerable.Repeat("5 kg ", 400));
+        var tokens = NormalizationHarness.Tokenize(text);
+        using var cancellation = new CancellationTokenSource();
+        var seen = new List<int>();
+        var normalizer = new TextNormalizer(
+            AbbreviationResolver.Default,
+            AcronymRecognizer.Default,
+            index =>
+            {
+                seen.Add(index);
+                cancellation.Cancel();
+            });
+
+        // Act / Assert: the check fires at the 256th visited token (inside the 128th match), not at the 256th match
+        Assert.Equal(800, tokens.Length);
+        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
+        Assert.Equal(TextNormalizer.CancellationCheckInterval / 2, seen.Count);
+        Assert.True(seen[^1] < TextNormalizer.CancellationCheckInterval);
+    }
+
     /// <summary>Proves the token-visited observer is called once per processed token, in order.</summary>
     [Fact]
     public void TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder()

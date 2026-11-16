@@ -644,6 +644,58 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("two thousand one", SpokenAt("Sept. 11, 2001", 4));
     }
 
+    /// <summary>Proves an ordinal day next to a month name is a date, as a bare day is: <c>January 5th</c>, <c>5th January</c> and the abbreviation forms are <c>DateTime</c>.</summary>
+    [Fact]
+    public void NumericExpressionRecognizer_OrdinalDay_NextToMonth_IsDateTime()
+    {
+        // Arrange: the ordinal after a month, before a month, and after an abbreviation with its period
+        (string Text, int Index)[] cases = [("January 5th", 1), ("5th January", 0), ("Jan. 5th", 2), ("Dec 25th 2024", 1)];
+
+        // Act / Assert: each reads as the ordinal and is a date part, the same as the bare-day form
+        foreach (var (text, index) in cases)
+        {
+            Assert.True(Try(text, index, out var match), text);
+            Assert.Equal(NormalizationKind.DateTime, match[0].Kind);
+        }
+
+        Assert.Equal("fifth", SpokenAt("January 5th", 1));
+        Assert.Equal("fifth", SpokenAt("5th January", 0));
+        Assert.Equal("twenty fifth", SpokenAt("Dec 25th 2024", 1));
+        Assert.True(Try("January 5", 1, out var bare));
+        Assert.Equal(NormalizationKind.DateTime, bare[0].Kind);
+    }
+
+    /// <summary>Proves an ordinal that is not a day next to a month stays a plain number: no month, a value above 31, a grouped number or a lowercase month.</summary>
+    [Fact]
+    public void NumericExpressionRecognizer_OrdinalDay_WithoutDateContext_IsNumber()
+    {
+        // Arrange: ordinals with no month, a month two tokens away, a value that is not a day, a grouped number, and a lowercase month
+        string[] texts = ["the 5th floor", "5th of January", "January 45th", "January 1,000th", "may 5th"];
+        int[] indexes = [1, 0, 1, 1, 1];
+
+        // Act / Assert
+        for (var i = 0; i < texts.Length; i++)
+        {
+            Assert.True(Try(texts[i], indexes[i], out var match), texts[i]);
+            Assert.Equal(NormalizationKind.Number, match[0].Kind);
+        }
+    }
+
+    /// <summary>Proves a sentence boundary the normalizer keeps between a month and an ordinal ends the date: the ordinal is a plain number, while an abbreviation period keeps it.</summary>
+    [Fact]
+    public void NumericExpressionRecognizer_OrdinalDay_AfterSentenceBoundary_IsNumber()
+    {
+        // Act
+        var afterMay = Try("We finished in May. 5th people stayed.", 5, out var retained);
+        var afterAbbreviation = Try("Jan. 5th", 2, out var kept);
+
+        // Assert: the period after May ends the sentence; the period of Jan. does not
+        Assert.True(afterMay);
+        Assert.Equal(NormalizationKind.Number, retained[0].Kind);
+        Assert.True(afterAbbreviation);
+        Assert.Equal(NormalizationKind.DateTime, kept[0].Kind);
+    }
+
     /// <summary>Proves only the Title Case month name or abbreviation is a month: <c>may</c>, <c>MAY</c> and <c>jan</c> are not.</summary>
     [Fact]
     public void NumericExpressionRecognizer_MonthContext_RequiresTitleCase()

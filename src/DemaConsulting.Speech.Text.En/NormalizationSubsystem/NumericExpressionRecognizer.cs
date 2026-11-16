@@ -971,8 +971,11 @@ internal static class NumericExpressionRecognizer
             return true;
         }
 
+        // A day of the month (1 to 31, plain digits) next to a month name is part of a date, like a bare day.
+        var isDay = c.GroupCount == 1 && integerDigits.Length is 1 or 2 && IsDayValue(integerDigits)
+            && ((EndsWithMonth(ref c, c.Index - 1) && !IsRetainedBreakBefore(ref c, c.Index)) || NextIsMonth(ref c));
         var builder = new Builder { Consumed = 1 };
-        builder.Add(c.Token.Start, c.Token.Length, NumberVerbalizer.Ordinal(integerDigits), NormalizationKind.Number);
+        builder.Add(c.Token.Start, c.Token.Length, NumberVerbalizer.Ordinal(integerDigits), isDay ? NormalizationKind.DateTime : NormalizationKind.Number);
         match = builder.ToMatch();
         return true;
     }

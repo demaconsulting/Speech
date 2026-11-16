@@ -112,7 +112,10 @@ PM` as a time span only (the initialism rule reads the dotted and the upper-case
 **Tests**: `NumericExpressionRecognizer_NumericDates_OrderAndValidation`,
 `NumericExpressionRecognizer_MonthNameDates_DecomposePerToken`,
 `NumericExpressionRecognizer_MonthContext_RequiresTitleCase`,
-`NumericExpressionRecognizer_MonthContext_StopsAtSentenceBoundaries`
+`NumericExpressionRecognizer_MonthContext_StopsAtSentenceBoundaries`,
+`NumericExpressionRecognizer_OrdinalDay_NextToMonth_IsDateTime`,
+`NumericExpressionRecognizer_OrdinalDay_WithoutDateContext_IsNumber`,
+`NumericExpressionRecognizer_OrdinalDay_AfterSentenceBoundary_IsNumber`
 
 The numeric dates of the table with their ambiguity flags (`3/4/2024`, `1/2/24` and `03-04-2024` counted,
 `12/12/2024`, `25/12/2024` and `2024-12-25` not), the invalid `13/13/2024`, `0/5/2024`, `2/32/2024`, `1/1/00` and
@@ -123,7 +126,9 @@ no day and no date year (`May. 5 people` is `five`, `January. 1999 people` a car
 people stayed.` `five`), the period of `Jan.`, `Sept.`, `Dec.` and `Mar.` keeps the date (`Jan. 5` is `fifth`,
 `Mar. 5, 2024` a date year, `Dec. 25 people` still a day), a blank line between a month and a number or between
 a day and a year ends the date, and hand-built tokens (with the break flag set on chosen tokens only) decide the
-same way without the tokenizer.
+same way without the tokenizer. An ordinal day (`January 5th`, `5th January`, `Jan. 5th`) is a date part (kind
+`DateTime`) under the same rules as a bare day, while `the 5th floor`, `5th of January`, `January 45th`,
+`January 1,000th`, `may 5th` and `We finished in May. 5th people stayed.` stay plain numbers.
 
 ##### Digit groups
 

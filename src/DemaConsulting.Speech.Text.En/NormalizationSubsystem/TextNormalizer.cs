@@ -225,11 +225,7 @@ internal sealed class TextNormalizer
             {
                 // Look at the cancellation token periodically; the interval counts visited
                 // tokens so a multi-token span cannot skip a check.
-                _visited++;
-                if (_visited % CancellationCheckInterval == 0)
-                {
-                    _cancellationToken.ThrowIfCancellationRequested();
-                }
+                CountVisited();
 
                 _owner._tokenVisited?.Invoke(index);
 
@@ -240,7 +236,29 @@ internal sealed class TextNormalizer
                     _allCapitals = 0;
                 }
 
-                index = ProcessToken(index);
+                var next = ProcessToken(index);
+
+                // Each follow-up token the match consumed counts as visited too (the observer is not
+                // called for it), so the check cadence holds for multi-token matches.
+                for (var consumed = index + 1; consumed < next; consumed++)
+                {
+                    CountVisited();
+                }
+
+                index = next;
+            }
+        }
+
+        /// <summary>
+        ///     Counts one visited token and checks the cancellation token at every
+        ///     <see cref="CancellationCheckInterval"/>th one.
+        /// </summary>
+        private void CountVisited()
+        {
+            _visited++;
+            if (_visited % CancellationCheckInterval == 0)
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
             }
         }
 
