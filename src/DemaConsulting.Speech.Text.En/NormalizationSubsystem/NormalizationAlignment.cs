@@ -209,7 +209,7 @@ internal sealed class AlignedTextBuilder
     internal void Add(NormalizedSpan span)
     {
         // A1: in bounds, ascending and disjoint
-        if (span.Length <= 0 || span.Start < 0 || span.End > _source.Length || span.End < span.Start)
+        if (span.Length <= 0 || span.Start < 0 || span.Start > _source.Length || span.Length > _source.Length - span.Start)
         {
             throw new ArgumentException("The span is empty or outside the text.", nameof(span));
         }
@@ -298,7 +298,15 @@ internal sealed class AlignedTextBuilder
     /// <exception cref="ArgumentException">The token is out of bounds, out of order, empty or classified <see cref="CliticKind.None"/>.</exception>
     internal void MarkClitic(CliticMark mark)
     {
-        if (mark.Length <= 0 || mark.Start < _lastCliticEnd || mark.Start + mark.Length > _source.Length || mark.Kind == CliticKind.None)
+        // The range is validated without computing Start + Length, which can overflow for a
+        // hostile mark and wrap around to look in bounds: Start is checked against the text
+        // length first (a negative Start is already rejected by the ordering check, because
+        // _lastCliticEnd is never negative) and Length against what remains after it.
+        if (mark.Length <= 0
+            || mark.Start < _lastCliticEnd
+            || mark.Start > _source.Length
+            || mark.Length > _source.Length - mark.Start
+            || mark.Kind == CliticKind.None)
         {
             throw new ArgumentException("The clitic mark is empty, out of order, out of bounds or unclassified.", nameof(mark));
         }

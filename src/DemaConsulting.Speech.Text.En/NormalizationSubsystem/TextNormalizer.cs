@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 /// <summary>
@@ -135,7 +137,13 @@ internal sealed class TextNormalizer
         var previousEnd = 0;
         foreach (var token in tokens)
         {
-            if (token.Length <= 0 || token.Start < previousEnd || token.End > text.Length)
+            // Start is checked against the text length and Length against what remains after it,
+            // so the range is validated without ever computing Start + Length (which can
+            // overflow for a hostile token and wrap around to look in bounds).
+            if (token.Length <= 0
+                || token.Start < previousEnd
+                || token.Start > text.Length
+                || token.Length > text.Length - token.Start)
             {
                 throw new ArgumentException("A token is empty, out of order or outside the text.", nameof(tokens));
             }
@@ -487,7 +495,7 @@ internal sealed class TextNormalizer
                     Emit(token.Start + i, 1, words, NormalizationKind.Symbol);
                     emitted = true;
                 }
-                else if (span[i] == '&' && i > 0 && i < span.Length - 1 && char.IsLetter(span[i - 1]) && char.IsLetter(span[i + 1]))
+                else if (span[i] == '&' && i > 0 && i < span.Length - 1 && Rune.IsLetter(RuneBefore(span, i)) && Rune.IsLetter(RuneAt(span, i + 1)))
                 {
                     Emit(token.Start + i, 1, " and ", NormalizationKind.Symbol);
                     emitted = true;
@@ -519,7 +527,7 @@ internal sealed class TextNormalizer
                 var touchesElision = index + 1 < _tokens.Length
                     && _tokens[index + 1].Start == token.End
                     && LeadingElisions.Contains(_tokens[index + 1].In(_text).ToString());
-                var leading = token.Start == 0 || !char.IsLetterOrDigit(_text[token.Start - 1]);
+                var leading = !Rune.IsLetterOrDigit(RuneBefore(_text, token.Start));
                 if (touchesElision && leading)
                 {
                     Emit(token.Start, 1, "'", NormalizationKind.Apostrophe);
@@ -535,7 +543,7 @@ internal sealed class TextNormalizer
                     continue;
                 }
 
-                var betweenLetters = i > 0 && i < span.Length - 1 && char.IsLetter(span[i - 1]) && char.IsLetter(span[i + 1]);
+                var betweenLetters = i > 0 && i < span.Length - 1 && Rune.IsLetter(RuneBefore(span, i)) && Rune.IsLetter(RuneAt(span, i + 1));
                 var leadingElision = i == 0 && span.Length > 1 && LeadingElisions.Contains(span[1..].ToString());
                 if (betweenLetters || leadingElision)
                 {
@@ -578,6 +586,38 @@ internal sealed class TextNormalizer
         }
 
         /// <summary>
+        ///     Reads the Unicode scalar that ends immediately before an index, so boundary checks
+        ///     see a supplementary-plane character as one character rather than a lone low surrogate.
+        /// </summary>
+        /// <param name="text">The text to read.</param>
+        /// <param name="index">The index the scalar must end at; may be 0 or the text length.</param>
+        /// <returns>
+        ///     The scalar, or <see cref="Rune.ReplacementChar"/> (neither a letter nor a digit)
+        ///     when there is none before <paramref name="index"/> or the text is malformed there.
+        /// </returns>
+        private static Rune RuneBefore(ReadOnlySpan<char> text, int index)
+        {
+            Rune.DecodeLastFromUtf16(text[..index], out var rune, out _);
+            return rune;
+        }
+
+        /// <summary>
+        ///     Reads the Unicode scalar that starts at an index; the counterpart of
+        ///     <see cref="RuneBefore"/> for the character after a span.
+        /// </summary>
+        /// <param name="text">The text to read.</param>
+        /// <param name="index">The index the scalar starts at; may equal the text length.</param>
+        /// <returns>
+        ///     The scalar, or <see cref="Rune.ReplacementChar"/> (neither a letter nor a digit)
+        ///     when <paramref name="index"/> is at the end of the text or the text is malformed there.
+        /// </returns>
+        private static Rune RuneAt(ReadOnlySpan<char> text, int index)
+        {
+            Rune.DecodeFromUtf16(text[index..], out var rune, out _);
+            return rune;
+        }
+
+        /// <summary>
         ///     Adds a span, giving the replacement one separating space on its left where a letter or
         ///     digit touches the span, or the previous replacement touches it and ends with a letter,
         ///     and on its right where a letter or digit touches the span; the replacement must itself
@@ -595,9 +635,11 @@ internal sealed class TextNormalizer
             if (kind is not (NormalizationKind.Dropped or NormalizationKind.Apostrophe))
             {
                 var end = start + length;
+                // The neighbors are read as whole Unicode scalars, not UTF-16 code units, so a
+                // supplementary-plane letter or digit (a surrogate pair) counts as one.
                 var padLeft = char.IsLetter(spoken[0])
-                    && ((start > 0 && char.IsLetterOrDigit(_text[start - 1])) || _builder.TouchesPreviousSpokenLetter(start));
-                var padRight = end < _text.Length && char.IsLetterOrDigit(_text[end]) && char.IsLetter(spoken[^1]);
+                    && (Rune.IsLetterOrDigit(RuneBefore(_text, start)) || _builder.TouchesPreviousSpokenLetter(start));
+                var padRight = Rune.IsLetterOrDigit(RuneAt(_text, end)) && char.IsLetter(spoken[^1]);
                 if (padLeft || padRight)
                 {
                     spoken = (padLeft ? " " : string.Empty) + spoken + (padRight ? " " : string.Empty);

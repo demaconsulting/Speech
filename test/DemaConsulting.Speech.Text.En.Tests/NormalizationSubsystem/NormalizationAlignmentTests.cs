@@ -204,6 +204,39 @@ public sealed class NormalizationAlignmentTests
         Assert.Equal(2, aligned.AmbiguousCount);
     }
 
+    /// <summary>Proves a clitic mark whose range would overflow or leaves the text is rejected with ArgumentException and does not disturb later marks.</summary>
+    [Fact]
+    public void AlignedTextBuilder_MarkClitic_OverflowingOrOutOfBoundsRange_ThrowsArgumentException()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("it's we're");
+
+        // Act / Assert: Start + Length would wrap negative, or start/length exceed the text
+        Assert.Throws<ArgumentException>(() => builder.MarkClitic(new CliticMark(int.MaxValue, 1, CliticKind.Is)));
+        Assert.Throws<ArgumentException>(() => builder.MarkClitic(new CliticMark(int.MaxValue, int.MaxValue, CliticKind.Is)));
+        Assert.Throws<ArgumentException>(() => builder.MarkClitic(new CliticMark(1, int.MaxValue, CliticKind.Is)));
+        Assert.Throws<ArgumentException>(() => builder.MarkClitic(new CliticMark(-1, 2, CliticKind.Is)));
+        Assert.Throws<ArgumentException>(() => builder.MarkClitic(new CliticMark(11, 1, CliticKind.Is)));
+
+        // Assert: the rejected marks left no state behind, so an in-order mark is still accepted
+        builder.MarkClitic(new CliticMark(2, 2, CliticKind.Is));
+        Assert.Single(builder.Build().Clitics);
+    }
+
+    /// <summary>Proves a span whose range would overflow is rejected with ArgumentException.</summary>
+    [Fact]
+    public void AlignedTextBuilder_Add_OverflowingRange_ThrowsArgumentException()
+    {
+        // Arrange
+        var builder = new AlignedTextBuilder("abcdefghij");
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(int.MaxValue, 1, "x", NormalizationKind.Abbreviation)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(int.MaxValue, int.MaxValue, "x", NormalizationKind.Abbreviation)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(1, int.MaxValue, "x", NormalizationKind.Abbreviation)));
+        Assert.Throws<ArgumentException>(() => builder.Add(new NormalizedSpan(11, 1, "x", NormalizationKind.Abbreviation)));
+    }
+
     /// <summary>Proves the segments tile the text: changed spans and untouched gaps, in order, contiguous, covering every character.</summary>
     [Fact]
     public void AlignedText_Segments_SpansAndGaps_PartitionTheTextExactly()

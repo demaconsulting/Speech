@@ -438,6 +438,65 @@ public sealed class TextNormalizerTests
         Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, [new NormalizationToken(5, 5, true)], false, CancellationToken.None));
     }
 
+    /// <summary>Proves a mark touching a supplementary-plane letter (a surrogate pair) is padded exactly as it is next to a BMP letter, on each side.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("\uD835\uDD38\u2122\uD835\uDD39", "\uD835\uDD38 trademark \uD835\uDD39")]
+    [InlineData("\uD835\uDD38\u2122", "\uD835\uDD38 trademark")]
+    [InlineData("\u2122\uD835\uDD39", "trademark \uD835\uDD39")]
+    [InlineData("\uD835\uDD38\u2122\u00AE\uD835\uDD39", "\uD835\uDD38 trademark registered \uD835\uDD39")]
+    [InlineData("\uD835\uDFD8\u2122\uD835\uDFD9", "\uD835\uDFD8 trademark \uD835\uDFD9")]
+    public void TextNormalizer_Normalize_MarkNextToSupplementaryLetter_IsPaddedOnTheTouchingSide(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
+    /// <summary>Proves an ampersand or typographic apostrophe between two supplementary-plane letters is treated as between letters.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("\uD835\uDD38&\uD835\uDD39", "\uD835\uDD38 and \uD835\uDD39")]
+    [InlineData("\uD835\uDD38\u2019\uD835\uDD39", "\uD835\uDD38'\uD835\uDD39")]
+    public void TextNormalizer_Normalize_SeparatorBetweenSupplementaryLetters_IsRecognizedAsBetweenLetters(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
+    /// <summary>Proves a token whose end would overflow, or that starts past the text, is rejected with the documented ArgumentException rather than passing the range check.</summary>
+    /// <param name="start">The token's start.</param>
+    /// <param name="length">The token's length.</param>
+    [Theory]
+    [InlineData(int.MaxValue, 1)]
+    [InlineData(int.MaxValue, int.MaxValue)]
+    [InlineData(1, int.MaxValue)]
+    [InlineData(7, 1)]
+    [InlineData(8, 1)]
+    [InlineData(-1, 2)]
+    public void TextNormalizer_Normalize_TokenRangeOverflowingOrOutsideText_ThrowsArgumentException(int start, int length)
+    {
+        // Arrange: a seven-character text and one malformed token
+        const string text = "abc def";
+        var tokens = new[] { new NormalizationToken(start, length, true) };
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None));
+    }
+
+    /// <summary>Proves a malformed token that follows a valid one is rejected even when the first token's end is the previous end.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_SecondTokenOverflowing_ThrowsArgumentException()
+    {
+        // Arrange
+        const string text = "abc def";
+        var tokens = new[] { new NormalizationToken(0, 3, true), new NormalizationToken(int.MaxValue - 1, 4, false) };
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None));
+    }
+
     /// <summary>Proves an empty text and an empty token list normalize to nothing.</summary>
     [Fact]
     public void TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing()

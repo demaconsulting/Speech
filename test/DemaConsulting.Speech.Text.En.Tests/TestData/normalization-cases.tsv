@@ -118,3 +118,6 @@ cred-jr-sentence-start	I met John Smith Jr. He left.	I met John Smith Junior. He
 cred-sr-sentence-start	Joe Smith Sr. I agree.	Joe Smith Senior. I agree.	Joe Smith Sr.¦I agree.	0	a sentence starter after Sr. still breaks
 cred-biz-suffix	Acme Inc. Ph.D. here.	Acme Incorporated. P H D here.	Acme Inc.¦Ph.D. here.	0	a business suffix is not a name suffix
 cred-tag	Mark Twain Jr. \uFFFC Ph.D. spoke.	Mark Twain Junior \uFFFC P H D spoke.	Mark Twain Jr. \uFFFC Ph.D. spoke.	0	a tag placeholder acts as whitespace
+sym-mark-supplementary-both	\uD835\uDD38\u2122\uD835\uDD39	\uD835\uDD38 trademark \uD835\uDD39	\uD835\uDD38\u2122\uD835\uDD39	0	a mark between two supplementary-plane letters is padded on both sides
+sym-mark-supplementary-left	\uD835\uDD38\u2122	\uD835\uDD38 trademark	\uD835\uDD38\u2122	0	a mark after a supplementary-plane letter is padded on the left
+sym-mark-supplementary-right	\u2122\uD835\uDD39	trademark \uD835\uDD39	\u2122\uD835\uDD39	0	a mark before a supplementary-plane letter is padded on the right
