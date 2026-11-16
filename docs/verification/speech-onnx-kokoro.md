@@ -85,6 +85,21 @@ Verifies, through `CreateBackend` and a tiny fixture ONNX model, that the constr
 accelerated-provider probe runs successfully against a runnable session - see _SpeechOnnxKokoro
 SynthesisSubsystem Verification_ for the full detail.
 
+### Package License Files
+
+**Tests**: `SpeechOnnxKokoro_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot`,
+`SpeechOnnxKokoro_PackageLicense_File_CoversCodeAndEmbeddedData`,
+`SpeechOnnxKokoro_ThirdPartyNotices_File_AttributesEmbeddedData`, `Kokoro_Package_LicenseFilesPackaged`
+
+Verifies that the project file names `PACKAGE-LICENSE.md` as the package license file (and no license
+expression) and packs both it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file
+starts with the package's SPDX expression, contains the MIT license text for the code and covers both
+embedded data files by name; and that the third-party notices attribute the embedded data to CMUdict
+(with its verbatim license text) and misaki (with the Apache-2.0 text), and make no public-domain
+claim. The first three tests run in the Kokoro test project against the repository files; the last is
+a FileAssert test that, after `dotnet pack`, confirms the built `.nupkg` contains both files and that
+its `.nuspec` references the license file.
+
 ## Acceptance Criteria
 
 A SpeechOnnxKokoro system-level test run passes when all scenarios above pass without unexpected
@@ -93,4 +108,6 @@ self-skipping because the real production model is not installed), and the autom
 boundary remains honest: catalog registration, model metadata, phonemization, tokenization, and
 engine construction/style-vector selection against a fixture model are claimed as automated
 coverage, while real speech intelligibility and physical audio I/O are left to manual/local
-verification.
+verification. The package license files are also part of the acceptance criteria: the package must
+name a combined license file, and both it and the third-party notices must be present at the package
+root with the CMUdict and misaki license texts intact.

@@ -532,6 +532,59 @@ sections:
         tests:
           - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
 
+      - id: Speech-Synthesis-TextAnalysisAnnotations
+        title: >-
+          The library shall let a synthesis model analyze the complete text of a speech request
+          once, before the text is split into chunks and independently of inline audio tags, and
+          deliver the language-neutral annotations that analysis produces to the backend that
+          synthesizes the chunk containing them.
+        tags: [system]
+        justification: |
+          Phoneme-driven models need sentence-level context (for example the part of speech that
+          selects a heteronym's pronunciation) that no chunk or tag-delimited fragment carries.
+          Analyzing the whole request once, ahead of chunking, supplies that context, and
+          delivering the result as language-neutral annotations keeps the library free of any
+          language-specific knowledge.
+        children:
+          - Speech-Synthesis-TextAnalysisOnce
+          - Speech-Synthesis-AnnotationRebasing
+          - Speech-Synthesis-AnalyzerSentenceBoundaries
+          - Speech-Synthesis-AnnotatedBackendDelivery
+          - Speech-Synthesis-TextAnalysisFaultContainment
+          - Speech-Synthesis-AnalysisDoesNotBlockCaller
+          - Speech-Models-SynthesisTextAnalyzerDeclaration
+        tests:
+          - Speech_SystemIntegration_TextAnalysis_AnnotationsReachAnnotatedBackendThroughFactory
+
+      - id: Speech-Synthesis-UnannotatedBehaviorPreserved
+        title: >-
+          The library shall synthesize a speech request exactly as it did before text analysis
+          existed when the selected model supplies no text analyzer or the backend does not accept
+          annotations.
+        tags: [system]
+        justification: |
+          Existing models and third-party backends were written before text analysis existed, so
+          adding the capability must not change what they receive or how they behave.
+        children:
+          - Speech-Synthesis-NoAnalyzerBehaviorUnchanged
+          - Speech-Synthesis-LegacyBackendReceivesPlainText
+        tests:
+          - Speech_SystemIntegration_TextAnalysis_NoAnalyzer_BackendReceivesPlainChunks
+
+      - id: Speech-Synthesis-ReusableRenderingBlocks
+        title: >-
+          The library shall let a model package build its own tag-rendering strategy from the
+          library's default rendering strategy and sentence chunker instead of copying them.
+        tags: [system]
+        justification: |
+          A model with bespoke tag syntax currently has to duplicate the default chunking and
+          pause constants, and those copies drift from the library's behavior over time.
+        children:
+          - Speech-Synthesis-PublicDefaultRendering
+          - Speech-Synthesis-PublicSentenceChunking
+        tests:
+          - Speech_SystemIntegration_ReusableRenderingBlocks_ExternalProfileWrapsDefaultProfile
+
       - id: Speech-Synthesis-HonestComposition
         title: >-
           The library shall compose a synthesizer without ever throwing when synthesis is not

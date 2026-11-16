@@ -5,8 +5,9 @@ exactly one playback device for the session's entire life, without ever performi
 inference work on the caller's UI thread, and without synthesizing ahead of playback across an
 unbounded queue.
 
-**Data Model**: Holds the owned `ISynthesisBackend`, the `IAudioPlaybackDevice` it plays through,
-the `ISynthesisModel` supplying `NormalizeText`/`CapabilityProfile`/`ResolveSpeakerId`, an
+**Data Model**: Holds the owned `ISynthesisBackend` (treated as an `IAnnotatedSynthesisBackend`
+only when it implements that interface), the `IAudioPlaybackDevice` it plays through,
+the `ISynthesisModel` supplying `NormalizeText`/`CapabilityProfile`/`TextAnalyzer`/`ResolveSpeakerId`, an
 optional `parameterValues` bag (the session's selected voice/tunable-parameter values, forwarded
 unchanged from `SpeechSynthesizerEngine`), a diagnostics sink, a release callback for
 the engine's exclusivity lease, and a `_syncRoot` lock guarding its `SynthesisSessionState`, its
@@ -65,7 +66,9 @@ thread can change.
   native call stopped promptly unwinds through `Stopping` → `Stopped`; one whose native call
   was abandoned leaves the session `Faulted` (see Error Handling).
 - **GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, cancellationToken)**: Normalizes the
-  text via `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, renders it via
+  text via `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, then - only when
+  `_model.TextAnalyzer` is non-null and the spans contain a `PlainText` span - awaits
+  `AnalyzeTextAsync` (below), renders the resulting spans via
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, then synthesizes each
   `SpeechSegment` in turn via `GenerateSegmentAsync`. When `playAfterSynthesis` is `false`
   (`SynthesizeAsync`), simply collects every segment's `SynthesizedSpeech` into the returned list.
@@ -82,6 +85,36 @@ thread can change.
   deferred to a background continuation that awaits the start call's genuine completion first
   (never running `Start` and `Stop` concurrently); that continuation becomes the pending native
   completion.
+- **AnalyzeTextAsync(analyzer, spans, cancellationToken)** *(private)*: The text-analysis stage
+  between Layer 1 parsing and Layer 2 rendering, run **once per request** - both `SpeakAsync` and
+  `SynthesizeAsync` reach it through the single `GenerateAndOptionallyPlayAsync` call site - on a
+  **thread-pool thread** (`Task.Run`) rather than on a `DedicatedWorker` (it is managed CPU work)
+  and never on the thread that called `SpeakAsync`/`SynthesizeAsync`, so a slow analyzer cannot
+  block a UI or request thread.
+  1. The caller `GenerateAndOptionallyPlayAsync` performs the gate **synchronously**: it reads
+     `_model.TextAnalyzer` once and calls `AnalyzeTextAsync` only when the analyzer is non-null and
+     the span list has a `PlainText` span; otherwise the spans pass through with no extra `await`,
+     so the no-analyzer path is unchanged.
+  2. Builds the analysis text with `TextAnalysisMapper.BuildAnalysisText(spans)` (plain text with
+     one `TextAnalysisConventions.TagPlaceholder` per recognized tag) and awaits
+     `Task.Run(() => analyzer.Analyze(analysisText, cancellationToken), cancellationToken)`.
+     An already-canceled token never starts the analyzer. The task is always awaited, never
+     abandoned, so the operation's linked cancellation source cannot be disposed under a running
+     analyzer; an analyzer that ignores its token therefore delays stop and dispose until it
+     returns (bounded only by the token it honors).
+  3. A `null` result is treated as "no analysis" and returns the spans unchanged. This is required
+     because a mocking library may auto-substitute the analyzer with one that returns `null`, and
+     it keeps a model that returns nothing indistinguishable from a model with no analyzer.
+     Otherwise returns `TextAnalysisMapper.Annotate(spans, result)`.
+  4. An `OperationCanceledException` raised while cancellation was requested (including the
+     `TaskCanceledException` of an already-canceled token) is rethrown, so the existing
+     cancellation semantics apply and the backend is never called.
+  5. Any other exception is **contained**: the stage reports one `Warning` diagnostic that names
+     only the exception type (`Text analysis failed (<ExceptionTypeName>); synthesizing without
+     annotations.`) - never the exception message, which could echo the text, and never the text
+     itself - and returns the spans unchanged, so the request continues as if no analyzer existed.
+     The broad catch is intentional: an analyzer is third-party model code and its failure must
+     not fault the session.
 - **GenerateSegmentAsync(segment, cancellationToken)**: An empty-text segment (a rendered pause)
   skips the backend entirely and returns a pure-silence `SynthesizedSpeech` built directly from
   the segment's declared silence durations. Otherwise resolves speed/volume overrides against the
@@ -90,9 +123,15 @@ thread can change.
   per segment (cheap and pure - re-evaluated fresh each call rather than cached for the whole
   session; deliberately independent of the per-segment `ParameterOverrides` speed/volume
   mechanism, which is Natural Language Audio Tag-scoped and transient, not a fit for a
-  session-level voice selection), and calls `_backend.Generate(text, speedRatio, speakerId)`
-  through `DedicatedWorker.Run` - so a non-cooperative native call is bounded by the
-  cooperative-cancel-then-abandon policy rather than awaited indefinitely - applying any volume
+  session-level voice selection), and calls the backend through
+  `DedicatedWorker.Run` - so a non-cooperative native call is bounded by the
+  cooperative-cancel-then-abandon policy rather than awaited indefinitely. **Annotated
+  dispatch**: when the segment carries at least one annotation **and** the backend implements
+  `IAnnotatedSynthesisBackend`, the call is `GenerateAnnotated(text, segment.Annotations,
+  speedRatio, speakerId)`; in every other case - no annotations, or a backend that implements only
+  `ISynthesisBackend` - the call is the unchanged `_backend.Generate(text, speedRatio, speakerId)`,
+  so a legacy backend receives exactly the text it would have received had no analysis run. The
+  backend's audio is then post-processed identically for either call, applying any volume
   override as post-hoc amplitude scaling (backends have no native gain input),
   clamped to `[-1.0, 1.0]`. A speed or volume override whose resolved ratio is not a positive
   finite number is ignored.
@@ -125,11 +164,20 @@ ordinary outcome. A failure to start the playback device (for example an unavail
 propagates promptly, bounded by the abandon timeout, rather than hanging, and faults the session.
 Calling an operational member after
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
-same session throws `InvalidOperationException`.
+same session throws `InvalidOperationException`. A failing text analyzer never faults the session:
+`AnalyzeTextAsync` contains the exception, reports a single `Warning` containing only the exception type
+name (never the message or any synthesized text, consistent with the subsystem's rule that
+diagnostics never carry text), and synthesizes the request without annotations. A cancellation
+requested before or during analysis propagates as `OperationCanceledException` through the normal
+cancellation path, leaving the session `Stopped` and never calling the backend; the analyzer runs
+on a thread-pool thread, so a slow analyzer never blocks the calling thread.
 
 **Dependencies**: `ISynthesisBackend` (whose `Generate` returns the plain-data `BackendAudio`
-record: mono samples plus sample rate), `ISynthesisModel` (`NormalizeText`, `CapabilityProfile`,
-`ResolveSpeakerId`), `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
+record: mono samples plus sample rate) and `IAnnotatedSynthesisBackend` (`GenerateAnnotated`),
+`ISynthesisModel` (`NormalizeText`, `CapabilityProfile`, `TextAnalyzer`,
+`ResolveSpeakerId`), `ITextAnalyzer` and `TextAnalysisResult`, the internal `TextAnalysisMapper`
+and `TextAnalysisConventions`, `SpeechPlan`, `SpeechSegment` (including its `Annotations`),
+`SpeechParameterConventions`,
 `PlaybackAudioResampler`, `SynthesizedSpeech`, `SynthesisSessionState`,
 `SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker` and
 `DedicatedWorkerRun<T>`, `AudioTagParser` from this

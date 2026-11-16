@@ -284,7 +284,7 @@ public class AudioTagParserTests
 
     /// <summary>
     ///     Proves null text is rejected by <see cref="AudioTagParser.Parse"/> and by
-    ///     <see cref="TaggedTextSpan.PlainText"/>, since null is a caller error rather than text.
+    ///     <see cref="TaggedTextSpan.PlainText(string)"/>, since null is a caller error rather than text.
     /// </summary>
     [Fact]
     public void AudioTagParser_Parse_NullText_ThrowsArgumentNullException()
@@ -294,7 +294,7 @@ public class AudioTagParserTests
     }
 
     /// <summary>
-    ///     Proves <see cref="TaggedTextSpan.PlainText"/> rejects null text.
+    ///     Proves <see cref="TaggedTextSpan.PlainText(string)"/> rejects null text.
     /// </summary>
     [Fact]
     public void AudioTagParser_PlainTextSpan_NullText_ThrowsArgumentNullException()
@@ -377,4 +377,86 @@ public class AudioTagParserTests
         Assert.Equal(text, span.Text);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Parse took {stopwatch.Elapsed}");
     }
+
+    /// <summary>
+    ///     Proves a plain-text span created without analysis results has no annotations and no
+    ///     sentence breaks, and is equal to one built through the positional constructor.
+    /// </summary>
+    [Fact]
+    public void TaggedTextSpan_PlainText_Defaults_HaveNoAnnotationsAndNoBreaks()
+    {
+        // Act
+        var span = TaggedTextSpan.PlainText("Hello");
+
+        // Assert
+        Assert.Empty(span.Annotations);
+        Assert.Null(span.SentenceBreaks);
+        Assert.Equal(new TaggedTextSpan(TaggedTextSpanKind.PlainText, "Hello", null), span);
+    }
+
+    /// <summary>
+    ///     Proves a null annotation element, or a null list, is rejected.
+    /// </summary>
+    [Fact]
+    public void TaggedTextSpan_Annotations_NullElement_ThrowsArgumentException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => TaggedTextSpan.PlainText("Hello", [null!], null));
+        Assert.Throws<ArgumentNullException>(() => TaggedTextSpan.PlainText("Hello", null!, null));
+    }
+
+    /// <summary>
+    ///     Proves a negative sentence break is rejected.
+    /// </summary>
+    [Fact]
+    public void TaggedTextSpan_SentenceBreaks_Negative_ThrowsArgumentOutOfRangeException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => TaggedTextSpan.PlainText("Hello", [], [-1]));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast) with { SentenceBreaks = [-1] });
+    }
+
+    /// <summary>
+    ///     Proves a tag span accepts sentence breaks (0 before, 1 after the tag) and copies them,
+    ///     while a default tag span still has none and equals a freshly created one.
+    /// </summary>
+    [Fact]
+    public void TaggedTextSpan_TagSpan_AcceptsSentenceBreaks()
+    {
+        // Arrange
+        var breaks = new List<int> { 1 };
+
+        // Act
+        var span = TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast) with { SentenceBreaks = breaks };
+        breaks.Clear();
+
+        // Assert
+        Assert.Equal([1], span.SentenceBreaks);
+        Assert.Null(TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast).SentenceBreaks);
+        Assert.Equal(TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast), TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast));
+    }
+
+    /// <summary>
+    ///     Proves the annotated factory exposes the supplied annotations and breaks, keeping a
+    ///     private copy of each.
+    /// </summary>
+    [Fact]
+    public void TaggedTextSpan_PlainText_AnnotatedFactory_ExposesAnnotationsAndBreaks()
+    {
+        // Arrange
+        var annotations = new List<SegmentAnnotation> { new(0, 2, "k", "v") };
+        var breaks = new List<int> { 3, 1 };
+
+        // Act
+        var span = TaggedTextSpan.PlainText("Hello", annotations, breaks);
+        annotations.Clear();
+        breaks.Clear();
+
+        // Assert
+        Assert.Equal(TaggedTextSpanKind.PlainText, span.Kind);
+        Assert.Single(span.Annotations);
+        Assert.Equal([3, 1], span.SentenceBreaks);
+    }
+
 }

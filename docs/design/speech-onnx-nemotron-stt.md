@@ -82,7 +82,7 @@ Speech's public API (see _Speech ModelManagementSubsystem Design_).
 SpeechOnnxNemotronStt has two project dependencies - the Speech library and the sibling SpeechOnnx
 library - and the following NuGet dependency:
 
-- **Microsoft.ML.OnnxRuntime** (version 1.28.0) supplies the managed ONNX Runtime API this
+- **Microsoft.ML.OnnxRuntime** (version 1.31.1) supplies the managed ONNX Runtime API this
   package's recognition engine runs its loaded sessions against. Per the sibling SpeechOnnx
   package's own convention, this package never references an accelerated execution-provider
   package itself; a consuming application that wants GPU acceleration adds the matching native

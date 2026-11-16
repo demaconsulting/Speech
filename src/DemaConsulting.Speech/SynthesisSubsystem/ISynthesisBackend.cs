@@ -22,6 +22,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     between the public, loaded-model-level type and this per-segment native seam.
 ///     </para>
 ///     <para>
+///     Backends are never given annotations unless they additionally implement
+///     <see cref="IAnnotatedSynthesisBackend"/>; a backend that implements only this interface is
+///     unchanged and always receives plain segment text through <see cref="Generate"/>.
+///     </para>
+///     <para>
 ///     Implementations are not thread-safe with respect to concurrent calls, but
 ///     <see cref="Generate"/> may be called from a background worker thread while a caller
 ///     concurrently disposes the engine from another thread to stop an in-flight session; see

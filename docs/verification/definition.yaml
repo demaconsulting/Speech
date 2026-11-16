@@ -86,6 +86,7 @@ input-files:
   - docs/verification/speech/synthesis-subsystem/layer2-rendering.md
   - docs/verification/speech/synthesis-subsystem/playback-audio-resampler.md
   - docs/verification/speech/synthesis-subsystem/sentence-chunker.md
+  - docs/verification/speech/synthesis-subsystem/text-analysis.md
   - docs/verification/speech/synthesis-subsystem/speech-synthesizer-engine.md
   - docs/verification/speech/synthesis-subsystem/synthesis-backend.md
   - docs/verification/speech/synthesis-subsystem/synthesis-session.md

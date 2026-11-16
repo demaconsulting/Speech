@@ -25,6 +25,14 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <para>
 ///     The session does not own or dispose the backend; the creating engine does.
 ///     </para>
+///     <para>
+///     Before chunking, the session runs the model's optional <see cref="ITextAnalyzer"/> once
+///     over the whole request text, on a thread-pool thread rather than the thread that called
+///     <see cref="SpeakAsync"/> or <see cref="SynthesizeAsync"/>, and attaches its annotations to the resulting segments; a
+///     segment with annotations is synthesized through <see cref="IAnnotatedSynthesisBackend"/>
+///     when the backend implements it, and through plain <see cref="ISynthesisBackend.Generate"/>
+///     otherwise. An analyzer failure never faults the session.
+///     </para>
 /// </remarks>
 internal sealed class SynthesisSession : ISynthesisSession
 {
@@ -526,6 +534,17 @@ internal sealed class SynthesisSession : ISynthesisSession
     {
         var normalized = _model.NormalizeText(text);
         var spans = AudioTagParser.Parse(normalized);
+
+        // The gate is synchronous so the no-analyzer path adds no await and no allocation. Only
+        // when an analyzer exists and there is plain text to analyze does the analysis run, and
+        // then on a thread-pool thread so it can never block the thread that called
+        // SpeakAsync/SynthesizeAsync.
+        var analyzer = _model.TextAnalyzer;
+        if (analyzer is not null && spans.Any(span => span.Kind == TaggedTextSpanKind.PlainText))
+        {
+            spans = await AnalyzeTextAsync(analyzer, spans, cancellationToken).ConfigureAwait(false);
+        }
+
         var plan = _model.CapabilityProfile.Render(spans, _model);
 
         List<SynthesizedSpeech> results = [];
@@ -666,6 +685,58 @@ internal sealed class SynthesisSession : ISynthesisSession
     }
 
     /// <summary>
+    ///     Runs the model's <see cref="ITextAnalyzer"/> exactly once over the whole request text
+    ///     (each recognized tag replaced by one placeholder) on a thread-pool thread and attaches
+    ///     its annotations and sentence breaks to the spans. A null or empty result, or an
+    ///     analyzer failure, leaves the spans exactly as parsed.
+    /// </summary>
+    /// <param name="analyzer">The model's analyzer.</param>
+    /// <param name="spans">The parsed spans.</param>
+    /// <param name="cancellationToken">
+    ///     The operation's cancellation token, passed to the analyzer. When it is already canceled
+    ///     the analyzer is never started.
+    /// </param>
+    /// <returns>The spans, with analysis results attached when there are any.</returns>
+    /// <exception cref="OperationCanceledException">
+    ///     Thrown when cancellation was requested before or while the analyzer ran.
+    /// </exception>
+    private async Task<IReadOnlyList<TaggedTextSpan>> AnalyzeTextAsync(
+        ITextAnalyzer analyzer,
+        IReadOnlyList<TaggedTextSpan> spans,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var analysisText = TextAnalysisMapper.BuildAnalysisText(spans);
+
+            // The task is always awaited, never abandoned, so the operation's linked cancellation
+            // source cannot be disposed under a running analyzer. A non-cooperative analyzer
+            // therefore delays stop/dispose until it returns, as documented on ITextAnalyzer.
+            var result = await Task.Run(() => analyzer.Analyze(analysisText, cancellationToken), cancellationToken)
+                .ConfigureAwait(false);
+
+            // A mocked or third-party analyzer may return nothing; treat that as "no analysis".
+            return result is null ? spans : TextAnalysisMapper.Annotate(spans, result);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Honor the operation's own cancellation through the existing cancel semantics.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: an analyzer fault must never fault the session, so synthesis
+            // continues without annotations. Only the exception type name is reported, never its
+            // message, because the message could echo the synthesized text.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"Text analysis failed ({ex.GetType().Name}); synthesizing without annotations.");
+            return spans;
+        }
+    }
+
+    /// <summary>
     ///     Synthesizes one segment, applying any speed/volume parameter overrides it carries,
     ///     resolving the session-level speaker id, or producing pure silence for an empty-text
     ///     pause segment without calling the backend at all. The backend call itself runs on a
@@ -686,8 +757,11 @@ internal sealed class SynthesisSession : ISynthesisSession
         var (speedRatio, volumeRatio) = ResolveOverrideRatios(segment.ParameterOverrides);
         var speakerId = _model.ResolveSpeakerId(_parameterValues);
 
+        var annotated = segment.Annotations.Count > 0 ? _backend as IAnnotatedSynthesisBackend : null;
         var run = DedicatedWorker.Start(
-            _ => _backend.Generate(segment.Text, speedRatio, speakerId),
+            _ => annotated is null
+                ? _backend.Generate(segment.Text, speedRatio, speakerId)
+                : annotated.GenerateAnnotated(segment.Text, segment.Annotations, speedRatio, speakerId),
             cancellationToken,
             _diagnostics,
             DiagnosticsCategory);

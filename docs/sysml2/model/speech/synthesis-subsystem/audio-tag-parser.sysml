@@ -5,7 +5,11 @@ package Speech {
              * (against the AudioTagCatalog alias table) and produces an ordered, neutral
              * sequence of TaggedTextSpan values. Groups the closed NaturalLanguageAudioTag /
              * NaturalLanguageAudioTagKind vocabulary and its AudioTagCatalog lookup table, since
-             * neither has behavior independent of the parser that consumes them. */
+             * neither has behavior independent of the parser that consumes them. A plain-text
+             * TaggedTextSpan can additionally carry optional SegmentAnnotations and sentence
+             * breaks (relative to the span text, defaulting to none) that a text analysis
+             * attaches; a tag span can carry sentence breaks (0 before, 1 after the tag) for a
+             * break between consecutive tags. The parser itself never produces them. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/AudioTagParser.cs, src/DemaConsulting.Speech/SynthesisSubsystem/TaggedTextSpan.cs, src/DemaConsulting.Speech/SynthesisSubsystem/TaggedTextSpanKind.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/AudioTagParserTests.cs */

@@ -74,8 +74,11 @@ throws `ArgumentNullException`.
 **Lexicon Provenance**: precomputed once, offline, by running the real `misaki.en.G2P` tool (the
 same phonemizer `hexgrad/kokoro` itself depends on) over every single-pronunciation, purely
 alphabetic word, plus every apostrophe contraction (for example "don't" or "can't"), in the
-public-domain CMUdict word list, so every phoneme string this class ever
-emits was produced by the same tool Kokoro's own authors use, not by this library's own guesswork.
+CMUdict word list (BSD-style license; see the package's `THIRD-PARTY-NOTICES.md`), so every
+phoneme string this class ever emits was produced by the same tool Kokoro's own authors use, not
+by this library's own guesswork. The CMUdict license requires its copyright notice and conditions
+to be reproduced in binary distributions, and misaki is Apache-2.0 licensed, so the package ships
+both notices (see _SpeechOnnxKokoro System Design_).
 Kokoro's phoneme encoding packs several common diphthongs and affricates into single, non-obvious
 Unicode characters (for example `I` represents the diphthong `/aɪ/` as in "life", and `O`
 represents `/oʊ/` as in "know") - confirmed empirically rather than assumed.

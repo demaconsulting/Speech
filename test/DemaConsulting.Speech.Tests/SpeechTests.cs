@@ -482,6 +482,138 @@ public class SpeechTests
     }
 
     /// <summary>
+    ///     Proves the system delivers text-analysis annotations end to end: a model's analyzer
+    ///     runs on the whole request, and the annotation reaches the annotation-capable backend
+    ///     the model creates, loaded through the public <see cref="SpeechSynthesizerFactory"/>,
+    ///     with offsets relative to the synthesized chunk.
+    /// </summary>
+    [Fact]
+    public async Task Speech_SystemIntegration_TextAnalysis_AnnotationsReachAnnotatedBackendThroughFactory()
+    {
+        // Arrange
+        var installedModelDirectory = Path.Join(
+            Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(installedModelDirectory);
+        try
+        {
+            var backend = new FakeAnnotatedSynthesisEngine();
+            var model = new FakeSynthesisModel(
+                textAnalyzer: FakeTextAnalyzer.AnnotatingWord("world"),
+                createBackend: () => backend);
+            var cancellationToken = TestContext.Current.CancellationToken;
+            await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                model, installedModelDirectory, null, null, cancellationToken);
+            await using var session = await engine.CreateSessionAsync(CreateAvailablePlaybackDevice(), cancellationToken);
+
+            // Act
+            await session.SpeakAsync("Hello world. Bye.", cancellationToken);
+
+            // Assert
+            var call = Assert.Single(backend.AnnotatedCalls);
+            Assert.Equal("Hello world.", call.Text);
+            var annotation = Assert.Single(call.Annotations);
+            Assert.Equal("world", call.Text.Substring(annotation.Start, annotation.Length));
+            Assert.Equal(["Bye."], backend.GenerateCalls.Select(generated => generated.Text));
+        }
+        finally
+        {
+            TryDeleteDirectory(installedModelDirectory);
+        }
+    }
+
+    /// <summary>
+    ///     Proves a model without an analyzer synthesizes exactly as before, even through an
+    ///     annotation-capable backend: plain chunks only.
+    /// </summary>
+    [Fact]
+    public async Task Speech_SystemIntegration_TextAnalysis_NoAnalyzer_BackendReceivesPlainChunks()
+    {
+        // Arrange
+        var installedModelDirectory = Path.Join(
+            Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(installedModelDirectory);
+        try
+        {
+            var backend = new FakeAnnotatedSynthesisEngine();
+            var model = new FakeSynthesisModel(createBackend: () => backend);
+            var cancellationToken = TestContext.Current.CancellationToken;
+            await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                model, installedModelDirectory, null, null, cancellationToken);
+            await using var session = await engine.CreateSessionAsync(CreateAvailablePlaybackDevice(), cancellationToken);
+
+            // Act
+            await session.SpeakAsync("Hello world. Bye.", cancellationToken);
+
+            // Assert
+            Assert.Empty(backend.AnnotatedCalls);
+            Assert.Equal(["Hello world.", "Bye."], backend.GenerateCalls.Select(generated => generated.Text));
+        }
+        finally
+        {
+            TryDeleteDirectory(installedModelDirectory);
+        }
+    }
+
+    /// <summary>
+    ///     Proves a model package can build its own tag-rendering strategy from the public default
+    ///     profile, sentence chunker, chunk-then-render step and pause constants alone.
+    /// </summary>
+    [Fact]
+    public void Speech_SystemIntegration_ReusableRenderingBlocks_ExternalProfileWrapsDefaultProfile()
+    {
+        // Arrange
+        var model = new FakeSynthesisModel();
+        IModelCapabilityProfile profile = new ExternalDelegatingProfile();
+        var spans = AudioTagParser.Parse("Say read. [short pause] Then read.");
+
+        // Act
+        var plan = profile.Render(spans, model);
+        var chunks = SentenceChunker.ChunkAligned("One. Two.", [new SegmentAnnotation(5, 3, "k", "v")], null);
+        var segments = DefaultModelCapabilityProfile.RenderText("One. Two.");
+
+        // Assert: the wrapper delegated, then appended its own closing silence
+        Assert.Equal(DefaultModelCapabilityProfile.LongPauseMilliseconds, plan.Segments[^1].PostSilenceMs);
+        Assert.Contains(
+            plan.Segments,
+            segment => segment.Text.Length == 0 && segment.PostSilenceMs == DefaultModelCapabilityProfile.ShortPauseMilliseconds);
+        Assert.Equal(["One.", "Two."], chunks.Select(chunk => chunk.Text));
+        var annotation = Assert.Single(chunks[1].Annotations);
+        Assert.Equal("Two", chunks[1].Text.Substring(annotation.Start, annotation.Length));
+        Assert.Equal(["One.", "Two."], segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Builds a substitute playback device reporting itself available.
+    /// </summary>
+    /// <returns>The device.</returns>
+    private static IAudioPlaybackDevice CreateAvailablePlaybackDevice()
+    {
+        var device = Substitute.For<IAudioPlaybackDevice>();
+        device.IsAvailable.Returns(true);
+        device.SampleRate.Returns(16000);
+        device.ChannelCount.Returns(1);
+        return device;
+    }
+
+    /// <summary>
+    ///     A test-local external profile that delegates to the public default profile and then
+    ///     appends its own closing silence, standing in for a third-party model package.
+    /// </summary>
+    private sealed class ExternalDelegatingProfile : IModelCapabilityProfile
+    {
+        /// <inheritdoc/>
+        public SpeechPlan Render(IReadOnlyList<TaggedTextSpan> spans, ISpeechModel model)
+        {
+            var inner = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+            return new SpeechPlan(
+            [
+                .. inner.Segments,
+                new SpeechSegment(string.Empty, 0, DefaultModelCapabilityProfile.LongPauseMilliseconds, null),
+            ]);
+        }
+    }
+
+    /// <summary>
     ///     Minimal fake <see cref="ISpeechModel"/> used only by the system-level catalog
     ///     integration test, so that test does not depend on the wider test project's
     ///     <c>Fakes</c> helpers.

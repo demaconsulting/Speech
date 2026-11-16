@@ -40,3 +40,16 @@ sections:
                   - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
                   - DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend
                   - DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws
+
+              - id: Speech-Synthesis-SynthesisBackend-AnnotatedSeam
+                title: >-
+                  The synthesis backend seam shall let a backend optionally accept a segment's text
+                  together with its annotations through a separate interface, without any change to
+                  a backend that does not.
+                justification: |
+                  Phoneme-driven backends need the annotations a text analysis produces, while
+                  existing and third-party backends were written without them; a separate optional
+                  interface lets the first kind opt in without breaking the second.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText
+                  - SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun

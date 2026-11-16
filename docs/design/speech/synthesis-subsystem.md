@@ -14,7 +14,9 @@ loaded, expensive, native-backed model, obtained once) creates cheap, reusable
 explicit `SynthesisSessionState` lifecycle, so a host does not have to reconstruct a synthesizer
 per utterance. The native seam is `ISynthesisBackend`/`ISynthesisBackendFactory`, leaving the
 word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
-`ISynthesisBackendFactory` is internal. It contains the following direct units:
+`ISynthesisBackendFactory` is internal. A backend may additionally implement the public
+**IAnnotatedSynthesisBackend**, which receives a segment's annotations along with its text. The
+subsystem contains the following direct units:
 
 - **AudioTagParser**: the pure, model-independent scanner, together with the **AudioTagCatalog**
   alias/kind lookup table it consumes and the **NaturalLanguageAudioTag** /
@@ -23,9 +25,16 @@ word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
 - **IModelCapabilityProfile** and **DefaultModelCapabilityProfile**: the Layer 2 rendering
   strategy that turns a parsed span sequence into an ordered **SpeechPlan** of **SpeechSegment**s,
   deciding per tag whether to pass it through, approximate it, or strip it, driven purely by the
-  selected model's own declared audio-tag support and parameters
+  selected model's own declared audio-tag support and parameters. `DefaultModelCapabilityProfile`
+  is public, with a public `RenderText` chunk-then-render step and public pause constants, so a
+  model package can build its own strategy from it
 - **SentenceChunker**: splits synthesis-ready plain text into sentence/clause-sized chunks so
-  chunked synthesis has natural-sounding boundaries
+  chunked synthesis has natural-sounding boundaries. It is public, including its `SentenceChunk`
+  result, and can re-base annotations onto chunks and honor analyzer-supplied sentence breaks
+- **TextAnalysis**: the language-neutral text-analysis seam - the optional **ITextAnalyzer** a
+  synthesis model supplies, the **SegmentAnnotation** and **TextAnalysisResult** value types, the
+  **TextAnalysisConventions** tag placeholder, and the internal mapper that builds the analysis
+  text and re-bases annotations and sentence breaks onto spans
 - **ISpeechSynthesizerEngine**: the public Layer 3 contract for a loaded synthesis model -
   availability, `CreateSessionAsync`, and one-shot `SpeakAsync`/`SynthesizeAsync` convenience
   overloads - together with the **SynthesizedSpeech** value type it and `ISynthesisSession` yield
@@ -66,10 +75,13 @@ The subsystem exposes `NaturalLanguageAudioTag`, `NaturalLanguageAudioTagKind`,
 `SynthesisSessionState`, `SessionStateChangedEventArgs`, `SpeechSynthesizerFactory`,
 `UnavailableSpeechSynthesizerEngine`, `UnavailableSynthesisSession`,
 `SynthesisEngineBusyException`, `SynthesisSessionFaultedException`, and
-`SpeechSynthesizerUnavailableException` as its public API. It consumes `IAudioPlaybackDevice` from
+`SpeechSynthesizerUnavailableException` as its public API, together with the text-analysis and
+reuse seams `SegmentAnnotation`, `ITextAnalyzer`, `TextAnalysisResult`, `TextAnalysisConventions`,
+`IAnnotatedSynthesisBackend`, `DefaultModelCapabilityProfile`, `SentenceChunker`, and
+`SentenceChunk`. It consumes `IAudioPlaybackDevice` from
 the AudioSubsystem for output audio, `ISynthesisModel` from the ModelManagementSubsystem for
-backend construction (`CreateBackend`), the preferred playback-format hint, and the Layer 2
-rendering strategy, and
+backend construction (`CreateBackend`), the preferred playback-format hint, the Layer 2
+rendering strategy, and the optional text-analysis hook (`TextAnalyzer`), and
 `ISpeechDiagnostics` from the Diagnostics subsystem to report structural composition, lifecycle,
 and fault facts without ever exposing synthesized text.
 
@@ -87,19 +99,35 @@ error handling, and rationale are in its own document under `synthesis-subsystem
 
 #### Pipeline
 
-Text flows through four stages, each owned by one unit:
+Text flows through five stages, each owned by one unit:
 
 1. **Layer 1 - parsing**: _AudioTagParser_ turns bracketed text
    into an ordered span list, via the `AudioTagCatalog` alias table. It never throws and never drops
    input: anything that is not a recognized tag stays plain text ("never worse than plain narration").
-2. **Layer 2 - rendering**: _Layer 2 rendering_
+2. **Text analysis (stage 1b, optional)**: when the selected model supplies an `ITextAnalyzer`
+   (`ISynthesisModel.TextAnalyzer`), _SynthesisSession_ builds the analysis text - the model-normalized
+   plain text in which each recognized audio tag is replaced by one opaque
+   `TextAnalysisConventions.TagPlaceholder` - and calls the analyzer **exactly once per request**,
+   on a thread-pool thread (never the thread that called `SpeakAsync`/`SynthesizeAsync`, so a
+   slow analyzer cannot block that thread),
+   before any chunking, so the analyzer sees whole-request sentence context that no chunk or
+   tag-delimited fragment carries. The returned annotations and optional authoritative sentence
+   breaks are re-based onto the plain spans by _TextAnalysis_ (a break between two consecutive tags
+   travels on the tag span). With no analyzer, or an analyzer that
+   returns nothing, this stage changes nothing.
+3. **Layer 2 - rendering**: _Layer 2 rendering_
    (`IModelCapabilityProfile` / `DefaultModelCapabilityProfile`) turns the spans into a `SpeechPlan`
    according to the selected model's declared tag support; pause tags always render as real silence.
-   Narration between tags is split by _SentenceChunker_.
-3. **Synthesis**: _SynthesisSession_ synthesizes each segment in
+   Narration between tags is split by _SentenceChunker_, which splits at the analyzer's sentence
+   breaks when it supplied them and otherwise at sentence-ending punctuation, and which re-bases each
+   annotation onto the chunk containing it.
+4. **Synthesis**: _SynthesisSession_ synthesizes each segment in
    turn through the _ISynthesisBackend_ seam (see _SynthesisBackend_), running each native
-   call on a _DedicatedWorker_.
-4. **Playback**: for `SpeakAsync` only, each segment is converted by _PlaybackAudioResampler_ and written to the bound
+   call on a _DedicatedWorker_. A segment that carries annotations goes to a backend that
+   implements _IAnnotatedSynthesisBackend_ through `GenerateAnnotated`; every other segment, and
+   every legacy backend, goes through `Generate` with exactly the text it would have received before
+   text analysis existed.
+5. **Playback**: for `SpeakAsync` only, each segment is converted by _PlaybackAudioResampler_ and written to the bound
    playback device and the next segment is then synthesized. Synthesis never runs ahead of the
    segments already handed to the device (no synthesis queue), but the device plays already-written
    audio concurrently, so playback of the first segment begins while later segments are still being
@@ -158,16 +186,18 @@ transition rules, the stop and dispose behavior, and the fault handling are spec
 The session coordinates several units, each documented in its own file under
 `synthesis-subsystem/`. The session's whole job is to move text through rendering and chunking,
 into the backend (via a dedicated worker), and the resulting audio through resampling onto its
-bound playback device. Internal helpers (`SpeechParameterConventions`, `SentenceChunk`, and
-`DedicatedWorkerRun<T>`) are documented with the unit that owns them (Layer 2 rendering,
-_SentenceChunker_, and _DedicatedWorker_ respectively).
+bound playback device. Internal helpers (`SpeechParameterConventions`, `AnnotationList`,
+`TextAnalysisMapper`, and `DedicatedWorkerRun<T>`) are documented with the unit that owns them
+(Layer 2 rendering, _TextAnalysis_, _TextAnalysis_, and _DedicatedWorker_ respectively); the public
+`SentenceChunk` result is documented with _SentenceChunker_.
 
 | Unit | Design document |
 | ---- | --------------- |
 | `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
 | `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
-| `SentenceChunker` | `synthesis-subsystem/sentence-chunker.md` |
-| `ISynthesisBackend`, `ISynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
+| `SentenceChunker` (with `SentenceChunk`) | `synthesis-subsystem/sentence-chunker.md` |
+| `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`, `TextAnalysisConventions` | `synthesis-subsystem/text-analysis.md` |
+| `ISynthesisBackend`, `IAnnotatedSynthesisBackend`, `ISynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
 | `DefaultSynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
 | `DedicatedWorker` | `synthesis-subsystem/dedicated-worker.md` |
 | `PlaybackAudioResampler` | `synthesis-subsystem/playback-audio-resampler.md` |
@@ -207,3 +237,24 @@ operation has unwound, and does nothing when none is in flight (_SynthesisSessio
 is a structural fact - composed, started, stopped, faulted, or lease-related - and never includes
 synthesized text, honoring the same `ISpeechDiagnostics` contract the recognition direction
 honors for recognized text.
+
+**Annotations are dropped, never misplaced.** An annotation is delivered only when it lies wholly
+inside one plain-text span and, after chunking, wholly inside one chunk. An annotation that covers a
+tag placeholder, crosses spans or chunks, starts or ends on trimmed whitespace, falls on a dropped
+degenerate piece, or lies outside the text is dropped rather than clipped, split, or shifted,
+because a misplaced annotation would silently change how the wrong word is spoken
+(_TextAnalysis_, _SentenceChunker_).
+
+**The analyzer runs once, on the full normalized text, off the caller thread.** Analysis happens
+exactly once per
+`SpeakAsync`/`SynthesizeAsync` request, after `NormalizeText` and tag parsing and before chunking,
+on a thread-pool thread rather than the calling thread (so a slow analyzer cannot freeze a UI
+thread, and implementations must not assume thread affinity),
+never per chunk or per tag-delimited fragment, and with a model that supplies no analyzer - or one
+that returns `null` or an empty result - the request behaves exactly as it did before text analysis
+existed. A backend that does not implement `IAnnotatedSynthesisBackend` is never given annotations.
+
+**Analyzer failures never fault a session and never reach diagnostics as text.** An analyzer that
+throws is contained by the session, which synthesizes without annotations and reports a single
+warning naming only the exception type, never its message or any text; cancellation requested during
+analysis is honored and propagates as `OperationCanceledException` (_SynthesisSession_).

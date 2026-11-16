@@ -3,7 +3,10 @@
 #### Verification Approach
 
 `SentenceChunker` is a pure static function over strings, so it is verified directly with plain
-string inputs and exact expected chunk lists; no test doubles are needed.
+string inputs and exact expected chunk lists; no test doubles are needed. Because the chunker was
+refactored onto one position-aware implementation, behavior preservation is proven by a golden
+corpus test whose expected values were captured from the previous implementation before it was
+changed.
 
 #### Test Environment
 
@@ -18,7 +21,15 @@ The unit is considered verified when text splits on primary then secondary punct
 of length, with a whitespace-budget fallback and an over-length word kept whole; numerals keep
 embedded punctuation; consecutive terminators merge into one boundary; punctuation-only pieces
 merge into the preceding chunk or are dropped; ellipsis metadata is reported per chunk; and a
-non-positive length or null text is rejected.
+non-positive length or null text is rejected. The refactored implementation is verified as
+unchanged for unannotated text by a golden corpus recorded from the pre-refactor implementation.
+`ChunkAligned` is verified when each annotation lying wholly inside a chunk is delivered
+re-based to the chunk text (through trimming, whitespace collapsing, and punctuation merges), every
+annotation that cannot be represented in one chunk is dropped, supplied sentence breaks replace the
+punctuation pass while the clause and budget passes still apply, a chunk whose only letters are
+supplementary-plane characters is kept on the analyzed path while the no-analysis path keeps its
+legacy filtering, and null text or a non-positive
+length is rejected.
 
 #### Test Scenarios
 
@@ -90,3 +101,95 @@ dots; `Chunk` and `ChunkWithMetadata` agree on chunk text.
 **Expected**: No chunks.
 
 **Test**: `SentenceChunker_Chunk_EmptyOrWhitespace_ReturnsEmpty`
+
+##### Behavior Preserved: Golden Corpus
+
+**Stimulus**: A representative corpus of at least forty inputs - every pre-existing test string
+plus ellipses, `?!` runs, numerals (`12:30`, `1,000`, `.5`, `$.99`, `Wait.5`), spaced dots, leading
+and trailing degenerate punctuation, over-budget words, multi-space runs inside an over-budget
+clause, tabs and newlines, and a 3000-character text - is chunked. The expected `Text` and
+`EndsWithEllipsis` values were recorded from the implementation that existed *before* the
+position-aware refactor and are stored as literals.
+
+**Expected**: Byte-for-byte identical chunks and ellipsis flags, which proves the refactor onto the
+single position-aware implementation changed nothing for text without annotations or breaks, and
+`ChunkAligned` with no annotations and no breaks equals `ChunkWithMetadata` for every corpus input.
+
+**Tests**: `SentenceChunker_Chunk_RepresentativeCorpus_MatchesGoldenChunks`,
+`SentenceChunker_ChunkAligned_NoAnnotationsNoBreaks_EqualsChunkWithMetadata`
+
+##### Annotation Re-Basing
+
+**Stimulus**: `ChunkAligned` is given annotations over text that is split into several sentences,
+has leading whitespace, is split on a whitespace budget over a multi-space run, and has a
+punctuation-only run merged onto a preceding chunk.
+
+**Expected**: Each chunk carries only the annotations lying wholly inside it, with offsets relative
+to the chunk text (so `chunk.Text.Substring(Start, Length)` is the annotated word), accounting
+for trimming, whitespace collapsed by a budget-split join, and merged punctuation.
+
+**Tests**: `SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk`,
+`SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim`,
+`SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace`,
+`SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved`
+
+##### Unrepresentable Annotations Are Dropped
+
+**Stimulus**: Annotations that cross a chunk boundary, start or end on trimmed whitespace, lie on
+a dropped leading degenerate run, or lie outside the text.
+
+**Expected**: Each is dropped and no exception is thrown; no annotation is ever misplaced.
+
+**Tests**: `SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped`,
+`SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped`,
+`SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped`,
+`SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped`
+
+##### Analyzer-Supplied Sentence Boundaries
+
+**Stimulus**: `"Dr. Smith arrived. He left."` with a break at offset 18; `"one two"` with a
+break at offset 4; `"A. B."` with an empty break list; a comma-bearing sentence with breaks
+supplied; and breaks outside the text.
+
+**Expected**: The supplied breaks replace the primary punctuation pass (yielding `"Dr. Smith
+arrived."` and `"He left."`, and splitting `"one two"` with no punctuation at all); an empty list
+means no sentence splits but the clause pass still applies; the clause and budget passes still
+apply within each sub-range; out-of-range breaks are ignored; a `null` list keeps the punctuation
+heuristic.
+
+**Tests**: `SentenceChunker_ChunkAligned_AnalyzerBreaks_OverridePunctuationHeuristic`,
+`SentenceChunker_ChunkAligned_AnalyzerBreaks_SplitWithoutPunctuation`,
+`SentenceChunker_ChunkAligned_EmptyBreaksList_NoPrimarySplitButClauseSplitStillApplies`,
+`SentenceChunker_ChunkAligned_BreaksOutOfRangeIgnored`,
+`SentenceChunker_ChunkAligned_AnalyzerBreaks_ClauseCommaStillSplits`
+
+##### Scalar-Aware Content Detection
+
+**Stimulus**: `"\U00020000 Hello"` (a chunk whose only letter is a supplementary-plane ideograph,
+a surrogate pair) with an annotation over it and a break at offset 2; `"\U00020000. Hello"` with
+the annotation but no breaks; the same text through `Chunk` with neither; and `"Hello \U0001F600"`
+(an emoji, not a letter) with a break at offset 6.
+
+**Expected**: With breaks or annotations supplied (the analyzed path) the ideograph chunk is kept
+and keeps its annotation (`["\U00020000", "Hello"]`, and `["\U00020000.", "Hello"]` for the
+annotation-only case); with neither supplied the legacy per-code-unit test still treats the chunk
+as word-less, so `Chunk` returns `["Hello"]` exactly as before (the no-analyzer output is
+byte-for-byte unchanged); the emoji chunk is still merged into the preceding chunk because it is
+not a letter or digit.
+
+**Tests**: `SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithBreaks_RetainedWithAnnotation`,
+`SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithAnnotationsOnly_Retained`,
+`SentenceChunker_Chunk_SurrogatePairLetterChunkNoAnalysis_KeepsLegacyFiltering`,
+`SentenceChunker_ChunkAligned_SurrogatePairEmoji_StillDegenerate`
+
+##### Public Surface and Argument Validation
+
+**Stimulus**: `ChunkAligned` is called with null text and a non-positive maximum length, and a
+default-constructed `SentenceChunk` is read.
+
+**Expected**: `ArgumentNullException` and `ArgumentOutOfRangeException`; the default struct reports
+an empty annotation list rather than failing.
+
+**Tests**: `SentenceChunker_ChunkAligned_NullText_ThrowsArgumentNullException`,
+`SentenceChunker_ChunkAligned_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException`,
+`SentenceChunk_Annotations_DefaultStruct_IsEmpty`

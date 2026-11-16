@@ -41,7 +41,9 @@ text-to-speech services for desktop applications. The system consists of five su
   syntax against it, the Layer 2 rendering strategy
   (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
   into a model-appropriate `SpeechPlan` of `SpeechSegment`s, the `SentenceChunker` used for
-  pipeline-friendly chunk boundaries, and the public async Engine/Session streaming/playback
+  pipeline-friendly chunk boundaries, the language-neutral text-analysis seam (an optional
+  per-model `ITextAnalyzer` run once per request, whose `SegmentAnnotation`s and sentence breaks
+  reach an annotation-aware backend), and the public async Engine/Session streaming/playback
   contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), whose `SpeechSynthesizerFactory`
   composition root's `LoadAsync` returns either the real `SynthesisSession` pipeline
   or the honest `UnavailableSpeechSynthesizerEngine`/`UnavailableSynthesisSession` fallback.
@@ -127,14 +129,23 @@ The system exposes the following public API to external consumers:
 - **NaturalLanguageAudioTag** / **NaturalLanguageAudioTagKind** / **AudioTagDescriptor** /
   **AudioTagCatalog** / **TaggedTextSpanKind** / **TaggedTextSpan** / **AudioTagParser**: the
   closed, fixed inline audio-tag vocabulary and the model-independent parser that recognizes it
-- **ISynthesisBackend** / **BackendAudio**: the engine-neutral synthesis backend seam that model
-  extensions implement and the plain-data audio result its `Generate` call returns
+- **ISynthesisBackend** / **BackendAudio** / **IAnnotatedSynthesisBackend**: the engine-neutral
+  synthesis backend seam that model extensions implement, the plain-data audio result its
+  `Generate` call returns, and the optional derived seam that also receives a segment's
+  annotations
 - **IRecognitionBackend**: the engine-neutral recognition backend seam that model extensions
   implement and that `RecognitionSession` streams converted audio through
 - **IModelCapabilityProfile** / **SpeechPlan** / **SpeechSegment**: the public Layer 2 rendering
   seam a model supplies to declare how it handles audio tags, and the plan/segment value types
-  it produces from a parsed span sequence (the default profile, `SentenceChunker`, and
-  `SpeechParameterConventions` are internal to the library)
+  it produces from a parsed span sequence; a segment may carry `SegmentAnnotation`s
+- **DefaultModelCapabilityProfile** / **SentenceChunker** / **SentenceChunk**: the public default
+  rendering strategy (with its `RenderText` step and pause-duration constants) and sentence
+  chunker, so a model package can build its own strategy from them instead of copying them
+  (`SpeechParameterConventions` remains internal to the library)
+- **ITextAnalyzer** / **TextAnalysisResult** / **SegmentAnnotation** / **TextAnalysisConventions**:
+  the optional text-analysis seam a synthesis model supplies through
+  `ISynthesisModel.TextAnalyzer`, its language-neutral result types, and the tag-placeholder
+  convention shared between the library and an analyzer
 - **ISpeechSynthesizerEngine** / **ISynthesisSession** / **SynthesizedSpeech**: the loaded-model
   engine and per-device session halves of the streaming synthesis-and-playback contract, their
   state enums (`SynthesisSessionState`, `SessionStateChangedEventArgs`), and the immutable value
@@ -183,6 +194,8 @@ The system exposes the following public API to external consumers:
 | `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
 | `IRecognitionBackend` (implemented by model extensions) | Outbound | Interface | Engine-neutral; managed fakes in CI |
 | `ISynthesisBackend.Generate(...)` (model extensions) | Outbound | Method call/return | Returns `BackendAudio` |
+| `IAnnotatedSynthesisBackend.GenerateAnnotated(...)` (model extensions) | Outbound | Method call/return | Optional; only for segments with annotations |
+| `ITextAnalyzer.Analyze(...)` (model extensions) | Outbound | Method call/return | Once per request; failures contained |
 | `IModelCapabilityProfile` (model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
@@ -361,13 +374,19 @@ direct safety impact is introduced.
    `CreateSessionAsync` checks device availability and the engine's single-session lease,
    returning `UnavailableSynthesisSession.Instance` or throwing `SynthesisEngineBusyException`
    for a concurrent second lease attempt
-3. **Parsing and rendering**: `AudioTagParser` recognizes inline audio-tag bracket syntax against
-   the fixed vocabulary, and the selected model's `IModelCapabilityProfile` renders the parsed
-   span sequence into a `SpeechPlan` of `SpeechSegment`s, honoring the model's own declared
-   audio-tag support
+3. **Parsing, analysis, and rendering**: `AudioTagParser` recognizes inline audio-tag bracket
+   syntax against the fixed vocabulary; when the selected model supplies an `ITextAnalyzer`, it
+   analyzes the whole request once, with each tag replaced by an opaque placeholder, and its
+   annotations and sentence breaks are attached to the parsed spans; the model's
+   `IModelCapabilityProfile` then renders the span sequence into a `SpeechPlan` of
+   `SpeechSegment`s (carrying their annotations), honoring the model's own declared audio-tag
+   support
 4. **Chunked synthesis and playback**: `SentenceChunker` splits synthesis-ready text into
-   pipeline-friendly chunks; each chunk streams through the `ISynthesisBackend` on a dedicated
-   long-running worker thread and the resulting audio is resampled via `PlaybackAudioResampler`
+   pipeline-friendly chunks, at the analyzer's sentence breaks when supplied, re-basing each
+   annotation onto its chunk; each chunk streams through the `ISynthesisBackend` (through
+   `IAnnotatedSynthesisBackend` when the backend accepts annotations and the chunk has some) on a
+   dedicated long-running worker thread and the resulting audio is resampled via
+   `PlaybackAudioResampler`
    to the playback device's required format before being written to it
 5. **Output**: The playback device renders the synthesized audio as it streams via
    `SpeakAsync(...)` (or is returned as `SynthesizedSpeech` segments via `SynthesizeAsync(...)`);

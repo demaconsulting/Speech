@@ -80,7 +80,8 @@ provenance.
 
 `KokoroLexiconPhonemizer` loads an embedded, gzip-compressed TSV lexicon (precomputed offline by
 running the real `misaki.en.G2P` tool - the same phonemizer Kokoro's own reference pipeline uses -
-over every single-pronunciation, purely-alphabetic word in the public-domain CMUdict word list)
+over every single-pronunciation, purely-alphabetic word in the CMUdict word list, which is
+licensed under a BSD-style license - see the package's `THIRD-PARTY-NOTICES.md`)
 once at construction, into an in-memory dictionary. Its `Phonemize(text)` method tokenizes input
 text, after the internal `KokoroTextNormalizer` helper has spoken numbers, currency, times,
 markdown, URLs and abbreviations, into words, whitespace runs, and other single characters;

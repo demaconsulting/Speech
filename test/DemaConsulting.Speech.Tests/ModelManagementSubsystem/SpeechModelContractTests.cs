@@ -4,6 +4,7 @@ using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 using DemaConsulting.Speech.Tests.RecognitionSubsystem.Fakes;
+using DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -402,6 +403,39 @@ public class SpeechModelContractTests
         // Assert
         Assert.Equal(0, withNull);
         Assert.Equal(0, withValues);
+    }
+
+    /// <summary>
+    ///     Proves a synthesis model that declares no analyzer has none.
+    /// </summary>
+    [Fact]
+    public void ISynthesisModel_TextAnalyzer_DefaultImplementation_ReturnsNull()
+    {
+        // Arrange
+        var model = new DefaultsSynthesisModel();
+
+        // Act
+        var analyzer = ((ISynthesisModel)model).TextAnalyzer;
+
+        // Assert
+        Assert.Null(analyzer);
+    }
+
+    /// <summary>
+    ///     Proves a synthesis model that declares an analyzer exposes exactly that instance.
+    /// </summary>
+    [Fact]
+    public void ISynthesisModel_TextAnalyzer_ModelOverride_ReturnsDeclaredAnalyzer()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+
+        // Act
+        var declared = ((ISynthesisModel)model).TextAnalyzer;
+
+        // Assert
+        Assert.Same(analyzer, declared);
     }
 
     /// <summary>

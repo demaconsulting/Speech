@@ -26,6 +26,31 @@ tests:
             - pattern: "api/**/*.md"
               min: 50
 
+  - name: Kokoro_Package_LicenseFilesPackaged
+    description: "Kokoro NuGet package ships its combined license file and third-party notices at the package root"
+    tags: [api-docs]
+    files:
+      - pattern: "src/DemaConsulting.Speech.Onnx.Kokoro/bin/Release/DemaConsulting.Speech.Onnx.Kokoro.*.nupkg"
+        count: 1
+        zip:
+          files:
+            - pattern: "PACKAGE-LICENSE.md"
+              min: 1
+              max: 1
+              text:
+                - contains: "SPDX-License-Identifier: MIT AND Apache-2.0 AND BSD-2-Clause"
+                - contains: "THIRD-PARTY-NOTICES.md"
+            - pattern: "THIRD-PARTY-NOTICES.md"
+              min: 1
+              max: 1
+              text:
+                - contains: "Carnegie Mellon University"
+            - pattern: "DemaConsulting.Speech.Onnx.Kokoro.nuspec"
+              min: 1
+              max: 1
+              text:
+                - contains: 'type="file">PACKAGE-LICENSE.md</license>'
+
   # --- BUILD NOTES ---
 
   - name: Pandoc_BuildNotesHtml

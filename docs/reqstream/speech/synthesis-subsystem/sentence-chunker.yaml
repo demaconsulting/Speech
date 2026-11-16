@@ -200,3 +200,93 @@ sections:
                   operation they call.
                 tests:
                   - SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText
+
+              - id: Speech-Synthesis-SentenceChunker-AnnotationRebasing
+                title: >-
+                  The SentenceChunker class shall return, for each chunk, the annotations that lie
+                  wholly inside that chunk with offsets re-based to the chunk's text, through
+                  trimming, the collapsing of whitespace in over-length splits and the merging of
+                  punctuation-only pieces.
+                justification: |
+                  A backend interprets annotation offsets relative to the text it synthesizes, which
+                  is the chunk text, and the chunk text is not always a verbatim slice of the
+                  source; the offsets must therefore follow the characters they describe.
+                tests:
+                  - SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk
+                  - SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim
+                  - SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace
+                  - SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved
+
+              - id: Speech-Synthesis-SentenceChunker-UnrepresentableAnnotationDropped
+                title: >-
+                  The SentenceChunker class shall drop an annotation that crosses a chunk boundary,
+                  starts or ends on whitespace that chunking removes, lies on a punctuation-only
+                  piece that is discarded, or lies outside the text.
+                justification: |
+                  Such an annotation has no faithful position inside any chunk, and a misplaced
+                  annotation could make a phoneme-driven model mispronounce the wrong word, so it
+                  is omitted rather than moved or clipped.
+                tests:
+                  - SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped
+                  - SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped
+                  - SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped
+                  - SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped
+
+              - id: Speech-Synthesis-SentenceChunker-AnalyzerBoundaries
+                title: >-
+                  The SentenceChunker class shall split text at supplied sentence breaks instead of
+                  at sentence-ending punctuation, while still applying clause and length-budget
+                  splitting, treating no supplied breaks as a request for the punctuation
+                  behavior, an empty list as no sentence splits and breaks outside the text as
+                  ignorable.
+                justification: |
+                  An analysis that understands the language knows where sentences end better than
+                  punctuation does; clause and length limits still keep each backend call short,
+                  and a missing or out-of-range break must never cause a failure.
+                tests:
+                  - SentenceChunker_ChunkAligned_AnalyzerBreaks_OverridePunctuationHeuristic
+                  - SentenceChunker_ChunkAligned_AnalyzerBreaks_SplitWithoutPunctuation
+                  - SentenceChunker_ChunkAligned_EmptyBreaksList_NoPrimarySplitButClauseSplitStillApplies
+                  - SentenceChunker_ChunkAligned_BreaksOutOfRangeIgnored
+                  - SentenceChunker_ChunkAligned_AnalyzerBreaks_ClauseCommaStillSplits
+
+              - id: Speech-Synthesis-SentenceChunker-ScalarAwareContentDetection
+                title: >-
+                  The SentenceChunker class shall, for text that carries annotations or supplied
+                  sentence breaks, treat a chunk whose only letters or digits are supplementary-plane
+                  characters as having word content, and shall keep the legacy per-code-unit test
+                  for text that carries neither.
+                justification: |
+                  A supplementary-plane letter is encoded as a surrogate pair of two non-letter code
+                  units; judging it per code unit would drop or merge a real word together with its
+                  annotation. Chunks for models without an analysis must stay exactly as before, so
+                  the correction applies only to analyzed text.
+                tests:
+                  - SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithBreaks_RetainedWithAnnotation
+                  - SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithAnnotationsOnly_Retained
+                  - SentenceChunker_Chunk_SurrogatePairLetterChunkNoAnalysis_KeepsLegacyFiltering
+                  - SentenceChunker_ChunkAligned_SurrogatePairEmoji_StillDegenerate
+
+              - id: Speech-Synthesis-SentenceChunker-UnannotatedOutputUnchanged
+                title: >-
+                  The SentenceChunker class shall produce, when given no annotations and no
+                  sentence breaks, exactly the chunks it produced before annotations existed.
+                justification: |
+                  Chunk boundaries decide the audible rhythm of every existing model, so adding
+                  annotation support must not change them for a representative corpus of inputs.
+                tests:
+                  - SentenceChunker_Chunk_RepresentativeCorpus_MatchesGoldenChunks
+                  - SentenceChunker_ChunkAligned_NoAnnotationsNoBreaks_EqualsChunkWithMetadata
+
+              - id: Speech-Synthesis-SentenceChunker-PublicSurface
+                title: >-
+                  The SentenceChunker class and its chunk type shall be public, with a chunk that
+                  has no annotations reporting an empty list, and the annotation-aware chunking
+                  operation shall reject missing text and a non-positive maximum length.
+                justification: |
+                  A model package that renders its own tags needs the library's chunker, and misuse
+                  of it must fail fast with a documented exception rather than misbehave.
+                tests:
+                  - SentenceChunker_ChunkAligned_NullText_ThrowsArgumentNullException
+                  - SentenceChunker_ChunkAligned_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException
+                  - SentenceChunk_Annotations_DefaultStruct_IsEmpty

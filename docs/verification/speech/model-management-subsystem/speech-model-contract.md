@@ -18,7 +18,9 @@ and capability-profile members are verified the same way through
 native library, exposes a concrete best-effort `PreferredAudioFormat`, and relies on
 `ISynthesisModel.CapabilityProfile`'s default-hook implementation rather than overriding it,
 proving the default resolves to `DefaultModelCapabilityProfile.Instance` with zero model-specific
-code. `IRecognitionModel.NormalizeText(text, isFinal)`'s default hook (forwarding to
+code. The text-analysis hook is verified the same way: the default is verified against a
+defaults-only synthesis model that declares nothing, and the override against a fake constructed
+with an `ITextAnalyzer`. `IRecognitionModel.NormalizeText(text, isFinal)`'s default hook (forwarding to
 `ISpeechModel.NormalizeText(text)`) is verified directly against `FakeRecognitionModel`, which
 does not override either method, proving the default resolves to the shared pass-through with no
 model-specific code. The default `LicenseName`/`LicenseUrl` hooks are verified directly against
@@ -49,7 +51,9 @@ directory, exposes its best-effort
 `PreferredAudioFormat`, and exposes the default `CapabilityProfile` hook. The default
 `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the shared
 `ISpeechModel.NormalizeText(text)` pass-through, for both `isFinal` values. The default
-`LicenseName`/`LicenseUrl` hooks report an explicit `"Unknown"` name and a null URL.
+`LicenseName`/`LicenseUrl` hooks report an explicit `"Unknown"` name and a null URL. The
+`ISynthesisModel.TextAnalyzer` hook defaults to `null` (no analyzer), and a model override returns
+the analyzer the model declares.
 
 #### Test Scenarios
 
@@ -132,3 +136,11 @@ directory, exposes its best-effort
 ##### The default speaker resolution returns the first speaker
 
 **Test**: `ISynthesisModel_ResolveSpeakerId_DefaultImplementation_ReturnsFirstSpeaker`
+
+##### The default TextAnalyzer hook declares no analyzer
+
+**Test**: `ISynthesisModel_TextAnalyzer_DefaultImplementation_ReturnsNull`
+
+##### A model override of TextAnalyzer returns the declared analyzer
+
+**Test**: `ISynthesisModel_TextAnalyzer_ModelOverride_ReturnsDeclaredAnalyzer`

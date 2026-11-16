@@ -21,7 +21,9 @@ every unrecognized or malformed bracket form passes through as
 literal text rather than throwing or being discarded.
 
 The unit is also verified when a catalog or parser caller cannot mutate the vocabulary (the tag
-table and each alias list are read-only) and `Parse` rejects a null input.
+table and each alias list are read-only) and `Parse` rejects a null input. A plain-text span's
+annotation and sentence-break properties default to none, reject a null element or negative
+offset, and round-trip through the annotated factory; a tag span may carry sentence breaks too.
 
 #### Test Scenarios
 
@@ -72,6 +74,22 @@ is scanned in linear time with its text preserved.
 **Test**: `AudioTagParser_TagSpan_Factory_ProducesTagSpan`
 
 Verifies that the `TagSpan` factory yields a `Tag`-kind span carrying the given canonical tag.
+
+##### TaggedTextSpan: Annotation and Sentence-Break Carriage
+
+**Tests** (`AudioTagParserTests.cs`):
+`TaggedTextSpan_PlainText_Defaults_HaveNoAnnotationsAndNoBreaks`,
+`TaggedTextSpan_Annotations_NullElement_ThrowsArgumentException`,
+`TaggedTextSpan_SentenceBreaks_Negative_ThrowsArgumentOutOfRangeException`,
+`TaggedTextSpan_PlainText_AnnotatedFactory_ExposesAnnotationsAndBreaks`,
+`TaggedTextSpan_TagSpan_AcceptsSentenceBreaks`
+
+Verifies that a plain-text span defaults to no annotations and `null` sentence breaks (and is equal
+to a span built before those properties existed), that a null annotation element and a negative
+break offset are rejected (on a plain-text span and on a tag span), that the annotated `PlainText`
+factory exposes the annotations and breaks it was given, and that a tag span accepts sentence
+breaks (0 before, 1 after the tag), keeps a private copy, and still equals a default tag span when
+it carries none.
 
 ##### AudioTagParser: Null Input Rejection
 

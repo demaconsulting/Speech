@@ -1686,6 +1686,573 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Builds a substitute synthesis model with the given audio-tag support whose capability
+    ///     profile is the real default profile and whose text analyzer is
+    ///     <paramref name="analyzer"/>.
+    /// </summary>
+    private static ISynthesisModel CreateSubstituteModel(SpeechModelAudioTagSupport support, ITextAnalyzer? analyzer)
+    {
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(DefaultModelCapabilityProfile.Instance);
+        model.AudioTagSupport.Returns(support);
+        model.Parameters.Returns([]);
+        model.TextAnalyzer.Returns(analyzer);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        return model;
+    }
+
+    /// <summary>
+    ///     Proves the analyzer is invoked once with the whole normalized text, each recognized
+    ///     tag replaced by exactly one placeholder.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_Analyzer_ReceivesWholeTextOnceWithTagPlaceholders()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(new FakeSynthesisEngine(), CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Hello [short pause] world.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, analyzer.CallCount);
+        Assert.Equal("Hello \uFFFC world.", analyzer.Texts[0]);
+    }
+
+    /// <summary>
+    ///     Proves a speak request also runs the analyzer exactly once, however many segments it
+    ///     is split into.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_Analyzer_IsInvokedOncePerRequest()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        var backend = new FakeSynthesisEngine();
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SpeakAsync("One. Two. Three.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, analyzer.CallCount);
+        Assert.Equal(3, backend.GenerateCalls.Count);
+    }
+
+    /// <summary>
+    ///     Proves text consisting only of tags is not sent to the analyzer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_TagsOnlyText_AnalyzerIsNotInvoked()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(new FakeSynthesisEngine(), CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("[short pause]", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, analyzer.CallCount);
+    }
+
+    /// <summary>
+    ///     Proves that without an analyzer even an annotation-capable backend receives exactly
+    ///     the plain chunks it always did, through the plain path.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice());
+
+        // Act
+        await session.SynthesizeAsync("Hello world. Second one.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["Hello world.", "Second one."], backend.GenerateCalls.Select(call => call.Text));
+        Assert.Empty(backend.AnnotatedCalls);
+    }
+
+    /// <summary>
+    ///     Proves an analyzer returning null behaves exactly as if there were no analyzer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: new FakeTextAnalyzer((_, _) => null));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Hello world. Second one.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["Hello world.", "Second one."], backend.GenerateCalls.Select(call => call.Text));
+        Assert.Empty(backend.AnnotatedCalls);
+    }
+
+    /// <summary>
+    ///     Proves an analyzer returning the empty result behaves exactly as if there were no
+    ///     analyzer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: new FakeTextAnalyzer());
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Hello world. Second one.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["Hello world.", "Second one."], backend.GenerateCalls.Select(call => call.Text));
+        Assert.Empty(backend.AnnotatedCalls);
+    }
+
+    /// <summary>
+    ///     Proves an annotation after a stripped tag lands, re-based, on the right word in the
+    ///     merged segment text.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerAnnotationAcrossStrippedTag_AnnotatedBackendReceivesRebasedOffsets()
+    {
+        // Arrange: a model without tag support strips the tag, leaving two spaces in the merged text
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = CreateSubstituteModel(SpeechModelAudioTagSupport.None, FakeTextAnalyzer.AnnotatingWord("read"));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("I've [whispers] read it.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("I've  read it.", call.Text);
+        var annotation = Assert.Single(call.Annotations);
+        Assert.Equal("read", call.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves a passed-through native tag's text shifts annotation offsets in the segment.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerAnnotationAcrossNativeTag_OffsetsShiftedPastTagText()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = CreateSubstituteModel(SpeechModelAudioTagSupport.Native, FakeTextAnalyzer.AnnotatingWord("read"));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("I've [excited] read it.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("I've [excited] read it.", call.Text);
+        var annotation = Assert.Single(call.Annotations);
+        Assert.Equal("read", call.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves every chunk receives only its own annotations, with offsets relative to the
+    ///     chunk, when the text is split by a pause tag and by sentence boundaries.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerAnnotationsAcrossChunks_EachChunkReceivesOwnOffsets()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: FakeTextAnalyzer.AnnotatingWord("read"));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Say read. [short pause] Then read it.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, backend.AnnotatedCalls.Count);
+        Assert.All(
+            backend.AnnotatedCalls,
+            call =>
+            {
+                var annotation = Assert.Single(call.Annotations);
+                Assert.Equal("read", call.Text.Substring(annotation.Start, annotation.Length));
+            });
+        Assert.Equal([4, 5], backend.AnnotatedCalls.Select(call => call.Annotations[0].Start));
+    }
+
+    /// <summary>
+    ///     Proves an annotation covering a tag placeholder is dropped, so the backend receives
+    ///     plain text for the segments around the tag.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerAnnotationSpanningTag_IsDropped()
+    {
+        // Arrange: in "Say \uFFFC read it." indexes 3..5 are space, placeholder, space
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var analyzer = new FakeTextAnalyzer((_, _) => new TextAnalysisResult([new SegmentAnnotation(3, 3, "k", "v")], null));
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Say [fast] read it.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(backend.AnnotatedCalls);
+        Assert.Equal(2, backend.GenerateCalls.Count);
+    }
+
+    /// <summary>
+    ///     Proves analyzer sentence breaks replace punctuation-based chunking, and that the same
+    ///     text without an analyzer chunks differently.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerSentenceBreaks_DriveChunking()
+    {
+        // Arrange
+        const string text = "Dr. Smith arrived. He left.";
+        var withAnalyzer = new FakeSynthesisEngine();
+        var without = new FakeSynthesisEngine();
+        var analyzer = new FakeTextAnalyzer((_, _) => new TextAnalysisResult([], [18]));
+        await using var analyzedSession = CreateSession(
+            withAnalyzer, CreateAvailablePlaybackDevice(), new FakeSynthesisModel(textAnalyzer: analyzer));
+        await using var plainSession = CreateSession(without, CreateAvailablePlaybackDevice());
+
+        // Act
+        await analyzedSession.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+        await plainSession.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["Dr. Smith arrived.", "He left."], withAnalyzer.GenerateCalls.Select(call => call.Text));
+        Assert.Equal(["Dr.", "Smith arrived.", "He left."], without.GenerateCalls.Select(call => call.Text));
+    }
+
+    /// <summary>
+    ///     Proves an annotation-capable backend receives the annotations together with exactly
+    ///     the segment text, through the annotated path only.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: FakeTextAnalyzer.AnnotatingWord("world"));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("Hello world.", call.Text);
+        Assert.Equal(new SegmentAnnotation(6, 5, "reading", "world"), Assert.Single(call.Annotations));
+        Assert.Equal(1.0f, call.Speed);
+        Assert.Empty(backend.GenerateCalls);
+    }
+
+    /// <summary>
+    ///     Proves a segment without annotations uses the plain call even on an
+    ///     annotation-capable backend, while an annotated segment uses the annotated call.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: FakeTextAnalyzer.AnnotatingWord("read"));
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("Plain sentence. Say read.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["Plain sentence."], backend.GenerateCalls.Select(call => call.Text));
+        Assert.Equal(["Say read."], backend.AnnotatedCalls.Select(call => call.Text));
+    }
+
+    /// <summary>
+    ///     Proves a backend that does not accept annotations receives exactly the text it would
+    ///     have received without analysis.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun()
+    {
+        // Arrange
+        const string text = "I've [whispers] read it. Say read again.";
+        var legacy = new FakeSynthesisEngine();
+        var unannotated = new FakeSynthesisEngine();
+        var annotated = new FakeAnnotatedSynthesisEngine();
+        var analyzer = FakeTextAnalyzer.AnnotatingWord("read");
+        await using var legacySession = CreateSession(
+            legacy, CreateAvailablePlaybackDevice(), new FakeSynthesisModel(textAnalyzer: analyzer));
+        await using var unannotatedSession = CreateSession(unannotated, CreateAvailablePlaybackDevice());
+        await using var annotatedSession = CreateSession(
+            annotated, CreateAvailablePlaybackDevice(), new FakeSynthesisModel(textAnalyzer: analyzer));
+
+        // Act
+        await legacySession.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+        await unannotatedSession.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+        await annotatedSession.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        var expected = unannotated.GenerateCalls.Select(call => call.Text).ToArray();
+        Assert.Equal(expected, legacy.GenerateCalls.Select(call => call.Text));
+        Assert.Equal(expected, annotated.AllTexts);
+    }
+
+    /// <summary>
+    ///     Proves annotations a bespoke capability profile puts on its own segments reach an
+    ///     annotation-capable backend even when the model has no analyzer (the substituted
+    ///     analyzer returns nothing).
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var profile = Substitute.For<IModelCapabilityProfile>();
+        profile.Render(Arg.Any<IReadOnlyList<TaggedTextSpan>>(), Arg.Any<ISpeechModel>())
+            .Returns(new SpeechPlan(
+            [
+                new SpeechSegment("Hello world.", 0, 0, null) { Annotations = [new SegmentAnnotation(6, 5, "reading", "w")] },
+            ]));
+        var model = Substitute.For<ISynthesisModel>();
+        model.CapabilityProfile.Returns(profile);
+        model.NormalizeText(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("anything", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("Hello world.", call.Text);
+        Assert.Single(call.Annotations);
+    }
+
+    /// <summary>
+    ///     Proves an analyzer failure never faults the session: synthesis continues with plain
+    ///     text, and exactly one warning is reported containing neither the exception message nor
+    ///     the synthesized text.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerThrows_ContinuesUnannotatedAndReportsWarningWithoutText()
+    {
+        // Arrange
+        const string utterance = "ultra-private utterance";
+        var warnings = new List<string>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        diagnostics.When(d => d.Report(SpeechDiagnosticLevel.Warning, Arg.Any<string>(), Arg.Any<string>()))
+            .Do(call => warnings.Add(call.ArgAt<string>(2)));
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var analyzer = new FakeTextAnalyzer((_, _) => throw new InvalidOperationException("secret text"));
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model, diagnostics: diagnostics);
+
+        // Act
+        await session.SynthesizeAsync(utterance, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([utterance], backend.GenerateCalls.Select(call => call.Text));
+        Assert.Empty(backend.AnnotatedCalls);
+        Assert.NotEqual(SynthesisSessionState.Faulted, session.State);
+        var warning = Assert.Single(warnings);
+        Assert.Contains("InvalidOperationException", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("private", warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves cancellation requested while the analyzer runs propagates as an operation
+    ///     cancellation, and the backend is never called.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerCanceled_PropagatesOperationCanceled()
+    {
+        // Arrange
+        using var cancellation = new CancellationTokenSource();
+        var analyzer = new FakeTextAnalyzer((_, token) =>
+        {
+            cancellation.Cancel();
+            token.ThrowIfCancellationRequested();
+            return TextAnalysisResult.Empty;
+        });
+        var backend = new FakeSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => session.SynthesizeAsync("Hello world.", cancellation.Token));
+        Assert.Empty(backend.GenerateCalls);
+    }
+
+    /// <summary>
+    ///     Proves a slow analyzer does not block the thread that called
+    ///     <see cref="SynthesisSession.SynthesizeAsync"/>: the call returns while the analyzer is
+    ///     still running, on a different thread.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread() =>
+        await AssertSlowAnalyzerDoesNotBlockCallerAsync(playAfterSynthesis: false);
+
+    /// <summary>
+    ///     Proves a slow analyzer does not block the thread that called
+    ///     <see cref="SynthesisSession.SpeakAsync"/>: the call returns while the analyzer is
+    ///     still running, on a different thread.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread() =>
+        await AssertSlowAnalyzerDoesNotBlockCallerAsync(playAfterSynthesis: true);
+
+    /// <summary>
+    ///     Proves cancellation requested while a slow analyzer is running reaches the analyzer
+    ///     through the operation token, surfaces as an operation cancellation, and the backend is
+    ///     never called.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_CancelDuringSlowAnalysis_ThrowsCanceledAndSkipsBackend()
+    {
+        // Arrange
+        using var entered = new ManualResetEventSlim(false);
+        var analyzer = new FakeTextAnalyzer((_, token) =>
+        {
+            entered.Set();
+            token.WaitHandle.WaitOne(TimeSpan.FromSeconds(10));
+            token.ThrowIfCancellationRequested();
+            return TextAnalysisResult.Empty;
+        });
+        var backend = new FakeSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        // Act
+        var task = session.SynthesizeAsync("Hello world.", cancellation.Token);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        await cancellation.CancelAsync();
+
+        // Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Empty(backend.GenerateCalls);
+        Assert.Equal(SynthesisSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
+    ///     Proves an operation whose token is already canceled never starts the analyzer.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerAlreadyCanceledBeforeStart_AnalyzerNotInvoked()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer();
+        var backend = new FakeSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => session.SynthesizeAsync("Hello world.", cancellation.Token));
+        Assert.Equal(0, analyzer.CallCount);
+        Assert.Empty(backend.GenerateCalls);
+    }
+
+    /// <summary>
+    ///     Proves an analyzer sentence break between two consecutive tags is honored: the text on
+    ///     either side of the tag run becomes its own segment instead of the break being lost.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerBreakBetweenConsecutiveTags_SplitsIntoTwoSegments()
+    {
+        // Arrange
+        var analyzer = new FakeTextAnalyzer((_, _) => new TextAnalysisResult([], ["First".Length + 1]));
+        var backend = new FakeSynthesisEngine();
+        var model = CreateSubstituteModel(SpeechModelAudioTagSupport.None, analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("First[fast][excited]Second", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal("First\uFFFC\uFFFCSecond", Assert.Single(analyzer.Texts));
+        Assert.Equal(["First", "Second"], backend.GenerateCalls.Select(call => call.Text));
+    }
+
+    /// <summary>
+    ///     Proves a chunk whose only letter is a supplementary-plane character (a surrogate pair)
+    ///     keeps its text and its annotation when the analyzer breaks the sentence after it.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnalyzerBreakAfterSurrogatePair_KeepsChunkAndAnnotation()
+    {
+        // Arrange
+        const string supplementary = "\U00020000";
+        var annotation = new SegmentAnnotation(0, 2, "reading", "x");
+        var analyzer = new FakeTextAnalyzer((_, _) => new TextAnalysisResult([annotation], [2]));
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync(supplementary + " Hello", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal(supplementary, call.Text);
+        Assert.Equal(annotation, Assert.Single(call.Annotations));
+        Assert.Equal(["Hello"], backend.GenerateCalls.Select(generate => generate.Text));
+    }
+
+    /// <summary>
+    ///     Starts an operation whose analyzer blocks until released and asserts the starting call
+    ///     returns while the analyzer is still blocked, with the analyzer on another thread.
+    /// </summary>
+    /// <param name="playAfterSynthesis">True to start a speak request; false for synthesize.</param>
+    private static async Task AssertSlowAnalyzerDoesNotBlockCallerAsync(bool playAfterSynthesis)
+    {
+        // Arrange
+        using var entered = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        var analyzerThreadId = -1;
+        var analyzer = new FakeTextAnalyzer((_, _) =>
+        {
+            analyzerThreadId = Environment.CurrentManagedThreadId;
+            entered.Set();
+            release.Wait(TimeSpan.FromSeconds(10));
+            return TextAnalysisResult.Empty;
+        });
+        var backend = new FakeSynthesisEngine();
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+        var callerThreadId = Environment.CurrentManagedThreadId;
+
+        // Act: the call must hand back its task without waiting for the blocked analyzer.
+        Task task = playAfterSynthesis
+            ? session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken)
+            : session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(release.IsSet);
+        Assert.False(task.IsCompleted);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.NotEqual(callerThreadId, analyzerThreadId);
+        Assert.False(task.IsCompleted);
+
+        release.Set();
+        await task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(["Hello world."], backend.GenerateCalls.Select(call => call.Text));
+    }
+
+    /// <summary>
     ///     Builds a substitute playback device reporting itself available with the given format.
     /// </summary>
     private static IAudioPlaybackDevice CreateAvailablePlaybackDevice(int sampleRate = 16000, int channelCount = 1)

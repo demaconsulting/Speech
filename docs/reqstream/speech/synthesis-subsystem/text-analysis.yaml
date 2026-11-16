@@ -1,0 +1,113 @@
+---
+# Software Unit Requirements for TextAnalysis
+#
+# Covers the language-neutral text-analysis seam: SegmentAnnotation, TextAnalysisResult,
+# TextAnalysisConventions, ITextAnalyzer and the mapping that builds the text to analyze from a
+# parsed span sequence and attaches the analysis result back onto its plain-text spans. The
+# units that consume the attached annotations have their own requirement files in this folder:
+# audio-tag-parser.yaml, layer2-rendering.yaml, sentence-chunker.yaml and synthesis-session.yaml.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: TextAnalysis Requirements
+            requirements:
+              - id: Speech-Synthesis-TextAnalysis-AnnotationValidation
+                title: >-
+                  A SegmentAnnotation shall reject a negative start, a non-positive length, a
+                  missing or blank kind and a missing value.
+                justification: |
+                  An annotation with an impossible range or no meaning would mislead the backend
+                  that consumes it, so it is refused when it is created or changed.
+                tests:
+                  - SegmentAnnotation_Constructor_NegativeStart_ThrowsArgumentOutOfRangeException
+                  - SegmentAnnotation_Constructor_NonPositiveLength_ThrowsArgumentOutOfRangeException
+                  - SegmentAnnotation_Constructor_BlankKind_Throws
+                  - SegmentAnnotation_Constructor_NullValue_ThrowsArgumentNullException
+                  - SegmentAnnotation_With_InvalidStart_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Synthesis-TextAnalysis-ResultValidation
+                title: >-
+                  A text-analysis result shall reject a missing annotation list, a missing
+                  annotation and a negative sentence-break offset, and shall keep its own copy.
+                justification: |
+                  An analyzer may reuse or later change the lists it hands over; the result must
+                  stay valid and unchanged, and an impossible offset must be refused when the
+                  result is created rather than surfacing later in the pipeline.
+                tests:
+                  - TextAnalysisResult_Constructor_NullAnnotations_ThrowsArgumentNullException
+                  - TextAnalysisResult_Constructor_NullAnnotationElement_ThrowsArgumentException
+                  - TextAnalysisResult_Constructor_NegativeBreak_ThrowsArgumentOutOfRangeException
+                  - TextAnalysisResult_Constructor_CallerListsChangedLater_ResultIsUnaffected
+                  - TextAnalysisResult_Constructor_UnsortedDuplicateBreaks_AreSortedAndDistinct
+
+              - id: Speech-Synthesis-TextAnalysis-AnalysisTextConstruction
+                title: >-
+                  The text-analysis mapping shall build the text to analyze from a parsed span
+                  sequence by keeping plain text and replacing each recognized tag with exactly one
+                  placeholder character, preserving order.
+                justification: |
+                  The analyzer needs the narration as the listener will hear it, in order, with each
+                  inline tag marked as a single opaque object so that the tag's own characters are
+                  never analyzed as words and offsets stay predictable.
+                tests:
+                  - TextAnalysisMapper_BuildAnalysisText_PlainAndTagSpans_UsesOnePlaceholderPerTag
+                  - TextAnalysisMapper_BuildAnalysisText_PlainTextOnly_EqualsInput
+
+              - id: Speech-Synthesis-TextAnalysis-SpanAnnotationAssignment
+                title: >-
+                  The text-analysis mapping shall attach each annotation that lies wholly inside
+                  one plain-text span to that span with offsets relative to the span.
+                justification: |
+                  Annotations are produced against the whole analyzed text, but the rest of the
+                  pipeline works span by span, so each annotation must move onto the span that
+                  contains it with its offsets expressed relative to that span.
+                tests:
+                  - TextAnalysisMapper_Annotate_AnnotationInsideSecondSpan_RebasedToSpanLocalOffset
+                  - TextAnalysisMapper_Annotate_TagSpans_PassThroughUnchanged
+
+              - id: Speech-Synthesis-TextAnalysis-UnrepresentableAnnotationDropped
+                title: >-
+                  The text-analysis mapping shall drop an annotation that covers a tag placeholder,
+                  spans more than one plain-text span, or lies outside the analyzed text.
+                justification: |
+                  Clipping such an annotation would misrepresent the unit it describes, and a
+                  misplaced annotation could make a phoneme-driven model mispronounce the wrong
+                  word, so an annotation that cannot sit wholly inside one span is omitted.
+                tests:
+                  - TextAnalysisMapper_Annotate_AnnotationCoveringPlaceholder_Dropped
+                  - TextAnalysisMapper_Annotate_AnnotationSpanningTwoPlainSpans_Dropped
+                  - TextAnalysisMapper_Annotate_AnnotationBeyondTextLength_Dropped
+
+              - id: Speech-Synthesis-TextAnalysis-SentenceBreakAssignment
+                title: >-
+                  The text-analysis mapping shall give each plain-text span the sentence breaks that
+                  fall inside it or touch its edges, relative to the span, giving every span a
+                  possibly empty list when breaks were supplied and none when they were not, and
+                  shall attach a break that falls between consecutive tags to the tag span before
+                  it, dropping a break before a leading tag or beyond the text.
+                justification: |
+                  Supplied sentence breaks are authoritative for the whole request, including spans
+                  that contain no break, so every span must record that fact; a sentence can end
+                  between two inline tags where no plain text exists, so that break must travel on
+                  the tag span rather than be lost; when the analysis supplies no breaks, the spans
+                  must stay free to use the punctuation heuristic.
+                tests:
+                  - TextAnalysisMapper_Annotate_BreaksProvided_AssignedToContainingSpansWithLocalOffsets
+                  - TextAnalysisMapper_Annotate_BreakBetweenConsecutiveTags_AttachedAfterPrecedingTagSpan
+                  - TextAnalysisMapper_Annotate_BreakBeforeLeadingTag_Dropped
+                  - TextAnalysisMapper_Annotate_BreakAfterTrailingTag_AttachedToLastTag
+                  - TextAnalysisMapper_Annotate_BreaksNull_SpansKeepNullBreaks
+
+              - id: Speech-Synthesis-TextAnalysis-EmptyResultUnchanged
+                title: >-
+                  The text-analysis mapping shall leave the span sequence untouched when the
+                  analysis supplies nothing.
+                justification: |
+                  An analysis with nothing to say must not change the established rendering and
+                  chunking, so the original span sequence is passed on as it is.
+                tests:
+                  - TextAnalysisMapper_Annotate_EmptyResult_ReturnsSameSpanListInstance
+                  - TextAnalysisMapper_Annotate_NullArguments_Throw

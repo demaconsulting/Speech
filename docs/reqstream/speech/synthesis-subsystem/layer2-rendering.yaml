@@ -190,3 +190,101 @@ sections:
                   audio.
                 tests:
                   - SpeechSegment_Constructor_NegativeSilence_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Synthesis-Layer2Rendering-AnnotationsRebasedIntoSegments
+                title: >-
+                  The default Layer 2 rendering strategy shall deliver the annotations of a
+                  plain-text span on the segment that contains the annotated text, with offsets
+                  re-based across stripped, passed-through, pause and parameter-mapped tags.
+                justification: |
+                  Rendering decides which text a segment holds and whether tag text is kept, so it
+                  is the step that knows where the annotated text finally lands; an annotation
+                  must follow its text or it would point at the wrong characters.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_AnnotatedSpan_SegmentCarriesRebasedAnnotation
+                  - DefaultModelCapabilityProfile_Render_AnnotationAfterStrippedTag_RebasedIntoMergedBuffer
+                  - DefaultModelCapabilityProfile_Render_NativeTag_AnnotationOffsetsShiftedPastInsertedTagText
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedTag_AnnotationsStayWithTheirOwnSegment
+                  - DefaultModelCapabilityProfile_Render_PauseTag_AnnotationsStayWithTheirOwnSegment
+
+              - id: Speech-Synthesis-Layer2Rendering-SegmentAnnotationValidation
+                title: >-
+                  A speech segment shall default to no annotations and shall reject missing
+                  annotations and annotations that lie outside its text, including when its text is
+                  later shortened.
+                justification: |
+                  A backend trusts that every annotation it is handed lies inside the segment text,
+                  so a segment that could hold a missing or out-of-range annotation would fail only
+                  later, inside synthesis.
+                tests:
+                  - SpeechSegment_Annotations_DefaultsToEmpty
+                  - SpeechSegment_Annotations_OutOfRange_ThrowsArgumentException
+                  - SpeechSegment_Annotations_NullElement_ThrowsArgumentException
+                  - SpeechSegment_Annotations_CallerListChangedLater_SegmentIsUnaffected
+                  - SpeechSegment_With_ShorterTextWouldOrphanAnnotation_ThrowsArgumentException
+
+              - id: Speech-Synthesis-Layer2Rendering-AnalyzerBreaksDriveChunking
+                title: >-
+                  The default Layer 2 rendering strategy shall split plain text at the sentence
+                  breaks carried by the spans, instead of at sentence-ending punctuation, including
+                  a break that falls where a tag was and a break between two consecutive tags
+                  (carried by the tag span) whether the tags are stripped, passed through or
+                  parameter-mapped.
+                justification: |
+                  Sentence breaks supplied by a text analysis are more reliable than punctuation,
+                  and a sentence can end exactly where an inline tag sits or between two tags, so
+                  the break must be honored at that position in every tag-support mode; the absence
+                  of a break must still mean no split.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_SpanBreaksSupplied_SplitsAtAnalyzerBreaksNotPunctuation
+                  - DefaultModelCapabilityProfile_Render_SentenceBreakAtTagSeam_SplitsAtSeam
+                  - DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NoneSupport_SplitsAtSeam
+                  - DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NativeSupport_SplitsBetweenTagTexts
+                  - DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_ParameterMappedSupport_TwoSegments
+                  - DefaultModelCapabilityProfile_Render_TagSpanBreakBeforeOffsetZero_SplitsBeforeTag
+                  - DefaultModelCapabilityProfile_Render_AuthoritativeEmptyBreaksAcrossTagRun_StaysOneSegment
+
+              - id: Speech-Synthesis-Layer2Rendering-UnannotatedOutputUnchanged
+                title: >-
+                  The default Layer 2 rendering strategy shall render spans that carry no
+                  annotations and no sentence breaks to exactly the segments it rendered before
+                  text analysis existed.
+                justification: |
+                  Models that supply no analysis must keep their established rendering, including
+                  segment equality, so that adding the capability changes nothing for them.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_SpansWithoutAnnotations_SegmentsEqualPreChangeShape
+
+              - id: Speech-Synthesis-Layer2Rendering-PublicDefaultProfile
+                title: >-
+                  The default Layer 2 rendering strategy shall be publicly available as a shared
+                  instance that a model package's own strategy can use.
+                justification: |
+                  A model with bespoke tag syntax can then render the tags it does not handle itself
+                  with the library's strategy instead of copying it.
+                tests:
+                  - DefaultModelCapabilityProfile_Instance_IsPublicSingletonUsableByExternalProfile
+
+              - id: Speech-Synthesis-Layer2Rendering-PublicRenderText
+                title: >-
+                  The default Layer 2 rendering strategy shall offer a public operation that chunks
+                  plain text, with optional annotations and sentence breaks, and renders the chunks
+                  as speech segments, giving a chunk that ends in an ellipsis its longer pause and
+                  rejecting missing text.
+                justification: |
+                  A model package that parses its own tags still needs the library's chunk-then-
+                  render step for the plain text between them, with annotations carried through.
+                tests:
+                  - DefaultModelCapabilityProfile_RenderText_AnnotatedText_ReturnsSegmentsWithRebasedAnnotations
+                  - DefaultModelCapabilityProfile_RenderText_EllipsisChunk_SetsEllipsisPostSilence
+                  - DefaultModelCapabilityProfile_RenderText_NullText_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-Layer2Rendering-PublicPauseConstants
+                title: >-
+                  The default Layer 2 rendering strategy shall publicly expose the short, long and
+                  ellipsis pause durations it renders.
+                justification: |
+                  A model package rendering its own pauses can then stay consistent with the
+                  library's durations instead of keeping a copy that may drift.
+                tests:
+                  - DefaultModelCapabilityProfile_PauseConstants_HaveDocumentedValues

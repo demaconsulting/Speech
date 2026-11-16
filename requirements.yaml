@@ -93,6 +93,7 @@ includes:
   - docs/reqstream/speech/synthesis-subsystem/synthesis-backend.yaml
   - docs/reqstream/speech/synthesis-subsystem/layer2-rendering.yaml
   - docs/reqstream/speech/synthesis-subsystem/sentence-chunker.yaml
+  - docs/reqstream/speech/synthesis-subsystem/text-analysis.yaml
   - docs/reqstream/speech/synthesis-subsystem/playback-audio-resampler.yaml
   - docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml

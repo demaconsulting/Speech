@@ -18,8 +18,9 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     in C# without a native-speaker-verifiable ground truth would risk silently wrong
 ///     pronunciation that is hard to catch in review. Instead, this package embeds a lexicon
 ///     precomputed by running the real <c>misaki.en.G2P</c> tool, once, offline, over every
-///     single-pronunciation, purely-alphabetic word in the public-domain CMUdict word list (see
-///     <c>docs/build_notes/</c> for the exact script and provenance) - so every phoneme string
+///     single-pronunciation, purely-alphabetic word in the CMUdict word list (BSD-style license;
+///     see <c>THIRD-PARTY-NOTICES.md</c>; see <c>docs/build_notes/</c> for the exact script and
+///     provenance) - so every phoneme string
 ///     this class ever emits was produced by the same tool Kokoro's own authors use, not by this
 ///     library's own guesswork.
 ///     <para>

@@ -548,3 +548,90 @@ sections:
                   synthesized with the unmodified speed and volume instead.
                 tests:
                   - SynthesisSession_SynthesizeAsync_NonPositiveOverrideRatio_IsIgnored
+
+              - id: Speech-Synthesis-SynthesisSession-TextAnalysisOnce
+                title: >-
+                  The SynthesisSession class shall run the model's text analysis once per speak or
+                  synthesize request, over the whole normalized text with each recognized tag
+                  replaced by one placeholder character, before the text is rendered and chunked.
+                justification: |
+                  Sentence-level context exists only across the whole request; analyzing once,
+                  ahead of rendering, provides it without repeating the analysis for every chunk.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_Analyzer_ReceivesWholeTextOnceWithTagPlaceholders
+                  - SynthesisSession_SpeakAsync_Analyzer_IsInvokedOncePerRequest
+
+              - id: Speech-Synthesis-SynthesisSession-AnnotatedDispatch
+                title: >-
+                  The SynthesisSession class shall synthesize a segment that has annotations
+                  through an annotation-accepting backend with the segment text and annotations,
+                  and any other segment through the ordinary path.
+                justification: |
+                  The annotated path exists to deliver information, so it is used exactly when a
+                  segment carries annotations, whether they came from an analysis or from a model's
+                  own rendering strategy.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText
+                  - SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate
+                  - SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer
+
+              - id: Speech-Synthesis-SynthesisSession-LegacyBackendUnchanged
+                title: >-
+                  The SynthesisSession class shall give a backend that does not accept annotations
+                  the same text it would receive if no analysis had run.
+                justification: |
+                  Backends written before annotations existed must keep working unchanged, so the
+                  analysis must not alter the plain text they synthesize.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun
+
+              - id: Speech-Synthesis-SynthesisSession-NoAnalyzerUnchanged
+                title: >-
+                  The SynthesisSession class shall behave exactly as before text analysis existed
+                  when the model supplies no analyzer or the analyzer returns nothing or an empty
+                  result.
+                justification: |
+                  Most models supply no analyzer, and an analyzer may have nothing to report; in
+                  every such case the established synthesis behavior must be preserved.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore
+                  - SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer
+                  - SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer
+
+              - id: Speech-Synthesis-SynthesisSession-AnalyzerFaultContained
+                title: >-
+                  The SynthesisSession class shall continue a request without annotations when the
+                  text analyzer throws, reporting a warning that names the failure type but contains
+                  neither the synthesized text nor the exception message.
+                justification: |
+                  Annotations are an enhancement, so a faulty analyzer must never prevent speech;
+                  the exception message could echo the user's text, which diagnostics must never
+                  carry.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_AnalyzerThrows_ContinuesUnannotatedAndReportsWarningWithoutText
+
+              - id: Speech-Synthesis-SynthesisSession-AnalyzerCancellationHonored
+                title: >-
+                  The SynthesisSession class shall end the request with the operation-canceled
+                  outcome, without synthesizing, when cancellation is requested while the text
+                  analyzer is running.
+                justification: |
+                  A caller's cancellation applies to the whole request, including its analysis, and
+                  must not be mistaken for an analyzer fault and silently ignored.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_AnalyzerCanceled_PropagatesOperationCanceled
+                  - SynthesisSession_SynthesizeAsync_CancelDuringSlowAnalysis_ThrowsCanceledAndSkipsBackend
+                  - SynthesisSession_SynthesizeAsync_AnalyzerAlreadyCanceledBeforeStart_AnalyzerNotInvoked
+
+              - id: Speech-Synthesis-SynthesisSession-AnalysisOffCallerThread
+                title: >-
+                  The SynthesisSession class shall run the model's text analysis on a thread-pool
+                  thread, not on the thread that called the speak or synthesize operation, so a slow
+                  analyzer shall not delay the return of that call.
+                justification: |
+                  A speak or synthesize call is typically made from a UI or request thread; a slow
+                  language analysis run synchronously inside the call would freeze that thread, so the
+                  analysis must run off it while still being awaited before the text is rendered.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread
+                  - SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread
