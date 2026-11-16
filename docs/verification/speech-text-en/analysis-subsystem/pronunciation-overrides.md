@@ -107,10 +107,14 @@ undefined scheme value throws `ArgumentOutOfRangeException`, and pins the numeri
 ##### Duplicates
 
 **Tests**: `PronunciationOverrides_Create_DuplicateKeys_Throws`,
-`PronunciationOverrides_Create_SensitiveAndInsensitiveSameWord_Allowed`
+`PronunciationOverrides_Create_SensitiveAndInsensitiveSameWord_Allowed`,
+`PronunciationOverrides_AliasCollisions_AreRejectedByCreateAndFromTsv`
 
 The duplicate theory requires the later entry to be rejected (`Entry 1:` and the word "duplicate") for equal
 sensitive keys, equal or case-different insensitive keys, and keys that differ only in the apostrophe style. The
+alias-collision theory requires the same rejection from `Create` and, with `Line 2:`, from `FromTsv` for plain
+versus typographic spellings and for case-different insensitive keys with mixed apostrophe styles, so no two
+lookup rows can claim the same spelling. The
 second test accepts a sensitive and an insensitive entry for `Polish`, sensitive entries that differ only in
 case, and insensitive keys that differ in a dotted capital I.
 
@@ -204,6 +208,9 @@ precomposed and the decomposed spelling of a key are different.
 `PronunciationOverrides_Resolve_CliticStem_Matches`,
 `PronunciationOverrides_Resolve_HyphenCompound_OnlyWhole`,
 `PronunciationOverrides_Resolve_ApostropheStyles_MatchBothSpellings`,
+`PronunciationOverrides_Resolve_ApostropheCaseVariants_SelectOwnEntry`,
+`PronunciationOverrides_FromTsv_ApostropheCaseVariants_SelectOwnEntry`,
+`PronunciationOverrides_Resolve_SensitiveAliasBeatsInsensitive`,
 `PronunciationOverrides_Resolve_PlaceholderSeparators_AreBoundaries`,
 `PronunciationOverrides_Resolve_AgainstNaiveReference_RandomKeysAndTexts`
 
@@ -212,7 +219,9 @@ text, a letter, a combining mark, a decimal digit or a supplementary-plane lette
 while punctuation, a space, a placeholder or a malformed neighbor does not. The stem `NASA` of `NASA's` matches,
 the pieces of the split `Don't` never do. In `Nginx-based` neither part matches but the whole compound key does.
 A key with an apostrophe matches the plain and the typographic spelling (in either case rule) but not other
-apostrophe-like characters, and a key that mixes both is invalid. Words on both sides of a tag placeholder both
+apostrophe-like characters, and a key that mixes both is invalid. Sensitive `O'Brien` and `O’BRIEN` select their own
+entries for all four spellings in either entry order, including from TSV, and a sensitive entry (or its alias)
+beats an insensitive one for the same token. Words on both sides of a tag placeholder both
 match. The random test runs 20,000 iterations of the property described under the verification approach.
 
 ##### Directives

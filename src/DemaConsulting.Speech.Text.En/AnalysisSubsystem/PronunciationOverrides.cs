@@ -34,7 +34,9 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     letters and no culture is consulted); no Unicode normalization form is applied, so write
 ///     keys in normalization form C. A case-sensitive entry beats a case-insensitive entry for the
 ///     same token. A key containing an apostrophe also matches the same word with typographic
-///     apostrophes (U+2019).
+///     apostrophes (U+2019); the two spellings are one key, so entries that differ only in the
+///     apostrophe style (and, for case-insensitive entries, in case) are duplicates, and no two
+///     entries can ever claim the same lookup spelling.
 ///     </para>
 ///     <para>
 ///     <b>Precedence.</b> An override beats every built-in normalization rule for its token; the
@@ -127,7 +129,12 @@ public sealed class PronunciationOverrides
             var rows = entry.CaseSensitive ? sensitive : insensitive;
             rows.Add(new Row(key, kind, value));
 
-            // The same word written with typographic apostrophes is the same key.
+            // The same word written with typographic apostrophes is the same key. Rows within one
+            // table never share a key: a canonical key has only plain apostrophes and an alias
+            // only typographic ones, so an alias never equals any canonical key; and two aliases
+            // are equal only when their canonical keys are equal, which the Accumulator already
+            // rejected as a duplicate. The sort below is therefore total and TryFind is
+            // deterministic. Across tables the case-sensitive one is searched first and wins.
             if (key.Contains('\''))
             {
                 rows.Add(new Row(key.Replace('\'', OverrideSyntax.TypographicApostrophe), kind, value));

@@ -26,7 +26,11 @@ entries (exposed only as a read-only view, `Entries`, in the order supplied), tw
 case-sensitive rows ordered by ordinal comparison, the case-insensitive rows by `OrdinalIgnoreCase`), and the
 shortest and longest key length. A row is a canonical key, the directive kind and the directive value. Every
 key that contains an apostrophe adds a second row with all apostrophes written as U+2019, so both spellings
-match. `Empty` is one shared instance; `Count` is the number of entries. The six public constants are the
+match. A canonical key holds only plain apostrophes and an alias only typographic ones, so within one row array
+an alias never equals a canonical key, and two aliases are equal only when their canonical keys are, which the
+duplicate rule already rejected; the arrays therefore hold unique keys, the sort is total and the binary search
+is deterministic. The case-sensitive array is searched first, so a case-sensitive entry (by its exact spelling or
+its alias) beats a case-insensitive one for the same token. `Empty` is one shared instance; `Count` is the number of entries. The six public constants are the
 limits: `MaxEntries` (10,000), `MaxWordLength` (64 UTF-16 code units), `MaxPayloadLength` (256),
 `MaxSpellOutLetters` (32), `MaxTsvLineLength` (1,024) and `MaxTsvLines` (50,000).
 

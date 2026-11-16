@@ -42,6 +42,16 @@ public sealed class PronunciationOverridesTests
         return [.. directives.Select(directive => tokens[directive.TokenIndex].In(neutralized).ToString())];
     }
 
+    /// <summary>Resolves a single-token text and returns the directive's value.</summary>
+    /// <param name="overrides">The dictionary.</param>
+    /// <param name="text">The one-word text.</param>
+    /// <returns>The value of the one directive, or null when nothing matched or the directive has no value.</returns>
+    private static string? ValueOf(PronunciationOverrides overrides, string text)
+    {
+        var (directives, _, _) = Resolve(overrides, text);
+        return directives.Length == 1 ? directives[0].Value : null;
+    }
+
     /// <summary>Reads the documented sample file.</summary>
     /// <returns>The file's text.</returns>
     private static string ReadSample() => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", SampleFileName));
@@ -1009,6 +1019,93 @@ public sealed class PronunciationOverridesTests
         Assert.Equal(2, Matched(typographicKey, "o'brien and O\u2019BRIEN").Length);
         Assert.Empty(Matched(plainKey, "O\u2018Brien O\u02BCBrien O`Brien"));
         Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("a'b\u2019c")]));
+    }
+
+    /// <summary>Proves the review example is not a collision: sensitive <c>O'Brien</c> and <c>O’BRIEN</c> are distinct keys, their typographic aliases are distinct too, and each token selects exactly its own entry whichever order the entries are supplied in.</summary>
+    /// <param name="reversed">Whether the entries are supplied in reverse order.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PronunciationOverrides_Resolve_ApostropheCaseVariants_SelectOwnEntry(bool reversed)
+    {
+        // Arrange
+        var entries = new[]
+        {
+            PronunciationOverrideEntry.Say("O'Brien", "first", true),
+            PronunciationOverrideEntry.Say("O\u2019BRIEN", "second", true),
+        };
+        var overrides = PronunciationOverrides.Create(reversed ? entries.AsEnumerable().Reverse() : entries);
+
+        // Act / Assert
+        Assert.Equal("first", ValueOf(overrides, "O'Brien"));
+        Assert.Equal("first", ValueOf(overrides, "O\u2019Brien"));
+        Assert.Equal("second", ValueOf(overrides, "O'BRIEN"));
+        Assert.Equal("second", ValueOf(overrides, "O\u2019BRIEN"));
+        Assert.Null(ValueOf(overrides, "o'brien"));
+        Assert.Null(ValueOf(overrides, "O\u2019brien"));
+    }
+
+    /// <summary>Proves a case-sensitive entry (exact or through its apostrophe alias) beats a case-insensitive entry for the same token, regardless of entry order, and that the case-insensitive entry serves every other casing.</summary>
+    /// <param name="reversed">Whether the entries are supplied in reverse order.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PronunciationOverrides_Resolve_SensitiveAliasBeatsInsensitive(bool reversed)
+    {
+        // Arrange
+        var entries = new[]
+        {
+            PronunciationOverrideEntry.Say("O'Brien", "sensitive", true),
+            PronunciationOverrideEntry.Say("o\u2019brien", "insensitive", false),
+        };
+        var overrides = PronunciationOverrides.Create(reversed ? entries.AsEnumerable().Reverse() : entries);
+
+        // Act / Assert
+        Assert.Equal("sensitive", ValueOf(overrides, "O'Brien"));
+        Assert.Equal("sensitive", ValueOf(overrides, "O\u2019Brien"));
+        Assert.Equal("insensitive", ValueOf(overrides, "O'BRIEN"));
+        Assert.Equal("insensitive", ValueOf(overrides, "O\u2019BRIEN"));
+        Assert.Equal("insensitive", ValueOf(overrides, "o'brien"));
+    }
+
+    /// <summary>Proves alias-versus-alias and alias-versus-exact collisions are rejected as duplicates by Create and FromTsv (with the line number), so no two rows ever claim the same lookup key: a typographic spelling is the same key as the plain one, and case-insensitive entries collide across casings.</summary>
+    /// <param name="first">The first word.</param>
+    /// <param name="second">The second word.</param>
+    /// <param name="caseSensitive">The case flag of both entries.</param>
+    [Theory]
+    [InlineData("O'Brien", "O\u2019Brien", true)]
+    [InlineData("O\u2019Brien", "O'Brien", true)]
+    [InlineData("O'Brien", "O\u2019Brien", false)]
+    [InlineData("O'Brien", "O\u2019BRIEN", false)]
+    [InlineData("O\u2019BRIEN", "o'brien", false)]
+    public void PronunciationOverrides_AliasCollisions_AreRejectedByCreateAndFromTsv(string first, string second, bool caseSensitive)
+    {
+        // Arrange
+        var flag = caseSensitive ? "sensitive" : "insensitive";
+        var tsv = $"{first}\t{flag}\tskip\n{second}\t{flag}\tskip\n";
+
+        // Act
+        var createException = Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create(
+            [PronunciationOverrideEntry.Skip(first, caseSensitive), PronunciationOverrideEntry.Skip(second, caseSensitive)]));
+        var tsvException = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader(tsv)));
+
+        // Assert
+        Assert.StartsWith("Entry 1:", createException.Message, StringComparison.Ordinal);
+        Assert.Contains("duplicate", createException.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Line 2:", tsvException.Message, StringComparison.Ordinal);
+        Assert.Contains("duplicate", tsvException.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves the review example also loads from TSV and selects deterministically.</summary>
+    [Fact]
+    public void PronunciationOverrides_FromTsv_ApostropheCaseVariants_SelectOwnEntry()
+    {
+        // Act
+        var overrides = PronunciationOverrides.FromTsv(new StringReader("O\u2019BRIEN\tsensitive\tsay\tsecond\nO'Brien\tsensitive\tsay\tfirst\n"));
+
+        // Assert
+        Assert.Equal("first", ValueOf(overrides, "O\u2019Brien"));
+        Assert.Equal("second", ValueOf(overrides, "O\u2019BRIEN"));
     }
 
     /// <summary>Proves a tag placeholder acts as a word boundary: overrides on both sides of it match.</summary>
