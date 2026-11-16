@@ -240,10 +240,16 @@ honors for recognized text.
 
 **Annotations are dropped, never misplaced.** An annotation is delivered only when it lies wholly
 inside one plain-text span and, after chunking, wholly inside one chunk. An annotation that covers a
-tag placeholder, crosses spans or chunks, starts or ends on trimmed whitespace, falls on a dropped
-degenerate piece, or lies outside the text is dropped rather than clipped, split, or shifted,
+tag placeholder, crosses spans or chunks, starts or ends on trimmed whitespace, has an empty value
+and falls on a dropped degenerate piece, or lies outside the text is dropped rather than clipped,
+split, or shifted,
 because a misplaced annotation would silently change how the wrong word is spoken
-(_TextAnalysis_, _SentenceChunker_).
+(_TextAnalysis_, _SentenceChunker_). A punctuation-only piece that wholly contains an annotation
+with a non-empty value (a symbol an analyzer normalized to words, such as `"&"`) is kept as its
+own chunk on the analyzed path instead of being merged or dropped; without annotations the legacy
+behavior is unchanged. A model whose backend does not accept annotations but whose model supplies an
+analyzer therefore receives such a chunk as plain text through `Generate`, where it previously got
+nothing.
 
 **The analyzer runs once, on the full normalized text, off the caller thread.** Analysis happens
 exactly once per

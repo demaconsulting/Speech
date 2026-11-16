@@ -6,9 +6,14 @@ The SpeechTextEn AnalysisSubsystem is verified through deterministic tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem` that need no network and no hardware. The
 subsystem-level tests in `AnalysisSubsystemTests.cs` exercise the units together through the public analyzer
 (the real options, annotation vocabulary, adapter and diagnostics reporter, over the real part-of-speech
-package), observing tagger creation through a counting adapter so the shared process-wide tagger is never
+package, and, because the default options select normalization, the real NormalizationSubsystem too),
+observing tagger creation through a counting adapter so the shared process-wide tagger is never
 disturbed and "loaded once" and "never loaded" can be asserted. Each unit is verified in isolation by its own
-test file (see the unit verification documents).
+test file (see the unit verification documents); the normalization pipeline of the analyzer (the order and
+merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detailed data, the selection
+flags, the cancellation inside normalization and the counts) is verified by the `EnglishTextAnalyzer` unit
+tests, and the normalization rules themselves by the NormalizationSubsystem tests (see _SpeechTextEn
+NormalizationSubsystem Verification_).
 
 ### Test Environment
 
@@ -24,9 +29,11 @@ test file (see the unit verification documents).
 
 The subsystem tests pass when: annotations read back through the typed reader at exactly the words they
 annotate; selecting no annotations yields none but still yields sentence breaks; breaks are authoritative
-and unaffected by abbreviations and tags; a placeholder is never covered and the analysis equals that of the
+and unaffected by abbreviations and tags, and an abbreviation title does not split a sentence under the default
+(normalizing) options; the normalization annotations read back at their spans, merged with the parts of speech,\nwith the sentence breaks reconciled; a placeholder is never covered and the analysis equals that of the
 same text with spaces; an unused analyzer, an untagged analysis and an empty text never load the tagger,
-while many concurrent requests load it exactly once and agree; one counts-only event is reported without any
+while many concurrent requests load it exactly once and agree; one counts-only event (sentences, tokens,
+annotations, unknown words, normalizations, ambiguous abbreviations) is reported without any
 word and a throwing sink changes nothing; and cancellation, whether it arrives during tagger initialization or
 during the last sentence, throws `OperationCanceledException` and reports nothing.
 
@@ -45,9 +52,19 @@ to `None` there are no annotations but the sentence break is still supplied.
 **Tests**: `AnalysisSubsystem_Analyze_MultiSentenceText_ReturnsAuthoritativeBreaks`,
 `AnalysisSubsystem_Analyze_PlaceholderBetweenWords_IsNeverCoveredAndContextIsCarried`
 
-A text with an abbreviation, a placeholder and several sentences yields breaks only at the first word of each
+A text with an abbreviation title (`Dr.`, which is also normalized under the default options), a placeholder
+and several sentences yields breaks only at the first word of each
 later sentence; a text with a placeholder inside "I will ... record it" gives annotations identical to the
 same text with a space, with "record" tagged as a verb because the words before the tag are still context.
+
+#### Normalization annotations
+
+**Test**: `AnalysisSubsystem_Analyze_NormalizedText_AnnotationsReadBackAndBreaksAreReconciled`
+
+A text with `St.` at a sentence end, a title and an ampersand is analyzed under the default options: the part-of-speech
+and normalization annotations are both present in text order, the normalizations read back through
+`TextEnAnnotations.TryReadNormalized` at their source spans, and the sentence breaks are reconciled (a break is added
+after `Main St.` and none falls inside `Dr. Smith`).
 
 #### Shared tagger
 
@@ -64,8 +81,8 @@ all return the same annotations.
 `AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult`
 
 A text of invented words produces one Info event in the `TextEn.Analysis` category whose message matches the
-fixed template and contains none of the words; an analyzer whose sink throws returns the same result as one
-without a sink.
+fixed template of six counts and contains none of the words; an analyzer whose sink throws returns the same
+result as one without a sink.
 
 #### Cancellation
 

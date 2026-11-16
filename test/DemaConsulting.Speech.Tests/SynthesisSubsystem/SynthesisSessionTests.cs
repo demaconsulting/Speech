@@ -1958,6 +1958,73 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves a symbol-only text that an analyzer normalized reaches the annotated backend as
+    ///     one segment with its annotation, instead of being discarded as punctuation-only.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnnotatedSymbolOnlyText_ReachesAnnotatedBackend()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var analyzer = new FakeTextAnalyzer((_, _) =>
+            new TextAnalysisResult([new SegmentAnnotation(0, 1, "en.norm", "and")], null));
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("&", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("&", call.Text);
+        Assert.Equal(new SegmentAnnotation(0, 1, "en.norm", "and"), Assert.Single(call.Annotations));
+        Assert.Empty(backend.GenerateCalls);
+    }
+
+    /// <summary>
+    ///     Proves an annotated leading symbol before clause punctuation keeps its annotation on
+    ///     the first chunk rather than being dropped as a leading degenerate run.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_AnnotatedSymbolBeforeClause_KeepsAnnotationOnFirstChunk()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        var analyzer = new FakeTextAnalyzer((_, _) =>
+            new TextAnalysisResult([new SegmentAnnotation(0, 1, "en.norm", "copyright")], null));
+        var model = new FakeSynthesisModel(textAnalyzer: analyzer);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
+
+        // Act
+        await session.SynthesizeAsync("\u00A9; Brand", TestContext.Current.CancellationToken);
+
+        // Assert
+        var call = Assert.Single(backend.AnnotatedCalls);
+        Assert.Equal("\u00A9;", call.Text);
+        Assert.Equal(new SegmentAnnotation(0, 1, "en.norm", "copyright"), Assert.Single(call.Annotations));
+        Assert.Equal(["Brand"], backend.GenerateCalls.Select(generateCall => generateCall.Text));
+    }
+
+    /// <summary>
+    ///     Pins the unchanged legacy behavior: without an analyzer a symbol-only text still
+    ///     produces no synthesis calls at all.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_SymbolOnlyTextWithoutAnalysis_StillProducesNoChunks()
+    {
+        // Arrange
+        var backend = new FakeAnnotatedSynthesisEngine();
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice());
+
+        // Act
+        await session.SynthesizeAsync("&", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(backend.GenerateCalls);
+        Assert.Empty(backend.AnnotatedCalls);
+    }
+
+    /// <summary>
     ///     Proves a segment without annotations uses the plain call even on an
     ///     annotation-capable backend, while an annotated segment uses the annotated call.
     /// </summary>

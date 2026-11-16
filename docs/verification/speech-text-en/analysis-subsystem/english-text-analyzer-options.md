@@ -15,20 +15,27 @@ collaborator is a recording diagnostics sink used as an opaque value.
 
 #### Acceptance Criteria
 
-The defaults select part-of-speech annotations with no sink; initialization sets both values and a
-with-expression copies without changing the original; an undefined flag throws
-`ArgumentOutOfRangeException` at initialization and in a with-expression; and the selection enumeration is a
-flags enumeration with `None` equal to zero and `PartOfSpeech` equal to one.
+The defaults select part-of-speech and normalization annotations with no sink; initialization sets both
+values and a with-expression copies without changing the original; every combination of the defined flags
+(none, each family alone and both) is accepted; an undefined flag throws `ArgumentOutOfRangeException` at
+initialization and in a with-expression (including the formerly undefined value 4 combined with a defined
+flag); and the selection enumeration is a flags enumeration with `None` equal to zero, `PartOfSpeech` equal
+to one and `Normalization` equal to two.
 
 #### Test Scenarios
 
 ##### Defaults
 
-**Test**: `EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNoSink`
+**Test**: `EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink`
 
 ##### Initialization and copying
 
 **Test**: `EnglishTextAnalyzerOptions_Initialization_SetsValuesAndWithExpressionCopies`
+
+##### Defined flag combinations
+
+**Test**: `EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted` (a theory over the four
+combinations of the two defined flags)
 
 ##### Undefined flag
 

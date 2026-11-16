@@ -19,13 +19,13 @@ public sealed class AnalysisDiagnosticsTests
         var diagnostics = new AnalysisDiagnostics(sink);
 
         // Act
-        diagnostics.ReportRequest(new AnalysisCounts(3, 17, 12, 2));
+        diagnostics.ReportRequest(new AnalysisCounts(3, 17, 12, 2, 4, 1));
 
         // Assert
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Equal("Analyzed one text: 3 sentences, 17 tokens, 12 annotations, 2 unknown words.", reported.Message);
+        Assert.Equal("Analyzed one text: 3 sentences, 17 tokens, 12 annotations, 2 unknown words, 4 normalizations, 1 ambiguous abbreviations.", reported.Message);
     }
 
     /// <summary>Proves the message is built from fixed words and numbers only.</summary>
@@ -33,11 +33,11 @@ public sealed class AnalysisDiagnosticsTests
     public void AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers()
     {
         // Act
-        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(0, 1234567, 8, 9));
+        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(0, 1234567, 8, 9, 10, 11));
 
-        // Assert: strip the fixed template and nothing but the four numbers remains
+        // Assert: strip the fixed template and nothing but the six numbers remains
         Assert.Matches(
-            new Regex(@"^Analyzed one text: \d+ sentences, \d+ tokens, \d+ annotations, \d+ unknown words\.$", RegexOptions.CultureInvariant),
+            new Regex(@"^Analyzed one text: \d+ sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous abbreviations\.$", RegexOptions.CultureInvariant),
             message);
     }
 
@@ -49,7 +49,7 @@ public sealed class AnalysisDiagnosticsTests
         var diagnostics = new AnalysisDiagnostics(null);
 
         // Act / Assert
-        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4)));
+        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6)));
         Assert.Null(exception);
     }
 
@@ -62,7 +62,7 @@ public sealed class AnalysisDiagnosticsTests
         var diagnostics = new AnalysisDiagnostics(sink);
 
         // Act
-        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4)));
+        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6)));
 
         // Assert: the call completed normally even though the sink threw, and the sink was reached
         Assert.Null(exception);

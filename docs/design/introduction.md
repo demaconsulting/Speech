@@ -203,12 +203,18 @@ Speech, not a subsystem of it, and the library must never depend on it:
 
 - **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` library (a preview), an English
   implementation of Speech's `ITextAnalyzer` seam that annotates the words of a speech request with
-  their Universal Dependencies part of speech and supplies authoritative sentence boundaries, built
+  their Universal Dependencies part of speech, describes with replacement-span annotations how
+  non-numeric text (abbreviations, symbols, apostrophes, acronyms and initialisms) is spoken, and
+  supplies authoritative sentence boundaries reconciled with that normalization, built
   on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
   detailed-result types, the `EnglishTextAnalyzerOptions` options, the `TextEnAnnotations`
-  vocabulary and typed reader, the internal `PartOfSpeechAdapter` seam over the tagging package, and
+  vocabulary and typed readers, the internal `PartOfSpeechAdapter` seam over the tagging package, and
   the internal `AnalysisDiagnostics` counts-only reporter
+- **NormalizationSubsystem (Subsystem of SpeechTextEn)** — The alignment model with its public
+  `NormalizationKind` and `CliticKind` enumerations (`NormalizationAlignment`), the internal
+  `TextNormalizer` orchestrator, the internal `AbbreviationResolver` with its embedded abbreviation
+  lexicon, and the internal `AcronymRecognizer` with its embedded initialism lexicon
 
 The following OTS items are also covered:
 
@@ -355,10 +361,12 @@ analyzer to them:
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
   (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
   and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
-- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in one
-  subsystem, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
-  vocabulary, the part-of-speech adapter and the counts-only diagnostics reporter). It implements
-  Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on
+- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two
+  subsystems, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
+  vocabulary, the part-of-speech adapter and the counts-only diagnostics reporter) and
+  `NormalizationSubsystem` (the alignment model, the text normalizer, the abbreviation resolver and the
+  acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
+  implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on
   the `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
@@ -531,8 +539,11 @@ file of their own, and are documented with that owning unit:
 - `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
   `SpeechModelDownloader.cs`.
 - `SentenceChunk` is declared in `SentenceChunker.cs`.
-- `AnalyzedToken` is declared in `EnglishTextAnalysis.cs`, and `TextEnAnnotationSelection` in
-  `EnglishTextAnalyzerOptions.cs`; both are documented with the unit that owns them (SpeechTextEn).
+- `AnalyzedToken` and `AnalyzedNormalization` are declared in `EnglishTextAnalysis.cs`, and
+  `TextEnAnnotationSelection` in `EnglishTextAnalyzerOptions.cs`; all are documented with the unit that
+  owns them (SpeechTextEn).
+- `NormalizationKind` and `CliticKind` (the public enumerations of the NormalizationSubsystem) are
+  declared in `NormalizationAlignment.cs` and are documented with the NormalizationAlignment unit.
 
 Several small internal helper types are likewise documented inside the unit that owns them rather
 than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
@@ -739,13 +750,22 @@ The SpeechTextEn library's folder structure likewise mirrors its software struct
 src/DemaConsulting.Speech.Text.En/
 ├── PACKAGE-LICENSE.md                                     — Package license file (packaging file, not a software item)
 ├── THIRD-PARTY-NOTICES.md                                 — Notices for the dependency's embedded data (packaging file, not a software item)
-└── AnalysisSubsystem/
-    ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech and sentence breaks
-    ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result and its token record
-    ├── EnglishTextAnalyzerOptions.cs                      — Options record and the annotation-selection flags enum
-    ├── TextEnAnnotations.cs                               — Annotation kind constants and typed reader
-    ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
-    ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
+├── Resources/
+│   ├── abbreviations.tsv                                  — Embedded abbreviation lexicon (data, reviewed with AbbreviationResolver)
+│   └── acronyms.tsv                                       — Embedded initialism lexicon (data, reviewed with AcronymRecognizer)
+├── AnalysisSubsystem/
+│   ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech, normalization and sentence breaks
+│   ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result with its token and normalization records
+│   ├── EnglishTextAnalyzerOptions.cs                      — Options record and the annotation-selection flags enum
+│   ├── TextEnAnnotations.cs                               — Annotation kind constants and typed readers
+│   ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
+│   ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
+│   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+└── NormalizationSubsystem/
+    ├── NormalizationAlignment.cs                          — Alignment model, contract-enforcing builder and the public NormalizationKind/CliticKind enums
+    ├── TextNormalizer.cs                                  — Internal rule-ordered normalization pass over the tokens
+    ├── AbbreviationResolver.cs                            — Internal abbreviation lexicon and neighbor-based reading choice
+    ├── AcronymRecognizer.cs                               — Internal case-sensitive initialism lexicon and rules
     └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ```
 

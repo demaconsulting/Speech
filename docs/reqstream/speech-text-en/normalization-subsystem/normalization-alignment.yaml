@@ -1,0 +1,143 @@
+---
+# Software Unit Requirements for NormalizationAlignment
+#
+# These requirements describe the design-level behavior of the NormalizationAlignment unit: the
+# alignment types AlignedTextBuilder and AlignedText that check, hold and apply the replacement
+# spans, the forced and suppressed sentence breaks and the clitic records of one normalization
+# pass, together with the small value types they use (NormalizationToken, NormalizedSpan,
+# CliticMark and AlignedSegment) and the public NormalizationKind and CliticKind vocabularies.
+# They decompose the parent SpeechTextEn NormalizationSubsystem requirements. Each requirement
+# states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationAlignmentTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: NormalizationAlignment Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-SpanOrdering
+                title: >-
+                  The AlignedTextBuilder class shall accept spans only in ascending order, without
+                  overlap, each non-empty and inside the text, and shall reject any other span with
+                  ArgumentException.
+                justification: |
+                  Every consumer walks the spans once in text order, so a span that is out of
+                  order, overlapping, empty or out of bounds is a defect of the producer that must
+                  fail where it is made rather than corrupt a later result.
+                tests:
+                  - AlignedTextBuilder_Add_SpanOutOfOrderOverlappingEmptyOrOutOfBounds_ThrowsArgumentException
+                  - AlignedTextBuilder_Add_AscendingDisjointSpans_AreKeptInOrder
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-SpanEdges
+                title: >-
+                  The AlignedTextBuilder class shall reject with ArgumentException a span that
+                  starts or ends on whitespace, covers a tag placeholder, cuts a UTF-16 surrogate
+                  pair, has a null spoken text or one that contains a tag placeholder, or has an
+                  empty spoken text without being a dropped span (or a non-empty one while being
+                  dropped).
+                justification: |
+                  The Speech library discards an annotation that starts or ends on trimmed
+                  whitespace or covers a placeholder, and a cut surrogate pair is invalid text, so
+                  such spans must never leave the subsystem; only a dropped span may be empty,
+                  which keeps a deletion explicit.
+                tests:
+                  - AlignedTextBuilder_Add_SpanWithWhitespaceEdge_ThrowsArgumentException
+                  - AlignedTextBuilder_Add_SpanCoveringPlaceholder_ThrowsArgumentException
+                  - AlignedTextBuilder_Add_SpanCuttingSurrogatePair_ThrowsArgumentException
+                  - AlignedTextBuilder_Add_InvalidSpokenText_ThrowsArgumentException
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-Partition
+                title: >-
+                  The AlignedText class shall present the text as a sequence of segments, each a
+                  replacement span or the unchanged text between spans, that are contiguous and
+                  cover the whole text exactly, and shall present an empty text as no segment and a
+                  text without spans as one unchanged segment.
+                justification: |
+                  A consumer that applies the normalization needs the text in order without gaps or
+                  overlaps; an exact partition is what makes the claim that nothing outside a span
+                  changes checkable.
+                tests:
+                  - AlignedText_Segments_SpansAndGaps_PartitionTheTextExactly
+                  - AlignedText_Segments_EmptyTextAndNoSpans_YieldNothingAndOneGap
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-ApplySpokenForms
+                title: >-
+                  The AlignedText class shall produce the spoken text by replacing only the spans
+                  with their spoken forms and leaving every other character of the source as it is.
+                justification: |
+                  This is the reference definition of the spoken text, which tests and tools use to
+                  compare against an independent application of the annotations.
+                tests:
+                  - AlignedText_ApplySpokenForms_ReplacesOnlySpans
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-TokenGeometry
+                title: >-
+                  The NormalizationToken value type shall describe a token by its start, length
+                  and sentence-start flag, report the offset one past its last character, and give
+                  the characters of the text it covers.
+                justification: |
+                  Every rule works on token extents, so the end offset and the covered characters
+                  must be one definition shared by all rules.
+                tests:
+                  - NormalizationToken_EndAndIn_DescribeTheTokenSpan
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-EnumVocabulary
+                title: >-
+                  The NormalizationKind and CliticKind enumerations shall keep their documented
+                  member names and numeric values.
+                justification: |
+                  The kinds are part of the public analysis result, so a renamed or renumbered
+                  member would silently change what a caller reads.
+                tests:
+                  - NormalizationKindAndCliticKind_Members_KeepNamesAndValues
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-ArgumentValidation
+                title: >-
+                  The AlignedTextBuilder constructor shall throw ArgumentNullException for a null
+                  source text, and the AlignedText break reconciliation shall throw
+                  ArgumentNullException for a null list of tokenizer breaks.
+                justification: |
+                  A programming error should surface immediately with a clear exception.
+                tests:
+                  - AlignedTextBuilder_Constructor_NullSource_ThrowsArgumentNullException
+                  - AlignedText_ReconcileBreaks_NoEditsAndNull_ReturnsInputAndRejectsNull
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-BreakReconciliation
+                title: >-
+                  The AlignedTextBuilder class shall accept forced and suppressed sentence breaks
+                  only at a token start inside the text (never on whitespace, a tag placeholder or
+                  the first character) and shall hold them sorted and duplicate-free in any
+                  request order, and the AlignedText class shall combine them with the tokenizer's
+                  breaks by adding the forced ones and removing the suppressed ones, returning the
+                  tokenizer's breaks unchanged when there is no edit.
+                justification: |
+                  The normalization knows how an abbreviation is read and so where a sentence ends
+                  after it; expressing that as edits to the tokenizer's breaks keeps the tokenizer
+                  authoritative everywhere else, and the result must be a valid break list for the
+                  Speech library.
+                tests:
+                  - AlignedTextBuilder_ForceBreakAndSuppressBreak_InvalidOffset_ThrowsArgumentOutOfRangeException
+                  - AlignedTextBuilder_ForceBreak_OnPlaceholder_ThrowsArgumentOutOfRangeException
+                  - AlignedTextBuilder_Build_BreakRequestsInAnyOrder_AreSortedAndDistinct
+                  - AlignedText_ReconcileBreaks_TokenizerForcedAndSuppressed_AreCombined
+                  - AlignedText_ReconcileBreaks_NoEditsAndNull_ReturnsInputAndRejectsNull
+
+              - id: SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
+                title: >-
+                  The AlignedTextBuilder class shall record clitic classifications and the count of
+                  ambiguous abbreviation resolutions, shall reject a classification that is
+                  out of bounds, out of order, empty or of kind None, and shall report both in the
+                  aligned text it builds, and shall report whether the previous replacement ends
+                  exactly where a following one starts with its spoken text ending in a letter.
+                justification: |
+                  The clitic roles and the ambiguity count are results of the same pass as the
+                  spans and have to travel with them; validating the classifications keeps the
+                  detailed analysis result well formed. The adjacency report lets the normalizer
+                  separate two replacements that touch with exactly one space.
+                tests:
+                  - AlignedTextBuilder_MarkCliticAndCountAmbiguous_ValidateAndAccumulate
+                  - AlignedTextBuilder_TouchesPreviousSpokenLetter_ReportsAdjacencyOnlyAfterLetterEndedSpan

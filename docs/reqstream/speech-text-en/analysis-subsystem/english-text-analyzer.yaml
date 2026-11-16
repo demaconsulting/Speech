@@ -20,16 +20,21 @@ sections:
                   The EnglishTextAnalyzer class shall annotate each word token of a text with one
                   part-of-speech annotation whose span is exactly that word in the analyzed text,
                   in text order, using the tag the tagger chooses in the context of the sentence,
-                  and shall give punctuation and symbol tokens no annotation.
+                  and shall give punctuation and symbol tokens, and any token without a letter
+                  or digit, no annotation.
                 justification: |
                   A backend selects a pronunciation from the word's part of speech, so the
                   annotation must sit on exactly the word and reflect its sentence context;
-                  tagging punctuation would add volume without information.
+                  tagging punctuation would add volume without information, and a part of speech
+                  on a bare symbol or invisible character would make a clause that speaks nothing
+                  look like content to the Speech library's chunker.
                 tests:
                   - EnglishTextAnalyzer_Analyze_SimpleSentence_AnnotatesEachWordOnItsSourceSpan
                   - EnglishTextAnalyzer_Analyze_UnambiguousSentence_ProducesExpectedUniversalTags
                   - EnglishTextAnalyzer_Analyze_SameSpellingInDifferentContext_UsesContextForTag
                   - EnglishTextAnalyzer_Analyze_PunctuationAndSymbols_CarryNoAnnotation
+                  - EnglishTextAnalyzer_Analyze_TokenWithoutLetterOrDigit_CarriesNoPartOfSpeech
+                  - EnglishTextAnalyzer_Analyze_NumeralToken_KeepsItsPartOfSpeech
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-WellFormedAnnotations
                 title: >-
@@ -60,8 +65,8 @@ sections:
                 title: >-
                   The EnglishTextAnalyzer class shall return a non-null list of sentence breaks
                   holding the offset of the first token of every sentence after the first, shall
-                  not break a sentence at an abbreviation period, and shall return an empty list
-                  for a text with at most one sentence.
+                  not break a sentence at an abbreviation period that does not end it, and shall
+                  return an empty list for a text with at most one sentence.
                 justification: |
                   The Speech library treats a non-null list as authoritative, so even a text with
                   one sentence must return an empty list rather than null; a break at an
@@ -86,6 +91,7 @@ sections:
                   - EnglishTextAnalyzer_Analyze_PlaceholderBetweenWords_EqualsAnalysisWithSpaceInItsPlace
                   - EnglishTextAnalyzer_Analyze_PlaceholderTouchingWords_SeparatesTheWords
                   - EnglishTextAnalyzer_Analyze_PlaceholderAtSentenceBoundary_BreaksBeforeNextWord
+                  - EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-EmptyText
                 title: >-
@@ -104,7 +110,8 @@ sections:
                   neither return a result nor report diagnostics, when the cancellation token is
                   already canceled (before doing any work) and when it is canceled at any later
                   point: during tagger initialization, while a sentence (including the only or the
-                  last one) is being tagged, or while the result is being built.
+                  last one) is being tagged, while the text is being normalized, or while the
+                  result is being built.
                 justification: |
                   The Speech library passes the operation's token to the analyzer and a stop or
                   dispose waits for the analyzer to return, so a long text must stop promptly; and
@@ -115,6 +122,7 @@ sections:
                   - EnglishTextAnalyzer_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException
                   - EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing
+                  - EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_NotCanceled_ReportsOneDiagnosticsEvent
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ArgumentValidation
@@ -158,3 +166,54 @@ sections:
                 tests:
                   - EnglishTextAnalyzer_AnalyzeDetailed_Sentence_ListsTokensWithTagConfidenceAndKnownWordFlag
                   - EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_ReturnsSameAnnotationsAndBreaks
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-NormalizationAnnotations
+                title: >-
+                  The EnglishTextAnalyzer class shall, when its options select normalization,
+                  annotate each normalization on its span with an annotation of the normalization
+                  kind whose value is the spoken form (an empty value for a dropped character),
+                  shall merge these with the part-of-speech annotations in text order with the part
+                  of speech first at an equal start, shall run the normalization without loading
+                  the tagger, shall never change the analyzed text, and shall build no detail lists
+                  in the language-neutral analysis.
+                justification: |
+                  Backends read the spoken form from the annotation on the span, in the order the
+                  Speech library delivers them, and a host that selects only normalization must
+                  not pay for the tagger; the language-neutral path is the hot path, so the detail
+                  that only the richer result needs is not built for it.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
+                  - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
+                  - EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt
+                  - EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
+                title: >-
+                  The EnglishTextAnalyzer class shall return as sentence breaks the tokenizer's
+                  breaks reconciled with the abbreviation readings when normalization is selected,
+                  so that a sentence ends after an abbreviation read as its last word and not
+                  after a title, and shall return the tokenizer's breaks unchanged when it is
+                  not selected.
+                justification: |
+                  The abbreviation reading decides whether a period ends a sentence, so the
+                  reported breaks must follow it; a host that does not select normalization gets
+                  exactly the tokenizer's opinion.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_AbbreviationPeriod_DoesNotBreakSentence
+                  - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedNormalization
+                title: >-
+                  The EnglishTextAnalyzer class shall list in the detailed analysis every
+                  normalization with its source text, spoken text and kind, and the role of each
+                  clitic token, shall list none and classify no clitic when normalization is not
+                  selected, and shall return the same annotations and breaks as the
+                  language-neutral analysis.
+                justification: |
+                  The kind of a normalization and the role of a clitic have no place in the
+                  language-neutral annotations, but a model package needs them, and it must be able
+                  to rely on the two results agreeing.
+                tests:
+                  - EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles
+                  - EnglishTextAnalyzer_AnalyzeDetailed_NormalizationNotSelected_HasNoNormalizationsAndNoCliticRoles
+                  - EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks

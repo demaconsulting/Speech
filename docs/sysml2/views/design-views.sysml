@@ -202,4 +202,8 @@ package SpeechTextEn {
     view TextEnAnalysisSubsystemView {
         expose AnalysisSubsystem;
     }
+
+    view TextEnNormalizationSubsystemView {
+        expose NormalizationSubsystem;
+    }
 }

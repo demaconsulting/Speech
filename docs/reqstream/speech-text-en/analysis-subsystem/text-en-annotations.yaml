@@ -41,9 +41,22 @@ sections:
 
               - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadArgumentValidation
                 title: >-
-                  The TextEnAnnotations class's part-of-speech reader shall throw
-                  ArgumentNullException for a null annotation.
+                  The TextEnAnnotations class's readers shall throw ArgumentNullException for a
+                  null annotation.
                 justification: |
                   A programming error should surface immediately with a clear exception.
                 tests:
                   - TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException
+                  - TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
+                title: >-
+                  The TextEnAnnotations class shall read the spoken text out of an annotation of
+                  the normalization kind, including the empty text of a dropped character, and
+                  shall report false, without throwing, for an annotation of another kind.
+                justification: |
+                  A backend calls the reader on every annotation of a segment, most of which may
+                  be of other kinds, and must not parse kind and value strings itself.
+                tests:
+                  - TextEnAnnotations_TryReadNormalized_NormalizationAnnotation_ReturnsSpokenText
+                  - TextEnAnnotations_TryReadNormalized_OtherKind_ReturnsFalse

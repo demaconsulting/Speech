@@ -1,5 +1,6 @@
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
+using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 using DemaConsulting.Speech.Text.En.Tests.Fakes;
 
 namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
@@ -85,6 +86,46 @@ public sealed class EnglishTextAnalyzerTests
             annotation => Assert.DoesNotContain(
                 text.Substring(annotation.Start, annotation.Length),
                 new[] { ",", "$", "(", ")", "!" }));
+    }
+
+    /// <summary>Proves a token without a letter or digit carries no part of speech even when the tagger gives it one.</summary>
+    [Theory]
+    [InlineData("\u200B", TextEnAnnotationSelection.PartOfSpeech)]
+    [InlineData("\u200B", TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization)]
+    [InlineData("*", TextEnAnnotationSelection.PartOfSpeech)]
+    [InlineData("~", TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization)]
+    [InlineData("\u2192", TextEnAnnotationSelection.PartOfSpeech)]
+    [InlineData("\u2020", TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization)]
+    public void EnglishTextAnalyzer_Analyze_TokenWithoutLetterOrDigit_CarriesNoPartOfSpeech(string symbol, TextEnAnnotationSelection selection)
+    {
+        // Arrange: the tagger tags such a token between two commas as an interjection or a noun
+        var text = $"Hello, {symbol}, there";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = selection });
+
+        // Act
+        var detailed = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the words keep their tags, the symbol has none, and both entry points agree
+        var tagged = result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech)
+            .Select(annotation => text.Substring(annotation.Start, annotation.Length));
+        Assert.Equal(["Hello", "there"], tagged);
+        Assert.Equal(detailed.Annotations, result.Annotations);
+    }
+
+    /// <summary>Proves a numeral keeps its part of speech: it is content, unlike a bare symbol.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_NumeralToken_KeepsItsPartOfSpeech()
+    {
+        // Arrange
+        const string text = "Hello, 5, there";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.PartOfSpeech });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Contains(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && text.Substring(annotation.Start, annotation.Length) == "5");
     }
 
     /// <summary>Proves a text with several sentences gets authoritative breaks at the start of each later sentence.</summary>
@@ -272,7 +313,16 @@ public sealed class EnglishTextAnalyzerTests
                 Assert.DoesNotContain(Tag, text.Substring(annotation.Start, annotation.Length), StringComparison.Ordinal);
                 Assert.False(annotation.Start > 0 && char.IsLowSurrogate(text[annotation.Start]) && char.IsHighSurrogate(text[annotation.Start - 1]), $"splits a pair at the start in iteration {iteration}");
                 Assert.False(annotation.End < text.Length && char.IsHighSurrogate(text[annotation.End - 1]) && char.IsLowSurrogate(text[annotation.End]), $"splits a pair at the end in iteration {iteration}");
-                Assert.True(TextEnAnnotations.TryReadPartOfSpeech(annotation, out var tag) && tag is not ("PUNCT" or "SYM"));
+
+                // part-of-speech annotations carry a readable tag; normalization annotations are readable too
+                if (annotation.Kind == TextEnAnnotations.PartOfSpeech)
+                {
+                    Assert.True(TextEnAnnotations.TryReadPartOfSpeech(annotation, out var tag) && tag is not ("PUNCT" or "SYM"));
+                }
+                else
+                {
+                    Assert.True(TextEnAnnotations.TryReadNormalized(annotation, out _), $"unknown kind in iteration {iteration}");
+                }
             }
 
             // Assert: breaks are non-null, strictly ascending, inside the text and sit on a word start
@@ -432,10 +482,14 @@ public sealed class EnglishTextAnalyzerTests
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
         var detailed = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
 
-        // Assert: same annotations and breaks, and the detailed path lists at least a token per annotation
+        // Assert: same annotations and breaks, one part-of-speech annotation at most per token, and the
+        // detailed normalizations are exactly the en.norm annotations
         Assert.Equal(detailed.Annotations, result.Annotations);
         Assert.Equal(detailed.SentenceBreaks, result.SentenceBreaks);
-        Assert.True(detailed.Tokens.Count >= detailed.Annotations.Count);
+        Assert.True(detailed.Tokens.Count >= detailed.Annotations.Count(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech));
+        Assert.Equal(
+            detailed.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized).Select(annotation => (annotation.Start, annotation.Length, annotation.Value)),
+            detailed.Normalizations.Select(normalization => (normalization.Start, normalization.Length, normalization.SpokenText)));
     }
 
     /// <summary>Proves selecting no annotations yields no annotations and no tagger load, but still supplies sentence breaks and untagged tokens.</summary>
@@ -525,6 +579,186 @@ public sealed class EnglishTextAnalyzerTests
         var neutral = analyzer.Analyze(text, CancellationToken.None);
         var detailed = analyzer.AnalyzeDetailed(text, CancellationToken.None);
         return [new WeakReference(text), new WeakReference(neutral), new WeakReference(detailed)];
+    }
+
+    /// <summary>Proves a normalization annotation follows the part of speech of the token it starts in, so annotations stay in text order.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization()
+    {
+        // Arrange
+        const string text = "Dr. Smith lives here.";
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: both annotations of "Dr." start at 0, the part of speech first; starts never decrease
+        Assert.Equal([TextEnAnnotations.PartOfSpeech, TextEnAnnotations.Normalized], result.Annotations.Take(2).Select(annotation => annotation.Kind));
+        Assert.Equal("Doctor", result.Annotations[1].Value);
+        Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
+    }
+
+    /// <summary>Proves normalization needs no tagger: selecting only it loads nothing, produces only en.norm and tokens carry no part of speech.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations()
+    {
+        // Arrange
+        const string text = "Dr. Smith & Mr. Jones live on Main St. It is nice.";
+        var source = new CountingTaggerSource();
+        var options = new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization };
+        var analyzer = new EnglishTextAnalyzer(options, source.CreateAdapter());
+
+        // Act
+        var analysis = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, source.Count);
+        Assert.Equal(4, analysis.Annotations.Count);
+        Assert.All(analysis.Annotations, annotation => Assert.Equal(TextEnAnnotations.Normalized, annotation.Kind));
+        Assert.All(analysis.Tokens, token => Assert.Null(token.PartOfSpeech));
+    }
+
+    /// <summary>Proves selecting only part of speech (or nothing) leaves the tokenizer's breaks unreconciled and emits no normalization.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization()
+    {
+        // Arrange: the tokenizer alone does not end the sentence after "Main St."
+        const string text = "I live on Main St. It is nice.";
+        var partOfSpeechOnly = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.PartOfSpeech });
+        var none = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None });
+        var normalizing = new EnglishTextAnalyzer();
+
+        // Act
+        var tagged = partOfSpeechOnly.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+        var untouched = none.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+        var reconciled = normalizing.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(tagged.SentenceBreaks);
+        Assert.Empty(untouched.SentenceBreaks);
+        Assert.Empty(tagged.Normalizations);
+        Assert.DoesNotContain(tagged.Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
+        Assert.Equal([text.IndexOf("It is", StringComparison.Ordinal)], reconciled.SentenceBreaks);
+    }
+
+    /// <summary>Proves the detailed analysis lists each normalization with its source text, spoken text and kind, and each clitic token with its role.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles()
+    {
+        // Arrange
+        const string text = "Dr. Smith & Jones can\u2019t go. John's book is here.";
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var analysis = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            [("Dr.", "Doctor", NormalizationKind.Abbreviation), ("&", "and", NormalizationKind.Symbol), ("\u2019", "'", NormalizationKind.Apostrophe)],
+            analysis.Normalizations.Select(normalization => (normalization.Text, normalization.SpokenText, normalization.Kind)));
+        Assert.All(analysis.Normalizations, normalization => Assert.Equal(normalization.Text, text.Substring(normalization.Start, normalization.Length)));
+        Assert.Equal(
+            [("n\u2019t", CliticKind.Not), ("'s", CliticKind.Possessive)],
+            analysis.Tokens.Where(token => token.Clitic != CliticKind.None).Select(token => (token.Text, token.Clitic)));
+    }
+
+    /// <summary>Proves clitic roles and normalizations are left empty when normalization is not selected.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_AnalyzeDetailed_NormalizationNotSelected_HasNoNormalizationsAndNoCliticRoles()
+    {
+        // Arrange
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.PartOfSpeech });
+
+        // Act
+        var analysis = analyzer.AnalyzeDetailed("Dr. Smith said it's fine.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(analysis.Normalizations);
+        Assert.All(analysis.Tokens, token => Assert.Equal(CliticKind.None, token.Clitic));
+    }
+
+    /// <summary>Proves a tag placeholder between an abbreviation and its name is never covered, and context crosses the tag.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt()
+    {
+        // Arrange
+        var text = $"Dr. {Tag} Smith waved.";
+        var analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        var normalization = Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
+        Assert.Equal("Dr.", text.Substring(normalization.Start, normalization.Length));
+        Assert.Equal("Doctor", normalization.Value);
+        Assert.DoesNotContain(result.Annotations, annotation => annotation.Start <= 4 && 4 < annotation.End);
+    }
+
+    /// <summary>Proves the diagnostics event counts normalizations and ambiguous abbreviations and contains no word.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_NormalizedText_ReportsNormalizationAndAmbiguityCounts()
+    {
+        // Arrange: three normalizations, one of them an inconclusive "They St."
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
+
+        // Act
+        _ = analyzer.Analyze("Dr. Smith & Jones said They St. said so.", TestContext.Current.CancellationToken);
+
+        // Assert
+        var reported = Assert.Single(sink.Events);
+        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, 3 normalizations, 1 ambiguous abbreviations\.$", reported.Message);
+    }
+
+    /// <summary>Proves cancellation requested inside normalization (a long text, canceled mid-pass) stops the request without a result or a report.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing()
+    {
+        // Arrange: more than 600 tokens, and an observer that cancels while token 300 is visited
+        var text = string.Concat(Enumerable.Repeat("a ", 1000));
+        using var cancellation = new CancellationTokenSource();
+        var sink = new RecordingDiagnostics();
+        var normalizer = new TextNormalizer(
+            AbbreviationResolver.Default,
+            AcronymRecognizer.Default,
+            index =>
+            {
+                if (index == 300)
+                {
+                    cancellation.Cancel();
+                }
+            });
+        var analyzer = new EnglishTextAnalyzer(
+            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Diagnostics = sink },
+            new CountingTaggerSource().CreateAdapter(),
+            normalizer);
+
+        // Act / Assert
+        Assert.Throws<OperationCanceledException>(() => analyzer.Analyze(text, cancellation.Token));
+        Assert.Empty(sink.Events);
+    }
+
+    /// <summary>Proves the language-neutral path builds no per-token objects: it allocates clearly less than the detailed path over the same large text.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess()
+    {
+        // Arrange: normalization only, so the tagger does not blur the numbers; warm everything up first
+        var text = string.Concat(Enumerable.Repeat("Dr. Smith lives on Main St. and says it's fine. ", 4000));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        _ = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+
+        // Act
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        var neutralBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        before = GC.GetAllocatedBytesForCurrentThread();
+        _ = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+        var detailedBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // Assert: the detailed path adds a record and a text copy per token, so it needs substantially more
+        Assert.True(neutralBytes < detailedBytes * 0.9, $"neutral {neutralBytes} bytes, detailed {detailedBytes} bytes");
     }
 
     /// <summary>Builds a comparable key of a result's annotations and breaks.</summary>

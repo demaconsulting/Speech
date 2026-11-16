@@ -38,7 +38,8 @@ unit indices.
   whose trimmed text contains no letter or digit at all (just punctuation and/or whitespace, e.g.
   a lone comma or a whitespace-spaced ellipsis like `". . ."`) is then merged onto the end of the
   immediately preceding non-empty chunk (joined by a single space), or dropped if there is no
-  preceding chunk. `ChunkWithMetadata` additionally flags a chunk whose final text ends in three
+  preceding chunk - except, for text that carries annotations, a piece that wholly contains an
+  annotation with a non-empty value, which is kept as its own chunk. `ChunkWithMetadata` additionally flags a chunk whose final text ends in three
   or more consecutive `.` characters (with or without interspersed whitespace) as
   `EndsWithEllipsis`. These numeral exceptions assume English/US-style numeral punctuation (`,`
   as thousands separator, `.` as decimal point); locales that swap the two roles (e.g.
@@ -74,17 +75,32 @@ unit indices.
      `maxLength`. The piece text is the words joined by a single space, with one run per word whose
      `TextStart` is that word's running position in the joined text. Whitespace runs inside such a
      piece therefore collapse, and the runs record exactly where each surviving word came from.
-  5. **Degenerate merge** (rule unchanged): a piece with no letter or digit is appended to the
+  5. **Degenerate merge**: a piece with no letter or digit is appended to the
      previous piece as `previous + " " + piece`, with its runs appended after the previous runs,
      each shifted by `previous.Text.Length + 1`. With no previous piece it is dropped, and its runs
-     vanish with it. "Has a letter or digit" is **scalar-aware only on the analyzed path**: when
+     vanish with it. **Annotated pieces are content (analyzed path only).** Before the merge, a
+     private helper (`FindAnnotatedPieces`) flattens the pre-merge pieces' runs exactly as step 7
+     does and flags each piece that *wholly* contains at least one annotation whose `Value` is
+     non-empty (the same first-run/last-run-in-one-piece test as step 7). A flagged piece is kept
+     as its own piece even though it has no letter or digit, so a symbol that an analyzer
+     normalized to words (`"&"` to `"and"`, `"©; Brand"` to `"copyright"`) is neither merged into
+     the previous chunk nor dropped as a leading degenerate run; a *following* unflagged degenerate
+     piece still merges onto it (`"&, ,"` stays one chunk). An annotation with an **empty** `Value`
+     speaks nothing (an invisible character the analyzer drops) and an annotation that **crosses**
+     a piece boundary is going to be dropped by step 7, so neither flags a piece: such a piece is
+     merged or dropped exactly as before. The core stays language-neutral - it never interprets
+     `Kind` or `Value` content, only whether `Value` is empty. No flag exists unless annotations
+     are supplied, so `Chunk`, `ChunkWithMetadata` and `ChunkAligned` without annotations never run
+     the helper and are unaffected. "Has a letter or digit" is **scalar-aware only on the analyzed path**: when
      `sentenceBreaks` is not `null` or `annotations` is non-empty the test enumerates Unicode
      scalars (`Rune.IsLetterOrDigit`), so a chunk whose only letters are supplementary-plane
      characters (a surrogate pair, such as U+20000) keeps its text and annotation instead of being
      merged or dropped; a lone surrogate enumerates as U+FFFD, which is not a letter, as before.
      With neither (the no-analyzer path: `Chunk`, `ChunkWithMetadata` and a profile that supplies
      no analysis), the legacy per-UTF-16-code-unit `char.IsLetterOrDigit` test runs unchanged, so
-     existing output is byte-for-byte identical. Offsets stay UTF-16 throughout.
+     existing output is byte-for-byte identical. Offsets stay UTF-16 throughout. The run flattening
+     and the first/last-run lookup are shared private helpers (`FlattenRuns`, `TryLocate`) used by
+     both the flagging and step 7, so the two always agree on what "wholly inside one piece" means.
   6. Each surviving piece becomes `SentenceChunk(piece.Text, EndsWithEllipsis(piece.Text))` with
      its re-based annotations.
   7. **Annotation re-basing**: for each annotation `a` (skipped when `a.Start < 0` or `a.End >
@@ -118,8 +134,9 @@ unit indices.
 null `text` with `ArgumentNullException`, since neither describes a meaningful chunking request.
 Empty and whitespace-only text return no chunks rather than throwing. `ChunkAligned` never throws
 for annotation or break content: an annotation outside `[0, text.Length]` or one that cannot be
-represented in a single chunk is dropped, and an out-of-range break is ignored, because both come
-from a best-effort analysis that must not fault synthesis.
+represented in a single chunk (it crosses a chunk boundary, or has an empty `Value` and lies on a
+discarded punctuation-only piece) is dropped, and an out-of-range break is ignored, because both
+come from a best-effort analysis that must not fault synthesis.
 
 **Dependencies**: `SegmentAnnotation` from this subsystem's TextAnalysis unit, and the Base Class
 Library.

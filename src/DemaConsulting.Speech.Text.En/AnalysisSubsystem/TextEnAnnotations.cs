@@ -11,16 +11,29 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     The core library carries <see cref="SegmentAnnotation"/>s opaquely, so the vocabulary has
 ///     to live with the package that produces it. All six kinds the package family defines are
 ///     declared here so a backend can reference stable names from the first release, but only
-///     <see cref="PartOfSpeech"/> is produced by this release; the others are reserved for later
-///     releases and are never emitted today. A backend must ignore any kind it does not
-///     recognize. The type is static and therefore thread-safe.
+///     <see cref="PartOfSpeech"/> and <see cref="Normalized"/> are produced by this release; the
+///     others are reserved for later releases and are never emitted today. A backend must ignore
+///     any kind it does not recognize. The type is static and therefore thread-safe.
 /// </remarks>
 public static class TextEnAnnotations
 {
     /// <summary>
-    ///     Reserved, not yet emitted: the <c>Value</c> is the spoken replacement text for the
-    ///     annotated source span (a normalization, for example a number spoken as words).
+    ///     The <c>Value</c> is the exact spoken replacement for the annotated source span (for
+    ///     example <c>Doctor</c> for <c>Dr.</c>); an empty <c>Value</c> means the span is spoken
+    ///     as nothing. Emitted by this release; see <see cref="TryReadNormalized"/>.
     /// </summary>
+    /// <remarks>
+    ///     The analyzed text is never rewritten: a span is changed only where an annotation says
+    ///     so, and unchanged text is never annotated. The <c>en.norm</c> annotations of one text
+    ///     never overlap each other.
+    ///     To obtain the spoken text of a segment, sort its <c>en.norm</c> annotations by
+    ///     <c>Start</c>, then emit the text between them unchanged and each annotation's
+    ///     <c>Value</c> in place of its span. A <c>Value</c> already carries any single space it
+    ///     needs next to a touching word, so nothing is inserted between the pieces. Annotations
+    ///     of other kinds (such as <see cref="PartOfSpeech"/>) may overlap an <c>en.norm</c>
+    ///     span and are independent of it. A span contains no whitespace, comma, semicolon or
+    ///     colon, so it survives the core library's chunking.
+    /// </remarks>
     public const string Normalized = "en.norm";
 
     /// <summary>
@@ -102,6 +115,39 @@ public static class TextEnAnnotations
         }
 
         partOfSpeech = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    ///     Reads the spoken replacement out of a <see cref="Normalized"/> annotation.
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="spokenText">
+    ///     When this method returns <see langword="true"/>, the exact replacement for the
+    ///     annotated span, possibly empty (the span is spoken as nothing); otherwise an empty
+    ///     string.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="annotation"/> has kind
+    ///     <see cref="Normalized"/> (any value, including an empty one); otherwise
+    ///     <see langword="false"/> (an annotation of another kind is simply not a normalization,
+    ///     which is not an error).
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>Stateless and thread-safe.</remarks>
+    public static bool TryReadNormalized(SegmentAnnotation annotation, out string spokenText)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        // An empty value is meaningful here (speak nothing), so unlike the part-of-speech reader
+        // there is no value check: the kind alone decides.
+        if (string.Equals(annotation.Kind, Normalized, StringComparison.Ordinal))
+        {
+            spokenText = annotation.Value;
+            return true;
+        }
+
+        spokenText = string.Empty;
         return false;
     }
 }

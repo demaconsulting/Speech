@@ -24,7 +24,7 @@ and synthesize speech.
 - 🧩 Mockable, cross-platform audio interfaces
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
-- 🔤 English part-of-speech text analysis for synthesis models (preview)
+- 🔤 English part-of-speech and text normalization analysis for synthesis models (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
@@ -64,8 +64,9 @@ usage guide. The preview `DemaConsulting.Speech.Text.En` package (pre-release, d
 `DemaConsulting.PartOfSpeech` tagger; **not yet published to NuGet**, because that tagger currently retains
 analyzed text, which violates the core `ITextAnalyzer` contract - see
 [PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an analyzer for English:
-`new EnglishTextAnalyzer()` annotates each word with its part of speech and supplies sentence
-boundaries.
+`new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how abbreviations, symbols,
+apostrophes and initialisms are spoken as aligned replacement spans over the original text (`en.norm` annotations;
+the text is never rewritten; numbers, dates and units come later), and supplies sentence boundaries.
 
 ### PortAudio runtime support
 
@@ -514,7 +515,8 @@ The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU
 its `THIRD-PARTY-NOTICES.md` file at the package root.
 
 The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its `PACKAGE-LICENSE.md`
-declares MIT only) and embeds no third-party data. It depends on the separate `DemaConsulting.PartOfSpeech`
+declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote
+from scratch under the MIT License; it embeds no third-party data. It depends on the separate `DemaConsulting.PartOfSpeech`
 package, which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0,
 derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
 `THIRD-PARTY-NOTICES.md` file, a dependency notice, reproduces that attribution for your convenience.

@@ -1,0 +1,172 @@
+---
+# Software Unit Requirements for TextNormalizer
+#
+# These requirements describe the design-level behavior of the TextNormalizer unit, the stateless
+# rule pass that turns the tokens of a text into an aligned description of how parts of it are
+# spoken, decomposing the parent SpeechTextEn NormalizationSubsystem requirements. The tests feed
+# it the tokens of the real DemaConsulting.PartOfSpeech tokenizer through a test harness, which is
+# the unit's only dependency on the OTS package and exists in the tests only. Each requirement
+# states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/TextNormalizerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: TextNormalizer Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-TextNormalizer-Spans
+                title: >-
+                  The TextNormalizer class shall visit every token of the text once, in order,
+                  shall describe each replacement as a span on the exact characters of one token or
+                  of one token with its adjacent period token, shall keep the period of an
+                  abbreviation outside the span at the end of a sentence and inside the span in the
+                  middle of one, and shall produce nothing for an empty text or an empty token
+                  list.
+                justification: |
+                  Spans limited to token extents are the rule that keeps each one free of
+                  whitespace and clause separators and so safe from chunking; visiting each token
+                  once is what makes the pass linear and observable.
+                tests:
+                  - TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder
+                  - TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence
+                  - TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
+                title: >-
+                  The TextNormalizer class shall consume the period of an abbreviation read as a
+                  prefix (a title, Saint, Doctor, Number or an initial) and remove the tokenizer's
+                  sentence break after it; for an abbreviation read as a suffix or as the word No
+                  it shall add a sentence break before a capitalized next word, keep the period
+                  where the abbreviation ends its sentence and add no break before a lower-case or
+                  digit word; and it shall handle a dotted initialism whose period is a separate
+                  token like any other abbreviation while leaving a dotted form with no period
+                  token alone; it shall also treat a name suffix or credential (Jr., Sr., Esq.,
+                  Ph.D., M.D., III and similar) that is directly followed by another one as part
+                  of the same name, consuming its period and removing the tokenizer's break after
+                  it, while still ending the sentence before a word that begins a sentence.
+                justification: |
+                  Whether an abbreviation period ends the sentence depends on how the abbreviation
+                  is read: after a title it never does, and after a street suffix it does when a
+                  capitalized sentence follows. A credential after a name suffix ("John Smith Jr.
+                  Ph.D. spoke.") continues the name, so splitting there would separate the name
+                  from its credentials. The rule set is closed and local, using only the next
+                  token, so its effect on the breaks is predictable.
+                children:
+                  - Speech-OTS-PartOfSpeech-TokenizationConventions
+                tests:
+                  - TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence
+                  - TextNormalizer_Normalize_PrefixTitle_ConsumesPeriodAndSuppressesTokenizerBreak
+                  - TextNormalizer_Normalize_SuffixBeforeNextWord_ForcesBreakOnlyBeforeCapitalizedWord
+                  - TextNormalizer_Normalize_WordReading_ForcesBreakWithoutSpan
+                  - TextNormalizer_Normalize_DottedInitialismWithSeparatePeriod_IsHandled
+                  - TextNormalizer_Normalize_DottedFormWithoutPeriodToken_IsIdentity
+                  - TextNormalizer_Normalize_NameSuffixBeforeCredential_ConsumesPeriodAndKeepsNameTogether
+                  - TextNormalizer_Normalize_NameSuffixBeforeSentenceStarter_StillForcesBreak
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
+                title: >-
+                  The TextNormalizer class shall count an abbreviation resolution as ambiguous once
+                  when the default reading was used or the cues for the two readings competed, and
+                  shall not count a clear reading.
+                justification: |
+                  The count is the evidence of how often the normalization had to guess, so it must
+                  count each guess once and nothing else.
+                tests:
+                  - TextNormalizer_Normalize_AmbiguousResolutions_AreCountedOnce
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-SymbolsAndMarks
+                title: >-
+                  The TextNormalizer class shall speak an operator symbol only when whitespace or
+                  the text edge sets it apart on both sides, shall speak the copyright, registered,
+                  trademark, section and paragraph marks alone or touching a word with a separating
+                  space where a letter or digit touches, separating two adjacent marks that both
+                  produce words by exactly one space, and shall speak a slash only between two
+                  plain words, leaving every other use of these characters unchanged.
+                justification: |
+                  The same characters mean something else in markup, paths, fractions and units,
+                  where rewording them would damage the text, so only the clear word-like uses are
+                  spoken. Adjacent marks (a trademark sign directly followed by a registered sign)
+                  would otherwise run together into one unreadable word.
+                tests:
+                  - TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart
+                  - TextNormalizer_Normalize_Marks_AreSpoken
+                  - TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets
+                  - TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-ApostrophesAndClitics
+                title: >-
+                  The TextNormalizer class shall canonicalize a typographic apostrophe inside a
+                  clitic or a word and keep quotation marks unchanged, shall classify each clitic
+                  from the neighboring words only when classification is requested, and shall still
+                  canonicalize apostrophes when it is not.
+                justification: |
+                  The role of a clitic is a result for the detailed analysis only; the lean path
+                  skips it, but the canonical apostrophe is needed in both.
+                tests:
+                  - TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords
+                  - TextNormalizer_Normalize_Clitics_AreClassifiedFromContext
+                  - TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-DroppedCharacters
+                title: >-
+                  The TextNormalizer class shall drop each maximal run of invisible formatting
+                  characters as one empty replacement, shall keep the joiners that glue emoji
+                  sequences, and shall apply no other rule to a token that contains an invisible
+                  character.
+                justification: |
+                  Dropping is the only edit that removes text, so it is explicit, limited to a
+                  fixed set of characters that carry no sound, and leaves a token that contains
+                  one otherwise unchanged rather than guessing at its reading.
+                tests:
+                  - TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly
+                  - TextNormalizer_Normalize_TokenWithInvisibleCharacter_GetsNoOtherRule
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-ShoutingSentences
+                title: >-
+                  The TextNormalizer class shall determine for each sentence whether it is written
+                  entirely in capitals and shall then not speak an ambiguous initialism in it,
+                  while still speaking a capitalized initialism in an ordinary sentence.
+                justification: |
+                  In an all-capital sentence every word looks like an initialism; without the guard
+                  "IT" and "US" would be spelled where they are the words "it" and "us".
+                tests:
+                  - TextNormalizer_Normalize_AllCapitalSentence_SuspendsAmbiguousInitialisms
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-Cancellation
+                title: >-
+                  The TextNormalizer class shall throw OperationCanceledException before any work
+                  for a token that is already canceled, and shall observe a cancellation requested
+                  during the pass at a periodic check of at most 256 visited tokens.
+                justification: |
+                  A long text must stop promptly when the request is canceled; a periodic check
+                  keeps the cost of checking small.
+                tests:
+                  - TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException
+                  - TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-Concurrency
+                title: >-
+                  The TextNormalizer class shall keep no per-request state, so that repeated and
+                  concurrent normalization of a text gives the same result, and shall use only the
+                  lexicons it was constructed with.
+                justification: |
+                  One shared normalizer serves every request on thread-pool threads, so any state
+                  kept between calls would make results depend on timing.
+                tests:
+                  - TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic
+                  - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-ArgumentValidation
+                title: >-
+                  The TextNormalizer class shall throw ArgumentNullException for a null text or a
+                  null lexicon, and ArgumentException for a token list that does not describe the
+                  text.
+                justification: |
+                  A programming error should surface immediately with a clear exception rather
+                  than as a wrong span.
+                tests:
+                  - TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw

@@ -8,7 +8,8 @@ document.
 
 DemaConsulting.PartOfSpeech provides the English tokenizer, the sentence splitter and the shared
 Universal Dependencies tagger that the SpeechTextEn `PartOfSpeechAdapter` unit uses to annotate speech
-requests.
+requests, and whose tokenizer conventions (token shapes and sentence rules for abbreviations, clitics and
+symbols) the SpeechTextEn NormalizationSubsystem relies on.
 
 ### Verification Approach
 
@@ -16,7 +17,11 @@ Verification runs the real package, through exactly the members the adapter uses
 `test/DemaConsulting.Speech.Text.En.Tests/Ots/PartOfSpeechTests.cs`. The tests do not depend on the analysis
 code built on top of the package, so they are evidence about the package itself. They double as an
 API-presence check: they bind every member the analysis uses to a delegate of the expected shape, so a
-package version that removes or reshapes one stops the test project from compiling. The tests do not claim to
+package version that removes or reshapes one stops the test project from compiling. One test locks the
+tokenizer conventions the normalization depends on, so that moving the exact version pin to a release that
+changes them fails loudly instead of silently changing which text is normalized or where sentences break.
+The NormalizationSubsystem tests also call the tokenizer directly, as a test-only dependency (see
+_SpeechTextEn NormalizationSubsystem Verification_). The tests do not claim to
 measure the tagger's accuracy, which the package documents and measures itself; they use only sentences whose
 tags it assigns with full confidence.
 
@@ -79,6 +84,25 @@ cancellation be checked between sentences) changes nothing.
 **Scenario**: Sixteen tasks each tag four texts ten times through the shared tagger.
 
 **Expected**: Every result of every task equals the sequentially computed reference.
+
+#### PartOfSpeech_Tokenizer_NormalizationRelevantConventions_HoldForPinnedVersion
+
+**Scenario**: The tokenizer alone splits a set of probe texts that the NormalizationSubsystem's rules are
+written against: 23 abbreviations (`Dr.`, `St.`, `Mr.`, `Prof.`, `Capt.`, `Sgt.`, `Mt.`, `Ft.`, `Co.`, `Ltd.`,
+`Corp.`, `Sr.`, `Jr.`, `e.g.`, `i.e.`, `etc.`, `vs.`, `J.`, `J.R.R.`, `U.S.`, `U.S.A.`, `p.m.`, `a.m.`) inside
+a sentence; eight address abbreviations (`Ave`, `Blvd`, `Rd`, `Ln`, `Apt`, `Ste`, `Dept`, `Bldg`) followed by
+a period; contractions with a typographic and a plain apostrophe and a leading elision; standalone symbols
+set apart by whitespace; joined forms such as `he/she`, `w/o`, `24/7`, `AT&T`, a mark glued to a word and
+invisible characters inside a word; and four sentences that show where the tokenizer ends a sentence at an
+abbreviation.
+
+**Expected**: Each listed abbreviation is one token that keeps its period; each address abbreviation is a word
+token followed by a separate period token; `I don’t think it’s ready` splits into `I`, `do`, `n’t`, `think`,
+`it`, `’s`, `ready`, `I'd` yields the clitic `'d` and `wait ’til dawn` yields a lone apostrophe token and `til`;
+the symbols `&`, `@`, `+`, `=`, `<`, `>` and `/` are single tokens; each joined form stays one token; and
+`Dr. Smith lives on Maple Dr. He likes it.`, `I live on Main St. It is nice.` and `No. I don't know.` are each
+one sentence while `Acme Inc. Smith left.` is two. A version change that alters any of these makes the test
+fail, so the abbreviation, clitic and break rules cannot drift silently.
 
 ### Known Limitation Not Covered by Verification
 

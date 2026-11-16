@@ -90,6 +90,8 @@ words:
   - espeak
   - fakeable
   - fffc
+  # U+FEFF, the byte-order mark that normalization drops (named by its code point in sources and tests)
+  - feff
   - fftbins
   - filterbank
   - hann
@@ -262,6 +264,11 @@ overrides:
       - ustar
       - vorbis
       - voxserv
+      # Test data of the Text.En acronym tests: Roman-numeral and consonant-only capitals that are deliberately not initialisms
+      - bcdfgh
+      - bcdfghj
+      - cdxl
+      - xlvii
   # The Text.En tests use an invented spelling that the tagger's lexicon cannot know, to prove the known-word flag
   - filename: '**/{EnglishTextAnalyzerTests.cs,PartOfSpeechAdapterTests.cs,PartOfSpeechTests.cs,part-of-speech.md,.textlint.yaml}'
     words:

@@ -191,7 +191,11 @@ accept annotations, behave exactly as they always have.
   must ignore kinds it does not recognize. An annotation should begin and end on a non-whitespace
   character. The library keeps an annotation only when it lies wholly inside one stretch of text
   between tags and, later, wholly inside one chunk; otherwise it is **dropped, never clipped or
-  moved**.
+  moved**. A chunk that consists only of punctuation or symbols (no letter or digit) is normally
+  merged into the previous chunk, or dropped at the start of the text, but it is kept as its own
+  chunk, with its annotation, when an annotation with a non-empty `Value` lies wholly on it (for
+  example a symbol your analyzer maps to a word); an annotation with an empty `Value` does not keep
+  it, and text without any annotations is chunked exactly as before.
 - **`TextAnalysisResult(annotations, sentenceBreaks)`** carries the annotations and optional
   sentence boundaries. A `null` `SentenceBreaks` means "no opinion", so the default punctuation
   heuristic splits sentences; any non-null list, even an empty one, is authoritative and replaces
@@ -267,12 +271,23 @@ return the `EnglishTextAnalyzer` of the optional, pre-release `DemaConsulting.Sp
 package (it depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). Its analysis gives
 each word one annotation of kind `"en.upos"` whose value is the word's Universal Dependencies part of
 speech (for example `"NOUN"`), skips punctuation and symbols, and supplies authoritative sentence
-boundaries so an abbreviation such as "Dr." does not split a sentence. Read an annotation with
-`TextEnAnnotations.TryReadPartOfSpeech`, and ignore the other kinds in `TextEnAnnotations`, which are
-reserved for later releases. The analyzer is thread-safe and cheap to share; the first request that
-needs tags loads the tagger (about 1.3 MB of embedded data), so that request is slower than the rest.
-`EnglishTextAnalyzerOptions` can switch the part-of-speech annotations off and supply a diagnostics
-sink, which receives only counts, never text.
+boundaries so an abbreviation such as "Dr." does not split a sentence. By default it also normalizes the
+text: each abbreviation, symbol, apostrophe or initialism it can read (for example "Dr.", "&", a typographic
+apostrophe, or "FBI") gets one annotation of kind `"en.norm"` whose range is the original text and whose value
+is the words to speak instead; numbers, dates, and units are not normalized yet and pass through unchanged.
+Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix
+stays in one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke.").
+Read an annotation with `TextEnAnnotations.TryReadPartOfSpeech` or `TextEnAnnotations.TryReadNormalized`, and
+ignore the other kinds in `TextEnAnnotations`, which are reserved for later releases. The analyzer is
+thread-safe and cheap to share; the first request that needs tags loads the tagger (about 1.3 MB of embedded
+data), so that request is slower than the rest. `EnglishTextAnalyzerOptions` selects the annotation families
+with the `TextEnAnnotationSelection` flags (`PartOfSpeech` and the new `Normalization`, both on by default)
+and supplies a diagnostics sink, which receives only counts, never text.
+
+A backend applies the `"en.norm"` annotations of a chunk in four steps: sort them by `Start` (they never
+overlap), copy each gap of the original text between them unchanged, insert each annotation's `Value` in
+place of its range, and speak the result. A value that is an empty string means the range is spoken as
+nothing, and a value already carries any single space the replacement needs, so the backend adds none.
 
 *Preview note: retained text; not yet published to NuGet.* The analyzer itself keeps no reference to the
 text it analyzes after a call returns, but the pre-release `DemaConsulting.PartOfSpeech` tagger

@@ -4,8 +4,10 @@
 
 `EnglishTextAnalyzer` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs`. Its documented
-collaborators (the adapter, the diagnostics reporter, the options and the annotation vocabulary) are real,
-over the real part-of-speech package; tagger creation is observed through a counting adapter. Golden
+collaborators (the adapter, the diagnostics reporter, the options, the annotation vocabulary and the shared
+default `TextNormalizer` with its lexicons) are real, over the real part-of-speech package; tagger creation
+is observed through a counting adapter, and the one test that must cancel inside normalization supplies a
+`TextNormalizer` whose token-visited observer cancels at an exact token. Golden
 assertions use only sentences whose tags the tagger assigns with full confidence, and one property-style test
 checks the structural guarantees against a large number of random, deliberately hostile texts.
 
@@ -23,11 +25,17 @@ Each word of a sentence has one annotation exactly on its source span, in order,
 annotation on punctuation or symbols; the same spelling is tagged by context; sentence breaks are non-null,
 at later sentence starts, not at abbreviations, and empty for one sentence; placeholders are never covered,
 separate touching words, give the same result as spaces and never host a break; for 300 random texts every
-annotation is in bounds, on non-whitespace edges, free of placeholders and surrogate-pair cuts, and every
+annotation is in bounds, on non-whitespace edges, free of placeholders and surrogate-pair cuts, every
+part-of-speech annotation reads back, and every
 break is on a word start; texts without words yield empty results and no tagger load; cancellation throws
-before any work and between sentences; a null text or null options throws; the detailed analysis agrees with
-the language-neutral one; selecting no annotations yields none and no tagger load; concurrent requests agree
-and create the tagger once; and the analyzer does not keep the analyzed text alive.
+before any work, between sentences and inside normalization; a null text or null options throws; the detailed
+analysis agrees with the language-neutral one; a token that is an abbreviation carries its part of speech and
+then its `en.norm` annotation, in text order; normalization alone needs no tagger and adds no part of speech,
+and without normalization the tokenizer's breaks are returned unchanged and no `en.norm` annotation or
+clitic role is produced; the detailed analysis lists every normalization with its source text, spoken text
+and kind and every clitic with its role; the diagnostics event counts the normalizations and the ambiguous
+abbreviations; the language-neutral path allocates clearly less than the detailed path; concurrent requests
+agree and create the tagger once; and the analyzer does not keep the analyzed text alive.
 
 #### Test Scenarios
 
@@ -36,7 +44,9 @@ and create the tagger once; and the analyzer does not keep the analyzed text ali
 **Tests**: `EnglishTextAnalyzer_Analyze_SimpleSentence_AnnotatesEachWordOnItsSourceSpan`,
 `EnglishTextAnalyzer_Analyze_UnambiguousSentence_ProducesExpectedUniversalTags`,
 `EnglishTextAnalyzer_Analyze_SameSpellingInDifferentContext_UsesContextForTag`,
-`EnglishTextAnalyzer_Analyze_PunctuationAndSymbols_CarryNoAnnotation`
+`EnglishTextAnalyzer_Analyze_PunctuationAndSymbols_CarryNoAnnotation`,
+`EnglishTextAnalyzer_Analyze_TokenWithoutLetterOrDigit_CarriesNoPartOfSpeech`,
+`EnglishTextAnalyzer_Analyze_NumeralToken_KeepsItsPartOfSpeech`
 
 ##### Sentence breaks
 
@@ -56,7 +66,9 @@ and create the tagger once; and the analyzer does not keep the analyzed text ali
 **Test**: `EnglishTextAnalyzer_Analyze_RandomText_AnnotationsAndBreaksAreWellFormed`
 
 Three hundred texts are generated from pieces that include words, numbers, punctuation, every kind of
-whitespace, placeholders, surrogate-pair emoji, combining marks, lone surrogates and a NUL character.
+whitespace, placeholders, surrogate-pair emoji, combining marks, lone surrogates and a NUL character. Every
+annotation of either kind must satisfy the geometric guarantees, an `en.upos` annotation must read back as a
+part of speech and an `en.norm` annotation as a normalization.
 
 ##### Texts without words
 
@@ -70,10 +82,14 @@ Empty, whitespace-only and placeholder-only texts (a theory).
 `EnglishTextAnalyzer_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException`,
 `EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing`,
 `EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing`,
+`EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing`,
 `EnglishTextAnalyzer_Analyze_NotCanceled_ReportsOneDiagnosticsEvent`
 
 The initialization test cancels the token the moment the tagger is first requested; the only-sentence and
-final-sentence tests cancel it from the adapter's internal after-sentence observer. Each asserts an
+final-sentence tests cancel it from the adapter's internal after-sentence observer; the normalization test
+analyzes a text of 1000 tokens with normalization only and cancels the token from the normalizer's
+token-visited observer while token 300 is visited, which the normalizer's periodic check (every 256 tokens)
+observes. Each asserts an
 `OperationCanceledException` and that a recording sink received no event; the last test is the control that
 an uncanceled request still reports exactly one event. The analyzer's own periodic and final checks
 (while the result is built and before reporting) are cheap backstops for cancellation arriving from another
@@ -89,7 +105,45 @@ thread; they are verified by review, since a deterministic test would need a tim
 **Tests**: `EnglishTextAnalyzer_AnalyzeDetailed_Sentence_ListsTokensWithTagConfidenceAndKnownWordFlag`,
 `EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_ReturnsSameAnnotationsAndBreaks`,
 `EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks`,
-`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`
+`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`,
+`EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess`
+
+The varied-texts theory compares the two entry points over empty, placeholder-only, emoji, CRLF, several-sentence
+and abbreviation texts (`Dr.` and `p.m.` are normalized under the default options). The allocation test runs the two entry points over the same large normalization-only text, after a
+warm-up, and requires the language-neutral path to allocate less than 90 percent of what the detailed path
+does, because it builds no token or normalization object and no text copy.
+
+##### Normalization annotations and reconciled breaks
+
+**Tests**: `EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization`,
+`EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations`,
+`EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization`,
+`EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt`
+
+For `Dr. Smith lives here.` the first two annotations both start at the token `Dr.`, the part of speech first,
+with the value `Doctor`, and the starts of all annotations never decrease. With normalization only, the
+analysis of `Dr. Smith & Mr. Jones live on Main St. It is nice.` creates no tagger, yields four annotations
+that are all `en.norm`, and leaves every token without a part of speech. With part of speech only, and with
+no annotations, `I live on Main St. It is nice.` keeps the tokenizer's single sentence and has no `en.norm`
+annotation, while the default analyzer breaks before `It`. For `Dr. {placeholder} Smith waved.` the single
+normalization covers `Dr.`, reads `Doctor` (the name after the tag is context) and no annotation covers the
+placeholder.
+
+##### Detailed normalization data
+
+**Tests**: `EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles`,
+`EnglishTextAnalyzer_AnalyzeDetailed_NormalizationNotSelected_HasNoNormalizationsAndNoCliticRoles`
+
+The detailed analysis of `Dr. Smith & Jones can’t go. John's book is here.` lists the abbreviation `Dr.` as
+`Doctor`, the symbol `&` as `and` and the typographic apostrophe as `'`, each with its source slice, and the
+clitic roles `Not` and `Possessive`; without normalization the list is empty and every clitic role is `None`.
+
+##### Normalization counts in the diagnostics
+
+**Test**: `EnglishTextAnalyzer_Analyze_NormalizedText_ReportsNormalizationAndAmbiguityCounts`
+
+The event for `Dr. Smith & Jones said They St. said so.` reports one sentence, three normalizations and one
+ambiguous abbreviation (the inconclusive `They St.`), in the fixed message template.
 
 ##### Concurrency and no retained references
 

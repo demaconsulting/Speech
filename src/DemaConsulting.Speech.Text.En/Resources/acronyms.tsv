@@ -1,0 +1,69 @@
+# English initialism lexicon for DemaConsulting.Speech.Text.En (embedded resource).
+#
+# Written from scratch by DEMA Consulting and released under the MIT license of this package.
+# No third-party acronym list was copied.
+#
+# Format: UTF-8, LF, tab-separated. Lines starting with '#' and blank lines are ignored.
+# The first remaining line is the header. Columns:
+#   form       the all-capital token exactly as written, case-sensitive
+#   spoken     the letters spoken one by one, separated by single spaces
+#   ambiguous  yes when the form is also an ordinary English word written in capitals
+#              (it is then left alone inside an all-capital sentence)
+# Acronyms spoken as words (NASA, NATO) are deliberately not listed.
+form	spoken	ambiguous
+US	U S	yes
+USA	U S A	no
+UK	U K	no
+EU	E U	no
+UN	U N	no
+UAE	U A E	no
+FBI	F B I	no
+CIA	C I A	no
+NSA	N S A	no
+IRS	I R S	no
+DOJ	D O J	no
+TV	T V	no
+PC	P C	no
+CEO	C E O	no
+CFO	C F O	no
+CTO	C T O	no
+HR	H R	no
+PR	P R	no
+ID	I D	no
+IT	I T	yes
+AI	A I	no
+ML	M L	no
+API	A P I	no
+URL	U R L	no
+HTML	H T M L	no
+CSS	C S S	no
+SQL	S Q L	no
+PDF	P D F	no
+CPU	C P U	no
+GPU	G P U	no
+USB	U S B	no
+LED	L E D	no
+LCD	L C D	no
+DVD	D V D	no
+CD	C D	no
+GPS	G P S	no
+ATM	A T M	no
+SUV	S U V	no
+DNA	D N A	no
+RNA	R N A	no
+HIV	H I V	no
+MRI	M R I	no
+AM	A M	yes
+PM	P M	no
+BBC	B B C	no
+CNN	C N N	no
+NBC	N B C	no
+NPR	N P R	no
+HBO	H B O	no
+MBA	M B A	no
+LLC	L L C	no
+VIP	V I P	no
+FAQ	F A Q	no
+ASAP	A S A P	no
+DIY	D I Y	no
+FYI	F Y I	no

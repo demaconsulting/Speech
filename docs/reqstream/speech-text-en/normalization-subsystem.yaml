@@ -1,0 +1,210 @@
+---
+# Software Subsystem Requirements for the SpeechTextEn NormalizationSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechTextEn
+# NormalizationSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-text-en.yaml. This subsystem turns the tokens of an English text into a
+# description of how parts of it are spoken: the alignment types that carry and check the result
+# (NormalizationAlignment), the rule pass that produces it (TextNormalizer), and the two lexicons
+# behind it (AbbreviationResolver and AcronymRecognizer). It never rewrites the text and never
+# depends on the part-of-speech tagger. Each requirement states one observable behavior.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-text-en/normalization-subsystem/. Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationSubsystemTests.cs,
+# which drives the real normalizer on the tokens of the real tokenizer.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        requirements:
+          - id: SpeechTextEn-Normalization-SpanContract
+            title: >-
+              The NormalizationSubsystem shall describe every replacement as an ordered,
+              non-overlapping span of the exact source text that is non-empty, starts and ends on
+              non-whitespace characters, never covers a tag placeholder or cuts a surrogate pair,
+              and carries a spoken text that is empty only for a dropped span, shall keep case and
+              punctuation outside the spans unchanged, shall separate a spoken word from a
+              neighboring letter or digit with a space, and two adjacent word-producing
+              replacements from each other with exactly one space, shall leave a text that needs no
+              normalization without any span, and shall let a span omit a source character only
+              inside a dropped span or as the consumed period of its own abbreviation.
+            justification: |
+              These are the invariants every consumer of the spans relies on: the Speech library
+              drops an annotation that breaks them, a backend that applies the spans must get
+              exactly the spoken text, and a reader can audit the normalization only if nothing
+              outside the spans can change. They hold for arbitrary user text, including hostile
+              input.
+            children:
+              - SpeechTextEn-Normalization-NormalizationAlignment-SpanOrdering
+              - SpeechTextEn-Normalization-NormalizationAlignment-SpanEdges
+              - SpeechTextEn-Normalization-NormalizationAlignment-Partition
+              - SpeechTextEn-Normalization-NormalizationAlignment-ApplySpokenForms
+              - SpeechTextEn-Normalization-NormalizationAlignment-TokenGeometry
+              - SpeechTextEn-Normalization-NormalizationAlignment-EnumVocabulary
+              - SpeechTextEn-Normalization-NormalizationAlignment-ArgumentValidation
+              - SpeechTextEn-Normalization-TextNormalizer-Spans
+              - SpeechTextEn-Normalization-TextNormalizer-ArgumentValidation
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
+              - NormalizationSubsystem_Normalize_SurrogatePairsNextToRules_AreNeverCut
+              - NormalizationSubsystem_Normalize_CombiningMarksAroundAbbreviations_KeepSpansOnTokenEdges
+              - NormalizationSubsystem_Normalize_PlainText_ChangesNothing
+
+          - id: SpeechTextEn-Normalization-ChunkSafeSpans
+            title: >-
+              The NormalizationSubsystem shall limit a span to one token, or one token together
+              with its adjacent period token, so that a span contains no whitespace and none of
+              the clause separators comma, semicolon and colon.
+            justification: |
+              The Speech library splits text into chunks at sentence and clause punctuation and
+              at whitespace, and drops an annotation that a chunk boundary would split. A span
+              that contains neither can never be split, so no normalization is lost to
+              chunking.
+            children:
+              - SpeechTextEn-Normalization-NormalizationAlignment-SpanEdges
+              - SpeechTextEn-Normalization-TextNormalizer-Spans
+            tests:
+              - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+
+          - id: SpeechTextEn-Normalization-AbbreviationResolution
+            title: >-
+              The NormalizationSubsystem shall give the spoken form of every abbreviation in its
+              lexicon, shall resolve an abbreviation that has several readings from the words
+              before and after it, shall use the reading marked as the default and count it where
+              those words do not decide, and shall load its lexicon from a validated table.
+            justification: |
+              Abbreviations such as "St." and "Dr." have two readings that the neighboring words
+              usually decide. The documented cases where they do not (for example "Wall St.
+              Journal") must follow a stated default and be counted, so that a host can see how
+              often the choice was a guess, and a malformed lexicon must fail loudly rather than
+              be half used. A golden file of inputs with their expected spoken text, sentences
+              and ambiguity counts, which must name every lexicon form, pins the behavior.
+            children:
+              - SpeechTextEn-Normalization-AbbreviationResolver-Table
+              - SpeechTextEn-Normalization-AbbreviationResolver-ContextCues
+              - SpeechTextEn-Normalization-AbbreviationResolver-Guards
+              - SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
+              - SpeechTextEn-Normalization-AbbreviationResolver-LoaderValidation
+              - SpeechTextEn-Normalization-AbbreviationResolver-ThreadSafeLoad
+              - SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
+              - SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_Coverage_ContainsEveryLexiconForm
+
+          - id: SpeechTextEn-Normalization-SentenceBoundaryReconciliation
+            title: >-
+              The NormalizationSubsystem shall request a sentence break after an abbreviation
+              read as the last word of its sentence, shall request that the tokenizer's break
+              after an abbreviation read as a prefix (such as a title) be removed, shall keep the
+              period of such a last word and consume the period of a mid-sentence abbreviation,
+              and shall combine these requests with the tokenizer's breaks into one ascending,
+              duplicate-free list of break offsets on token starts, and shall keep a name suffix
+              or credential together with the credential that directly follows it instead of
+              ending the sentence between them.
+            justification: |
+              The tokenizer treats "Dr. Smith" and "Main St. It" alike, but only the abbreviation
+              reading tells whether the period ends the sentence. The subsystem knows the reading
+              and the tokenizer knows the other breaks, so the subsystem expresses its decisions
+              as edits to the tokenizer's breaks, and the combined list must be valid for the
+              Speech library, which re-bases it onto its own segments. A sentence break between
+              "Jr." and "Ph.D." would separate a name from its credentials.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
+              - SpeechTextEn-Normalization-NormalizationAlignment-BreakReconciliation
+            tests:
+              - NormalizationSubsystem_SentenceBreaks_Abbreviations_BreakOnlyWhereTheSentenceEnds
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
+
+          - id: SpeechTextEn-Normalization-SymbolsAndMarks
+            title: >-
+              The NormalizationSubsystem shall give the spoken form of the operator symbols, the
+              copyright, registered, trademark, section and paragraph marks (each spoken as its
+              own word, including when two of them are adjacent), a slash between two
+              plain words and an ampersand between two letters, shall speak an operator only
+              where whitespace or the text edge sets it apart, and shall drop invisible
+              formatting characters and standalone bullets as annotated, empty replacements while
+              keeping the joiners that glue emoji sequences.
+            justification: |
+              A model has no reading for "&" or the copyright sign and would hear a soft hyphen or
+              a zero-width space as noise; but the same characters inside markup, paths or code,
+              where
+              they are not words, must not be reworded. Dropping a character is the one edit
+              that removes text, so it must be explicit, and the characters that make emoji
+              sequences one symbol must survive.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-SymbolsAndMarks
+              - SpeechTextEn-Normalization-TextNormalizer-DroppedCharacters
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
+
+          - id: SpeechTextEn-Normalization-ApostropheAndClitics
+            title: >-
+              The NormalizationSubsystem shall canonicalize a typographic apostrophe inside a
+              clitic, a contraction or a listed leading elision to the ASCII apostrophe while
+              leaving quotation uses unchanged, and shall record the role of each clitic
+              (possessive, is, has, would, had, will, have, are, am, not or us) from the
+              neighboring words only, when the caller asks for it.
+            justification: |
+              Lexicon lookups and pronunciation rules expect the ASCII apostrophe, while a quote
+              mark must stay what it is. Whether "'s" is a possessive or a contraction is decided
+              by the words around it, and recording it once here spares every model package its
+              own heuristic; the hot path that does not need it must not pay for it.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-ApostrophesAndClitics
+              - SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_AlignmentContract_RandomHostileText_SatisfiesAllInvariants
+
+          - id: SpeechTextEn-Normalization-AcronymHandling
+            title: >-
+              The NormalizationSubsystem shall speak the initialisms of its lexicon, dotted
+              letter forms, and ampersand initialisms letter by letter, shall recognize them only
+              in their exact capitalization, shall leave unlisted capitals that read as words and
+              ordinary words unchanged, shall suspend the ambiguous forms and the vowel-less rule
+              inside a sentence written entirely in capitals, and shall load its lexicon from a
+              validated table.
+            justification: |
+              "US" is the country and "us" is a pronoun, "IT" is a department and "It" is a
+              word, and in an all-capital sentence every word looks like an initialism. A fixed
+              lexicon, exact case, and a guard against shouting text keep the reading of
+              ordinary words unchanged, while a malformed lexicon must fail loudly rather than be
+              half used.
+            children:
+              - SpeechTextEn-Normalization-AcronymRecognizer-CaseSensitivity
+              - SpeechTextEn-Normalization-AcronymRecognizer-SpelledForms
+              - SpeechTextEn-Normalization-AcronymRecognizer-ShoutingGuard
+              - SpeechTextEn-Normalization-AcronymRecognizer-NoVowelRule
+              - SpeechTextEn-Normalization-AcronymRecognizer-DottedAndAmpersand
+              - SpeechTextEn-Normalization-AcronymRecognizer-LoaderValidation
+              - SpeechTextEn-Normalization-TextNormalizer-ShoutingSentences
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_Coverage_ContainsEveryLexiconForm
+
+          - id: SpeechTextEn-Normalization-LinearTimeAndCancellation
+            title: >-
+              The NormalizationSubsystem shall normalize a text in time linear in its length,
+              including one very long token and adversarial repetitions, shall observe
+              cancellation at the start and periodically while it works, and shall keep no
+              per-request state, so that repeated and concurrent requests give identical results.
+            justification: |
+              The subsystem runs on every synthesis request on thread-pool threads. A rule that
+              looked back over a whole token for every character would make a pasted megabyte
+              stall speech, a stop or dispose waits for the analyzer to return, and one shared
+              instance serves many requests at the same time.
+            children:
+              - SpeechTextEn-Normalization-TextNormalizer-Cancellation
+              - SpeechTextEn-Normalization-TextNormalizer-Concurrency
+            tests:
+              - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget
+              - NormalizationSubsystem_Normalize_OneHugeToken_CompletesWithinBudget
+              - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
+              - EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing

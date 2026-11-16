@@ -37,6 +37,34 @@ public sealed class AnalysisSubsystemTests
             read);
     }
 
+    /// <summary>Proves the normalization annotations of an analysis read back through the typed reader and are merged with the parts of speech, with the sentence breaks reconciled.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_NormalizedText_AnnotationsReadBackAndBreaksAreReconciled()
+    {
+        // Arrange
+        const string text = "I live on Main St. It is nice. Dr. Smith & Jones agree.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: part-of-speech and normalization annotations are both present and in text order
+        Assert.Contains(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech);
+        Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
+
+        // the normalizations read back at their source spans
+        var read = result.Annotations
+            .Select(annotation => TextEnAnnotations.TryReadNormalized(annotation, out var spoken)
+                ? (Source: text.Substring(annotation.Start, annotation.Length), Spoken: spoken)
+                : default)
+            .Where(pair => pair.Source is not null)
+            .ToList();
+        Assert.Equal([("St", "Street"), ("Dr.", "Doctor"), ("&", "and")], read);
+
+        // the break after the sentence-final "Main St." is added, and none falls inside "Dr. Smith"
+        Assert.Equal([text.IndexOf("It is", StringComparison.Ordinal), text.IndexOf("Dr. Smith", StringComparison.Ordinal)], result.SentenceBreaks);
+    }
+
     /// <summary>Proves part-of-speech annotation can be switched off through the options, leaving sentence breaks.</summary>
     [Fact]
     public void AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks()
@@ -146,7 +174,7 @@ public sealed class AnalysisSubsystemTests
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words\.$", reported.Message);
+        Assert.Matches(@"^Analyzed one text: 2 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous abbreviations\.$", reported.Message);
         foreach (var word in text.Split([' ', '.', '!'], StringSplitOptions.RemoveEmptyEntries))
         {
             Assert.DoesNotContain(word, reported.Message, StringComparison.OrdinalIgnoreCase);

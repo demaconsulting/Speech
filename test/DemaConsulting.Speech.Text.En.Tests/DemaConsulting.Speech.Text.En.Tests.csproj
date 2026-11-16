@@ -70,4 +70,9 @@
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Text.En\DemaConsulting.Speech.Text.En.csproj" />
   </ItemGroup>
 
+  <!-- Golden test data copied next to the test assembly -->
+  <ItemGroup>
+    <None Update="TestData\*.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

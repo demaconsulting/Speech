@@ -200,6 +200,54 @@ public sealed class PartOfSpeechTests
         }
     }
 
+    /// <summary>
+    ///     Proves the tokenizer conventions the normalization relies on hold for the pinned package version: which
+    ///     abbreviations keep their period in the token and which split it off, how clitics, symbols, marks, slash and
+    ///     ampersand forms and invisible characters are tokenized, and that titles never end a sentence. A version bump
+    ///     that changes any of them fails here instead of silently changing the normalization.
+    /// </summary>
+    [Fact]
+    public void PartOfSpeech_Tokenizer_NormalizationRelevantConventions_HoldForPinnedVersion()
+    {
+        // Act / Assert: abbreviations that keep their period inside one token
+        foreach (var abbreviation in new[] { "Dr.", "St.", "Mr.", "Prof.", "Capt.", "Sgt.", "Mt.", "Ft.", "Co.", "Ltd.", "Corp.", "Sr.", "Jr.", "e.g.", "i.e.", "etc.", "vs.", "J.", "J.R.R.", "U.S.", "U.S.A.", "p.m.", "a.m." })
+        {
+            Assert.Contains(abbreviation, Tokens($"Hello {abbreviation} world"));
+        }
+
+        // abbreviations the tokenizer splits into a word and an adjacent period token
+        foreach (var word in new[] { "Ave", "Blvd", "Rd", "Ln", "Apt", "Ste", "Dept", "Bldg" })
+        {
+            var tokens = Tokens($"Hello {word}. world");
+            var index = tokens.IndexOf(word);
+            Assert.True(index >= 0 && index + 1 < tokens.Count && tokens[index + 1] == ".", $"'{word}.' is not split into a word and a period");
+        }
+
+        // clitics split off their host, and a typographic apostrophe is part of the clitic
+        Assert.Equal(["I", "do", "n\u2019t", "think", "it", "\u2019s", "ready"], Tokens("I don\u2019t think it\u2019s ready"));
+        Assert.Contains("'d", Tokens("I'd say"));
+        Assert.Equal(["wait", "\u2019", "til", "dawn"], Tokens("wait \u2019til dawn"));
+
+        // standalone symbols are single tokens, and these joined forms stay one token
+        Assert.Equal(["a", "&", "b", "@", "c", "+", "d", "=", "e", "<", "f", ">", "g", "/", "h"], Tokens("a & b @ c + d = e < f > g / h"));
+        foreach (var joined in new[] { "he/she", "and/or", "w/o", "N/A", "24/7", "km/h", "R&D", "Q&A", "AT&T", "Johnson&Johnson", "Brand\u2122", "a\u200Bb", "co\u00ADop" })
+        {
+            Assert.Contains(joined, Tokens($"Hello {joined} world"));
+        }
+
+        // titles never end a sentence, a business suffix can
+        Assert.Single(Tokenizer.Tokenize("Dr. Smith lives on Maple Dr. He likes it."));
+        Assert.Single(Tokenizer.Tokenize("I live on Main St. It is nice."));
+        Assert.Single(Tokenizer.Tokenize("No. I don't know."));
+        Assert.Equal(2, Tokenizer.Tokenize("Acme Inc. Smith left.").Count);
+    }
+
+    /// <summary>Tokenizes a text and returns the token strings of all its sentences in order.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The tokens.</returns>
+    private static List<string> Tokens(string text) =>
+        Tokenizer.Tokenize(text).SelectMany(sentence => sentence.Tokens).Select(token => text.Substring(token.Start, token.Length)).ToList();
+
     /// <summary>Builds a comparable signature of the tags, offsets and confidences of a tagged text.</summary>
     /// <param name="text">The text to tag with the shared tagger.</param>
     /// <returns>A string that is equal for equal tagging results.</returns>

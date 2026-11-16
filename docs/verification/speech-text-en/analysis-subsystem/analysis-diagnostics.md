@@ -15,9 +15,11 @@ sink that can be told to throw.
 
 #### Acceptance Criteria
 
-One request produces exactly one Info event in the `TextEn.Analysis` category with the documented message;
-the message matches a template of fixed words and numbers for any counts; a missing sink is accepted and
-reports nothing; and a sink that throws is contained, with the event still delivered to it.
+One request produces exactly one Info event in the `TextEn.Analysis` category with the documented message
+(`Analyzed one text: {S} sentences, {T} tokens, {A} annotations, {U} unknown words, {N} normalizations, {X}
+ambiguous abbreviations.`); the message matches a template of fixed words and six numbers for any counts,
+including large ones, so no word, spoken replacement or annotation value can appear; a missing sink is
+accepted and reports nothing; and a sink that throws is contained, with the event still delivered to it.
 
 #### Test Scenarios
 

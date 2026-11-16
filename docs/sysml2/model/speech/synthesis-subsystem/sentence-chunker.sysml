@@ -24,7 +24,9 @@ package Speech {
              * the clause and length-budget splits still apply), and returns each chunk's
              * annotations re-based to the chunk text through trimming, whitespace collapsing and
              * punctuation-only merges, dropping any annotation that cannot be placed wholly
-             * inside one chunk. Word-content detection for punctuation-only merging is Unicode-
+             * inside one chunk. A punctuation-only piece that wholly contains an annotation with a
+             * non-empty value (a normalized symbol) is kept as its own chunk instead of being
+             * merged or dropped. Word-content detection for punctuation-only merging is Unicode-
              * scalar aware only when annotations or breaks are supplied. With no annotations and no breaks its output is unchanged. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs */

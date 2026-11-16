@@ -1,0 +1,92 @@
+# English abbreviation lexicon for DemaConsulting.Speech.Text.En (embedded resource).
+#
+# Written from scratch by DEMA Consulting and released under the MIT license of this package.
+# No third-party abbreviation list was copied; the rows are common written-English
+# conventions chosen for text-to-speech.
+#
+# Format: UTF-8, LF, tab-separated. Lines starting with '#' and blank lines are ignored.
+# The first remaining line is the header. Columns:
+#   form     the token exactly as written, case-sensitive (a trailing '.' is part of the form)
+#   spoken   the words spoken instead (for class 'word' the written word itself; no replacement)
+#   class    prefix = precedes a name; suffix = follows a name or street; free = either;
+#            word = the ordinary word followed by a real period
+#   default  yes on exactly one row per form: the reading used when the context is inconclusive
+#   guard    '-' for none, or '+'-joined conditions: next-cap, next-digit, prev-not-number
+#   note     free text
+# Several rows with the same form are alternative readings (see the design documentation).
+form	spoken	class	default	guard	note
+Mr.	Mister	prefix	yes	-	title
+Mrs.	Missus	prefix	yes	-	title
+Ms.	Miz	prefix	yes	-	title
+Messrs.	Messieurs	prefix	yes	-	title
+Mmes.	Mesdames	prefix	yes	-	title
+Prof.	Professor	prefix	yes	-	title
+Rev.	Reverend	prefix	yes	-	title
+Gen.	General	prefix	yes	-	rank
+Col.	Colonel	prefix	yes	-	rank
+Capt.	Captain	prefix	yes	-	rank
+Lt.	Lieutenant	prefix	yes	-	rank
+Sgt.	Sergeant	prefix	yes	-	rank
+Cpl.	Corporal	prefix	yes	-	rank
+Maj.	Major	prefix	yes	-	rank
+Cmdr.	Commander	prefix	yes	-	rank
+Adm.	Admiral	prefix	yes	-	rank
+Sen.	Senator	prefix	yes	-	title
+Gov.	Governor	prefix	yes	-	title
+Pres.	President	prefix	yes	-	title
+Supt.	Superintendent	prefix	yes	-	title
+Mt.	Mount	prefix	yes	-	place
+Mr	Mister	prefix	yes	next-cap	periodless title
+Mrs	Missus	prefix	yes	next-cap	periodless title
+Ms	Miz	prefix	yes	next-cap	periodless title
+Messrs	Messieurs	prefix	yes	next-cap	periodless title
+Prof	Professor	prefix	yes	next-cap	periodless title
+Ft.	Fort	prefix	yes	next-cap+prev-not-number	'5 ft.' is a unit and is left to number normalization
+Fig.	Figure	prefix	yes	next-digit	figure reference; never ends a sentence
+Vol.	Volume	prefix	yes	next-digit	volume reference; never ends a sentence
+Jr.	Junior	suffix	yes	-	name suffix
+Esq.	Esquire	suffix	yes	-	name suffix
+Ave.	Avenue	suffix	yes	-	address
+Blvd.	Boulevard	suffix	yes	-	address
+Rd.	Road	suffix	yes	-	address
+Ln.	Lane	suffix	yes	-	address
+Ct.	Court	suffix	yes	-	address
+Pl.	Place	suffix	yes	-	address
+Sq.	Square	suffix	yes	-	address
+Hwy.	Highway	suffix	yes	-	address
+Pkwy.	Parkway	suffix	yes	-	address
+Apt.	Apartment	suffix	yes	-	address
+Ste.	Suite	suffix	yes	-	address
+Bldg.	Building	suffix	yes	-	address
+Dept.	Department	suffix	yes	-	organization
+Inc.	Incorporated	suffix	yes	-	business suffix
+Ltd.	Limited	suffix	yes	-	business suffix
+Corp.	Corporation	suffix	yes	-	business suffix
+Co.	Company	suffix	yes	-	business suffix
+Bros.	Brothers	suffix	yes	-	business suffix
+St.	Saint	prefix	no	-	St. Louis
+St.	Street	suffix	yes	-	Main St.
+Dr.	Doctor	prefix	yes	-	Dr. Smith
+Dr.	Drive	suffix	no	-	Maple Dr.
+Sr.	Sister	prefix	no	-	Sr. Maria
+Sr.	Senior	suffix	yes	-	John Smith Sr.
+No.	Number	prefix	no	next-digit	No. 5
+No.	No	word	yes	-	the word followed by a real period
+vs.	versus	free	yes	-	Latin
+etc.	et cetera	free	yes	-	Latin
+e.g.	for example	free	yes	-	Latin
+E.g.	For example	free	yes	-	Latin
+i.e.	that is	free	yes	-	Latin
+I.e.	That is	free	yes	-	Latin
+a.k.a.	also known as	free	yes	-	general
+viz.	namely	free	yes	-	Latin
+approx.	approximately	free	yes	-	general
+misc.	miscellaneous	free	yes	-	general
+cf.	compare	free	yes	-	Latin
+Ph.D.	P H D	free	yes	-	degree, spelled out
+w/	with	free	yes	-	slash form
+w/o	without	free	yes	-	slash form
+N/A	not applicable	free	yes	-	slash form
+n/a	not applicable	free	yes	-	slash form
+c/o	care of	free	yes	-	slash form
+and/or	and or	free	yes	-	slash form

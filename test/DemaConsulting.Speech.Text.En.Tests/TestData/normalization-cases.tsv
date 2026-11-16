@@ -1,0 +1,123 @@
+# Golden cases for the English normalization (DemaConsulting.Speech.Text.En.Tests).
+#
+# Columns (tab separated; '#' lines and blank lines are ignored; the first other line is the header):
+#   id         unique row name, quoted in failure messages
+#   input      the text; escapes: \t \n \r \uXXXX \\ (a tag placeholder is \uFFFC)
+#   spoken     the input with every normalization applied (same escapes)
+#   sentences  the reconciled sentences, each trimmed, joined by the broken bar (U+00A6)
+#   ambiguous  the number of resolutions counted as ambiguous
+#   note       free text
+id	input	spoken	sentences	ambiguous	note
+title-dr-smith	Dr. Smith lives here. He sleeps.	Doctor Smith lives here. He sleeps.	Dr. Smith lives here.¦He sleeps.	0	title before a name
+title-mr-mrs	Mr. Jones and Mrs. Jones left.	Mister Jones and Missus Jones left.	Mr. Jones and Mrs. Jones left.	0	two titles
+title-ms-prof	Ms. Lee asked Prof. Ng.	Miz Lee asked Professor Ng.	Ms. Lee asked Prof. Ng.	0	title before the last word
+title-periodless	Mr Smith and Ms Lee agreed.	Mister Smith and Miz Lee agreed.	Mr Smith and Ms Lee agreed.	0	periodless titles before capitalized words
+title-periodless-guard	Ms alone is fine.	Ms alone is fine.	Ms alone is fine.	0	guard: next word is not capitalized
+title-rank	Sgt. Pepper and Capt. Kirk met Col. Mustard.	Sergeant Pepper and Captain Kirk met Colonel Mustard.	Sgt. Pepper and Capt. Kirk met Col. Mustard.	0	ranks
+title-sen-split	Sen. Smith spoke.	Senator Smith spoke.	Sen. Smith spoke.	0	tokenizer splits the period off
+title-mt	Mt. Everest is tall.	Mount Everest is tall.	Mt. Everest is tall.	0	place prefix
+suffix-jr	John Smith Jr. arrived.	John Smith Junior arrived.	John Smith Jr. arrived.	0	name suffix mid sentence
+suffix-esq-end	He thanked Mark Twain Esq. Then he left.	He thanked Mark Twain Esquire. Then he left.	He thanked Mark Twain Esq.¦Then he left.	0	name suffix ends the sentence
+addr-st-end	I live on Main St. It is nice.	I live on Main Street. It is nice.	I live on Main St.¦It is nice.	0	suffix at the end of a sentence adds a break and keeps the period
+addr-st-saint	Visit St. Louis. Then go.	Visit Saint Louis. Then go.	Visit St. Louis.¦Then go.	0	saint before a name
+addr-st-patricks	St. Patrick's St. is closed.	Saint Patrick's Street is closed.	St. Patrick's St. is closed.	0	saint then street in one sentence
+addr-dr-drive	Maple Dr. He likes it.	Maple Drive. He likes it.	Maple Dr.¦He likes it.	0	drive at the end of a sentence
+addr-parenthesis	(see Elm St.) Then go.	(see Elm Street.) Then go.	(see Elm St.)¦Then go.	0	closing bracket after the period
+addr-5th-st	Turn left on 5th St. Louis is ahead.	Turn left on 5th Street. Louis is ahead.	Turn left on 5th St.¦Louis is ahead.	0	number before it is strong suffix evidence
+addr-123-elm-dr	Go to 123 Elm Dr. Smith lives there.	Go to 123 Elm Drive. Smith lives there.	Go to 123 Elm Dr.¦Smith lives there.	0	house number two tokens before
+addr-the-dr	The Dr. said hello.	The Doctor said hello.	The Dr. said hello.	0	determiner before it
+addr-avenue	He lives on Fifth Ave. near the park.	He lives on Fifth Avenue near the park.	He lives on Fifth Ave. near the park.	0	period token consumed mid sentence
+addr-blvd-end	We met on Sunset Blvd. Everyone came.	We met on Sunset Boulevard. Everyone came.	We met on Sunset Blvd.¦Everyone came.	0	period token kept at a forced break
+addr-wall-st	Wall St. Journal is a paper.	Wall Saint Journal is a paper.	Wall St. Journal is a paper.	0	documented ambiguity: read as saint
+addr-elm-st-louis	Elm St. Louis is far.	Elm Saint Louis is far.	Elm St. Louis is far.	0	documented ambiguity: read as saint
+addr-both-cues	Go see Jones St. Smith	Go see Jones Saint Smith	Go see Jones St. Smith	1	both cues present: prefix, counted
+addr-no-cues	They St. said so.	They Street said so.	They St. said so.	1	no cue: the default reading, counted
+suffix-sr	John Smith Sr. He left.	John Smith Senior. He left.	John Smith Sr.¦He left.	0	senior
+prefix-sr	Sr. Maria prayed.	Sister Maria prayed.	Sr. Maria prayed.	0	sister
+word-no	No. I don't know.	No. I don't know.	No.¦I don't know.	0	the word no ends its sentence
+number-no	No. I don't know. No. 5 is here.	No. I don't know. Number 5 is here.	No.¦I don't know.¦No. 5 is here.	0	number before a digit
+number-item	Item No. 5 shipped.	Item Number 5 shipped.	Item No. 5 shipped.	0	number reference
+biz-inc	Acme Inc. Smith left.	Acme Incorporated. Smith left.	Acme Inc.¦Smith left.	0	business suffix before a capitalized word
+biz-bros-co	Smith Bros. and Co. were here.	Smith Brothers and Company were here.	Smith Bros. and Co. were here.	0	two business suffixes mid sentence
+latin-etc-end	We bought pens, etc. The end.	We bought pens, et cetera. The end.	We bought pens, etc.¦The end.	0	free abbreviation at a sentence end keeps its period
+latin-etc-mid	We bought pens, etc. and more.	We bought pens, et cetera and more.	We bought pens, etc. and more.	0	free abbreviation mid sentence consumes its period
+latin-eg	Use fruit, e.g. apples, daily.	Use fruit, for example apples, daily.	Use fruit, e.g. apples, daily.	0	exempli gratia
+latin-ie	It is cold, i.e. freezing.	It is cold, that is freezing.	It is cold, i.e. freezing.	0	id est
+latin-vs	Cats vs. dogs is old.	Cats versus dogs is old.	Cats vs. dogs is old.	0	versus
+latin-phd	She holds a Ph.D. in physics.	She holds a P H D in physics.	She holds a Ph.D. in physics.	0	degree spelled out
+latin-aka	Bob a.k.a. Robert left.	Bob also known as Robert left.	Bob a.k.a. Robert left.	0	also known as
+latin-approx	It takes approx. ten minutes.	It takes approximately ten minutes.	It takes approx. ten minutes.	0	approximately
+ref-fig	See Fig. 3 for details.	See Figure 3 for details.	See Fig. 3 for details.	0	figure before a digit
+ref-fig-guard	Fig. leaves fall.	Fig. leaves fall.	Fig. leaves fall.	0	guard: no digit follows
+ref-ft-fort	Ft. Worth is big.	Fort Worth is big.	Ft. Worth is big.	0	fort before a capitalized word
+slash-wo	Coffee w/o sugar, please.	Coffee without sugar, please.	Coffee w/o sugar, please.	0	listed slash form
+slash-na	Price: N/A today.	Price: not applicable today.	Price: N/A today.	0	listed slash form
+slash-andor	Red and/or blue work.	Red and or blue work.	Red and/or blue work.	0	listed slash form
+slash-pair	Ask he/she first.	Ask he slash she first.	Ask he/she first.	0	word pair gets padding
+slash-kmh	It runs at km/h speed.	It runs at km/h speed.	It runs at km/h speed.	0	unit slash left alone
+slash-247	Open 24/7 now.	Open 24/7 now.	Open 24/7 now.	0	digits left alone
+sym-amp	Tom & Jerry ran.	Tom and Jerry ran.	Tom & Jerry ran.	0	standalone ampersand
+sym-amp-word	Johnson&Johnson ran.	Johnson and Johnson ran.	Johnson&Johnson ran.	0	ampersand between letters
+sym-amp-initialism	AT&T and R&D grew.	A T and T and R and D grew.	AT&T and R&D grew.	0	ampersand initialisms
+sym-ops	Sum 2 + 2 = 4 @ home.	Sum 2 plus 2 equals 4 at home.	Sum 2 + 2 = 4 @ home.	0	standalone operators
+sym-angle	Use <b> tags and a=b.	Use <b> tags and a=b.	Use <b> tags and a=b.	0	touching operators left alone
+sym-marks	Brand\u2122 and \u00A9 2025 are marks.	Brand trademark and copyright 2025 are marks.	Brand\u2122 and \u00A9 2025 are marks.	0	marks may touch a word
+sym-section	See \u00A7 5 for more.	See section 5 for more.	See \u00A7 5 for more.	0	section sign
+sym-math	3 \u00D7 4 \u00F7 2 \u2248 6.	3 times 4 divided by 2 approximately equal to 6.	3 \u00D7 4 \u00F7 2 \u2248 6.	0	math signs
+sym-backslash	Path a \\ b ok.	Path a backslash b ok.	Path a \\ b ok.	0	backslash
+drop-bullet	\u2022 First item	 First item	\u2022 First item	0	bullet spoken as nothing
+drop-zwsp	a\u200Bb c	ab c	a\u200Bb c	0	zero-width space dropped
+drop-shy	co\u00ADoperate now.	cooperate now.	co\u00ADoperate now.	0	soft hyphen dropped
+drop-bom	\uFEFFHello there.	Hello there.	\uFEFFHello there.	0	byte-order mark dropped
+drop-bidi	\u202Ahello\u202C there.	hello there.	\u202Ahello\u202C there.	0	directional controls dropped
+keep-zwj	a\u200Db	a\u200Db	a\u200Db	0	joiner is not dropped
+apos-clitics	It\u2019s here and I don\u2019t mind.	It's here and I don't mind.	It\u2019s here and I don\u2019t mind.	0	typographic apostrophes in clitics
+apos-elision	Y\u2019all say o\u2019clock ma\u2019am.	Y'all say o'clock ma'am.	Y\u2019all say o\u2019clock ma\u2019am.	0	typographic apostrophes in elisions
+apos-leading	\u2019Tis the season, \u2019til dawn.	'Tis the season, 'til dawn.	\u2019Tis the season, \u2019til dawn.	0	leading elisions
+apos-quotes	She said \u2018hello\u2019 twice.	She said \u2018hello\u2019 twice.	She said \u2018hello\u2019 twice.	0	quote marks left alone
+apos-plural-possessive	The dogs\u2019 bowls are here.	The dogs\u2019 bowls are here.	The dogs\u2019 bowls are here.	0	trailing apostrophe left alone
+apos-ascii	It's don't y'all fine.	It's don't y'all fine.	It's don't y'all fine.	0	plain apostrophes untouched
+acr-fbi-cia	The FBI and the CIA agree.	The F B I and the C I A agree.	The FBI and the CIA agree.	0	listed initialisms
+acr-us-case	US troops left us alone.	U S troops left us alone.	US troops left us alone.	0	case sensitive
+acr-it-case	IT support helps. It works.	I T support helps. It works.	IT support helps.¦It works.	0	case sensitive
+acr-shouting	LET US GO NOW.	LET US GO NOW.	LET US GO NOW.	0	shouted sentence leaves the ambiguous form
+acr-shouting-fbi	THE FBI IS HERE.	THE F B I IS HERE.	THE FBI IS HERE.	0	unambiguous listed form still spelled
+acr-rule	The NYC office uses HTTP.	The N Y C office uses H T T P.	The NYC office uses HTTP.	0	vowel-less capitals
+acr-word	NASA and NATO met.	NASA and NATO met.	NASA and NATO met.	0	read as words
+acr-roman	Chapter CDXL ends.	Chapter CDXL ends.	Chapter CDXL ends.	0	roman numeral shape
+acr-dotted	He lives in the U.S. now.	He lives in the U S now.	He lives in the U.S. now.	0	dotted initialism mid sentence
+acr-dotted-end	He lives in the U.S. He works.	He lives in the U S. He works.	He lives in the U.S.¦He works.	0	dotted initialism at a sentence end
+acr-usa	The U.S.A. is large.	The U S A is large.	The U.S.A. is large.	0	three letters
+acr-pm	Meet at 5 p.m. Then sleep.	Meet at 5 P M. Then sleep.	Meet at 5 p.m.¦Then sleep.	0	lower-case dotted form
+acr-jrr	J.R.R. Tolkien wrote it.	J R R Tolkien wrote it.	J.R.R. Tolkien wrote it.	0	dotted initials
+acr-possessive	AT&T's plan worked.	A T and T's plan worked.	AT&T's plan worked.	0	ampersand initialism with a possessive
+initial-names	J. Smith and A. B. Jones left.	J Smith and A B Jones left.	J. Smith and A. B. Jones left.	0	single-letter initials
+initial-sentence-end	Add vitamin C. The end.	Add vitamin C. The end.	Add vitamin C. The end.	0	a letter before a sentence-starting word is not an initial (the tokenizer does not break here; a documented limit)
+placeholder-title	Dr. \uFFFC Smith waved.	Doctor \uFFFC Smith waved.	Dr. \uFFFC Smith waved.	0	context crosses a tag
+placeholder-symbol	x \uFFFC& y	x \uFFFCand y	x \uFFFC& y	0	a placeholder counts as whitespace
+surrogate-emoji	Dr. \uD83D\uDE00 Smith	Doctor \uD83D\uDE00 Smith	Dr. \uD83D\uDE00 Smith	0	emoji next to a title
+crlf	Dr. Smith\r\nMr. Jones	Doctor Smith\r\nMister Jones	Dr. Smith\r\nMr. Jones	0	line breaks
+empty				0	empty text
+blank	   	   		0	whitespace only
+sym-marks-adjacent	A\u2122\u00AEB	A trademark registered B	A\u2122\u00AEB	0	adjacent marks are separate words
+sym-marks-trailing	A\u2122\u00AE	A trademark registered	A\u2122\u00AE	0	adjacent marks at the end
+sym-marks-leading	\u2122\u00AE	trademark registered	\u2122\u00AE	0	adjacent marks alone
+sym-marks-three	\u00A9\u2122\u00AE	copyright trademark registered	\u00A9\u2122\u00AE	0	three adjacent marks
+sym-section-double	\u00A7\u00A7 5	section section 5	\u00A7\u00A7 5	0	repeated section sign
+sym-marks-digit	x\u2122\u00A92025	x trademark copyright 2025	x\u2122\u00A92025	0	adjacent marks between a letter and digits
+cred-jr-phd	John Smith Jr. Ph.D. spoke.	John Smith Junior P H D spoke.	John Smith Jr. Ph.D. spoke.	0	credential after a name suffix stays in the sentence
+cred-jr-esq	John Smith Jr. Esq. spoke.	John Smith Junior Esquire spoke.	John Smith Jr. Esq. spoke.	0	Esq. after a name suffix
+cred-sr-phd	John Smith Sr. Ph.D. spoke.	John Smith Senior P H D spoke.	John Smith Sr. Ph.D. spoke.	0	Sr. is read as Senior before a credential
+cred-sr-esq	Joe Smith Sr. Esq. arrived.	Joe Smith Senior Esquire arrived.	Joe Smith Sr. Esq. arrived.	0	Sr. Esq. is not Sister
+cred-jr-md	John Smith Jr. M.D. spoke.	John Smith Junior M D spoke.	John Smith Jr. M.D. spoke.	0	dotted initialism credential
+cred-jr-iii	John Smith Jr. III spoke.	John Smith Junior III spoke.	John Smith Jr. III spoke.	0	numeral suffix after a name suffix
+cred-esq-phd	Ann Lee Esq. Ph.D. spoke.	Ann Lee Esquire P H D spoke.	Ann Lee Esq. Ph.D. spoke.	0	tokenizer break after Esq. suppressed
+cred-phd-md	Ann Lee Ph.D. M.D. spoke.	Ann Lee P H D M D spoke.	Ann Lee Ph.D. M.D. spoke.	0	tokenizer break between two credentials suppressed
+cred-end-sentence	John Smith Jr. Ph.D. He spoke.	John Smith Junior P H D. He spoke.	John Smith Jr. Ph.D.¦He spoke.	0	the break after the credential stays
+cred-jr-sentence-start	I met John Smith Jr. He left.	I met John Smith Junior. He left.	I met John Smith Jr.¦He left.	0	a sentence starter still breaks
+cred-sr-sentence-start	Joe Smith Sr. I agree.	Joe Smith Senior. I agree.	Joe Smith Sr.¦I agree.	0	a sentence starter after Sr. still breaks
+cred-biz-suffix	Acme Inc. Ph.D. here.	Acme Incorporated. P H D here.	Acme Inc.¦Ph.D. here.	0	a business suffix is not a name suffix
+cred-tag	Mark Twain Jr. \uFFFC Ph.D. spoke.	Mark Twain Junior \uFFFC P H D spoke.	Mark Twain Jr. \uFFFC Ph.D. spoke.	0	a tag placeholder acts as whitespace
+sym-mark-supplementary-both	\uD835\uDD38\u2122\uD835\uDD39	\uD835\uDD38 trademark \uD835\uDD39	\uD835\uDD38\u2122\uD835\uDD39	0	a mark between two supplementary-plane letters is padded on both sides
+sym-mark-supplementary-left	\uD835\uDD38\u2122	\uD835\uDD38 trademark	\uD835\uDD38\u2122	0	a mark after a supplementary-plane letter is padded on the left
+sym-mark-supplementary-right	\u2122\uD835\uDD39	trademark \uD835\uDD39	\u2122\uD835\uDD39	0	a mark before a supplementary-plane letter is padded on the right

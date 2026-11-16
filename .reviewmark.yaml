@@ -18,6 +18,8 @@ needs-review:
   - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"  # Kokoro third-party notices
   - "src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md"          # Text.En package license file
   - "src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md"      # Text.En third-party notices
+  - "src/DemaConsulting.Speech.Text.En/Resources/*.tsv"             # Text.En embedded lexicon tables
+  - "test/DemaConsulting.Speech.Text.En.Tests/TestData/*.tsv"       # Text.En golden test data
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -3331,6 +3333,87 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/AnalysisDiagnostics.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/RecordingDiagnostics.cs"
+
+  # SpeechTextEn-NormalizationSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-NormalizationSubsystem
+    title: Review that SpeechTextEn NormalizationSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"       # subsystem requirements
+      - "docs/design/speech-text-en/normalization-subsystem.md"            # subsystem design
+      - "docs/verification/speech-text-en/normalization-subsystem.md"      # subsystem verification
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/TestData/normalization-cases.tsv"  # golden test data
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/NormalizationHarness.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-NormalizationAlignment Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-NormalizationAlignment
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem NormalizationAlignment Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/normalization-alignment.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/normalization-alignment.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/normalization-alignment.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/NormalizationAlignment.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationAlignmentTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-TextNormalizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-TextNormalizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem TextNormalizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/text-normalizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/text-normalizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/text-normalizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/TextNormalizer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/TextNormalizerTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-AbbreviationResolver Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-AbbreviationResolver
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem AbbreviationResolver Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/abbreviation-resolver.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AbbreviationResolver.cs"
+      - "src/DemaConsulting.Speech.Text.En/Resources/abbreviations.tsv"  # embedded abbreviation lexicon
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AbbreviationResolverTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-AcronymRecognizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-AcronymRecognizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem AcronymRecognizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/acronym-recognizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AcronymRecognizer.cs"
+      - "src/DemaConsulting.Speech.Text.En/Resources/acronyms.tsv"  # embedded acronym lexicon
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AcronymRecognizerTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

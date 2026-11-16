@@ -13,7 +13,12 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     The number of word tokens (not punctuation, symbols or numbers) the tagger's lexicon does
 ///     not know; 0 when the text was not tagged.
 /// </param>
-internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords);
+/// <param name="Normalizations">The number of <c>en.norm</c> replacements found; 0 when normalization was not selected.</param>
+/// <param name="AmbiguousAbbreviations">
+///     The number of abbreviation resolutions that fell back to a documented default or chose
+///     between competing cues; 0 when normalization was not selected.
+/// </param>
+internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int Annotations, int UnknownWords, int Normalizations, int AmbiguousAbbreviations);
 
 /// <summary>
 ///     Reports one aggregate-counts event per analyzed request to an optional host-supplied
@@ -21,8 +26,8 @@ internal readonly record struct AnalysisCounts(int Sentences, int Tokens, int An
 /// </summary>
 /// <remarks>
 ///     The library's diagnostics contract forbids synthesized or recognized text content in any
-///     report, so the message is built only from fixed words and numbers: a word, a token or an
-///     annotation value can never reach the sink. Reporting is strictly best effort: a sink that
+///     report, so the message is built only from fixed words and numbers: a word, a token, a
+///     spoken replacement or an annotation value can never reach the sink. Reporting is strictly best effort: a sink that
 ///     throws is contained here, because observing an analysis must never interrupt it. The type
 ///     keeps no mutable state and is thread-safe provided the sink is.
 /// </remarks>
@@ -44,14 +49,14 @@ internal sealed class AnalysisDiagnostics
     }
 
     /// <summary>
-    ///     Builds the report message for a request: fixed text plus the four counts.
+    ///     Builds the report message for a request: fixed text plus the six counts.
     /// </summary>
     /// <param name="counts">The aggregate counts of the request.</param>
     /// <returns>The message; contains digits and fixed words only.</returns>
     internal static string FormatMessage(AnalysisCounts counts) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words.");
+            $"Analyzed one text: {counts.Sentences} sentences, {counts.Tokens} tokens, {counts.Annotations} annotations, {counts.UnknownWords} unknown words, {counts.Normalizations} normalizations, {counts.AmbiguousAbbreviations} ambiguous abbreviations.");
 
     /// <summary>
     ///     Reports the counts of one completed request, once.
