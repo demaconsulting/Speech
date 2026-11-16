@@ -1097,11 +1097,19 @@ public sealed class SpeechTextEnTests
         // Act
         await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
 
-        // Assert: every token of the date, the amount, the time and the percent is delivered once
+        // Assert: every token of the date, the amount, the time and the percent is delivered once; the glued meridiem
+        // is its own spelled span, delivered with the time even when the clause cut falls right before it
         Assert.True(backend.Calls.Count >= 3);
         Assert.Equal(
-            [("5", "fifth"), ("2024", "twenty twenty four"), ("$1,234.50", "one thousand two hundred thirty four dollars and fifty cents"), ("5:30pm", "five thirty P M"), ("50", "fifty"), ("%", "percent")],
+            [("5", "fifth"), ("2024", "twenty twenty four"), ("$1,234.50", "one thousand two hundred thirty four dollars and fifty cents"), ("5:30", "five thirty"), ("50", "fifty"), ("%", "percent")],
             DeliveredNormalizations(backend.Calls));
+        Assert.Equal(
+            [("pm", " P M")],
+            backend.Calls
+                .SelectMany(call => call.Annotations
+                    .Where(annotation => annotation.Kind == TextEnAnnotations.SpellOut)
+                    .Select(annotation => (call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
+                .ToList());
     }
 
     /// <summary>Proves a percent sign that ends up alone in a chunk (the budget cut falls between the number and the sign) keeps its normalization.</summary>
@@ -1430,7 +1438,7 @@ public sealed class SpeechTextEnTests
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(22, overrides.Count);
+        Assert.Equal(23, overrides.Count);
         Assert.Equal("why fie and engine ex based koo ber net eez apps; Cafe, istanbul.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
         Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Pronunciation && annotation.Value == "arpabet:K AE0 F EY1");
     }
@@ -1483,6 +1491,71 @@ public sealed class SpeechTextEnTests
             result.Annotations,
             annotation => annotation.Kind == TextEnAnnotations.Normalized && System.Text.RegularExpressions.Regex.IsMatch(annotation.Value.Trim(), "^[A-Z]( [A-Z])*$"));
         Assert.Equal("A Smith met the F B I at 5 P M in the U S with J Doe, P H D.", NormalizationHarness.ApplyNormalizations(text, result.Annotations).Replace("five", "5", StringComparison.Ordinal));
+    }
+
+    /// <summary>Proves a meridiem glued to its hour or time (<c>5pm</c>, <c>5PM</c>, <c>5:30pm</c>) is two adjacent, non-overlapping spans inside the token - the number as <c>en.norm</c> words and the meridiem letters as typed <c>en.spell</c> - and the separate-token <c>5 p.m.</c> is the same pair, so a consumer never infers spelling from an <c>en.norm</c> value.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="numberSource">The source of the <c>en.norm</c> span.</param>
+    /// <param name="numberValue">The value of the <c>en.norm</c> span.</param>
+    /// <param name="meridiemSource">The source of the <c>en.spell</c> span.</param>
+    /// <param name="meridiemValue">The value of the <c>en.spell</c> span, with its separating space when it touches the number.</param>
+    [Theory]
+    [InlineData("at 5pm today", "5", "five", "pm", " P M")]
+    [InlineData("at 5PM today", "5", "five", "PM", " P M")]
+    [InlineData("at 5:30pm today", "5:30", "five thirty", "pm", " P M")]
+    [InlineData("at 12:00am today", "12:00", "twelve", "am", " A M")]
+    [InlineData("at 5 p.m. today", "5", "five", "p.m.", "P M")]
+    public void SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans(string text, string numberSource, string numberValue, string meridiemSource, string meridiemValue)
+    {
+        // Arrange
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the number is en.norm words, the meridiem is en.spell letters, both readable through the typed reader
+        Assert.Equal(
+            [(numberSource, TextEnAnnotations.Normalized, numberValue), (meridiemSource, TextEnAnnotations.SpellOut, meridiemValue)],
+            Overlays(result.Annotations, text));
+        var number = result.Annotations.Single(annotation => annotation.Kind == TextEnAnnotations.Normalized);
+        var meridiem = result.Annotations.Single(annotation => annotation.Kind == TextEnAnnotations.SpellOut);
+        Assert.True(TextEnAnnotations.TryReadReplacement(number, out _, out var numberSpelled));
+        Assert.False(numberSpelled);
+        Assert.True(TextEnAnnotations.TryReadReplacement(meridiem, out _, out var meridiemSpelled));
+        Assert.True(meridiemSpelled);
+
+        // Assert: the spans are in order and do not overlap; glued ones abut exactly inside one token
+        Assert.True(number.End <= meridiem.Start);
+        if (!text.Contains("p.m.", StringComparison.Ordinal))
+        {
+            Assert.Equal(number.End, meridiem.Start);
+        }
+
+        // Assert: exactly one separator between the two words
+        var spoken = NormalizationHarness.ApplyNormalizations(text, result.Annotations);
+        Assert.DoesNotContain("  ", spoken, StringComparison.Ordinal);
+        Assert.Contains(numberValue + " " + meridiemValue.Trim(), spoken, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a host <c>Say</c> override whose payload is a single capital letter stays an <c>en.norm</c> word that no reader reports as spelled, so <c>en.norm</c> never carries a spell-out promise.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled()
+    {
+        // Arrange: "foo" is spoken as the word "I", not as the letter name
+        const string text = "Use foo today.";
+        var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Say("foo", "I")]);
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Overrides = overrides });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([("foo", TextEnAnnotations.Normalized, "I")], Overlays(result.Annotations, text));
+        var annotation = Assert.Single(result.Annotations);
+        Assert.True(TextEnAnnotations.TryReadReplacement(annotation, out var value, out var isSpelled));
+        Assert.Equal("I", value);
+        Assert.False(isSpelled);
+        Assert.False(TextEnAnnotations.TryReadSpellOut(annotation, out _));
     }
 
     /// <summary>Proves an ampersand initialism is decomposed into spelled letter spans and an <c>and</c> normalization, with the same spoken text as before.</summary>

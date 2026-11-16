@@ -15,7 +15,10 @@ annotation is the exact spoken replacement for the annotated span (empty means s
 documentation states the consumer algorithm and the guarantees of the _Alignment Contract_ (see _SpeechTextEn
 System Design_). The `Value` of an `en.spell` annotation is the same kind of replacement, restricted to single
 capital ASCII letters separated by single spaces with at most one padding space on either side (A11), with
-the promise that the letters are letter names. The `en.norm` and `en.spell` annotations form the
+the promise that the letters are letter names. The kind is the only spell-out signal: an `en.norm` value is
+always spoken as words, whatever letters it holds (a `Say` override of `I` is the word), so no consumer infers
+spelling from an `en.norm` value, and a meridiem glued to its number is split into an `en.norm` span and an
+`en.spell` span. The `en.norm` and `en.spell` annotations form the
 _replacement family_: one ascending, non-overlapping sequence. The `Value` of an `en.pron` annotation is
 `scheme:phonemes` with a lower-case scheme from the closed list `ipa` and `arpabet`; it replaces nothing and
 is disjoint from every replacement (A12). A private set holds the 17 Universal Dependencies tag names that a
@@ -42,7 +45,8 @@ use, so what is produced, validated and read cannot drift apart.
   value is a known scheme followed by phonemes that satisfy that scheme's syntax; an unknown scheme or
   malformed phonemes are an ordinary false (the backend then speaks the word as usual), never an exception
 - **TryReadReplacement(annotation, out spokenText, out isSpelled)**: the single entry point for the
-  replacement family: true for an `en.norm` annotation (`isSpelled` false) and for a well-formed `en.spell`
+  replacement family: true for an `en.norm` annotation (`isSpelled` false, always, whatever the value holds)
+  and for a well-formed `en.spell`
   annotation (`isSpelled` true); false for any other kind or a malformed spelled value
 
 **Error Handling**: a null annotation throws `ArgumentNullException` (from every reader); nothing else is

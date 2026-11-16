@@ -23,7 +23,14 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     <see cref="TryReadReplacement"/>, sort by <c>Start</c>, emit the text between them unchanged
 ///     and each value in place of its span; when <c>isSpelled</c> is true, speak each capital
 ///     letter of the value by its letter name, never as a word (so a lone <c>A</c> or <c>I</c> is
-///     never the article or the pronoun). <see cref="Pronunciation"/> annotations replace nothing:
+///     never the article or the pronoun). Only <see cref="SpellOut"/> (that is, a true
+///     <c>isSpelled</c>) means spell out: the value of every <see cref="Normalized"/> annotation
+///     is spoken as words, whatever letters it contains, so a backend must never infer
+///     spelling from the shape or content of a <see cref="Normalized"/> value (a host's
+///     <c>Say("foo", "I")</c> override is the word <c>I</c>). A meridiem written glued to its
+///     number (<c>5pm</c>, <c>5:30pm</c>) is therefore two adjacent spans inside the token: the
+///     number or time as <see cref="Normalized"/> and the meridiem letters as
+///     <see cref="SpellOut"/>. <see cref="Pronunciation"/> annotations replace nothing:
 ///     a backend that supports the scheme uses the phonemes for the word the annotation covers
 ///     and a backend that does not speaks the word as usual. Pronunciation annotations never
 ///     overlap each other or a replacement.
@@ -44,7 +51,9 @@ public static class TextEnAnnotations
     ///     and <c>en.spell</c>, see <see cref="TryReadReplacement"/>) by
     ///     <c>Start</c>, then emit the text between them unchanged and each annotation's
     ///     <c>Value</c> in place of its span. A <c>Value</c> already carries any single space it
-    ///     needs next to a touching word, so nothing is inserted between the pieces. Annotations
+    ///     needs next to a touching word, so nothing is inserted between the pieces. The <c>Value</c>
+    ///     is always spoken as words: <c>en.norm</c> carries no spell-out promise, even for a value
+    ///     that is a single capital letter (only <see cref="SpellOut"/> means spell out). Annotations
     ///     of other kinds (such as <see cref="PartOfSpeech"/>) may overlap an <c>en.norm</c>
     ///     span and are independent of it. A span contains no whitespace, comma, semicolon or
     ///     colon, so it survives the core library's chunking.

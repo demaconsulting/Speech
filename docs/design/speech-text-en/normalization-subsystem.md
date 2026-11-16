@@ -96,7 +96,9 @@ on a span).
 
 **Numeric decomposition (rule (d)).** A numeric construct is never one wide span. Each token of it gets its
 own span, in source order, or a currency symbol (or an apostrophe) is joined with its adjacent number token
-(spans S3 and S4 of the alignment contract); nothing wider is produced, so no numeric span contains
+(spans S3 and S4 of the alignment contract); a meridiem glued to its number is the one token that is split, into
+the span of the number or time words and the span of the spelled meridiem letters (S5); nothing wider is
+produced, so no numeric span contains
 whitespace and every numeric span survives the Speech library's chunking by construction. A unit word or a
 magnitude word is attached to the token that holds it (`$5 million` has the spans `$5` for `five` and
 `million` for `million dollars`).

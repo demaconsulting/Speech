@@ -163,7 +163,9 @@ invisible characters, every kind of whitespace, placeholders, emoji, lone surrog
 For each, every span, the segment partition, the independent applier, the break edits and the reconciled
 breaks are checked against invariants A1 to A8 and A10 of the _Alignment Contract_ (see _SpeechTextEn System
 Design_). Invariant A6 is checked including the adjacency rule: a leading space is expected exactly where a
-letter or digit of the source touches the span or the directly preceding span ends with a letter, and no
+letter or digit of the source touches the span or the directly preceding span ends with a letter, a trailing space is
+expected exactly where a letter or digit touches the span and no directly following span already carries the
+separating space on its own left side (the case of a glued meridiem: `five` then `P M`), and no
 seam between two adjacent spans ever carries both a trailing and a leading space.
 
 #### Concurrency

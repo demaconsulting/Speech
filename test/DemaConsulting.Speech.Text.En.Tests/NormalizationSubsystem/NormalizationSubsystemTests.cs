@@ -209,9 +209,12 @@ public sealed class NormalizationSubsystemTests
                     var previousEndsWithLetter = previousSpan is { } before && before.End == span.Start && before.Spoken.Length > 0 && char.IsLetter(before.Spoken[^1]);
                     var leftNeeds = (span.Start > 0 && char.IsLetterOrDigit(text[span.Start - 1])) || previousEndsWithLetter;
                     var rightTouches = span.End < text.Length && char.IsLetterOrDigit(text[span.End]);
+
+                    // a touching next replacement that carries the single separator on its own left side does not pad this span on its right
+                    var nextTouches = aligned.Spans.Any(next => next.Start == span.End && next.Spoken.StartsWith(' '));
                     var core = span.Spoken.Trim();
                     Assert.Equal(leftNeeds && char.IsLetter(core[0]), span.Spoken.StartsWith(' '));
-                    Assert.Equal(rightTouches && char.IsLetter(core[^1]), span.Spoken.EndsWith(' '));
+                    Assert.True((rightTouches && !nextTouches && char.IsLetter(core[^1])) == span.Spoken.EndsWith(' '), $"right pad of '{span.Spoken}' at {span.Start}: {context}");
                 }
 
                 // exactly one separator between adjacent replacements: never a trailing and a leading space across the seam
@@ -671,9 +674,12 @@ public sealed class NormalizationSubsystemTests
                     var previousEndsWithLetter = previousSpan is { } before && before.End == span.Start && before.Spoken.Length > 0 && char.IsLetter(before.Spoken[^1]);
                     var leftNeeds = (span.Start > 0 && char.IsLetterOrDigit(text[span.Start - 1])) || previousEndsWithLetter;
                     var rightTouches = span.End < text.Length && char.IsLetterOrDigit(text[span.End]);
+
+                    // a touching next replacement that carries the single separator on its own left side does not pad this span on its right
+                    var nextTouches = aligned.Spans.Any(next => next.Start == span.End && next.Spoken.StartsWith(' '));
                     var core = span.Spoken.Trim();
                     Assert.Equal(leftNeeds && char.IsLetter(core[0]), span.Spoken.StartsWith(' '));
-                    Assert.Equal(rightTouches && char.IsLetter(core[^1]), span.Spoken.EndsWith(' '));
+                    Assert.True((rightTouches && !nextTouches && char.IsLetter(core[^1])) == span.Spoken.EndsWith(' '), $"right pad of '{span.Spoken}' at {span.Start}: {context}");
                 }
 
                 if (previousSpan is { } seam && seam.End == span.Start)

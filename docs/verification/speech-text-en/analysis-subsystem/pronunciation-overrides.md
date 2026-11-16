@@ -143,7 +143,7 @@ at the line limit.
 `PronunciationOverrides_FromTsv_EquivalentToCreate`,
 `PronunciationOverrides_Empty_IsSharedAndEmpty`
 
-The sample file loads to 22 entries in file order, the first seven being exactly the entries of the user guide.
+The sample file loads to 23 entries in file order, the first seven being exactly the entries of the user guide.
 Each key of the sample (the contraction key excepted) is found as one token when the real tokenizer sees it in a
 sentence, so a tokenizer change cannot silently make a documented key inert; the contraction key is pinned as the
 documented limitation that never matches. The line-ending test accepts LF, CRLF, mixed line ends, a leading

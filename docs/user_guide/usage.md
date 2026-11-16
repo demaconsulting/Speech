@@ -305,7 +305,8 @@ e-mail, and markup.
 
 *Spoken-text conventions.* The value of every number annotation is plain lowercase words separated by single
 spaces, with no hyphens, commas, or digits ("twenty four", never "twenty-four"). The apostrophe appears only in
-"o'clock", and capital letters only in month names, "P M" and "A M", and "Fahrenheit" and "Celsius". A value
+"o'clock", and capital letters only in month names, "Fahrenheit" and "Celsius", and the separate `"en.spell"`
+annotation of a meridiem ("P M" and "A M", see *Spelled letters*). A value
 is at most 1,024 characters long. The words of one construct belong to separate annotations: "January 5, 2024"
 annotates the "5" and the "2024" and leaves the month name and the comma alone, and "$5 million" annotates
 "$5" as "five" and "million" as "million dollars"; apply each annotation on its own range. A number the
@@ -336,7 +337,9 @@ the original text between them unchanged, insert each annotation's `Value` in
 place of its range, and speak the result. A value that is an empty string means the range is spoken as
 nothing, and a value already carries any single space the replacement needs, so the backend adds none. When
 `TryReadReplacement` reports `isSpelled`, speak each capital letter of the value by its letter name, never as a
-word (see *Spelled letters*).
+word (see *Spelled letters*). Only `isSpelled` (the `"en.spell"` kind) means spell out: the value of an
+`"en.norm"` annotation is always spoken as words, whatever letters it holds, so never infer spelling from an
+`"en.norm"` value.
 
 *Preview note: retained text; not yet published to NuGet.* The analyzer itself keeps no reference to the
 text it analyzes after a call returns, but the pre-release `DemaConsulting.PartOfSpeech` tagger
@@ -376,7 +379,8 @@ never rewritten, so every offset stays valid. The dictionary is part of the `Dem
 preview package and has the same preview status as the rest of it.
 
 **Spelled letters (`"en.spell"`).** An initialism (`FBI`), a dotted initialism (`U.S.`), a single-letter
-initial (`J.`), a credential (`M.D.`), the letters of a separate meridiem (`p.m.`) and the letters of an
+initial (`J.`), a credential (`M.D.`), the letters of a meridiem (a separate `p.m.`, or the `pm` glued to a
+number as in `5pm`) and the letters of an
 ampersand initialism (`AT&T`, `R&D`, `Q&A`) are annotated `"en.spell"` rather than `"en.norm"`. The value is
 single capital letters separated by single spaces (`"F B I"`), and the annotation is a promise: speak each
 letter **by its letter name, never as a word**. That matters for a phoneme backend, because a lone `"A"` is
@@ -384,9 +388,14 @@ the letter in `"A T and T"`, not the article, and a lone `"I"` is not the pronou
 same as before. An ampersand initialism is split into letter annotations and an `"and"` annotation:
 `AT&T's network` is annotated `AT` (`"A T"`), `&` (`" and "`, kind `"en.norm"`, with the padding spaces that a
 value may carry) and `T` (`"T"`), and the `'s`
-stays as written, so the replacements give `A T and T's network`. A meridiem glued to its time (`5:30pm`) stays
-inside the one annotation of the time (`"five thirty P M"`, kind `"en.norm"`): treat any lone capital letter
-inside an `"en.norm"` value as a letter name as well.
+stays as written, so the replacements give `A T and T's network`. A meridiem glued to its time or hour
+(`5:30pm`, `5pm`, `5PM`) is split inside its token into two adjacent annotations that never overlap: the number
+or time as `"en.norm"` words and the meridiem letters as `"en.spell"`. `5pm` is annotated `5` (`"five"`, kind
+`"en.norm"`) and `pm` (`" P M"`, kind `"en.spell"`, with the padding space that a value may carry), and
+`5:30pm` is annotated `5:30` (`"five thirty"`) and `pm` (`" P M"`); a separate meridiem (`5 p.m.`) is already
+its own `"en.spell"` annotation. The kind is the only signal: `"en.spell"` means spell out, and an `"en.norm"`
+value is always spoken as words, even when it is a single capital letter (a host's `Say("foo", "I")` override
+gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` value.
 
 **The four actions.** Each entry has a word, a case flag, an action and, for two actions, a payload:
 

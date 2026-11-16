@@ -331,7 +331,8 @@ sections:
               separate lower-case meridiem for an hour from 1 to 12, and shall leave an invalid
               time unchanged.
             justification: |
-              "5:30pm" is "five thirty P M", "5:00" is "five o'clock" and "17:00" is "seventeen
+              "5:30pm" is "five thirty" followed by the spelled letters "P M", "5:00" is "five
+              o'clock" and "17:00" is "seventeen
               hundred". A time that is not valid (an hour above 23, minutes above 59, a seconds
               field) must not be guessed, and every hour and minute is checked against an
               independent reference implementation.

@@ -331,13 +331,21 @@ sections:
           as Ph.D., the letters of a meridiem and a word a host asked to spell out) with a
           spell-out annotation instead of a normalization annotation, shall give it a value of
           capital letters separated by single spaces that a backend speaks by letter name and
-          never as a word, shall decompose an ampersand initialism into letter spans and an "and"
-          span, and shall leave the spoken text of every such replacement unchanged.
+          never as a word, shall give the meridiem letters of a number glued to a meridiem
+          ("5pm", "5:30pm") a spell-out annotation of their own, adjacent to and not overlapping
+          the annotation of the number or time words, shall speak every normalization annotation
+          value as words (a host's "Say" payload of "I" included), shall decompose an ampersand
+          initialism into letter spans and an "and" span, and shall leave the spoken text of
+          every such replacement unchanged.
         tags: [system]
         justification: |
           A phoneme backend that receives the replacement "A" or "I" as plain text cannot tell
           the letter from the article or the pronoun, so a letter sequence has to carry its own
-          annotation kind that promises letter names. The ampersand of "AT&T" is the word "and",
+          annotation kind that promises letter names. The kind is the only signal: a backend
+          that inferred spelling from the content of a normalization value would spell a host's
+          "Say" payload of "I", so a glued meridiem is split into a words span and a letters
+          span instead of being left inside one normalization value. The ampersand of "AT&T" is
+          the word "and",
           not a letter, so such a token is split into spans that each keep that promise. Moving
           initialisms to the new kind changes only the annotation kind, never the words a
           consumer that applies both kinds speaks, so the earlier golden spoken texts hold.
@@ -347,6 +355,8 @@ sections:
         tests:
           - SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut
           - SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans
+          - SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans
+          - SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled
 
       - id: SpeechTextEn-Overrides-WordOverrides
         title: >-

@@ -60,3 +60,8 @@ builtin-ampersand	AT&T's network	A T and T's network	-	AT¦T	0	0	ampersand initi
 builtin-ampersand-typographic	AT&T’s network	A T and T's network	-	AT¦T	0	0	typographic possessive tail
 builtin-ampersand-groups	R&D and Q&A	R and D and Q and A	-	R¦D¦Q¦A	0	0	one-letter groups
 builtin-word-abbreviation	Dr. Smith	Doctor Smith	-	-	0	0	a word replacement is not spelled
+builtin-meridiem-glued-hour	at 5pm today	at five P M today	-	pm	0	0	a glued meridiem is its own spelled span after the hour words (typed en.spell, not inferred from en.norm)
+builtin-meridiem-glued-upper	at 5PM today	at five P M today	-	PM	0	0	an uppercase glued meridiem is spelled the same way
+builtin-meridiem-glued-time	at 5:30pm today	at five thirty P M today	-	pm	0	0	the meridiem of a glued time is a spelled span after the time words
+builtin-meridiem-separate-dotted	at 5 p.m. today	at five P M today	-	p.m.	0	0	a dotted meridiem token is spelled (the existing initialism rule)
+say-single-letter-payload	Use foo today.	Use I today.	-	-	1	0	a say payload of one capital letter is the word, never spelled: en.norm carries no spell-out promise

@@ -110,7 +110,9 @@ sections:
                   The NumericExpressionRecognizer class shall read h:mm for an hour from 0 to 23 and
                   two-digit minutes from 00 to 59 as a clock time, shall read a glued meridiem or a
                   lower-case am or pm token joined after an hour from 1 to 12 as the letters A M or
-                  P M, and shall leave an invalid time (a seconds field, an hour above 23, minutes
+                  P M in a span of their own (a glued meridiem is split inside its token into the
+                  span of the hour or time words and the adjacent span of the letters), and shall
+                  leave an invalid time (a seconds field, an hour above 23, minutes
                   above 59, a meridiem on a 24-hour time) unchanged without counting it.
                 justification: |
                   A time is easily confused with a ratio or a score; only the valid h:mm form is

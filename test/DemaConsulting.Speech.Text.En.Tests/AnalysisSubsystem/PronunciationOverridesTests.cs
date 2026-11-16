@@ -540,7 +540,7 @@ public sealed class PronunciationOverridesTests
         var overrides = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
 
         // Assert: the sample of the user guide comes first, then the entries the golden rows use
-        Assert.Equal(22, overrides.Count);
+        Assert.Equal(23, overrides.Count);
         Assert.Equal(
             [
                 new PronunciationOverrideEntry("Nginx", false, OverrideAction.Say, "engine ex"),

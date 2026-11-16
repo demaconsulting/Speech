@@ -81,9 +81,12 @@ is spelled when its spoken text, before the A6 padding, is `[A-Z]( [A-Z])*` (`Sp
 That covers every initialism of the table and rule, dotted initialisms (`U.S.`), single-letter initials
 (`J.`), dotted credentials (`Ph.D.` gives `P H D`, `M.D.` gives `M D`) and the
 meridiem tokens of the lexicon (`p.m.`). Word replacements (`Doctor`) are not spelled. The builder then rejects
-a span marked spelled whose value is not a letter sequence (A11). The meridiem of a glued time (`5:30pm`) is part
-of the numeric span `five thirty P M`, which is a `DateTime` replacement and stays `en.norm` (the residual
-consumer note of the _Alignment Contract_).
+a span marked spelled whose value is not a letter sequence (A11). The meridiem of a glued time or hour
+(`5:30pm`, `5pm`) is not part of the numeric span: the recognizer emits it as its own adjacent span (`P M`, a
+`DateTime` replacement) after the span of the words (`five thirty`), so `Emit` marks it spelled like the
+separate-token meridiem and it is annotated `en.spell`. The spelled flag of an `en.norm` value is therefore never
+inferred downstream: a replacement is `en.spell` exactly when the normalizer marked it spelled, and every other
+replacement, including a `Say` payload such as `I`, is `en.norm` and spoken as words.
 
 **Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`, with an optional possessive tail `'s`) cannot be one spelled
 span because the ampersand is the word `and`. `EmitAmpersandInitialism` emits one `Initialism` span per group of

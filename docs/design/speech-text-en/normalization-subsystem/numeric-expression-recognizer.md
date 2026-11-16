@@ -92,12 +92,14 @@ and a `,` or `:` appears only between two ASCII digits:
 
 | Shape | Description | Examples |
 | --- | --- | --- |
-| S1 | One token | `42`, `$5` (when the tokenizer glues them), `5kg`, `1,234.50`, `5:30pm` |
+| S1 | One token | `42`, `$5` (when the tokenizer glues them), `5kg`, `1,234.50` |
 | S2 | One token and its adjacent period token | produced by `TextNormalizer` for a period-bearing unit (`lbs` and `.`), never by this unit alone |
 | S3 | A currency symbol token and its adjacent number token | `$` `5.50` |
 | S4 | An apostrophe token and its adjacent decade token | `'` `90s` |
+| S5 | Each of the two halves of one token split into adjacent, non-overlapping spans: the hour or time words and the meridiem letters of a glued meridiem | `5pm` gives `5` (`five`) and `pm` (`P M`); `5:30pm` gives `5:30` (`five thirty`) and `pm` (`P M`) |
 
-A construct of several tokens becomes several spans in source order, one per token or S3/S4 pair, never
+A construct of several tokens becomes several spans in source order, one per token or S3/S4 pair (a glued
+meridiem is the one case of a single token split into two spans, S5), never
 reordered and never merged across a gap; a unit or currency word is attached to the unit token or the
 magnitude word. `$5 million` is the S3-or-S1 span `$5` (`five`) and the span `million` (`million dollars`);
 `5 million USD` is the span `5` (`five`), the consumed word `million` (no span) and the span `USD`
@@ -221,7 +223,7 @@ Decades: `1990s` `nineteen nineties`; `90s` `nineties`; `1900s` `nineteen hundre
 | `5:05`, `5:00`, `12:00` | `five oh five`, `five o'clock`, `twelve o'clock` |
 | `17:45`, `17:00` | `seventeen forty five`, `seventeen hundred` |
 | `07:05`, `07:00`, `0:30`, `00:00` | `oh seven oh five`, `oh seven hundred`, `zero thirty`, `zero hundred` |
-| `5:30pm`, `5:30PM`, `5pm`, `5PM`, `12:00am`, `5:00pm` (glued; hour 1 to 12) | `five thirty P M`, `five thirty P M`, `five P M`, `five P M`, `twelve A M`, `five P M` |
+| `5:30pm`, `5:30PM`, `5pm`, `5PM`, `12:00am`, `5:00pm` (glued; hour 1 to 12) | two adjacent spans inside the token (S5): `five thirty` and `P M`; `five thirty` and `P M`; `five` and `P M`; `five` and `P M`; `twelve` and `A M`; `five` and `P M` |
 | `5 pm`, `5:30 pm`, `5:00 pm`, `5 am` (a lowercase `am` or `pm` token joined to an hour or `h:mm`) | `five` and `P M`; `five thirty` and `P M`; `five` and `P M`; `five` and `A M` |
 | `5:30 p.m.`, `5 PM`, `5 a.m.` | the number per token and the **existing** initialism rule (`P M`, `A M`) |
 

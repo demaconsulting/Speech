@@ -6,8 +6,8 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 /// </summary>
 /// <param name="Start">The UTF-16 offset of the first covered character.</param>
 /// <param name="Length">The number of covered UTF-16 code units; positive.</param>
-/// <param name="Spoken">The spoken words: lowercase letters and single spaces (capitals only in month names, <c>P M</c>, <c>A M</c>, <c>Celsius</c> and <c>Fahrenheit</c>), an apostrophe only in <c>o'clock</c>, never a digit.</param>
-/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>.</param>
+/// <param name="Spoken">The spoken words: lowercase letters and single spaces (capitals only in month names, the separate spelled meridiem span <c>P M</c> or <c>A M</c>, <c>Celsius</c> and <c>Fahrenheit</c>), an apostrophe only in <c>o'clock</c>, never a digit.</param>
+/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>. A <c>DateTime</c> span whose spoken text is a letter sequence (the meridiem letters) is the spelled span; a glued meridiem is always its own span, never part of the words of the number.</param>
 internal readonly record struct NumericSpan(int Start, int Length, string Spoken, NormalizationKind Kind);
 
 /// <summary>
@@ -866,12 +866,13 @@ internal static class NumericExpressionRecognizer
             return true;
         }
 
-        // Meridiem glued to the hour: 5pm, 5PM.
+        // Meridiem glued to the hour: 5pm, 5PM. Two adjacent spans inside the one token: the hour
+        // (words) and the meridiem letters (spelled), so no consumer infers spelling from a value.
         if (unsignedInteger && !hasThousands && c.GroupCount == 1 && IsMeridiem(rest, uppercaseAllowed: true) && IsHour12(integerDigits))
         {
-            var spoken = NumberVerbalizer.Cardinal(integerDigits) + " " + MeridiemWords(rest);
             var builder = new Builder { Consumed = 1 };
-            builder.Add(c.Token.Start, c.Token.Length, spoken, NormalizationKind.DateTime);
+            builder.Add(c.Token.Start, c.RestStart, NumberVerbalizer.Cardinal(integerDigits), NormalizationKind.DateTime);
+            builder.Add(c.Token.Start + c.RestStart, rest.Length, MeridiemWords(rest), NormalizationKind.DateTime);
             match = builder.ToMatch();
             return true;
         }
@@ -1749,9 +1750,11 @@ internal static class NumericExpressionRecognizer
                 return false;
             }
 
+            // Two adjacent spans inside the one token: the time (words) and the meridiem letters
+            // (spelled), so no consumer infers spelling from a value.
             NumberVerbalizer.AppendClock(ref writer, hour, minute, omitZeroMinute: true);
-            writer.Append(MeridiemWords(rest));
-            builder.Add(c.Token.Start, c.Token.Length, writer.ToString(), NormalizationKind.DateTime);
+            builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.DateTime);
+            builder.Add(c.Token.Start + c.RestStart, rest.Length, MeridiemWords(rest), NormalizationKind.DateTime);
             match = builder.ToMatch();
             return true;
         }

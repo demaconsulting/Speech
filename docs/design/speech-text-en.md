@@ -170,7 +170,7 @@ the phonemes to speak for it. The two replacement kinds together are the _replac
 | A2 | Every span is non-empty, starts and ends on a non-whitespace character, never contains a tag placeholder and never cuts a surrogate pair; its replacement is never null |
 | A3 | The spans and the untouched gaps between them tile the text exactly: no gap, no overlap, lengths summing to the text length; applying every span as its own source text returns the input unchanged |
 | A4 | Nothing outside a span is changed, re-cased or re-punctuated; unchanged text is never annotated |
-| A5 | A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one of four shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'` `90s`). A construct of several tokens (`January 5, 2024`, `$5 million`, `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies wholly inside one chunk of the Speech library |
+| A5 | A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one of five shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'` `90s`); **S5** one of the two halves of a token that is split into two adjacent spans: the number or time and the meridiem letters of a glued meridiem (`5pm` gives `5` and `pm`, `5:30pm` gives `5:30` and `pm`), the same way an ampersand initialism is split into letter groups. A construct of several tokens (`January 5, 2024`, `$5 million`, `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies wholly inside one chunk of the Speech library |
 | A6 | Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement carries one separating space on that side (`he/she` becomes the replacement ` slash ` for the `/`; `A™®B` gives `trademark` and ` registered `). Dropped and apostrophe replacements are never padded, and two adjacent replacements are separated by exactly one space (the later one pads its own left side, so no offset moves) |
 | A7 | No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The digits, separators and symbols of a recognized numeric expression are consumed into its spoken words (all of them are represented in the `Value`); numeric-looking text that is not recognized is never partially consumed |
 | A8 | Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null). **A8b**: no reconciled break lies strictly inside a span (a tokenizer break inside a numeric expression, for example after `Jan.` in `Jan. 5`, is suppressed) |
@@ -209,12 +209,15 @@ to the token, the normalization to the same characters). A backend ignores every
 The library adds no public helper that applies the annotations, so a Phase 3 backend can implement this
 ten-line algorithm itself.
 
-**Residual consumer note.** The letter-name rule is stated for `en.spell` values, but the same reading is the
-only sensible one for a lone capital letter that is a whole word inside any `en.norm` value: the meridiem of a
-glued time such as `5:30pm` stays inside one numeric span whose value is `five thirty P M`, and there `P` and
-`M` are letter names, not words. A separate-token meridiem (`5 pm`, `p.m.`) is its own span and is annotated
-`en.spell`. A backend that speaks lone capitals in any replacement value by letter name is correct in both
-cases.
+**Spell-out is typed, never inferred.** Only an `en.spell` annotation (a reader result with `isSpelled` true)
+means spell out. An `en.norm` value is always spoken as words, whatever letters it contains: a host's `Say`
+override whose payload is a single capital letter (`Say("foo", "I")`) is the word `I`, and
+`TextEnAnnotations.TryReadReplacement` reports `isSpelled == false` for it. A backend therefore never inspects
+the shape or content of an `en.norm` value to decide whether to spell it. The meridiem of a glued time or hour
+is split into two adjacent, non-overlapping spans inside its token so that the letters have their own kind: `5pm`
+is `5` (`en.norm`, `five`) and `pm` (`en.spell`, `P M`), and `5:30pm` is `5:30` (`en.norm`, `five thirty`) and
+`pm` (`en.spell`, `P M`); the later span carries the single A6 separating space. A separate-token meridiem
+(`5 pm`, `p.m.`) is its own `en.spell` span as well.
 
 **Double normalization.** A model that supplies an `EnglishTextAnalyzer` with normalization selected should
 keep `ISpeechModel.NormalizeText` as the identity (the default): the Speech library applies that hook to the
@@ -232,7 +235,8 @@ words and needs no number parser of its own:
   digits and no other punctuation**: `twenty four`, never `twenty-four` or `24`. No clause punctuation can
   enter a value, so a value never changes how a backend splits clauses
 - **Closed exceptions**: the apostrophe appears only in `o'clock`; capital letters appear only in the month
-  names (`January`), in the meridiem letters `P M` and `A M`, and in `Fahrenheit` and `Celsius`
+  names (`January`) and in `Fahrenheit` and `Celsius`; the meridiem letters `P M` and `A M` appear only as the
+  value of their own `en.spell` span (kind `DateTime`), never inside the words of the number or time
 - **Bounded**: a numeric value is never longer than 1,024 characters
 - **Padding**: a value may carry one leading or trailing space for the separation rule A6 (`50%` gives the
   value `fifty` for the digits and `percent` for the sign); a backend applies the values as they are
@@ -273,7 +277,7 @@ counted in the diagnostics:
 | Years and decades | `in 1066` `in ten sixty six`; `2024` `twenty twenty four`; `1990s` `nineteen nineties`; `'90s` `nineties` |
 | Currency | `$5.50` `five dollars and fifty cents`; `£3` `three pounds`; `$5 million` `five` + `million dollars`; `5 USD` `five` + `dollars` |
 | Percent and units | `50%` `fifty percent`; `5 kg` `five kilograms`; `72°F` `seventy two degrees Fahrenheit`; `6 ft.` `six feet` |
-| Times | `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty P M` |
+| Times | `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty` then the spelled `P M` |
 | Dates | `12/25/2024` `December twenty fifth twenty twenty four`; `January 5, 2024` `January fifth, twenty twenty four` |
 | Digit groups | `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2` `one half`; `3 1/2` `three and one half` |
 | Month and weekday abbreviations | `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps both sentence breaks |

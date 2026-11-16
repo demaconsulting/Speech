@@ -261,7 +261,8 @@ Verifies that for random, deliberately hostile numeric texts every `en.norm` ann
 alignment contract (no whitespace, no semicolon, a comma or colon only between two digits, no break strictly
 inside a span, no digit in a numeric value), that a long text mixing every numeric form reaches a real session's
 backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own, that
-`January 5, 2024, then left` and `$1,234.50, $5 million; 5:30pm: 50 %` keep every per-token annotation although
+`January 5, 2024, then left` and `$1,234.50, $5 million; 5:30pm: 50 %` keep every per-token annotation (the `5:30`
+words span as `en.norm` and its `pm` letters as a delivered `en.spell` span) although
 the clause cuts fall between the tokens of the date, that a chunk that consists only of `%` keeps its
 annotation, that no annotation is split where the 200-character budget cut falls near a number (the
 text is constructed so that the cut falls between `$5` and `million`), and that `5` followed by a tag and `kg`
@@ -270,7 +271,9 @@ keeps both annotations and covers no placeholder.
 ### Spelled Initialisms
 
 **Tests**: `SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut`,
-`SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans`
+`SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans`,
+`SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans`,
+`SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled`
 
 Verifies that in `A. Smith met the FBI at 5 p.m. in the U.S. with J. Doe, Ph.D.` every spelled replacement (the
 single-letter initials `A.` and `J.`, `FBI`, the meridiem `p.m.`, `U.S.` and the credential) is an `en.spell`
@@ -278,7 +281,15 @@ annotation whose value reads back through `TryReadSpellOut` as capital letters, 
 the shape of a letter sequence (so a backend never mistakes a lone `A` or `I` for a word), and that applying the
 annotations speaks `A Smith met the F B I at five P M in the U S with J Doe, P H D.`. It also verifies that `AT&T's R&D and Q&A.` is decomposed into letter-group spans
 of kind `en.spell` (`AT`, `T`, `R`, `D`, `Q`, `A`) and `&` spans of kind `en.norm` with the value ` and `, speaking
-`A T and T's R and D and Q and A.`, with the possessive tail outside every span.
+`A T and T's R and D and Q and A.`, with the possessive tail outside every span. For the meridiem, `at 5pm today`,
+`at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each annotated as exactly two
+non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`, `twelve`; the glued
+ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the single
+separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with
+`isSpelled` false for the first and true for the second, and the applied text has exactly one space between the
+words. Finally a `Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which
+`TryReadReplacement` reports as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out
+promise and a backend must not infer spelling from its value.
 
 ### Pronunciation Overrides
 

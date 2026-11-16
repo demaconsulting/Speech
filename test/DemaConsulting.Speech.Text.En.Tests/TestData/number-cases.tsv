@@ -287,10 +287,10 @@ time-07-00	07:00	oh seven hundred	07:00	0	0	leading zero and hundred
 time-0-30	0:30	zero thirty	0:30	0	0	hour zero
 time-00-00	00:00	zero hundred	00:00	0	0	midnight
 time-23-59	23:59	twenty three fifty nine	23:59	0	0	last minute
-time-pm-glued	5:30pm	five thirty P M	5:30pm	0	0	glued meridiem
-time-PM-glued	5:30PM	five thirty P M	5:30PM	0	0	glued uppercase meridiem
-time-hour-pm	5pm	five P M	5pm	0	0	hour and meridiem
-time-hour-PM	5PM	five P M	5PM	0	0	hour and uppercase meridiem
+time-pm-glued	5:30pm	five thirty P M	5:30pm	0	0	glued meridiem: the time words, then the meridiem as its own spelled span
+time-PM-glued	5:30PM	five thirty P M	5:30PM	0	0	glued uppercase meridiem: the time words, then the meridiem as its own spelled span
+time-hour-pm	5pm	five P M	5pm	0	0	hour words, then the glued meridiem as its own spelled span
+time-hour-PM	5PM	five P M	5PM	0	0	hour words, then the uppercase glued meridiem as its own spelled span
 time-am-noon	12:00am	twelve A M	12:00am	0	0	zero minutes dropped with a meridiem
 time-5-00pm	5:00pm	five P M	5:00pm	0	0	zero minutes dropped with a meridiem
 time-11-59pm	11:59pm	eleven fifty nine P M	11:59pm	0	0	last minute of the day

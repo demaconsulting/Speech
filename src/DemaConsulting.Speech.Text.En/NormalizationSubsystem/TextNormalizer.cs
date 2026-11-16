@@ -626,7 +626,11 @@ internal sealed class TextNormalizer
                 }
                 else
                 {
-                    Emit(span.Start, span.Length, span.Spoken, span.Kind);
+                    // A following span that touches this one pads its own left side (the later span of
+                    // two adjacent replacements carries the single separating space), so this span
+                    // must not also pad its right side.
+                    var touchesNext = s + 1 < match.SpanCount && match[s + 1].Start == span.Start + span.Length;
+                    Emit(span.Start, span.Length, span.Spoken, span.Kind, allowRightPad: !touchesNext);
                 }
             }
 

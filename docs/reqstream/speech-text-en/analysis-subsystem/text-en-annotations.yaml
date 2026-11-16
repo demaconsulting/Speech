@@ -99,12 +99,15 @@ sections:
                   The TextEnAnnotations class shall read the spoken replacement out of either a
                   normalization annotation (reporting words, including the empty text of a dropped
                   character) or a well-formed spell-out annotation (reporting letters to speak by
-                  letter name), and shall report false, without throwing, for any other kind or a
+                  letter name), shall report a normalization annotation as not spelled whatever its
+                  value holds, and shall report false, without throwing, for any other kind or a
                   malformed spelled value.
                 justification: |
                   The two kinds replace the spoken text of a span and form one ascending sequence,
                   so a backend collecting them needs one call that returns the value and whether it
-                  is letters, instead of two readers whose results it must merge.
+                  is letters, instead of two readers whose results it must merge. Only the kind
+                  says letters: a host's payload of "I" is a word, so the flag is never derived
+                  from the value of a normalization annotation.
                 tests:
                   - TextEnAnnotations_TryReadReplacement_NormAndSpell_ReturnValueAndSpelledFlag
                   - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
