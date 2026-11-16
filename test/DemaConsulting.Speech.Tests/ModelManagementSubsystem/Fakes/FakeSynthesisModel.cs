@@ -33,15 +33,27 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     ///     The declared parameters, or <see langword="null"/> to keep the default single
     ///     numeric "tempo" parameter.
     /// </param>
+    /// <param name="textAnalyzer">
+    ///     The analyzer <see cref="ISynthesisModel.TextAnalyzer"/> returns, or
+    ///     <see langword="null"/> to keep the default hook's behavior (no analyzer).
+    /// </param>
+    /// <param name="createBackend">
+    ///     Creates the backend <see cref="ISynthesisModel.CreateBackend"/> returns, or
+    ///     <see langword="null"/> for a fresh <see cref="FakeSynthesisEngine"/>.
+    /// </param>
     public FakeSynthesisModel(
         string id = "fake-synthesis-model",
         SpeechModelDownloadDescriptor? downloadDescriptor = null,
         Func<IReadOnlyDictionary<string, object>?, int>? resolveSpeakerId = null,
-        IReadOnlyList<ISpeechModelParameter>? parameters = null)
+        IReadOnlyList<ISpeechModelParameter>? parameters = null,
+        ITextAnalyzer? textAnalyzer = null,
+        Func<ISynthesisBackend>? createBackend = null)
     {
         Id = id;
         DownloadDescriptor = downloadDescriptor ?? FakeModelDescriptors.SingleFileDescriptor(id);
         _resolveSpeakerId = resolveSpeakerId;
+        _textAnalyzer = textAnalyzer;
+        _createBackend = createBackend;
         if (parameters is not null)
         {
             Parameters = parameters;
@@ -50,6 +62,12 @@ public sealed class FakeSynthesisModel : ISynthesisModel
 
     /// <summary>The scripted <see cref="ISynthesisModel.ResolveSpeakerId"/> delegate, or <see langword="null"/>.</summary>
     private readonly Func<IReadOnlyDictionary<string, object>?, int>? _resolveSpeakerId;
+
+    /// <summary>The analyzer <see cref="ISynthesisModel.TextAnalyzer"/> returns, or <see langword="null"/>.</summary>
+    private readonly ITextAnalyzer? _textAnalyzer;
+
+    /// <summary>The scripted backend factory, or <see langword="null"/> for the default fake engine.</summary>
+    private readonly Func<ISynthesisBackend>? _createBackend;
 
     /// <inheritdoc/>
     public string Id { get; }
@@ -85,8 +103,11 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        return new FakeSynthesisEngine();
+        return _createBackend?.Invoke() ?? new FakeSynthesisEngine();
     }
+
+    /// <inheritdoc/>
+    ITextAnalyzer? ISynthesisModel.TextAnalyzer => _textAnalyzer;
 
     /// <inheritdoc/>
     int ISynthesisModel.ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues) =>

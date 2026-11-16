@@ -7,7 +7,9 @@ package Speech {
              * to add its own recognition/synthesis backend. Recognition exposes a public
              * AudioFormat plus public engine construction; synthesis exposes a public
              * best-effort PreferredAudioFormat plus public engine construction and a
-             * default-hook CapabilityProfile member. It also provides a recognition-only
+             * default-hook CapabilityProfile member and a default-hook TextAnalyzer member
+             * (defaulting to none) through which a language-aware model can supply a text
+             * analyzer. It also provides a recognition-only
              * IRecognitionModel.NormalizeText(text, isFinal) default hook, distinct from the
              * shared ISpeechModel.NormalizeText(text) used on the synthesis side. */
 

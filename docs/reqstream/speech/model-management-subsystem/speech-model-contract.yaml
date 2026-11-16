@@ -159,6 +159,17 @@ sections:
                 tests:
                   - ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile
 
+              - id: Speech-Models-SpeechModelContract-SynthesisTextAnalyzerDeclaration
+                title: >-
+                  A synthesis model shall provide a text-analysis hook that defaults to no
+                  analyzer.
+                justification: |
+                  A default of no analyzer means a model needs zero code to keep its existing
+                  behavior, and a language-aware model opts in by overriding the hook only.
+                tests:
+                  - ISynthesisModel_TextAnalyzer_DefaultImplementation_ReturnsNull
+                  - ISynthesisModel_TextAnalyzer_ModelOverride_ReturnsDeclaredAnalyzer
+
               - id: Speech-Models-SpeechModelContract-LicenseDeclaration
                 title: >-
                   ISpeechModel shall expose a model's declared license name and optional license

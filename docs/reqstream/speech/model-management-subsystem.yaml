@@ -924,3 +924,16 @@ sections:
               - Speech-Models-ReferenceVoiceLibrary-ConsentNotice
             tests:
               - ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone
+
+          - id: Speech-Models-SynthesisTextAnalyzerDeclaration
+            title: >-
+              The ModelManagementSubsystem shall let a synthesis model optionally declare a text
+              analyzer, with a default of none that leaves a model that declares nothing
+              unaffected.
+            justification: |
+              Language-aware models can opt in to text analysis, while simple models need no code
+              at all and keep their existing behavior.
+            children:
+              - Speech-Models-SpeechModelContract-SynthesisTextAnalyzerDeclaration
+            tests:
+              - ISynthesisModel_TextAnalyzer_DefaultImplementation_ReturnsNull

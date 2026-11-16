@@ -89,6 +89,22 @@ public interface ISynthesisModel : ISpeechModel
     IModelCapabilityProfile CapabilityProfile => DefaultModelCapabilityProfile.Instance;
 
     /// <summary>
+    ///     Gets the optional language-aware text analyzer this model supplies, run once per speech
+    ///     request over the model-normalized text before it is chunked. The default
+    ///     implementation returns <see langword="null"/> (no analysis).
+    /// </summary>
+    /// <remarks>
+    ///     The analyzer is a property of the language or model family, independent of how audio
+    ///     tags are rendered, so a model using the default <see cref="CapabilityProfile"/> needs no
+    ///     custom profile to receive annotations. This mirrors <see cref="CapabilityProfile"/>'s
+    ///     default-hook pattern. The property is read once per request, so implementations should
+    ///     return a shared, cheap instance. The analyzer sees the text after
+    ///     <see cref="ISpeechModel.NormalizeText"/>, with each recognized audio tag replaced by
+    ///     <see cref="TextAnalysisConventions.TagPlaceholder"/>.
+    /// </remarks>
+    ITextAnalyzer? TextAnalyzer => null;
+
+    /// <summary>
     ///     Resolves a session-level parameter value bag to the engine-specific integer speaker id
     ///     to synthesize with. The default implementation always returns <c>0</c>, identical to
     ///     every existing model's previous hard-coded behavior.

@@ -116,7 +116,21 @@ instance of the sherpa-onnx-backed models this repository ships.
   `DefaultModelCapabilityProfile.Instance`, a stateless singleton driven purely by
   `AudioTagSupport`/`Parameters`, so a model needs zero code to get generically-correct tag
   rendering; a model may override this hook only when it needs bespoke, non-generic rendering
-  its native engine supports.
+  its native engine supports. `DefaultModelCapabilityProfile` and `SentenceChunker` are public, so
+  such a bespoke profile can wrap or delegate to the default and reuse the library's chunking
+  rather than copying them.
+- **ISynthesisModel.TextAnalyzer** *(public)*: the optional `ITextAnalyzer` this model uses to
+  analyze the whole text of a speech request once, before chunking, returning language-neutral
+  `SegmentAnnotation`s and optional authoritative sentence breaks. Defaults to `null` (no
+  analysis), a default interface member declared beside `CapabilityProfile` and following the same
+  default-hook pattern, so a model that declares nothing is unaffected and no existing model or
+  fake needs to change. It is a model-level hook rather than a capability-profile concern because
+  the analyzer is a property of the language or model family, independent of how tags are rendered,
+  and a model using `DefaultModelCapabilityProfile` needs no custom profile to get annotations.
+  `SynthesisSession` reads the member once per request, so an implementation should return a
+  shared, cheap instance; the analyzer sees the text after `NormalizeText` with each recognized
+  audio tag replaced by `TextAnalysisConventions.TagPlaceholder`. Annotations reach the backend
+  only when it implements `IAnnotatedSynthesisBackend`; see *TextAnalysis* for the contract.
 - **ISynthesisModel.ResolveSpeakerId(parameterValues)** *(public)*: resolves a session-level,
   untyped key-value parameter bag (for example built from a host's settings UI via a declared
   `ChoiceParameter`) to the engine's integer speaker id to synthesize with. Defaults to `0`,
@@ -127,7 +141,7 @@ instance of the sherpa-onnx-backed models this repository ships.
   fault synthesis.
 
 Every member on both interfaces is fully public, including `CreateBackend`,
-`PostEndpointWarmupWindowMs`, `CapabilityProfile`, and `ResolveSpeakerId`. The design still makes
+`PostEndpointWarmupWindowMs`, `CapabilityProfile`, `TextAnalyzer`, and `ResolveSpeakerId`. The design still makes
 each model's backing class responsible for "engine configuration for its own model architecture",
 and the `CreateBackend` members return only the library-owned, engine-neutral
 `IRecognitionBackend`/`ISynthesisBackend` seams, so this contract - and therefore the whole
@@ -147,8 +161,9 @@ rules apply. An exception thrown from a model's own `InstallAsync` override is h
 
 **Dependencies**: `SpeechModelRole`, `SpeechModelAudioTagSupport`, `ISpeechModelParameter`,
 `SpeechModelDownloadDescriptor`, `AudioFormat` from the AudioSubsystem, `IRecognitionBackend`
-from the RecognitionSubsystem, and `ISynthesisBackend` and
-`IModelCapabilityProfile`/`DefaultModelCapabilityProfile` from the SynthesisSubsystem.
+from the RecognitionSubsystem, and `ISynthesisBackend`,
+`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`, and `ITextAnalyzer` from the
+SynthesisSubsystem.
 
 **Callers**: `SpeechModelDescriptor`/`SpeechModelCatalog` depend only on `ISpeechModel`, so they
 can enumerate and report install state for any model regardless of role. Hosts and the

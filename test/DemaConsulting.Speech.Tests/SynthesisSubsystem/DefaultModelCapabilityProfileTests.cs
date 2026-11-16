@@ -426,6 +426,527 @@ public class DefaultModelCapabilityProfileTests
     }
 
     /// <summary>
+    ///     Proves a plain-text span's annotation is carried by the segment that contains it.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_AnnotatedSpan_SegmentCarriesRebasedAnnotation()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[] { TaggedTextSpan.PlainText("Say read it.", [new SegmentAnnotation(4, 4, "reading", "red")], null) };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        var segment = Assert.Single(plan.Segments);
+        var annotation = Assert.Single(segment.Annotations);
+        Assert.Equal("read", segment.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves an annotation after a stripped tag is re-based into the merged text buffer.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_AnnotationAfterStrippedTag_RebasedIntoMergedBuffer()
+    {
+        // Arrange: the stripped tag leaves "I've " + " read it." => "I've  read it."
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText("I've "),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Whispers),
+            TaggedTextSpan.PlainText(" read it.", [new SegmentAnnotation(1, 4, "reading", "red")], null),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        var segment = Assert.Single(plan.Segments);
+        Assert.Equal("I've  read it.", segment.Text);
+        var annotation = Assert.Single(segment.Annotations);
+        Assert.Equal(6, annotation.Start);
+        Assert.Equal("read", segment.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves a passed-through native tag's inserted text shifts later annotation offsets.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_NativeTag_AnnotationOffsetsShiftedPastInsertedTagText()
+    {
+        // Arrange: the native tag inserts "[excited]" (9 characters) into the text
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.Native);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText("I've "),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Excited),
+            TaggedTextSpan.PlainText(" read it.", [new SegmentAnnotation(1, 4, "reading", "red")], null),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        var segment = Assert.Single(plan.Segments);
+        Assert.Equal("I've [excited] read it.", segment.Text);
+        var annotation = Assert.Single(segment.Annotations);
+        Assert.Equal(15, annotation.Start);
+        Assert.Equal("read", segment.Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves a parameter-mapped tag flushes the buffer, so each side's annotations stay with
+    ///     their own segment (and that segment's overrides).
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ParameterMappedTag_AnnotationsStayWithTheirOwnSegment()
+    {
+        // Arrange
+        var model = new StubSpeechModel(
+            SpeechModelAudioTagSupport.ParameterMapped,
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0))]);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText("Say read.", [new SegmentAnnotation(4, 4, "reading", "red")], null),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast),
+            TaggedTextSpan.PlainText("Then read.", [new SegmentAnnotation(5, 4, "reading", "reed")], null),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(2, plan.Segments.Count);
+        Assert.Null(plan.Segments[0].ParameterOverrides);
+        Assert.Equal("red", Assert.Single(plan.Segments[0].Annotations).Value);
+        Assert.NotNull(plan.Segments[1].ParameterOverrides);
+        var second = Assert.Single(plan.Segments[1].Annotations);
+        Assert.Equal("reed", second.Value);
+        Assert.Equal("read", plan.Segments[1].Text.Substring(second.Start, second.Length));
+    }
+
+    /// <summary>
+    ///     Proves a pause tag flushes the buffer, so annotations stay with their own segment and
+    ///     the silence segment carries none.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_PauseTag_AnnotationsStayWithTheirOwnSegment()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText("Say read.", [new SegmentAnnotation(4, 4, "reading", "red")], null),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.ShortPause),
+            TaggedTextSpan.PlainText("Then read.", [new SegmentAnnotation(5, 4, "reading", "reed")], null),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(3, plan.Segments.Count);
+        Assert.Equal("red", Assert.Single(plan.Segments[0].Annotations).Value);
+        Assert.Empty(plan.Segments[1].Annotations);
+        Assert.Equal(string.Empty, plan.Segments[1].Text);
+        Assert.Equal("reed", Assert.Single(plan.Segments[2].Annotations).Value);
+    }
+
+    /// <summary>
+    ///     Proves analyzer sentence breaks on a span replace the punctuation heuristic.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_SpanBreaksSupplied_SplitsAtAnalyzerBreaksNotPunctuation()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[] { TaggedTextSpan.PlainText("Dr. Smith arrived. He left.", [], [18]) };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(["Dr. Smith arrived.", "He left."], plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves an analyzer sentence break on either side of a stripped tag splits the text at
+    ///     the seam.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_SentenceBreakAtTagSeam_SplitsAtSeam()
+    {
+        // Arrange: buffer is "Hello world" + " Next thing"; both breaks fall at offset 11
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText("Hello world", [], [11]),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Whispers),
+            TaggedTextSpan.PlainText(" Next thing", [], [0]),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(["Hello world", "Next thing"], plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves a sentence-break list on an empty plain span does not leak into the next
+    ///     non-empty span: that span, which has no analysis of its own, keeps its normal
+    ///     punctuation splits.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_EmptySpanWithBreaks_DoesNotMakeNextSpanAuthoritative()
+    {
+        // Arrange: the empty span's [0] must be discarded when it is flushed away
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = new[]
+        {
+            TaggedTextSpan.PlainText(string.Empty, [], [0]),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.ShortPause),
+            TaggedTextSpan.PlainText("One. Two."),
+        };
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(
+            ["One.", "Two."],
+            plan.Segments.Where(segment => segment.Text.Length > 0).Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves a sentence-break list on an empty plain span does not leak into a following
+    ///     non-empty span even when no flush intervenes (a parameter-mapped tag on an empty
+    ///     buffer, or no tag at all).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DefaultModelCapabilityProfile_Render_EmptySpanWithBreaksNoFlush_NextSpanKeepsPunctuationSplits(bool withTag)
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.ParameterMapped);
+        var spans = new List<TaggedTextSpan> { TaggedTextSpan.PlainText(string.Empty, [], [0]) };
+        if (withTag)
+        {
+            spans.Add(TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Fast));
+        }
+
+        spans.Add(TaggedTextSpan.PlainText("One. Two."));
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(["One.", "Two."], plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Builds the span run <c>First</c>, two tags, <c>Second</c> where the first tag carries
+    ///     the given sentence breaks and the plain spans carry authoritative empty break lists.
+    /// </summary>
+    private static TaggedTextSpan[] FirstTwoTagsSecond(
+        NaturalLanguageAudioTag firstTag,
+        NaturalLanguageAudioTag secondTag,
+        IReadOnlyList<int>? firstTagBreaks) =>
+    [
+        TaggedTextSpan.PlainText("First", [], []),
+        TaggedTextSpan.TagSpan(firstTag) with { SentenceBreaks = firstTagBreaks },
+        TaggedTextSpan.TagSpan(secondTag),
+        TaggedTextSpan.PlainText("Second", [], []),
+    ];
+
+    /// <summary>Returns the canonical bracket text the default profile passes through for a tag.</summary>
+    private static string NativeText(NaturalLanguageAudioTag tag) =>
+        $"[{AudioTagCatalog.Tags.First(descriptor => descriptor.Tag == tag).Aliases[0]}]";
+
+    /// <summary>
+    ///     Proves a break carried on the first of two consecutive stripped tags splits the text
+    ///     at the seam between them.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NoneSupport_SplitsAtSeam()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = FirstTwoTagsSecond(NaturalLanguageAudioTag.Fast, NaturalLanguageAudioTag.Excited, [1]);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(["First", "Second"], plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves a break between two native tags splits between the two tags' passed-through
+    ///     text, exactly where the analyzer placed it.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NativeSupport_SplitsBetweenTagTexts()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.Native);
+        var spans = FirstTwoTagsSecond(NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTag.Excited, [1]);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(
+            [
+                "First" + NativeText(NaturalLanguageAudioTag.Angry),
+                NativeText(NaturalLanguageAudioTag.Excited) + "Second",
+            ],
+            plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Proves a break between parameter-mapped tags adds no artifacts: the tags already end
+    ///     the segment, so the result is the same two segments.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_ParameterMappedSupport_TwoSegments()
+    {
+        // Arrange
+        var model = new StubSpeechModel(
+            SpeechModelAudioTagSupport.ParameterMapped,
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0))]);
+        var withBreak = FirstTwoTagsSecond(NaturalLanguageAudioTag.Fast, NaturalLanguageAudioTag.Slow, [1]);
+        var withoutBreak = FirstTwoTagsSecond(NaturalLanguageAudioTag.Fast, NaturalLanguageAudioTag.Slow, null);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(withBreak, model);
+        var control = DefaultModelCapabilityProfile.Instance.Render(withoutBreak, model);
+
+        // Assert
+        Assert.Equal(["First", "Second"], plan.Segments.Select(segment => segment.Text));
+        Assert.Equal(control.Segments.Select(segment => segment.Text), plan.Segments.Select(segment => segment.Text));
+        Assert.Equal(
+            control.Segments.Select(segment => segment.ParameterOverrides?["tempo"]),
+            plan.Segments.Select(segment => segment.ParameterOverrides?["tempo"]));
+    }
+
+    /// <summary>
+    ///     Proves a break at tag offset 0 splits immediately before the tag's passed-through text.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_TagSpanBreakBeforeOffsetZero_SplitsBeforeTag()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.Native);
+        var spans = FirstTwoTagsSecond(NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTag.Excited, [0]);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(
+            [
+                "First",
+                NativeText(NaturalLanguageAudioTag.Angry) + NativeText(NaturalLanguageAudioTag.Excited) + "Second",
+            ],
+            plan.Segments.Select(segment => segment.Text));
+    }
+
+    /// <summary>
+    ///     Control: authoritative empty break lists with no tag-span break keep the text across a
+    ///     tag run in one segment, so the absence of a break still means no split.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_AuthoritativeEmptyBreaksAcrossTagRun_StaysOneSegment()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = FirstTwoTagsSecond(NaturalLanguageAudioTag.Fast, NaturalLanguageAudioTag.Excited, null);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal("FirstSecond", Assert.Single(plan.Segments).Text);
+    }
+
+    /// <summary>
+    ///     Proves spans without annotations or breaks render to exactly the segments, with value
+    ///     equality, that the profile produced before annotations existed.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_SpansWithoutAnnotations_SegmentsEqualPreChangeShape()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = AudioTagParser.Parse("Hello, world. Wait... done.");
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert
+        Assert.Equal(
+            [
+                new SpeechSegment("Hello,", 0, 0, null),
+                new SpeechSegment("world.", 0, 0, null),
+                new SpeechSegment("Wait...", 0, DefaultModelCapabilityProfile.EllipsisPauseMilliseconds, null),
+                new SpeechSegment("done.", 0, 0, null),
+            ],
+            plan.Segments);
+    }
+
+    /// <summary>
+    ///     Proves the default profile is a public singleton an external profile can delegate to.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Instance_IsPublicSingletonUsableByExternalProfile()
+    {
+        // Act
+        var type = typeof(DefaultModelCapabilityProfile);
+
+        // Assert
+        Assert.True(type.IsPublic);
+        Assert.Same(DefaultModelCapabilityProfile.Instance, DefaultModelCapabilityProfile.Instance);
+        Assert.Empty(type.GetConstructors());
+        Assert.IsAssignableFrom<IModelCapabilityProfile>(DefaultModelCapabilityProfile.Instance);
+    }
+
+    /// <summary>
+    ///     Proves the public chunk-then-render step returns segments carrying chunk-relative
+    ///     annotations.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_RenderText_AnnotatedText_ReturnsSegmentsWithRebasedAnnotations()
+    {
+        // Arrange
+        const string text = "First one. Second read here.";
+
+        // Act
+        var segments = DefaultModelCapabilityProfile.RenderText(text, [new SegmentAnnotation(18, 4, "reading", "red")]);
+
+        // Assert
+        Assert.Equal(["First one.", "Second read here."], segments.Select(segment => segment.Text));
+        Assert.Empty(segments[0].Annotations);
+        var annotation = Assert.Single(segments[1].Annotations);
+        Assert.Equal("read", segments[1].Text.Substring(annotation.Start, annotation.Length));
+    }
+
+    /// <summary>
+    ///     Proves a chunk ending in an ellipsis gets the ellipsis pause, and overrides are applied
+    ///     to every segment.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_RenderText_EllipsisChunk_SetsEllipsisPostSilence()
+    {
+        // Arrange
+        var overrides = new Dictionary<string, object> { ["tempo"] = 1.2 };
+
+        // Act
+        var segments = DefaultModelCapabilityProfile.RenderText("Wait... done.", null, null, overrides);
+
+        // Assert
+        Assert.Equal(DefaultModelCapabilityProfile.EllipsisPauseMilliseconds, segments[0].PostSilenceMs);
+        Assert.Equal(0, segments[1].PostSilenceMs);
+        Assert.All(segments, segment => Assert.Same(overrides, segment.ParameterOverrides));
+    }
+
+    /// <summary>
+    ///     Proves a null text is rejected.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_RenderText_NullText_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => DefaultModelCapabilityProfile.RenderText(null!));
+    }
+
+    /// <summary>
+    ///     Proves the public pause constants keep their documented values.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_PauseConstants_HaveDocumentedValues()
+    {
+        // Act & Assert
+        Assert.Equal(300, DefaultModelCapabilityProfile.ShortPauseMilliseconds);
+        Assert.Equal(900, DefaultModelCapabilityProfile.LongPauseMilliseconds);
+        Assert.Equal(500, DefaultModelCapabilityProfile.EllipsisPauseMilliseconds);
+    }
+
+    /// <summary>
+    ///     Proves a segment has no annotations by default.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Annotations_DefaultsToEmpty()
+    {
+        // Act
+        var segment = new SpeechSegment("Hello", 0, 0, null);
+
+        // Assert
+        Assert.Empty(segment.Annotations);
+    }
+
+    /// <summary>
+    ///     Proves an annotation that extends beyond the segment text is rejected.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Annotations_OutOfRange_ThrowsArgumentException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new SpeechSegment("Hello", 0, 0, null)
+        {
+            Annotations = [new SegmentAnnotation(3, 5, "k", "v")],
+        });
+    }
+
+    /// <summary>
+    ///     Proves a null annotation element is rejected.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Annotations_NullElement_ThrowsArgumentException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new SpeechSegment("Hello", 0, 0, null) { Annotations = [null!] });
+    }
+
+    /// <summary>
+    ///     Proves the segment keeps a private copy of the caller's annotation list.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_Annotations_CallerListChangedLater_SegmentIsUnaffected()
+    {
+        // Arrange
+        var annotations = new List<SegmentAnnotation> { new(0, 2, "k", "v") };
+        var segment = new SpeechSegment("Hello", 0, 0, null) { Annotations = annotations };
+
+        // Act
+        annotations.Clear();
+
+        // Assert
+        Assert.Single(segment.Annotations);
+    }
+
+    /// <summary>
+    ///     Proves a <c>with</c> expression cannot shorten the text so that an existing annotation
+    ///     would be orphaned.
+    /// </summary>
+    [Fact]
+    public void SpeechSegment_With_ShorterTextWouldOrphanAnnotation_ThrowsArgumentException()
+    {
+        // Arrange
+        var segment = new SpeechSegment("Hello world", 0, 0, null)
+        {
+            Annotations = [new SegmentAnnotation(6, 5, "k", "v")],
+        };
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => segment with { Text = "Hello" });
+        Assert.Equal("Hello world!", (segment with { Text = "Hello world!" }).Text);
+    }
+
+    /// <summary>
     ///     A minimal, declared-support-only <see cref="ISpeechModel"/> stand-in, so this test
     ///     class can drive every <see cref="SpeechModelAudioTagSupport"/> value directly without
     ///     depending on <see cref="FakeSynthesisModel"/>'s fixed <c>ParameterMapped</c> declaration.

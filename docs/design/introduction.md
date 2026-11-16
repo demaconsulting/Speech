@@ -56,7 +56,9 @@ SpeechOnnxChatterboxTurbo) and their constituent software items, specifically:
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed, fixed Natural Language Audio
   Tag vocabulary grouped into kinds and the model-independent Layer 1 parser that recognizes
   bracket syntax against it, the Layer 2 rendering strategy that turns a parsed span sequence
-  into a model-appropriate `SpeechPlan`, sentence chunking for sequential chunked synthesis, the public
+  into a model-appropriate `SpeechPlan`, sentence chunking for sequential chunked synthesis, the
+  language-neutral text-analysis seam (annotations, tag-placeholder analysis text, and
+  analyzer-supplied sentence boundaries) and the optional annotated backend seam, the public
   async Engine/Session synthesis/playback contract with its composition root and honest
   unavailable fallbacks, the public, mockable synthesis-backend seam with its model-driven
   default backend factory, per-segment voice selection, and the playback-format converter
@@ -269,7 +271,9 @@ Tag vocabulary and the model-independent Layer 1 parser (`AudioTagCatalog`/`Audi
 recognizes bracket syntax against it, its Layer 2 rendering strategy
 (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
 into a model-appropriate `SpeechPlan` of `SpeechSegment`s, its `SentenceChunker` for
-sentence-aligned chunk boundaries, and its public async Engine/Session synthesis/playback
+sentence-aligned chunk boundaries, its language-neutral text-analysis seam (annotations, the
+tag-placeholder analysis text, and analyzer-supplied sentence boundaries) together with the
+optional annotated backend seam (`IAnnotatedSynthesisBackend`), and its public async Engine/Session synthesis/playback
 contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), which composes a synthesizer engine
 for an installed synthesis model via `LoadAsync` and then a session bound to a playback device
 via the engine's `CreateSessionAsync` without ever throwing and plays each synthesized chunk in order
@@ -466,9 +470,15 @@ src/DemaConsulting.Speech/
     ├── SpeechSegment.cs                          — One rendered segment: text, silence, overrides
     ├── SpeechPlan.cs                              — Ordered SpeechSegment sequence (public)
     ├── SpeechParameterConventions.cs             — Tag-to-numeric-parameter mapping conventions
+    ├── SegmentAnnotation.cs                      — Opaque offset/length/kind/value annotation (public)
+    ├── AnnotationList.cs                         — Shared empty-list and copy/bounds helpers (internal)
+    ├── TextAnalysisResult.cs                     — Annotations plus optional sentence breaks (public)
+    ├── TextAnalysisConventions.cs                — Tag placeholder constant (public)
+    ├── ITextAnalyzer.cs                          — Once-per-request text-analysis contract (public)
+    ├── TextAnalysisMapper.cs                     — Analysis-text construction and offset re-basing (internal)
     ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract (public)
-    ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
-    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking
+    ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy (public)
+    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking (public)
     ├── BackendAudio.cs                             — Raw engine output: samples plus produced rate (public)
     ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
     ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
@@ -481,6 +491,7 @@ src/DemaConsulting.Speech/
     ├── UnavailableSpeechSynthesizerEngine.cs       — Honest unavailable engine fallback
     ├── UnavailableSynthesisSession.cs             — Honest unavailable session fallback
     ├── ISynthesisBackend.cs                       — Mockable speech-synthesis seam (public)
+    ├── IAnnotatedSynthesisBackend.cs              — Optional backend seam that also receives annotations (public)
     ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
     ├── DefaultSynthesisBackendFactory.cs          — Real model-driven backend loader
     ├── SpeechSynthesizerEngine.cs                 — Real ISpeechSynthesizerEngine implementation
@@ -498,6 +509,7 @@ file of their own, and are documented with that owning unit:
 - `ChoiceParameterOption` is declared in `ChoiceParameter.cs`.
 - `SpeechModelDownloadOutcome` and `SpeechModelDownloadResult` are declared in
   `SpeechModelDownloader.cs`.
+- `SentenceChunk` is declared in `SentenceChunker.cs`.
 
 Several small internal helper types are likewise documented inside the unit that owns them rather
 than in a design document of their own: `AudioFileReadOptions` (in the AudioFileReader and
@@ -665,6 +677,8 @@ The SpeechOnnxKokoro library's folder structure likewise mirrors its software st
 
 ```text
 src/DemaConsulting.Speech.Onnx.Kokoro/
+├── PACKAGE-LICENSE.md                                     — Package license file (packaging file, not a software item)
+├── THIRD-PARTY-NOTICES.md                                 — Notices for embedded data (packaging file, not a software item)
 ├── SpeechModelCatalogKokoroExtensions.cs                  — `AddKokoroModels()` registration
 ├── ModelManagementSubsystem/
 │   ├── OnnxKokoroEnglishSynthesisModel.cs                 — Kokoro multi-voice synthesis model

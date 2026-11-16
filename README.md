@@ -57,7 +57,9 @@ streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()
 `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning
 TTS model via `.AddChatterboxTurboModels(options)`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
-implementation - can depend on the core package alone.
+implementation - can depend on the core package alone. A synthesis model can optionally supply an
+`ITextAnalyzer` whose language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the
+usage guide.
 
 ### PortAudio runtime support
 
@@ -78,7 +80,7 @@ still composes safely but reports audio devices as unavailable.
 
 `DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.NemotronStt` and
 `DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
-Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
+Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.31.1),
 and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
 with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references any of these
 packages together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
@@ -87,10 +89,14 @@ overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add t
 reference so only sherpa's native runtime is used (the managed APIs run against it):
 
 ```xml
-<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
 ```
 
-Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro,
+The sherpa-onnx 1.13.8 native library is ONNX Runtime 1.28.2, while the managed API pinned above is
+1.31.1. Microsoft's managed API requires a native library at least as new as itself, so this override
+is expected to fail to initialize against an older native library: it only works once the sherpa-onnx
+native runtime is at least the pinned managed version (check the version of the sherpa-onnx native
+package you restore). An application using Kokoro,
 Nemotron STT or Chatterbox Turbo without sherpa-onnx needs no override and gets Microsoft's native runtime
 transitively. To use an
 accelerated provider (for example DirectML or CUDA), reference the matching
@@ -496,6 +502,10 @@ standards, and the pull request process.
 
 Copyright (c) DEMA Consulting. Licensed under the MIT License. See [LICENSE][link-license] for
 details.
+
+The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU Pronouncing Dictionary
+(a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
+its `THIRD-PARTY-NOTICES.md` file at the package root.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 

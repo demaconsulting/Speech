@@ -35,6 +35,21 @@ already in flight on the same session throws `InvalidOperationException` immedia
 `IReadOnlyList<SynthesizedSpeech>` includes a pure-silence segment for a rendered pause tag, not
 only the segments containing synthesized speech.
 
+The text-analysis seam is verified in three layers. `SegmentAnnotation`, `TextAnalysisResult`, and
+the internal `TextAnalysisMapper` are pure value types and functions verified directly with hand-built
+span lists and exact expected offsets. `SentenceChunker.ChunkAligned` and
+`DefaultModelCapabilityProfile` are verified with exact expected chunk and segment lists, and the
+chunker's refactor onto a single position-aware implementation is proven behavior-preserving by a
+golden corpus whose expected values were recorded from the previous implementation before it was
+changed. The session wiring is verified with a scripted `FakeTextAnalyzer` and a
+`FakeAnnotatedSynthesisEngine` (a backend that implements `IAnnotatedSynthesisBackend`), asserting
+the analyzer's call count and received text, the annotation offsets each backend call received
+(`text.Substring(Start, Length)` equals the annotated word), which of `Generate` and
+`GenerateAnnotated` was called, and, through an NSubstitute diagnostics sink, that a failing
+analyzer produces exactly one warning containing neither the exception message nor the text. Three
+system-level scenarios in the system verification document exercise the same path through the
+public factory.
+
 Automated coverage **does not** include synthesizing real, intelligible speech. Proving that real
 text produces correct audible speech through a real model on real speakers requires a downloaded
 production model (which this library deliberately does not ship by default) and audio hardware,
@@ -52,7 +67,8 @@ Verification_.
 - **Test doubles**: None for the vocabulary/parser tests. For the Engine/Session pipeline: a fake
   `ISynthesisBackend`/`ISynthesisBackendFactory` pair, NSubstitute playback devices (including a
   semaphore-signaling `PendingSampleCount` stub for the genuine-drain-wait test) and diagnostics
-  sinks, and a fake synthesis model
+  sinks, a fake synthesis model (optionally declaring a text analyzer and a custom backend), a
+  scripted fake text analyzer, and a fake annotation-aware backend
 - **Isolation**: Every vocabulary/parser test is a pure function call with no shared or persisted
   state; composition tests create and delete their own scratch installed-model directory
 
@@ -128,6 +144,26 @@ A SynthesisSubsystem test run passes when:
   resolved format
 - The unavailable engine and unavailable session both stay honest and safe to hold and dispose
 - The automated verification boundary remains honest about the absence of real-speech coverage
+- A text analyzer is called exactly once per request with the whole normalized text in which each
+  recognized tag is one placeholder; its annotations reach an annotation-accepting backend with
+  offsets relative to each segment's text across stripped tags, native tags, and chunk boundaries,
+  and an annotation that cannot be represented inside one segment is dropped rather than misplaced
+- Analyzer-supplied sentence breaks replace punctuation-based sentence splitting, while the
+  clause and budget passes still apply, including a break between two consecutive tags
+- A slow text analyzer runs on a thread-pool thread and does not delay the return of the speak or
+  synthesize call that started it
+- A chunk whose only letters are supplementary-plane characters is kept with its annotation on
+  the analyzed path, while text with no analysis keeps its legacy chunking exactly
+- A segment with annotations reaches only a backend that accepts them, through `GenerateAnnotated`;
+  a legacy backend, and a segment without annotations, always receive plain `Generate` calls with
+  text identical to a run with no analysis
+- With no analyzer, a `null` result, or an empty result, a request behaves exactly as before text
+  analysis existed, and the sentence chunker's output for unannotated text matches the golden corpus
+  recorded from the pre-refactor implementation
+- A failing analyzer never faults a session and is reported through one warning that names only
+  the exception type; an analyzer cancellation propagates as `OperationCanceledException`
+- The default rendering profile, its `RenderText` step and pause constants, and the sentence
+  chunker are public and usable by an external model profile
 
 ### Test Scenarios
 
@@ -550,6 +586,198 @@ speaker id, that a supplied `parameterValues` bag resolves to the correct speake
 `ISynthesisModel.ResolveSpeakerId`, and that a session-level selected voice and an independent,
 per-segment `[fast]` Natural Language Audio Tag speed override both apply correctly in the same
 call, proving the two mechanisms coexist without either regressing the other.
+
+#### Text Analysis: Validation and Span Mapping
+
+**Tests**: `SegmentAnnotation_Constructor_NegativeStart_ThrowsArgumentOutOfRangeException`,
+`SegmentAnnotation_Constructor_NonPositiveLength_ThrowsArgumentOutOfRangeException`,
+`SegmentAnnotation_Constructor_BlankKind_Throws`,
+`SegmentAnnotation_Constructor_NullValue_ThrowsArgumentNullException`,
+`SegmentAnnotation_With_InvalidStart_ThrowsArgumentOutOfRangeException`,
+`TextAnalysisResult_Constructor_NullAnnotations_ThrowsArgumentNullException`,
+`TextAnalysisResult_Constructor_NullAnnotationElement_ThrowsArgumentException`,
+`TextAnalysisResult_Constructor_NegativeBreak_ThrowsArgumentOutOfRangeException`,
+`TextAnalysisResult_Constructor_CallerListsChangedLater_ResultIsUnaffected`,
+`TextAnalysisResult_Constructor_UnsortedDuplicateBreaks_AreSortedAndDistinct`,
+`TextAnalysisMapper_BuildAnalysisText_PlainAndTagSpans_UsesOnePlaceholderPerTag`,
+`TextAnalysisMapper_BuildAnalysisText_PlainTextOnly_EqualsInput`,
+`TextAnalysisMapper_Annotate_AnnotationInsideSecondSpan_RebasedToSpanLocalOffset`,
+`TextAnalysisMapper_Annotate_TagSpans_PassThroughUnchanged`,
+`TextAnalysisMapper_Annotate_AnnotationCoveringPlaceholder_Dropped`,
+`TextAnalysisMapper_Annotate_AnnotationSpanningTwoPlainSpans_Dropped`,
+`TextAnalysisMapper_Annotate_AnnotationBeyondTextLength_Dropped`,
+`TextAnalysisMapper_Annotate_BreaksProvided_AssignedToContainingSpansWithLocalOffsets`,
+`TextAnalysisMapper_Annotate_BreakBetweenConsecutiveTags_AttachedAfterPrecedingTagSpan`,
+`TextAnalysisMapper_Annotate_BreakBeforeLeadingTag_Dropped`,
+`TextAnalysisMapper_Annotate_BreakAfterTrailingTag_AttachedToLastTag`,
+`TextAnalysisMapper_Annotate_BreaksNull_SpansKeepNullBreaks`,
+`TextAnalysisMapper_Annotate_EmptyResult_ReturnsSameSpanListInstance`,
+`TextAnalysisMapper_Annotate_NullArguments_Throw`,
+`TaggedTextSpan_PlainText_Defaults_HaveNoAnnotationsAndNoBreaks`,
+`TaggedTextSpan_Annotations_NullElement_ThrowsArgumentException`,
+`TaggedTextSpan_SentenceBreaks_Negative_ThrowsArgumentOutOfRangeException`,
+`TaggedTextSpan_PlainText_AnnotatedFactory_ExposesAnnotationsAndBreaks`,
+`TaggedTextSpan_TagSpan_AcceptsSentenceBreaks`
+
+Verifies that an annotation rejects invalid offsets, kinds, and values (including through `with`),
+that an analysis result rejects missing or negative content and keeps its own sorted copy, that the
+analysis text holds exactly one placeholder per recognized tag, that an annotation or sentence break
+is assigned to the plain span containing it with span-local offsets, that an annotation covering a
+placeholder, crossing two spans, or lying beyond the text is dropped rather than clipped, that a
+break between two consecutive tags is attached to the preceding tag span (and one before a leading
+tag is dropped), that spans keep `null` breaks when none were supplied and every
+span gets a possibly empty list when they were, that an empty analysis returns the same span list
+instance, and that plain-text and tag spans carry breaks (and plain-text spans annotations) that
+default to none.
+
+#### Layer 2 Rendering: Annotations, Analyzer Breaks, and Public Building Blocks
+
+**Tests**: `DefaultModelCapabilityProfile_Render_AnnotatedSpan_SegmentCarriesRebasedAnnotation`,
+`DefaultModelCapabilityProfile_Render_AnnotationAfterStrippedTag_RebasedIntoMergedBuffer`,
+`DefaultModelCapabilityProfile_Render_NativeTag_AnnotationOffsetsShiftedPastInsertedTagText`,
+`DefaultModelCapabilityProfile_Render_ParameterMappedTag_AnnotationsStayWithTheirOwnSegment`,
+`DefaultModelCapabilityProfile_Render_PauseTag_AnnotationsStayWithTheirOwnSegment`,
+`DefaultModelCapabilityProfile_Render_SpanBreaksSupplied_SplitsAtAnalyzerBreaksNotPunctuation`,
+`DefaultModelCapabilityProfile_Render_SentenceBreakAtTagSeam_SplitsAtSeam`,
+`DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NoneSupport_SplitsAtSeam`,
+`DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_NativeSupport_SplitsBetweenTagTexts`,
+`DefaultModelCapabilityProfile_Render_TagSpanBreakBetweenConsecutiveTags_ParameterMappedSupport_TwoSegments`,
+`DefaultModelCapabilityProfile_Render_TagSpanBreakBeforeOffsetZero_SplitsBeforeTag`,
+`DefaultModelCapabilityProfile_Render_AuthoritativeEmptyBreaksAcrossTagRun_StaysOneSegment`,
+`DefaultModelCapabilityProfile_Render_SpansWithoutAnnotations_SegmentsEqualPreChangeShape`,
+`SpeechSegment_Annotations_DefaultsToEmpty`,
+`SpeechSegment_Annotations_OutOfRange_ThrowsArgumentException`,
+`SpeechSegment_Annotations_NullElement_ThrowsArgumentException`,
+`SpeechSegment_Annotations_CallerListChangedLater_SegmentIsUnaffected`,
+`SpeechSegment_With_ShorterTextWouldOrphanAnnotation_ThrowsArgumentException`,
+`DefaultModelCapabilityProfile_Instance_IsPublicSingletonUsableByExternalProfile`,
+`DefaultModelCapabilityProfile_RenderText_AnnotatedText_ReturnsSegmentsWithRebasedAnnotations`,
+`DefaultModelCapabilityProfile_RenderText_EllipsisChunk_SetsEllipsisPostSilence`,
+`DefaultModelCapabilityProfile_RenderText_NullText_ThrowsArgumentNullException`,
+`DefaultModelCapabilityProfile_PauseConstants_HaveDocumentedValues`
+
+Verifies that span annotations are delivered on the segment containing them with offsets relative
+to that segment, across stripped, passed-through, pause, and parameter-mapped tags; that span
+sentence breaks (including one at a tag seam and one between consecutive tags, carried by the tag
+span under none, native and parameter-mapped support, with a control showing no break means no
+split) split narration at the supplied position rather than
+at punctuation; that spans without annotations render exactly as before; that a segment validates
+and defensively copies its annotations and cannot be shortened beneath one; and that the default
+profile singleton, `RenderText`, and the pause constants are public and usable from outside.
+
+#### Chunking: Annotation Re-Basing, Analyzer Boundaries, and Golden Corpus
+
+**Tests**: `SentenceChunker_Chunk_RepresentativeCorpus_MatchesGoldenChunks`,
+`SentenceChunker_ChunkAligned_NoAnnotationsNoBreaks_EqualsChunkWithMetadata`,
+`SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk`,
+`SentenceChunker_ChunkAligned_LeadingWhitespace_OffsetAccountsForTrim`,
+`SentenceChunker_ChunkAligned_WhitespaceBudgetSplit_AnnotationRebasedThroughCollapsedWhitespace`,
+`SentenceChunker_ChunkAligned_DegenerateMerge_AnnotationBeforeMergedPunctuation_Preserved`,
+`SentenceChunker_ChunkAligned_AnnotationSpanningChunkBoundary_Dropped`,
+`SentenceChunker_ChunkAligned_AnnotationOnTrimmedWhitespace_Dropped`,
+`SentenceChunker_ChunkAligned_LeadingDegenerateRunAnnotation_Dropped`,
+`SentenceChunker_ChunkAligned_AnnotationOutOfRange_Dropped`,
+`SentenceChunker_ChunkAligned_AnalyzerBreaks_OverridePunctuationHeuristic`,
+`SentenceChunker_ChunkAligned_AnalyzerBreaks_SplitWithoutPunctuation`,
+`SentenceChunker_ChunkAligned_EmptyBreaksList_NoPrimarySplitButClauseSplitStillApplies`,
+`SentenceChunker_ChunkAligned_BreaksOutOfRangeIgnored`,
+`SentenceChunker_ChunkAligned_AnalyzerBreaks_ClauseCommaStillSplits`,
+`SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithBreaks_RetainedWithAnnotation`,
+`SentenceChunker_ChunkAligned_SurrogatePairLetterChunkWithAnnotationsOnly_Retained`,
+`SentenceChunker_Chunk_SurrogatePairLetterChunkNoAnalysis_KeepsLegacyFiltering`,
+`SentenceChunker_ChunkAligned_SurrogatePairEmoji_StillDegenerate`,
+`SentenceChunker_ChunkAligned_NullText_ThrowsArgumentNullException`,
+`SentenceChunker_ChunkAligned_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException`,
+`SentenceChunk_Annotations_DefaultStruct_IsEmpty`
+
+Verifies that the refactored chunker still produces, for a representative corpus of at least forty
+inputs, exactly the chunks and ellipsis flags recorded from the pre-refactor implementation; that
+each chunk receives only the annotations wholly inside it, re-based through trimming, whitespace
+collapsing, and punctuation merges; that an annotation crossing a chunk boundary, on trimmed
+whitespace, on a dropped degenerate run, or out of range is dropped; that supplied sentence breaks
+replace the punctuation pass while the clause and budget passes still apply, an empty list means no
+sentence splits, and out-of-range breaks are ignored; that a chunk whose only letters are
+supplementary-plane characters is kept (with its annotation) when annotations or breaks are
+supplied but filtered exactly as before when neither is, while an emoji-only chunk is still merged;
+and that `ChunkAligned` rejects null text and
+a non-positive length.
+
+#### Session: Text Analysis Runs Once and Annotations Are Re-Based
+
+**Tests**: `SynthesisSession_SynthesizeAsync_Analyzer_ReceivesWholeTextOnceWithTagPlaceholders`,
+`SynthesisSession_SpeakAsync_Analyzer_IsInvokedOncePerRequest`,
+`SynthesisSession_SynthesizeAsync_AnalyzerAnnotationAcrossStrippedTag_AnnotatedBackendReceivesRebasedOffsets`,
+`SynthesisSession_SynthesizeAsync_AnalyzerAnnotationsAcrossChunks_EachChunkReceivesOwnOffsets`,
+`SynthesisSession_SynthesizeAsync_AnalyzerAnnotationSpanningTag_IsDropped`,
+`SynthesisSession_SynthesizeAsync_AnalyzerBreakAfterSurrogatePair_KeepsChunkAndAnnotation`
+
+Verifies that the analyzer is called exactly once per request, for both `SynthesizeAsync` and
+`SpeakAsync`, with the whole normalized text in which `Hello [short pause] world.` arrives as
+`Hello <placeholder> world.`; that an annotation on `read` in `I've [whispers] read it.` lands on `read`
+in the merged text of a model that strips the tag; that annotating every `read` in text split by
+a pause tag and chunking gives each annotated backend call offsets relative to its own chunk; that
+an annotation spanning a tag is dropped; and that a chunk consisting of one supplementary-plane
+letter keeps its text and annotation when the analyzer breaks after it.
+
+#### Session: Analyzer Sentence Breaks Drive Chunking
+
+**Tests**: `SynthesisSession_SynthesizeAsync_AnalyzerSentenceBreaks_DriveChunking`,
+`SynthesisSession_SynthesizeAsync_AnalyzerBreakBetweenConsecutiveTags_SplitsIntoTwoSegments`
+
+Verifies that `Dr. Smith arrived. He left.` with an analyzer break at offset 18 produces exactly
+two backend calls, `Dr. Smith arrived.` and `He left.`, where the same text without an analyzer
+is split at the abbreviation's period, and that `First[fast][excited]Second` with an analyzer
+break between the two tags produces the two backend calls `First` and `Second` (the analyzer
+having seen `First<placeholder><placeholder>Second`) rather than one `FirstSecond` call.
+
+#### Session: Analysis Does Not Block the Caller
+
+**Tests**: `SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread`,
+`SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread`
+
+Verifies, for both `SynthesizeAsync` and `SpeakAsync`, that with an analyzer gated on a release
+event the call returns an incomplete task while the analyzer is still blocked, that the analyzer ran
+on a different managed thread from the caller, and that once released the request completes and the
+backend receives the text.
+
+#### Session: Annotated Versus Legacy Backend Delivery
+
+**Tests**: `SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText`,
+`SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate`,
+`SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer`,
+`SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun`
+
+Verifies that an annotation-accepting backend receives `GenerateAnnotated` with the segment's text
+and annotations only for segments that have annotations, and plain `Generate` for those that do not;
+that annotations a capability profile attaches to its own segments reach the backend with no
+analyzer involved; and that a legacy backend receives text identical to the annotated backend's
+segment texts and to a run with no analyzer.
+
+#### Session: No Analyzer Leaves Behavior Unchanged
+
+**Tests**: `SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore`,
+`SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer`,
+`SynthesisSession_SynthesizeAsync_AnalyzerReturnsEmptyResult_BehavesAsNoAnalyzer`
+
+Verifies that no analyzer, an analyzer returning `null`, and an analyzer returning an empty result
+all produce the backend texts a run before text analysis existed produced, and never call
+`GenerateAnnotated`.
+
+#### Session: Analyzer Fault Containment and Cancellation
+
+**Tests**:
+`SynthesisSession_SynthesizeAsync_AnalyzerThrows_ContinuesUnannotatedAndReportsWarningWithoutText`,
+`SynthesisSession_SynthesizeAsync_AnalyzerCanceled_PropagatesOperationCanceled`,
+`SynthesisSession_SynthesizeAsync_CancelDuringSlowAnalysis_ThrowsCanceledAndSkipsBackend`,
+`SynthesisSession_SynthesizeAsync_AnalyzerAlreadyCanceledBeforeStart_AnalyzerNotInvoked`
+
+Verifies that an analyzer throwing an exception whose message holds text lets the request complete
+with plain text, with exactly one `Warning` diagnostic that names the exception type and contains
+neither the message nor the synthesized text, that an analyzer cancellation propagates as
+`OperationCanceledException` with the backend never called, that canceling the caller's token
+while a slow analyzer is blocked reaches the analyzer through the operation token, ends the request
+canceled with the session `Stopped`, and never calls the backend, and that an operation whose token
+is already canceled never invokes the analyzer.
 
 #### DedicatedWorker: Cooperative Cancellation and Non-Cooperative Abandonment
 

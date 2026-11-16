@@ -65,6 +65,8 @@ words:
   - chatterboxturbo
   - chokepoint
   - chunker
+  - cmudict
+  - cmusphinx
   - conv
   - convs
   - crost
@@ -81,10 +83,12 @@ words:
   - downmixes
   - downmixing
   - downsamples
+  - dwyl
   - endoftext
   - endpointing
   - espeak
   - fakeable
+  - fffc
   - fftbins
   - filterbank
   - hann

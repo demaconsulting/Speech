@@ -8,8 +8,10 @@
 # Layer 2 per-model rendering into an ordered plan of speech segments, sequential chunked
 # synthesis, and playback. A loaded model is reusable across many sessions, one live session at
 # a time, and a session adds an observable lifecycle, an overlap-not-allowed rule, a terminal
-# faulted state, and bounded, deterministic cancellation. Each requirement states one observable
-# criterion; the API shapes and mechanisms that satisfy them are described in
+# faulted state, and bounded, deterministic cancellation. A model may also supply a language-neutral
+# text analysis whose annotations and sentence boundaries are delivered to an annotation-aware
+# backend, and the default rendering and chunking building blocks are public. Each requirement
+# states one observable criterion; the API shapes and mechanisms that satisfy them are described in
 # docs/design/speech/synthesis-subsystem.md and the unit design documents.
 
 sections:
@@ -871,3 +873,173 @@ sections:
             tests:
               - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
               - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+          - id: Speech-Synthesis-TextAnalysisOnce
+            title: >-
+              The SynthesisSubsystem shall run the selected model's text analysis exactly once per
+              speech request over the complete plain text, with each recognized audio tag
+              represented by one opaque placeholder, before any chunking.
+            justification: |
+              Sentence-level context is only available when the whole request is analyzed
+              together; running the analysis once, ahead of chunking, supplies that context
+              without repeating the analysis for every chunk, and the placeholder keeps inline
+              audio tags from being mistaken for words or sentence ends.
+            children:
+              - Speech-Synthesis-TextAnalysis-AnalysisTextConstruction
+              - Speech-Synthesis-SynthesisSession-TextAnalysisOnce
+            tests:
+              - SynthesisSession_SynthesizeAsync_Analyzer_ReceivesWholeTextOnceWithTagPlaceholders
+              - SynthesisSession_SpeakAsync_Analyzer_IsInvokedOncePerRequest
+
+          - id: Speech-Synthesis-AnnotationRebasing
+            title: >-
+              The SynthesisSubsystem shall deliver each analysis annotation with the segment that
+              contains its text, with offsets relative to that segment's text, regardless of how
+              inline audio tags split the text or how chunking divides it, and shall drop rather
+              than misplace an annotation that cannot be represented inside one segment.
+            justification: |
+              A backend synthesizes one segment at a time and can only interpret offsets relative
+              to that segment's text. An annotation that points at the wrong word would make a
+              phoneme-driven model mispronounce it, so an annotation that cannot be placed
+              faithfully is better omitted than misplaced.
+            children:
+              - Speech-Synthesis-TextAnalysis-AnnotationValidation
+              - Speech-Synthesis-TextAnalysis-ResultValidation
+              - Speech-Synthesis-TextAnalysis-SpanAnnotationAssignment
+              - Speech-Synthesis-TextAnalysis-UnrepresentableAnnotationDropped
+              - Speech-Synthesis-AudioTagParser-SpanAnnotationCarriage
+              - Speech-Synthesis-Layer2Rendering-AnnotationsRebasedIntoSegments
+              - Speech-Synthesis-Layer2Rendering-SegmentAnnotationValidation
+              - Speech-Synthesis-SentenceChunker-AnnotationRebasing
+              - Speech-Synthesis-SentenceChunker-UnrepresentableAnnotationDropped
+              - Speech-Synthesis-SentenceChunker-ScalarAwareContentDetection
+            tests:
+              - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationAcrossStrippedTag_AnnotatedBackendReceivesRebasedOffsets
+              - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationsAcrossChunks_EachChunkReceivesOwnOffsets
+              - SynthesisSession_SynthesizeAsync_AnalyzerAnnotationSpanningTag_IsDropped
+              - SynthesisSession_SynthesizeAsync_AnalyzerBreakAfterSurrogatePair_KeepsChunkAndAnnotation
+
+          - id: Speech-Synthesis-AnalyzerSentenceBoundaries
+            title: >-
+              The SynthesisSubsystem shall split narration at the sentence boundaries a text
+              analysis supplies, instead of at sentence-ending punctuation, whenever the analysis
+              supplies them.
+            justification: |
+              Punctuation is a weak sentence signal (abbreviations, decimal numbers and unpunctuated
+              text all defeat it); an analysis that understands the language knows where sentences
+              really end, so its boundaries must take precedence.
+            children:
+              - Speech-Synthesis-TextAnalysis-SentenceBreakAssignment
+              - Speech-Synthesis-SentenceChunker-AnalyzerBoundaries
+              - Speech-Synthesis-Layer2Rendering-AnalyzerBreaksDriveChunking
+            tests:
+              - SynthesisSession_SynthesizeAsync_AnalyzerSentenceBreaks_DriveChunking
+              - SynthesisSession_SynthesizeAsync_AnalyzerBreakBetweenConsecutiveTags_SplitsIntoTwoSegments
+
+          - id: Speech-Synthesis-AnnotatedBackendDelivery
+            title: >-
+              The SynthesisSubsystem shall give a segment's annotations to a backend that declares
+              it accepts annotations, together with the segment text, and only for segments that
+              have annotations.
+            justification: |
+              Annotations are only useful to a backend that understands them, and a segment with
+              none gains nothing from the extra path, so the annotated path is used exactly when
+              it carries information.
+            children:
+              - Speech-Synthesis-SynthesisBackend-AnnotatedSeam
+              - Speech-Synthesis-SynthesisSession-AnnotatedDispatch
+            tests:
+              - SynthesisSession_SynthesizeAsync_AnnotatedBackend_ReceivesAnnotationsWithSegmentText
+              - SynthesisSession_SynthesizeAsync_AnnotatedBackendSegmentWithoutAnnotations_UsesPlainGenerate
+
+          - id: Speech-Synthesis-LegacyBackendReceivesPlainText
+            title: >-
+              The SynthesisSubsystem shall give a backend that does not accept annotations exactly
+              the text it would have received had no analysis run.
+            justification: |
+              Backends written before annotations existed must keep working unchanged, so the
+              analysis may influence only what an annotation-aware backend receives, never the
+              text a legacy backend synthesizes.
+            children:
+              - Speech-Synthesis-SynthesisSession-LegacyBackendUnchanged
+            tests:
+              - SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun
+
+          - id: Speech-Synthesis-NoAnalyzerBehaviorUnchanged
+            title: >-
+              The SynthesisSubsystem shall render and synthesize a request identically to its
+              behavior before text analysis existed when the model supplies no analyzer, or an
+              analyzer that returns nothing.
+            justification: |
+              Most models supply no analyzer, and an analyzer may legitimately have nothing to
+              say; in both cases the established chunking, rendering and synthesis behavior must
+              be preserved exactly.
+            children:
+              - Speech-Synthesis-TextAnalysis-EmptyResultUnchanged
+              - Speech-Synthesis-SynthesisSession-NoAnalyzerUnchanged
+              - Speech-Synthesis-Layer2Rendering-UnannotatedOutputUnchanged
+              - Speech-Synthesis-SentenceChunker-UnannotatedOutputUnchanged
+            tests:
+              - SynthesisSession_SynthesizeAsync_NoAnalyzer_BackendReceivesSameTextAsBefore
+              - SynthesisSession_SynthesizeAsync_AnalyzerReturnsNull_BehavesAsNoAnalyzer
+
+          - id: Speech-Synthesis-TextAnalysisFaultContainment
+            title: >-
+              The SynthesisSubsystem shall continue a speech request without annotations when text
+              analysis fails, reporting the failure without including synthesized text, and shall
+              honor cancellation requested during analysis.
+            justification: |
+              Annotations are an enhancement, so a faulty analyzer must never prevent speech; the
+              failure is reported for troubleshooting, but never with text the user asked to have
+              spoken, and a caller's cancellation must still end the request.
+            children:
+              - Speech-Synthesis-SynthesisSession-AnalyzerFaultContained
+              - Speech-Synthesis-SynthesisSession-AnalyzerCancellationHonored
+            tests:
+              - SynthesisSession_SynthesizeAsync_AnalyzerThrows_ContinuesUnannotatedAndReportsWarningWithoutText
+              - SynthesisSession_SynthesizeAsync_AnalyzerCanceled_PropagatesOperationCanceled
+              - SynthesisSession_SynthesizeAsync_CancelDuringSlowAnalysis_ThrowsCanceledAndSkipsBackend
+
+          - id: Speech-Synthesis-AnalysisDoesNotBlockCaller
+            title: >-
+              The SynthesisSubsystem shall run the selected model's text analysis off the thread
+              that called the speak or synthesize operation, so a slow analysis does not block
+              that thread.
+            justification: |
+              Speech operations are called from UI and request threads; analysis that runs
+              synchronously inside the call would freeze them for as long as the analyzer takes,
+              so the analysis must run on a thread-pool thread while the operation still awaits
+              it before rendering the text.
+            children:
+              - Speech-Synthesis-SynthesisSession-AnalysisOffCallerThread
+            tests:
+              - SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread
+              - SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread
+
+          - id: Speech-Synthesis-PublicDefaultRendering
+            title: >-
+              The SynthesisSubsystem shall expose its default tag-rendering strategy, its
+              plain-text chunk-then-render step and its pause durations publicly.
+            justification: |
+              A model package with bespoke tag syntax can then build on the library's rendering
+              instead of duplicating it, so its pauses and chunking stay consistent with the
+              library's own.
+            children:
+              - Speech-Synthesis-Layer2Rendering-PublicDefaultProfile
+              - Speech-Synthesis-Layer2Rendering-PublicRenderText
+              - Speech-Synthesis-Layer2Rendering-PublicPauseConstants
+            tests:
+              - DefaultModelCapabilityProfile_RenderText_AnnotatedText_ReturnsSegmentsWithRebasedAnnotations
+              - DefaultModelCapabilityProfile_PauseConstants_HaveDocumentedValues
+
+          - id: Speech-Synthesis-PublicSentenceChunking
+            title: >-
+              The SynthesisSubsystem shall expose its sentence chunker, including chunk-level
+              annotation re-basing, publicly.
+            justification: |
+              A model package that renders its own tags still needs the library's sentence
+              chunking, and must carry annotations through it faithfully.
+            children:
+              - Speech-Synthesis-SentenceChunker-PublicSurface
+            tests:
+              - SentenceChunker_ChunkAligned_AnnotationWithinSecondSentence_OffsetRelativeToChunk

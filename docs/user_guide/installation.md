@@ -50,10 +50,14 @@ Microsoft's copy can overwrite sherpa's and break sherpa-onnx on Linux. In such 
 a direct reference so only sherpa's native runtime is used (the managed APIs run against it):
 
 ```xml
-<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
 ```
 
-Keep that version in step with the sherpa-onnx native runtime. An application that uses only the raw
+The sherpa-onnx 1.13.8 native library is ONNX Runtime 1.28.2, while the managed API pinned by the raw
+ONNX packages is 1.31.1. Microsoft's managed API requires a native library at least as new as itself,
+so this override is expected to fail to initialize against an older native library: it only works once
+the sherpa-onnx native runtime is at least the pinned managed version (check the version of the
+sherpa-onnx native package you restore). An application that uses only the raw
 ONNX packages needs no override and gets Microsoft's native runtime transitively. To use an
 accelerated provider (for example DirectML or CUDA), reference the matching
 `Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The

@@ -1,8 +1,12 @@
 package Speech {
     part def SynthesisSession {
-        doc /* Real ISynthesisSession implementation: normalizes and tag-parses input text, Layer
+        doc /* Real ISynthesisSession implementation: normalizes and tag-parses input text, runs
+             * the model's optional text analysis once per request over the whole text on a
+             * thread-pool thread, never the thread that called SpeakAsync/SynthesizeAsync (with each
+             * recognized tag replaced by a placeholder, containing analyzer failures), Layer
              * 2 renders it into an ordered SpeechPlan, synthesizes each segment on a dedicated
-             * worker thread (bounding how long a non-cooperative native call is waited on before
+             * worker thread (through the annotation-accepting backend seam when the segment has
+             * annotations; bounding how long a non-cooperative native call is waited on before
              * being abandoned), and - for SpeakAsync - plays the resulting audio through this
              * session's bound playback device while waiting for genuine playback drain before
              * stopping it. An explicit SynthesisSessionState state machine and an overlap guard

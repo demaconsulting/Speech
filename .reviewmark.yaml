@@ -14,6 +14,8 @@ needs-review:
   - "docs/verification/**/*.md"  # Verification documentation files
   - "docs/user_guide/**/*.md"    # User guide documentation
   - "docs/sysml2/**/*.sysml"     # SysML2 architecture model
+  - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"      # Kokoro package license file
+  - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"  # Kokoro third-party notices
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -1204,6 +1206,8 @@ reviews:
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngineFactory.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeAnnotatedSynthesisEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeTextAnalyzer.cs"
 
   # Speech-SynthesisSubsystem-SynthesisSessionFaultedException Review (one per unit)
   - id: Speech-SynthesisSubsystem-SynthesisSessionFaultedException
@@ -1264,6 +1268,7 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/synthesis-backend.md"
       - "docs/verification/speech/synthesis-subsystem/synthesis-backend.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackend.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/IAnnotatedSynthesisBackend.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackendFactory.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultSynthesisBackendFactory.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultSynthesisBackendFactoryTests.cs"
@@ -1301,6 +1306,28 @@ reviews:
       - "docs/verification/speech/synthesis-subsystem/sentence-chunker.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceChunkerTests.cs"
+
+  # Speech-SynthesisSubsystem-TextAnalysis Review (one per unit)
+  - id: Speech-SynthesisSubsystem-TextAnalysis
+    title: Review that Speech SynthesisSubsystem TextAnalysis Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/text-analysis.yaml"
+      - "docs/design/speech/synthesis-subsystem/text-analysis.md"
+      - "docs/verification/speech/synthesis-subsystem/text-analysis.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/ITextAnalyzer.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisResult.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SegmentAnnotation.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisConventions.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/AnnotationList.cs"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisMapper.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SegmentAnnotationTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/TextAnalysisResultTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/TextAnalysisMapperTests.cs"
 
   # Speech-SynthesisSubsystem-PlaybackAudioResampler Review (one per unit)
   - id: Speech-SynthesisSubsystem-PlaybackAudioResampler
@@ -2584,6 +2611,9 @@ reviews:
       - "docs/reqstream/speech-onnx-kokoro.yaml"                 # system requirements
       - "docs/design/speech-onnx-kokoro.md"                      # system design
       - "docs/verification/speech-onnx-kokoro.md"                # system verification
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"       # package license file
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"   # third-party notices
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechOnnxKokoroTests.cs"  # system tests
 
   # SpeechOnnxKokoro-Design Review (one per system)
   - id: SpeechOnnxKokoro-Design

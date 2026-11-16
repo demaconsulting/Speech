@@ -29,16 +29,32 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     mechanism above; every other chunk boundary still adds zero silence.
 ///     <para>
 ///     The type is stateless, so the shared <see cref="Instance"/> is safe to reuse for every
-///     model and safe to share across threads.
+///     model and safe to share across threads. It is public so a model's own
+///     <see cref="IModelCapabilityProfile"/> can wrap or delegate to it, and so the chunk-then-render
+///     step (<see cref="RenderText"/>) and the pause durations are reusable instead of copied.
+///     </para>
+///     <para>
+///     Plain-text spans may carry text-analysis <see cref="TaggedTextSpan.Annotations"/> and
+///     <see cref="TaggedTextSpan.SentenceBreaks"/>. Consecutive plain text (and any passed-through
+///     native tag text) is buffered into one string, so each span's offsets are shifted by the
+///     text already buffered before it - this is what re-bases them across stripped and native
+///     tags - and the annotations then travel with the segment that contains them. Pause and
+///     parameter-mapped tags flush the buffer first, so an annotation never crosses a segment
+///     boundary that carries different overrides. Authoritative analyzer sentence breaks replace
+///     the punctuation heuristic for the buffered text. A tag span may also carry a break
+///     (<c>0</c> before, <c>1</c> after the tag): it is recorded at the buffer's length at that
+///     moment, so a break between consecutive tags lands at the same place whether the tags are
+///     stripped, passed through as native text, or already flushed as segment boundaries. With no
+///     annotations and no breaks the output is identical to the output before annotations existed.
 ///     </para>
 /// </remarks>
-internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
+public sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
 {
     /// <summary>The real silence, in milliseconds, a <see cref="NaturalLanguageAudioTag.ShortPause"/> renders as.</summary>
-    private const int ShortPauseMilliseconds = 300;
+    public const int ShortPauseMilliseconds = 300;
 
     /// <summary>The real silence, in milliseconds, a <see cref="NaturalLanguageAudioTag.LongPause"/> renders as.</summary>
-    private const int LongPauseMilliseconds = 900;
+    public const int LongPauseMilliseconds = 900;
 
     /// <summary>
     ///     The real silence, in milliseconds, appended after a plain-text chunk whose text ends
@@ -53,7 +69,7 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
     ///     between those two values (300ms/900ms) as a middle-ground pause appropriate for a
     ///     trailing-off ellipsis rather than a full deliberate pause.
     /// </summary>
-    private const int EllipsisPauseMilliseconds = 500;
+    public const int EllipsisPauseMilliseconds = 500;
 
     /// <summary>
     ///     The conservative pace/volume tag mapping table: for each recognized tag, the parameter
@@ -88,6 +104,52 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
     {
     }
 
+    /// <summary>
+    ///     Chunks plain text with <see cref="SentenceChunker"/> and renders each chunk as a
+    ///     <see cref="SpeechSegment"/>: the reusable "chunk-then-render" building block a model's
+    ///     own profile can call after handling its tags itself.
+    /// </summary>
+    /// <param name="text">The plain text to chunk and render. Must not be <see langword="null"/>.</param>
+    /// <param name="annotations">
+    ///     Annotations relative to <paramref name="text"/>, or <see langword="null"/> for none;
+    ///     each segment receives the ones wholly inside its chunk, re-based to the chunk text.
+    /// </param>
+    /// <param name="sentenceBreaks">
+    ///     Authoritative sentence breaks relative to <paramref name="text"/>, or
+    ///     <see langword="null"/> to use the punctuation heuristic; see
+    ///     <see cref="SentenceChunker.ChunkAligned"/>.
+    /// </param>
+    /// <param name="parameterOverrides">
+    ///     The parameter overrides every produced segment carries, or <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    ///     The ordered segments; a chunk ending in a genuine ellipsis gets
+    ///     <see cref="EllipsisPauseMilliseconds"/> of trailing silence. Empty when the text is
+    ///     empty or all whitespace.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    public static IReadOnlyList<SpeechSegment> RenderText(
+        string text,
+        IReadOnlyList<SegmentAnnotation>? annotations = null,
+        IReadOnlyList<int>? sentenceBreaks = null,
+        IReadOnlyDictionary<string, object>? parameterOverrides = null)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var chunks = SentenceChunker.ChunkAligned(text, annotations, sentenceBreaks);
+        var segments = new List<SpeechSegment>(chunks.Count);
+        foreach (var chunk in chunks)
+        {
+            var postSilenceMs = chunk.EndsWithEllipsis ? EllipsisPauseMilliseconds : 0;
+            segments.Add(new SpeechSegment(chunk.Text, 0, postSilenceMs, parameterOverrides)
+            {
+                Annotations = chunk.Annotations,
+            });
+        }
+
+        return segments;
+    }
+
     /// <inheritdoc/>
     public SpeechPlan Render(IReadOnlyList<TaggedTextSpan> spans, ISpeechModel model)
     {
@@ -96,13 +158,21 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
 
         var segments = new List<SpeechSegment>();
         var buffer = new StringBuilder();
+        var bufferAnnotations = new List<SegmentAnnotation>();
+        var bufferBreaks = new List<int>();
+        var breaksAuthoritative = false;
         Dictionary<string, object>? pendingOverrides = null;
 
         void Flush()
         {
             if (buffer.Length == 0)
             {
+                // An empty plain span can still have recorded breaks or annotations; drop them
+                // so they cannot leak into the next non-empty segment's analysis.
                 pendingOverrides = null;
+                bufferAnnotations.Clear();
+                bufferBreaks.Clear();
+                breaksAuthoritative = false;
                 return;
             }
 
@@ -111,11 +181,26 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
             var overrides = pendingOverrides;
             pendingOverrides = null;
 
-            var chunks = SentenceChunker.ChunkWithMetadata(text);
-            foreach (var chunk in chunks)
+            segments.AddRange(RenderText(
+                text,
+                bufferAnnotations.ToArray(),
+                breaksAuthoritative ? bufferBreaks.ToArray() : null,
+                overrides));
+            bufferAnnotations.Clear();
+            bufferBreaks.Clear();
+            breaksAuthoritative = false;
+        }
+
+        // Records a sentence break a tag span carries at the buffer's current end: offset 0 is
+        // processed immediately before the tag contributes and offset 1 immediately after, so the
+        // break lands exactly where the analyzer put it in every tag-support mode. An empty
+        // buffer has no sentence to break, and a pause or parameter flush already ends a segment.
+        void AddTagBreak(TaggedTextSpan tagSpan, int tagOffset)
+        {
+            if (tagSpan.SentenceBreaks is not null && tagSpan.SentenceBreaks.Contains(tagOffset) && buffer.Length > 0)
             {
-                var postSilenceMs = chunk.EndsWithEllipsis ? EllipsisPauseMilliseconds : 0;
-                segments.Add(new SpeechSegment(chunk.Text, 0, postSilenceMs, overrides));
+                breaksAuthoritative = true;
+                bufferBreaks.Add(buffer.Length);
             }
         }
 
@@ -123,14 +208,47 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
         {
             if (span.Kind == TaggedTextSpanKind.PlainText)
             {
+                // An empty span contributes no text, so whatever analysis it carries (breaks at
+                // offset 0, empty annotations) must not mark the buffer authoritative for the
+                // text that follows.
+                if (span.Text.Length == 0)
+                {
+                    continue;
+                }
+
+                // Span-local offsets shift by whatever is already buffered, which also accounts
+                // for stripped tags (nothing buffered) and native tags (their text is buffered).
+                var offset = buffer.Length;
                 buffer.Append(span.Text);
+                foreach (var annotation in span.Annotations)
+                {
+                    if (annotation.End <= span.Text.Length)
+                    {
+                        bufferAnnotations.Add(annotation.Shifted(offset));
+                    }
+                }
+
+                if (span.SentenceBreaks is not null)
+                {
+                    breaksAuthoritative = true;
+                    foreach (var sentenceBreak in span.SentenceBreaks)
+                    {
+                        if (sentenceBreak <= span.Text.Length)
+                        {
+                            bufferBreaks.Add(offset + sentenceBreak);
+                        }
+                    }
+                }
+
                 continue;
             }
 
             var tag = span.Tag!.Value;
             var kind = ResolveKind(tag);
+            AddTagBreak(span, 0);
             if (kind == NaturalLanguageAudioTagKind.Pause)
             {
+                // The flush ends the segment, so a break after a pause tag is already a boundary.
                 Flush();
                 var durationMs = tag == NaturalLanguageAudioTag.LongPause ? LongPauseMilliseconds : ShortPauseMilliseconds;
                 segments.Add(new SpeechSegment(string.Empty, 0, durationMs, null));
@@ -160,6 +278,8 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
                     // "never worse than plain narration" guarantee.
                     break;
             }
+
+            AddTagBreak(span, 1);
         }
 
         Flush();

@@ -28,7 +28,9 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     Per this library's "two-layer tag rendering" decision, pauses always render as real
 ///     inserted silence regardless of model capability, so
 ///     <see cref="NaturalLanguageAudioTag.ShortPause"/>/<see cref="NaturalLanguageAudioTag.LongPause"/>
-///     always produce silence here rather than a parameter override or passthrough text. This
+///     always produce silence here rather than a parameter override or passthrough text. A
+///     segment may also carry <see cref="Annotations"/> from a text analysis, delivered to the
+///     backend only through <see cref="IAnnotatedSynthesisBackend"/>; they default to none. This
 ///     record is immutable and safe to share across threads. Public, mirroring
 ///     <see cref="SpeechPlan"/>'s public visibility.
 /// </remarks>
@@ -45,14 +47,41 @@ public sealed record SpeechSegment(
     private readonly string _text = RequireText(Text);
     private readonly int _preSilenceMs = RequireNonNegative(PreSilenceMs, nameof(PreSilenceMs));
     private readonly int _postSilenceMs = RequireNonNegative(PostSilenceMs, nameof(PostSilenceMs));
+    private readonly IReadOnlyList<SegmentAnnotation> _annotations = AnnotationList.Empty;
 
     /// <summary>
     ///     Gets the text to synthesize for this segment; never null, may be empty.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when set to a text too short to contain this segment's existing annotations.
+    /// </exception>
     public string Text
     {
         get => _text;
-        init => _text = RequireText(value);
+        init
+        {
+            _text = RequireText(value);
+            AnnotationList.RequireWithin(_annotations, _text.Length, nameof(Text));
+        }
+    }
+
+    /// <summary>
+    ///     Gets the text-analysis annotations for this segment, with offsets relative to
+    ///     <see cref="Text"/>; empty by default and always empty for a pure-silence segment.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when the list contains null or an annotation lies outside <see cref="Text"/>.
+    /// </exception>
+    public IReadOnlyList<SegmentAnnotation> Annotations
+    {
+        get => _annotations;
+        init
+        {
+            var copy = AnnotationList.Copy(value, nameof(Annotations));
+            AnnotationList.RequireWithin(copy, _text.Length, nameof(Annotations));
+            _annotations = copy;
+        }
     }
 
     /// <summary>

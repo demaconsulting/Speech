@@ -148,6 +148,17 @@ safety role.
 - **Metadata and download descriptors only**: no model weights are bundled or redistributed; a
   consumer fetches the ONNX graph and every voice style vector through Speech's download
   machinery on their own explicit action, and the model visibly declares its own license
+- **Third-party data and notices**: the package embeds two data files that are not covered by the
+  repository's MIT License: a word-to-phoneme lexicon (its word list is derived from the CMUdict
+  word list, which has a BSD-style license that requires its copyright notice and conditions to be
+  reproduced in binary distributions; its phoneme strings were generated with misaki, whose
+  repository is distributed under Apache-2.0) and the Kokoro v1.0 tokenizer (from the Apache-2.0 licensed
+  `onnx-community/Kokoro-82M-v1.0-ONNX` export). The package therefore names a license file,
+  `PACKAGE-LICENSE.md`, instead of a license expression, and ships `THIRD-PARTY-NOTICES.md` with
+  the verbatim third-party license texts; both files are packed at the package root. They are
+  packaging files, not software items. The provenance of misaki's own dictionary data is not
+  documented upstream beyond its Apache-2.0 repository license, and the notices state this rather
+  than claiming more
 - **Honest, documented phonemization limitations**: an out-of-vocabulary word is silently dropped
   rather than guessed at, and homograph pronunciation is resolved with no sentence context - both
   deliberate, documented simplifications rather than hidden defects (see _SpeechOnnxKokoro

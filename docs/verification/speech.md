@@ -162,6 +162,36 @@ remains in the plain narration text rather than being dropped or rejected, provi
 worse than plain narration" guarantee. Exhaustive per-alias coverage is proven at unit level by
 `AudioTagParserTests.cs`.
 
+### Integration: Text Analysis Annotations Reach an Annotated Backend Through the Factory
+
+**Test**: `Speech_SystemIntegration_TextAnalysis_AnnotationsReachAnnotatedBackendThroughFactory`
+
+Verifies the text-analysis path end to end through the public API: a synthesis model that declares
+a text analyzer and constructs an annotation-aware backend is composed through
+`SpeechSynthesizerFactory.LoadAsync` over a file-backed or substituted playback device, and a
+speech request containing an audio tag is synthesized. The analyzer is called once with the whole
+text, and the backend receives `GenerateAnnotated` calls whose annotations, re-based to each chunk,
+mark the analyzed words. The backend is a deterministic test double, so this scenario proves the
+composed analysis-to-backend path rather than speech quality.
+
+### Integration: Without an Analyzer the Backend Receives Plain Chunks
+
+**Test**: `Speech_SystemIntegration_TextAnalysis_NoAnalyzer_BackendReceivesPlainChunks`
+
+Verifies that a model with no text analyzer, synthesizing through an annotation-aware backend,
+produces plain `Generate` calls with the same chunk texts as before text analysis existed and no
+`GenerateAnnotated` call, so existing models and backends are unaffected.
+
+### Integration: An External Profile Reuses the Default Rendering and Chunking
+
+**Test**: `Speech_SystemIntegration_ReusableRenderingBlocks_ExternalProfileWrapsDefaultProfile`
+
+Verifies that, from outside the library's internals, a test-local `IModelCapabilityProfile` can
+delegate to `DefaultModelCapabilityProfile.Instance.Render` and post-process the resulting
+`SpeechPlan`, and can call the public `SentenceChunker.ChunkAligned`,
+`DefaultModelCapabilityProfile.RenderText`, and the public pause constants, proving a model package
+can build its own tag-rendering strategy without copying the default one.
+
 ## Requirements Verified at Unit or Subsystem Level
 
 Several system requirements have no dedicated `SpeechTests.cs` scenario because the behavior is
@@ -170,7 +200,16 @@ linked from the requirement (or its child requirements): the reference-voice lib
 (`Speech-Models-ReferenceVoiceLibrary`, `-ReferenceVoiceMergedListing`), the download mirror
 (`Speech-Models-DownloadMirror`), explicit uninstall, corrupt-download rejection and failure
 reporting, the configurable storage root, per-model Layer 2 tag rendering, chunked and low-latency
-playback, and the honest-composition fallbacks for recognition and synthesis. Promoting any of
+playback, and the honest-composition fallbacks for recognition and synthesis. The detailed
+behavior beneath the three text-analysis system scenarios above - the once-per-request analyzer
+call, annotation re-basing across tags and chunks, analyzer sentence boundaries, delivery to an
+annotated versus a legacy backend, unchanged behavior with no analyzer, analyzer fault containment
+and cancellation, and the public rendering and chunking blocks - has no further system scenario;
+its evidence is the unit and subsystem test sets linked from the child requirements
+(`Speech-Synthesis-TextAnalysisOnce`, `-AnnotationRebasing`, `-AnalyzerSentenceBoundaries`,
+`-AnnotatedBackendDelivery`, `-LegacyBackendReceivesPlainText`, `-NoAnalyzerBehaviorUnchanged`,
+`-TextAnalysisFaultContainment`, `-PublicDefaultRendering`, `-PublicSentenceChunking`, and
+`Speech-Models-SynthesisTextAnalyzerDeclaration`). Promoting any of
 these to a composed system scenario is deferred; until then the system-level claim for them rests
 on the linked lower-level tests.
 

@@ -162,3 +162,110 @@ if (device.IsAvailable)
     device.Start();
 }
 ```
+
+### Text analysis for model authors
+
+A model author whose engine needs sentence-level context - for example a phoneme-driven engine that
+chooses a word's pronunciation from its part of speech - can opt in to a language-neutral text
+analysis seam. It is entirely optional: a model that declares nothing, and a backend that does not
+accept annotations, behave exactly as they always have.
+
+- **`ISynthesisModel.TextAnalyzer`** is an optional `ITextAnalyzer` that defaults to `null` (no
+  analysis). The library calls `Analyze(text, cancellationToken)` **once per `SpeakAsync` or
+  `SynthesizeAsync` request**, before the text is split into chunks, with the whole request text
+  after `ISpeechModel.NormalizeText`. Return a shared, cheap instance, because the member is read
+  once per request; the analyzer runs on a thread-pool thread (never the thread that called
+  `SpeakAsync`/`SynthesizeAsync`, so a slow analyzer cannot freeze a UI thread), so it must be
+  thread-safe or stateless per call, must not assume thread affinity (no `ThreadStatic` state, no UI
+  or synchronization-context access), must honor the token (an analyzer that ignores it delays stop
+  and dispose until it returns), and must not retain `text`.
+- **`TextAnalysisConventions.TagPlaceholder`** (the Unicode object replacement character) stands for
+  each recognized audio tag in
+  the text you analyze, one placeholder per tag; bracket text that is not a recognized tag stays
+  literal. Treat the placeholder as an opaque, non-letter, non-word object that is neither a
+  sentence terminator nor part of any word, avoid covering it with an annotation, and feel free to
+  place a sentence break before or after it.
+- **`SegmentAnnotation(Start, Length, Kind, Value)`** marks a range of the text. Offsets are UTF-16
+  code unit indices (ordinary C# string indices) and `Length` must be positive. `Kind` and `Value`
+  are opaque to the library - you choose them, for example `"reading"` or `"pos"` - and a consumer
+  must ignore kinds it does not recognize. An annotation should begin and end on a non-whitespace
+  character. The library keeps an annotation only when it lies wholly inside one stretch of text
+  between tags and, later, wholly inside one chunk; otherwise it is **dropped, never clipped or
+  moved**.
+- **`TextAnalysisResult(annotations, sentenceBreaks)`** carries the annotations and optional
+  sentence boundaries. A `null` `SentenceBreaks` means "no opinion", so the default punctuation
+  heuristic splits sentences; any non-null list, even an empty one, is authoritative and replaces
+  that heuristic. A break offset `k` means a sentence ends immediately before index `k`. Returning
+  `null` or `TextAnalysisResult.Empty` means no analysis.
+- **`IAnnotatedSynthesisBackend`** extends `ISynthesisBackend` with
+  `GenerateAnnotated(text, annotations, speed, speakerId)`. The session calls it, instead of
+  `Generate`, only for a chunk that has at least one annotation. The offsets are relative to the
+  `text` argument, and a backend must still produce audio for `text` if it ignores every annotation.
+  A backend that only implements `ISynthesisBackend` never sees annotations.
+
+A failure in your analyzer never faults a session: the request continues without annotations and a
+single warning that names only the exception type (never the message or the text) is reported
+through the diagnostics sink. A cancellation requested while the analyzer runs is honored.
+
+```csharp
+using DemaConsulting.Speech.SynthesisSubsystem;
+
+public sealed class ReadingAnalyzer : ITextAnalyzer
+{
+    public TextAnalysisResult Analyze(string text, CancellationToken cancellationToken)
+    {
+        var annotations = new List<SegmentAnnotation>();
+        var index = text.IndexOf("read", StringComparison.Ordinal);
+        if (index >= 0)
+        {
+            // Opaque kind and value: this model's backend decides what "reading" means.
+            annotations.Add(new SegmentAnnotation(index, "read".Length, "reading", "red"));
+        }
+
+        return new TextAnalysisResult(annotations, null);
+    }
+}
+
+// In your ISynthesisModel implementation:
+//     private static readonly ITextAnalyzer Analyzer = new ReadingAnalyzer();
+//     public ITextAnalyzer? TextAnalyzer => Analyzer;
+
+public sealed class MyBackend : IAnnotatedSynthesisBackend
+{
+    public int SampleRate => 24000;
+
+    public BackendAudio Generate(string text, float speed, int speakerId) =>
+        GenerateAnnotated(text, [], speed, speakerId);
+
+    public BackendAudio GenerateAnnotated(
+        string text, IReadOnlyList<SegmentAnnotation> annotations, float speed, int speakerId)
+    {
+        foreach (var annotation in annotations)
+        {
+            if (annotation.Kind != "reading")
+            {
+                continue;
+            }
+
+            var word = text.Substring(annotation.Start, annotation.Length);
+            // Use annotation.Value to pick the pronunciation of `word`.
+        }
+
+        // Synthesize `text` with your engine and return its samples at SampleRate.
+        throw new NotImplementedException();
+    }
+
+    public void Dispose()
+    {
+        // Release the loaded engine.
+    }
+}
+```
+
+Two further building blocks are public so a model with its own tag syntax does not have to copy
+them. **`DefaultModelCapabilityProfile`** exposes its `Instance` singleton, a
+`RenderText(text, annotations, sentenceBreaks, parameterOverrides)` chunk-then-render step, and the
+`ShortPauseMilliseconds`, `LongPauseMilliseconds`, and `EllipsisPauseMilliseconds` constants, so a
+custom `IModelCapabilityProfile` can wrap or delegate to it. **`SentenceChunker`** exposes `Chunk`,
+`ChunkWithMetadata`, and `ChunkAligned`, which re-bases annotations onto each chunk and accepts
+analyzer-supplied sentence breaks.

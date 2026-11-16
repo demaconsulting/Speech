@@ -89,6 +89,7 @@ input-files:
   - docs/design/speech/synthesis-subsystem/layer2-rendering.md
   - docs/design/speech/synthesis-subsystem/playback-audio-resampler.md
   - docs/design/speech/synthesis-subsystem/sentence-chunker.md
+  - docs/design/speech/synthesis-subsystem/text-analysis.md
   - docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md
   - docs/design/speech/synthesis-subsystem/synthesis-backend.md
   - docs/design/speech/synthesis-subsystem/synthesis-session.md

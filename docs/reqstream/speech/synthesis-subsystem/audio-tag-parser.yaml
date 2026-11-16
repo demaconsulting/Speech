@@ -228,3 +228,20 @@ sections:
                   Null is a caller error, not text; failing fast avoids a later null dereference.
                 tests:
                   - AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-AudioTagParser-SpanAnnotationCarriage
+                title: >-
+                  A plain-text span shall optionally carry annotations and sentence breaks, and a
+                  tag span shall optionally carry sentence breaks (0 before, 1 after the tag),
+                  all defaulting to none, and shall reject missing or negative entries.
+                justification: |
+                  Text analysis attaches its results to the spans the parser produces, and a
+                  sentence break between consecutive tags can only be carried by a tag span;
+                  spans that carry nothing must stay equal to the spans produced before analysis
+                  existed, and an impossible entry must be refused where it is attached.
+                tests:
+                  - TaggedTextSpan_PlainText_Defaults_HaveNoAnnotationsAndNoBreaks
+                  - TaggedTextSpan_Annotations_NullElement_ThrowsArgumentException
+                  - TaggedTextSpan_SentenceBreaks_Negative_ThrowsArgumentOutOfRangeException
+                  - TaggedTextSpan_PlainText_AnnotatedFactory_ExposesAnnotationsAndBreaks
+                  - TaggedTextSpan_TagSpan_AcceptsSentenceBreaks

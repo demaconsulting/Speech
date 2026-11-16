@@ -83,6 +83,23 @@ asserting that the resolved speaker id and the tag-driven speed override both ap
 independently in the same call, proving the two mechanisms coexist without either regressing the
 other.
 
+Text analysis is verified through the real session with a scripted `FakeTextAnalyzer` (a
+`Func<string, TextAnalysisResult>` that records every analyzed text and the call count and can be
+made to throw or to cancel) supplied through `FakeSynthesisModel`'s optional analyzer parameter,
+and a `FakeAnnotatedSynthesisEngine` that records plain `Generate` calls and `GenerateAnnotated`
+calls (with their annotations) separately. A test asserts the analyzer's call count is one and the
+analyzed text is the normalized text with a placeholder for each tag; the annotated backend's
+recorded annotations are checked by asserting that `text.Substring(Start, Length)` equals the
+annotated word in each received chunk. A slow analyzer is a `FakeTextAnalyzer` whose function records
+its managed thread id, signals an entered event and then blocks on a release event (bounded by a
+10 second safety timeout, no sleeps for correctness): the test captures its own thread id, starts
+the operation without awaiting it, and asserts the call returned while the analyzer was still
+blocked, on a different thread, before releasing it and awaiting completion. Fault containment is checked with a diagnostics sink that
+must have received exactly one warning containing the exception type name and neither the
+exception message nor any synthesized text. Existing tests that substitute `ISynthesisModel` with
+NSubstitute keep passing unmodified because the auto-substituted analyzer returns `null`, which the
+session treats as no analysis.
+
 `DedicatedWorker`, `DefaultModelCapabilityProfile`, `SentenceChunker`, `PlaybackAudioResampler`
 and the synthesis-backend seam are verified directly in their own unit verification documents
 (_dedicated-worker.md_, _layer2-rendering.md_, _sentence-chunker.md_,
@@ -104,8 +121,9 @@ entirely - it contains only the interop calls, with all policy above it fully co
 - **Test doubles**: Fake `ISynthesisBackend`/`ISynthesisBackendFactory` implementations
   (including a semaphore-driven blocking variant for cancellation/overlap tests), NSubstitute
   playback devices (including a semaphore-signaling `PendingSampleCount` stub for the
-  genuine-drain-wait test) and diagnostics sinks, and a `StubSpeechModel`/`FakeSynthesisModel`
-  test double for capability-profile and speaker-id-resolution tests
+  genuine-drain-wait test) and diagnostics sinks, a `StubSpeechModel`/`FakeSynthesisModel`
+  test double for capability-profile and speaker-id-resolution tests, a scripted `FakeTextAnalyzer`,
+  and a `FakeAnnotatedSynthesisEngine`
 
 #### Acceptance Criteria
 
@@ -126,7 +144,22 @@ hangs; an unrequested backend `OperationCanceledException` faults the session ra
 it; a playback write
 failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
-independent per-segment Natural Language Audio Tag speed override in the same call; volume
+independent per-segment Natural Language Audio Tag speed override in the same call; the model's text
+analyzer is called exactly once per request (for both `SynthesizeAsync` and `SpeakAsync`) with the
+whole normalized text in which each recognized tag is one placeholder, and its annotations reach an
+annotation-accepting backend with offsets relative to each segment's text across stripped tags,
+native tags, and chunk boundaries, while an annotation spanning a tag is dropped; analyzer
+sentence breaks drive chunking; a segment with annotations is dispatched through
+`GenerateAnnotated` only for a backend that accepts them, and a segment without annotations or a
+legacy backend always uses `Generate` with text identical to a run without analysis; no analyzer, a
+`null` result, and an empty result all behave exactly as before; an analyzer that throws is
+contained and reported through a single warning naming only the exception type, never the message
+or the text; an analyzer cancellation, before or during a slow analysis, propagates as
+`OperationCanceledException` without calling the backend (an already-canceled operation never
+invokes the analyzer); the analyzer runs off the thread that called `SpeakAsync` or
+`SynthesizeAsync`, so a slow analyzer does not delay the return of that call; an analyzer break
+between two consecutive tags splits the text there; a chunk consisting of a supplementary-plane
+letter keeps its text and annotation when the analyzer breaks after it; volume
 overrides scale and clamp amplitude; a canceled operation whose native call cannot be interrupted
 is abandoned so the caller's task returns promptly (a slow device `Start` does not block the
 caller), and the session then transitions to `Faulted`
@@ -149,6 +182,10 @@ Full-Fidelity Segment List", "Session: Chunked Synthesis and Ordered Playback", 
 Containment", "Session: Genuine Playback Drain Before Stopping", "Session: Cancellation and
 Disposal Lifecycle", "Session: Abandoned Native Calls Fault the Session", "Session: Silence,
 Volume, and Unrequested Cancellation", "Session:
-Voice/Speaker Selection", "DedicatedWorker: Cooperative
+Voice/Speaker Selection", "Session: Text Analysis Runs Once and Annotations Are Re-Based",
+"Session: Analyzer Sentence Breaks Drive Chunking", "Session: Analysis Does Not Block the Caller",
+"Session: Annotated Versus Legacy Backend
+Delivery", "Session: No Analyzer Leaves Behavior Unchanged", "Session: Analyzer Fault Containment
+and Cancellation", "DedicatedWorker: Cooperative
 Cancellation and Non-Cooperative Abandonment", and "Playback Format Conversion: Resampling,
 Anti-Aliasing, and Upmix".

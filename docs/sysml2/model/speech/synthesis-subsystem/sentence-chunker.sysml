@@ -17,7 +17,15 @@ package Speech {
              * ". . .") is merged onto the preceding chunk, or dropped if none precedes it.
              * ChunkWithMetadata additionally exposes, per chunk, whether it ends in a genuine
              * ellipsis, for a longer rendered pause there; Chunk remains a pure text-only
-             * projection of ChunkWithMetadata. */
+             * projection of ChunkWithMetadata. The splitter and its SentenceChunk result are
+             * public so a model package can build its own rendering strategy on them.
+             * ChunkAligned additionally accepts SegmentAnnotations and optional authoritative
+             * analyzer-supplied sentence breaks (replacing the primary punctuation split while
+             * the clause and length-budget splits still apply), and returns each chunk's
+             * annotations re-based to the chunk text through trimming, whitespace collapsing and
+             * punctuation-only merges, dropping any annotation that cannot be placed wholly
+             * inside one chunk. Word-content detection for punctuation-only merging is Unicode-
+             * scalar aware only when annotations or breaks are supplied. With no annotations and no breaks its output is unchanged. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceChunkerTests.cs */

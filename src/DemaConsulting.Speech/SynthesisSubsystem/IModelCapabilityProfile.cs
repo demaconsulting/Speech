@@ -16,6 +16,15 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     This seam is public, mirroring <see cref="ISynthesisModel.CapabilityProfile"/>'s public
 ///     visibility: a third-party synthesis model needing bespoke tag rendering must be able to
 ///     implement this interface without needing any special assembly access.
+///     <para>
+///     The spans handed to <see cref="Render"/> may carry text-analysis
+///     <see cref="TaggedTextSpan.Annotations"/> and <see cref="TaggedTextSpan.SentenceBreaks"/>.
+///     A bespoke profile may ignore them, or copy them onto the segments it produces (the public
+///     <see cref="DefaultModelCapabilityProfile"/> and <see cref="SentenceChunker"/> building
+///     blocks re-base them for it). <see cref="TaggedTextSpan.SentenceBreaks"/> may also appear on
+///     a tag span (a break adjacent to the tag, <c>0</c> before or <c>1</c> after it); a profile
+///     that ignores them only loses those breaks and never faults.
+///     </para>
 /// </remarks>
 public interface IModelCapabilityProfile
 {
