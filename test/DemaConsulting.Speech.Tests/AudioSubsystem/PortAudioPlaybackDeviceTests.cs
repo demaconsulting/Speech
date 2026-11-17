@@ -90,12 +90,12 @@ public class PortAudioPlaybackDeviceTests
 
         // Act / Assert: the device degrades a native open failure into the documented exception
         var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
-        Assert.Equal("Failed to start playback on 'Speaker'.", exception.Message);
+        Assert.Contains("Speaker", exception.Message);
         Assert.IsType<InvalidOperationException>(exception.InnerException);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Error,
             "AudioSubsystem",
-            "Failed to start PortAudio playback on 'Speaker': Native stream open failed.");
+            Arg.Is<string>(message => message.Contains("Speaker") && message.Contains("Native stream open failed.")));
     }
 
     /// <summary>

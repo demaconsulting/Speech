@@ -104,10 +104,12 @@ kept (`We finished in May. 5 people stayed.` has a sentence end after `May.`), a
 ignores that period as well, so `5` there is a cardinal and not a day.
 
 *The month vocabulary* is shared with the numeric rule: the `next-date` guard asks
-`NumericExpressionRecognizer.IsMonthToken` whether a token is a month, so the lexicon and the numeric rule
-agree on what a month is, and a test cross-checks the recognizer's month and weekday abbreviation lists
-against the rows of the table. The two new guards test the **ASCII digits** only (a date is written with
-`0-9`); the three older guards keep `char.IsDigit`, which is unchanged and documented.
+`NumericExpressionRecognizer.IsMonthToken` whether a token is a month, so the lexicon and the numeric rule agree on what
+a month is, and the recognizer's month and weekday abbreviation lists are kept consistent with the rows of the table by
+review (an earlier test that read the table to cross-check them was retired, because it made the table layout and the
+other unit's lists the oracle; the resolution of every month and weekday abbreviation is now checked against an
+independent expected table). The two new guards test the **ASCII digits** only (a date is written with `0-9`); the three
+older guards keep `char.IsDigit`, which is unchanged and documented.
 
 *The sentence-starting words* (`SentenceStarters`, a code constant, matched exactly and case-sensitively) are
 capitalized words that begin a sentence and are therefore no evidence of a name: The, A, An, He, She, It,

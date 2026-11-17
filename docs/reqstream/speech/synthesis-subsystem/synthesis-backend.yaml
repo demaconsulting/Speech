@@ -25,11 +25,10 @@ sections:
 
               - id: Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
                 title: >-
-                  The ISynthesisBackend seam shall load a backend using only the configuration the
-                  selected model itself declares, by delegating construction to the model's own
-                  CreateBackend method through DefaultSynthesisBackendFactory, so that adding a
-                  synthesis model never requires changing the synthesis subsystem or adding a
-                  native dependency to it.
+                  The ISynthesisBackend seam shall support a compatible installed model through the
+                  configuration that model itself declares, so that adding a synthesis model never
+                  requires model-specific changes to the synthesis subsystem or a native dependency
+                  in it.
                 justification: |
                   The design makes each model's backing class responsible for its own backend
                   configuration, so that adding a new synthesis model is a self-contained,

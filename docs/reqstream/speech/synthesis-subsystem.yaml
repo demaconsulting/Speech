@@ -96,7 +96,7 @@ sections:
               - Speech-Synthesis-AudioTagParser-NoSpuriousEmptySpans
               - Speech-Synthesis-AudioTagParser-NullTextRejection
               - Speech-Synthesis-AudioTagParser-SpanNullTextRejection
-              - Speech-Synthesis-AudioTagParser-LinearTimeScan
+              - Speech-Synthesis-AudioTagParser-LongBracketRunPassthrough
             tests:
               - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
 
@@ -806,18 +806,19 @@ sections:
             tests:
               - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 
-          - id: Speech-Synthesis-NativeCallThreadIsolation
+          - id: Speech-Synthesis-BlockedCallIsolation
             title: >-
-              The SynthesisSubsystem shall run a native synthesis call without occupying a
-              shared thread-pool thread for the duration of the call.
+              A blocked synthesis operation shall not block its caller or prevent unrelated host
+              work from progressing.
             justification: |
               A native synthesis call can legitimately run for a long time (an entire
-              utterance's inference); occupying a pooled thread for that long risks starving
-              every other unrelated piece of work sharing the pool.
+              utterance's inference); while it runs, the host's UI, request handling, and other
+              unrelated work must keep progressing. (The design runs the call on a dedicated
+              long-running thread; see the SynthesisSubsystem design.)
             children:
-              - Speech-Synthesis-DedicatedWorker-LongRunningExecution
+              - Speech-Synthesis-DedicatedWorker-BlockedCallIsolation
             tests:
-              - DedicatedWorker_Run_UsesLongRunningTaskCreationOption
+              - SynthesisSession_SynthesizeAsync_BlockedBackendCall_DoesNotBlockCallerOrUnrelatedWork
 
           - id: Speech-Synthesis-UnavailableFallback
             title: >-
@@ -1009,19 +1010,19 @@ sections:
 
           - id: Speech-Synthesis-AnalysisDoesNotBlockCaller
             title: >-
-              The SynthesisSubsystem shall run the selected model's text analysis off the thread
-              that called the speak or synthesize operation, so a slow analysis does not block
-              that thread.
+              Starting a speak or synthesize operation shall return its operation handle without
+              waiting for a blocked text analyzer to finish; after the analyzer is released, the
+              operation shall complete with the expected synthesized segments.
             justification: |
-              Speech operations are called from UI and request threads; analysis that runs
-              synchronously inside the call would freeze them for as long as the analyzer takes,
-              so the analysis must run on a thread-pool thread while the operation still awaits
-              it before rendering the text.
+              Speech operations are called from UI and request threads; analysis that blocked the
+              call would freeze them for as long as the analyzer takes, while the operation must
+              still await the analysis before rendering the text. (The design runs the analysis
+              on a thread-pool thread; see the SynthesisSubsystem design.)
             children:
-              - Speech-Synthesis-SynthesisSession-AnalysisOffCallerThread
+              - Speech-Synthesis-SynthesisSession-BlockedAnalyzerReturnsHandle
             tests:
-              - SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread
-              - SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread
+              - SynthesisSession_SynthesizeAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting
+              - SynthesisSession_SpeakAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting
 
           - id: Speech-Synthesis-PublicDefaultRendering
             title: >-

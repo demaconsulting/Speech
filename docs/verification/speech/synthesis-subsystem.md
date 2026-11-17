@@ -150,8 +150,8 @@ A SynthesisSubsystem test run passes when:
   and an annotation that cannot be represented inside one segment is dropped rather than misplaced
 - Analyzer-supplied sentence breaks replace punctuation-based sentence splitting, while the
   clause and budget passes still apply, including a break between two consecutive tags
-- A slow text analyzer runs on a thread-pool thread and does not delay the return of the speak or
-  synthesize call that started it
+- A blocked text analyzer does not delay the return of the speak or synthesize call that started
+  it, and the request completes once the analyzer is released
 - A chunk whose only letters are supplementary-plane characters is kept with its annotation on
   the analyzed path, while text with no analysis keeps its legacy chunking exactly
 - A segment with annotations reaches only a backend that accepts them, through `GenerateAnnotated`;
@@ -744,13 +744,20 @@ having seen `First<placeholder><placeholder>Second`) rather than one `FirstSecon
 
 #### Session: Analysis Does Not Block the Caller
 
-**Tests**: `SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread`,
-`SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread`
+**Tests**: `SynthesisSession_SynthesizeAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting`,
+`SynthesisSession_SpeakAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting`
 
 Verifies, for both `SynthesizeAsync` and `SpeakAsync`, that with an analyzer gated on a release
-event the call returns an incomplete task while the analyzer is still blocked, that the analyzer ran
-on a different managed thread from the caller, and that once released the request completes and the
-backend receives the text.
+event the call returns an incomplete task while the analyzer is still blocked, and that once released
+the request completes and the backend receives the text.
+
+#### Session: Blocked Backend Call Does Not Block the Caller
+
+**Test**: `SynthesisSession_SynthesizeAsync_BlockedBackendCall_DoesNotBlockCallerOrUnrelatedWork`
+
+Verifies that with the backend `Generate` call gated on a release event, `SynthesizeAsync` returns
+an incomplete task, unrelated work scheduled meanwhile still completes, and the operation completes
+once the backend call is released.
 
 #### Session: Annotated Versus Legacy Backend Delivery
 
@@ -800,13 +807,14 @@ is already canceled never invokes the analyzer.
 
 **Tests**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`,
 `DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`,
-`DedicatedWorker_Run_UsesLongRunningTaskCreationOption`
+`DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork`
 
 Verifies that a delegate honoring cancellation promptly lets `Run` complete promptly rather than
 waiting out its full abandon timeout; that a delegate which never observes cancellation is
 abandoned once the (injectable, test-shortened) abandon timeout elapses, with a `Warning`
 diagnostic reported and the awaited call still returning control to its caller as canceled; and
-that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
+that a delegate blocked inside the worker neither blocks the caller nor prevents unrelated work
+from progressing.
 
 #### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix
 

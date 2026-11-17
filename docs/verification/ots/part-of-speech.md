@@ -120,7 +120,9 @@ the whole of each buffer is zero, and each failing when the clearing is disabled
 This repository has no test of its own over that private state, and reflection or a memory scan is not used.
 That is the remaining gap, stated here for the repository owner's approval. Managed strings that the package
 creates itself (for example the normalized copy of a non-ASCII token) and the result objects it returns are
-not cleared, by upstream's own statement; SpeechTextEn keeps neither (its weak-reference test proves it keeps
-no reference to the text or the results). The test
-`SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater` fails if the pin is moved below
-0.1.0-beta.5, so the cited evidence cannot silently stop applying.
+not cleared, by upstream's own statement; SpeechTextEn's own design keeps neither (see the *EnglishTextAnalyzer*
+design). The repository's pin of this package is a dependency policy: it is not moved below 0.1.0-beta.5, so the
+cited evidence cannot silently stop applying; no test asserts the version number (the retired version-comparison
+tests were not evidence of buffer behavior), so a change of the pin is checked by review of the evidence cited here.
+The observable side of the library's no-retention rule (a request's result and diagnostics never disclose text of
+another request) is tested by `SpeechTextEn_Analyze_AfterAnotherRequest_ResultAndDiagnosticsDiscloseNothingOfIt`.

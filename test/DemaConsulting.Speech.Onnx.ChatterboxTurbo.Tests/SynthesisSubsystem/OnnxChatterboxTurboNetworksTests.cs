@@ -1,4 +1,3 @@
-using System.Reflection;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -6,7 +5,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.SynthesisSubsystem;
 
 /// <summary>
-///     Serializes the test classes that install the static session-created hook, so one test's hook never
+///     Serializes the test classes that install the static session factory seam, so one test's factory never
 ///     observes sessions created by another test running in parallel.
 /// </summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
@@ -423,22 +422,15 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         // Arrange: a language model without cache inputs is invalid
         var paths = ChatterboxTurboGraphFixture.Write(_root);
         File.WriteAllBytes(paths.LanguageModel, ChatterboxTurboGraphFixture.LanguageModel(halfCache: true, withPastInputs: false));
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            var exception = Record.Exception(() => Create(paths));
+        using var tracking = new DisposalTrackingSessionScope();
 
-            // Assert
-            Assert.IsType<InvalidOperationException>(exception);
-            Assert.Equal(4, created.Count);
-            Assert.All(created, session => Assert.True(IsDisposed(session)));
-        }
-        finally
-        {
-            OnnxChatterboxTurboNetworks.OnSessionCreated = null;
-        }
+        // Act
+        var exception = Record.Exception(() => Create(paths));
+
+        // Assert: construction fails with the documented exception and every session it opened is released
+        Assert.IsType<InvalidOperationException>(exception);
+        Assert.NotEmpty(tracking.Sessions);
+        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
     }
 
     /// <summary>Proves an incomplete cache layout or missing embedding input is rejected and sessions are disposed.</summary>
@@ -464,22 +456,15 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
                 omitValueInput: omitValueInput,
                 omitValuePresentOutput: omitValuePresentOutput,
                 embeddingsInputName: embeddingsInputName));
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            var exception = Record.Exception(() => Create(paths));
+        using var tracking = new DisposalTrackingSessionScope();
 
-            // Assert: construction fails with the documented exception and every session is disposed
-            Assert.IsType<InvalidOperationException>(exception);
-            Assert.Equal(4, created.Count);
-            Assert.All(created, session => Assert.True(IsDisposed(session)));
-        }
-        finally
-        {
-            OnnxChatterboxTurboNetworks.OnSessionCreated = null;
-        }
+        // Act
+        var exception = Record.Exception(() => Create(paths));
+
+        // Assert: construction fails with the documented exception and every session it opened is released
+        Assert.IsType<InvalidOperationException>(exception);
+        Assert.NotEmpty(tracking.Sessions);
+        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
     }
 
     /// <summary>Proves a missing graph file fails creation and disposes the sessions created so far.</summary>
@@ -488,27 +473,20 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
     {
         // Arrange
         var paths = ChatterboxTurboGraphFixture.Write(_root);
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            var exception = Record.Exception(() => new OnnxChatterboxTurboNetworks(
-                paths.Encoder,
-                paths.Embedder,
-                Path.Combine(_root, "missing.onnx"),
-                paths.Decoder,
-                1));
+        using var tracking = new DisposalTrackingSessionScope();
 
-            // Assert
-            Assert.IsType<FileNotFoundException>(exception);
-            Assert.Equal(2, created.Count);
-            Assert.All(created, session => Assert.True(IsDisposed(session)));
-        }
-        finally
-        {
-            OnnxChatterboxTurboNetworks.OnSessionCreated = null;
-        }
+        // Act
+        var exception = Record.Exception(() => new OnnxChatterboxTurboNetworks(
+            paths.Encoder,
+            paths.Embedder,
+            Path.Combine(_root, "missing.onnx"),
+            paths.Decoder,
+            1));
+
+        // Assert: the missing file is reported and every session opened before it is released
+        Assert.IsType<FileNotFoundException>(exception);
+        Assert.NotEmpty(tracking.Sessions);
+        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
     }
 
     /// <summary>Proves disposing the networks disposes every session.</summary>
@@ -517,23 +495,16 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
     {
         // Arrange
         var paths = ChatterboxTurboGraphFixture.Write(_root);
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboNetworks.OnSessionCreated = created.Add;
-        try
-        {
-            var networks = Create(paths);
+        using var tracking = new DisposalTrackingSessionScope();
+        var networks = Create(paths);
+        Assert.NotEmpty(tracking.Sessions);
+        Assert.All(tracking.Sessions, session => Assert.False(session.WasDisposed));
 
-            // Act
-            networks.Dispose();
+        // Act
+        networks.Dispose();
 
-            // Assert
-            Assert.Equal(4, created.Count);
-            Assert.All(created, session => Assert.True(IsDisposed(session)));
-        }
-        finally
-        {
-            OnnxChatterboxTurboNetworks.OnSessionCreated = null;
-        }
+        // Assert: every session the networks opened is released
+        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
     }
 
     /// <summary>Proves a throwing dispose does not stop the later items from being disposed, and the failure surfaces.</summary>
@@ -714,12 +685,4 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         (string Encoder, string Embedder, string LanguageModel, string Decoder) paths,
         int threads = 1) =>
         new(paths.Encoder, paths.Embedder, paths.LanguageModel, paths.Decoder, threads);
-
-    /// <summary>Reads the session's private disposed flag, since ONNX Runtime exposes no public equivalent and a call on a disposed session is unsafe.</summary>
-    private static bool IsDisposed(InferenceSession session)
-    {
-        var field = typeof(InferenceSession).GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(field);
-        return (bool)field.GetValue(session)!;
-    }
 }

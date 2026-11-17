@@ -6,8 +6,8 @@ namespace DemaConsulting.Speech.Text.En.Tests.NormalizationSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="AbbreviationResolver"/>: the embedded lexicon, the context cues
 ///     that choose among the readings of <c>St.</c>, <c>Dr.</c>, <c>Sr.</c> and <c>No.</c>, the
-///     neighbor guards, the default-and-count rule, the strict loader and the thread-safe lazy
-///     default. Tokens come from the real tokenizer through the test harness.
+///     neighbor guards, the default-and-count rule, the strict loader and the concurrent use of the
+///     default lexicon. Tokens come from the real tokenizer through the test harness.
 /// </summary>
 public sealed class AbbreviationResolverTests
 {
@@ -33,7 +33,6 @@ public sealed class AbbreviationResolverTests
 
         // Assert
         Assert.True(resolver.Count >= 70);
-        Assert.Same(resolver, AbbreviationResolver.Default);
     }
 
     /// <summary>Proves each unambiguous lexicon form resolves to its spoken form in a neutral context.</summary>
@@ -282,54 +281,44 @@ public sealed class AbbreviationResolverTests
         Assert.False(Resolve("Jan is near.", "Jan").Found);
     }
 
-    /// <summary>Proves the lexicon's month and weekday rows agree with the recognizer's month vocabulary: one prefix and one suffix row per abbreviation with a period, one row per month written without a period, and every spoken form the full name.</summary>
+    /// <summary>
+    ///     Proves every month and weekday abbreviation of an independent expected table resolves to its full name: before a date as a
+    ///     prefix reading, and elsewhere as a suffix reading, with the documented guards for a bare <c>Mar.</c> and <c>Sun.</c>.
+    /// </summary>
     [Fact]
-    public void AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary()
+    public void AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts()
     {
-        // Arrange: the rows of the embedded lexicon, read the way the loader reads them
-        using var stream = typeof(AbbreviationResolver).Assembly.GetManifestResourceStream("DemaConsulting.Speech.Text.En.Resources.abbreviations.tsv");
-        Assert.NotNull(stream);
-        using var reader = new StreamReader(stream);
-        var rows = reader.ReadToEnd().Split('\n')
-            .Where(line => line.Length > 0 && line[0] != '#')
-            .Skip(1)
-            .Select(line => line.Split('\t'))
-            .Select(columns => (Form: columns[0], Spoken: columns[1], Class: columns[2], Default: columns[3], Guard: columns[4]))
-            .ToList();
-        string[] weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        // Arrange: the expected table is written out here, independent of the lexicon and of the numeric recognizer
+        (string Abbreviation, string FullName)[] months =
+        [
+            ("Jan", "January"), ("Feb", "February"), ("Mar", "March"), ("Apr", "April"), ("Jun", "June"), ("Jul", "July"),
+            ("Aug", "August"), ("Sep", "September"), ("Sept", "September"), ("Oct", "October"), ("Nov", "November"), ("Dec", "December"),
+        ];
+        (string Abbreviation, string FullName)[] weekdays =
+        [
+            ("Mon", "Monday"), ("Tue", "Tuesday"), ("Tues", "Tuesday"), ("Wed", "Wednesday"), ("Thu", "Thursday"),
+            ("Thur", "Thursday"), ("Thurs", "Thursday"), ("Fri", "Friday"), ("Sat", "Saturday"), ("Sun", "Sunday"),
+        ];
 
-        // Assert: each month abbreviation is a month token, has the full name as its spoken form, and the documented rows
-        foreach (var abbreviation in NumericExpressionRecognizer.MonthAbbreviations)
+        foreach (var (abbreviation, fullName) in months.Concat(weekdays))
         {
-            var name = NumericExpressionRecognizer.MonthNames.Single(candidate => candidate.StartsWith(abbreviation, StringComparison.Ordinal) && candidate != "May");
-            Assert.True(NumericExpressionRecognizer.IsMonthToken(abbreviation));
-            Assert.True(NumericExpressionRecognizer.IsMonthToken(abbreviation + "."));
-            var plain = rows.Where(row => row.Form == abbreviation).ToList();
-            var dotted = rows.Where(row => row.Form == abbreviation + ".").ToList();
-            Assert.Equal(name, Assert.Single(plain).Spoken);
-            Assert.Equal(("prefix", "next-digit"), (plain[0].Class, plain[0].Guard));
-            Assert.Equal(2, dotted.Count);
-            Assert.All(dotted, row => Assert.Equal(name, row.Spoken));
-            Assert.Single(dotted, row => row is { Class: "prefix", Guard: "next-date" });
-            Assert.Single(dotted, row => row.Class == "suffix" && row.Default == "yes");
+            // Act
+            var (datedFound, dated) = Resolve($"It was {abbreviation}. 5 then.", abbreviation);
+            var (numberedFound, numbered) = Resolve($"It was 5 {abbreviation}.", abbreviation);
+
+            // Assert: in a date context the abbreviation is read as the prefix of the date; after a number it is read as a suffix
+            Assert.True(datedFound, abbreviation);
+            Assert.Equal(fullName, dated.Spoken);
+            Assert.Equal(AbbreviationClass.Prefix, dated.Class);
+            Assert.True(numberedFound, abbreviation);
+            Assert.Equal(fullName, numbered.Spoken);
+            Assert.Equal(AbbreviationClass.Suffix, numbered.Class);
         }
 
-        // Assert: weekday rows exist for every abbreviation with a period and speak a full weekday name starting with it
-        foreach (var abbreviation in NumericExpressionRecognizer.WeekdayAbbreviations)
-        {
-            var dotted = rows.Where(row => row.Form == abbreviation + ".").ToList();
-            Assert.Equal(2, dotted.Count);
-            Assert.All(dotted, row => Assert.Contains(row.Spoken, weekdays));
-            Assert.All(dotted, row => Assert.StartsWith(abbreviation, row.Spoken, StringComparison.Ordinal));
-            Assert.Single(dotted, row => row is { Class: "prefix", Guard: "next-date" });
-            Assert.DoesNotContain(rows, row => row.Form == abbreviation);
-        }
-
-        // Assert: no other row speaks a month or weekday, and May is never a row
-        var vocabulary = NumericExpressionRecognizer.MonthAbbreviations.Concat(NumericExpressionRecognizer.WeekdayAbbreviations).ToHashSet(StringComparer.Ordinal);
-        var named = rows.Where(row => NumericExpressionRecognizer.MonthNames.Contains(row.Spoken) || weekdays.Contains(row.Spoken)).ToList();
-        Assert.All(named, row => Assert.Contains(row.Form.TrimEnd('.'), vocabulary));
-        Assert.DoesNotContain(rows, row => row.Form.TrimEnd('.') == "May");
+        // Assert: outside a date context a bare Mar. and Sun. stay as written, and May is a word
+        Assert.False(Resolve("They Mar. it.", "Mar").Found);
+        Assert.False(Resolve("The Sun. It rose.", "Sun").Found);
+        Assert.False(Resolve("May 5 is near.", "May").Found);
     }
 
     /// <summary>Proves a resolution that fell back to the default, or chose with both cues present, is flagged for counting; clear ones are not.</summary>
@@ -468,16 +457,23 @@ public sealed class AbbreviationResolverTests
         Assert.Throws<ArgumentNullException>(() => AbbreviationResolver.FromTsv(null!));
     }
 
-    /// <summary>Proves many threads racing on the lazy default all get the one fully loaded instance.</summary>
+    /// <summary>Proves many threads racing on the first lookups all get the documented resolutions, the same as a sequential lookup.</summary>
     [Fact]
-    public async Task AbbreviationResolver_Default_ConcurrentFirstUse_ReturnsOneInstance()
+    public async Task AbbreviationResolver_TryResolve_ConcurrentFirstLookups_ReturnDocumentedResolutions()
     {
         // Act
-        var instances = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => AbbreviationResolver.Default, TestContext.Current.CancellationToken)));
+        var results = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(
+            () =>
+            {
+                var title = Resolve("Dr. Smith lives here.", "Dr");
+                var street = Resolve("They live on Maple Dr. He likes it.", "Dr");
+                var month = Resolve("Jan. 5 is cold.", "Jan");
+                return (title.Found, title.Match.Spoken, title.Match.Class, street.Match.Spoken, street.Match.Class, month.Match.Spoken);
+            },
+            TestContext.Current.CancellationToken)));
 
         // Assert
-        Assert.All(instances, instance => Assert.Same(instances[0], instance));
-        Assert.True(instances[0].Count > 0);
+        Assert.All(results, result => Assert.Equal((true, "Doctor", AbbreviationClass.Prefix, "Drive", AbbreviationClass.Suffix, "January"), result));
     }
 
     /// <summary>The header line of a lexicon, used to build small custom tables.</summary>

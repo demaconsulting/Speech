@@ -10,8 +10,8 @@ provider. The only thing the tests make up is the model: no trained model ships 
 builds a small one on demand. The fixture builder `Fakes/HeteronymFixtureModel.cs` describes a few labeled example
 sentences exactly as the analyzer does, extracts their features, gives every feature of the gold reading a positive
 weight and writes the result through the real writer; no binary model is committed, so the bytes can never go stale
-against the feature set. A counting model source (`Fakes/CountingModelSource.cs`) serves the bytes, counts how often it
-is opened and can serve nothing, a failing stream or a corrupt file.
+against the feature set. A model source fake (`Fakes/CountingModelSource.cs`) serves the bytes and can serve nothing, a
+failing stream or a corrupt file.
 
 **Test-only dependency on the AnalysisSubsystem.** To describe example sentences realistically the fixture builder
 reaches the real part-of-speech tagger through `PartOfSpeechAdapter`, which is a type of the AnalysisSubsystem, and the
@@ -23,8 +23,8 @@ tags, and it is why the subsystem tests state the tagger as a real collaborator 
 The units are verified in isolation by their own test files (see the unit verification documents); the subsystem tests
 cover what only the combination can show: that a model supplied through a provider chooses a reading by context, that a
 model is bound to reading ids rather than to table positions, that every form of the real inventory classifies within
-its own candidates, and that a provider that is never asked for a classifier never opens its source. The accuracy of a
-trained model is not verified: it is not shipped.
+its own candidates, and that a configured provider exposes its inventory without a classifier having been requested. The
+accuracy of a trained model is not verified: it is not shipped.
 
 ### Test Environment
 
@@ -33,7 +33,7 @@ trained model is not verified: it is not shipped.
 - **Project**: `test/DemaConsulting.Speech.Text.En.Tests`
 - **Files**: the golden feature vectors `TestData/heteronym-feature-vectors.tsv`, copied next to the test assembly; no
   test needs network access
-- **Isolation**: every test builds its own model bytes, provider and counting source; the culture tests set the current
+- **Isolation**: every test builds its own model bytes, provider and source; the culture tests set the current
   culture and restore it in a `finally` block; the concurrency tests start their own tasks
 
 ### Acceptance Criteria
@@ -43,7 +43,7 @@ chooses the verb reading for the verb use and the noun reading for the noun use 
 with a confidence above one half; the decisions of a model do not change when the inventory lists the same readings in a
 different order, because the model binds to reading ids; an empty model classifies every form of the real inventory in a
 sentence, with a prediction inside the form's candidates and a confidence from 0 to 1, without error; and a provider
-that is only asked whether it is configured, or for its inventory, never opens its source.
+that is configured exposes the default inventory (its version and form count) without any classifier request.
 
 ### Test Scenarios
 
@@ -51,7 +51,7 @@ that is only asked whether it is configured, or for its inventory, never opens i
 
 **Test**: `HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext`
 
-A provider over a counting source serving a fixture model trained on four example sentences is asked for its classifier
+A provider over a source serving a fixture model trained on four example sentences is asked for its classifier
 (status `Loaded`). The sentence `I want to record a record.` is described like the analyzer does (the tokens are `I`,
 `want`, `to`, `record`, `a`, `record` and the period); the first `record` is classified as `record.verb` and the second
 as `record.noun`, each with a confidence above 0.5.
@@ -73,12 +73,13 @@ by a classifier over an empty model (hash bits 18, no weights); each prediction 
 has a confidence from 0 to 1. This proves that every embedded form is found as a single token, that extraction works for
 real tokens of all of them and that no form breaks the classifier.
 
-#### Laziness of the provider
+#### Provider configuration
 
-**Test**: `HeteronymSubsystem_Provider_NeverAskedForClassifier_NeverOpensSource`
+**Test**: `HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier`
 
-A provider over a counting source reports that it is configured and returns the default inventory without the source
-ever being opened (the open count stays zero).
+A provider over a source serving a fixture model reports that it is configured and returns an inventory with the version
+and the number of forms of the default inventory, without any classifier having been requested. Whether the source is
+opened lazily is a design choice and is not asserted.
 
 See also the unit documents `reading-inventory.md`, `heteronym-feature-extractor.md`, `sparse-perceptron-model.md` and
 `heteronym-classifier.md`, and *SpeechTextEn System Verification* for the behavior through the public analyzer.

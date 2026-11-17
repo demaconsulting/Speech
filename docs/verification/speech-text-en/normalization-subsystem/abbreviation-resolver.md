@@ -23,20 +23,19 @@ forms are verified with mutation-style pairs, where one neighboring word is chan
 
 #### Acceptance Criteria
 
-The shipped lexicon loads, has at least 70 rows and is one shared instance. Each unambiguous form resolves to
-its spoken form, not counted as ambiguous. The ambiguous forms follow the neighbor cues in both directions:
-`Visit St. Louis` Saint but `Visit Elm St. today` Street, `Dr. Smith` Doctor but `Maple Dr. He` Drive, `5th St.`
-and `123 Elm Dr.` Street and Drive by strong suffix evidence, `The Dr. said` Doctor, `Sr. Maria` Sister but
-`John Smith Sr. He` Senior, and the documented wrong-by-default `Wall St. Louis` Saint; a possessive before an
-abbreviation is skipped; `No.` is `Number` only before a digit; the guards switch rows on and off; an
-inconclusive context uses the default and is flagged for counting, as is a choice made with both cues
-present, and a clear one is not; the period shape is reported; a single-letter initial resolves only before a
-name or another initial; ordinary words and words that merely start like a form are not abbreviations; a
-lexicon without a prefix and suffix pair is decided by its default without counting; the loader accepts
-comments, blank lines and CRLF and rejects malformed rows with an error naming the one-based line number; a
-null reader throws; the month and weekday rows resolve as a prefix before a date and as a suffix elsewhere,
-`Mar.` and `Sun.` resolve only after a number, `May` and the weekdays written without a period have no row, and the
-recognizer's month and weekday vocabulary equals the rows of the table; and racing first use yields one instance.
+The shipped lexicon loads and has at least 70 rows. Each unambiguous form resolves to its spoken form, not counted as
+ambiguous. The ambiguous forms follow the neighbor cues in both directions: `Visit St. Louis` Saint but
+`Visit Elm St. today` Street, `Dr. Smith` Doctor but `Maple Dr. He` Drive, `5th St.` and `123 Elm Dr.` Street and Drive
+by strong suffix evidence, `The Dr. said` Doctor, `Sr. Maria` Sister but `John Smith Sr. He` Senior, and the documented
+wrong-by-default `Wall St. Louis` Saint; a possessive before an abbreviation is skipped; `No.` is `Number` only before a
+digit; the guards switch rows on and off; an inconclusive context uses the default and is flagged for counting, as is a
+choice made with both cues present, and a clear one is not; the period shape is reported; a single-letter initial
+resolves only before a name or another initial; ordinary words and words that merely start like a form are not
+abbreviations; a lexicon without a prefix and suffix pair is decided by its default without counting; the loader accepts
+comments, blank lines and CRLF and rejects malformed rows with an error naming the one-based line number; a null reader
+throws; every month and weekday abbreviation of an independent expected table resolves to its full name as a prefix
+before a date and as a suffix after a number, `Mar.` and `Sun.` resolve only after a number, and `May` and the weekdays
+written without a period are left as written; and racing first lookups all return the documented resolutions.
 
 #### Test Scenarios
 
@@ -82,21 +81,22 @@ flag.
 ##### Date guards and month and weekday rows
 
 **Tests**: `AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings`,
-`AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary`,
+`AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts`,
 `AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms`
 
 The guard test uses small custom tables: `next-date` passes before an ASCII digit and before a month name or
 abbreviation (with or without its period) and fails before a lower-case word, a capitalized non-month and a non-ASCII
 digit; `prev-number` passes after an ASCII digit and fails after a letter, at the start of the text and after a
-non-ASCII digit; the two names are accepted by the loader and a misspelled guard is still rejected. The table test reads
-the shipped lexicon and asserts that the rows are exactly the month abbreviations with and without a period and the
-weekday abbreviations of `NumericExpressionRecognizer`, that every period form has a prefix row guarded by `next-date`
-and a default suffix row, that `Mar.` and `Sun.` have `prev-number` on the suffix reading, that the months written
-without a period are prefix rows with `next-digit`, and that there is no row for `May`. The resolution test asserts, on
-the real tokenizer's tokens, that `Jan. 5` and `Sat. 5 Jan. 2024` resolve to the prefix reading (period consumed, not
-counted ambiguous), that `in Dec. She left.` and `He left Mon. He came Tue.` resolve to the suffix reading, that
-`Then Fri. ended.` resolves to Friday, that `Jan 5` and `Sept 11` resolve without a period, and that a bare `Mar.`, a
-bare `Sun.` and the word `May` do not resolve.
+non-ASCII digit; the two names are accepted by the loader and a misspelled guard is still rejected. The full-name test
+is written against an expected table of its own (the twelve month abbreviations with `Sept`, and the ten weekday
+abbreviations, each with its full name), independent of the lexicon file and of the numeric recognizer's vocabulary: for
+each abbreviation `It was X. 5 then.` must resolve to the full name as a prefix reading and `It was 5 X.` as a suffix
+reading, and a bare `Mar.` (`They Mar. it.`), a bare `Sun.` (`The Sun. It rose.`) and `May 5` must not resolve. That the
+lexicon and the numeric recognizer share one month vocabulary is a design choice recorded in the *AbbreviationResolver
+Design*, no longer a tested requirement. The resolution test asserts, on the real tokenizer's tokens, that `Jan. 5` and
+`Sat. 5 Jan. 2024` resolve to the prefix reading (period consumed, not counted ambiguous), that `in Dec. She left.` and
+`He left Mon. He came Tue.` resolve to the suffix reading, that `Then Fri. ended.` resolves to Friday, that `Jan 5` and
+`Sept 11` resolve without a period, and that a bare `Mar.`, a bare `Sun.` and the word `May` do not resolve.
 
 ##### Period shape and initials
 
@@ -117,8 +117,10 @@ unknown default value, an unknown guard, a duplicate reading, a form with two de
 which a form has no default; each message names the expected one-based line (the first data row is line 5
 after three comment lines and the header).
 
-##### Thread-safe first load
+##### Concurrent first lookups
 
-**Test**: `AbbreviationResolver_Default_ConcurrentFirstUse_ReturnsOneInstance`
+**Test**: `AbbreviationResolver_TryResolve_ConcurrentFirstLookups_ReturnDocumentedResolutions`
 
-Thirty-two tasks read the lazy default and all receive the same, fully loaded instance.
+Thirty-two tasks resolve `Dr. Smith` (Doctor, prefix), `Maple Dr. He` (Drive, suffix) and `Jan. 5` (January) through the
+default lexicon and every task receives exactly those documented resolutions. Whether the default is one shared
+instance, loaded lazily and once, is a design choice and is not asserted.

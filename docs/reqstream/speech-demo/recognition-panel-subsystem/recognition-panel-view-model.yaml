@@ -105,10 +105,11 @@ sections:
               - id: SpeechDemo-Recognition-StopSession
                 title: >-
                   The RecognitionPanelViewModel shall stop an active session when Stop is invoked,
-                  returning to the idle state while keeping the loaded engine.
+                  returning to the idle state ready to start again.
                 justification: |
-                  A user must be able to end a streaming session at any time; keeping the engine
-                  lets the next Start avoid reloading the model.
+                  A user must be able to end a streaming session at any time and start another one
+                  afterward. (The design keeps the loaded engine so the next Start avoids reloading
+                  the model.)
                 tests:
                   - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
@@ -146,36 +147,41 @@ sections:
 
               - id: SpeechDemo-Recognition-EngineReuse
                 title: >-
-                  The RecognitionPanelViewModel shall reuse the loaded recognizer engine across
-                  Start/Stop cycles for the same model, creating a fresh single-use session for
-                  each Start.
+                  The RecognitionPanelViewModel shall let the user start, stop, and start again with
+                  the same selection, each Start recognizing through the selected model with a fresh
+                  single-use session.
                 justification: |
-                  Reloading the (expensive) engine on every click would reload the model from
-                  scratch each turn, contradicting the library's own "construct once, reuse across
-                  many sessions" guidance for ISpeechRecognizerEngine; a fresh session is still
-                  required per Start because a session is single-use.
+                  A user starts and stops listening repeatedly; every Start must work without the
+                  user choosing the model or device again, and because a session is single-use each Start needs
+                  its own. (The design reuses the loaded engine across Start/Stop cycles to avoid
+                  reloading the model, per the library's "construct once, reuse across many
+                  sessions" guidance for ISpeechRecognizerEngine; see the RecognitionPanelViewModel
+                  design.)
                 tests:
-                  - RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine
+                  - RecognitionPanelViewModel_StartStopStart_SameSelection_EachStartRecognizesThroughSelectedModel
 
               - id: SpeechDemo-Recognition-ModelChangeInvalidatesEngine
                 title: >-
-                  The RecognitionPanelViewModel shall discard the cached recognizer engine when
-                  the selected model changes.
+                  After the selected recognition model changes, the RecognitionPanelViewModel shall
+                  release the previous model's engine and recognize the next Start through the newly
+                  selected model.
                 justification: |
-                  A cached engine is bound to its model; reusing it after a model change would
-                  transcribe with the wrong model.
+                  An engine is bound to its model; recognizing after a model change with the
+                  previous model's engine would transcribe with the wrong model.
                 tests:
-                  - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
+                  - RecognitionPanelViewModel_SelectedModelChanged_NextStartRecognizesThroughNewModel
 
               - id: SpeechDemo-Recognition-DeviceChangeInvalidatesSession
                 title: >-
-                  The RecognitionPanelViewModel shall discard only the cached session, keeping the
-                  engine, when the selected capture device changes.
+                  After the selected capture device changes, the RecognitionPanelViewModel shall
+                  release the session bound to the previous device and capture the next Start from
+                  the newly selected device.
                 justification: |
-                  A session, not an engine, is bound to a capture device; reloading the engine on
-                  a device change would be needless work.
+                  A session is bound to a capture device; listening on after a device change would
+                  keep capturing from the abandoned device. (The design keeps the loaded engine,
+                  which is not bound to a device, so a device change costs no model reload.)
                 tests:
-                  - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
+                  - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_NextStartCapturesFromNewDevice
 
               - id: SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
                 title: >-
@@ -190,14 +196,15 @@ sections:
 
               - id: SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
                 title: >-
-                  The RecognitionPanelViewModel shall discard only the cached session, keeping the
-                  engine, when a shared device refresh occurs.
+                  After a shared device refresh, the RecognitionPanelViewModel shall release the
+                  session bound to the stale device and capture the next Start from a freshly
+                  created device.
                 justification: |
                   A device refresh can replace the underlying capture device object without
-                  changing the selected name, so the cached session must be discarded even though
-                  no selection property changed; the engine is not bound to a device.
+                  changing the selected name, so the old session must be released and the next
+                  Start must use a fresh device even though no selection property changed.
                 tests:
-                  - RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
+                  - RecognitionPanelViewModel_DeviceRefresh_NextStartCapturesFromFreshDevice
 
               - id: SpeechDemo-Recognition-TranscriptSequencing
                 title: >-
@@ -320,11 +327,11 @@ sections:
 
               - id: SpeechDemo-Recognition-FailedStartReleasesSession
                 title: >-
-                  The RecognitionPanelViewModel shall dispose the session it created, keeping the
-                  engine, when that session fails to start.
+                  The RecognitionPanelViewModel shall dispose the session it created when that
+                  session fails to start, so no capture resource stays held.
                 justification: |
                   A session owns a live capture device; leaking it from a failed attempt would
-                  starve the next attempt, while the engine remains usable.
+                  starve the next attempt.
                 tests:
                   - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
 

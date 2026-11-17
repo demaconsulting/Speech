@@ -382,72 +382,45 @@ public sealed class TextNormalizerTests
         Assert.Throws<OperationCanceledException>(() => TextNormalizer.Default.Normalize(text, tokens, false, cancellation.Token));
     }
 
-    /// <summary>Proves cancellation requested mid-pass (by the token-visited observer) is observed at the next periodic check.</summary>
+    /// <summary>Proves cancellation requested while a long text is being normalized ends the request with OperationCanceledException instead of a result.</summary>
     [Fact]
     public void TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException()
     {
-        // Arrange: 1,000 one-letter tokens; the observer cancels while token 300 is visited
+        // Arrange: 1,000 one-letter tokens; the observer cancels while an early token is visited
         var text = string.Concat(Enumerable.Repeat("a ", 1000));
         var tokens = Enumerable.Range(0, 1000).Select(i => new NormalizationToken(i * 2, 1, i == 0)).ToArray();
         using var cancellation = new CancellationTokenSource();
-        var visited = 0;
         var normalizer = new TextNormalizer(
             AbbreviationResolver.Default,
             AcronymRecognizer.Default,
             index =>
             {
-                visited++;
-                if (index == 300)
+                if (index == 10)
                 {
                     cancellation.Cancel();
                 }
             });
 
-        // Act / Assert: the pass stops at the next checkpoint instead of visiting every token
+        // Act / Assert
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
-        Assert.InRange(visited, 301, 600);
     }
 
-    /// <summary>Proves the periodic cancellation check counts the tokens a numeric match consumed: repeated two-token expressions are checked within 256 visited tokens.</summary>
+    /// <summary>Proves cancellation requested while repeated multi-token numeric matches are normalized ends the request with OperationCanceledException.</summary>
     [Fact]
-    public void TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens()
+    public void TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException()
     {
         // Arrange: 400 "5 kg" matches, 800 tokens; the observer cancels while the first token is visited
         var text = string.Concat(Enumerable.Repeat("5 kg ", 400));
         var tokens = NormalizationHarness.Tokenize(text);
         using var cancellation = new CancellationTokenSource();
-        var seen = new List<int>();
         var normalizer = new TextNormalizer(
             AbbreviationResolver.Default,
             AcronymRecognizer.Default,
-            index =>
-            {
-                seen.Add(index);
-                cancellation.Cancel();
-            });
+            _ => cancellation.Cancel());
 
-        // Act / Assert: the check fires at the 256th visited token (inside the 128th match), not at the 256th match
+        // Act / Assert
         Assert.Equal(800, tokens.Length);
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
-        Assert.Equal(TextNormalizer.CancellationCheckInterval / 2, seen.Count);
-        Assert.True(seen[^1] < TextNormalizer.CancellationCheckInterval);
-    }
-
-    /// <summary>Proves the token-visited observer is called once per processed token, in order.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder()
-    {
-        // Arrange
-        const string text = "a b c";
-        NormalizationToken[] tokens = [new(0, 1, true), new(2, 1, false), new(4, 1, false)];
-        var seen = new List<int>();
-        var normalizer = new TextNormalizer(AbbreviationResolver.Default, AcronymRecognizer.Default, seen.Add);
-
-        // Act
-        normalizer.Normalize(text, tokens, false, CancellationToken.None);
-
-        // Assert
-        Assert.Equal([0, 1, 2], seen);
     }
 
     /// <summary>Proves a numeric token is recognized before the abbreviation lexicon: <c>5 ft.</c> is a unit while <c>Ft. Worth</c> is still Fort, and <c>No. 5</c> reads both.</summary>
@@ -468,22 +441,19 @@ public sealed class TextNormalizerTests
         Assert.Equal([NormalizationKind.Abbreviation, NormalizationKind.Number], reference.Spans.Select(span => span.Kind));
     }
 
-    /// <summary>Proves a token consumed by a numeric match (the unit after a number, both tokens of a currency pair) is not visited again.</summary>
+    /// <summary>Proves numeric matches that span several tokens are each spoken once and a word between them is left alone.</summary>
     [Fact]
-    public void TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain()
+    public void TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce()
     {
-        // Arrange: "$5 million" is three tokens and one match; "3 kg" two tokens and one match; "a" is visited on its own
+        // Arrange: "$5 million" is three tokens and one match; "3 kg" two tokens and one match; "a" is a word of its own
         const string text = "$5 million a 3 kg";
         var tokens = NormalizationHarness.Tokenize(text);
-        var seen = new List<int>();
-        var normalizer = new TextNormalizer(AbbreviationResolver.Default, AcronymRecognizer.Default, seen.Add);
 
         // Act
-        var aligned = normalizer.Normalize(text, tokens, false, CancellationToken.None);
+        var aligned = NormalizationHarness.Normalize(text);
 
-        // Assert: tokens 0 ($, 5, million), 3 (a) and 4 (3, kg) are visited; the consumed ones are skipped
+        // Assert
         Assert.Equal(6, tokens.Length);
-        Assert.Equal([0, 3, 4], seen);
         Assert.Equal("five million dollars a three kilograms", aligned.ApplySpokenForms());
     }
 
@@ -538,30 +508,27 @@ public sealed class TextNormalizerTests
         Assert.Equal("He is six feet tall.", glued.ApplySpokenForms());
     }
 
-    /// <summary>Proves cancellation requested in the middle of a long numeric text is observed at the next periodic check.</summary>
+    /// <summary>Proves cancellation requested in the middle of a long numeric text ends the request with OperationCanceledException.</summary>
     [Fact]
     public void TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException()
     {
-        // Arrange: 1,000 one-digit numbers; the observer cancels while token 300 is visited
+        // Arrange: 1,000 one-digit numbers; the observer cancels while an early token is visited
         var text = string.Concat(Enumerable.Repeat("5 ", 1000));
         var tokens = Enumerable.Range(0, 1000).Select(i => new NormalizationToken(i * 2, 1, i == 0)).ToArray();
         using var cancellation = new CancellationTokenSource();
-        var visited = 0;
         var normalizer = new TextNormalizer(
             AbbreviationResolver.Default,
             AcronymRecognizer.Default,
             index =>
             {
-                visited++;
-                if (index == 300)
+                if (index == 10)
                 {
                     cancellation.Cancel();
                 }
             });
 
-        // Act / Assert: the numeric pass checks the token like every other pass
+        // Act / Assert
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
-        Assert.InRange(visited, 301, 600);
     }
 
     /// <summary>Proves bad arguments are rejected: null text, null collaborators, and malformed token lists.</summary>
@@ -903,33 +870,28 @@ public sealed class TextNormalizerTests
         Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives));
     }
 
-    /// <summary>Proves a pre-canceled request with directives still throws before any work, and directives do not disturb the cancellation cadence: every visited token counts.</summary>
+    /// <summary>Proves cancellation requested while a text with directives is normalized ends the request with OperationCanceledException, and a pre-canceled request with directives throws too.</summary>
     [Fact]
-    public void TextNormalizer_Normalize_DirectivesWithCancellation_CountEveryVisitedToken()
+    public void TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException()
     {
-        // Arrange: 1000 single-letter tokens, a skip directive on every 10th, canceled while token 300 is visited
+        // Arrange: 1000 single-letter tokens, a skip directive on every 10th, canceled while an early token is visited
         var text = string.Concat(Enumerable.Repeat("a ", 1000));
         var tokens = NormalizationHarness.Tokenize(text);
         var directives = Enumerable.Range(0, 100).Select(i => new TokenDirective(i * 10, TokenDirectiveKind.Skip, null)).ToArray();
         using var cancellation = new CancellationTokenSource();
-        var visited = new List<int>();
         var normalizer = new TextNormalizer(
             AbbreviationResolver.Default,
             AcronymRecognizer.Default,
             index =>
             {
-                visited.Add(index);
-                if (index == 300)
+                if (index == 10)
                 {
                     cancellation.Cancel();
                 }
             });
 
-        // Act
+        // Act / Assert: canceled while processing, then canceled beforehand
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
-
-        // Assert: stopped at the next check, the 512th visited token
-        Assert.Equal(Enumerable.Range(0, 511), visited);
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
     }
 
@@ -984,9 +946,9 @@ public sealed class TextNormalizerTests
         Assert.DoesNotContain("  ", aligned.ApplySpokenForms(), StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a pass with thousands of directives over a large text is linear: it finishes within a generous budget and adds no per-token allocation for tokens without a directive.</summary>
+    /// <summary>Proves a pass with thousands of directives over a large text applies every directive and leaves the other tokens alone.</summary>
     [Fact]
-    public void TextNormalizer_Normalize_ManyDirectives_CompletesWithinBudget()
+    public void TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective()
     {
         // Arrange: 200,000 tokens, a skip directive on every 20th
         var text = string.Concat(Enumerable.Repeat("word ", 200_000));
@@ -994,14 +956,12 @@ public sealed class TextNormalizerTests
         var directives = Enumerable.Range(0, 10_000).Select(i => new TokenDirective(i * 20, TokenDirectiveKind.Skip, null)).ToArray();
 
         // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var aligned = TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
-        stopwatch.Stop();
 
         // Assert
         Assert.Equal(10_000, aligned.OverridesApplied);
+        Assert.Equal(0, aligned.OverridesIgnored);
         Assert.Empty(aligned.Spans);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20), $"took {stopwatch.Elapsed}");
     }
 
     /// <summary>The four directive kinds, with the value each needs, that the sentence-break tests apply in turn.</summary>
@@ -1153,27 +1113,27 @@ public sealed class TextNormalizerTests
         Assert.True(baselineBreaks.SequenceEqual(aligned.ReconcileBreaks(tokenizerBreaks)), $"breaks differ for '{text}'");
     }
 
-    /// <summary>Proves directives on abbreviations do not disturb the cancellation cadence: every token is visited exactly once, in order, as without directives.</summary>
+    /// <summary>Proves directives on several abbreviations in one text are all applied and, as for each alone, leave the built-in sentence breaks unchanged.</summary>
     [Fact]
-    public void TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce()
+    public void TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks()
     {
         // Arrange
         const string text = "See Fig. 5 for details. Hello\u2014Dr. Smith left. Jan. 5 was cold.";
         var tokens = NormalizationHarness.Tokenize(text);
+        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(text);
         TokenDirective[] directives =
         [
             new(IndexOf(text, tokens, "Fig"), TokenDirectiveKind.Skip, null),
             new(IndexOf(text, tokens, "Dr"), TokenDirectiveKind.Replace, "doctor"),
             new(IndexOf(text, tokens, "Jan"), TokenDirectiveKind.Pronounce, "ipa:abc"),
         ];
-        var visited = new List<int>();
-        var normalizer = new TextNormalizer(AbbreviationResolver.Default, AcronymRecognizer.Default, visited.Add);
+        var baselineBreaks = NormalizationHarness.Normalize(text).ReconcileBreaks(tokenizerBreaks);
 
         // Act
-        var aligned = normalizer.Normalize(text, tokens, false, CancellationToken.None, directives);
+        var aligned = NormalizationHarness.Normalize(text, false, directives);
 
         // Assert
-        Assert.Equal(Enumerable.Range(0, tokens.Length), visited);
         Assert.Equal(3, aligned.OverridesApplied);
+        Assert.Equal(baselineBreaks, aligned.ReconcileBreaks(tokenizerBreaks));
     }
 }

@@ -8,8 +8,8 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="EnglishTextAnalyzer"/> and the <see cref="EnglishTextAnalysis"/>
 ///     result it produces. Its documented collaborators (the part-of-speech adapter, the
-///     diagnostics reporter, the options and the annotation vocabulary) are real; tagger creation
-///     is observed through a counting adapter.
+///     diagnostics reporter, the options and the annotation vocabulary) are real; cancellation at
+///     the tagger is injected through a test adapter.
 /// </summary>
 public sealed class EnglishTextAnalyzerTests
 {
@@ -174,17 +174,16 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Empty(result.SentenceBreaks);
     }
 
-    /// <summary>Proves empty, whitespace-only and punctuation-only texts yield no annotations and no tagger load.</summary>
+    /// <summary>Proves empty, whitespace-only and punctuation-only texts yield no annotations and no sentence breaks.</summary>
     [Theory]
     [InlineData("")]
     [InlineData("   \t\r\n ")]
     [InlineData("\uFFFC")]
     [InlineData("\uFFFC \uFFFC")]
-    public void EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndLoadsNoTagger(string text)
+    public void EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndNoBreaks(string text)
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), source.CreateAdapter());
+        var analyzer = new EnglishTextAnalyzer();
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
@@ -193,7 +192,6 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Empty(result.Annotations);
         Assert.NotNull(result.SentenceBreaks);
         Assert.Empty(result.SentenceBreaks);
-        Assert.Equal(0, source.Count);
     }
 
     /// <summary>Proves a null text is rejected.</summary>
@@ -336,19 +334,17 @@ public sealed class EnglishTextAnalyzerTests
         }
     }
 
-    /// <summary>Proves an already-canceled token throws before any work, without loading the tagger.</summary>
+    /// <summary>Proves an already-canceled token throws OperationCanceledException instead of returning a result.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsWithoutLoadingTagger()
+    public void EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsOperationCanceledException()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), source.CreateAdapter());
+        var analyzer = new EnglishTextAnalyzer();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat.", cancellation.Token));
-        Assert.Equal(0, source.Count);
     }
 
     /// <summary>Proves cancellation requested while the tagger is first being created stops a multi-sentence analysis.</summary>
@@ -361,9 +357,8 @@ public sealed class EnglishTextAnalyzerTests
         var sink = new RecordingDiagnostics();
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink }, source.CreateAdapter());
 
-        // Act / Assert: the check right after initialization observes the cancellation, before any sentence is tagged
+        // Act / Assert: the check right after initialization observes the cancellation, so no result is returned
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat. The dog ran. A bird flew.", cancellation.Token));
-        Assert.Equal(1, source.Count);
         Assert.Empty(sink.Events);
     }
 
@@ -492,15 +487,14 @@ public sealed class EnglishTextAnalyzerTests
             detailed.Normalizations.Select(normalization => (normalization.Start, normalization.Length, normalization.SpokenText)));
     }
 
-    /// <summary>Proves selecting no annotations yields no annotations and no tagger load, but still supplies sentence breaks and untagged tokens.</summary>
+    /// <summary>Proves selecting no annotations yields no annotations, but still supplies sentence breaks and untagged tokens.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger()
+    public void EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndUntaggedTokens()
     {
         // Arrange
         const string text = "He left home. She stayed.";
-        var source = new CountingTaggerSource();
         var options = new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None };
-        var analyzer = new EnglishTextAnalyzer(options, source.CreateAdapter());
+        var analyzer = new EnglishTextAnalyzer(options);
 
         // Act
         var analysis = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
@@ -510,20 +504,19 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Equal([text.IndexOf("She", StringComparison.Ordinal)], analysis.SentenceBreaks);
         Assert.Equal(7, analysis.Tokens.Count);
         Assert.All(analysis.Tokens, token => Assert.Null(token.PartOfSpeech));
-        Assert.Equal(0, source.Count);
     }
 
-    /// <summary>Proves many concurrent requests on one analyzer all succeed with identical results and load the tagger once.</summary>
+    /// <summary>Proves many concurrent requests on one analyzer, racing on its first use, all succeed with the same result as a sequential request.</summary>
     [Fact]
-    public async Task EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResultsAndLoadTaggerOnce()
+    public async Task EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResults()
     {
         // Arrange
         const string text = "I've {0} read it. This record is old. Please record the answer.";
         var input = string.Format(System.Globalization.CultureInfo.InvariantCulture, text, Tag);
-        var source = new CountingTaggerSource();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), source.CreateAdapter());
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), new CountingTaggerSource().CreateAdapter());
+        var expectedKey = Key(new EnglishTextAnalyzer().Analyze(input, TestContext.Current.CancellationToken));
 
-        // Act: the very first analyses race each other, so the lazy tagger creation is contended
+        // Act: the very first analyses race each other
         var tasks = Enumerable.Range(0, 24)
             .Select(_ => Task.Run(
                 () => Enumerable.Range(0, 20)
@@ -534,51 +527,41 @@ public sealed class EnglishTextAnalyzerTests
         var results = await Task.WhenAll(tasks);
 
         // Assert
-        var expectedKey = Key(analyzer.Analyze(input, TestContext.Current.CancellationToken));
         Assert.All(results.SelectMany(keys => keys), key => Assert.Equal(expectedKey, key));
-        Assert.Equal(1, source.Count);
     }
 
     /// <summary>
-    ///     Proves the analyzer keeps no reference to the analyzed text or to its results after the call returns
-    ///     (this library's own state only; the tagger package's private working buffers are covered by the upstream package's tests).
+    ///     Proves a request is not influenced by earlier requests on the same analyzer and never discloses their text:
+    ///     the result equals that of a fresh analyzer, and neither the result values nor the diagnostics carry words of
+    ///     the other request.
     /// </summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults()
+    public void EnglishTextAnalyzer_Analyze_AfterAnotherRequest_ResultEqualsFreshAnalyzerAndDisclosesNothingOfIt()
     {
-        // Arrange
-        var analyzer = new EnglishTextAnalyzer();
+        // Arrange: two requests with no word in common
+        const string first = "Quokka marmoset rested. Zebra galloped.";
+        const string second = "I read it again.";
+        var sink = new RecordingDiagnostics();
+        var used = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
+        var fresh = new EnglishTextAnalyzer();
 
-        // Act: analysis happens inside a helper the JIT must not inline, so no local of this method
-        // (in Debug or Release) can keep the string or the results alive; only weak references return.
-        // Collection is forced a bounded number of times because finalization and the collector's
-        // timing differ between runtimes and operating systems; the forced collection is the point of
-        // this test, so the analyzer rule against it (S1215) is waived for this block only.
-        var references = AnalyzeAndForget(analyzer);
-#pragma warning disable S1215
-        for (var attempt = 0; attempt < 10 && references.Any(reference => reference.IsAlive); attempt++)
-        {
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
-            GC.WaitForPendingFinalizers();
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
-        }
-#pragma warning restore S1215
+        // Act
+        _ = used.Analyze(first, TestContext.Current.CancellationToken);
+        _ = used.AnalyzeDetailed(first, TestContext.Current.CancellationToken);
+        var reportedBefore = sink.Events.Count;
+        var result = used.Analyze(second, TestContext.Current.CancellationToken);
+        var detailed = used.AnalyzeDetailed(second, TestContext.Current.CancellationToken);
 
-        // Assert: neither the input string nor either result object is still reachable
-        Assert.All(references, reference => Assert.False(reference.IsAlive));
-    }
-
-    /// <summary>Analyzes a unique, non-interned string with both entry points and returns only weak references to the string and the results.</summary>
-    /// <param name="analyzer">The analyzer.</param>
-    /// <returns>Weak references to the analyzed string, the neutral result and the detailed analysis.</returns>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    private static WeakReference[] AnalyzeAndForget(EnglishTextAnalyzer analyzer)
-    {
-        // Built at run time from a fresh GUID, so it is neither a literal nor interned.
-        var text = string.Concat("Quokka ", Guid.NewGuid().ToString("N"), " rested. ", Guid.NewGuid().ToString("N"), " ran.");
-        var neutral = analyzer.Analyze(text, CancellationToken.None);
-        var detailed = analyzer.AnalyzeDetailed(text, CancellationToken.None);
-        return [new WeakReference(text), new WeakReference(neutral), new WeakReference(detailed)];
+        // Assert
+        var expected = fresh.AnalyzeDetailed(second, TestContext.Current.CancellationToken);
+        Assert.Equal(expected.Annotations, result.Annotations);
+        Assert.Equal(expected.SentenceBreaks, result.SentenceBreaks);
+        Assert.Equal(expected.Tokens, detailed.Tokens);
+        string[] otherWords = ["Quokka", "marmoset", "rested", "Zebra", "galloped"];
+        Assert.All(result.Annotations, annotation => Assert.DoesNotContain(otherWords, word => annotation.Value.Contains(word, StringComparison.OrdinalIgnoreCase)));
+        var reported = sink.Events.Skip(reportedBefore).ToList();
+        Assert.Equal(2, reported.Count);
+        Assert.All(reported, report => Assert.DoesNotContain(otherWords, word => report.Message.Contains(word, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>Proves a normalization annotation follows the part of speech of the token it starts in, so annotations stay in text order.</summary>
@@ -598,21 +581,19 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
     }
 
-    /// <summary>Proves normalization needs no tagger: selecting only it loads nothing, produces only en.norm and tokens carry no part of speech.</summary>
+    /// <summary>Proves normalization needs no part-of-speech selection: selecting only it produces only en.norm and tokens carry no part of speech.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations()
+    public void EnglishTextAnalyzer_Analyze_NormalizationOnly_EmitsOnlyNormalizationsAndUntaggedTokens()
     {
         // Arrange
         const string text = "Dr. Smith & Mr. Jones live on Main St. It is nice.";
-        var source = new CountingTaggerSource();
         var options = new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization };
-        var analyzer = new EnglishTextAnalyzer(options, source.CreateAdapter());
+        var analyzer = new EnglishTextAnalyzer(options);
 
         // Act
         var analysis = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(0, source.Count);
         Assert.Equal(4, analysis.Annotations.Count);
         Assert.All(analysis.Annotations, annotation => Assert.Equal(TextEnAnnotations.Normalized, annotation.Kind));
         Assert.All(analysis.Tokens, token => Assert.Null(token.PartOfSpeech));

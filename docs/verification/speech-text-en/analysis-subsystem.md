@@ -7,8 +7,9 @@ The SpeechTextEn AnalysisSubsystem is verified through deterministic tests in
 subsystem-level tests in `AnalysisSubsystemTests.cs` exercise the units together through the public analyzer
 (the real options, annotation vocabulary, adapter, diagnostics reporter and pronunciation dictionary, over the real
 part-of-speech package, and, because the default options select normalization, the real NormalizationSubsystem
-too), observing tagger creation through a counting adapter so the shared process-wide tagger is never
-disturbed and "loaded once" and "never loaded" can be asserted. The override tests load the sample dictionary
+too), injecting a test tagger factory (that still returns the real shared tagger, so the shared process-wide tagger
+is never disturbed) to cancel at the tagger or to make its first creation fail, and asserting results, exceptions and
+recovery rather than how often the tagger is created. The override tests load the sample dictionary
 `TestData/overrides-dictionary.tsv` through its documented file format. Each unit is verified in isolation by its own
 test file (see the unit verification documents); the normalization pipeline of the analyzer (the order and
 merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detailed data, the selection
@@ -17,7 +18,7 @@ initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary
 unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see *SpeechTextEn
 NormalizationSubsystem Verification*). The heteronym readings are verified at this level through the real
 HeteronymSubsystem with a hand-built fixture model (no trained model is shipped), and their rules in detail
-(the coexistence rules, the single-candidate rule, laziness, diagnostics, cancellation) by the `EnglishTextAnalyzer`
+(the coexistence rules, the single-candidate rule, diagnostics, cancellation) by the `EnglishTextAnalyzer`
 unit tests in `EnglishTextAnalyzerReadingTests.cs`.
 
 ### Test Environment
@@ -25,29 +26,29 @@ unit tests in `EnglishTextAnalyzerReadingTests.cs`.
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Text.En.Tests`
-- **Isolation**: every test builds its own analyzer; counting adapters are per test; no test depends on
-  whether another test has already loaded the shared tagger
-- **Fixtures**: a recording diagnostics sink (optionally throwing), a counting tagger source and, for the heteronym
-  tests, a counting model source and a fixture model builder, all defined in the test project
+- **Isolation**: every test builds its own analyzer; test tagger factories are per test; no test depends on
+  whether another test has already created the shared tagger
+- **Fixtures**: a recording diagnostics sink (optionally throwing), a test tagger source and, for the heteronym
+  tests, a model source and a fixture model builder, all defined in the test project
 
 ### Acceptance Criteria
 
-The subsystem tests pass when: annotations read back through the typed reader at exactly the words they
-annotate; selecting no annotations yields none but still yields sentence breaks; breaks are authoritative
-and unaffected by abbreviations and tags, and an abbreviation title does not split a sentence under the default
-(normalizing) options; the normalization annotations read back at their spans, merged with the parts of speech,
-with the sentence breaks reconciled; a placeholder is never covered and the analysis equals that of the
-same text with spaces; an unused analyzer, an untagged analysis and an empty text never load the tagger,
-while many concurrent requests load it exactly once and agree; one counts-only event (sentences, tokens,
-annotations, unknown words, normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides
-ignored) is reported without any word and a throwing sink changes nothing; every action of a pronunciation
-dictionary read from the documented file format reaches a consumer through the typed readers, which, applied by the
-documented algorithm, give the expected spoken text and phonemes; the replacement annotations of every kind form
-one ascending, disjoint sequence and the pronunciations are disjoint from them; the reading annotations of an analysis
-with a model read back through the typed readers at exactly the words they annotate and coexist with the part of speech
-on the same span; a reading override loaded from the tab-separated format is validated when it is read, applied by the
-analyzer and counted as an applied override; and cancellation, whether it arrives
-during tagger initialization or during the last sentence, throws `OperationCanceledException` and reports nothing.
+The subsystem tests pass when: annotations read back through the typed reader at exactly the words they annotate;
+selecting no annotations yields none but still yields sentence breaks; breaks are authoritative and unaffected by
+abbreviations and tags, and an abbreviation title does not split a sentence under the default (normalizing) options; the
+normalization annotations read back at their spans, merged with the parts of speech, with the sentence breaks
+reconciled; a placeholder is never covered and the analysis equals that of the same text with spaces; an untagged
+analysis and an empty text return no annotations, many concurrent requests agree with a sequential request and a request
+after a failed tagger creation succeeds; one counts-only event (sentences, tokens, annotations, unknown words,
+normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides ignored) is reported without any
+word and a throwing sink changes nothing; every action of a pronunciation dictionary read from the documented file
+format reaches a consumer through the typed readers, which, applied by the documented algorithm, give the expected
+spoken text and phonemes; the replacement annotations of every kind form one ascending, disjoint sequence and the
+pronunciations are disjoint from them; the reading annotations of an analysis with a model read back through the typed
+readers at exactly the words they annotate and coexist with the part of speech on the same span; a reading override
+loaded from the tab-separated format is validated when it is read, applied by the analyzer and counted as an applied
+override; and cancellation, whether it arrives during tagger initialization or during the last sentence, throws
+`OperationCanceledException` and reports nothing.
 
 ### Test Scenarios
 
@@ -78,14 +79,19 @@ and normalization annotations are both present in text order, the normalizations
 `TextEnAnnotations.TryReadNormalized` at their source spans, and the sentence breaks are reconciled (a break is added
 after `Main St.` and none falls inside `Dr. Smith`).
 
-#### Shared tagger
+#### Selected annotations and recovery
 
-**Tests**: `AnalysisSubsystem_Analyze_UnusedOrUntaggedAnalyzer_NeverLoadsTagger`,
-`AnalysisSubsystem_Analyze_ManyConcurrentRequests_LoadTaggerOnceAndAgree`
+**Tests**: `AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations`,
+`AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult`,
+`AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds`
 
-Analyzers that are constructed but not used, analyze without tagging, or analyze an empty text request no
-tagger; thirty-two concurrent requests across four analyzers sharing one adapter request it exactly once and
-all return the same annotations.
+An analyzer that does not select part-of-speech annotation returns no annotations and still supplies the break before
+`She`, and an empty text returns no annotations and no breaks; thirty-two concurrent requests across four analyzers
+sharing one adapter, racing on their first use, all return the annotations a sequential request gives; and when the
+first creation of the tagger fails the first request throws `InvalidOperationException` and the next request returns
+exactly the annotations and breaks of a healthy analyzer. How the tagger is obtained (lazily, once, shared, never for an
+analyzer that has nothing to tag) is a design strategy recorded in the analysis subsystem design; no test counts tagger
+creations.
 
 #### Diagnostics
 

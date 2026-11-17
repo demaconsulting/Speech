@@ -100,22 +100,32 @@ recognized parameter.
 
 **Expected**: The unrecognized parameter is skipped and the two recognized ones are presented in order.
 
-#### ModelSettingsView_NumericTemplate_IntegerParameter_ShowsWholeNumberControlInsteadOfSlider
+#### ModelSettingsSubsystem_SelectModel_IntegerAndContinuousParameters_IntegerIsWholeNumberOnly
 
-**Scenario**: The view markup's numeric parameter template is read (the demo has no headless UI host,
-so the markup is checked structurally rather than rendered).
+**Scenario**: A model declaring one whole-number parameter and one continuous parameter is selected in the
+settings panel, and fractional values (41.6 and 1.25) are written to the presented parameters.
 
-**Expected**: The template holds one slider visible only when the parameter is not declared
-whole-number and one up-down control visible only when it is, with the up-down formatted in whole
-numbers and bound to the presenter's value and bounds. Together with the presenter rounding every
-write to a whole number, no fractional value can be selected for such a parameter.
+**Expected**: The integer parameter is flagged whole-number-only (the flag the view uses to show a
+whole-number control instead of the continuous slider) and holds 42; the continuous parameter holds 1.25; the
+panel's value bag carries both values.
+
+#### ModelSettingsSubsystem_SwitchModel_ContinuousOnlyModel_NoStaleWholeNumberConstraint
+
+**Scenario**: The panel switches from a model with an integer parameter to one with only a continuous
+parameter, and a fraction is written to it.
+
+**Expected**: The presented parameter is not whole-number-only, keeps the fraction, and the value bag carries it.
+
+The presenter-level tests (`NumericParameterViewModel_*` in `ParameterViewModelsTests` and
+`ModelSettingsViewModelTests`) remain the unit evidence under the parameter-presenter unit requirements.
 
 ### Accepted Gaps
 
 #### Rendered Controls
 
-The structural test reads the view markup; it does not render the view, so Avalonia's own control
-behavior (for example how `NumericUpDown` handles typed input) is not exercised and is covered
-by the Avalonia OTS evidence instead. The choice and boolean templates are likewise verified only
+The demo has no headless UI host, so the view is not rendered and the choice between the slider and the
+whole-number control is verified through the presenter's `IsInteger` flag rather than through the view
+markup; Avalonia's own control behavior (for example how `NumericUpDown` handles typed input) is covered by
+the Avalonia OTS evidence instead. The choice and boolean templates are likewise verified only
 indirectly, through the presenter type checks in
 `ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters`.

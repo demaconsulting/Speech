@@ -20,7 +20,7 @@ real microphone produces correct text through a real model requires both a downl
 model (which this library deliberately does not ship) and audio hardware, so it remains a
 manual/local verification activity. The real, native-backed `IRecognitionBackend`
 implementation, `SherpaOnnxRecognitionEngine`, is no longer part of this subsystem: it ships in the
-sibling SpeechSherpa library, and its bookkeeping and accuracy against real installed models (when
+sibling SpeechSherpa library, and its endpoint/silence handling and accuracy against real installed models (when
 present) are verified there by `SherpaOnnxRecognitionEngineTests`/
 `SherpaOnnxRecognitionEngineAccuracyTests` (see *SpeechSherpa RecognitionSubsystem
 Verification*).
@@ -269,14 +269,14 @@ are never dropped, however many are buffered.
 
 **Tests**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`,
 `DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`,
-`DedicatedWorker_Run_UsesLongRunningTaskCreationOption`,
+`DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork`,
 `RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning`
 
-Verifies that a delegate which observes cancellation promptly completes its task immediately, that
-a delegate which does not observe cancellation is abandoned after the configured timeout with a
-`Warning` diagnostic rather than blocking the caller forever, that the worker always runs its
-delegate with `TaskCreationOptions.LongRunning`, and that this same abandon behavior is exercised
-end-to-end through a session's pump thread via an injectable abandon timeout.
+Verifies that a delegate which observes cancellation promptly completes its task immediately, that a delegate which does
+not observe cancellation is abandoned after the configured timeout with a `Warning` diagnostic rather than blocking the
+caller forever, that the worker always runs its delegate without blocking its caller or unrelated work while it is
+blocked, and that this same abandon behavior is exercised end-to-end through a session's pump thread via an injectable
+abandon timeout.
 
 #### Audio Conversion: Downmix, Rate Conversion, and Boundaries
 

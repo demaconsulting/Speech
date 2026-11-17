@@ -80,9 +80,14 @@ documented. The ONNX-backed `NemotronEncoder` is verified in its own unit verifi
 
 **Test**: `TryDecode_EmptyChunksAfterText_FinalizesKeepingState`
 
-##### Reset clears state
+##### A reset engine behaves like a fresh engine
 
-**Test**: `Reset_ClearsState`
+**Scenario**: An engine that has consumed a decoded chunk and holds half a second of not-yet-encoded audio is
+reset, then given the same new audio as a fresh engine with the same script.
+
+**Expected**: Both report the same results and encode the same amount of audio.
+
+**Test**: `Reset_AfterAudio_NextStreamMatchesFreshEngine`
 
 ##### Dispose disposes collaborators and blocks use
 

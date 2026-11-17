@@ -148,7 +148,8 @@ Design*), so a later request retries. An exception from the normalizer or from t
 defective build, such as a malformed embedded table) propagates the same way.
 
 **Retention**: the analyzer keeps no reference to the analyzed text or to a result in its own state after
-the call returns (no field holds either, and a weak-reference test proves that). The tagging package's own
+the call returns (no field holds either; this is a design obligation checked by review, and the observable side,
+that a request's result and diagnostics never carry text of another request, is tested). The tagging package's own
 per-thread working buffers are cleared by the pinned version (0.1.0-beta.5 or later; upstream issue
 <https://github.com/demaconsulting/PartOfSpeech/issues/29>), which this repository cannot inspect through a
 public API; see *SpeechTextEn System Design*, *Retention Verification*.

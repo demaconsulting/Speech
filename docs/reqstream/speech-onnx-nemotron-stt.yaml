@@ -204,7 +204,7 @@ sections:
         children:
           - SpeechOnnxNemotronStt-Recognition-SessionReset
         tests:
-          - Reset_ClearsState
+          - Reset_AfterAudio_NextStreamMatchesFreshEngine
 
       - id: SpeechOnnxNemotronStt-Recognition-ModelResourceRelease
         title: >-

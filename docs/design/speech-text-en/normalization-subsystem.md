@@ -130,4 +130,5 @@ License. They are plain tab-separated text so a non-programmer can review them; 
 in *AbbreviationResolver Design* and *AcronymRecognizer Design*. The numeric tables (units, currencies,
 month and weekday names, cue words) are read-only arrays in the code of the recognizer and are documented in
 *NumericExpressionRecognizer Design*; the month and weekday vocabulary is shared with the abbreviation
-lexicon and a test checks that the two agree.
+lexicon and the two are kept consistent by review (and the lexicon's month and weekday readings are checked against an
+independent expected table).

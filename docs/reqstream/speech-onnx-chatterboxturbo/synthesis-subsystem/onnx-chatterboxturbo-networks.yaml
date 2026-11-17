@@ -203,8 +203,8 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConstructionCleanup
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall dispose the sessions it already
-                  created when construction fails.
+                  The OnnxChatterboxTurboNetworks class shall release every ONNX session it
+                  already opened when construction fails.
                 justification: |
                   Native sessions hold large memory-mapped weights that must not leak.
                 tests:

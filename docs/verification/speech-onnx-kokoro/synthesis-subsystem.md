@@ -47,12 +47,10 @@ See the unit's own verification document: `onnx-kokoro-synthesis-engine.md`.
 
 ### Acceptance Criteria
 
-This subsystem is accepted when: the engine's constructor throws `ArgumentNullException` for each
-null required dependency and `ArgumentException` for an empty voice-styles dictionary;
-`SampleRate` always reports 24000 Hz; `Generate` returns empty audio without running the ONNX
-graph for zero-token text, throws `ArgumentNullException` for null text, and throws
-`ObjectDisposedException` after disposal; a second `Dispose` call is a no-op; `RunProbeInference`
-runs successfully against a runnable session; `CreateBackend`'s constructed engine forwards the
-requested voice's own style vector verbatim (proven in
-*SpeechOnnxKokoro ModelManagementSubsystem Verification*); and, when the real production model is
+This subsystem is accepted when: the engine's constructor throws `ArgumentNullException` for each null required
+dependency and `ArgumentException` for an empty voice-styles dictionary; `SampleRate` always reports 24000 Hz;
+`Generate` returns empty audio for zero-token text, throws `ArgumentNullException` for null text, and throws
+`ObjectDisposedException` after disposal; a second `Dispose` call is a no-op; `RunProbeInference` runs successfully
+against a runnable session; `CreateBackend`'s constructed engine forwards the requested voice's own style vector
+verbatim (proven in *SpeechOnnxKokoro ModelManagementSubsystem Verification*); and, when the real production model is
 installed, the real engine produces non-empty 24000 Hz audio for known English text.

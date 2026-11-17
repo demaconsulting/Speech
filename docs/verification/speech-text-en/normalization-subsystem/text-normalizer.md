@@ -4,15 +4,16 @@
 
 `TextNormalizer` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/TextNormalizerTests.cs`. Its collaborators (the
-abbreviation resolver, the acronym recognizer and the alignment model) are real, with the embedded lexicons, so
-the tests check the rule order and the period and sentence rules as they work in production. Token offsets come
-from the real tokenizer of the part-of-speech package through the test helper `Fakes/NormalizationHarness.cs`
-(a test-only dependency; no tagger is involved), because the rules are written against the tokenizer's real
-token shapes. Tests that need exact control (cancellation, argument validation, the observer) hand-build
-`NormalizationToken` arrays, and the two that need a different lexicon build a `TextNormalizer` over custom
-tables parsed from a string. The directive tests pass hand-built directives, placed on tokens of the real
-tokenizer by token text, so the normalizer is tested without the dictionary. Most tests assert the exact spoken
-text that results, obtained by applying the spans to the source.
+abbreviation resolver, the acronym recognizer and the alignment model) are real, with the embedded lexicons, so the
+tests check the rule order and the period and sentence rules as they work in production. Token offsets come from the
+real tokenizer of the part-of-speech package through the test helper `Fakes/NormalizationHarness.cs` (a test-only
+dependency; no tagger is involved), because the rules are written against the tokenizer's real token shapes. Tests that
+need exact control (cancellation, argument validation) hand-build `NormalizationToken` arrays, and cancellation is
+triggered deterministically from the normalizer's token-visited observer (a test seam) at a chosen early token, without
+asserting how many tokens were visited; the two tests that need a different lexicon build a `TextNormalizer` over custom
+tables parsed from a string. The directive tests pass hand-built directives, placed on tokens of the real tokenizer by
+token text, so the normalizer is tested without the dictionary. Most tests assert the exact spoken text that results,
+obtained by applying the spans to the source.
 
 #### Test Environment
 
@@ -33,11 +34,11 @@ classification and are recorded only on request; a suffix abbreviation keeps its
 it mid-sentence in both token shapes; a prefix title consumes its period and removes the tokenizer break after it; a
 suffix forces a break only before a capitalized next word; the word reading of `No.` adds a break but no span; each
 ambiguous resolution is counted once; the shouting guard applies per sentence; a dotted initialism needs its period
-token; a pre-canceled token and a cancellation observed mid-pass throw `OperationCanceledException`; the observer sees
-every processed token in order; invalid arguments are rejected; an empty text normalizes to nothing; and repeated
+token; a pre-canceled token and a cancellation requested mid-pass throw `OperationCanceledException` (no visit count or
+polling cadence is asserted); invalid arguments are rejected; an empty text normalizes to nothing; and repeated
 normalization is deterministic while a custom lexicon changes the outcome. The numeric rule runs after the
 invisible-character and clitic rules and before the abbreviation rule (so `5 ft.` is a unit and `Jan. 5` leaves the
-number to the numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
+number to the numeric rule), emits the spans of a match in order and speaks a consumed token only once, separates
 adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period (consumed
 mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no token that contains an
 invisible character as a number, and observes cancellation in the middle of a numeric pass. A user directive on a token
@@ -48,8 +49,8 @@ spell directive spells ASCII letters (and leaves anything else as written, count
 directive adds a pronunciation mark without a span or a change of the spoken text. A directive on a token that an
 earlier multi-token match consumed is ignored, counted and leaves the match unchanged; every directive is counted
 exactly once as applied or ignored; directives that are out of order, repeated, negative or beyond the tokens are
-rejected without arithmetic on the index; the cancellation cadence counts every visited token with directives present;
-and thousands of directives over a large text complete within the time budget. The shape of a replacement decides
+rejected without arithmetic on the index; cancellation with directives present throws `OperationCanceledException`;
+and thousands of directives over a large text are all applied. The shape of a replacement decides
 whether it is spelled (letter-name replacements are, word, symbol and number replacements are not), an ampersand
 initialism is decomposed into spelled letter spans and an `and` span with unchanged spoken text and the possessive tail
 outside every span, and adjacent replacements are separated by exactly one space.
@@ -126,40 +127,36 @@ Then sleep.` yields the number span `five` and one `Initialism` span `P M`; `x.y
 ##### Numeric rule
 
 **Tests**: `TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations`,
-`TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain`,
+`TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce`,
 `TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity`,
 `TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace`,
 `TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd`
 
-`Meet at 5 p.m. Then sleep.` yields `five`, then the acronym rule's `P M` with its period kept; `6 ft. tall` (the
-unit with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then he left.` (the span covering `ft`
-only and a forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the
-period rules, and `5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD` and the
-observer, hand-wired to the normalizer, never sees the index of `million` as a started token, but counts it as
-visited. `50%` produces `fifty` and `" percent"` with one space between the two replacements and no moved
-offset, and `5–10` produces `five`, `" to "` and `ten`; a numeric token with a zero-width space inside produces
-only the dropped span.
+`Meet at 5 p.m. Then sleep.` yields `five`, then the acronym rule's `P M` with its period kept; `6 ft. tall` (the unit
+with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then he left.` (the span covering `ft` only and a
+forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the period rules, and
+`5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD`; `$5 million a 3 kg` is spoken
+`five million dollars a three kilograms`, each consumed token spoken once as part of its match. `50%` produces `fifty`
+and `" percent"` with one space between the two replacements and no moved offset, and `5–10` produces `five`, `" to "`
+and `ten`; a numeric token with a zero-width space inside produces only the dropped span.
 
 ##### Numeric cancellation
 
-**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`
+**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`,
+`TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException`
 
-For a long hand-built numeric text, an observer cancels the token mid-pass and the pass stops at the next periodic
-check (at most 256 tokens later).
+For a long hand-built numeric text of 1,000 one-digit numbers, an observer cancels the token while an early token is
+visited and the pass throws `OperationCanceledException`; the same holds for 400 repeated `5 kg` matches (800 tokens,
+each match spanning two tokens) canceled at the first token. How many tokens are visited before the exception, and
+how the polling counts the tokens a match consumed, are design choices and are not asserted.
 
-##### Cancellation and observer
+##### Cancellation
 
 **Tests**: `TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder`,
-`TextNormalizer_Normalize_RepeatedMultiTokenMatches_CheckCancellationEvery256VisitedTokens`
+`TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`
 
 A canceled token throws before any work. For 1000 hand-built one-letter tokens, an observer cancels the
-token while token 300 is visited, and the pass stops at the next periodic check: more than 300 and at most
-600 tokens are visited, not all 1000. The observer sees the indexes 0, 1 and 2 of a three-token text, in order.
-For 400 repeated `5 kg` matches (800 tokens) an observer cancels at the first token and the check fires at the
-256th visited token, inside the 128th match: the observer has been called 128 times, because each token a
-match consumed counts as visited.
+token while an early token is visited, and the pass throws `OperationCanceledException` instead of returning a result.
 
 ##### Arguments, empty text and determinism
 
@@ -213,7 +210,7 @@ over `US 5 kg FBI and $3 million` (two on free tokens, two on consumed ones) cou
 texts: `Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-final, and `Dr` after an em dash),
 `TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak`,
 `TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks`,
-`TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce`,
+`TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks`,
 `NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks`
 
 For every row and for each of the four directive kinds (skip, replace, spell, pronounce) the reconciled breaks equal
@@ -224,8 +221,9 @@ The spans come from the directive alone: a replace or spell directive leaves exa
 token's range, which never covers a separate period token, and a skip or pronounce directive leaves none. The review
 example has the tokenizer break `[9]` suppressed with and without a `Say` directive. A defective directive (a
 replacement or pronunciation without a value, a spell-out of a token that is not ASCII letters) is ignored and
-counted, and still keeps the built-in breaks. With directives on abbreviations an observer sees every token index
-exactly once, in order. The seeded differential test (seed
+counted, and still keeps the built-in breaks. With directives on three abbreviations of one text (`Fig` skipped, `Dr`
+replaced, `Jan` pronounced) all three are applied and the reconciled breaks equal those of the text without
+directives. The seeded differential test (seed
 20261116, 400 random abbreviation-rich texts with periods, dashes and tag placeholders) puts each of the four kinds
 on every word token that a period touches and on up to 16 other word tokens, and once a directive on every sampled
 word at once; the reconciled breaks always equal those without directives, every directive is counted exactly
@@ -235,14 +233,14 @@ once, spans and marks stay ascending and disjoint, and no break lies inside a sp
 
 **Tests**: `TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException` (a theory over repeated,
 descending, negative, too large and extreme indices for a text of two tokens),
-`TextNormalizer_Normalize_DirectivesWithCancellation_CountEveryVisitedToken`,
-`TextNormalizer_Normalize_ManyDirectives_CompletesWithinBudget`
+`TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException`,
+`TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective`
 
 The indices are rejected with `ArgumentException`. For 1000 one-letter tokens with a skip directive on every tenth,
-an observer cancels while token 300 is visited and exactly the tokens 0 to 510 are visited (the next periodic check
-is at the 512th token); a second call with the canceled token throws again. For 200,000 tokens with a skip directive
-on every twentieth, all 10,000 directives are applied, no span is emitted and the pass stays within a generous
-time budget.
+an observer cancels while an early token is visited and the pass throws `OperationCanceledException`; a second call
+with the canceled token throws again before any work. For 200,000 tokens with a skip directive
+on every twentieth, all 10,000 directives are applied, none is ignored and no span is emitted; no elapsed time is
+asserted.
 
 ##### Spelled replacements and ampersand initialisms
 

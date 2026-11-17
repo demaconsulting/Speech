@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 /// <summary>
 ///     Subsystem tests for the AnalysisSubsystem: the analyzer, its options, the annotation
 ///     vocabulary, the part-of-speech adapter and the diagnostics reporter working together.
-///     Tagger creation is observed through counting adapters.
+///     Tagger creation goes through test factories that inject cancellation deterministically.
 /// </summary>
 public sealed class AnalysisSubsystemTests
 {
@@ -116,34 +116,54 @@ public sealed class AnalysisSubsystemTests
         Assert.Equal("VERB", record.Value);
     }
 
-    /// <summary>Proves constructing analyzers and analyzing without part-of-speech annotation never creates the tagger.</summary>
+    /// <summary>Proves analyzing without part-of-speech annotation, or analyzing nothing, returns no annotations and still supplies the sentence breaks.</summary>
     [Fact]
-    public void AnalysisSubsystem_Analyze_UnusedOrUntaggedAnalyzer_NeverLoadsTagger()
+    public void AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var unused = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), source.CreateAdapter());
-        var untagged = new EnglishTextAnalyzer(
-            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None },
-            source.CreateAdapter());
+        const string text = "He left home. She stayed.";
+        var empty = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
+        var untagged = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None });
 
         // Act
-        _ = untagged.Analyze("He left home. She stayed.", TestContext.Current.CancellationToken);
-        _ = unused.Analyze(string.Empty, TestContext.Current.CancellationToken);
+        var untaggedResult = untagged.Analyze(text, TestContext.Current.CancellationToken);
+        var emptyResult = empty.Analyze(string.Empty, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(0, source.Count);
+        Assert.Empty(untaggedResult.Annotations);
+        Assert.Equal([text.IndexOf("She", StringComparison.Ordinal)], untaggedResult.SentenceBreaks);
+        Assert.Empty(emptyResult.Annotations);
+        Assert.NotNull(emptyResult.SentenceBreaks);
+        Assert.Empty(emptyResult.SentenceBreaks);
     }
 
-    /// <summary>Proves many analyzers and requests sharing one adapter load the tagger once and agree on every result.</summary>
+    /// <summary>Proves a request that fails because the tagger cannot be created does not disable the analyzer: a later request succeeds with the result of a healthy analyzer.</summary>
     [Fact]
-    public async Task AnalysisSubsystem_Analyze_ManyConcurrentRequests_LoadTaggerOnceAndAgree()
+    public void AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds()
+    {
+        // Arrange: the first creation of the tagger fails
+        const string text = "The cat sat on the mat.";
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), new CountingTaggerSource(failures: 1).CreateAdapter());
+        var expected = new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken);
+
+        // Act
+        Assert.Throws<InvalidOperationException>(() => analyzer.Analyze(text, TestContext.Current.CancellationToken));
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(expected.Annotations, result.Annotations);
+        Assert.Equal(expected.SentenceBreaks, result.SentenceBreaks);
+    }
+
+    /// <summary>Proves many analyzers and requests sharing one adapter, racing on their first use, all give the same result as a sequential request.</summary>
+    [Fact]
+    public async Task AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult()
     {
         // Arrange: several analyzers over one adapter, as a shared process-wide tagger would serve them
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource().CreateAdapter();
         var analyzers = Enumerable.Range(0, 4).Select(_ => new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), adapter)).ToArray();
         const string text = "Please read the record. I will record it later. Then we leave.";
+        var expected = string.Join(',', new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations);
 
         // Act
         var tasks = Enumerable.Range(0, 32)
@@ -154,8 +174,7 @@ public sealed class AnalysisSubsystemTests
         var results = await Task.WhenAll(tasks);
 
         // Assert
-        Assert.Single(results.Distinct());
-        Assert.Equal(1, source.Count);
+        Assert.All(results, result => Assert.Equal(expected, result));
     }
 
     /// <summary>Proves a request reports one counts-only event, in the documented category, that contains no word of the text.</summary>

@@ -450,21 +450,14 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
     {
         // Arrange
         var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")] });
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            var exception = Record.Exception(() => model.CreateBackend(_root));
+        using var tracking = new DisposalTrackingSessionScope();
 
-            // Assert
-            Assert.IsType<FileNotFoundException>(exception);
-            Assert.Empty(created);
-        }
-        finally
-        {
-            OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = null;
-        }
+        // Act
+        var exception = Record.Exception(() => model.CreateBackend(_root));
+
+        // Assert: the missing file is reported before any session is created
+        Assert.IsType<FileNotFoundException>(exception);
+        Assert.Empty(tracking.Sessions);
     }
 
     /// <summary>Proves a full synthetic installation yields a backend that synthesizes end to end.</summary>
@@ -513,7 +506,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
     /// <summary>
     ///     Proves each language-model and auxiliary-graph combination loads exactly the graph files its file names
-    ///     select: only files with the expected names (and suffix) are installed, so a backend loads all four sessions
+    ///     select: only files with the expected names (and suffix) are installed, so a backend loads and synthesizes
     ///     only when the model opens those names.
     /// </summary>
     /// <param name="languageModel">The language-model variant.</param>
@@ -546,29 +539,24 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
             LanguageModelVariant = languageModel,
             AuxiliaryModelVariant = auxiliary,
             IntraOpThreads = 1,
+            MaxNewTokens = 2,
         });
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            using var backend = model.CreateBackend(_root);
 
-            // Assert
-            Assert.Equal(4, created.Count);
-            Assert.Equal(
-                [
-                    $"onnx/{languageModelName}.onnx", $"onnx/{languageModelName}.onnx_data",
-                    $"onnx/embed_tokens{suffix}.onnx", $"onnx/embed_tokens{suffix}.onnx_data",
-                    $"onnx/speech_encoder{suffix}.onnx", $"onnx/speech_encoder{suffix}.onnx_data",
-                    $"onnx/conditional_decoder{suffix}.onnx", $"onnx/conditional_decoder{suffix}.onnx_data",
-                ],
-                model.DownloadDescriptor.Files.Select(file => file.RelativeInstallPath));
-        }
-        finally
-        {
-            OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = null;
-        }
+        // Act: the backend loads only when the model opens the graph names its variants select, and
+        // synthesizes through them
+        using var backend = model.CreateBackend(_root);
+        var audio = backend.Generate("Hello.", 1.0f, 0);
+
+        // Assert
+        Assert.NotEmpty(audio.Samples);
+        Assert.Equal(
+            [
+                $"onnx/{languageModelName}.onnx", $"onnx/{languageModelName}.onnx_data",
+                $"onnx/embed_tokens{suffix}.onnx", $"onnx/embed_tokens{suffix}.onnx_data",
+                $"onnx/speech_encoder{suffix}.onnx", $"onnx/speech_encoder{suffix}.onnx_data",
+                $"onnx/conditional_decoder{suffix}.onnx", $"onnx/conditional_decoder{suffix}.onnx_data",
+            ],
+            model.DownloadDescriptor.Files.Select(file => file.RelativeInstallPath));
     }
 
     /// <summary>Proves sessions are disposed when backend creation fails after they were created.</summary>
@@ -581,22 +569,15 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
             Path.Combine(_root, "onnx", "language_model_fp16.onnx"),
             ChatterboxTurboGraphFixture.LanguageModel(halfCache: true, withPastInputs: false));
         var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")] });
-        var created = new List<InferenceSession>();
-        OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = created.Add;
-        try
-        {
-            // Act
-            var exception = Record.Exception(() => model.CreateBackend(_root));
+        using var tracking = new DisposalTrackingSessionScope();
 
-            // Assert
-            Assert.IsType<InvalidOperationException>(exception);
-            Assert.NotEmpty(created);
-            Assert.All(created, session => Assert.True(IsDisposed(session)));
-        }
-        finally
-        {
-            OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = null;
-        }
+        // Act
+        var exception = Record.Exception(() => model.CreateBackend(_root));
+
+        // Assert: backend creation fails with the documented exception and every session it opened is released
+        Assert.IsType<InvalidOperationException>(exception);
+        Assert.NotEmpty(tracking.Sessions);
+        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
     }
 
     /// <summary>Proves a null reference-voice list is rejected when assigned, with a clear argument exception.</summary>
@@ -952,13 +933,5 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         writer.Write("data"u8.ToArray());
         writer.Write(Samples * 2);
         writer.Write(new byte[Samples * 2]);
-    }
-
-    /// <summary>Reads the session's private disposed flag, since the type exposes no public equivalent.</summary>
-    private static bool IsDisposed(InferenceSession session)
-    {
-        var field = typeof(InferenceSession).GetField("_disposed", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        Assert.NotNull(field);
-        return (bool)field.GetValue(session)!;
     }
 }

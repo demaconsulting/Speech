@@ -6,11 +6,12 @@
 # documented with it), decomposing the parent SpeechTextEn HeteronymSubsystem requirements. The unit
 # chooses among the candidate readings of a word in its sentence context by integer scoring of the
 # weights of a sparse model and reports a calibrated confidence, and the provider supplies the
-# classifier lazily, once and shared. Each requirement states one observable behavior.
+# classifier from a model source and contains its failures. Each requirement states one observable
+# behavior.
 #
 # Covered by
 # test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/HeteronymClassifierTests.cs, with the
-# fixture model builder Fakes/HeteronymFixtureModel.cs and the counting model source
+# fixture model builder Fakes/HeteronymFixtureModel.cs and the model source fake
 # Fakes/CountingModelSource.cs.
 
 sections:
@@ -23,15 +24,16 @@ sections:
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-CandidateRestricted
                 title: >-
                   The HeteronymClassifier class shall choose the reading of a word only among the
-                  candidate readings that the inventory lists for that word, by the sum of the
-                  weights of the buckets of the word's features conjoined with the reading and
-                  shared with its role, accumulated as integers, so that no weight of any other
-                  reading can change the choice.
+                  candidate readings that the inventory lists for that word, deterministically on
+                  every platform, so that no weight of any other reading can change the choice.
                 justification: |
                   A model is trained on context, not on the inventory; a decision outside the
-                  candidates would name a reading that the word cannot have. Integer accumulation
-                  makes the decision identical on every platform and runtime, which floating-point
-                  addition does not guarantee.
+                  candidates would name a reading that the word cannot have. The decision must be
+                  identical on every platform and runtime. How it is computed (the sum of the
+                  weights of the buckets of the word's features conjoined with the reading and
+                  shared with its role, accumulated as integers because floating-point addition
+                  does not guarantee the same result everywhere) is a design choice recorded in the
+                  heteronym classifier design.
                 tests:
                   - HeteronymClassifier_Classify_NonCandidateWithHugeWeight_NeverWins
 
@@ -53,14 +55,14 @@ sections:
                   probability of the chosen candidate when the candidate scores, divided by the
                   scale and the temperature of the model, are turned into probabilities (the
                   exponential of each score as a share of the sum over all candidates), a number from 0
-                  to 1 that is the largest of the candidates' probabilities, using the integer
-                  score only for the decision.
+                  to 1 that is the largest of the candidates' probabilities.
                 justification: |
                   A confidence that depends on a temperature fitted at training time is a
-                  calibrated probability that hosts can compare with a threshold; using the integer
-                  score for the decision and the floating-point value only for the report means a
-                  difference between platforms in the last bits of a logarithm can never change
-                  which reading is chosen.
+                  calibrated probability that hosts can compare with a threshold. Using the integer
+                  score for the decision and the floating-point value only for the report, so that
+                  a difference between platforms in the last bits of a logarithm can never change
+                  which reading is chosen, is a design choice recorded in the heteronym classifier
+                  design.
                 tests:
                   - HeteronymClassifier_Classify_TwoCandidates64Apart_ConfidenceIsCalibratedSoftmax
                   - HeteronymClassifier_Classify_ThreeCandidates_ConfidenceIsInRangeAndTopOne
@@ -69,12 +71,13 @@ sections:
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-SingleCandidate
                 title: >-
                   The HeteronymClassifier class shall return, for a form with a single candidate,
-                  that reading with a confidence of 1 without scoring or counting a classification.
+                  that reading with a confidence of 1.
                 justification: |
-                  There is nothing to decide, so no model work is needed and the answer is certain;
-                  the model must not be able to turn a form with one reading into something else.
+                  There is nothing to decide, so the answer is certain; the model must not be able
+                  to turn a form with one reading into something else. That no scoring is done for
+                  such a form is a design choice recorded in the heteronym classifier design.
                 tests:
-                  - HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOneWithoutScoring
+                  - HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOne
 
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
                 title: >-
@@ -122,24 +125,25 @@ sections:
                   depending on timing, and the count is the only state the classifier exposes.
                 tests:
                   - HeteronymClassifier_Classify_Observer_ReceivesRunningCount
-                  - HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOneWithoutScoring
+                  - HeteronymClassifier_Classify_Observer_NotCalledForSingleCandidateForm
 
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-LazySharedLoad
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ProviderSupply
                 title: >-
                   The HeteronymModelProvider class shall report whether a model source is
-                  configured without opening it, shall open the source only when a classifier is
-                  first requested, shall load the model once for any number of concurrent first
-                  requests and give them one shared classifier, shall report the embedded provider
-                  and the provider without a source as not configured and without a model, and
-                  shall expose the inventory it was built with without loading a model.
+                  configured, shall give every one of any number of concurrent first requests a
+                  classifier that predicts exactly as a sequentially obtained one does, shall
+                  report the embedded provider and the provider without a source as not configured
+                  and without a model, and shall expose the inventory it was built with.
                 justification: |
-                  Loading is the expensive step and many analyzers never need it, so asking whether
-                  a model exists must be free and the first real request must pay the cost once for
-                  everyone. This release embeds no model, so the shared embedded provider is the
-                  provider that never has one.
+                  Many analyzers never need a model, so asking whether one exists must work
+                  without a request for a classifier, and concurrent first requests must all be
+                  served correctly. This release embeds no model, so the shared embedded provider is
+                  the provider that never has one. When the source is opened, and that it is opened
+                  once and the classifier shared, are design choices recorded in the heteronym
+                  classifier design.
                 tests:
-                  - HeteronymModelProvider_IsConfigured_NeverOpensTheSource
-                  - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_LoadOnceAndShare
+                  - HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured
+                  - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
                   - HeteronymModelProvider_EmbeddedAndNone_AreNotConfiguredAndHaveNoModel
 
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
@@ -149,14 +153,15 @@ sections:
                   and a model of a newer inventory as a status (not shipped, invalid for the
                   damaged and unreadable, incompatible for the well-formed models that do not fit
                   this build) with no classifier rather than by
-                  throwing, and shall remember the status instead of opening the source again.
+                  throwing.
                 justification: |
-                  A model that cannot be used must not break speech or be retried on every request;
-                  the status lets the analyzer tell a host once, and caching it makes a bad file
-                  cost one failed read for the life of the process.
+                  A model that cannot be used must not break speech; the status lets the analyzer
+                  tell a host once. That the status is remembered, so a bad file costs one failed
+                  read for the life of the process, is a design choice recorded in the heteronym
+                  classifier design and is not required of every implementation.
                 tests:
-                  - HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShippedOnce
-                  - HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalidAndCachesIt
+                  - HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShipped
+                  - HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalid
                   - HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible
                   - HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible
                   - HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid

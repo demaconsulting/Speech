@@ -6,7 +6,7 @@
 # supplies the reading inventory (ReadingInventory: the ids, forms and candidate readings of the
 # heteronyms the package knows), the deterministic feature extractor (HeteronymFeatureExtractor),
 # the strict loader and writer of the sparse model format (SparsePerceptronModel) and the
-# candidate-restricted classifier with its lazy, shared model provider (HeteronymClassifier). It
+# candidate-restricted classifier with its model provider (HeteronymClassifier). It
 # knows nothing of the analyzer, the tagging package or the diagnostics sink: the AnalysisSubsystem
 # drives it. Each requirement states one observable behavior.
 #
@@ -24,15 +24,17 @@ sections:
               The HeteronymSubsystem shall identify every reading by an id of a documented grammar
               (two or three dot-separated segments of lowercase letters, digits and hyphens, at
               most 64 characters), shall serve the readings, the forms and the candidate readings
-              of a form from an immutable inventory built once from tables embedded in the
-              assembly under fixed resource names, shall match a form by its ASCII-folded whole
-              word under any culture, and shall treat a malformed table as a defective build.
+              of a form from an immutable inventory that ships inside the package, shall match a
+              form by its ASCII-folded whole word under any culture, and shall treat a malformed
+              table as a defective build.
             justification: |
               The ids are the vocabulary shared by hosts (in overrides), the classifier and the
               backends (in annotations), so their grammar must be one rule that every user checks
               the same way; the inventory is the one place that says which readings a word can
               have, and it must be the same for every request and thread. A lookup that depended
-              on the current culture would find different words on different machines.
+              on the current culture would find different words on different machines. How the
+              inventory is built (once, from tables embedded in the assembly under fixed resource
+              names) is a design choice recorded in the reading inventory design.
             children:
               - SpeechTextEn-Heteronym-ReadingInventory-EmbeddedTables
               - SpeechTextEn-Heteronym-ReadingInventory-IdGrammar
@@ -47,17 +49,20 @@ sections:
           - id: SpeechTextEn-Heteronym-Classification
             title: >-
               The HeteronymSubsystem shall choose, for a word of the inventory in the context of
-              its sentence, one of the candidate readings of that word and never any other, by
-              integer scoring of the weights of a model so that the decision is the same on every
-              platform, shall prefer the first candidate of the inventory on a tie, shall give a
-              word with a single candidate that reading without consulting the model, and shall
-              serve any number of concurrent callers with the same results.
+              its sentence, one of the candidate readings of that word and never any other,
+              applying the decision semantics of the supported model deterministically so that the
+              decision is the same on every platform, shall prefer the first candidate of the
+              inventory on a tie, shall give a word with a single candidate that reading, and
+              shall serve any number of concurrent callers with the same results.
             justification: |
               The model is trained on context and cannot be trusted to know the inventory, so the
-              decision is restricted to what the word can be; integer arithmetic makes the choice
-              reproducible between the machine that trained the model and every machine that runs
-              it, a deterministic tie rule makes an untrained or empty model well defined, and the
-              classifier runs on thread-pool threads for one shared model.
+              decision is restricted to what the word can be; a deterministic decision makes the
+              choice reproducible between the machine that trained the model and every machine
+              that runs it, a deterministic tie rule makes an untrained or empty model well
+              defined, and the classifier runs on thread-pool threads for one shared model. How the
+              decision is computed (integer accumulation of the weights of conjoined and shared
+              buckets, and no scoring for a single candidate) is a design choice recorded in the
+              heteronym classifier design.
             children:
               - SpeechTextEn-Heteronym-HeteronymClassifier-CandidateRestricted
               - SpeechTextEn-Heteronym-HeteronymClassifier-TieBreak
@@ -88,16 +93,19 @@ sections:
 
           - id: SpeechTextEn-Heteronym-FeatureDeterminism
             title: >-
-              The HeteronymSubsystem shall turn the context of a word into hashed features with a
-              feature set that is specified exactly, versioned, built from the tokens of one
-              sentence, bounded in count, independent of the culture, the platform and the
-              runtime, safe on any offset and Unicode input, and locked by golden vectors.
+              The HeteronymSubsystem shall turn the context of a word into model-compatible
+              features for a supported, versioned feature set, from the tokens of one sentence,
+              within an advertised bound on their number, identically on every culture, platform
+              and runtime and for any offset and Unicode input.
             justification: |
               The model is trained on the features computed here and applied to the features
               computed here at runtime; any difference between the two (a culture-sensitive case
               change, a hash that varies per process, a window that crosses a sentence boundary)
-              silently degrades the decisions. The golden vectors make such a change a visible
-              test failure, and the version makes it a deliberate one.
+              silently degrades the decisions. Golden vectors make such
+              a change a visible test failure, and the version makes it a deliberate one. The
+              feature encoding itself (the hash functions and how features are derived and
+              combined, per feature-set version) is specified in the heteronym feature extractor
+              design, which is the compatibility specification shared with the trainer.
             children:
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-Deterministic
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-FeatureSetVersion
@@ -112,22 +120,25 @@ sections:
 
           - id: SpeechTextEn-Heteronym-SparseFormat
             title: >-
-              The HeteronymSubsystem shall read and write the sparse model format (a fixed
-              80-byte header and a compressed list of bucket gaps and 16-bit weights) so that a
-              model round-trips exactly, shall reject every defect of a file with an
-              InvalidDataException that names the defect but never holds its data, and shall
-              reject a file whose claimed lengths exceed fixed caps.
+              The HeteronymSubsystem shall read and write the supported versions of the model
+              exchange format between the trainer and the runtime so that a model round-trips
+              without any change to its prediction data, shall reject every damaged, unsupported or
+              oversized file with an InvalidDataException that names the defect but never holds the
+              file's data, and shall reject a file whose claimed lengths exceed fixed caps.
             justification: |
               The file is the interface between the trainer and the runtime and an input from
-              outside the process. A format with a version, flags, a checksum of the stored bytes
-              and exact length rules lets the loader refuse anything it does not fully understand,
-              and a loader that refuses a hostile length claim cannot be turned
+              outside the process. A format with a version, flags, an integrity check and exact
+              length rules lets the loader refuse anything it does not fully understand, and a
+              loader that refuses a hostile length claim cannot be turned
               into an out-of-memory failure. A fuzz test with a seeded generator shows that no
-              mutation produces anything but a model or the one documented exception.
+              mutation produces anything but a model or the one documented exception. The byte
+              layout of the format (the fixed 80-byte header, the compressed list of bucket gaps
+              and 16-bit weights, the checksum of the stored bytes) is specified in the sparse
+              perceptron model design, which is the exchange-format specification.
             children:
               - SpeechTextEn-Heteronym-SparsePerceptronModel-RoundTrip
               - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictHeader
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-ChecksumOfStoredBytes
+              - SpeechTextEn-Heteronym-SparsePerceptronModel-DamageDetection
               - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictPayload
               - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictDeflate
               - SpeechTextEn-Heteronym-SparsePerceptronModel-PayloadLengthLimits
@@ -157,22 +168,24 @@ sections:
               - HeteronymSubsystem_ModelBindsToReadingIds_NotTablePositions
               - HeteronymClassifier_Constructor_InventoryVersionCompatibility_IsChecked
 
-          - id: SpeechTextEn-Heteronym-LazySharedModel
+          - id: SpeechTextEn-Heteronym-ModelSupply
             title: >-
-              The HeteronymSubsystem shall open a model only when a classifier is first requested
-              (never to ask whether a model is configured), shall load it at most once per
-              provider however many threads ask at once and share the classifier, shall report an
-              absent, damaged or incompatible model as a status value rather than an exception and
-              remember it instead of retrying, and shall report the embedded provider of this
-              release as having no model.
+              The HeteronymSubsystem shall give concurrent requests that use a valid, compatible
+              model the same predictions as sequential requests, shall report an absent, damaged,
+              unreadable or incompatible model as a status value, with no classifier, rather than
+              as an exception, and shall report the embedded provider of this release as having no
+              model.
             justification: |
-              Loading is the expensive step, and most requests and many analyzers never need it.
-              Concurrent first requests must not each load their own copy, and a failing load must
-              not repeat on every request or reach the speech path as an exception.
+              Most requests and many analyzers never need a model, concurrent first requests must
+              all be served correctly, and a failing load must not reach the speech path as an
+              exception: the status lets the analyzer tell a host. When the model is opened, that
+              it is loaded once and shared, and that a failed load is remembered rather than
+              retried are design choices recorded in the heteronym classifier design; they are not
+              part of the observable contract.
             children:
-              - SpeechTextEn-Heteronym-HeteronymClassifier-LazySharedLoad
+              - SpeechTextEn-Heteronym-HeteronymClassifier-ProviderSupply
               - SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
               - SpeechTextEn-Heteronym-HeteronymClassifier-CancellationObserver
             tests:
-              - HeteronymSubsystem_Provider_NeverAskedForClassifier_NeverOpensSource
-              - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_LoadOnceAndShare
+              - HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier
+              - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions

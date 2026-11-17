@@ -627,15 +627,16 @@ sections:
                   - SynthesisSession_SynthesizeAsync_CancelDuringSlowAnalysis_ThrowsCanceledAndSkipsBackend
                   - SynthesisSession_SynthesizeAsync_AnalyzerAlreadyCanceledBeforeStart_AnalyzerNotInvoked
 
-              - id: Speech-Synthesis-SynthesisSession-AnalysisOffCallerThread
+              - id: Speech-Synthesis-SynthesisSession-BlockedAnalyzerReturnsHandle
                 title: >-
-                  The SynthesisSession class shall run the model's text analysis on a thread-pool
-                  thread, not on the thread that called the speak or synthesize operation, so a slow
-                  analyzer shall not delay the return of that call.
+                  The SynthesisSession class shall return the operation handle of a speak or
+                  synthesize call without waiting for a blocked text analyzer to finish, and the
+                  operation shall complete with the expected synthesized segments once the analyzer
+                  is released.
                 justification: |
                   A speak or synthesize call is typically made from a UI or request thread; a slow
-                  language analysis run synchronously inside the call would freeze that thread, so the
-                  analysis must run off it while still being awaited before the text is rendered.
+                  language analysis that blocked the call would freeze that thread, while the
+                  operation must still await the analysis before the text is rendered.
                 tests:
-                  - SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread
-                  - SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread
+                  - SynthesisSession_SynthesizeAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting
+                  - SynthesisSession_SpeakAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting

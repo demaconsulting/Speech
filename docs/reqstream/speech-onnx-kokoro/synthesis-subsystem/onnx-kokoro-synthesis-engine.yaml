@@ -30,15 +30,16 @@ sections:
             requirements:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Construction
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall be constructible from a loaded
-                  inference session, a phoneme vocabulary, a lexicon phonemizer, and every
-                  installed voice's style-vector data keyed by speaker id, as supplied by a
-                  synthesis model's own CreateBackend implementation.
+                  The OnnxKokoroSynthesisEngine class shall, given valid installed model and voice
+                  data supplied by a synthesis model's own CreateBackend implementation, synthesize
+                  audio using the style of the selected voice.
                 justification: |
                   The synthesis model owns the engine configuration (which session, which
-                  voices) for its own architecture; the engine must accept exactly that
+                  voices) for its own architecture; the engine must work with exactly that
                   configuration so that adding a synthesis model never requires changing the
-                  synthesis backend.
+                  synthesis backend. (The design constructs the engine from a loaded inference
+                  session, a phoneme vocabulary, a lexicon phonemizer, and per-speaker voice style
+                  data; see the OnnxKokoroSynthesisEngine design.)
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
@@ -93,11 +94,11 @@ sections:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall return an empty
-                  BackendAudio without running the ONNX graph when phonemization produces zero
-                  tokens.
+                  BackendAudio, without failing, when phonemization produces zero tokens.
                 justification: |
-                  Running the ONNX graph on a content-free, all-padding input would waste
-                  inference cost and risk producing meaningless noise.
+                  A content-free, all-padding input has nothing to speak; returning empty audio
+                  avoids wasted inference cost and meaningless noise. (The design achieves this by
+                  skipping the ONNX graph; see the OnnxKokoroSynthesisEngine design.)
                 tests:
                   - Generate_ZeroTokenText_ReturnsEmptyAudio
 

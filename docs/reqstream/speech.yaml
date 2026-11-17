@@ -478,7 +478,7 @@ sections:
           - Speech-Synthesis-CancellationStopsOperation
           - Speech-Synthesis-CancellationCallerTokenScope
           - Speech-Synthesis-NonCooperativeCallAbandonment
-          - Speech-Synthesis-NativeCallThreadIsolation
+          - Speech-Synthesis-BlockedCallIsolation
           - Speech-Synthesis-NoSynthesizedTextInDiagnostics
           - Speech-Audio-PlaybackFormatDisclosure
         tests:

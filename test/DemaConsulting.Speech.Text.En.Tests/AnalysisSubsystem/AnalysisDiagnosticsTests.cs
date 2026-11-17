@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 /// </summary>
 public sealed class AnalysisDiagnosticsTests
 {
-    /// <summary>Proves one request produces exactly one Info event in the documented category carrying the counts.</summary>
+    /// <summary>Proves one request produces exactly one Info event in the documented category carrying each labeled count, in the documented order.</summary>
     [Fact]
     public void AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts()
     {
@@ -25,23 +25,26 @@ public sealed class AnalysisDiagnosticsTests
         var reported = Assert.Single(sink.Events);
         Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
         Assert.Equal("TextEn.Analysis", reported.Category);
-        Assert.Equal("Analyzed one text: 3 sentences, 17 tokens, 12 annotations, 2 unknown words, 4 normalizations, 1 ambiguous readings, 5 numeric fallbacks, 6 overrides applied, 7 overrides ignored.", reported.Message);
+        Assert.Equal(
+            [("sentences", 3), ("tokens", 17), ("annotations", 12), ("unknown words", 2), ("normalizations", 4), ("ambiguous readings", 1), ("numeric fallbacks", 5), ("overrides applied", 6), ("overrides ignored", 7)],
+            LabeledCounts(reported.Message));
     }
 
-    /// <summary>Proves the message is built from fixed words and numbers only.</summary>
+    /// <summary>Proves the message is built from fixed words and numbers only: it states nine labeled counts and nothing else with a digit.</summary>
     [Fact]
     public void AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers()
     {
         // Act
         var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(0, 1234567, 8, 9, 10, 11, 12, 13, 14));
 
-        // Assert: strip the fixed template and nothing but the nine numbers remains
-        Assert.Matches(
-            new Regex(@"^Analyzed one text: \d+ sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks, \d+ overrides applied, \d+ overrides ignored\.$", RegexOptions.CultureInvariant),
-            message);
+        // Assert: the nine numbers are the labeled counts and every digit of the message belongs to one of them
+        Assert.Equal([0, 1234567, 8, 9, 10, 11, 12, 13, 14], LabeledCounts(message).Select(count => count.Value));
+        Assert.Equal(
+            string.Concat(new[] { 0, 1234567, 8, 9, 10, 11, 12, 13, 14 }.Select(value => value.ToString(System.Globalization.CultureInfo.InvariantCulture))),
+            string.Concat(message.Where(char.IsAsciiDigit)));
     }
 
-    /// <summary>Proves the two override counts are part of the message, and the counts that existed before keep their wording, so a count can never be mistaken for another.</summary>
+    /// <summary>Proves the two override counts are part of the message, after the counts that existed before, each under its own label, so a count can never be mistaken for another.</summary>
     [Fact]
     public void AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered()
     {
@@ -49,10 +52,17 @@ public sealed class AnalysisDiagnosticsTests
         var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7, 8, 9));
 
         // Assert
-        Assert.EndsWith("7 numeric fallbacks, 8 overrides applied, 9 overrides ignored.", message, StringComparison.Ordinal);
+        Assert.Equal([("numeric fallbacks", 7), ("overrides applied", 8), ("overrides ignored", 9)], LabeledCounts(message).TakeLast(3));
         Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesApplied);
         Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesIgnored);
     }
+
+    /// <summary>Reads the labeled counts ("<c>17 tokens</c>", "<c>2 unknown words</c>") of a message, in the order they are stated.</summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The label and value of every count.</returns>
+    private static List<(string Label, int Value)> LabeledCounts(string message) =>
+        [.. Regex.Matches(message, @"(?<value>\d+) (?<label>[A-Za-z]+(?: [A-Za-z]+)?)(?=[,.])", RegexOptions.CultureInvariant)
+            .Select(match => (match.Groups["label"].Value, int.Parse(match.Groups["value"].Value, System.Globalization.CultureInfo.InvariantCulture)))];
 
     /// <summary>Proves a missing sink is allowed and silently reports nothing.</summary>
     [Fact]

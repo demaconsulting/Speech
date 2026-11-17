@@ -160,10 +160,10 @@ as soon as every segment is enqueued.
 `PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio`,
 `PortAudioEnvironment_ResolvePreferredHostApiType_UnsupportedPlatform_ReturnsNull`,
 `PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo`,
-`PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure`,
+`PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage`,
 `PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse`
 
-Verifies deterministic preferred-host mapping, runtime host-API metadata resolution, and cached
+Verifies deterministic preferred-host mapping, runtime host-API metadata resolution, and
 non-throwing initialization-failure behavior.
 
 #### PortAudio Environment: Refresh Success and Refusal

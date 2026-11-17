@@ -214,15 +214,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     IModelCapabilityProfile ISynthesisModel.CapabilityProfile => _profile;
 
     /// <summary>
-    ///     Test-only hook (see <see cref="OnnxChatterboxTurboNetworks.OnSessionCreated"/>).
-    /// </summary>
-    internal static Action<Microsoft.ML.OnnxRuntime.InferenceSession>? OnSessionCreated
-    {
-        get => OnnxChatterboxTurboNetworks.OnSessionCreated;
-        set => OnnxChatterboxTurboNetworks.OnSessionCreated = value;
-    }
-
-    /// <summary>
     ///     Builds a loaded backend: creates the four ONNX Runtime sessions, loads the embedded tokenizer and
     ///     wires the voices.
     /// </summary>

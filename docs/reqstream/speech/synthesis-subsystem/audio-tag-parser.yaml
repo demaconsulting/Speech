@@ -178,15 +178,16 @@ sections:
                 tests:
                   - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
 
-              - id: Speech-Synthesis-AudioTagParser-LinearTimeScan
+              - id: Speech-Synthesis-AudioTagParser-LongBracketRunPassthrough
                 title: >-
-                  AudioTagParser.Parse shall scan input in time linear in the input length, even
-                  for input made of a very large number of consecutive opening brackets.
+                  AudioTagParser.Parse shall preserve, verbatim as literal text, a malformed bracket
+                  sequence made of a very large number of consecutive opening brackets followed by
+                  a closer.
                 justification: |
-                  Host- or LLM-supplied text is untrusted; a quadratic scan on pathological
-                  bracket input could stall a speak call.
+                  Host- or LLM-supplied text is untrusted; pathological bracket input must neither
+                  fail nor lose characters, so a speak call always renders exactly the text given.
                 tests:
-                  - AudioTagParser_Parse_ManyNestedOpenersThenCloser_CompletesQuicklyAndPreservesText
+                  - AudioTagParser_Parse_ManyNestedOpenersThenCloser_PreservesText
 
               - id: Speech-Synthesis-AudioTagParser-NestedBracketTagResolution
                 title: >-

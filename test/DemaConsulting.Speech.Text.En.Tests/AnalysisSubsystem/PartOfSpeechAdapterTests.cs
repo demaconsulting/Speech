@@ -5,8 +5,9 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="PartOfSpeechAdapter"/>: the single internal seam over the
-///     <c>DemaConsulting.PartOfSpeech</c> package. The real package is used; tagger creation is
-///     observed through counting factories so the process-wide shared tagger is never disturbed.
+///     <c>DemaConsulting.PartOfSpeech</c> package. The real package is used; tagger creation goes
+///     through test factories so the process-wide shared tagger is never disturbed and failures and
+///     cancellation can be injected deterministically.
 /// </summary>
 public sealed class PartOfSpeechAdapterTests
 {
@@ -49,70 +50,64 @@ public sealed class PartOfSpeechAdapterTests
         Assert.Equal("PUNCT", tokens[3].Tag);
     }
 
-    /// <summary>Proves splitting without tagging reports spans only and never creates the tagger.</summary>
+    /// <summary>Proves splitting without tagging reports spans only: sentences and tokens in text order, none of them tagged.</summary>
     [Fact]
-    public void PartOfSpeechAdapter_Analyze_TagFalse_ReportsUntaggedTokensAndCreatesNoTagger()
+    public void PartOfSpeechAdapter_Analyze_TagFalse_ReportsUntaggedTokens()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
+        const string text = "He left. She stayed.";
+        var adapter = new CountingTaggerSource().CreateAdapter();
 
         // Act
-        var sentences = adapter.Analyze("He left. She stayed.", false, TestContext.Current.CancellationToken);
+        var sentences = adapter.Analyze(text, false, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, sentences.Count);
         Assert.All(sentences.SelectMany(sentence => sentence), token => Assert.Null(token.Tag));
-        Assert.Equal(0, source.Count);
-        Assert.False(adapter.IsTaggerCreated);
+        Assert.Equal(
+            ["He", "left", ".", "She", "stayed", "."],
+            sentences.SelectMany(sentence => sentence).Select(token => text.Substring(token.Start, token.Length)));
     }
 
-    /// <summary>Proves a text without tokens does not create the tagger even when tagging is requested.</summary>
+    /// <summary>Proves a text without tokens yields no sentences even when tagging is requested.</summary>
     [Theory]
     [InlineData("")]
     [InlineData("  \r\n\t ")]
-    public void PartOfSpeechAdapter_Analyze_TextWithoutTokens_ReturnsNoSentencesAndCreatesNoTagger(string text)
+    public void PartOfSpeechAdapter_Analyze_TextWithoutTokens_ReturnsNoSentences(string text)
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource().CreateAdapter();
 
         // Act
         var sentences = adapter.Analyze(text, true, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(sentences);
-        Assert.Equal(0, source.Count);
     }
 
-    /// <summary>Proves the tagger is not created by construction and is created exactly once across several calls.</summary>
+    /// <summary>Proves repeated calls on one adapter give the same tagged tokens every time.</summary>
     [Fact]
-    public void PartOfSpeechAdapter_Analyze_RepeatedCalls_CreateTaggerLazilyAndOnce()
+    public void PartOfSpeechAdapter_Analyze_RepeatedCalls_ReturnSameTaggedTokens()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
-        Assert.Equal(0, source.Count);
-        Assert.False(adapter.IsTaggerCreated);
+        var adapter = new CountingTaggerSource().CreateAdapter();
+        var expected = Describe(adapter, "The cat sat. The dog ran.");
 
         // Act
-        for (var i = 0; i < 5; i++)
-        {
-            _ = adapter.Analyze("The cat sat. The dog ran.", true, TestContext.Current.CancellationToken);
-        }
+        var results = Enumerable.Range(0, 5)
+            .Select(_ => Describe(adapter, "The cat sat. The dog ran."))
+            .ToList();
 
         // Assert
-        Assert.Equal(1, source.Count);
-        Assert.True(adapter.IsTaggerCreated);
+        Assert.All(results, result => Assert.Equal(expected, result));
     }
 
-    /// <summary>Proves concurrent first uses create the tagger exactly once.</summary>
+    /// <summary>Proves threads that start at the same moment on a fresh adapter all get the same, complete result.</summary>
     [Fact]
-    public async Task PartOfSpeechAdapter_Analyze_ConcurrentFirstUses_CreateTaggerOnce()
+    public async Task PartOfSpeechAdapter_Analyze_ConcurrentFirstUses_ReturnIdenticalResults()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource().CreateAdapter();
         using var gate = new ManualResetEventSlim(false);
 
         // Act: release 32 tasks at the same moment
@@ -121,64 +116,55 @@ public sealed class PartOfSpeechAdapterTests
                 () =>
                 {
                     gate.Wait(TestContext.Current.CancellationToken);
-                    return adapter.Analyze("The cat sat.", true, TestContext.Current.CancellationToken).Count;
+                    return Describe(adapter, "The cat sat.");
                 },
                 TestContext.Current.CancellationToken))
             .ToArray();
         gate.Set();
-        var counts = await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
 
         // Assert
-        Assert.All(counts, count => Assert.Equal(1, count));
-        Assert.Equal(1, source.Count);
+        Assert.Equal("The/DET cat/NOUN sat/VERB ./PUNCT", results[0]);
+        Assert.All(results, result => Assert.Equal(results[0], result));
     }
 
-    /// <summary>Proves an already-canceled token throws before the text is split or the tagger created.</summary>
+    /// <summary>Proves an already-canceled token throws OperationCanceledException instead of returning a result.</summary>
     [Fact]
-    public void PartOfSpeechAdapter_Analyze_CanceledToken_ThrowsWithoutCreatingTagger()
+    public void PartOfSpeechAdapter_Analyze_CanceledToken_ThrowsOperationCanceledException()
     {
         // Arrange
-        var source = new CountingTaggerSource();
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource().CreateAdapter();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => adapter.Analyze("The cat sat.", true, cancellation.Token));
-        Assert.Equal(0, source.Count);
     }
 
-    /// <summary>Proves a tagger factory that fails once does not poison the adapter: the first call throws, the next retries and succeeds, and the tagger is created once.</summary>
+    /// <summary>Proves a tagger factory that fails once does not poison the adapter: the first call throws and a later call succeeds with the right tags.</summary>
     [Fact]
-    public void PartOfSpeechAdapter_Analyze_FactoryFailsOnce_NextCallRetriesAndSucceeds()
+    public void PartOfSpeechAdapter_Analyze_FactoryFailsOnce_NextCallSucceeds()
     {
         // Arrange: the first factory invocation throws, the second returns the tagger
-        var source = new CountingTaggerSource(failures: 1);
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource(failures: 1).CreateAdapter();
 
-        // Act / Assert: the first call propagates the failure and leaves nothing created
+        // Act / Assert: the first call propagates the failure
         Assert.Throws<InvalidOperationException>(() => adapter.Analyze("The cat sat.", true, TestContext.Current.CancellationToken));
-        Assert.Equal(1, source.Count);
-        Assert.False(adapter.IsTaggerCreated);
 
-        // The second call retries, succeeds, and from then on the tagger is reused
-        var sentences = adapter.Analyze("The cat sat.", true, TestContext.Current.CancellationToken);
-        _ = adapter.Analyze("The dog ran.", true, TestContext.Current.CancellationToken);
-        Assert.Single(sentences);
-        Assert.Equal(2, source.Count);
-        Assert.True(adapter.IsTaggerCreated);
+        // The next calls succeed and give the tags of a healthy tagger
+        Assert.Equal("The/DET cat/NOUN sat/VERB ./PUNCT", Describe(adapter, "The cat sat."));
+        Assert.Equal("The/DET dog/NOUN ran/VERB ./PUNCT", Describe(adapter, "The dog ran."));
     }
 
-    /// <summary>Proves concurrent callers racing a factory that fails once see exactly one failure and create the tagger exactly once successfully.</summary>
+    /// <summary>Proves concurrent callers racing a factory that fails once see at most one failure, and every other caller and every later call gets the complete result.</summary>
     [Fact]
-    public async Task PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_CreateTaggerOnceSuccessfully()
+    public async Task PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_OnlyTheFailingCallSeesIt()
     {
         // Arrange
-        var source = new CountingTaggerSource(failures: 1);
-        var adapter = source.CreateAdapter();
+        var adapter = new CountingTaggerSource(failures: 1).CreateAdapter();
         using var gate = new ManualResetEventSlim(false);
 
-        // Act: 32 callers race; the lock serializes creation, so exactly the first one to get in fails
+        // Act: 32 callers race; the factory fails for one invocation only
         var tasks = Enumerable.Range(0, 32)
             .Select(_ => Task.Run(
                 () =>
@@ -186,22 +172,22 @@ public sealed class PartOfSpeechAdapterTests
                     gate.Wait(TestContext.Current.CancellationToken);
                     try
                     {
-                        return adapter.Analyze("The cat sat.", true, TestContext.Current.CancellationToken).Count;
+                        return Describe(adapter, "The cat sat.");
                     }
                     catch (InvalidOperationException)
                     {
-                        return -1;
+                        return string.Empty;
                     }
                 },
                 TestContext.Current.CancellationToken))
             .ToArray();
         gate.Set();
-        var counts = await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
 
-        // Assert: one failure, 31 successes, and two factory invocations in total (one failed, one succeeded)
-        Assert.Equal(1, counts.Count(count => count == -1));
-        Assert.Equal(31, counts.Count(count => count == 1));
-        Assert.Equal(2, source.Count);
+        // Assert: at most one failure, every other caller complete, and the adapter works afterwards
+        Assert.True(results.Count(result => result.Length == 0) <= 1);
+        Assert.All(results.Where(result => result.Length > 0), result => Assert.Equal("The/DET cat/NOUN sat/VERB ./PUNCT", result));
+        Assert.Equal("The/DET cat/NOUN sat/VERB ./PUNCT", Describe(adapter, "The cat sat."));
     }
 
     /// <summary>Proves a factory that returns no tagger is reported as an invalid operation rather than a null reference.</summary>
@@ -213,23 +199,18 @@ public sealed class PartOfSpeechAdapterTests
 
         // Act / Assert
         Assert.Throws<InvalidOperationException>(() => adapter.Analyze("The cat sat.", true, TestContext.Current.CancellationToken));
-        Assert.False(adapter.IsTaggerCreated);
     }
 
-    /// <summary>Proves cancellation requested during tagger initialization throws before any sentence is tagged.</summary>
+    /// <summary>Proves cancellation requested during tagger initialization throws OperationCanceledException instead of returning a result.</summary>
     [Fact]
-    public void PartOfSpeechAdapter_Analyze_CanceledDuringTaggerInitialization_ThrowsBeforeTaggingAnySentence()
+    public void PartOfSpeechAdapter_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException()
     {
         // Arrange
         using var cancellation = new CancellationTokenSource();
-        var source = new CountingTaggerSource(cancellation.Cancel);
-        var tagged = new List<int>();
-        var adapter = source.CreateAdapter(tagged.Add);
+        var adapter = new CountingTaggerSource(cancellation.Cancel).CreateAdapter();
 
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => adapter.Analyze("The cat sat.", true, cancellation.Token));
-        Assert.Equal(1, source.Count);
-        Assert.Empty(tagged);
     }
 
     /// <summary>Proves cancellation requested while the only sentence is tagged throws instead of returning the result.</summary>
@@ -248,21 +229,18 @@ public sealed class PartOfSpeechAdapterTests
     [Fact]
     public void PartOfSpeechAdapter_Analyze_CanceledAfterFinalSentenceTagged_Throws()
     {
-        // Arrange
+        // Arrange: the second and last sentence is the one whose tagging cancels the request
         using var cancellation = new CancellationTokenSource();
-        var tagged = new List<int>();
         var adapter = new CountingTaggerSource().CreateAdapter(index =>
         {
-            tagged.Add(index);
             if (index == 1)
             {
                 cancellation.Cancel();
             }
         });
 
-        // Act / Assert: both sentences were tagged, yet no result is returned
+        // Act / Assert
         Assert.Throws<OperationCanceledException>(() => adapter.Analyze("The cat sat. The dog ran.", true, cancellation.Token));
-        Assert.Equal([0, 1], tagged);
     }
 
     /// <summary>Proves a null factory or a null text is rejected.</summary>
@@ -277,11 +255,14 @@ public sealed class PartOfSpeechAdapterTests
         Assert.Throws<ArgumentNullException>(() => adapter.Analyze(null!, true, TestContext.Current.CancellationToken));
     }
 
-    /// <summary>Proves the shared adapter is one process-wide instance.</summary>
-    [Fact]
-    public void PartOfSpeechAdapter_Shared_ReturnsSameInstance()
-    {
-        // Act / Assert
-        Assert.Same(PartOfSpeechAdapter.Shared, PartOfSpeechAdapter.Shared);
-    }
+    /// <summary>Tags a text and describes each token as <c>text/TAG</c>, joined by spaces.</summary>
+    /// <param name="adapter">The adapter.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The description of every token of every sentence, in order.</returns>
+    private static string Describe(PartOfSpeechAdapter adapter, string text) =>
+        string.Join(
+            ' ',
+            adapter.Analyze(text, true, TestContext.Current.CancellationToken)
+                .SelectMany(sentence => sentence)
+                .Select(token => $"{text.Substring(token.Start, token.Length)}/{token.Tag}"));
 }

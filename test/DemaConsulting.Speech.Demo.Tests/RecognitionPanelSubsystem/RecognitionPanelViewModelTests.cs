@@ -282,12 +282,10 @@ public class RecognitionPanelViewModelTests
         // Act: attempt to start
         await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Assert: the fault is reported honestly, and the session released (the engine remains
-        // cached, since only the session failed to start)
+        // Assert: the fault is reported honestly and the session released
         Assert.Equal("Capture device failed to start.", viewModel.StatusMessage);
         Assert.Equal(RecognitionStreamingState.Error, viewModel.State);
         Assert.Equal(1, session.DisposeCallCount);
-        Assert.Equal(0, engine.DisposeCallCount);
     }
 
     /// <summary>
@@ -508,22 +506,19 @@ public class RecognitionPanelViewModelTests
         // Act: stop
         await viewModel.StopCommand.ExecuteAsync(null);
 
-        // Assert: the session was stopped, is released (single-use), but the engine itself is
-        // kept alive (model stays loaded), and the panel reports the stop
+        // Assert: the session was stopped and is released (single-use), and the panel reports the stop
         Assert.Equal(1, session.StopCallCount);
-        Assert.Equal(0, engine.DisposeCallCount);
         Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
         Assert.Equal(RecognitionPanelViewModel.StoppedMessage, viewModel.StatusMessage);
     }
 
     /// <summary>
-    ///     Proves the central "Engine reuse" guarantee: starting, stopping, and starting again for
-    ///     the same model/capture-device selection loads the engine only once, instead of
-    ///     reloading its model on every Start click, even though - because a session is
-    ///     single-use - a fresh session is created for each run.
+    ///     Proves that starting, stopping, and starting again with the same selection works
+    ///     repeatedly: each Start recognizes through the selected model with its own started
+    ///     session and leaves the panel listening, without the user choosing anything again.
     /// </summary>
     [Fact]
-    public async Task RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine()
+    public async Task RecognitionPanelViewModel_StartStopStart_SameSelection_EachStartRecognizesThroughSelectedModel()
     {
         // Arrange: a panel ready to listen
         var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
@@ -539,26 +534,37 @@ public class RecognitionPanelViewModelTests
         await viewModel.StopCommand.ExecuteAsync(null);
         await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Assert: the expensive engine-load step ran exactly once; a fresh single-use session
-        // was created for each of the two runs
-        await sessionFactory.Received(1).LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>());
-        Assert.Equal(2, engine.CreateSessionCallCount);
+        // Assert: every engine load asked for the selected model, each of the two runs got its own
+        // session that was started exactly once, and the panel is listening again
+        var loadedModelIds = sessionFactory.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IRecognizerSessionFactory.LoadAsync))
+            .Select(call => ((ISpeechModel)call.GetArguments()[0]!).Id);
+        Assert.All(loadedModelIds, id => Assert.Equal("stt", id));
+        Assert.Equal(2, engine.CreatedSessions.Count);
         Assert.All(engine.CreatedSessions, createdSession => Assert.Equal(1, createdSession.StartCallCount));
+        Assert.Equal(RecognitionStreamingState.Listening, viewModel.State);
     }
 
     /// <summary>
-    ///     Proves that a device refresh invalidates only the cached session (not the engine): a
-    ///     Start after the refresh builds a fresh session/device pair without reloading the
-    ///     engine.
+    ///     Proves that a device refresh releases the stale session, so a Start after the refresh
+    ///     captures from a freshly created device and starts a new session.
     /// </summary>
     [Fact]
-    public async Task RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine()
+    public async Task RecognitionPanelViewModel_DeviceRefresh_NextStartCapturesFromFreshDevice()
     {
-        // Arrange: a panel with a cached (idle) session from a prior Start/Stop cycle
+        // Arrange: a panel with a prior Start/Stop cycle; each capture device created is recorded
         var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
         var deviceService = Substitute.For<IAudioDeviceService>();
         deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
-        var engine = new FakeSpeechRecognizerEngine();
+        var devicesUsed = new List<IAudioCaptureDevice>();
+        var engine = new FakeSpeechRecognizerEngine
+        {
+            SessionFactory = device =>
+            {
+                devicesUsed.Add(device);
+                return new FakeRecognitionSession();
+            },
+        };
         var sessionFactory = SessionFactory(engine);
         var deviceSelection = DeviceSelection();
         var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, deviceSelection, sessionFactory);
@@ -570,39 +576,49 @@ public class RecognitionPanelViewModelTests
         await deviceSelection.RefreshAsync();
         await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Assert: the stale session was released by the refresh, a second session was created
-        // from the same cached engine, and the engine was never reloaded
+        // Assert: the stale session was released, and the new session captures from a different
+        // device object than the first and was started
         Assert.Equal(1, firstSession.DisposeCallCount);
-        Assert.Equal(2, engine.CreateSessionCallCount);
-        await sessionFactory.Received(1).LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>());
+        Assert.Equal(2, devicesUsed.Count);
+        Assert.NotSame(devicesUsed[0], devicesUsed[1]);
         Assert.Equal(1, engine.CreatedSessions[1].StartCallCount);
     }
 
     /// <summary>
-    ///     Proves that changing the selected recognition model invalidates a cached (idle)
-    ///     engine, so the next Start loads a new engine for the newly selected model instead of
-    ///     reusing one loaded for the previous model.
+    ///     Proves that changing the selected recognition model releases the previous model's
+    ///     engine, so the next Start recognizes through the newly selected model instead of the
+    ///     previous one.
     /// </summary>
     [Fact]
-    public async Task RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine()
+    public async Task RecognitionPanelViewModel_SelectedModelChanged_NextStartRecognizesThroughNewModel()
     {
-        // Arrange: a panel with two installed models and a cached (idle) engine for the first
+        // Arrange: a panel with two installed models and a prior Start/Stop cycle on the first
         var firstDescriptor = FakeSpeechModel.Descriptor("stt-a", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
         var secondDescriptor = FakeSpeechModel.Descriptor("stt-b", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
         var deviceService = Substitute.For<IAudioDeviceService>();
         deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
-        var engine = new FakeSpeechRecognizerEngine();
+        var firstEngine = new FakeSpeechRecognizerEngine();
+        var secondEngine = new FakeSpeechRecognizerEngine();
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.LoadAsync(Arg.Any<ISpeechModel>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<ISpeechRecognizerEngine>(
+                call.Arg<ISpeechModel>().Id == "stt-b" ? secondEngine : firstEngine));
         var viewModel = new RecognitionPanelViewModel(
-            Catalog(firstDescriptor, secondDescriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+            Catalog(firstDescriptor, secondDescriptor), deviceService, DeviceSelection(), sessionFactory);
         await viewModel.StartCommand.ExecuteAsync(null);
         await viewModel.StopCommand.ExecuteAsync(null);
 
-        // Act: pick the other installed model while idle
+        // Act: pick the other installed model while idle, then start again
         viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
         await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Assert: the engine cached for the previous model was disposed
-        Assert.Equal(1, engine.DisposeCallCount);
+        // Assert: the previous model's engine was released, and the new session came from the
+        // newly selected model's engine
+        Assert.Equal(1, firstEngine.DisposeCallCount);
+        Assert.Single(firstEngine.CreatedSessions);
+        var newSession = Assert.Single(secondEngine.CreatedSessions);
+        Assert.Equal(1, newSession.StartCallCount);
     }
 
     /// <summary>
@@ -946,15 +962,14 @@ public class RecognitionPanelViewModelTests
     }
 
     /// <summary>
-    ///     Proves that changing the selected capture device invalidates only a cached (idle)
-    ///     session - never the cached engine - so the next Start builds a session bound to the
-    ///     newly selected device while reusing the already-loaded engine.
+    ///     Proves that changing the selected capture device while idle releases the session bound
+    ///     to the previous device, so the next Start captures from the newly selected device.
     /// </summary>
     [Fact]
-    public async Task RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine()
+    public async Task RecognitionPanelViewModel_SelectedCaptureDeviceChanged_NextStartCapturesFromNewDevice()
     {
         // Arrange: a panel sharing a device-selection panel reporting two capture devices, with a
-        // cached (idle) session bound to the first
+        // prior Start/Stop cycle on the first
         var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
         var deviceA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 48_000);
         var deviceB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 1, 48_000);
@@ -968,24 +983,26 @@ public class RecognitionPanelViewModelTests
         await viewModel.StartCommand.ExecuteAsync(null);
         await viewModel.StopCommand.ExecuteAsync(null);
         var firstSession = engine.CreatedSessions.Single();
+        deviceService.ClearReceivedCalls();
 
-        // Act: pick the other capture device while idle
+        // Act: pick the other capture device while idle, then start again
         deviceSelection.SelectedCaptureDevice = deviceB;
         await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Assert: the session cached for the previous device was disposed, but the engine was
-        // never reloaded
+        // Assert: the session bound to the previous device was released, and the new session
+        // captures from a device created for the newly selected one
         Assert.Equal(1, firstSession.DisposeCallCount);
-        Assert.Equal(0, engine.DisposeCallCount);
+        deviceService.Received().CreateCaptureDevice(Arg.Is<AudioDeviceSelection?>(selection => selection != null && selection.DeviceName == "Mic B"));
+        Assert.Equal(1, engine.CreatedSessions[1].StartCallCount);
     }
 
     /// <summary>
     ///     Proves that changing the selected capture device while a session is actively listening
-    ///     stops that session and invalidates the cached session (not the engine), rather than
-    ///     silently leaving it bound to the now-abandoned device: the capture picker is not
-    ///     disabled while listening (unlike the model picker; see
-    ///     <see cref="RecognitionPanelViewModel.CanChangeModel"/>), so this change can arrive
-    ///     mid-session.
+    ///     stops and releases that session, rather than silently leaving it bound to the
+    ///     now-abandoned device: the capture picker is not disabled while listening (unlike the
+    ///     model picker; see <see cref="RecognitionPanelViewModel.CanChangeModel"/>), so this
+    ///     change can arrive mid-session.
     /// </summary>
     [Fact]
     public async Task RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesSession()
@@ -1009,10 +1026,9 @@ public class RecognitionPanelViewModelTests
         deviceSelection.SelectedCaptureDevice = deviceB;
         await viewModel.WaitForPendingLifecycleAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
-        // Assert: the active session was stopped and released, but the engine persists
+        // Assert: the active session was stopped and released, and the panel is idle
         Assert.Equal(1, session.StopCallCount);
         Assert.Equal(1, session.DisposeCallCount);
-        Assert.Equal(0, engine.DisposeCallCount);
         Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
     }
 

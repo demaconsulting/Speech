@@ -63,11 +63,14 @@ at offset -1 (template 4) is the hash of the start marker `<S>`, and at offset +
 **Tests**: `HeteronymFeatureExtractor_Extract_MaximalContext_StaysWithinBuffers`,
 `HeteronymFeatureExtractor_Extract_BufferTooSmall_ThrowsInvalidOperationException`,
 `HeteronymFeatureExtractor_Extract_TargetOutsideSentence_ThrowsArgumentOutOfRangeException` (a theory over -1, 2 and
-`int.MaxValue` for a two-token sentence), `HeteronymFeatureExtractor_Constants_AreTheDocumentedOnes`
+`int.MaxValue` for a two-token sentence), `HeteronymFeatureExtractor_FeatureSetVersion_IsRecordableInAModelHeader`
 
 A sentence of 21 long content words around the target gives 70 to 96 conjoined and 30 to 48 shared hashes (the
 documented maxima are 78 and 37, inside the buffers of 96 and 48). A conjoined buffer of 4 and a shared buffer of 2 each
-throw `InvalidOperationException`. The feature-set version is 1 and the buffer sizes are 96 and 48.
+throw `InvalidOperationException`. The feature-set version is non-zero and fits the 16-bit version field of the model
+header, and a model compiled by the writer reads back with exactly that version; the test does not restate the
+constants (the version, 96 and 48), which are checked through their effects (the bounds test and the compatibility
+checks of the classifier and the model provider).
 
 ##### Hash functions
 

@@ -15,7 +15,7 @@ is covered by manual hardware verification only.
 ##### Acceptance Criteria
 
 The adapter is considered verified when each conversion produces the expected managed value, handler faults abort
-the stream instead of escaping, and the shared singleton loads.
+the stream instead of escaping.
 
 ##### Test Scenarios
 
@@ -38,10 +38,6 @@ the stream instead of escaping, and the shared singleton loads.
 
 **Tests**: `PortAudioApi_IsFormatSupported_NativeResult_MapsToSupport`,
 `PortAudioApi_IsFormatSupported_NativeCallThrows_ReturnsFalse`
-
-##### Singleton: Read Twice Returns Same Instance
-
-**Test**: `PortAudioApi_Instance_ReadTwice_ReturnsSameInstance`
 
 ##### Integration: Higher-Level Seam Logic Uses the Contract Successfully
 

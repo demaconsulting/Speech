@@ -85,7 +85,8 @@ sections:
               - id: Speech-Synthesis-Layer2Rendering-PlainTextChunking
                 title: >-
                   The default Layer 2 rendering strategy shall split ordinary narration text into
-                  sentence/clause-sized chunks using the SentenceChunker, producing one rendered
+                  ordered sentence/clause-sized segments that honor the supplied sentence
+                  boundaries, annotations, and configured segment limits, producing one rendered
                   segment per chunk.
                 justification: |
                   Chunked synthesis requires a Layer 2 boundary that lines up with natural speech

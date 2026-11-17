@@ -60,10 +60,10 @@ sections:
           The part of speech is the context that selects the pronunciation of many English words
           (for example "record" as a noun or a verb). A backend needs it attached to the word, in
           a form it can read without parsing strings itself, and a host that does not need it
-          must be able to avoid its cost.
+          must be able to switch it off and get only the annotation families it selected.
         children:
           - SpeechTextEn-Analysis-PartOfSpeechAnnotations
-          - SpeechTextEn-Analysis-SharedTagger
+          - SpeechTextEn-Analysis-SelectedAnnotationsAndRecovery
         tests:
           - SpeechTextEn_Analyze_Sentence_AnnotatesWordsWithReadablePartOfSpeech
           - SpeechTextEn_Analyze_PartOfSpeechDisabled_ProducesNoAnnotations
@@ -495,23 +495,25 @@ sections:
           - SpeechTextEn_SynthesisSession_OverrideAnnotations_SurviveChunking
           - SpeechTextEn_SynthesisSession_OverridesAroundAudioTag_KeepEveryAnnotation
 
-      - id: SpeechTextEn-Normalization-LinearTime
+      - id: SpeechTextEn-Normalization-LargeInputAndCancellation
         title: >-
-          The library shall normalize a text in time that grows linearly with its length, also
-          for adversarial repetitions and digit-heavy texts, and shall stop normalizing when the
-          request is canceled.
+          The library shall return correct annotations and sentence breaks for large, repetitive,
+          adversarial and digit-heavy texts, shall give the same result for the same text however
+          long or repetitive it is, and shall stop analyzing when the request is canceled.
         tags: [system]
         justification: |
           The analyzer runs on every synthesis request, including texts pasted from documents
           and data, so a pathological text (a megabyte of numbers, or one enormous digit run)
-          must not be able to stall speech or a thread-pool thread, and a stopped or disposed
-          engine waits for the analyzer to return.
+          must be handled exactly like any other text, and a stopped or disposed engine waits
+          for the analyzer to return, so a canceled request must end promptly. How the scan is
+          kept linear is a design matter (see the normalization subsystem design); here the
+          behavior is the contract.
         children:
-          - SpeechTextEn-Normalization-LinearTimeAndCancellation
+          - SpeechTextEn-Normalization-LongInputAndCancellation
         tests:
-          - SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget
+          - SpeechTextEn_Analyze_LargeRepetitiveTexts_AnnotatesEveryRepetitionAlike
           - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
-          - SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget
+          - SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_AnnotatesEveryRepetitionAlike
 
       - id: SpeechTextEn-Heteronym-Readings
         title: >-
@@ -543,23 +545,25 @@ sections:
         title: >-
           The library shall emit no reading for a text when no heteronym model is available, as
           is the case for the default analyzer of this release, which embeds none, so that a host
-          that does nothing sees the same annotations as before, shall load a model only when a
-          text first contains a word of the inventory, once per process and never again after a
-          failure, and shall continue without readings, with one warning per analyzer, when a
-          model is damaged or incompatible.
+          that does nothing sees the same annotations as before, shall give concurrent requests
+          that use a valid, compatible model the same readings as sequential requests, and shall
+          continue without readings, with one warning per analyzer, when a model is damaged or
+          incompatible.
         tags: [system]
         justification: |
           The reading runtime ships before the first trained weights do, and a host must be able
-          to upgrade without any change in behavior or cost: no model file is opened, no tagger
-          is created for readings alone and nothing is emitted. When a model is supplied, loading
-          is a cost paid by the first request that needs it, shared by every analyzer, and a
-          model that cannot be used must not break speech or be retried on every request, so the
-          analysis goes on as if there were none and the host is told once.
+          to upgrade without any change in behavior: nothing is emitted until a model is
+          supplied. When a model is supplied, every request that contains a word of the inventory
+          gets the same readings however many requests run at once, and a model that cannot be
+          used must not break speech, so the analysis goes on as if there were none and the host
+          is told once. (When the model is loaded, and that it is loaded once and shared, is a
+          design choice recorded in the heteronym subsystem design, not a requirement.)
         children:
           - SpeechTextEn-Analysis-ReadingModelAvailability
-          - SpeechTextEn-Heteronym-LazySharedModel
+          - SpeechTextEn-Heteronym-ModelSupply
         tests:
           - SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations
+          - SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults
 
       - id: SpeechTextEn-Heteronym-ModelIntegrity
         title: >-
@@ -591,11 +595,13 @@ sections:
           culture, so that a model trained on one machine decides the same way on every other.
         tags: [system]
         justification: |
-          The weights are indexed by hashed features. A hash that depends on the culture (a
-          Turkish dotted I), the platform or the runtime would make a model decide differently
-          from the one that was trained, which no test of the weights alone could reveal. The
-          hashes are therefore specified exactly and locked by golden vectors, and the
-          confidence is written with the invariant culture so that a backend can always parse it.
+          The weights are indexed by hashed features. A feature derivation that depends on the
+          culture (a Turkish dotted I), the platform or the runtime would make a model decide
+          differently from the one that was trained, which no test of the weights alone could
+          reveal. The feature encoding is therefore specified exactly for each feature-set
+          version (see the heteronym subsystem design for the encoding and its hash functions) and
+          checked against golden vectors, and the confidence is written
+          with the invariant culture so that a backend can always parse it.
         children:
           - SpeechTextEn-Heteronym-FeatureDeterminism
           - SpeechTextEn-Analysis-ReadingAnnotations
@@ -675,28 +681,27 @@ sections:
           - SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData
           - TextEn_PackageLicenseFiles_Content
 
-      - id: SpeechTextEn-Retention-TaggerWorkspaces
+      - id: SpeechTextEn-Isolation-RequestNoninterference
         title: >-
-          The package shall depend on a version of the part-of-speech tagging package that clears
-          the working buffers in which it keeps the characters of analyzed tokens, and shall keep
-          no reference to an analyzed text or a result in its own state.
+          The library shall give each analysis request a result and diagnostics that depend only
+          on that request's own text and configuration, so that the results and diagnostics of a
+          request never disclose text from any other request, also when requests run one after
+          another or concurrently on one analyzer.
         tags: [system]
         justification: |
           The core ITextAnalyzer contract requires an analyzer not to retain the request text,
-          which is the user's speech content. DemaConsulting.PartOfSpeech 0.1.0-beta.4 and earlier
-          kept the characters of tagged tokens in never-cleared thread-static buffers (upstream
-          issue https://github.com/demaconsulting/PartOfSpeech/issues/29); version 0.1.0-beta.5
-          clears them on every public entry point, on the normal and the exceptional path. Those
-          buffers are private and the tagger offers no public way to inspect them, so the
-          repository cites the upstream package's own regression tests by version (see the
-          PartOfSpeech verification document) and verifies that the pin cannot move below the
-          fixed version; the remaining gap, the absence of a repository-owned test of the
-          dependency's private state, is stated there for the repository owner's approval.
-          The analyzer's own state is verified by a weak-reference test.
+          which is the user's speech content, and one analyzer serves many requests. What a host
+          or a backend can observe of that is noninterference: the result and the diagnostics of
+          a request carry nothing of another request and equal what a fresh analyzer would give.
+          That is what this requirement states and the tests prove. The stronger design obligation
+          that the library and its tagging dependency keep no reference to analyzed text in
+          memory (the dependency's working buffers, the repository's pin of a version that
+          clears them, and the analyzer's own state) cannot be observed through the public
+          interface; it is recorded in the system design and in the PartOfSpeech verification
+          document and is not claimed to be proven by test.
         tests:
-          - SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater
-          - SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence
-          - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults
+          - SpeechTextEn_Analyze_AfterAnotherRequest_ResultAndDiagnosticsDiscloseNothingOfIt
+          - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
 
       - id: SpeechTextEn-Packaging-PrereleaseOnly
         title: >-
@@ -715,9 +720,13 @@ sections:
           versions of the push build and of the pack verification, packs it. This is a
           temporary guard: the requirement and the guard are removed once
           DemaConsulting.PartOfSpeech ships a stable release and the pin moves to it, and the
-          test fails if the guard outlives a pre-release pin.
+          test fails if the guard outlives a pre-release pin. The test evaluates the project
+          through the dotnet command line tool for stable, prerelease and build-metadata
+          versions, so it checks the packing outcome and not how the project file spells the
+          condition; the build script's pack verification checks that a package is actually
+          produced.
         tests:
-          - SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease
+          - SpeechTextEn_PackageVersion_EvaluatedProject_PacksOnlyPrereleaseWhileTaggerIsPrerelease
 
       - id: SpeechTextEn-Packaging-PinnedDependency
         title: >-
@@ -728,28 +737,33 @@ sections:
           The tagging package is a pre-release package whose results can change between
           versions, so a floating version would silently change the analysis a model builds on.
           The analysis is plain managed text processing and must stay usable by any model
-          package, so it must not drag an inference runtime into every consumer.
+          package, so it must not drag an inference runtime into every consumer. The test
+          inspects the evaluated package and project references of the project (through the
+          dotnet command line tool), not the text of the project file. The minimum acceptable
+          version of the tagging package is a dependency policy recorded in the system design.
         tests:
-          - SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime
+          - SpeechTextEn_Dependencies_EvaluatedReferences_PinTaggerExactlyAndReferenceNoInferenceRuntime
 
       - id: SpeechTextEn-Packaging-ReadingInventory
         title: >-
-          The package shall embed the two reading inventory tables (readings and forms) from the
-          repository's Text.En data under fixed resource names, by link and without a copy in
-          the project, and shall embed no heteronym model in this release.
+          The package shall supply the documented heteronym reading inventory (the readings, the
+          forms and the candidate readings of each form) from the package itself, with no
+          separate download or file, and shall include no heteronym model in this release.
         tags: [system]
         justification: |
           The reading ids that hosts name in overrides and that backends receive in annotations
-          are defined by these tables, so they must travel with the code that validates them and
-          cannot be a separate download. They are CC0 data written by DEMA Consulting. Linking
-          the repository files keeps one source of truth for the trainer and the runtime, and
-          the fixed resource names are what the loader asks for. No model is embedded until
-          trained weights are reviewed and released, and a test fails if one appears before the
-          release is meant to carry it.
+          are defined by this inventory, so it must travel with the code that validates them and
+          cannot be a separate download. The data is CC0 data written by DEMA Consulting. No
+          model is included until trained weights are reviewed and released, and a test fails if
+          one appears before the release is meant to carry it. How the tables are embedded
+          (linked from the repository's Text.En data so the trainer and the runtime share one
+          source, under resource names the loader asks for) is a design matter recorded in the
+          heteronym subsystem design.
         children:
           - SpeechTextEn-Heteronym-ReadingIds
         tests:
-          - SpeechTextEn_ProjectFile_EmbedsInventoryTablesByLinkAndNoModel
+          - SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOfflineAndShipsNoModel
+          - SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations
 
       # The training data of the heteronym reading classifier (data/text-en/) is a tool input of the
       # non-shipped Text.En trainer; the requirements below are verified by its check-data command.

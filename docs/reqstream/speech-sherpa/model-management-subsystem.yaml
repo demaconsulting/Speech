@@ -100,13 +100,15 @@ sections:
 
           - id: SpeechSherpa-Models-UppercaseTranscriptRestoration
             title: >-
-              The ModelManagementSubsystem shall provide a shared internal transcript-restoration
-              helper (UppercaseTranscriptRestorer) that models whose raw output is unbroken
-              uppercase use from their NormalizeText overrides.
+              A recognition model whose raw output is unbroken, unpunctuated uppercase text shall
+              return readable final transcripts (sentence casing, restored contractions, terminal
+              punctuation) and readable provisional transcripts (cheap casing only, no
+              punctuation changes).
             justification: |
               Some sherpa-onnx streaming transducer models raw-output an unbroken, unpunctuated
-              UPPERCASE shout; a shared, once-reviewed helper turns that into readable prose for
-              every model that needs it.
+              UPPERCASE shout; hosts must receive readable prose from every such model. (The
+              design shares one once-reviewed helper across the models that need it; see the
+              ModelManagementSubsystem design.)
             children:
               - SpeechSherpa-Models-UppercaseTranscriptRestorer-RestoreFinal
               - SpeechSherpa-Models-UppercaseTranscriptRestorer-RestoreFinalContractions
@@ -115,17 +117,18 @@ sections:
               - SpeechSherpa-Models-UppercaseTranscriptRestorer-ArgumentValidation
               - SpeechSherpa-Models-UppercaseTranscriptRestorer-EmptyInput
             tests:
-              - RestoreFinal_FirstLetter_IsCapitalized
+              - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Final_RestoresCasingContractionsAndPunctuation
+              - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Provisional_AppliesCheapCasingOnly
 
           - id: SpeechSherpa-Models-TarBz2ArchiveExtraction
             title: >-
-              The ModelManagementSubsystem shall provide a shared internal .tar.bz2
-              archive-extraction helper (TarBz2ArchiveExtractor) that every sherpa-onnx model's
-              InstallAsync implementation uses.
+              Installing a supported sherpa-onnx model archive shall produce the model's expected
+              installed files and remove the downloaded archive after successful extraction.
             justification: |
               Every sherpa-onnx model declares its downloadable payload as a .tar.bz2 archive
-              and the BCL has no BZip2 decoder, so one shared helper keeps archive-extraction
-              behavior identical and once-reviewed across every model that needs it.
+              and the BCL has no BZip2 decoder, so installation must behave identically for every
+              model. (The design shares one once-reviewed extraction helper across all models; see
+              the ModelManagementSubsystem design.)
             children:
               - SpeechSherpa-Models-TarBz2ArchiveExtractor-ExtractAndDelete
               - SpeechSherpa-Models-TarBz2ArchiveExtractor-DeleteArchive
@@ -133,7 +136,10 @@ sections:
               - Speech-OTS-SharpCompress-TarBz2Extraction
               - Speech-OTS-SharpCompress-ArgumentValidation
             tests:
-              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
+              - SherpaOnnxZipformerEnRecognitionModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxNemotronStreamingEnRecognitionModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxKokoroEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
 
           - id: SpeechSherpa-Models-RealSynthesisModel
             title: >-

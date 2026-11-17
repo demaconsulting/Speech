@@ -81,20 +81,47 @@ public class DedicatedWorkerTests
     }
 
     /// <summary>
-    ///     Proves that the delegate runs on a dedicated, non-pooled thread
-    ///     (<see cref="TaskCreationOptions.LongRunning"/>), not an ordinary thread-pool thread.
+    ///     Proves that a delegate blocked inside the worker neither blocks the caller nor prevents
+    ///     unrelated work from progressing, and that the returned task completes once the
+    ///     delegate is released.
     /// </summary>
-    [Fact]
-    public async Task DedicatedWorker_Run_UsesLongRunningTaskCreationOption()
+    [Fact(Timeout = 60000)]
+    public async Task DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork()
     {
-        // Arrange
+        // Arrange: a delegate that signals it has started, then blocks until the test releases it;
+        // the delegate's wait is bounded so a regression fails the test instead of hanging it
         var worker = new DedicatedWorker();
-        var isThreadPoolThread = true;
+        using var entered = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        try
+        {
+            // Act: start the blocking delegate; the call must hand back its task without waiting
+            var task = worker.RunAsync(
+                _ =>
+                {
+                    entered.Set();
+                    release.Wait(TimeSpan.FromSeconds(15));
+                },
+                TestContext.Current.CancellationToken);
 
-        // Act: record whether the delegate's thread is a thread-pool thread
-        await worker.RunAsync(_ => isThreadPoolThread = Thread.CurrentThread.IsThreadPoolThread, TestContext.Current.CancellationToken);
+            // Assert: the delegate is blocked, the caller continues, and unrelated work completes
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+            Assert.False(task.IsCompleted);
+            var unrelated = await Task.Run(() => 42, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.Equal(42, unrelated);
+            Assert.False(task.IsCompleted);
 
-        // Assert: a LongRunning task is scheduled onto a dedicated thread, not the thread pool
-        Assert.False(isThreadPoolThread);
+            // Act: release the delegate
+            release.Set();
+
+            // Assert: the task now completes normally
+            await task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.True(task.IsCompletedSuccessfully);
+        }
+        finally
+        {
+            release.Set();
+        }
     }
 }

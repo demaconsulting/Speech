@@ -3,21 +3,17 @@
 #### Verification Approach
 
 Verified by `OnnxChatterboxTurboNetworksTests.cs` against synthetic ONNX graphs written by the test
-project's `OnnxModelWriter` and `ChatterboxTurboGraphFixture`. A static session hook lets tests
-observe the sessions created, for the disposal checks. The disposed state of an ONNX Runtime session has no
-public accessor and a call on a disposed session is unsafe, so the tests read its private disposed flag.
-These tests run in a non-parallel collection.
+project's `OnnxModelWriter` and `ChatterboxTurboGraphFixture`. A static session-factory seam lets tests
+substitute a derived `InferenceSession` that records its own disposal through the public `Dispose(bool)`
+override point, for the disposal checks. A call on a disposed ONNX Runtime session is unsafe, so disposal is
+never probed by using the session. These tests run in a non-parallel collection.
 
 #### Test Environment
 
 - **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
 - **Isolation**: scratch directories; no network I/O; no real model
-- **Collection**: the tests belong to a non-parallel xUnit collection because the session hook is
+- **Collection**: the tests belong to a non-parallel xUnit collection because the session-factory seam is
   process-wide
-- **Reflection**: the disposed flag of an ONNX Runtime session is read by reflection (the private
-  `InferenceSession._disposed` field), since it has no public accessor. This read must be revisited
-  whenever ONNX Runtime is upgraded, because the field may be renamed or removed (the test fails loudly if
-  it disappears)
 - **Known limits**: the dispose-all behavior is verified through the internal `DisposeAll` helper with
   recording disposables (one throws, the others must still be disposed) because a real `InferenceSession`
   cannot be made to throw on dispose; "no session leak" beyond the disposed flags of the observed sessions is

@@ -19,7 +19,7 @@ dedicated assertion; the 800ms value itself, and the post-endpoint warm-up-repla
 configures, were validated against two real user-recorded WAV files fed through the real,
 unmodified recognition pipeline with the real model (see the Real-Recording Evidence section
 below and the RecognitionSubsystem verification chapter, which documents the shared engine-level
-mechanism's own test coverage).
+outcome tests).
 
 #### Real-Recording Evidence for the 800ms PostEndpointWarmupWindowMs Value
 

@@ -45,7 +45,8 @@ abstract base is only observable through its concrete presenters.
   integer parameter
   instead of the `Slider` used for a continuous one, via `IsInteger`/`!IsInteger` visibility
   bindings, so a fractional value can never be selected in the first place. That view-level outcome is
-  verified at subsystem level by a structural test over the view markup.
+  verified at subsystem level through the presenter's reported flag and whole-number rounding (the demo has
+  no headless UI host to render the view).
 - **Choice presenter**: exposes the declared options and preselects the option whose value matches
   the declared default, resolved by value rather than by position. Changing `SelectedOption`
   raises a property-changed notification and updates `BoxedValue`. A `null` or non-member option

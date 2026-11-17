@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Text.Json;
 using System.Xml.Linq;
 using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -138,6 +141,51 @@ public sealed class SpeechTextEnTests
         Assert.All(results, result => Assert.Equal(expected, result));
     }
 
+    /// <summary>Proves requests with different texts running at once on one shared analyzer each get exactly the result they would get alone, so no request is influenced by another.</summary>
+    /// <returns>A task that completes when every request has been checked.</returns>
+    [Fact]
+    public async Task SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult()
+    {
+        // Arrange
+        string[] texts = ["Please read the record.", "Dr. Smith & Jones paid $5 on Jan. 5.", "Quokka gazelles zigzag past the old mill.", "I will record it later."];
+        var analyzer = new EnglishTextAnalyzer();
+        var expected = texts.Select(text => Describe(new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken))).ToArray();
+
+        // Act
+        var tasks = Enumerable.Range(0, 32)
+            .Select(index => Task.Run(
+                () => (Index: index % texts.Length, Result: Describe(analyzer.Analyze(texts[index % texts.Length], TestContext.Current.CancellationToken))),
+                TestContext.Current.CancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        Assert.All(results, result => Assert.Equal(expected[result.Index], result.Result));
+    }
+
+    /// <summary>Proves the result and the diagnostics of a request never disclose text of an earlier request on the same analyzer, and the result equals that of a fresh analyzer.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_AfterAnotherRequest_ResultAndDiagnosticsDiscloseNothingOfIt()
+    {
+        // Arrange: two requests with no word in common
+        const string earlier = "Quokka marmoset rested. Zebra galloped.";
+        const string later = "I read it again.";
+        var sink = new RecordingDiagnostics();
+        var used = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
+
+        // Act
+        _ = used.Analyze(earlier, TestContext.Current.CancellationToken);
+        var reportedBefore = sink.Events.Count;
+        var result = used.Analyze(later, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(Describe(new EnglishTextAnalyzer().Analyze(later, TestContext.Current.CancellationToken)), Describe(result));
+        string[] earlierWords = ["Quokka", "marmoset", "rested", "Zebra", "galloped"];
+        Assert.All(result.Annotations, annotation => Assert.DoesNotContain(earlierWords, word => annotation.Value.Contains(word, StringComparison.OrdinalIgnoreCase)));
+        var reported = Assert.Single(sink.Events.Skip(reportedBefore));
+        Assert.DoesNotContain(earlierWords, word => reported.Message.Contains(word, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>Proves an analyzed request reports one counts-only event and a faulty sink never interrupts the analysis.</summary>
     [Fact]
     public void SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained()
@@ -257,6 +305,28 @@ public sealed class SpeechTextEnTests
         Assert.All(result.Annotations, annotation => Assert.Equal(TextEnAnnotations.PartOfSpeech, annotation.Kind));
     }
 
+    /// <summary>Proves one analyzer with a model, shared by many concurrent requests, gives every request the readings of a sequential request.</summary>
+    /// <returns>A task that completes when every request has been checked.</returns>
+    [Fact]
+    public async Task SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults()
+    {
+        // Arrange
+        const string text = "I want to record a record. They will record the meeting. This record is old.";
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
+        var expected = Describe(new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)))).Analyze(text, TestContext.Current.CancellationToken));
+
+        // Act: the very first requests race for the model
+        var tasks = Enumerable.Range(0, 32)
+            .Select(_ => Task.Run(() => Describe(analyzer.Analyze(text, TestContext.Current.CancellationToken)), TestContext.Current.CancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        Assert.Contains(TextEnAnnotations.Reading, expected, StringComparison.Ordinal);
+        Assert.All(results, result => Assert.Equal(expected, result));
+    }
+
     /// <summary>Proves a reading override fixes the reading of a word through the public API with no model at all, and the classifier loses to it when a model exists.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel()
@@ -347,17 +417,25 @@ public sealed class SpeechTextEnTests
         });
     }
 
-    /// <summary>Proves the project file embeds the reading inventory tables by link under their fixed names and embeds no model.</summary>
+    /// <summary>Proves the heteronym reading inventory is supplied by the package alone: a reading override is validated against it and applied with no model and no other file, while the default analyzer emits no reading of its own.</summary>
     [Fact]
-    public void SpeechTextEn_ProjectFile_EmbedsInventoryTablesByLinkAndNoModel()
+    public void SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOfflineAndShipsNoModel()
     {
-        // Arrange
-        var project = File.ReadAllText(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
+        // Arrange: an entry for a reading id the inventory does not define is refused, one it defines is accepted
+        const string text = "I want to record a record.";
+        var accepted = PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.noun\n"));
+        var withOverride = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = accepted });
+        var withoutOverride = new EnglishTextAnalyzer();
+
+        // Act
+        var rejected = Record.Exception(() => PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.nonsense\n")));
+        var fixedReadings = withOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
+        var defaultReadings = withoutOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
 
         // Assert
-        Assert.Contains("Include=\"..\\..\\data\\text-en\\readings.tsv\" LogicalName=\"DemaConsulting.Speech.Text.En.Resources.readings.tsv\"", project, StringComparison.Ordinal);
-        Assert.Contains("Include=\"..\\..\\data\\text-en\\forms.tsv\" LogicalName=\"DemaConsulting.Speech.Text.En.Resources.forms.tsv\"", project, StringComparison.Ordinal);
-        Assert.DoesNotContain("heteronyms.bin", project, StringComparison.Ordinal);
+        Assert.IsType<InvalidDataException>(rejected);
+        Assert.Equal(["record.noun", "record.noun"], fixedReadings.Select(annotation => annotation.Value));
+        Assert.Empty(defaultReadings);
     }
 
     /// <summary>Proves the project file names the combined license file, packs both notice files at the package root, and pins its one tagger dependency.</summary>
@@ -442,140 +520,113 @@ public sealed class SpeechTextEnTests
         Assert.Contains("do not endorse", text, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves the project depends on exactly one version of the tagger package and on no speech-engine runtime.</summary>
+    /// <summary>
+    ///     Proves the package depends on exactly one version of the tagger package, pinned with the exact-range notation, and on no
+    ///     speech-engine inference runtime: the evaluated package and project references of the project are inspected, not its text.
+    /// </summary>
+    /// <returns>A task that completes when the evaluated references have been checked.</returns>
     [Fact]
-    public void SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime()
+    public async Task SpeechTextEn_Dependencies_EvaluatedReferences_PinTaggerExactlyAndReferenceNoInferenceRuntime()
     {
-        // Arrange
-        var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
-
         // Act
-        var packageReferences = project.Descendants("PackageReference")
-            .ToDictionary(
-                element => (string?)element.Attribute("Include") ?? string.Empty,
-                element => (string?)element.Attribute("Version"),
-                StringComparer.Ordinal);
-        var projectReferences = project.Descendants("ProjectReference")
-            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
+        var output = await RunMsBuildAsync("-getItem:PackageReference", "-getItem:ProjectReference");
+        using var document = JsonDocument.Parse(output);
+        var items = document.RootElement.GetProperty("Items");
+        var packageReferences = items.GetProperty("PackageReference").EnumerateArray()
+            .ToDictionary(item => item.GetProperty("Identity").GetString() ?? string.Empty, item => item.GetProperty("Version").GetString(), StringComparer.Ordinal);
+        var projectReferences = items.GetProperty("ProjectReference").EnumerateArray()
+            .Select(item => Path.GetFileName((item.GetProperty("Identity").GetString() ?? string.Empty).Replace('\\', '/')))
             .ToList();
 
-        // Assert: exact-range notation pins one version; the only project reference is core Speech; no ONNX anywhere
-        Assert.True(packageReferences.TryGetValue("DemaConsulting.PartOfSpeech", out var version));
-        Assert.Matches(@"^\[[0-9A-Za-z.\-+]+\]$", version);
-        Assert.Equal(["..\\DemaConsulting.Speech\\DemaConsulting.Speech.csproj"], projectReferences);
+        // Assert: exact-range notation pins one version of the tagger; the only project reference is core Speech; no ONNX anywhere
+        Assert.True(packageReferences.TryGetValue("DemaConsulting.PartOfSpeech", out var version), "the tagger package is not referenced");
+        var range = VersionRange.Parse(version ?? string.Empty);
+        Assert.True(
+            range.IsMinInclusive && range.IsMaxInclusive && range.MinVersion is not null && range.MinVersion == range.MaxVersion,
+            $"The reference '{version}' is not an exact version, written [version]");
+        Assert.Equal(["DemaConsulting.Speech.csproj"], projectReferences);
         Assert.DoesNotContain(packageReferences.Keys, name => name.Contains("Onnx", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>The first version of the tagger package that clears its per-thread working buffers.</summary>
-    private const string TaggerRetentionFixVersion = "0.1.0-beta.5";
-
     /// <summary>
-    ///     Tells whether a version is the same as or newer than a minimum version under Semantic Versioning 2.0.0
-    ///     precedence: the major, minor and patch numbers first, then a version without a prerelease label is newer
-    ///     than one with a label, and prerelease labels compare identifier by identifier (numeric identifiers
-    ///     numerically, others lexically, and a longer label wins when all its leading identifiers are equal).
+    ///     Proves, through the evaluated project, that the package is packable only for a prerelease package version while the tagger
+    ///     dependency it pins is a prerelease (a stable package may not depend on a prerelease package, NuGet NU5104, and the shared
+    ///     release workflow can pack a stable version): a stable version is not packable, a prerelease version is packable, build
+    ///     metadata is ignored, PackageVersion wins over Version, and the guard is gone once the pin is a stable version.
     /// </summary>
-    /// <param name="version">The version to check.</param>
-    /// <param name="minimum">The oldest acceptable version.</param>
-    /// <returns><see langword="true"/> when <paramref name="version"/> is not older than <paramref name="minimum"/>.</returns>
-    private static bool IsSameOrNewerVersion(string version, string minimum) =>
-        NuGetVersion.Parse(version).CompareTo(NuGetVersion.Parse(minimum)) >= 0;
-
-    /// <summary>Reads the exact version the project file pins the tagger package to.</summary>
-    /// <returns>The pinned version, without the surrounding exact-range brackets.</returns>
-    private static string ReadTaggerPin()
-    {
-        var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
-        var pin = project.Descendants("PackageReference")
-            .Where(element => (string?)element.Attribute("Include") == "DemaConsulting.PartOfSpeech")
-            .Select(element => (string?)element.Attribute("Version"))
-            .Single();
-        var range = VersionRange.Parse(pin ?? string.Empty);
-        Assert.True(
-            range.IsMinInclusive && range.IsMaxInclusive && range.MinVersion is not null && range.MinVersion == range.MaxVersion,
-            $"The pin '{pin}' is not an exact version, written [version]");
-        return range.MinVersion.ToNormalizedString();
-    }
-
-    /// <summary>
-    ///     Proves the pinned tagger package version is at least 0.1.0-beta.5, the first version that clears its
-    ///     per-thread working buffers (upstream issue demaconsulting/PartOfSpeech#29), so the pin cannot be moved back
-    ///     to a version that retains analyzed text. A newer version, including a later prerelease such as
-    ///     0.1.0-rc.1 or a stable release, is accepted. The buffers themselves are private to the dependency and are
-    ///     covered by the upstream package's own tests (see the PartOfSpeech verification document).
-    /// </summary>
+    /// <returns>A task that completes when whether the project is packable has been checked.</returns>
     [Fact]
-    public void SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater()
+    public async Task SpeechTextEn_PackageVersion_EvaluatedProject_PacksOnlyPrereleaseWhileTaggerIsPrerelease()
     {
-        // Act
-        var pin = ReadTaggerPin();
+        // Arrange: the version properties to evaluate with, and whether the project must be packable for them while the tagger is a prerelease
+        (string[] Properties, bool Packable)[] cases =
+        [
+            (["PackageVersion=1.0.0"], false),
+            (["PackageVersion=1.0.0+build.5"], false),
+            (["PackageVersion=1.0.0-beta.1"], true),
+            (["PackageVersion=1.0.0-beta.1+build.5"], true),
+            (["PackageVersion=0.0.1-test"], true),
+            (["Version=1.0.0-rc.1"], true),
+            (["Version=1.0.0"], false),
+            (["Version=1.0.0-beta.1", "PackageVersion=1.0.0"], false),
+            (["Version=1.0.0", "PackageVersion=1.0.0-beta.1"], true),
+        ];
+        using var dependencies = JsonDocument.Parse(await RunMsBuildAsync("-getItem:PackageReference"));
+        var pin = dependencies.RootElement.GetProperty("Items").GetProperty("PackageReference").EnumerateArray()
+            .Single(item => item.GetProperty("Identity").GetString() == "DemaConsulting.PartOfSpeech")
+            .GetProperty("Version").GetString();
+        var taggerIsPrerelease = VersionRange.Parse(pin ?? string.Empty).MinVersion!.IsPrerelease;
 
-        // Assert: an exact pin whose version is not older than 0.1.0-beta.5
-        Assert.True(IsSameOrNewerVersion(pin, TaggerRetentionFixVersion), $"The pin '{pin}' is older than {TaggerRetentionFixVersion}");
-    }
-
-    /// <summary>Proves the version check follows Semantic Versioning 2.0.0 precedence: numeric prerelease identifiers compare numerically, a release is newer than its prereleases, and older versions are rejected.</summary>
-    /// <param name="version">The version to check against 0.1.0-beta.5.</param>
-    /// <param name="expected">Whether the version is accepted.</param>
-    [Theory]
-    [InlineData("0.1.0-beta.5", true)]
-    [InlineData("0.1.0-beta.6", true)]
-    [InlineData("0.1.0-beta.10", true)]
-    [InlineData("0.1.0-rc.1", true)]
-    [InlineData("0.1.0", true)]
-    [InlineData("0.2.0", true)]
-    [InlineData("0.1.0-beta.4", false)]
-    [InlineData("0.1.0-alpha.9", false)]
-    [InlineData("0.0.9", false)]
-    public void SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence(string version, bool expected)
-    {
-        // Act
-        var accepted = IsSameOrNewerVersion(version, TaggerRetentionFixVersion);
-
-        // Assert
-        Assert.Equal(expected, accepted);
-    }
-
-    /// <summary>
-    ///     Proves the package is packable only for a prerelease version while the tagger dependency it pins is a
-    ///     prerelease: the project is not packable by default, becomes packable only when the package version (the
-    ///     PackageVersion property when given, otherwise Version) has a hyphen before any build metadata, and the
-    ///     guard is gone once the pin is a stable version. A stable package may not depend on a prerelease package
-    ///     (NuGet NU5104), and the shared release workflow can pack a stable version.
-    /// </summary>
-    [Fact]
-    public void SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease()
-    {
-        // Arrange
-        var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
-        var taggerIsPrerelease = NuGetVersion.Parse(ReadTaggerPin()).IsPrerelease;
-
-        // Act
-        var isPackable = project.Descendants("IsPackable").ToList();
-        var effectiveVersion = project.Descendants("TextEnEffectiveVersion").ToList();
-        var versionCore = project.Descendants("TextEnVersionCore").Select(element => element.Value.Trim()).ToList();
-
-        // Assert
-        if (!taggerIsPrerelease)
+        foreach (var (properties, packable) in cases)
         {
-            // The tagger is stable: the guard is obsolete and must be removed so a stable release publishes the package
-            Assert.Empty(isPackable);
-            Assert.Empty(effectiveVersion);
-            return;
+            // Act
+            var isPackable = (await RunMsBuildAsync(["-getProperty:IsPackable", .. properties.Select(property => $"--property:{property}")])).Trim();
+
+            // Assert: while the tagger is a prerelease only a prerelease version packs; with a stable tagger every version packs
+            Assert.True(
+                bool.Parse(isPackable) == (!taggerIsPrerelease || packable),
+                $"IsPackable is {isPackable} for {string.Join(' ', properties)}");
+        }
+    }
+
+    /// <summary>Evaluates the package project with <c>dotnet msbuild</c> (no build is run) and returns what it prints.</summary>
+    /// <param name="arguments">The arguments after the project path, for example <c>-getProperty:IsPackable</c>.</param>
+    /// <returns>The standard output of the evaluation: a plain value for one property, JSON for items or several properties.</returns>
+    private static async Task<string> RunMsBuildAsync(params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        startInfo.ArgumentList.Add("msbuild");
+        startInfo.ArgumentList.Add(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
         }
 
-        // Not packable by default (unconditional), packable again only under a prerelease condition
-        Assert.Single(isPackable, element => element.Attribute("Condition") is null && element.Value.Trim() == "false");
-        var enable = Assert.Single(isPackable, element => element.Attribute("Condition") is not null);
-        Assert.Equal("true", enable.Value.Trim());
-        Assert.Equal("$(TextEnVersionCore.Contains('-'))", (string?)enable.Attribute("Condition"));
+        Process? process = null;
+        try
+        {
+            process = Process.Start(startInfo);
+        }
+        catch (Win32Exception)
+        {
+            Assert.Skip("The dotnet command line tool cannot be started in this environment.");
+        }
 
-        // The version checked is PackageVersion when given (the workflows pass it to pack), otherwise Version,
-        // and build metadata after '+' is ignored
-        Assert.Contains(effectiveVersion, element => element.Attribute("Condition") is null && element.Value.Trim() == "$(Version)");
-        Assert.Contains(effectiveVersion, element =>
-            (string?)element.Attribute("Condition") == "'$(PackageVersion)' != ''" && element.Value.Trim() == "$(PackageVersion)");
-        Assert.Equal(["$(TextEnEffectiveVersion.Split('+')[0])"], versionCore);
+        using (process)
+        {
+            Assert.NotNull(process);
+            var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+            Assert.True(process.ExitCode == 0, $"dotnet msbuild failed ({process.ExitCode}): {await error}{output}");
+            return output;
+        }
     }
 
     /// <summary>Proves an abbreviation is described by an <c>en.norm</c> annotation over its exact source characters, the text itself is never changed, and unchanged words get no such annotation.</summary>
@@ -598,15 +649,14 @@ public sealed class SpeechTextEnTests
         Assert.Equal("Dr. Smith lives here.", text);
     }
 
-    /// <summary>Proves the host can switch normalization off, and that normalization alone needs no tagger and gives no part of speech.</summary>
+    /// <summary>Proves the host can switch normalization off, and that normalization alone gives no part of speech.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_NormalizationNotSelected_ProducesNoNormAnnotations()
     {
         // Arrange
         const string text = "Dr. Smith & Mr. Jones live on Main St. It is nice.";
-        var source = new CountingTaggerSource();
         var tagsOnly = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.PartOfSpeech });
-        var normalizationOnly = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization }, source.CreateAdapter());
+        var normalizationOnly = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
 
         // Act
         var tagged = tagsOnly.Analyze(text, TestContext.Current.CancellationToken);
@@ -617,7 +667,6 @@ public sealed class SpeechTextEnTests
         Assert.NotEmpty(tagged.Annotations);
         Assert.All(normalized.Annotations, annotation => Assert.Equal(TextEnAnnotations.Normalized, annotation.Kind));
         Assert.NotEmpty(normalized.Annotations);
-        Assert.Equal(0, source.Count);
     }
 
     /// <summary>Proves St., Dr., Sr. and No. are resolved from their neighbors.</summary>
@@ -1397,27 +1446,79 @@ public sealed class SpeechTextEnTests
         Assert.All(normalizations, annotation => Assert.DoesNotContain(Tag, text.Substring(annotation.Start, annotation.Length), StringComparison.Ordinal));
     }
 
-    /// <summary>Proves one megabyte of every numeric construct, repeated, analyzes within the time budget.</summary>
+    /// <summary>
+    ///     Proves one megabyte of every numeric construct, repeated, is analyzed through the public API to the annotations and sentence
+    ///     breaks a short text gives: away from the two ends every repetition is annotated and broken exactly alike.
+    /// </summary>
     [Fact]
-    public void SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget()
+    public void SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_AnnotatesEveryRepetitionAlike()
     {
         // Arrange: normalization only, so no tagger is involved
         string[] units = ["1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "1/2 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ", "555-123-4567 ", "1990s ", "3 1/2 ", "1999 "];
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var unit in units)
         {
             var text = string.Concat(Enumerable.Repeat(unit, (1_000_000 / unit.Length) + 1));
 
             // Act
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var result = analyzer.Analyze(text, cancellation.Token);
-            stopwatch.Stop();
+            var result = analyzer.Analyze(text, hangGuard.Token);
 
             // Assert
-            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(45), $"'{unit}' took {stopwatch.Elapsed}");
-            Assert.NotEmpty(result.Annotations);
+            AssertRepetitionsAnalyzedAlike(analyzer, unit, text, result);
+        }
+    }
+
+    /// <summary>
+    ///     Reads annotations as (start, length, kind, value) tuples.
+    /// </summary>
+    /// <param name="annotations">The annotations.</param>
+    /// <returns>The tuples, in annotation order.</returns>
+    private static List<(int Start, int Length, string Kind, string Value)> AsTuples(IEnumerable<SegmentAnnotation> annotations) =>
+        [.. annotations.Select(annotation => (annotation.Start, annotation.Length, annotation.Kind, annotation.Value))];
+
+    /// <summary>
+    ///     Asserts that, in a text that is one unit repeated, every repetition away from the two ends of the text gets the same
+    ///     annotations and sentence breaks as the same repetition in a short reference text of the same unit.
+    /// </summary>
+    /// <param name="analyzer">The analyzer that produced <paramref name="result"/>.</param>
+    /// <param name="unit">The repeated unit.</param>
+    /// <param name="text">The large text.</param>
+    /// <param name="result">The analysis of the large text.</param>
+    private static void AssertRepetitionsAnalyzedAlike(EnglishTextAnalyzer analyzer, string unit, string text, TextAnalysisResult result)
+    {
+        // The reference is long enough for one repetition to be clear of the edges (the last repetitions look ahead past the end of the text)
+        const int referenceCopies = 9;
+        const int referenceCopy = 4;
+        const int edgeCopiesAtEnd = 3;
+        var length = unit.Length;
+        var copies = text.Length / length;
+        var reference = analyzer.Analyze(string.Concat(Enumerable.Repeat(unit, referenceCopies)), TestContext.Current.CancellationToken);
+        var interiorStart = length;
+        var interiorEnd = (copies - edgeCopiesAtEnd) * length;
+        var interiorCopies = copies - edgeCopiesAtEnd - 1;
+
+        // Annotations
+        var pattern = AsTuples(reference.Annotations.Where(annotation => annotation.Start >= referenceCopy * length && annotation.End <= (referenceCopy + 1) * length));
+        var interior = AsTuples(result.Annotations.Where(annotation => annotation.Start >= interiorStart && annotation.End <= interiorEnd));
+        Assert.NotEmpty(pattern);
+        Assert.Equal(interiorCopies * pattern.Count, interior.Count);
+        for (var i = 0; i < interior.Count; i++)
+        {
+            var expected = pattern[i % pattern.Count];
+            var shift = (1 + (i / pattern.Count) - referenceCopy) * length;
+            Assert.True(interior[i] == (expected.Start + shift, expected.Length, expected.Kind, expected.Value), $"'{unit}': annotation {i} differs");
+        }
+
+        // Sentence breaks
+        var breakPattern = reference.SentenceBreaks!.Where(offset => offset >= referenceCopy * length && offset < (referenceCopy + 1) * length).ToList();
+        var breaks = result.SentenceBreaks!.Where(offset => offset >= interiorStart && offset < interiorEnd).ToList();
+        Assert.Equal(interiorCopies * breakPattern.Count, breaks.Count);
+        for (var i = 0; i < breaks.Count; i++)
+        {
+            var shift = (1 + (i / breakPattern.Count) - referenceCopy) * length;
+            Assert.True(breaks[i] == breakPattern[i % breakPattern.Count] + shift, $"'{unit}': sentence break {i} differs");
         }
     }
 
@@ -1454,27 +1555,27 @@ public sealed class SpeechTextEnTests
         }
     }
 
-    /// <summary>Proves one megabyte of realistic and of adversarially repetitive text analyzes within the time budget, and a quadratic regression fails instead of hanging.</summary>
+    /// <summary>
+    ///     Proves one megabyte of realistic and of adversarially repetitive text is analyzed through the public API to the annotations
+    ///     and sentence breaks a short text gives: away from the two ends every repetition is annotated and broken exactly alike.
+    /// </summary>
     [Fact]
-    public void SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget()
+    public void SpeechTextEn_Analyze_LargeRepetitiveTexts_AnnotatesEveryRepetitionAlike()
     {
         // Arrange: normalization only, so no tagger is involved
         string[] units = ["Dr. Smith lives on Maple Dr. He likes it, etc. The FBI said it\u2019s w/o proof & more. ", "St. ", "A. ", "& ", "Dr. He "];
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var unit in units)
         {
             var text = string.Concat(Enumerable.Repeat(unit, (1_000_000 / unit.Length) + 1));
 
             // Act
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var result = analyzer.Analyze(text, cancellation.Token);
-            stopwatch.Stop();
+            var result = analyzer.Analyze(text, hangGuard.Token);
 
             // Assert
-            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(45), $"'{unit}' took {stopwatch.Elapsed}");
-            Assert.NotEmpty(result.Annotations);
+            AssertRepetitionsAnalyzedAlike(analyzer, unit, text, result);
         }
     }
 

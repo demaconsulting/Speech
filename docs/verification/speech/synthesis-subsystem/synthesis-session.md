@@ -147,18 +147,18 @@ a segment without annotations or a legacy backend always uses `Generate` with te
 no analyzer, a `null` result, and an empty result all behave exactly as before; an analyzer that throws is contained and
 reported through a single warning naming only the exception type, never the message or the text; an analyzer
 cancellation, before or during a slow analysis, propagates as `OperationCanceledException` without calling the backend
-(an already-canceled operation never invokes the analyzer); the analyzer runs off the thread that called `SpeakAsync` or
-`SynthesizeAsync`, so a slow analyzer does not delay the return of that call; an analyzer break between two consecutive
-tags splits the text there; a chunk consisting of a supplementary-plane letter keeps its text and annotation when the
-analyzer breaks after it; volume overrides scale and clamp amplitude; a canceled operation whose native call cannot be
-interrupted is abandoned so the caller's task returns promptly (a slow device `Start` does not block the caller), and
-the session then transitions to `Faulted` with the abandonment reported through diagnostics; a canceled `StopAsync`
-caller token throws without aborting the teardown, and a stopped operation unwinds to `Stopped`; `StopAsync` and
-`DisposeAsync` do not complete and the backend lease is not released until the in-flight native call has returned, and
-the lease is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop` that is
-deferred while a native call is in flight happens only after that call returns; and a disposed session rejects further
-calls with `ObjectDisposedException`. The `DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and
-`PlaybackAudioResampler` acceptance criteria are in their own unit verification documents.
+(an already-canceled operation never invokes the analyzer); a blocked analyzer does not delay the return of the
+`SpeakAsync` or `SynthesizeAsync` call that started it; an analyzer break between two consecutive tags splits the text
+there; a chunk consisting of a supplementary-plane letter keeps its text and annotation when the analyzer breaks after
+it; volume overrides scale and clamp amplitude; a canceled operation whose native call cannot be interrupted is
+abandoned so the caller's task returns promptly (a slow device `Start` does not block the caller), and the session then
+transitions to `Faulted` with the abandonment reported through diagnostics; a canceled `StopAsync` caller token throws
+without aborting the teardown, and a stopped operation unwinds to `Stopped`; `StopAsync` and `DisposeAsync` do not
+complete and the backend lease is not released until the in-flight native call has returned, and the lease is released
+exactly once even when disposal is called repeatedly or concurrently; a device `Stop` that is deferred while a native
+call is in flight happens only after that call returns; and a disposed session rejects further calls with
+`ObjectDisposedException`. The `DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and `PlaybackAudioResampler`
+acceptance criteria are in their own unit verification documents.
 
 #### Test Scenarios
 

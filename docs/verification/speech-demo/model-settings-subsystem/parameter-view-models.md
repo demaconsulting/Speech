@@ -8,7 +8,8 @@ its own. No model, audio hardware or native runtime is required.
 
 The control selection made by the XAML `DataTemplate` between `Slider` and `NumericUpDown` is a
 view-level outcome, so it is not verified by this unit; the ModelSettingsSubsystem verification
-document covers it with a structural test over the view markup. This unit verifies only that the
+document covers it through the presenter's public properties, because the markup itself is not
+tested. This unit verifies only that the
 presenter reports the `IsInteger` flag that the template binds to.
 
 #### Test Environment

@@ -85,21 +85,19 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     private const string DefaultVoice = "af_heart";
 
     /// <summary>
-    ///     Test-only observation hook invoked with the freshly created ONNX
-    ///     <see cref="InferenceSession"/>, immediately after
-    ///     <see cref="CreateBackend"/> creates it and before any voice-style file is read.
+    ///     Test-only seam that, when set, creates the ONNX <see cref="InferenceSession"/> instead of
+    ///     <see cref="OnnxExecutionProviderSelector.Create"/>.
     /// </summary>
     /// <remarks>
-    ///     Lets a test capture the session reference so it can independently verify the session is
-    ///     disposed when a later step (reading a voice file, constructing the vocabulary or
-    ///     phonemizer) fails - something otherwise unobservable from outside this method, since the
-    ///     local <c>session</c> variable itself is never exposed to callers on a failure path.
-    ///     Production callers never set this; it exists solely for
-    ///     <c>DemaConsulting.Speech.Onnx.Kokoro.Tests</c> (see <c>InternalsVisibleTo</c> in this
-    ///     project's <c>.csproj</c>), mirroring <c>OnnxExecutionProviderSelector.OnCandidateOptionsCreated</c>'s
-    ///     identical pattern.
+    ///     Lets a test substitute a derived session that records its own disposal through the public
+    ///     <c>Dispose(bool)</c> override point, so it can verify the session is released when a later
+    ///     step (reading a voice file, constructing the vocabulary or phonemizer) fails - something
+    ///     otherwise unobservable from outside this method, since the local <c>session</c> variable
+    ///     is never exposed to callers on a failure path. Production callers never set this; it
+    ///     exists solely for <c>DemaConsulting.Speech.Onnx.Kokoro.Tests</c> (see
+    ///     <c>InternalsVisibleTo</c> in this project's <c>.csproj</c>).
     /// </remarks>
-    internal static Action<InferenceSession>? OnSessionCreated { get; set; }
+    internal static Func<string, IReadOnlyList<string>?, Action<InferenceSession>?, InferenceSession>? SessionFactory { get; set; }
 
     /// <summary>
     ///     This package's own verified voice subset, in <see cref="DownloadDescriptor"/>/speaker-id
@@ -375,11 +373,10 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         var modelPath = Path.Combine(installedModelDirectory, Path.Combine(ModelRelativeInstallPath.Split('/')));
-        var session = OnnxExecutionProviderSelector.Create(
+        var session = (SessionFactory ?? OnnxExecutionProviderSelector.Create)(
             modelPath,
             _preferredExecutionProviderNames,
             OnnxKokoroSynthesisEngine.RunProbeInference);
-        OnSessionCreated?.Invoke(session);
 
         try
         {

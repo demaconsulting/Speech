@@ -101,11 +101,10 @@ non-empty audio is produced.
 
 **Test**: `OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows`
 
-Using the test-only `OnnxKokoroEnglishSynthesisModel.OnSessionCreated` hook to capture the
-`InferenceSession` `CreateBackend` creates from the tiny ONNX fixture, this test supplies a
-directory with no `voices` subdirectory at all, so reading the first declared voice's style file
-fails with `DirectoryNotFoundException`. It asserts the exception propagates unchanged and, via
-reflection into `InferenceSession`'s own private `_disposed` field (the type exposes no public
-equivalent of `SessionOptions`'s inherited `IsClosed`, since it derives directly from `object`
-rather than `SafeHandle`), that the captured session was disposed rather than leaked - since no
-`OnnxKokoroSynthesisEngine` is ever constructed on this failure path to take ownership of it.
+Using the test-only `OnnxKokoroEnglishSynthesisModel.SessionFactory` seam to substitute a derived
+`InferenceSession` that records its own disposal through the public `Dispose(bool)` override point, this
+test supplies a directory with no `voices` subdirectory at all, so reading the first declared voice's
+style file fails with `DirectoryNotFoundException`. It asserts the exception propagates unchanged and
+that the single session opened for the test's scratch directory was disposed rather than leaked - since no
+`OnnxKokoroSynthesisEngine` is ever constructed on this failure path to take ownership of it. No ONNX
+Runtime private state is read and the disposed native session is never used.

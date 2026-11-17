@@ -302,21 +302,35 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.Equal(0, encoder.ResetCount);
     }
 
-    /// <summary>Proves Reset clears pending state and resets the encoder and network.</summary>
+    /// <summary>Proves Reset returns the engine to the start-of-stream state: a new stream gives the same results as a fresh engine.</summary>
     [Fact]
-    public void Reset_ClearsState()
+    public void Reset_AfterAudio_NextStreamMatchesFreshEngine()
     {
-        // Arrange: an engine holding a pending provisional result
+        // Arrange: an engine holding state from earlier audio (a decoded chunk with a pending
+        // provisional result plus half a second of not-yet-encoded audio), and a fresh reference
         var (engine, encoder, network) = Create(null, 1, Blank);
-        engine.AcceptSamples(Tone(1));
+        engine.AcceptSamples(Tone(1.5));
+        Drain(engine);
+        network.Enqueue(1, Blank);
+        var encodeCallsBeforeReset = encoder.EncodeCalls;
+        var (fresh, freshEncoder, _) = Create(null, 1, Blank);
 
-        // Act: reset the engine
+        // Act: reset the engine, then give both engines the same new audio
         engine.Reset();
-
-        // Assert: nothing is pending and the encoder and network were reset
         Assert.False(engine.TryDecode(out _));
-        Assert.True(encoder.ResetCount >= 1);
-        Assert.True(network.ResetCount >= 2);
+        engine.AcceptSamples(Tone(1));
+        fresh.AcceptSamples(Tone(1));
+        var afterReset = Drain(engine);
+        var expected = Drain(fresh);
+
+        // Assert: the reset engine reports the same results and does the same amount of work as the
+        // fresh engine, so nothing of the earlier stream leaks into the new one
+        Assert.Equal(
+            expected.Select(r => (r.Text, r.IsFinal)),
+            afterReset.Select(r => (r.Text, r.IsFinal)));
+        Assert.Equal(freshEncoder.EncodeCalls, encoder.EncodeCalls - encodeCallsBeforeReset);
+        Assert.Equal(freshEncoder.LastFrameCount, encoder.LastFrameCount);
+        Assert.Equal(freshEncoder.LastFeatureLength, encoder.LastFeatureLength);
     }
 
     /// <summary>Proves Dispose disposes the encoder and network, is idempotent, and later calls throw.</summary>

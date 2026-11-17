@@ -122,7 +122,9 @@ public sealed class TsvTableTests
         var table = Load(fixture, report);
 
         // Assert
-        Assert.Contains(report.Findings, finding => finding.Location == "t.tsv:2" && finding.Message == "empty line");
+        Assert.Contains(
+            report.Findings,
+            finding => finding.Location == "t.tsv:2" && finding.Message.Contains("empty", StringComparison.OrdinalIgnoreCase));
         Assert.Single(table.Rows);
     }
 

@@ -63,11 +63,12 @@ ordered spans with no spurious empty spans.
 `AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag`,
 `AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`,
 `AudioTagParser_Parse_UnclosedBracketAfterRecognizedTag_PassesThroughAsLiteralText`,
-`AudioTagParser_Parse_ManyNestedOpenersThenCloser_CompletesQuicklyAndPreservesText`
+`AudioTagParser_Parse_ManyNestedOpenersThenCloser_PreservesText`
 
 Verifies that nothing malformed is thrown on or dropped, that a nested opening bracket does
 not swallow a valid tag that follows it, and that a pathological run of 200,000 opening brackets
-is scanned in linear time with its text preserved.
+followed by a closer is preserved verbatim as one literal span. The scan's linear-time design
+is recorded in the unit design and is deliberately not asserted by an elapsed-time test.
 
 ##### AudioTagParser: Span Factories
 

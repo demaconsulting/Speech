@@ -24,21 +24,22 @@ sections:
           - id: SpeechTextEn-Analysis-AnalyzerContract
             title: >-
               The AnalysisSubsystem shall provide an analyzer that implements the Speech
-              library's text-analysis contract, keeps no state about analyzed texts between
-              requests, serves concurrent requests, honors cancellation at any point (never
-              returning a result or reporting diagnostics for a canceled request), and also
+              library's text-analysis contract, gives every request a result that does not depend
+              on earlier requests, serves concurrent requests, honors cancellation at any point
+              (never returning a result or reporting diagnostics for a canceled request), and also
               offers a richer, local-only analysis result.
             justification: |
               The Speech library calls one analyzer instance for every request on thread-pool
               threads and expects it to stop when the operation is canceled; the richer result
               lets a model package and tests see every token without going through the
-              language-neutral annotations. The statement about retained state is scoped to this
-              library's own state; the tagging package's per-thread working buffer is a documented
-              limitation of that dependency (see the system design).
+              language-neutral annotations. Independence from earlier requests is the observable
+              side of the library's rule that an analyzer must not retain the request text; how the
+              analyzer and the tagging package keep no text (and the documented limitation of the
+              dependency's per-thread working buffer) is recorded in the system design.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-Cancellation
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ArgumentValidation
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndNoRetainedReferences
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndRequestIndependence
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-EmptyText
               - SpeechTextEn-Analysis-PartOfSpeechAdapter-Cancellation
@@ -46,7 +47,7 @@ sections:
             tests:
               - AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing
               - AnalysisSubsystem_Analyze_CancellationDuringLastSentence_ThrowsOperationCanceledExceptionAndReportsNothing
-              - AnalysisSubsystem_Analyze_ManyConcurrentRequests_LoadTaggerOnceAndAgree
+              - AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult
 
           - id: SpeechTextEn-Analysis-PartOfSpeechAnnotations
             title: >-
@@ -75,7 +76,8 @@ sections:
           - id: SpeechTextEn-Analysis-NormalizationAnnotations
             title: >-
               The AnalysisSubsystem shall run the normalization on the tokens of the analyzed
-              text when the options select it, without loading the tagger for it, shall emit each
+              text when the options select it, whether or not part-of-speech annotation is
+              selected, shall emit each
               normalization as an annotation of the normalization kind (or, for a letter sequence,
               the spell-out kind) on its span, merged in
               text order with the part-of-speech annotations (the part of speech first at an equal
@@ -88,7 +90,8 @@ sections:
               library carries to a backend, keeps the annotations in the order the library
               expects, and, since the sentence breaks are the analyzer's single opinion, hands
               over the reconciled list. The richer result gives a model package and tests the
-              data that has no place in the annotations.
+              data that has no place in the annotations. A host that selects only normalization
+              gets normalizations alone, without part-of-speech annotations or tags.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-NormalizationAnnotations
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
@@ -98,27 +101,34 @@ sections:
             tests:
               - AnalysisSubsystem_Analyze_NormalizedText_AnnotationsReadBackAndBreaksAreReconciled
               - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
-              - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
+              - EnglishTextAnalyzer_Analyze_NormalizationOnly_EmitsOnlyNormalizationsAndUntaggedTokens
               - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization
               - EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles
 
-          - id: SpeechTextEn-Analysis-SharedTagger
+          - id: SpeechTextEn-Analysis-SelectedAnnotationsAndRecovery
             title: >-
-              The AnalysisSubsystem shall obtain the part-of-speech tagger lazily and at most once
-              per process (retrying after a failed attempt rather than remembering the failure),
-              and shall not load it for an analyzer that is never invoked, for an empty text, or
-              when part-of-speech annotation is not selected.
+              The AnalysisSubsystem shall emit only the annotation families its options select
+              (and still supply sentence breaks and tokens when part-of-speech annotation is not
+              selected or the text has no word), shall give concurrent requests, including the
+              first ones that race on a fresh analyzer, the same results as sequential requests,
+              and shall let a later request succeed after an earlier request failed because the
+              part-of-speech tagger could not be created.
             justification: |
-              The tagger inflates about 1.3 MB of embedded data on first use. A host that
-              constructs an analyzer but never speaks, or does not want tags, must not pay that
-              cost, concurrent first requests must not each load their own copy, and one failed
-              load must not disable analysis for the rest of the process.
+              The tagger inflates about 1.3 MB of embedded data on first use, so a host that does
+              not want tags, or never speaks, should not need it, a failed creation (for example a
+              transient out-of-memory condition) must not disable analysis for the rest of the
+              process, and concurrent first requests must all be served correctly. What the host
+              can observe is the selected output, the agreement of concurrent and sequential
+              results and the recovery after a failure. How the tagger is obtained (lazily, once
+              and shared per process, never for an analyzer that has nothing to tag) is a design
+              strategy recorded in the analysis subsystem design.
             children:
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-LazySingleTagger
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-SplitWithoutTagger
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-ConcurrentUseAndRecovery
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-UntaggedSplit
             tests:
-              - AnalysisSubsystem_Analyze_UnusedOrUntaggedAnalyzer_NeverLoadsTagger
-              - AnalysisSubsystem_Analyze_ManyConcurrentRequests_LoadTaggerOnceAndAgree
+              - AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations
+              - AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult
+              - AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds
 
           - id: SpeechTextEn-Analysis-SentenceBoundaries
             title: >-
@@ -294,23 +304,24 @@ sections:
 
           - id: SpeechTextEn-Analysis-ReadingModelAvailability
             title: >-
-              The AnalysisSubsystem shall emit no reading, load no model and create no tagger for
-              readings alone when no heteronym model is available (as is the case for the default
-              analyzer of this release) or the reading family is not selected, shall obtain a
-              model only when a text first contains a word of the inventory, and shall continue
-              without readings when the model is damaged or incompatible.
+              The AnalysisSubsystem shall emit no reading when no heteronym model is available (as
+              is the case for the default analyzer of this release) or the reading family is not
+              selected, shall emit the readings of a valid model for every request that contains a
+              word of the inventory, the same for concurrent and for sequential requests, and shall
+              continue without readings when the model is damaged or incompatible.
             justification: |
               The reading runtime ships before the first trained weights, and a host that does
-              nothing must see no change in output or cost; when a model is supplied the cost of
-              loading it is paid by the first request that needs it, and a model that cannot be
-              used must degrade the analysis to what it was without it.
+              nothing must see no change in output; when a model is supplied, every request that
+              needs it gets the same readings, and a model that cannot be used must degrade the
+              analysis to what it was without it. When the model is opened and that it is loaded
+              once are design choices recorded in the analysis and heteronym subsystem designs.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingLazyModel
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingModelUse
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
             tests:
               - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
-              - EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce
+              - EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem
 
           - id: SpeechTextEn-Analysis-ReadingOverrides
             title: >-

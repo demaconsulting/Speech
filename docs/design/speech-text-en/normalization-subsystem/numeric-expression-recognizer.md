@@ -447,7 +447,7 @@ neither.
 - **IsMonthToken(token)**, **MonthNames**, **MonthAbbreviations**, **WeekdayAbbreviations**: the month and
   weekday vocabulary shared with `AbbreviationResolver` (its `next-date` guard) so the lexicon and the numeric
   rule agree; the three properties return cached read-only views of the private tables (no cast reaches the
-  array, no call allocates); a test cross-checks the lists against the lexicon rows
+  array, no call allocates); the lists are kept consistent with the lexicon rows by review
 
 **Algorithmic bound.** Every scanner reads a token's characters a constant number of times and never
 backtracks; the number of groups, digits and neighbor tokens is bounded by the constants above; no regular

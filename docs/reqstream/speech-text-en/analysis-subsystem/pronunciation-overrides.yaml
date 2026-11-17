@@ -159,9 +159,9 @@ sections:
 
               - id: SpeechTextEn-Analysis-PronunciationOverrides-Immutability
                 title: >-
-                  The PronunciationOverrides class shall be immutable once built: it shall keep a
-                  private copy of its entries so that a later change to the supplied collection has
-                  no effect, shall expose the entries only through a read-only view in the order
+                  The PronunciationOverrides class shall be immutable once built: a later change to
+                  the supplied collection shall have no effect on it, it shall expose the entries
+                  only through a read-only view in the order
                   supplied, shall share one empty dictionary, and shall give identical results to
                   concurrent lookups.
                 justification: |
@@ -240,15 +240,20 @@ sections:
               - id: SpeechTextEn-Analysis-PronunciationOverrides-Cancellation
                 title: >-
                   The PronunciationOverrides class shall throw OperationCanceledException before any
-                  work for a token that is already canceled and at a periodic check of at most 256
-                  visited tokens that counts every token whether it matched or not, and shall stay
-                  linear in the number of tokens for a large text.
+                  work for a token that is already canceled, and shall throw it instead of
+                  returning directives when cancellation is requested while a long text is being
+                  looked up, and shall resolve a large text against a full dictionary to exactly
+                  the directives of the words that are keys.
                 justification: |
                   The lookup runs on every request on thread-pool threads and a stop or dispose
-                  waits for the analyzer to return, so a long text must stop promptly.
+                  waits for the analyzer to return, so a long text must stop promptly. The large
+                  text with a full dictionary and one huge token keeps the lookup honest about
+                  adversarial input: the directives are the correct ones, however large the text.
+                  How often the lookup polls the token and how its scan stays linear are design
+                  choices recorded in the pronunciation overrides design.
                 tests:
-                  - PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken
-                  - PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget
+                  - PronunciationOverrides_Resolve_Cancellation_ThrowsOnPreCanceledTokenAndWhenCanceledWhileProcessing
+                  - PronunciationOverrides_Resolve_LargeText_ResolvesExactlyTheMatchingWords
 
               - id: SpeechTextEn-Analysis-PronunciationOverrides-ArgumentValidation
                 title: >-

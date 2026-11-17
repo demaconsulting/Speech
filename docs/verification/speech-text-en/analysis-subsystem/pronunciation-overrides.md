@@ -60,9 +60,10 @@ instance; case-sensitive matching is exact, insensitive matching is the ordinal 
 current culture, a sensitive entry beats an insensitive one, and no normalization form is applied; only a whole token
 matches (never a piece next to a letter, a mark or a digit), clitic stems, hyphen compounds, both apostrophe styles and
 words next to a tag placeholder behave as documented; each action maps to its directive, with at most one directive per
-token in ascending order; the lookup agrees with the naive reference for 20,000 random cases; cancellation is checked
-before any work and every 256 visited tokens; non-matching tokens yield no directive and a large text resolves in linear
-time; invalid arguments to the lookup throw; and every row of the golden file normalizes as documented.
+token in ascending order; the lookup agrees with the naive reference for 20,000 random cases; cancellation throws for a
+token canceled beforehand and when requested while a long text is looked up; non-matching tokens yield no directive and
+a large text resolves to exactly the directives of its key words; invalid arguments to the lookup throw; and every row
+of the golden file normalizes as documented.
 
 #### Test Scenarios
 
@@ -269,17 +270,18 @@ space, which the entry validation scenario covers).
 
 ##### Cancellation and size
 
-**Tests**: `PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken`,
+**Tests**: `PronunciationOverrides_Resolve_Cancellation_ThrowsOnPreCanceledTokenAndWhenCanceledWhileProcessing`,
 `PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives`,
-`PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget`
+`PronunciationOverrides_Resolve_LargeText_ResolvesExactlyTheMatchingWords`
 
-The cancellation test resolves 1,000 tokens that never match with an observer that cancels while token 300 is
-visited and requires that exactly the tokens 0 to 510 were visited (the next periodic check is at the 512th token)
-and then that an already canceled token visits nothing. The no-match test resolves 5,000 tokens against a
-2,000-entry dictionary, some of which pass the matching gates and some of which do not, and requires no directive.
-The size test
-resolves a text of about one million characters and a single 100,000-character token against a 10,000-entry
-dictionary within a generous time budget, which detects a super-linear lookup.
+The cancellation test resolves 5,000 tokens that never match with an observer that cancels while an early token is
+visited and requires an `OperationCanceledException`, and then requires that an already canceled token visits nothing
+and throws; it asserts neither how many tokens were visited nor the polling cadence (design choices). The no-match test
+resolves 5,000 tokens against a 2,000-entry dictionary, some of which pass the matching gates and some of which do not,
+and requires no directive. The size test resolves a text of about one million characters and a single 100,000-character
+token against a 10,000-entry dictionary and requires exactly the skip directives of the words that are keys, in token
+order, computed independently from the generator of the text, and none for the huge token. No elapsed time is
+asserted: how the lookup stays linear is recorded in the *PronunciationOverrides Design*.
 
 ##### Argument validation
 

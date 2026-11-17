@@ -214,7 +214,7 @@ sections:
               - Speech-Recognition-RecognitionSession-DeviceLostFault
               - Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
               - Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
-              - Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
+              - Speech-Recognition-DedicatedWorker-BlockedCallIsolation
               - Speech-Recognition-DedicatedWorker-CooperativeCancellation
               - Speech-Recognition-DedicatedWorker-AbandonAfterTimeout
               - Speech-Recognition-DedicatedWorker-AbandonDiagnostic

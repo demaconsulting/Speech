@@ -3,20 +3,19 @@
 #### Verification Approach
 
 Verified by `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, which also owns the verification of
-`ChatterboxTurboModelOptions` (not a separate unit). Backend creation uses synthetic ONNX
-graphs written into a scratch install directory, and a static test hook confirms sessions are
-disposed on failure and that none is created for a missing file. The language and the auxiliary-graph
-variants are checked by id and file name; the English language is a fixed property of the model
-(its display name is asserted) and the graphs' content is verified in the networks unit. The default
-descriptor and variant tests assert that every file has a non-empty 64-character hexadecimal SHA-256
-checksum. The invalid-graph test reads the private `InferenceSession._disposed` field by
-reflection to confirm disposal; that read must be revisited whenever the ONNX Runtime package is upgraded,
-because the field is an implementation detail of the library.
+`ChatterboxTurboModelOptions` (not a separate unit). Backend creation uses synthetic ONNX graphs written into a scratch
+install directory, and a static session-factory seam substitutes a derived session that records its own disposal,
+confirming no session is left open when backend creation fails. The language and the auxiliary-graph variants are
+checked by id and file name, and by synthesizing through each variant's graphs; the English language is a fixed property
+of the model (its display name is asserted) and the graphs' content is verified in the networks unit. The default
+descriptor and variant tests assert that every file has a non-empty 64-character hexadecimal SHA-256 checksum. The
+invalid-graph test observes disposal through the public `Dispose(bool)` override point of the derived session, so it
+depends on no ONNX Runtime private state.
 
 #### Test Environment
 
 - **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
-- **Isolation**: scratch directories; non-parallel collection for the session hook
+- **Isolation**: scratch directories; non-parallel collection for the session-factory seam
 
 #### Acceptance Criteria
 

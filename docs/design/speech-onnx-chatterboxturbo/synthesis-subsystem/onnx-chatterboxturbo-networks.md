@@ -4,19 +4,17 @@
 language model, conditional decoder) and expose them through `IChatterboxTurboNetworks`, so the
 engine never touches tensors or session options directly.
 
-**Data Model**: Four sessions, one shared `RunOptions` instance used for every run, the resolved encoder
-output names (`_encoderOutputs`, by name or by position), the language model's past-input names
-(`_pastNames`, `past_key_values.*`) and output names (`_languageModelOutputs`, logits then
-`present.*`), the language-model key/value cache layout read from the graph's metadata
-(layer count from the `past_key_values.*.key` inputs, cache element type, head count and head width,
-defaulting to 16 heads of dimension 64 when the graph leaves them dynamic), the language model's
-`inputs_embeds` element type, the intra-op thread count (exposed as `IntraOpThreads`), the layer count
-(`LayerCount`) and the cache element type (`KeyValueElementType`), and a static `OnSessionCreated` hook
-used only by tests to observe sessions. `CreateFloat16Tensor` is the shared helper that builds the half-precision
-tensors for embeddings and empty cache entries. A `LanguageModelState` (the private
-`IChatterboxTurboLanguageModelState` implementation) owns one generation's cache; it is not owned or
-disposed by the networks, so the caller disposes each state, and a state disposed after its networks
-is safe (it only releases its own cache tensors).
+**Data Model**: Four sessions, one shared `RunOptions` instance used for every run, the resolved encoder output names
+(`_encoderOutputs`, by name or by position), the language model's past-input names (`_pastNames`, `past_key_values.*`)
+and output names (`_languageModelOutputs`, logits then `present.*`), the language-model key/value cache layout read from
+the graph's metadata (layer count from the `past_key_values.*.key` inputs, cache element type, head count and head
+width, defaulting to 16 heads of dimension 64 when the graph leaves them dynamic), the language model's `inputs_embeds`
+element type, the intra-op thread count (exposed as `IntraOpThreads`), the layer count (`LayerCount`) and the cache
+element type (`KeyValueElementType`), and a static `SessionFactory` seam used only by tests to substitute a session that
+records its own disposal. `CreateFloat16Tensor` is the shared helper that builds the half-precision tensors for
+embeddings and empty cache entries. A `LanguageModelState` (the private `IChatterboxTurboLanguageModelState`
+implementation) owns one generation's cache; it is not owned or disposed by the networks, so the caller disposes each
+state, and a state disposed after its networks is safe (it only releases its own cache tensors).
 
 `IChatterboxTurboNetworks` is the internal seam the engine uses (`Encode`, `Embed`, `BeginGeneration`,
 `Decode`, `Dispose`); `IChatterboxTurboLanguageModelState` is one generation's cache holder with

@@ -65,16 +65,18 @@ sections:
                   - SparsePerceptronModel_Load_RowCountAboveTable_IsRejected
                   - SparsePerceptronModel_Load_StoredLengthMismatch_IsRejected
 
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-ChecksumOfStoredBytes
+              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-DamageDetection
                 title: >-
-                  The SparsePerceptronModel class shall verify the FNV-1a checksum of the stored
-                  bytes before any inflation and shall reject a file whose stored bytes or whose
-                  checksum field differ, in both the compressed and the uncompressed form.
+                  The SparsePerceptronModel class shall detect damage to a model file, in both the
+                  compressed and the uncompressed form, by rejecting a file whose stored bytes or
+                  whose checksum field differ from what the checksum of the file demands, before
+                  any weight is interpreted.
                 justification: |
                   A flipped bit in a compressed stream can inflate to plausible but wrong weights,
-                  which would change pronunciations without any error; checking the stored bytes
-                  first catches damage before it is interpreted, and costs nothing for a file that
-                  is intact.
+                  which would change pronunciations without any error; the integrity check has to
+                  catch damage before the data is interpreted. Which algorithm is used (FNV-1a over
+                  the stored bytes) and that it is checked before inflation are recorded in the
+                  sparse perceptron model design, which is the format specification.
                 tests:
                   - SparsePerceptronModel_Load_ChangedStoredByte_FailsChecksum
                   - SparsePerceptronModel_Load_ChangedChecksumField_FailsChecksum

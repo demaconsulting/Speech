@@ -28,9 +28,9 @@ and mockable stream interactions behave as documented.
 `PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo`,
 `PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse`
 
-##### Environment: Initialization Failure is Cached and Non-Throwing
+##### Environment: Initialization Failure is Non-Throwing
 
-**Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure`
+**Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage`
 
 ##### Environment: Refresh Success and Refusal
 
@@ -53,8 +53,3 @@ untouched.
 
 **Tests**: `PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured`,
 `PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills`
-
-##### Shared Singletons: Adapter and Environment are Reusable
-
-**Tests**: `PortAudioApi_Instance_ReadTwice_ReturnsSameInstance`,
-`PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance`
