@@ -19,7 +19,7 @@ Design*). Both are positive finite 32-bit floats, at most 1e6.
 | 0 | 4 | magic | the ASCII text `HETW`, checked first even in a short file |
 | 4 | 2 | formatVersion | 1 |
 | 6 | 2 | flags | bit 0 set: the payload is raw Deflate; any other bit is rejected |
-| 8 | 2 | featureSetVersion | equal to the feature-set version this build extracts |
+| 8 | 2 | featureSetVersion | at least 1 (a version other than this build's loads; the classifier rejects it) |
 | 10 | 2 | inventoryVersion | at least 1 (the classifier checks it against the inventory) |
 | 12 | 1 | hashBits | 16 to 24 |
 | 13 | 3 | reserved | zero |
@@ -112,8 +112,8 @@ contains nothing else: whatever the bytes are, the result is a loaded model or a
 seeded mutation test over valid files proves, with bounded allocation. Floats are read as binary, never parsed from
 text, so the current culture has no effect.
 
-**Dependencies**: the framework only (`DeflateStream`, `BinaryPrimitives`, `BitOperations`), and the feature-set
-version constant of `HeteronymFeatureExtractor` and the FNV constants of `FeatureHashing`.
+**Dependencies**: the framework only (`DeflateStream`, `BinaryPrimitives`, `BitOperations`), and the FNV constants of
+`FeatureHashing`.
 
 **Callers**: `HeteronymClassifier` (the weights and the header values), `HeteronymModelProvider` (loading), the later
 trainer (the writer) and the tests.

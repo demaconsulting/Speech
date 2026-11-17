@@ -59,9 +59,10 @@ depend on it.
   observer receives the running count right after each model-scored classification, so a test can act at an exact
   classification (for example, cancel the analysis at an exact word); production passes null
 - **Classify(sentence, target, formIndex)**: as above; the feature buffers (`MaxConjoined` and `MaxShared` entries) and
-  the candidate scores are on the stack, so a classification allocates nothing. A target outside the sentence throws
-  `ArgumentOutOfRangeException`. Thread-safe: any number of threads may classify concurrently on one instance and get
-  the single-threaded results
+  the candidate scores are on the stack, so a classification allocates nothing. A target that is negative or not below
+  the sentence length throws `ArgumentOutOfRangeException`; it is checked first, before the single-candidate shortcut,
+  so every form rejects a bad target. Thread-safe: any number of threads may classify concurrently on one instance and
+  get the single-threaded results
 - **HeteronymModelProvider.IsConfigured**: whether a model source exists, answered without opening or loading it (for
   the embedded provider, whether the manifest resource exists). An analyzer uses it at construction to decide whether
   the reading family can be effective at all
@@ -70,7 +71,8 @@ depend on it.
   failure status. The first call runs the load once, under the lazy's lock; every later call, from any thread, gets the
   same result. The load opens the source (null or no source means `NotShipped`), loads the stream strictly (any
   `InvalidDataException`, `IOException`, `UnauthorizedAccessException` or `NotSupportedException` means `Invalid`, and
-  so does a failure to open) and builds the classifier (an `InvalidDataException` of the compatibility check means
+  so does a failure to open; a well-formed model of another feature-set version loads) and builds the classifier (an
+  `InvalidDataException` of the compatibility check, a feature-set mismatch or a newer inventory, means
   `Incompatible`). The stream is disposed. **A failure is cached as a status value, not as a cached exception**, so a
   corrupt model is opened once, not on every request, and every caller sees the same status. Laziness: a provider that
   is never asked for a classifier never opens its source, however it is otherwise used

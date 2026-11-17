@@ -94,7 +94,8 @@ sections:
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-ArgumentValidation
                 title: >-
                   The HeteronymClassifier class shall throw ArgumentOutOfRangeException for a
-                  target that is outside the sentence it is given.
+                  target that is negative or not below the length of the sentence it is given,
+                  whether the form has one candidate or several.
                 justification: |
                   A programming error should surface immediately with a clear exception rather than
                   as a decision about the wrong word.
@@ -144,8 +145,10 @@ sections:
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
                 title: >-
                   The HeteronymModelProvider class shall report a source without a model, a damaged
-                  model, a source that fails to read and a model of a newer inventory as a status
-                  (not shipped, invalid or incompatible) with no classifier rather than by
+                  model, a source that fails to read, a well-formed model of another feature set
+                  and a model of a newer inventory as a status (not shipped, invalid for the
+                  damaged and unreadable, incompatible for the well-formed models that do not fit
+                  this build) with no classifier rather than by
                   throwing, and shall remember the status instead of opening the source again.
                 justification: |
                   A model that cannot be used must not break speech or be retried on every request;
@@ -155,3 +158,7 @@ sections:
                   - HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShippedOnce
                   - HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalidAndCachesIt
                   - HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible
+                  - HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible
+                  - HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid
+                  - HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid
+                  - HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid

@@ -8,9 +8,9 @@ parity* in *HeteronymSubsystem Design*). It comprises `HeteronymContext` (the de
 
 **Data Model**:
 
-*Feature-set version.* `FeatureSetVersion` is 1. Every model file records it and the loader rejects any other value,
-so a change of a template, a template number, a word list, a code or a hash must raise the version, which makes every
-older model impossible to load instead of silently wrong.
+*Feature-set version.* `FeatureSetVersion` is 1. Every model file records it and the classifier rejects any other value
+as incompatible, so a change of a template, a template number, a word list, a code or a hash must raise the version,
+which makes every older model impossible to load instead of silently wrong.
 
 *The token description* (`ContextToken`, an internal read-only record struct): `Start` and `Length` (the token's span in
 the analyzed text), `Upos` (the part-of-speech code), `ConfidenceBucket`, `Class`, `Shape`, `IsWord`, `LowerHash` and

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.Tests.Fakes;
 
@@ -159,17 +160,40 @@ public sealed class HeteronymClassifierTests
         Assert.Throws<ArgumentNullException>(() => new HeteronymClassifier(ReadingInventory.Default, null!));
     }
 
-    /// <summary>Proves a target outside the sentence is rejected for an ambiguous form.</summary>
-    [Fact]
-    public void HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException()
+    /// <summary>Proves a target outside the sentence (negative, equal to the length or beyond it) is rejected for both an ambiguous and a single-candidate form.</summary>
+    /// <param name="singleCandidate">Whether to classify a single-candidate form (which takes the fast path) or a multi-candidate one.</param>
+    /// <param name="targetKind">Which invalid target to use: -1 negative, 0 equal to the length, 1 beyond the length, 2 int.MinValue, 3 int.MaxValue.</param>
+    [Theory]
+    [InlineData(false, -1)]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(false, 2)]
+    [InlineData(false, 3)]
+    [InlineData(true, -1)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    [InlineData(true, 2)]
+    [InlineData(true, 3)]
+    public void HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException(bool singleCandidate, int targetKind)
     {
-        // Arrange
+        // Arrange: a form of the requested kind and a sentence that contains it
         var inventory = ReadingInventory.Default;
-        var (context, _, form) = Prepare(inventory, "I want to record it .", "record");
+        var form = Enumerable.Range(0, inventory.FormCount).First(f => (inventory.GetCandidates(f).Length == 1) == singleCandidate);
+        var word = inventory.FormAt(form);
+        var (context, _, _) = Prepare(inventory, $"We saw the {word} there .", word);
         var (_, classifier) = Create([]);
+        var target = targetKind switch
+        {
+            -1 => -1,
+            0 => context.Length,
+            1 => context.Length + 1,
+            2 => int.MinValue,
+            _ => int.MaxValue,
+        };
 
-        // Act / Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => classifier.Classify(context, context.Length, form));
+        // Act / Assert: the target is validated before the single-candidate shortcut
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => classifier.Classify(context, target, form));
+        Assert.Equal("target", exception.ParamName);
     }
 
     /// <summary>Proves the classifier is thread-safe and deterministic: many threads classifying the same contexts get the single-threaded results.</summary>
@@ -329,6 +353,74 @@ public sealed class HeteronymClassifierTests
         // Assert
         Assert.Null(classifier);
         Assert.Equal(ModelLoadStatus.Incompatible, status);
+    }
+
+    /// <summary>Proves a well-formed model of another feature-set version is reported as incompatible, not invalid.</summary>
+    /// <param name="featureSetVersion">A feature-set version other than the one this build extracts.</param>
+    [Theory]
+    [InlineData(2)]
+    [InlineData(65_535)]
+    public void HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible(int featureSetVersion)
+    {
+        // Arrange: a valid model whose header names another feature set (the header is not covered by the checksum)
+        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8), (ushort)featureSetVersion);
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
+
+        // Act
+        var classifier = provider.GetClassifier(out var status);
+
+        // Assert
+        Assert.Null(classifier);
+        Assert.Equal(ModelLoadStatus.Incompatible, status);
+    }
+
+    /// <summary>Proves a model of a feature-set version of zero is structurally invalid, not merely incompatible.</summary>
+    [Fact]
+    public void HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid()
+    {
+        // Arrange
+        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8), 0);
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
+
+        // Act
+        provider.GetClassifier(out var status);
+
+        // Assert
+        Assert.Equal(ModelLoadStatus.Invalid, status);
+    }
+
+    /// <summary>Proves a model whose stored checksum no longer matches its payload is reported as invalid.</summary>
+    [Fact]
+    public void HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid()
+    {
+        // Arrange: flip a bit of the checksum field
+        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
+        bytes[36] ^= 0x01;
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
+
+        // Act
+        provider.GetClassifier(out var status);
+
+        // Assert
+        Assert.Equal(ModelLoadStatus.Invalid, status);
+    }
+
+    /// <summary>Proves a file with the wrong magic is reported as invalid.</summary>
+    [Fact]
+    public void HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid()
+    {
+        // Arrange
+        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
+        bytes[0] = (byte)'X';
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
+
+        // Act
+        provider.GetClassifier(out var status);
+
+        // Assert
+        Assert.Equal(ModelLoadStatus.Invalid, status);
     }
 
     /// <summary>

@@ -44,8 +44,8 @@ sections:
                   The SparsePerceptronModel class shall check the magic of a file first, so that a
                   foreign or tiny file is reported as not a model, and shall then reject with an
                   InvalidDataException that names the field a file that is shorter than the
-                  header, an unsupported format or feature-set version, an unknown flag bit, an
-                  inventory version below one, hash bits outside 16 to 24, a non-zero reserved
+                  header, an unsupported format version, an unknown flag bit, a
+                  feature-set or inventory version below one, hash bits outside 16 to 24, a non-zero reserved
                   field, a temperature or scale that is not finite, not positive or above one
                   million (accepting the boundary values), a row count above what the table or the
                   payload cap allows, and a stored length that does not match the bytes after the
@@ -156,8 +156,8 @@ sections:
                   The SparsePerceptronModel class shall expose the feature-set version, the
                   reading-inventory version, the hash bits, the temperature, the scale, the number
                   of rows, the trainer version and the data manifest digest that its header
-                  carries, and shall load only a model whose feature-set version is the one the
-                  feature extractor declares.
+                  carries, and shall load a well-formed model whatever its feature-set version,
+                  leaving the compatibility decision to the classifier.
                 justification: |
                   The classifier decides whether a model fits the runtime from these fields, and
                   the temperature and scale give the meaning of its integer weights; a model built
@@ -165,6 +165,7 @@ sections:
                 tests:
                   - SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights
                   - SparsePerceptronModel_Load_InvalidHeaderField_IsRejected
+                  - SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion
 
               - id: SpeechTextEn-Heteronym-SparsePerceptronModel-Immutability
                 title: >-

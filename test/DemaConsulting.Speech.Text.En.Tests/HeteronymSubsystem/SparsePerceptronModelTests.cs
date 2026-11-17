@@ -172,8 +172,7 @@ public sealed class SparsePerceptronModelTests
     [InlineData(4, new byte[] { 2, 0 }, "Unsupported heteronym model format version 2")]
     [InlineData(6, new byte[] { 2, 0 }, "unknown flag bits 0x0002")]
     [InlineData(6, new byte[] { 0, 0x80 }, "unknown flag bits 0x8000")]
-    [InlineData(8, new byte[] { 2, 0 }, "Unsupported feature set version 2")]
-    [InlineData(8, new byte[] { 0, 0 }, "Unsupported feature set version 0")]
+    [InlineData(8, new byte[] { 0, 0 }, "the feature-set version must be at least 1")]
     [InlineData(10, new byte[] { 0, 0 }, "the inventory version must be at least 1")]
     [InlineData(12, new byte[] { 15 }, "the hash bits 15 are outside 16 to 24")]
     [InlineData(12, new byte[] { 25 }, "the hash bits 25 are outside 16 to 24")]
@@ -189,6 +188,26 @@ public sealed class SparsePerceptronModelTests
 
         // Act / Assert
         AssertInvalid(image, expected);
+    }
+
+    /// <summary>Proves a well-formed file that records another feature-set version still loads, with that version preserved, so the caller can report it as incompatible rather than invalid.</summary>
+    /// <param name="compress">Whether the payload is stored as Deflate.</param>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion(bool compress)
+    {
+        // Arrange: the header is not covered by the checksum, so patching the field keeps the file well-formed
+        var image = Standard(compress);
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(8), 7);
+
+        // Act
+        var model = SparsePerceptronModel.Load(image);
+
+        // Assert
+        Assert.Equal(7, model.FeatureSetVersion);
+        Assert.Equal(StandardWeights.Length, model.RowCount);
+        Assert.All(StandardWeights, pair => Assert.Equal(pair.Weight, model.GetWeight(pair.Bucket)));
     }
 
     /// <summary>Proves a temperature or scale that is NaN, infinite, zero, negative or above the maximum is rejected.</summary>

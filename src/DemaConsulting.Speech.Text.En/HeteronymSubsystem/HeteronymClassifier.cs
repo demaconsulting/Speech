@@ -94,10 +94,18 @@ internal sealed class HeteronymClassifier
     /// <param name="target">The index of the word within <paramref name="sentence"/>.</param>
     /// <param name="formIndex">The inventory form of the word, from <see cref="ReadingInventory.TryFindForm"/>.</param>
     /// <returns>The chosen reading and its confidence.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="target"/> is not inside <paramref name="sentence"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="target"/> is negative or not below the length of <paramref name="sentence"/>, whatever the form's candidate count.</exception>
     /// <remarks>Thread-safe and allocation-free.</remarks>
     internal HeteronymPrediction Classify(ReadOnlySpan<ContextToken> sentence, int target, int formIndex)
     {
+        // Validate the target before anything else, for every form: the single-candidate fast path below would
+        // otherwise hide a caller defect that only an ambiguous form reveals. The unsigned comparison rejects a
+        // negative index and an index at or beyond the length in one overflow-safe test.
+        if ((uint)target >= (uint)sentence.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(target), "The target is not a token of the sentence.");
+        }
+
         var candidates = Inventory.GetCandidates(formIndex);
         if (candidates.Length == 1)
         {

@@ -67,16 +67,18 @@ after reading only that much.
 
 **Tests**: `SparsePerceptronModel_Load_WrongMagic_IsRejectedAsForeignFile` (a theory over lengths 0, 2, 4 and 200),
 `SparsePerceptronModel_Load_ShortHeader_IsRejectedAsTruncated`,
-`SparsePerceptronModel_Load_InvalidHeaderField_IsRejected` (a theory over twelve field values),
+`SparsePerceptronModel_Load_InvalidHeaderField_IsRejected` (a theory over eleven field values),
+`SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion` (a theory over the compressed and the raw
+form),
 `SparsePerceptronModel_Load_InvalidTemperatureOrScale_IsRejected` (a theory over eleven values),
 `SparsePerceptronModel_Load_BoundaryTemperatureAndScale_AreAccepted`
 
 A file that does not start with `HETW` is reported as not a model whatever its length, even when it is empty or two
 bytes long; a file with the magic and fewer than 80 bytes is reported as truncated. The field theory rejects format
-version 2, the flag bits 0x0002 and 0x8000, feature-set versions 2 and 0, inventory version 0, hash bits 15 and 25, and
-a non-zero byte in any of the three reserved bytes or in the reserved word, each with a message that names the field.
-The float theory rejects a temperature or scale that is NaN, infinite, zero, negative or above 1e6. The values 1e6 and a
-tiny positive value are accepted.
+version 2, the flag bits 0x0002 and 0x8000, feature-set version 0 (a well-formed file of another feature-set version
+loads and keeps its version), inventory version 0, hash bits 15 and 25, and a non-zero byte in any of the three reserved
+bytes or in the reserved word, each with a message that names the field. The float theory rejects a temperature or scale
+that is NaN, infinite, zero, negative or above 1e6. The values 1e6 and a tiny positive value are accepted.
 
 ##### Lengths and allocation
 

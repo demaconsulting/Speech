@@ -72,8 +72,8 @@ feature-set version. No `InternalsVisibleTo` is added now, because it would be d
 exists. Two guards keep the parity checkable: golden feature vectors, which lock the exact hashes of a set of
 sentences under several cultures, and a tokenization-parity test, which proves that equivalent spellings that the
 tokenizer splits differently (`can't` and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the
-same token texts and the same features for the target. A feature-set version in every model file makes a mismatch a
-rejected file instead of silent wrong weights (see *HeteronymFeatureExtractor Design*).
+same token texts and the same features for the target. A feature-set version in every model file makes a mismatch an
+incompatible model instead of silent wrong weights (see *HeteronymFeatureExtractor Design*).
 
 **Inventory-version policy (decision).** The inventory carries an integer revision that is a constant of the code; the
 revision grows when readings are added. A model records the revision it was trained for and binds its weights to

@@ -134,10 +134,14 @@ internal static class ModelBinaryFormat
     /// <returns>The validated header.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="image"/> is null.</exception>
     /// <exception cref="InvalidDataException">
-    ///     The magic, version, flags, feature-set version, hash bits, reserved bytes, temperature, scale,
-    ///     row count, payload length or stored length is invalid, or the file is truncated or has trailing
-    ///     bytes. The checksum is verified by <see cref="ReadPayload"/>.
+    ///     The magic, format version, flags, feature-set version (below 1), inventory version (below 1), hash
+    ///     bits, reserved bytes, temperature, scale, row count, payload length or stored length is invalid, or
+    ///     the file is truncated or has trailing bytes. The checksum is verified by <see cref="ReadPayload"/>.
     /// </exception>
+    /// <remarks>
+    ///     Validates structure only: a feature-set version other than the one this build extracts is returned
+    ///     in the header, not rejected, so the caller can tell an incompatible model from a malformed one.
+    /// </remarks>
     internal static ModelHeader ParseHeader(byte[] image)
     {
         ArgumentNullException.ThrowIfNull(image);
@@ -166,10 +170,13 @@ internal static class ModelBinaryFormat
             throw new InvalidDataException($"Invalid heteronym model file: unknown flag bits 0x{flags:X4}.");
         }
 
+        // The feature-set and inventory versions are checked for structure only (a version starts at 1); whether
+        // they fit this build is a compatibility question for the classifier, so a well-formed model of another
+        // feature set or a newer inventory still loads and is reported as incompatible rather than invalid.
         var featureSet = BinaryPrimitives.ReadUInt16LittleEndian(data[8..]);
-        if (featureSet != HeteronymFeatureExtractor.FeatureSetVersion)
+        if (featureSet < 1)
         {
-            throw new InvalidDataException($"Unsupported feature set version {featureSet}; this build uses version {HeteronymFeatureExtractor.FeatureSetVersion}.");
+            throw new InvalidDataException("Invalid heteronym model file: the feature-set version must be at least 1.");
         }
 
         var inventoryVersion = BinaryPrimitives.ReadUInt16LittleEndian(data[10..]);

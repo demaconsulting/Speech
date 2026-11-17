@@ -73,8 +73,9 @@ not called. Three classifications of an ambiguous form call the observer with 1,
 
 A model written for the inventory revision plus one is rejected with an `InvalidDataException` whose message names the
 newer inventory; models for revision 1 and for the current revision are accepted. A null inventory and a null model
-throw `ArgumentNullException`. A target equal to the sentence length throws `ArgumentOutOfRangeException` for an
-ambiguous form.
+throw `ArgumentNullException`. A target that is negative, equal to the sentence length or beyond it (and `int.MinValue`
+and `int.MaxValue`) throws `ArgumentOutOfRangeException` naming `target`, for an ambiguous form and for a
+single-candidate form alike (the theory runs both kinds).
 
 ##### Thread safety
 
@@ -98,9 +99,15 @@ classifier, over the default inventory.
 
 **Tests**: `HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShippedOnce`,
 `HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalidAndCachesIt`,
-`HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible`
+`HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible`,
+`HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible`,
+`HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid`,
+`HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid`,
+`HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid`
 
 A source with no model gives `NotShipped` twice with one open. A model with its last byte changed, a source that throws
 `IOException` and one that throws `UnauthorizedAccessException` all give `Invalid` without throwing, and the corrupt and
 the failing sources are opened once although the corrupt one is asked twice, so the failure is cached. A well-formed
-model written for a newer inventory gives `Incompatible` and no classifier.
+model written for a newer inventory gives `Incompatible` and no classifier, and so does a well-formed model whose
+header names another feature-set version (2 and 65,535). A feature-set version of zero, a changed checksum field and a
+changed magic byte give `Invalid`.

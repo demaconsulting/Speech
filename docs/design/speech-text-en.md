@@ -751,22 +751,22 @@ part-of-speech selection alone, so a reading-only selection tags for context and
 
 A trained model is valid only while the runtime extracts exactly the features the trainer extracted. The feature
 extractor, the token description and the hash functions are therefore **one implementation**, `internal` in this
-assembly, that the later trainer will call through `InternalsVisibleTo` granted when the trainer is added (not now:
-it would be dead configuration). Rejected alternatives: a source-linked copy in the trainer (drift and a double
-review) and a public extractor (it would freeze the feature set under semantic versioning, although the feature
-set changes with its own version). Two guards keep the parity checkable: golden feature vectors that lock the exact
-hashes under several cultures, and a tokenization-parity test that shows equivalent spellings which the tokenizer
-splits differently (`can't` and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the same token
-texts and the same features for the target. Every model records the feature-set version and a build rejects any other.
-The comparison over the whole corpus with the trainer's own data belongs to the trainer increment, which has the data.
+assembly, that the later trainer will call through `InternalsVisibleTo` granted when the trainer is added (not now: it
+would be dead configuration). Rejected alternatives: a source-linked copy in the trainer (drift and a double review) and
+a public extractor (it would freeze the feature set under semantic versioning, although the feature set changes with its
+own version). Two guards keep the parity checkable: golden feature vectors that lock the exact hashes under several
+cultures, and a tokenization-parity test that shows equivalent spellings which the tokenizer splits differently (`can't`
+and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the same token texts and the same features
+for the target. Every model records the feature-set version and a build reports any other as incompatible. The
+comparison over the whole corpus with the trainer's own data belongs to the trainer increment, which has the data.
 
 ### Inventory version and model compatibility (policy)
 
-The inventory has an integer revision that is a constant of the library; a test pins it with the counts of the
-embedded tables, so a change of the data needs a deliberate decision about the revision. A model records the revision
-it was trained for and binds its weights to reading ids through salts, never to table positions. A model is accepted
-when its revision is the same as or lower than the inventory's and rejected as incompatible when it is higher. A model
-with another feature-set version is rejected by the loader.
+The inventory has an integer revision that is a constant of the library; a test pins it with the counts of the embedded
+tables, so a change of the data needs a deliberate decision about the revision. A model records the revision it was
+trained for and binds its weights to reading ids through salts, never to table positions. A model is accepted when its
+revision is the same as or lower than the inventory's and rejected as incompatible when it is higher. A well-formed
+model with another feature-set version loads and is rejected as incompatible by the classifier, not as invalid.
 
 ### Model format and delivery
 

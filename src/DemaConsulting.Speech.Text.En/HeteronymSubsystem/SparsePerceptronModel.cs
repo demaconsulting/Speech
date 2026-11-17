@@ -72,7 +72,7 @@ internal sealed class SparsePerceptronModel
     /// <summary>Gets the revision of the reading inventory the model was trained for.</summary>
     internal int InventoryVersion { get; }
 
-    /// <summary>Gets the feature-set version the model was trained with; always the version this build extracts.</summary>
+    /// <summary>Gets the feature-set version the model was trained with; at least 1, but not necessarily the version this build extracts (the classifier checks that).</summary>
     internal int FeatureSetVersion { get; }
 
     /// <summary>Gets the informational version of the trainer that wrote the file; 0 when unknown.</summary>
@@ -107,10 +107,11 @@ internal sealed class SparsePerceptronModel
     /// <returns>The model.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="image"/> is null.</exception>
     /// <exception cref="InvalidDataException">
-    ///     The file has the wrong magic, version, flags, feature-set version, hash bits, reserved bytes,
-    ///     temperature, scale, row count or lengths; is truncated or has trailing bytes; fails its
-    ///     checksum; has a Deflate stream that is invalid, cut off, trailing or of the wrong size; or
-    ///     has a payload that is not exactly the declared gaps and weights.
+    ///     The file has the wrong magic, format version, flags, feature-set version (zero), inventory version
+    ///     (zero), hash bits, reserved bytes, temperature, scale, row count or lengths; is truncated or has
+    ///     trailing bytes; fails its checksum; has a Deflate stream that is invalid, cut off, trailing or of
+    ///     the wrong size; or has a payload that is not exactly the declared gaps and weights. A well-formed
+    ///     file of another feature-set or inventory version loads; compatibility is decided by the classifier.
     /// </exception>
     internal static SparsePerceptronModel Load(byte[] image)
     {
