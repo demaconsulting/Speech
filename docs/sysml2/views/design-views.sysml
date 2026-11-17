@@ -214,4 +214,8 @@ package SpeechTextEn {
     view TextEnTrainingDataSubsystemView {
         expose TrainingDataSubsystem;
     }
+
+    view TextEnTrainingSubsystemView {
+        expose TrainingSubsystem;
+    }
 }

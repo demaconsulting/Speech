@@ -1,38 +1,57 @@
 # Third-Party Notices for the DemaConsulting.Speech.Text.En Package
 
-## Scope of This File: a Dependency Notice
+## Scope of This File: Embedded Model Data and a Dependency Notice
 
-This file is a notice about a **dependency**, not about content of this package. The package
-`DemaConsulting.Speech.Text.En` embeds no third-party data in this release: its assembly contains compiled code, two
-small lexicon tables (abbreviations and initialisms) and the two tables of the reading inventory (readings and forms)
-that DEMA Consulting wrote from scratch, the lexicon tables under the MIT License (see `PACKAGE-LICENSE.md`) and the
-inventory tables under CC0-1.0. It does require the separate NuGet package
-`DemaConsulting.PartOfSpeech`, a package of DEMA Consulting that is restored next to this one. That package
-carries its own license files and embeds data adapted from the third-party works below. This file reproduces the
-attribution and license notices of those works, as their licenses require of that package, for your convenience and so
-that anyone who installs this package can see what its dependency contains. The licenses below apply to
-`DemaConsulting.PartOfSpeech`, not to this package. Later increments of this package may embed data of their own; this
-file will then be revisited.
+This file has two parts. The first is a notice about **content of this package**: the trained heteronym model that the
+assembly embeds was trained on sentences adapted from the Manually Annotated Sub-Corpus (MASC), and the attribution
+that the license of MASC requires is given below. The second is a notice about a **dependency**: this package requires
+the separate NuGet package `DemaConsulting.PartOfSpeech`, a package of DEMA Consulting that is restored next to this
+one. That package carries its own license files and embeds data adapted from the third-party works below. This file
+reproduces the attribution and license notices of those works, as their licenses require of that package, for your
+convenience and so that anyone who installs this package can see what its dependency contains. The licenses of the
+works that only the dependency embeds (Open English WordNet and Princeton WordNet) apply to
+`DemaConsulting.PartOfSpeech`, not to this package.
+
+The assembly of this package contains compiled code, two small lexicon tables (abbreviations and initialisms) and the
+two tables of the reading inventory (readings and forms) that DEMA Consulting wrote from scratch, the lexicon tables
+under the MIT License (see `PACKAGE-LICENSE.md`) and the inventory tables under CC0-1.0, and the trained heteronym
+model (`heteronyms.bin`) described next.
 
 The MIT License in the repository `LICENSE` file, and in `PACKAGE-LICENSE.md`, covers only the code of this
 repository. It does not cover the data described here.
 
-The notices below are reproduced from the `THIRD-PARTY-NOTICES.md` of `DemaConsulting.PartOfSpeech`. Paths such as
-`data/masc/` refer to the repository of that package, <https://github.com/demaconsulting/PartOfSpeech>, not to this
-repository. The complete notices of that package, including courtesy notices for sources that do not require
-attribution, are shipped in that package.
+The notices below are reproduced from the `THIRD-PARTY-NOTICES.md` of `DemaConsulting.PartOfSpeech`, with the
+statement of the changes extended for the data of this package. Paths such as `data/masc/` refer to the repository of
+that package, <https://github.com/demaconsulting/PartOfSpeech>, not to this repository. The complete notices of that
+package, including courtesy notices for sources that do not require attribution, are shipped in that package.
 
 ## Data Embedded in This Package
 
-None in this release. This package embeds no third-party data and no trained weights. The only data it embeds are two
-small lexicon tables (abbreviations and initialisms) written from scratch by DEMA Consulting under the MIT License,
-and the tables of the reading inventory (`readings.tsv` and `forms.tsv`, the pronunciation readings of English
-heteronyms and the written forms that carry them), also written by DEMA Consulting and released under CC0-1.0; see
-`PACKAGE-LICENSE.md`. This section will describe any third-party data that a later release embeds.
+The package embeds one trained model, `heteronyms.bin`: the weights with which the analyzer decides the reading of a
+heteronym such as *record* from its sentence. It was trained on labeled sentences from three license classes, listed
+here for the 19,865 training rows (18,935 distinct sentences; a further 3,235 development rows were used only to choose
+the settings of the training):
+
+| License class of the sentence | Training rows | Source |
+| --- | ---: | --- |
+| CC BY 3.0 US | 2,328 | adapted from MASC (below) |
+| Public domain | 3,860 | works of the United States federal government and Project Gutenberg texts |
+| CC0-1.0 | 13,677 | sentences written by language models for this purpose, and CC0 sentences of the Tatoeba project |
+
+The weights are numbers that a training program computed from these sentences and their labels; the model contains no
+sentence text. Because the weights were trained in part on data adapted from MASC, they are provided under the terms
+of the MASC license (CC BY 3.0 US), with the attribution below. The labels, that is the reading of each word, were
+chosen by rules from part-of-speech tags or by language models and audited blind by a second model; DEMA Consulting
+dedicated all content that it generated or labeled to the public domain under CC0 1.0 (the Creative Commons CC0 1.0
+Universal public-domain dedication). No human reviewed the model-chosen readings. The statement of the data, with the
+license of every sentence, is `data/text-en/README.md` and `data/text-en/ATTRIBUTION.md` in the repository of this
+package. The tables of the reading inventory (`readings.tsv` and `forms.tsv`) and the two lexicon tables were written
+by DEMA Consulting, the inventory under CC0-1.0 and the lexicon tables under the MIT License; see `PACKAGE-LICENSE.md`.
 
 ## The Manually Annotated Sub-Corpus (MASC)
 
-The lexicon and the trained weights that `DemaConsulting.PartOfSpeech` embeds are adapted in part from MASC.
+The heteronym model that this package embeds, and the lexicon and the trained weights that `DemaConsulting.PartOfSpeech`
+embeds, are adapted in part from MASC.
 
 - **Title:** The Manually Annotated Sub-Corpus (MASC), Penn Treebank syntax annotations of the written texts (release of
   2026-09-25)
@@ -54,6 +73,15 @@ The lexicon and the trained weights that `DemaConsulting.PartOfSpeech` embeds ar
   a training program computed from the tags and the text of the converted sentences, and they contain no MASC text. The
   weights are provided under the terms of this license. The authors of MASC do not endorse this project or the converted
   data. The full statement is `data/masc/ATTRIBUTION.md` in the repository of `DemaConsulting.PartOfSpeech`.
+- **Changes for the heteronym model of this package:** DEMA Consulting adapted those converted sentences further. From
+  them, the sentences that contain a word of the reading inventory were selected, and each such word was labeled with
+  its reading (by rule from the part-of-speech tag, or by a language model whose choices were audited blind by a second
+  model) and given character offsets; sentences that overlap an evaluation set were left out; and the documents were
+  assigned to the training, development and holdout splits. The sentences are kept as their tokens joined by single
+  spaces. The heteronym weights (`heteronyms.bin`) were learned in part from these adapted sentences: they are numbers
+  that a training program computed from the labels and from features of the sentences, and they contain no MASC text.
+  The weights are provided under the terms of this license. The authors of MASC do not endorse this project or the
+  labeled data. The full statement is `data/text-en/ATTRIBUTION.md` in the repository of this package.
 
 ## Open English WordNet
 

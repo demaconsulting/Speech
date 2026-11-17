@@ -1,0 +1,262 @@
+---
+# Software Subsystem Requirements for the SpeechTextEn TrainingSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechTextEn TrainingSubsystem, decomposing
+# the system-level requirements in docs/reqstream/speech-text-en.yaml. The subsystem is the non-shipped train
+# and evaluate commands of the Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer): they train the
+# English heteronym model from the committed training and development data and the reading inventory, check
+# that the committed model and its training record are what retraining produces, and measure the model on the
+# development and holdout sets with baselines, a confidence interval and a quality gate decision. It consists of
+# the loader that prepares the rows exactly as the analyzer sees them (TrainingCorpus), the reproducible random
+# source and mathematics (DeterministicRandom, DeterministicMath), the learner (AveragedPerceptronTrainer), the
+# choice of the epoch count and the calibration temperature and the model image (ModelSelection), the training
+# record (TrainingRecord), the train command (TrainCommand), the evaluator (HeteronymEvaluator), the evaluation
+# record (EvaluationRecord) and the evaluate command (EvaluateCommand). Each requirement states one observable
+# behavior.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-text-en/training-subsystem/. Covered by
+# test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystemTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        requirements:
+          - id: SpeechTextEn-Training-RepeatableModel
+            title: >-
+              The TrainingSubsystem shall give, for the same training data, development data, inventory
+              and settings, a model with the same content on every run and on every operating system,
+              byte for byte in its uncompressed form.
+            justification: |
+              A model nobody can reproduce cannot be reviewed or trusted. The repeatability rests on the
+              reproducible random source and mathematics, the fixed order of the examples and a learning
+              step that depends on nothing but its inputs. The test pins the hash of the uncompressed
+              model trained from a small fixture; the same hash must come out on every operating system
+              of the build matrix, and that matrix, which runs this test on each system, is the evidence
+              of the identity across systems.
+            children:
+              - SpeechTextEn-Training-DeterministicRandom-ReproducibleSequence
+              - SpeechTextEn-Training-DeterministicRandom-BoundedDraws
+              - SpeechTextEn-Training-DeterministicRandom-Shuffle
+              - SpeechTextEn-Training-DeterministicMath-ExponentialAccuracy
+              - SpeechTextEn-Training-DeterministicMath-LogarithmAccuracy
+              - SpeechTextEn-Training-DeterministicMath-SpecialValues
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-Repeatable
+              - SpeechTextEn-Training-ModelSelection-Determinism
+            tests:
+              - TrainingSubsystem_Train_SameInputsTwice_ProduceIdenticalUncompressedImagesAndRecords
+              - TrainingSubsystem_Train_FixtureImage_MatchesPinnedHash
+
+          - id: SpeechTextEn-Training-StalenessCheck
+            title: >-
+              The TrainingSubsystem shall verify on request that the committed model and its record are
+              what retraining from the current inputs and the recorded settings produces, shall report
+              each way in which they are not, naming it, and shall not report a model whose content is
+              equal but whose compressed form differs.
+            justification: |
+              A change to the data, to the tagger or to a setting, or an edit of the model or its
+              record, makes the committed model something the repository can no longer reproduce. The
+              check lets the build find that before a model ships, and naming the cause tells the owner
+              what to do.
+            children:
+              - SpeechTextEn-Training-TrainCommand-CheckCurrent
+              - SpeechTextEn-Training-TrainCommand-CheckStale
+              - SpeechTextEn-Training-TrainingCorpus-InputHashes
+            tests:
+              - TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale
+
+          - id: SpeechTextEn-Training-CommandContract
+            title: >-
+              The TrainingSubsystem shall provide a train command and an evaluate command that signal
+              success, a stale model or a failed gate, and a usage, input or data error with different
+              exit codes, that name the row or the file of a data error, that reject settings out of
+              their range, and that let an experiment with other settings never replace the committed
+              model and record.
+            justification: |
+              The commands are run by hand, by scripts and by the build. A stable exit code contract
+              lets them tell a real finding from a mistake, and keeping experiments away from the
+              committed files means the committed model changes only when its owner means it to.
+            children:
+              - SpeechTextEn-Training-TrainCommand-UsageErrors
+              - SpeechTextEn-Training-TrainCommand-ExperimentIsolation
+              - SpeechTextEn-Training-TrainCommand-KeepsGateSettings
+              - SpeechTextEn-Training-TrainCommand-DataErrors
+              - SpeechTextEn-Training-EvaluateCommand-UsageErrors
+              - SpeechTextEn-Training-TrainingCorpus-DataValidation
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-SettingsValidation
+              - SpeechTextEn-Training-ModelSelection-SettingsValidation
+              - SpeechTextEn-Training-DeterministicRandom-BoundValidation
+              - SpeechTextEn-Training-HeteronymEvaluator-SetValidation
+            tests:
+              - TrainingSubsystem_Program_DispatchesTrainAndEvaluate
+              - TrainingSubsystem_Train_LabelNotACandidate_ExitsTwoNamingTheRow
+
+          - id: SpeechTextEn-Training-HoldoutFreeTraining
+            title: >-
+              The TrainingSubsystem shall use only the training data, the development data and the
+              reading inventory to train a model and to choose its epoch count and calibration
+              temperature, so that the holdout files can be absent or altered without changing the model
+              or its record, and shall read a holdout file only when the operator asks to evaluate a
+              holdout set or to decide the gate, announcing it.
+            justification: |
+              A holdout set measures a model only while nothing the model or its choices were made from
+              has seen it. Choices made on the development set leave the holdout sets as the honest
+              measurement, and the evaluation commands read a holdout only when the owner takes that
+              irreversible step.
+            children:
+              - SpeechTextEn-Training-TrainingCorpus-InputFiles
+              - SpeechTextEn-Training-ModelSelection-EpochChoice
+              - SpeechTextEn-Training-ModelSelection-TemperatureChoice
+              - SpeechTextEn-Training-EvaluateCommand-HoldoutDiscipline
+            tests:
+              - TrainingSubsystem_Train_HoldoutFilesAbsentOrAltered_ImageUnchanged
+
+          - id: SpeechTextEn-Training-RuntimeAlignedTraining
+            title: >-
+              The TrainingSubsystem shall prepare every training row with the analyzer's own tokenizer,
+              tagger and features, shall learn only from the rows whose target is exactly one token of
+              that tokenization and whose word has more than one reading, and shall count the rows
+              skipped in the record of the model.
+            justification: |
+              The analyzer only classifies words it sees as one token, in the context it builds. A model
+              trained on contexts the analyzer never presents would be tuned for another system. The
+              count of the skipped rows tells the owner how much of the data the analyzer cannot use.
+            children:
+              - SpeechTextEn-Training-TrainingCorpus-RuntimeAlignment
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-IgnoredRows
+              - SpeechTextEn-Training-ModelSelection-InputCounts
+            tests:
+              - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord
+
+          - id: SpeechTextEn-Training-LearnedModel
+            title: >-
+              The TrainingSubsystem shall learn from the training rows weights that, loaded as a model by
+              the runtime, make the analyzer choose the labeled readings for the patterns of the training
+              rows, with the natural rows given the configured weight and the small weights pruned.
+            justification: |
+              The purpose of training is a model the runtime can load and use, so the learned weights
+              are judged by the analyzer's own decisions. The natural-row weight and the pruning are
+              the owner's two controls over what is learned and how large the file is.
+            children:
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-LearnsTheLabels
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-ExactWeights
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-EpochReports
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-Pruning
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-NaturalRowWeight
+              - SpeechTextEn-Training-TrainingCorpus-PartOfSpeechHints
+            tests:
+              - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
+
+          - id: SpeechTextEn-Training-PredictionParity
+            title: >-
+              The TrainingSubsystem shall decide, for every aligned row of the development and holdout
+              sets, the same reading with its own scoring as the analyzer emits with the trained model,
+              and shall report any difference.
+            justification: |
+              The trainer and the analyzer are separate paths over the same weights. Checking them
+              against each other on every row is what turns "trained on what the analyzer sees" from an
+              intention into a measured fact.
+            children:
+              - SpeechTextEn-Training-HeteronymEvaluator-Parity
+            tests:
+              - TrainingSubsystem_Evaluate_TrainerAndAnalyzerPredictions_AgreeOnEveryFixtureRow
+
+          - id: SpeechTextEn-Training-EvaluationReport
+            title: >-
+              The TrainingSubsystem shall report the reading accuracy of a model on the development and
+              holdout sets, end to end through the analyzer, with the own-part-of-speech, majority and
+              first-candidate baselines, the accuracy by source, reading and confidence, the readings with
+              the lowest accuracy, a paired confidence interval of the improvement over the
+              own-part-of-speech baseline that treats the rows of a document as one unit, and the variation
+              of the holdout accuracy between seeds.
+            justification: |
+              Whether a model is worth shipping depends on what it adds beyond what is free, how sure that
+              is, and where it fails. A figure for the model alone shows none of that. Counting a row the
+              analyzer cannot read as wrong keeps the figure honest.
+            children:
+              - SpeechTextEn-Training-HeteronymEvaluator-Metrics
+              - SpeechTextEn-Training-HeteronymEvaluator-WorstReadings
+              - SpeechTextEn-Training-HeteronymEvaluator-UnalignedRows
+              - SpeechTextEn-Training-HeteronymEvaluator-OwnPartOfSpeechBaseline
+              - SpeechTextEn-Training-HeteronymEvaluator-MajorityBaseline
+              - SpeechTextEn-Training-HeteronymEvaluator-RoundedRatios
+              - SpeechTextEn-Training-HeteronymEvaluator-ImprovementInterval
+              - SpeechTextEn-Training-HeteronymEvaluator-DocumentClustering
+              - SpeechTextEn-Training-HeteronymEvaluator-ProvenanceRequired
+              - SpeechTextEn-Training-HeteronymEvaluator-IntervalRepeatable
+              - SpeechTextEn-Training-EvaluateCommand-Report
+              - SpeechTextEn-Training-EvaluateCommand-MissingProvenance
+              - SpeechTextEn-Training-EvaluateCommand-SeedStudy
+            tests:
+              - TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage
+
+          - id: SpeechTextEn-Training-QualityGateDecision
+            title: >-
+              The TrainingSubsystem shall decide the quality gate from the natural holdout, passing a model
+              only when its pooled accuracy reaches the threshold of the record, the threshold itself
+              being enough, and the lower bound of the confidence interval of its improvement is above
+              zero, and shall carry the pre-registered thresholds as the defaults of the record.
+            justification: |
+              The owner fixed the thresholds before any model was measured so that they could not be
+              tuned to a result. Deciding from the record's thresholds, which retraining never rewrites,
+              keeps that promise.
+            children:
+              - SpeechTextEn-Training-HeteronymEvaluator-GateDecision
+              - SpeechTextEn-Training-EvaluateCommand-GateExitCodes
+              - SpeechTextEn-Training-EvaluateCommand-GateAndRecordCheck
+              - SpeechTextEn-Training-TrainingRecord-DefaultGate
+            tests:
+              - TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds
+
+          - id: SpeechTextEn-Training-EvaluationRecordFiles
+            title: >-
+              The TrainingSubsystem shall write the evaluation as deterministic record files and verify
+              them on request, naming each file that is edited, missing or different from what the
+              evaluation produces.
+            justification: |
+              The evaluation record is the evidence of the quality gate decision. It has to be reproducible, and
+              a change to it that is not the product of an evaluation has to be found.
+            children:
+              - SpeechTextEn-Training-EvaluationRecord-SummaryFile
+              - SpeechTextEn-Training-EvaluationRecord-GateFile
+              - SpeechTextEn-Training-EvaluationRecord-GroupFiles
+              - SpeechTextEn-Training-EvaluationRecord-SeedsFile
+              - SpeechTextEn-Training-EvaluationRecord-DeterministicFiles
+              - SpeechTextEn-Training-EvaluationRecord-StalenessDetection
+              - SpeechTextEn-Training-EvaluationRecord-PercentFormat
+              - SpeechTextEn-Training-EvaluateCommand-RecordWriteAndCheck
+            tests:
+              - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
+
+          - id: SpeechTextEn-Training-ModelProvenance
+            title: >-
+              The TrainingSubsystem shall record in every model it builds the inventory version, the
+              feature-set version, the trainer version and the hash of the training data, and shall build
+              the model both as a compressed file and as an uncompressed image with the same weights.
+            justification: |
+              The runtime refuses a model whose inventory or feature set it does not support, and the
+              owner must be able to tell from the model itself which data produced it. The uncompressed
+              image is the form that is hashed and compared, because the bytes of a compressed file
+              depend on the compression library.
+            children:
+              - SpeechTextEn-Training-ModelSelection-ModelImages
+            tests:
+              - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
+
+          - id: SpeechTextEn-Training-RecordContent
+            title: >-
+              The TrainingSubsystem shall write with every model a record in a deterministic text form
+              that holds the settings, the inputs (the hashes, the versions and the counts of rows used
+              and skipped), the choices and the hash of the model image, that reads back to the same
+              values, and that is refused, with the reason, when it is damaged or out of range.
+            justification: |
+              The record is what lets anyone retrain the model and verify it. A record that varied with
+              the machine, or that could be damaged without notice, would not do that.
+            children:
+              - SpeechTextEn-Training-TrainingRecord-RoundTrip
+              - SpeechTextEn-Training-TrainingRecord-DeterministicText
+              - SpeechTextEn-Training-TrainingRecord-Validation
+              - SpeechTextEn-Training-TrainCommand-WritesModelAndRecord
+            tests:
+              - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord

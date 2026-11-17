@@ -23,16 +23,19 @@ for the success path. No fake of the classifier or the model is needed.
 #### Acceptance Criteria
 
 With no weights at all the winner is the first candidate in the row order of the inventory and the confidence of two
-candidates is exactly one half; the confidence equals the temperature-calibrated softmax of the top candidate for two
-and for three candidates (to twelve decimals), and a higher temperature lowers it without changing the winner; a reading
-that is not a candidate of the word never wins whatever its weights; a form with one candidate returns that reading with
-confidence 1; the observer receives the running count of model-scored classifications only (never for a single-candidate
-form); a model for
-a newer inventory is rejected while an older or equal one is accepted; null arguments and a target outside the sentence
-are rejected; concurrent callers obtain the single-threaded results; the embedded provider and the provider with no
-source are not configured and have no model; a provider over a source reports that it is configured; concurrent
-first requests all receive a classifier whose predictions equal those of a sequentially obtained one; an absent model
-is reported as not shipped, a corrupt model or a
+candidates is exactly one half; the score of a candidate is the sum of the weights of the buckets selected by the
+conjoined features under the label salt and by the shared features under the role salt, a repeated feature counting once
+per occurrence and a candidate that selects no weighted bucket scoring 0; the confidence equals the
+temperature-calibrated softmax of the top candidate for two and for three candidates (to twelve decimals), and a higher
+temperature lowers it without changing the winner; a reading that is not a candidate of the word never wins whatever its
+weights; a form with one candidate returns that reading with confidence 1; the observer receives the running count of
+model-scored classifications only (never for a single-candidate form); a model for a newer inventory is rejected while
+an older or equal one is accepted; null arguments and a target outside the sentence are rejected; concurrent callers
+obtain the single-threaded results; the embedded provider is configured and loads the embedded model (status `Loaded`)
+and the provider with no source is not configured and has no model; a provider over a source reports that it is
+configured; concurrent first requests all receive a classifier whose
+predictions equal those of a sequentially obtained one; an absent model (no source, or a source that supplies none) is
+reported as not shipped, a corrupt model or a
 failing or unreadable source as invalid, and a model of a newer inventory as incompatible, each as a status value with
 no classifier and never an exception. Whether a source is opened lazily, once, and whether a failure is cached rather
 than retried are design choices (see the *HeteronymClassifier Design*) and are not asserted.
@@ -50,6 +53,18 @@ forms table, with a confidence of exactly 0.5. A bias weight of 32,767 for `read
 `record`, changes nothing: the result is again a `record` reading at 0.5. For the first form of the inventory with three
 candidates, a weight of 128 on the middle candidate makes it win with the confidence e^2 / (e^2 + 2), inside one third
 to one.
+
+##### Candidate score
+
+**Test**: `HeteronymClassifier_ScoreCandidate_SumsWeightsOfSelectedBuckets`
+
+The scorer is called directly, through its weight-source seam, with a small map of weights on the buckets that the
+features 11 and 22 select under a label salt (3 and 5) and that the feature 33 selects under a role salt (7), the
+buckets themselves being computed by the shared bucket definition. The conjoined features 11, 11 and 22 with the shared
+feature 33 score 3 + 3 + 5 + 7 = 18, so a repeated feature counts once per occurrence; a candidate with other salts
+selects none of those buckets and scores 0. Because the classifier calls the same scorer for its decisions and the
+trainer calls it for its judgments, this test, with the tests of the decision above, is the evidence that the two cannot
+score a candidate differently.
 
 ##### Calibrated confidence
 
@@ -92,12 +107,13 @@ contexts; every prediction equals the single-threaded prediction.
 
 ##### Provider configuration and concurrent first requests
 
-**Tests**: `HeteronymModelProvider_EmbeddedAndNone_AreNotConfiguredAndHaveNoModel`,
+**Tests**: `HeteronymModelProvider_EmbeddedAndNone_EmbeddedLoadsAndNoneHasNoModel`,
 `HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured`,
 `HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions`
 
-The embedded provider and the provider with no source are not configured, return no classifier and report `NotShipped`,
-which is the state of this release. A provider over a source reports that it is configured. Thirty-two concurrent first
+The embedded provider is configured and returns a classifier with status `Loaded` (the shipped model is embedded under
+the expected resource name and fits this build), while the provider with no source is not configured, returns no
+classifier and reports `NotShipped`. A provider over a source reports that it is configured. Thirty-two concurrent first
 requests each receive a classifier with status `Loaded` that classifies both `record` words of
 `I want to record a record.` exactly as a classifier from a separate, sequentially used provider does, over the default
 inventory.

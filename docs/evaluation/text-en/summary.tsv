@@ -1,0 +1,4 @@
+set	rows	aligned	single_candidate	covered	correct	accuracy_bp	upos_baseline_correct	upos_baseline_bp	majority_baseline_correct	majority_baseline_bp	first_baseline_correct	first_baseline_bp	difference_bp	ci_lower_bp	ci_upper_bp	ci_lower_positive	clusters	parity_compared	parity_mismatched	parity_suppressed
+dev	3235	3232	198	3232	3083	9530	2865	8856	2131	6587	1950	6028	674	559	790	yes	2252	3232	0	0
+holdout-independent	1972	1972	23	1972	1882	9544	1799	9123	1013	5137	1009	5117	421	304	543	yes	1972	1972	0	0
+holdout-natural	1167	1167	0	1167	1123	9623	1058	9066	957	8201	791	6778	557	316	815	yes	266	1167	0	0

@@ -37,6 +37,22 @@ sections:
                 tests:
                   - HeteronymClassifier_Classify_NonCandidateWithHugeWeight_NeverWins
 
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-CandidateScore
+                title: >-
+                  The HeteronymClassifier class shall provide the one definition of the integer score of
+                  a candidate reading, shared by the classifier and the trainer: the sum of the weights
+                  of the buckets selected by the conjoined features of the context under the reading's
+                  own salt and by the shared features under the reading's role salt, with a feature that
+                  occurs more than once counted once for each occurrence, and zero for a candidate whose
+                  salts select no weighted bucket.
+                justification: |
+                  The score decides which reading is chosen, and the trainer learns weights to move it.
+                  If the trainer scored a candidate in any way the runtime does not, the learned weights
+                  would not mean what they were trained to mean. One definition used by both removes that
+                  possibility.
+                tests:
+                  - HeteronymClassifier_ScoreCandidate_SumsWeightsOfSelectedBuckets
+
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-TieBreak
                 title: >-
                   The HeteronymClassifier class shall choose, when several candidates have the
@@ -132,19 +148,21 @@ sections:
                   The HeteronymModelProvider class shall report whether a model source is
                   configured, shall give every one of any number of concurrent first requests a
                   classifier that predicts exactly as a sequentially obtained one does, shall
-                  report the embedded provider and the provider without a source as not configured
-                  and without a model, and shall expose the inventory it was built with.
+                  report the provider without a source as not configured and without a model,
+                  shall report the embedded provider as configured with a model that loads and
+                  fits this build, and shall expose the inventory it was built with.
                 justification: |
                   Many analyzers never need a model, so asking whether one exists must work
                   without a request for a classifier, and concurrent first requests must all be
-                  served correctly. This release embeds no model, so the shared embedded provider is
-                  the provider that never has one. When the source is opened, and that it is opened
+                  served correctly. The shared embedded provider serves the model that ships in
+                  the package, and the provider without a source never has one. When the source is
+                  opened, and that it is opened
                   once and the classifier shared, are design choices recorded in the heteronym
                   classifier design.
                 tests:
                   - HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured
                   - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
-                  - HeteronymModelProvider_EmbeddedAndNone_AreNotConfiguredAndHaveNoModel
+                  - HeteronymModelProvider_EmbeddedAndNone_EmbeddedLoadsAndNoneHasNoModel
 
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
                 title: >-

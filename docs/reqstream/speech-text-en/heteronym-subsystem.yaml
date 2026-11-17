@@ -65,6 +65,7 @@ sections:
               heteronym classifier design.
             children:
               - SpeechTextEn-Heteronym-HeteronymClassifier-CandidateRestricted
+              - SpeechTextEn-Heteronym-HeteronymClassifier-CandidateScore
               - SpeechTextEn-Heteronym-HeteronymClassifier-TieBreak
               - SpeechTextEn-Heteronym-HeteronymClassifier-SingleCandidate
               - SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafety
@@ -115,6 +116,7 @@ sections:
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RuneAwareShapes
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-OverflowSafeRanges
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenizationParity
+              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BucketDefinition
             tests:
               - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
 
@@ -173,12 +175,13 @@ sections:
               The HeteronymSubsystem shall give concurrent requests that use a valid, compatible
               model the same predictions as sequential requests, shall report an absent, damaged,
               unreadable or incompatible model as a status value, with no classifier, rather than
-              as an exception, and shall report the embedded provider of this release as having no
-              model.
+              as an exception, and shall serve the model that ships in the package through its
+              embedded provider.
             justification: |
               Most requests and many analyzers never need a model, concurrent first requests must
               all be served correctly, and a failing load must not reach the speech path as an
-              exception: the status lets the analyzer tell a host. When the model is opened, that
+              exception: the status lets the analyzer tell a host. The embedded provider is how the
+              default analyzer reaches the trained model of the package. When the model is opened, that
               it is loaded once and shared, and that a failed load is remembered rather than
               retried are design choices recorded in the heteronym classifier design; they are not
               part of the observable contract.
@@ -189,3 +192,4 @@ sections:
             tests:
               - HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier
               - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
+              - HeteronymSubsystem_EmbeddedProvider_ShippedModel_ChoosesReadingByContext

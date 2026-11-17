@@ -46,7 +46,7 @@ public sealed record AnalyzedToken(int Start, int Length, string Text, string? P
     /// <summary>
     ///     Gets the heteronym reading id assigned to this token (for example <c>record.noun</c>), or
     ///     <see langword="null"/> when none was: the token is not a heteronym form, the reading family was
-    ///     not selected or has no model, or the token was a replacement or carried another override.
+    ///     not selected, the model could not be used, or the token was a replacement or carried another override.
     /// </summary>
     /// <remarks>Equals the <c>Value</c> of the token's <see cref="TextEnAnnotations.Reading"/> annotation.</remarks>
     public string? Reading { get; init; }

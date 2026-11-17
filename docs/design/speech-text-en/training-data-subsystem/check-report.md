@@ -28,4 +28,5 @@ throws. An output writer that fails propagates its exception.
 
 **Dependencies**: the .NET base class library only.
 
-**Callers**: every other unit of the subsystem and the unit tests.
+**Callers**: every other unit of the subsystem, `TrainingCorpus` and `HeteronymEvaluator` of the TrainingSubsystem (as
+the collector of the findings of a table they read), and the unit tests.

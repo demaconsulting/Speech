@@ -30,10 +30,12 @@ text; a target at a sentence edge sees the start and end markers; a maximal cont
 counts lie between the documented floor and the documented maxima); a buffer that is too small or a target outside the
 sentence is rejected with the documented exception; the feature-set version and the buffer sizes are the documented
 constants; the FNV-1a values equal the published known answers, the folded hash folds ASCII only, and the combiner, the
-feature hash and the salts equal reference values; the token description is culture-independent (the Turkish dotted I is
-not folded, curly apostrophes normalize, digit-only tokens share one form, shape and class and tag and confidence codes
-follow their documented tables, per Unicode scalar); the span of a token is validated without overflow; and equivalent
-spellings that the tokenizer splits differently give the same token texts and the same features for the target.
+feature hash and the salts equal reference values; the bucket of a feature under a salt is its mixed hash reduced to the
+table (the one definition the classifier and the trainer share); the token description is culture-independent (the
+Turkish dotted I is not folded, curly apostrophes normalize, digit-only tokens share one form, shape and class and tag
+and confidence codes follow their documented tables, per Unicode scalar); the span of a token is validated without
+overflow; and equivalent spellings that the tokenizer splits differently give the same token texts and the same features
+for the target.
 
 #### Test Scenarios
 
@@ -75,12 +77,15 @@ checks of the classifier and the model provider).
 ##### Hash functions
 
 **Tests**: `FeatureHashing_Fnv1a_KnownAnswers`, `FeatureHashing_Fnv1aFolded_FoldsAsciiOnly`,
-`FeatureHashing_MixAndFeature_ReferenceValues`
+`FeatureHashing_MixAndFeature_ReferenceValues`, `FeatureHashing_Bucket_IsMixedHashReducedToTheTable`
 
 The FNV-1a hash of the empty text, `a`, `foobar` and `<S>` equals the published values. The folded hash of `FooBAR`
 equals the plain hash of `foobar`, the dotted capital I does not fold to `i`, an accented capital is unchanged and the
 Kelvin sign is not folded. The combiner, three feature hashes and the label and role salts of `record.noun` and `noun`
-equal values computed by an independent reference implementation.
+equal values computed by an independent reference implementation. The bucket of the feature hash `0x12345678` under the
+salt `0x9ABCDEF0` is the mixed hash `0x7F8EA7CC` (one of the reference values above) reduced by the mask: `0xA7CC` for
+a 16-bit mask, `0x0EA7CC` for a 22-bit mask and 0 for a mask of 0, so the one definition that the classifier and the
+trainer share is pinned to the reference value and to the reduction.
 
 ##### Token description
 
@@ -122,4 +127,5 @@ For `I can't read it.` and `I ca n't read it.`, `They don't record it.` and `The
 spaces, `The U.S. record stands.` with and without a space before the period, and `A well-known record.` likewise, the
 real tokenizer gives the same token texts and the described tokens of the target give the same hashes, so the trainer
 and the analyzer, which may see a text spelled in either way, see one context. The comparison over the whole training
-corpus belongs to the trainer increment.
+corpus is made by the trainer's evaluation (the parity check of `evaluate`, described in the TrainingSubsystem
+verification), which compares the trainer's predictions with the analyzer's for every row of the data sets.

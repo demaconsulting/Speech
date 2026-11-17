@@ -97,4 +97,27 @@ public sealed class HeteronymSubsystemTests
         Assert.Equal(ReadingInventory.Default.Version, inventory.Version);
         Assert.Equal(ReadingInventory.Default.FormCount, inventory.FormCount);
     }
+
+    /// <summary>Proves the embedded provider serves the shipped model: it is configured, loads, and its classifier decides clear contexts of one spelling differently.</summary>
+    [Fact]
+    public void HeteronymSubsystem_EmbeddedProvider_ShippedModel_ChoosesReadingByContext()
+    {
+        // Arrange
+        var provider = HeteronymModelProvider.Embedded;
+
+        // Act
+        var configured = provider.IsConfigured;
+        var classifier = provider.GetClassifier(out var status);
+
+        // Assert
+        Assert.True(configured);
+        Assert.Equal(ModelLoadStatus.Loaded, status);
+        Assert.NotNull(classifier);
+        var (context, words) = HeteronymFixtureModel.Describe("Please wind the clock before the wind blows.");
+        Assert.True(classifier.Inventory.TryFindForm("wind", out var form));
+        var coil = classifier.Classify(context, Array.IndexOf(words, "wind"), form);
+        var air = classifier.Classify(context, Array.LastIndexOf(words, "wind"), form);
+        Assert.Equal("wind.coil", classifier.Inventory.ReadingIdAt(coil.ReadingIndex));
+        Assert.Equal("wind.air", classifier.Inventory.ReadingIdAt(air.ReadingIndex));
+    }
 }

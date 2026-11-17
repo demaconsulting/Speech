@@ -31,10 +31,11 @@ public enum TextEnAnnotationSelection
     /// <summary>
     ///     A <see cref="TextEnAnnotations.Reading"/> annotation and its
     ///     <see cref="TextEnAnnotations.ReadingConfidence"/> companion on each heteronym word (such as
-    ///     <c>record</c>), always together and on the same span. The classifier is effective only when a
-    ///     trained heteronym model is available; this release embeds none, so selecting it (it is part of
-    ///     the default) produces readings only for words that carry a
-    ///     <see cref="OverrideAction.Reading"/> override. The classifier needs the part-of-speech tagger
+    ///     <c>record</c>), always together and on the same span. The classifier decides with the trained
+    ///     heteronym model embedded in this package; a word that carries a
+    ///     <see cref="OverrideAction.Reading"/> override takes that reading instead. If the model cannot be
+    ///     used the analysis continues without classified readings and reports one warning. The classifier
+    ///     needs the part-of-speech tagger
     ///     for its context but does not emit <see cref="TextEnAnnotations.PartOfSpeech"/> annotations
     ///     unless that family is selected as well.
     /// </summary>
@@ -99,8 +100,8 @@ public sealed record EnglishTextAnalyzerOptions
     ///     Gets the annotation families to produce. Defaults to
     ///     <see cref="TextEnAnnotationSelection.PartOfSpeech"/>,
     ///     <see cref="TextEnAnnotationSelection.Normalization"/> and
-    ///     <see cref="TextEnAnnotationSelection.Reading"/> combined; the reading family is effective
-    ///     only when a heteronym model is available (none is embedded in this release).
+    ///     <see cref="TextEnAnnotationSelection.Reading"/> combined; the reading family is decided by the
+    ///     heteronym model embedded in this package.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">
     ///     The value contains a flag this release does not define.

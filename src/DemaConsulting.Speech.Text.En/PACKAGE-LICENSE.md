@@ -1,11 +1,14 @@
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: MIT AND CC-BY-3.0-US
 
 # License of the DemaConsulting.Speech.Text.En Package
 
 A NuGet package declares its license either as an SPDX expression or as a license file, never both. This package
-names this file as its license so that the license text and the dependency notice below travel with it. The
-expression on the first line, `MIT`, is a hint for license scanners; this file is the license. It declares only the
-license of what this package itself contains.
+names this file as its license so that the license texts, the attribution and the dependency notice below travel with
+it. The expression on the first line, `MIT AND CC-BY-3.0-US`, is a hint for license scanners; this file is the
+license. It declares the license of what this package itself contains: the code and the lexicon tables are licensed
+under the MIT License, the reading inventory is dedicated to the public domain under CC0-1.0, and the embedded
+heteronym model is provided under the terms of the Creative Commons Attribution 3.0 United States License (CC BY 3.0
+US) because it was trained on sentences adapted from a work under that license (see "Data Embedded in This Package").
 
 ## Code: MIT License
 
@@ -36,14 +39,32 @@ SOFTWARE.
 
 ## Data Embedded in This Package
 
-This package embeds two small lexicon tables of its own: a list of written-English abbreviations with their spoken
-forms and a list of initialisms. DEMA Consulting wrote both from scratch for this package; no third-party list was
-copied. They are released under the MIT License above, like the code. The package also embeds the reading inventory,
-two small tables (`readings.tsv` and `forms.tsv`) that list the pronunciation readings of English heteronyms such as
-*record* and the written forms that can carry them. DEMA Consulting wrote these tables too, and released them under
-CC0-1.0 (the Creative Commons CC0 1.0 Universal public-domain dedication). The package embeds no third-party data and
-no trained weights in this release. If a later release embeds data from a third party (for example trained weights),
-this file and `THIRD-PARTY-NOTICES.md` will describe it and state its license.
+This package embeds the following data.
+
+- **Lexicon tables (MIT).** Two small tables of its own: a list of written-English abbreviations with their spoken
+  forms and a list of initialisms. DEMA Consulting wrote both from scratch for this package; no third-party list was
+  copied. They are released under the MIT License above, like the code.
+- **Reading inventory (CC0-1.0).** Two small tables (`readings.tsv` and `forms.tsv`) that list the pronunciation
+  readings of English heteronyms such as *record* and the written forms that can carry them. DEMA Consulting wrote
+  these tables and released them under CC0-1.0 (the Creative Commons CC0 1.0 Universal public-domain dedication).
+- **Heteronym model (CC BY 3.0 US terms).** The file `heteronyms.bin` holds the trained weights with which the analyzer
+  decides which reading of a heteronym a word has in its sentence. The weights are numbers that a training program
+  computed from labeled sentences; the model contains no sentence text. The 19,865 training rows (18,935 distinct
+  sentences), of which the model is the result, come from three license classes: 2,328 rows adapted from the Manually
+  Annotated Sub-Corpus (MASC), licensed under CC BY 3.0 US (the sentences, their part-of-speech tags and their
+  selection come from MASC); 3,860 public-domain rows (works of the United States federal government and Project
+  Gutenberg texts); and 13,677 rows under CC0-1.0 (sentences written by language models for this purpose, and CC0
+  sentences of the Tatoeba project). The labels (the reading of each word) were chosen by rules from part-of-speech
+  tags or by language models, and DEMA Consulting dedicated all content that it generated or labeled to the public
+  domain under CC0 1.0. A development set of 3,235 rows of the same classes was used only to choose the settings of
+  the training. Because
+  the weights were trained in part on data adapted from MASC, they are provided under the terms of its license: you may
+  share and adapt them, including commercially, provided you give the attribution in `THIRD-PARTY-NOTICES.md` and
+  indicate the changes made. The authors of MASC do not endorse this project or the model.
+
+`THIRD-PARTY-NOTICES.md` carries the attribution of MASC and the statement of the changes made. The data and the
+program that trained the model are in the repository of this package (`data/text-en/` and
+`tools/DemaConsulting.Speech.Text.En.Trainer/`); the model can be reproduced from them.
 
 ## Dependency: DemaConsulting.PartOfSpeech
 

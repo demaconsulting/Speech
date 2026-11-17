@@ -22,8 +22,9 @@ altered, mislabeled, restricted, undocumented or leaking evaluation material. It
 - **CheckDataCommand**: the command line entry that orchestrates the other units (the `Program.cs` glue of the tool
   dispatches to it)
 
-The data is a tool input, not a software item; it is described under *Data Model* below. The trainer has a single
-command in this release; a later increment adds the training command as a sibling subsystem.
+The data is a tool input, not a software item; it is described under *Data Model* below. The trainer's `train` and
+`evaluate` commands are the sibling TrainingSubsystem (see *SpeechTextEn TrainingSubsystem Design*), which reuses this
+subsystem's table reader and data folder discovery.
 
 ### Interfaces
 
@@ -32,9 +33,9 @@ with the options `--data <folder>`, `--eval-sets <folder>`, `--leakage-report <f
 `--counts`, and the environment variable `TEXTEN_EVAL_SETS` as the default of `--eval-sets`. It returns the exit code 0
 when every check passes, 1 when any check reports a finding and 2 for a usage or input error. Findings and progress are
 written to the standard output as lines of the form `check-data: <check>: <file>[:<line>]: <message>`; usage and input
-errors go to the standard error. The subsystem consumes only the .NET base class library: it has no reference to the
-Speech or Text.En libraries and no OTS dependency. The classes live in the
-`DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem` namespace.
+errors go to the standard error. The subsystem consumes only the .NET base class library: none of its units uses the
+Speech or Text.En libraries (the tool's project references Text.En for the sibling TrainingSubsystem only), and it has
+no OTS dependency. The classes live in the `DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem` namespace.
 
 ### Design
 

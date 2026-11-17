@@ -5,9 +5,10 @@ package SpeechTextEn {
              * extraction that turns a tagged sentence into hashed features, the sparse
              * averaged-perceptron model format with its strict loader, and the classifier that
              * picks one of a word's candidate readings with a calibrated confidence. Only
-             * ReadingInventory is public; everything else is internal. The inventory tables are
-             * embedded in the package, but no trained model is embedded in this release, so the
-             * classifier is effective only when a model exists. Production code of this subsystem
+             * ReadingInventory is public; everything else is internal. The inventory tables and the
+             * trained model (heteronyms.bin) are embedded in the package, so the classifier is
+             * effective for the default analyzer and only where an analyzer has a model source.
+             * Production code of this subsystem
              * is independent of the Analysis subsystem, the DemaConsulting.PartOfSpeech package and
              * the diagnostics sink; the Analysis subsystem depends on it, never the reverse. */
 

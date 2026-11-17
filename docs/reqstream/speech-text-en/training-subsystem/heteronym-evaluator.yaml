@@ -1,0 +1,177 @@
+---
+# Software Unit Requirements for HeteronymEvaluator
+#
+# These requirements describe the design-level behavior of the HeteronymEvaluator unit (and the result records
+# that are documented with it), the part of the Text.En trainer that scores a model on a labeled set end to end
+# through the analyzer, with baselines, strata, a clustered confidence interval and the quality gate decision,
+# decomposing the parent SpeechTextEn TrainingSubsystem requirements. Each requirement states one observable
+# behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/HeteronymEvaluatorTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        sections:
+          - title: HeteronymEvaluator Requirements
+            requirements:
+              - id: SpeechTextEn-Training-HeteronymEvaluator-Metrics
+                title: >-
+                  The HeteronymEvaluator class shall score a model on a set of labeled rows by running the
+                  real analyzer with that model on each row's sentence, and shall report the number of
+                  rows, of aligned rows, of single-candidate rows and of rows that received a reading,
+                  the number decided correctly, the number each of the own-part-of-speech, majority and
+                  first-candidate baselines decides correctly, the tallies by source and by confidence
+                  bucket, and the number of document clusters.
+                justification: |
+                  Accuracy alone says little. Against the baselines it shows what the model adds beyond
+                  the tag the tagger already gives, and the strata show where the model is weak. Running
+                  the real analyzer measures what a user would get, not what the trainer believes.
+                tests:
+                  - HeteronymEvaluator_Evaluate_NaturalHoldout_ComputesExactMetrics
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-WorstReadings
+                title: >-
+                  The HeteronymEvaluator class shall tally the rows by labeled reading and list the
+                  readings from the lowest accuracy to the highest.
+                justification: |
+                  A model that is good on average can still fail one reading completely. Listing the worst
+                  readings first shows the owner where to improve the data.
+                tests:
+                  - HeteronymEvaluator_Evaluate_NaturalHoldout_ListsReadingsWorstFirst
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-UnalignedRows
+                title: >-
+                  The HeteronymEvaluator class shall count a row whose target is not a token of the
+                  analyzer's tokenization, so that the analyzer emits no reading for it, as decided wrong
+                  and as not covered, and shall report the row as not aligned.
+                justification: |
+                  A user's text is not filtered for the analyzer's convenience. A row the analyzer cannot
+                  read must lower the accuracy, not disappear from the measurement.
+                tests:
+                  - HeteronymEvaluator_Evaluate_UnalignedRow_CountsWrongAndUncovered
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-OwnPartOfSpeechBaseline
+                title: >-
+                  The HeteronymEvaluator class shall decide the own-part-of-speech baseline by choosing
+                  the one candidate whose part-of-speech tags include the tag the tagger gave the word,
+                  and the first candidate when no candidate or more than one candidate has that tag.
+                justification: |
+                  This is the improvement a model has to beat to be worth shipping: what the tagger
+                  already gives with no model at all.
+                tests:
+                  - HeteronymEvaluator_Evaluate_UposBaseline_UsesTheTagWhenTheHintIsUnique
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-MajorityBaseline
+                title: >-
+                  The HeteronymEvaluator class shall decide the majority baseline by choosing, for each
+                  word, the reading that the training rows label most often for its form.
+                justification: |
+                  Always taking the most common reading is the simplest possible classifier. A model that
+                  does not beat it has learned nothing from context.
+                tests:
+                  - HeteronymEvaluator_Evaluate_MajorityBaseline_FollowsTheTrainingLabels
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-RoundedRatios
+                title: >-
+                  The HeteronymEvaluator class shall express a ratio of two integers in basis points,
+                  rounded half away from zero, and as zero when the denominator is zero.
+                justification: |
+                  The evaluation record is committed and compared. Ratios computed in floating point could
+                  round differently on another platform and make a current record look stale.
+                tests:
+                  - HeteronymEvaluator_RoundBasisPoints_RoundsHalfAwayFromZero
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-ImprovementInterval
+                title: >-
+                  The HeteronymEvaluator class shall compute a confidence interval of the improvement of
+                  the model over the own-part-of-speech baseline, in basis points, whose lower bound is
+                  above zero only when the model is better than the baseline: an interval at the exact
+                  difference when every cluster is alike or there is only one cluster, a difference of zero
+                  and a lower bound that is not above zero when the model is exactly as good as the
+                  baseline, an interval around the estimate with a positive lower bound when the model is
+                  clearly better, and the empty interval when there are no clusters.
+                justification: |
+                  A model can look better than the baseline by luck on a finite set. The interval says
+                  how much of the improvement can be trusted, and it is the second condition of the quality
+                  gate.
+                tests:
+                  - HeteronymEvaluator_Bootstrap_IdenticalClusters_GiveExactDegenerateInterval
+                  - HeteronymEvaluator_Bootstrap_ModelEqualsBaseline_LowerBoundIsNotPositive
+                  - HeteronymEvaluator_Bootstrap_ModelClearlyBetter_HasPositiveLowerBoundAroundTheEstimate
+                  - HeteronymEvaluator_Bootstrap_SingleCluster_IntervalEqualsTheEstimate
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-DocumentClustering
+                title: >-
+                  The HeteronymEvaluator class shall treat all rows of one document as one unit when it
+                  computes the interval, so that the interval of rows that share documents is wider than
+                  that of the same improvement spread over independent rows.
+                justification: |
+                  Sentences of one document are alike, so treating them as independent would claim more
+                  certainty than the data holds.
+                tests:
+                  - HeteronymEvaluator_Bootstrap_RowsOfOneDocumentResampleTogether_SoTheIntervalIsWider
+                  - HeteronymEvaluator_Evaluate_RowsOfOneDocument_FormOneCluster
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-ProvenanceRequired
+                title: >-
+                  The HeteronymEvaluator class shall refuse to evaluate a set that contains a harvested row
+                  without a source document, throwing InvalidDataException that names the row or the missing
+                  provenance file, and shall treat each synthetic or independently written row as a unit of
+                  its own.
+                justification: |
+                  A harvested row that silently counted as independent would make the interval claim more
+                  certainty than the data holds. Only rows that are independent by construction may
+                  stand alone.
+                tests:
+                  - HeteronymEvaluator_Evaluate_MissingProvenanceFile_ThrowsInvalidDataException
+                  - HeteronymEvaluator_Evaluate_HarvestedRowWithoutProvenanceEntry_ThrowsInvalidDataException
+                  - HeteronymEvaluator_Evaluate_IndependentAndSyntheticRows_NeedNoProvenance
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-IntervalRepeatable
+                title: >-
+                  The HeteronymEvaluator class shall give the same interval for the same clusters,
+                  settings and seed every time.
+                justification: |
+                  The interval is written into the committed evaluation record, so it must be the same
+                  on every run and every platform.
+                tests:
+                  - HeteronymEvaluator_Bootstrap_FixedSeed_IsRepeatableAndEmptyInputIsEmpty
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-GateDecision
+                title: >-
+                  The HeteronymEvaluator class shall decide that a model passes the quality gate only when
+                  its pooled accuracy on the natural holdout is at least the threshold, the threshold
+                  itself being enough, and the lower bound of the interval of the improvement is above
+                  zero, and shall decide that a set without rows does not pass.
+                justification: |
+                  The gate was fixed before any model was measured. Both conditions are needed: accuracy
+                  says the model is good, and the interval says it is better than not having it.
+                tests:
+                  - HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive
+                  - HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails
+                  - HeteronymEvaluator_DecideGate_NoRows_Fails
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-Parity
+                title: >-
+                  The HeteronymEvaluator class shall compare, for every aligned row, the reading the
+                  trainer's own scoring decides with the reading the analyzer emits, shall report the
+                  number compared, mismatched and suppressed, and shall give the same decided rows when
+                  only the trainer's scoring is evaluated.
+                justification: |
+                  The trainer and the analyzer are separate code paths over the same model. If they ever
+                  disagreed, the weights would have been tuned for decisions the analyzer never makes.
+                tests:
+                  - HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow
+                  - HeteronymEvaluator_Evaluate_TrainingRows_ParityHoldsAndUnalignedRowsAreReported
+                  - HeteronymEvaluator_EvaluateDirect_AgreesWithEndToEndOnTheFixture
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-SetValidation
+                title: >-
+                  The HeteronymEvaluator class shall throw InvalidDataException for a set name that is not
+                  one of the known sets.
+                justification: |
+                  Asking for a set that does not exist must not silently evaluate something else.
+                tests:
+                  - HeteronymEvaluator_Evaluate_UnknownSet_ThrowsInvalidDataException

@@ -18,8 +18,8 @@ and en-US numbers, ordinals, years, currency, percent, units, times and dates), 
 letter sequences, host-supplied pronunciation overrides (a dictionary of whole words that are spoken as
 written, replaced by plain words, spelled letter by letter, given a phoneme string or given a fixed heteronym
 reading) and authoritative sentence boundaries, and heteronym pronunciation readings: a model-driven choice of which
-reading a word such as `record` has, reported as a reading id with a confidence, which needs a trained model that this
-release does not yet ship (see *Heteronym Readings*).
+reading a word such as `record` has, reported as a reading id with a confidence, which a trained model embedded in the
+package supplies (see *Heteronym Readings*).
 
 SpeechTextEn is a sibling system to Speech rather than a subsystem of it, for the same reasons the model
 packages are: it is a separately built, separately packaged software item with its own dependency, and
@@ -57,19 +57,29 @@ not use it either: the analyzer describes each token to it with plain values (of
 two lower subsystems do not depend on each other. All three are small enough that none needs nested subsystems of its
 own.
 
-A fourth subsystem belongs to the system but not to the package:
+Two further subsystems belong to the system but not to the package:
 
 - **TrainingDataSubsystem**: the `check-data` command of the non-shipped trainer tool
   (`tools/DemaConsulting.Speech.Text.En.Trainer`) that verifies the training and evaluation data of the
   heteronym classifier in `data/text-en/` (the strict file reader, the typed data loader, the manifest verifier, the
   span validator, the finding collector, and the schema, license and leakage checks) - see *SpeechTextEn
   TrainingDataSubsystem Design* and *Training Data and Trainer* below
+- **TrainingSubsystem**: the `train` and `evaluate` commands of the same tool, which train the heteronym model from the
+  training and development data, verify that a committed model is what retraining produces, and measure a model end to
+  end on the development and holdout sets and decide the quality gate (the training corpus loader, the deterministic
+  random generator and math, the integer averaged perceptron, the model selection, the training record and command, and
+  the evaluator, the evaluation record and the evaluation command) - see *SpeechTextEn TrainingSubsystem Design* and
+  *Training and Evaluation* below
 
-The TrainingDataSubsystem shares no code with the library, references neither the Speech library nor the runtime
-subsystems, is not packed into the NuGet package and is not loaded by any host; the runtime subsystems do not know it
-exists. It is modeled as a subsystem of this system because its requirements are system requirements of this
-repository (the licensing and the integrity of the data the classifier is trained on), and because a later
-increment adds a sibling subsystem that trains the classifier from the same data.
+Neither is packed into the NuGet package and neither is loaded by any host. The TrainingDataSubsystem shares no code
+with the library and references neither the Speech library nor the runtime subsystems. The TrainingSubsystem does
+reference the library, and only the library: the Text.En assembly grants its internals to the trainer assembly and to
+the trainer's test assembly with `InternalsVisibleTo`, so the trainer reuses the analyzer's own part-of-speech adapter,
+token description, feature extractor, scoring and model format instead of a copy of them (see *Feature parity between
+the analyzer and the trainer*). The dependency is one way: the runtime subsystems do not know the tool exists, and the
+package neither packs nor references it. Both are modeled as subsystems of this system because their requirements are
+system requirements of this repository (the licensing and the integrity of the data the classifier is trained on, and
+the reproducibility and the gate of the model trained from it).
 
 ## External Interfaces
 
@@ -100,7 +110,8 @@ increment adds a sibling subsystem that trains the classifier from the same data
 - `EnglishTextAnalyzerOptions`
   - Format: Public record
   - Constraints: Validated on initialization; default selects part of speech, normalization and readings (the readings
-    are effective only where a model exists); carries the optional `Overrides` dictionary, which requires
+    are effective only where an analyzer has a model source, which the default analyzer has); carries the optional
+    `Overrides` dictionary, which requires
     normalization, and the `LowConfidenceThreshold` from 0 to 1
 - `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme`
   - Format: Public classes and enumerations; `Create(entries)` and `FromTsv(reader)`
@@ -134,7 +145,8 @@ increment adds a sibling subsystem that trains the classifier from the same data
   - Constraints: Read once, lazily, by the `ReadingInventory`; a malformed table is a defective build
 - Heteronym model file (`HETW` format)
   - Format: Binary file in the format of *Heteronym Readings*, looked up as an embedded resource
-  - Constraints: Read once, lazily, only when needed; strictly validated; this release embeds none
+  - Constraints: Read once, lazily, only when needed; strictly validated; embedded in the package as
+    `Resources/heteronyms.bin`
 
 ## Dependencies
 
@@ -155,6 +167,11 @@ for a pre-release version (the project is not packable for a stable version; see
 release line as the rest of the repository. The pin is at least 0.1.0-beta.5, the
 first version that clears the tagger's working buffers (see *Retention Verification*).
 
+The non-shipped trainer tool is not a dependency of the package; the dependency runs the other way. The tool's project
+references this library (and, through it, the part-of-speech package, whose version it records), and the
+library's `InternalsVisibleTo` entries name the trainer assembly and the trainer's test assembly. The library carries no
+reference to the tool and the entries add nothing to its public surface or its package.
+
 ## Risk Control Measures
 
 N/A - SpeechTextEn provides no safety-critical functionality requiring risk control measures
@@ -172,7 +189,7 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
 3. **Splitting**: `PartOfSpeechAdapter` splits the neutralized text into sentences and tokens (needing no
    tagger) with token offsets that index the text
 4. **Tagging**: when part-of-speech annotation is selected, or when the reading family is effective (selected and a
-   heteronym model exists, see *Heteronym Readings*), the adapter tags each sentence, checking the
+   heteronym model source exists, see *Heteronym Readings*), the adapter tags each sentence, checking the
    cancellation token before each one, after the tagger is obtained and after each sentence is tagged; the
    shared tagger is obtained on the first sentence that is tagged. Tagging runs on the raw tokens, never on
    normalized text (see *Why tagging runs on raw tokens* below)
@@ -229,6 +246,15 @@ tagger (so `Annotations = Normalization` never loads its 1.3 MB of data), and a 
 the spoken form as context can read it from the detailed analysis without changing this contract. For the
 same reason the abbreviation and clitic context cues are lexical and orthographic only (capitalization,
 digits, short word lists), never part-of-speech tags, so the result does not depend on the options.
+
+**Training and evaluation path (offline, not part of a request).** The trainer reads `train.tsv` and `dev.tsv`
+(and the two inventory tables) and prepares every labeled row through the same units the analyzer calls for a request:
+the placeholder neutralization, `PartOfSpeechAdapter.Analyze` with tagging, `PartOfSpeechAdapter.DescribeSentence` and
+`HeteronymFeatureExtractor.Extract`. The averaged perceptron adjusts the buckets that `FeatureHashing.Bucket` selects
+and scores candidates with `HeteronymClassifier.ScoreCandidate`; the development set picks the epoch and the
+temperature; the model is written by `SparsePerceptronModelWriter`. Evaluation reads a model back, runs the real
+analyzer over the sentences of a labeled set and reads the reading annotations, so the measured result is what a user of
+the package would get. See *Training and Evaluation*.
 
 ## Alignment Contract
 
@@ -691,11 +717,13 @@ ends with `-`, and the whole id is at most 64 characters; the text after the fir
 `verb`, `adj-noun`). `ReadingInventory` lists the ids and the written forms they can carry.
 
 The family is selected by `TextEnAnnotationSelection.Reading` (the value 4), which is part of the default selection and
-covers both annotations; there is no separate confidence flag. The family is **effective only where a model exists**:
-the reading classifier needs trained weights, and **this release embeds the inventory tables but no weights**, so a
-default analyzer emits no classified reading. It still emits the reading of a word that a `Reading` override names, with
-the confidence `1.000`, without any model. The options carry `LowConfidenceThreshold` (default 0.60, a finite number
-from 0 to 1): a classified reading whose confidence is below it is counted and flagged
+covers both annotations; there is no separate confidence flag. The family is **effective only where the analyzer has a
+model source**: the reading classifier needs trained weights, and **the package embeds the trained model**
+(`Resources/heteronyms.bin`), so the default analyzer emits a classified reading, with no configuration, for every
+heteronym word of its text. An analyzer built with a provider that has no source (`HeteronymModelProvider.None`) emits
+no classified reading, and a model that cannot be used emits none and one warning. A `Reading` override is still
+emitted with the confidence `1.000`, without any model. The options carry `LowConfidenceThreshold` (default 0.60, a
+finite number from 0 to 1): a classified reading whose confidence is below it is counted and flagged
 (`AnalyzedToken.IsLowConfidenceReading`) but **still emitted**; the threshold never suppresses a reading. A backend
 that wants to ignore uncertain readings compares the confidence itself.
 
@@ -708,8 +736,8 @@ neither overlapped by a replacement or a pronunciation nor carries an override o
 a reading:
 
 - a form with several candidate readings is **classified**: the model chooses one candidate and gives the confidence;
-- a form with exactly one candidate (not ambiguous) gets that reading with confidence `1.000`, but **only when a model
-  exists** (when the family is effective), so a default analyzer emits nothing;
+- a form with exactly one candidate (not ambiguous) gets that reading with confidence `1.000`, but **only when the
+  family is effective** (the analyzer has a model source), so an analyzer with no model source emits nothing;
 - a token with a `Reading` override gets the override's id with confidence `1.000`.
 
 ### Coexistence rules
@@ -750,15 +778,21 @@ part-of-speech selection alone, so a reading-only selection tags for context and
 ### Feature parity between the analyzer and the trainer (decision)
 
 A trained model is valid only while the runtime extracts exactly the features the trainer extracted. The feature
-extractor, the token description and the hash functions are therefore **one implementation**, `internal` in this
-assembly, that the later trainer will call through `InternalsVisibleTo` granted when the trainer is added (not now: it
-would be dead configuration). Rejected alternatives: a source-linked copy in the trainer (drift and a double review) and
-a public extractor (it would freeze the feature set under semantic versioning, although the feature set changes with its
-own version). Two guards keep the parity checkable: golden feature vectors that lock the exact hashes under several
-cultures, and a tokenization-parity test that shows equivalent spellings which the tokenizer splits differently (`can't`
-and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the same token texts and the same features
-for the target. Every model records the feature-set version and a build reports any other as incompatible. The
-comparison over the whole corpus with the trainer's own data belongs to the trainer increment, which has the data.
+extractor, the token description, the hash functions, the bucket a feature selects for a reading
+(`FeatureHashing.Bucket`) and the integer score of a candidate (`HeteronymClassifier.ScoreCandidate`) are therefore
+**one implementation**, `internal` in this assembly, that the trainer calls through `InternalsVisibleTo`: the library's
+project file grants the internals to the trainer assembly and to the trainer's test assembly. The same holds for the
+step that turns the tagged tokens of a sentence into context tokens: `PartOfSpeechAdapter.DescribeSentence` is the one
+place, called by the analyzer's reading pass at run time and by the trainer's row preparation offline. Rejected
+alternatives: a source-linked copy in the trainer (drift and a double review) and a public extractor (it would freeze
+the feature set under semantic versioning, although the feature set changes with its own version). Two guards keep the
+parity checkable: golden feature vectors that lock the exact hashes under several cultures, and a tokenization-parity
+test that shows equivalent spellings which the tokenizer splits differently (`can't` and `ca n't`, `John's` and
+`John 's`, quotes, brackets, abbreviations) give the same token texts and the same features for the target. Every model
+records the feature-set version and a build reports any other as incompatible. A third guard runs over the trainer's own
+data: the evaluation runs the real analyzer over the labeled sentences and compares its readings with the trainer's
+direct classification of the same rows, and reports the **parity counts** (compared, mismatched, suppressed); any
+mismatch means the features the model was trained on differ from what the analyzer sees (see *Training and Evaluation*).
 
 ### Inventory version and model compatibility (policy)
 
@@ -783,8 +817,9 @@ defect is an `InvalidDataException` with a fixed message that never carries the 
 
 The model is looked up as one embedded resource and loaded **lazily and once** for the process, only when an analyzer
 that selects readings meets a candidate word: never at construction, never for a text without a candidate word and
-never for a selection without the family. This release embeds no model, so the lookup finds none and the family is not
-effective. A model that is absent is not an error and is silent; a model that exists but is invalid or incompatible
+never for a selection without the family. The embedded model is found, so the family is effective for the default
+analyzer; an analyzer given a provider with no source finds none, and then the family is not effective. A model that
+is absent is not an error and is silent; a model that exists but is invalid or incompatible
 disables the family and is reported once (see *Heteronym Diagnostics* below).
 
 ### Heteronym Diagnostics
@@ -797,9 +832,9 @@ numbers, never a word, a reading id or a model name:
   with `n` the total, `l` the classified readings below the threshold `t` (written with two decimals, invariant
   culture)
 - **`TextEn.Model`**, Warning level, **once per analyzer instance**, and only when a model exists but cannot be used (an
-  invalid or an incompatible file): `Heteronym model unusable (invalid or incompatible file); readings disabled.` A
-  model that is not shipped is silent, because a permanent warning for every default user would be noise and would not
-  be actionable
+  invalid or an incompatible file): `Heteronym model unusable (invalid or incompatible file); readings disabled.` An
+  absent model (a provider with no source) is silent, because it is a configuration choice of the host and a warning
+  would not be actionable
 
 A canceled request reports nothing, as before. The detailed analysis carries the same data per token
 (`AnalyzedToken.Reading`, `ReadingConfidence` and `IsLowConfidenceReading`).
@@ -818,9 +853,10 @@ shared model, serve any number of concurrent requests.
 This section describes the data that the heteronym classifier is trained on, and the command that guards it. The data
 and the command change nothing in the runtime of the library except one thing: the two small inventory tables of the
 data (`readings.tsv` and `forms.tsv`) are embedded in the package, by link, and are the reading inventory of the
-HeteronymSubsystem (see *Heteronym Readings*). Nothing else of `data/text-en/` is embedded in, referenced by or shipped
-with the package: not the training and evaluation sentences, not the provenance records, and no trained weights (the
-package's license file describes the embedded tables).
+HeteronymSubsystem (see *Heteronym Readings*), and the trained model that the trainer writes is embedded in the package
+as `Resources/heteronyms.bin`. Nothing else of `data/text-en/` is embedded in, referenced by or shipped
+with the package: not the training and evaluation sentences and not the provenance records (the
+package's license file describes the embedded tables and the model).
 
 **What the data is.** `data/text-en/` holds, for the English heteronym classifier, an inventory of readings with
 identifiers owned by this repository (a *reading* is one pronunciation of a written word, such as `record` as a noun or
@@ -859,10 +895,102 @@ the last such run.
 **Review.** The data documents and the small inventory tables are review files; the large tables are pinned by the
 manifest and guarded by the command instead, as the subsystem design explains.
 
-**Trainer scope.** The trainer in this release is a skeleton with the `check-data` command only; it targets `net10.0`,
-is not packable and is not part of the public surface. The training command and the way trained weights ship are later
-increments; the runtime half of the classifier (the inventory, the features, the model format and its strict loader, and
-the classifier) is in the library and is described in *Heteronym Readings*.
+**Trainer scope.** The trainer targets `net10.0`, is not packable and is not part of the public surface. It has three
+commands: `check-data` (this section), and `train` and `evaluate`, which the next section describes. The runtime half of
+the classifier (the inventory, the features, the model format and its strict loader, and the classifier) is in the
+library and is described in *Heteronym Readings*. The trained model, the training record and the evaluation record are
+committed and the model is embedded in the package (see the next section); the package's license file and its
+notices describe the embedded model and the data it was trained on (see *Package License Files*).
+
+## Training and Evaluation
+
+This section describes how the heteronym model is trained and measured by the `train` and `evaluate` commands of the
+trainer (*SpeechTextEn TrainingSubsystem Design*), and the properties they guarantee. Nothing in it changes the runtime
+of the library.
+
+**What the trainer reuses.** The trainer references the library and reaches its internals through
+`InternalsVisibleTo`. Row preparation, scoring and the model file are the library's own units, not copies: the
+part-of-speech adapter and the token description (`PartOfSpeechAdapter.Analyze` and `DescribeSentence`), the feature
+extractor, the bucket of a feature (`FeatureHashing.Bucket`), the integer score of a candidate
+(`HeteronymClassifier.ScoreCandidate`, with the same tie rule: the earlier candidate in the order of `forms.tsv`) and
+the model writer and loader. This is the *Feature parity* decision made concrete, and the evaluation proves it on the
+real data (the parity counts).
+
+**The algorithm (design).** The trainer is a candidate-restricted averaged perceptron over the hashed features, in
+integer arithmetic. For each training row it scores the candidate readings of the row's form and, when the best is not
+the labeled one, adds one to the labeled candidate's buckets and subtracts one from the predicted candidate's, once per
+feature occurrence. Rows are visited in a seeded Fisher-Yates shuffle over SplitMix64, once per epoch, and natural
+(harvested) rows are repeated a configured number of times per epoch; the step counter advances once per visited row.
+The average is exact, `((T + 1) W - U) / T` over 64-bit integers, scaled by 64, rounded half away from zero, clamped to
+plus or minus 32,767 and pruned below a threshold. The default configuration (seed 1, 22 hash bits, scale 64, prune
+threshold 2, natural weight 3, at most 12 epochs) was fixed on the development set only, by a grid written down before
+it was run; the record of that exploration and of the gate run is
+`tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md`.
+
+**Model selection.** The epoch kept is the one that decides the most natural development rows correctly (the earliest on
+a tie; all development rows when there is no natural row). The calibration temperature is the grid value `k / 20` (`k`
+from 1 to 1,000) that minimizes the negative log-likelihood of the same rows, a tie going to the smaller `k`, computed
+with the trainer's own exponential and logarithm (never `Math.Exp` or `Math.Log`) so the choice cannot depend on a
+platform's math library. The model image is built with `SparsePerceptronModelWriter.Compile`, as a compressed file (the
+one that is committed) and as an uncompressed image (the one that is hashed and compared, because Deflate bytes depend
+on the runtime); the header carries the inventory version, the feature-set version, the trainer version (1) and the
+data hash.
+
+**Determinism and reproducibility.** The same data, settings and seed give the same model on every platform, so a
+committed model is verified by retraining (`train --check`) rather than trusted. Training is single threaded and uses
+integer arithmetic, its own random generator, its own exponential and logarithm, ordinal sorts and the invariant
+culture, and every record is LF text with no time stamp. The training record `training.json` holds the settings, the
+data hash, the hash of the feature stream (`featuresSha256`, to tell a drift of the tagger or extractor from a change of
+the data), the versions, the row counts, the choices and the hash of the uncompressed image. `train --check` retrains
+with the recorded settings and names every difference between the recorded and the retrained inputs, choices and image,
+and between the committed model and the retrained image.
+
+**Isolation of the holdout sets.** `TrainingCorpus.Load` opens exactly `train.tsv`, `dev.tsv`, `readings.tsv` and
+`forms.tsv`; it never lists the folder and never names a holdout file, so the holdout sets cannot influence a model by
+construction. Every choice is made on the development set. A holdout file is opened only by the evaluator, for the gate,
+for an explicit holdout set or for the record, and the command prints a line saying so; a set that has guided a choice
+no longer measures anything.
+
+**End-to-end evaluation.** A row is decided by the real `EnglishTextAnalyzer` with a model provider over the model under
+test, reading the reading annotation on exactly the row's span; a row with no emitted reading counts as wrong. Three
+baselines are reported: the own-part-of-speech baseline (the one candidate whose `pos_hint` holds the tagger's tag, else
+the first candidate), the majority reading of the form in `train.tsv` (ties and unseen forms to the first candidate) and
+the first candidate. The strata are the source, the reading and the confidence bucket (below 0.600, 0.600 to 0.899, at
+least 0.900, none). The improvement over the own-part-of-speech baseline has a paired bootstrap interval in which the
+resampling unit is the cluster (the source document of a harvested row, each other row alone), computed in integers and
+ordered by exact cross multiplication.
+
+**The quality gate.** On the natural holdout the gate requires both a pooled end-to-end accuracy of at least 930 per
+mille (tested exactly) and an interval lower bound, at 95% confidence over 10,000 resamples with bootstrap seed 7, that
+is exactly above zero. The independent holdout and the multi-seed variance study (seeds 1 to 5) are reported but are not
+part of the gate. The gate settings are written before the first holdout evaluation, held in the training record, and
+are not changed by a result.
+
+**The evaluation record.** `evaluate --write` writes six tab-separated files (summary, gate, by source, per reading,
+confidence and seeds) of integers and basis points, with LF line ends and no time stamps, and `evaluate --check`
+compares them byte for byte. They are plain tables and not Markdown because the repository's text formatters reflow
+Markdown and would break the byte comparison.
+
+**Where the files go.** The committed locations are derived from the data folder's repository: the model
+`src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin`, the training record
+`tools/DemaConsulting.Speech.Text.En.Trainer/training.json` and the evaluation record `docs/evaluation/text-en/`. All
+three are committed, and the model is embedded in the package as the resource
+`DemaConsulting.Speech.Text.En.Resources.heteronyms.bin`, which `HeteronymModelProvider.Embedded` loads (see *Heteronym
+Readings*). Continuous integration runs `train --check` and `evaluate --check` on every operating system of the build
+matrix (and the lint script also runs `train --check`), so a change of the data, the tagger, the feature extractor
+or the trainer that makes the committed files stale fails the build; replacing the model is a deliberate act that
+retrains, rewrites the record and regenerates the evaluation record together, and updates the headline numbers in
+`docs/evaluation/text-en/README.md`. Experiments with other settings are run
+with `--model-dir`, which a command line guard requires, so they can never overwrite the committed files.
+
+**The shipped model and what its evidence does not claim.** The committed model is seed 1 with 22 hash bits, prune
+threshold 2 and natural weight 3, one epoch kept and temperature 19.6, trained with the part-of-speech tagger package
+version 0.1.0-beta.5, feature-set version 1 and inventory version 2. On the natural holdout it chooses the reading of
+96.23% of the words (1,123 of 1,167) against 90.66% for the tagger's own part of speech, an improvement of 5.57 points
+with a 95% interval of 3.16 to 8.15 points, so the gate passed; the independent holdout gives 95.44%. The labels are not
+human verified, the tagger saw part of the natural holdout, the improvement comes from the rows that need meaning, and
+the counts per reading are small; the evaluation record states these limits with the figures
+(`docs/evaluation/text-en/README.md`) and they travel with every figure quoted from it.
 
 ## Design Constraints
 
@@ -938,10 +1066,14 @@ pass-through items are asserted by a golden row, so a later increment changes th
   magnitude letters without a currency symbol (`10k`, `1.5M`), feet and inches (`5'10"`), the numero sign,
   `Q3 2024`-style quarter names, decimal-comma locales and other en-GB or non-English conventions, and the
   single-letter and word-like units (`m`, `g`, `l`, `s`, `in`), which are too ambiguous to read after a number
-- **Heteronym model weights**: the reading classifier is complete at run time, but no trained weights ship in this
-  release, so a default analyzer emits no classified `en.reading` and `en.reading-confidence` annotations; it emits the
-  reading of a word that a `Reading` override names (see *Heteronym Readings*). The trainer that produces the weights
-  and the embedding of them are later increments
+- **Limits of the heteronym model**: the shipped model (see *Training and Evaluation*) decides 395 readings of 207
+  words of US English, one sentence at a time; a heteronym that is not in the inventory gets no reading and the model
+  does not read beyond the sentence. It depends on the part-of-speech tagger: its features use the tag and the tag
+  confidence, so a tagger of another version needs a retrained model (the build reports a mismatch of the feature-set
+  version as incompatible, and `train --check` reports a drift of the feature stream). The labels it was trained and
+  measured on are not human verified, and its accuracy is the figures of the committed evaluation record
+  (`docs/evaluation/text-en/`) with the limits stated there, not a promise for every text. A host that must have a
+  specific reading fixes it with a `Reading` override (see *Heteronym Readings*)
 - **Multi-word override entries**: an entry is one token; a phrase cannot be overridden as a unit, because
   an annotation across whitespace could be cut by the core chunker and silently lost. A phrase can be
   covered word by word. A later increment may add multi-word entries by per-token decomposition
@@ -1034,21 +1166,31 @@ The package contains code under the MIT License and embeds two small lexicon tab
 written-English abbreviations with their spoken forms and a list of initialisms), which DEMA Consulting wrote
 from scratch for this package under the same MIT License, and the two small tables of the reading inventory
 (heteronym readings and the written forms that carry them), which DEMA Consulting wrote and dedicated to the public
-domain under CC0 1.0; no third-party list was copied and the package
-embeds no third-party data and no trained weights. It therefore declares MIT only: it names a license file,
-`PACKAGE-LICENSE.md`, that starts with the SPDX
-line `SPDX-License-Identifier: MIT`, contains the MIT license text, describes the embedded tables, and
-states that the required package
-`DemaConsulting.PartOfSpeech` is a separate NuGet dependency, not bundled in this package, that carries
-its own license files. The package also ships `THIRD-PARTY-NOTICES.md`, clearly scoped as a dependency
-notice: it states that this package embeds no third-party data, describes that dependency's embedded data
-(Open English WordNet, derived from Princeton
-WordNet, under CC BY 4.0, and the Manually Annotated Sub-Corpus under CC BY 3.0 US) and reproduces its
-attribution, license links, statement of changes and the Princeton WordNet notice verbatim, for the
-reader's convenience. The composite license chain belongs to the dependency, not to this package, so it
-is not claimed in this package's declaration. If a later increment embeds third-party data in this package
-(for example trained weights derived from third-party data), the declaration and the notices will be revisited. Both
-files are packed at the package root and are packaging files, not software items.
+domain under CC0 1.0; no third-party list was copied. The package also embeds the trained heteronym model, whose
+weights are numbers computed from labeled sentences (the model contains no sentence text). Of the 19,865 training
+rows (18,935 distinct sentences), 2,328 are adapted from the Manually Annotated Sub-Corpus (MASC), which is licensed
+under CC BY 3.0 US, 3,860 are in the public domain and 13,677 are under CC0 1.0; the content that DEMA Consulting
+generated or labeled is dedicated to the public domain under CC0 1.0.
+
+The package therefore declares `MIT AND CC-BY-3.0-US`. It names a license file, `PACKAGE-LICENSE.md`, that starts with
+the SPDX line `SPDX-License-Identifier: MIT AND CC-BY-3.0-US`, contains the MIT license text for the code and the
+lexicon tables, states that the reading inventory is CC0-1.0, states that the embedded model is provided under the terms
+of CC BY 3.0 US, describes the embedded data, and states that the required package `DemaConsulting.PartOfSpeech` is a
+separate NuGet dependency, not bundled in this package, that carries its own license files. The package also ships
+`THIRD-PARTY-NOTICES.md`: it carries the MASC attribution with the changes made for this model, the CC0 1.0 dedication
+of the generated and labeled content, and the dependency notice (the data embedded in `DemaConsulting.PartOfSpeech`:
+Open English WordNet, derived from Princeton WordNet, under CC BY 4.0, and MASC under CC BY 3.0 US), reproducing its
+attribution, license links, statement of changes and the Princeton WordNet notice verbatim, for the reader's
+convenience. Both files are packed at the package root and are packaging files, not software items.
+
+**Why the model carries CC BY 3.0 US (decision, treated conservatively).** Whether trained weights are a derivative of
+the data they were trained on is not settled. This package treats them conservatively as derived from the MASC-adapted
+sentences, so the model is provided under the terms of that license (attribution, an indication of the changes, no
+suggestion of endorsement), and the composite declaration mirrors the one of `DemaConsulting.PartOfSpeech`
+(`MIT AND CC-BY-4.0 AND CC-BY-3.0-US`) for the same reason. This package has no CC BY 4.0 content of its own: that
+license belongs to the Open English WordNet data embedded in the dependency, which stays with the dependency, so the
+declaration here omits it. This is a design choice and not legal advice; the license position is the decision of the
+repository owner and is revisited if the training data changes.
 
 ### Platform Support
 

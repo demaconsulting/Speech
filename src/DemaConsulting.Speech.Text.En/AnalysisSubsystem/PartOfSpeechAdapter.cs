@@ -1,4 +1,5 @@
 using DemaConsulting.PartOfSpeech;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
@@ -176,6 +177,37 @@ internal sealed class PartOfSpeechAdapter
         // return a result.
         cancellationToken.ThrowIfCancellationRequested();
         return result;
+    }
+
+    /// <summary>
+    ///     Describes every token of one adapted sentence for the heteronym classifier and the offline
+    ///     trainer, reusing a buffer.
+    /// </summary>
+    /// <param name="analysisText">The analyzed text the tokens index. Must not be null.</param>
+    /// <param name="sentence">The sentence's tokens, tagged. Must not be null.</param>
+    /// <param name="buffer">A buffer from an earlier call, or <see langword="null"/>; reused when it is long enough.</param>
+    /// <returns>A buffer whose first <c>sentence.Count</c> entries describe the sentence's tokens.</returns>
+    /// <remarks>
+    ///     The single place where an adapted token becomes a <see cref="ContextToken"/>: the analyzer calls it at run
+    ///     time and the trainer calls it offline, so the two cannot describe a sentence differently. It lives here,
+    ///     with the adapted token it consumes, so the heteronym subsystem does not depend on the analysis subsystem.
+    ///     Stateless and thread-safe as long as the caller does not share <paramref name="buffer"/>.
+    /// </remarks>
+    internal static ContextToken[] DescribeSentence(string analysisText, IReadOnlyList<AdaptedToken> sentence, ContextToken[]? buffer)
+    {
+        // One array per request grows to the longest sentence that has a candidate word.
+        if (buffer is null || buffer.Length < sentence.Count)
+        {
+            buffer = new ContextToken[sentence.Count];
+        }
+
+        for (var i = 0; i < sentence.Count; i++)
+        {
+            var token = sentence[i];
+            buffer[i] = HeteronymContext.Create(analysisText, token.Start, token.Length, token.Tag, token.Confidence);
+        }
+
+        return buffer;
     }
 
     /// <summary>

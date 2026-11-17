@@ -2,7 +2,7 @@
 
 **Purpose**: Hold the trained weights of the heteronym classifier as an immutable, thread-safe sparse model and load
 them from a strictly validated file. The unit owns the `HETW` file format (version 1), the loader that never trusts a
-file, the writer that tests and the later trainer use to produce files, and the weight lookup. It knows nothing of
+file, the writer that tests and the trainer use to produce files, and the weight lookup. It knows nothing of
 readings, words or features: it maps a bucket number to an integer weight.
 
 **Data Model**:

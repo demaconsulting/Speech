@@ -193,6 +193,32 @@ jobs:
           --
           check-data
 
+      # === CHECK TEXT.EN HETERONYM MODEL ===
+      # Retrains the heteronym model from the committed training data and settings and compares it
+      # with the model embedded in the Text.En package (heteronyms.bin) and its training record
+      # (training.json), then recomputes the evaluation record in docs/evaluation/text-en/ and
+      # compares it with the committed one. The training is integer-only and deterministic, so every
+      # operating system of the matrix must reproduce the same image hash; a drift of the tagger or
+      # of the feature extractor, an edited data file or an edited record fails here. Each step takes
+      # seconds.
+      - name: Check Text.En heteronym model
+        run: >
+          dotnet run
+          --project tools/DemaConsulting.Speech.Text.En.Trainer
+          --configuration Release
+          --no-build
+          --
+          train --check
+
+      - name: Check Text.En evaluation record
+        run: >
+          dotnet run
+          --project tools/DemaConsulting.Speech.Text.En.Trainer
+          --configuration Release
+          --no-build
+          --
+          evaluate --check
+
       # === DOWNLOAD REAL SPEECH MODELS ===
       # Several tests (SherpaOnnxRecognitionEngineTests, SherpaOnnxRecognitionEngineAccuracyTests)
       # deliberately skip rather than fail when their real, production model is not installed in

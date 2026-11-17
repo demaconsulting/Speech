@@ -104,6 +104,19 @@ internal static class FeatureHashing
         Mix(Mix(Mix(FeatureSeed, template), first), second);
 
     /// <summary>
+    ///     Computes the table bucket a feature hash selects for one salt.
+    /// </summary>
+    /// <param name="featureHash">The feature hash, from <see cref="Feature"/> or the feature extractor.</param>
+    /// <param name="salt">The label salt (conjoined features) or role salt (shared features) of a reading.</param>
+    /// <param name="mask">The bucket mask of the model, <c>2^hashBits - 1</c>.</param>
+    /// <returns>The bucket, from 0 to <paramref name="mask"/>.</returns>
+    /// <remarks>
+    ///     The one definition of the bucket of a feature for a reading: the runtime scorer and the trainer both call
+    ///     it, so a model trained offline selects exactly the buckets the analyzer scores.
+    /// </remarks>
+    internal static uint Bucket(uint featureHash, uint salt, uint mask) => Mix(featureHash, salt) & mask;
+
+    /// <summary>
     ///     Computes the salt that binds a hashed feature to one specific reading.
     /// </summary>
     /// <param name="readingId">The reading id, for example <c>record.noun</c>.</param>

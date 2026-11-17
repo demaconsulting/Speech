@@ -258,16 +258,20 @@ public sealed class HeteronymClassifierTests
         Assert.All(results, Assert.True);
     }
 
-    /// <summary>Proves the embedded provider and the provider with no source are not configured, and neither ever has a model.</summary>
+    /// <summary>Proves the embedded provider is configured and loads the embedded model (compatible with this build), while the provider with no source is not configured and never has a model.</summary>
     [Fact]
-    public void HeteronymModelProvider_EmbeddedAndNone_AreNotConfiguredAndHaveNoModel()
+    public void HeteronymModelProvider_EmbeddedAndNone_EmbeddedLoadsAndNoneHasNoModel()
     {
-        // Act / Assert
-        Assert.False(HeteronymModelProvider.Embedded.IsConfigured);
+        // Act
+        var embedded = HeteronymModelProvider.Embedded.GetClassifier(out var embeddedStatus);
+        var none = HeteronymModelProvider.None.GetClassifier(out var noneStatus);
+
+        // Assert
+        Assert.True(HeteronymModelProvider.Embedded.IsConfigured);
+        Assert.NotNull(embedded);
+        Assert.Equal(ModelLoadStatus.Loaded, embeddedStatus);
         Assert.False(HeteronymModelProvider.None.IsConfigured);
-        Assert.Null(HeteronymModelProvider.Embedded.GetClassifier(out var embeddedStatus));
-        Assert.Null(HeteronymModelProvider.None.GetClassifier(out var noneStatus));
-        Assert.Equal(ModelLoadStatus.NotShipped, embeddedStatus);
+        Assert.Null(none);
         Assert.Equal(ModelLoadStatus.NotShipped, noneStatus);
     }
 
@@ -444,6 +448,30 @@ public sealed class HeteronymClassifierTests
         Assert.Equal(ModelLoadStatus.Invalid, status);
     }
 
+    /// <summary>Proves a candidate's score is the sum of the weights of the buckets its features select: conjoined features through the label salt, shared features through the role salt, a repeated feature once per occurrence.</summary>
+    [Fact]
+    public void HeteronymClassifier_ScoreCandidate_SumsWeightsOfSelectedBuckets()
+    {
+        // Arrange: weights on the buckets features 11 and 22 select under the label salt and 33 under the role salt
+        const uint label = 0x1111u;
+        const uint role = 0x2222u;
+        const uint mask = 0xFFFFFFu;
+        var weights = new MapWeights(new Dictionary<uint, int>
+        {
+            [FeatureHashing.Bucket(11, label, mask)] = 3,
+            [FeatureHashing.Bucket(22, label, mask)] = 5,
+            [FeatureHashing.Bucket(33, role, mask)] = 7,
+        });
+
+        // Act
+        var score = HeteronymClassifier.ScoreCandidate(weights, [11u, 11u, 22u], [33u], label, role, mask);
+        var otherCandidate = HeteronymClassifier.ScoreCandidate(weights, [11u, 11u, 22u], [33u], 0x9999u, 0x8888u, mask);
+
+        // Assert: 3 + 3 + 5 + 7; a candidate with other salts selects none of those buckets
+        Assert.Equal(18, score);
+        Assert.Equal(0, otherCandidate);
+    }
+
     /// <summary>
     ///     Builds an inventory and a classifier over a model made of weights.
     /// </summary>
@@ -495,5 +523,13 @@ public sealed class HeteronymClassifierTests
         Assert.True(target >= 0);
         Assert.True(inventory.TryFindForm(word, out var form));
         return (context, target, form);
+    }
+
+    /// <summary>The weights of a few buckets, as a weight source for the scorer; every other bucket weighs zero.</summary>
+    /// <param name="Weights">The weights by bucket.</param>
+    private readonly record struct MapWeights(Dictionary<uint, int> Weights) : HeteronymClassifier.IWeightSource
+    {
+        /// <inheritdoc/>
+        public int GetWeight(uint bucket) => Weights.GetValueOrDefault(bucket);
     }
 }

@@ -62,7 +62,7 @@ public sealed class EnglishTextAnalyzerTests
 
         // Assert: "record" is a verb after "will" and a noun after "This"
         var records = result.Annotations
-            .Where(annotation => text.Substring(annotation.Start, annotation.Length) == "record")
+            .Where(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && text.Substring(annotation.Start, annotation.Length) == "record")
             .Select(annotation => annotation.Value)
             .ToList();
         Assert.Equal(["VERB", "NOUN"], records);
@@ -225,10 +225,10 @@ public sealed class EnglishTextAnalyzerTests
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert: the words around the placeholder keep their part of speech, and nothing covers the placeholder
         Assert.Equal(
             ["I", "'ve", "read", "it"],
-            result.Annotations.Select(annotation => text.Substring(annotation.Start, annotation.Length)));
+            result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech).Select(annotation => text.Substring(annotation.Start, annotation.Length)));
         Assert.DoesNotContain(result.Annotations, annotation => annotation.Start <= 5 && 5 < annotation.End);
     }
 
@@ -312,10 +312,19 @@ public sealed class EnglishTextAnalyzerTests
                 Assert.False(annotation.Start > 0 && char.IsLowSurrogate(text[annotation.Start]) && char.IsHighSurrogate(text[annotation.Start - 1]), $"splits a pair at the start in iteration {iteration}");
                 Assert.False(annotation.End < text.Length && char.IsHighSurrogate(text[annotation.End - 1]) && char.IsLowSurrogate(text[annotation.End]), $"splits a pair at the end in iteration {iteration}");
 
-                // part-of-speech annotations carry a readable tag; normalization annotations are readable too
+                // part-of-speech annotations carry a readable tag; reading annotations a readable reading and confidence;
+                // normalization annotations are readable too
                 if (annotation.Kind == TextEnAnnotations.PartOfSpeech)
                 {
                     Assert.True(TextEnAnnotations.TryReadPartOfSpeech(annotation, out var tag) && tag is not ("PUNCT" or "SYM"));
+                }
+                else if (annotation.Kind == TextEnAnnotations.Reading)
+                {
+                    Assert.True(TextEnAnnotations.TryReadReading(annotation, out _), $"unreadable reading in iteration {iteration}");
+                }
+                else if (annotation.Kind == TextEnAnnotations.ReadingConfidence)
+                {
+                    Assert.True(TextEnAnnotations.TryReadReadingConfidence(annotation, out var confidence) && confidence is >= 0.0 and <= 1.0, $"bad confidence in iteration {iteration}");
                 }
                 else
                 {
@@ -542,8 +551,9 @@ public sealed class EnglishTextAnalyzerTests
         const string first = "Quokka marmoset rested. Zebra galloped.";
         const string second = "I read it again.";
         var sink = new RecordingDiagnostics();
+        var freshSink = new RecordingDiagnostics();
         var used = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
-        var fresh = new EnglishTextAnalyzer();
+        var fresh = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = freshSink });
 
         // Act
         _ = used.Analyze(first, TestContext.Current.CancellationToken);
@@ -554,13 +564,15 @@ public sealed class EnglishTextAnalyzerTests
 
         // Assert
         var expected = fresh.AnalyzeDetailed(second, TestContext.Current.CancellationToken);
+        _ = fresh.Analyze(second, TestContext.Current.CancellationToken);
         Assert.Equal(expected.Annotations, result.Annotations);
         Assert.Equal(expected.SentenceBreaks, result.SentenceBreaks);
         Assert.Equal(expected.Tokens, detailed.Tokens);
         string[] otherWords = ["Quokka", "marmoset", "rested", "Zebra", "galloped"];
         Assert.All(result.Annotations, annotation => Assert.DoesNotContain(otherWords, word => annotation.Value.Contains(word, StringComparison.OrdinalIgnoreCase)));
         var reported = sink.Events.Skip(reportedBefore).ToList();
-        Assert.Equal(2, reported.Count);
+        Assert.NotEmpty(reported);
+        Assert.Equal(freshSink.Events.Select(report => (report.Category, report.Message)).Order(), reported.Select(report => (report.Category, report.Message)).Order());
         Assert.All(reported, report => Assert.DoesNotContain(otherWords, word => report.Message.Contains(word, StringComparison.OrdinalIgnoreCase)));
     }
 
@@ -723,9 +735,9 @@ public sealed class EnglishTextAnalyzerTests
     /// <summary>Lists the replacement and pronunciation annotations of a result as (source characters, kind, value), in order.</summary>
     /// <param name="result">The result.</param>
     /// <param name="text">The analyzed text.</param>
-    /// <returns>The tuples; part-of-speech annotations are left out.</returns>
+    /// <returns>The tuples; part-of-speech, reading and reading-confidence annotations are left out.</returns>
     private static List<(string Source, string Kind, string Value)> NonTagAnnotations(TextAnalysisResult result, string text) =>
-        [.. result.Annotations.Where(annotation => annotation.Kind != TextEnAnnotations.PartOfSpeech).Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value))];
+        [.. result.Annotations.Where(annotation => annotation.Kind is not (TextEnAnnotations.PartOfSpeech or TextEnAnnotations.Reading or TextEnAnnotations.ReadingConfidence)).Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value))];
 
     /// <summary>Proves a say override replaces the word by its plain words as one <c>en.norm</c> annotation on the exact token, and the word keeps its part of speech, listed before the replacement.</summary>
     [Fact]

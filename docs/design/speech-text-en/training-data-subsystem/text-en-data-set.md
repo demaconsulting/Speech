@@ -42,4 +42,6 @@ input and output exception to `CheckDataCommand`.
 **Dependencies**: `TsvTable`, `DataManifest` (to enumerate the other `.tsv` files) and `CheckReport`; the .NET base
 class library only.
 
-**Callers**: `CheckDataCommand` (loads once), `SchemaChecker`, `LicenseChecker`, `LeakageChecker` and the unit tests.
+**Callers**: `CheckDataCommand` (loads once), `SchemaChecker`, `LicenseChecker`, `LeakageChecker`, `TrainingCorpus` and
+`HeteronymEvaluator` of the TrainingSubsystem (the header of the labeled files and of the harvest provenance table) and
+the unit tests.

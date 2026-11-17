@@ -44,7 +44,7 @@ category is the constant `TextEn.Heteronym` and the model category is the consta
 - **ReportModelProblem()**: does nothing without a sink; otherwise sends one Warning-level event in the `TextEn.Model`
   category with the fixed message `Heteronym model unusable (invalid or incompatible file); readings disabled.`, which
   names neither a file nor any text. The analyzer calls it at most once per analyzer instance, and only when a model
-  exists but cannot be used; a model that is not shipped is never reported
+  exists but cannot be used; an absent model (a provider with no source) is never reported
 
 **Error Handling**: any exception from the sink is caught and discarded here, because a diagnostics sink is
 an observer whose contract forbids throwing, and a fault in it must never interrupt the speech request it

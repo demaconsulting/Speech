@@ -235,6 +235,17 @@ includes:
   - docs/reqstream/speech-text-en/training-data-subsystem/license-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/leakage-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml
+  - docs/reqstream/speech-text-en/training-subsystem.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/training-corpus.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/deterministic-random.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/deterministic-math.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/averaged-perceptron-trainer.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/model-selection.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/training-record.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/train-command.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/heteronym-evaluator.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/evaluation-record.yaml
+  - docs/reqstream/speech-text-en/training-subsystem/evaluate-command.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

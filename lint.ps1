@@ -106,6 +106,15 @@ Write-Host "Linting: Text.En training data..."
 dotnet run --project tools/DemaConsulting.Speech.Text.En.Trainer --configuration Release -- check-data
 if ($LASTEXITCODE -ne 0) { $lintError = $true }
 
+# --- TEXT.EN HETERONYM MODEL SECTION ---
+# Retrains the heteronym model from the committed data and settings and verifies that the embedded
+# model (src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin) and its training record
+# (tools/DemaConsulting.Speech.Text.En.Trainer/training.json) are current. Takes seconds. The matching
+# evaluation record check (evaluate --check) retrains five more times and runs in the CI build matrix.
+Write-Host "Linting: Text.En heteronym model..."
+dotnet run --project tools/DemaConsulting.Speech.Text.En.Trainer --configuration Release -- train --check
+if ($LASTEXITCODE -ne 0) { $lintError = $true }
+
 # --- DOTNET LINTING SECTION ---
 # Runs compliance tools: reqstream, versionmark, reviewmark, sysml2tools.
 Write-Host "Linting: compliance tools..."

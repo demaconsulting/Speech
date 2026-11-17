@@ -1,0 +1,107 @@
+---
+# Software Unit Requirements for AveragedPerceptronTrainer
+#
+# These requirements describe the design-level behavior of the AveragedPerceptronTrainer unit (and the
+# ShortWeights struct that is documented with it), the learner of the Text.En trainer that turns the aligned,
+# ambiguous training rows into integer weights, decomposing the parent SpeechTextEn TrainingSubsystem
+# requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/AveragedPerceptronTrainerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        sections:
+          - title: AveragedPerceptronTrainer Requirements
+            requirements:
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-LearnsTheLabels
+                title: >-
+                  The AveragedPerceptronTrainer class shall learn, from the aligned rows of the training
+                  data that have more than one candidate reading, integer weights that decide a separable
+                  set of those rows for their labels, judging each row by the same candidate score the
+                  runtime classifier computes, so that a row the trainer got wrong is, after the weights
+                  are learned, decided for its label.
+                justification: |
+                  The only purpose of the trainer is weights that make the runtime classifier choose the
+                  labeled reading. Judging the rows with the score the runtime computes, not a copy of it,
+                  is what makes the learned weights mean the same thing when they are loaded.
+                tests:
+                  - AveragedPerceptronTrainer_Train_SingleMistakenRow_WeightsThenDecideTheLabel
+                  - AveragedPerceptronTrainer_Train_SeparableFixture_DecidesEveryTrainingRow
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-ExactWeights
+                title: >-
+                  The AveragedPerceptronTrainer class shall give, for one training row that the initial
+                  weights get wrong, the weights that follow from that single correction exactly: the
+                  buckets of the labeled candidate at plus the scale, the buckets of the wrongly chosen
+                  candidate at minus the scale, every other weight zero and the sum of all weights zero.
+                justification: |
+                  A case small enough to compute by hand is the only evidence that the learned numbers
+                  are the intended ones and not merely numbers that happen to work on a fixture.
+                tests:
+                  - AveragedPerceptronTrainer_Train_SingleMistakenRow_GivesExactAveragedWeights
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-EpochReports
+                title: >-
+                  The AveragedPerceptronTrainer class shall report to its caller, once per epoch and in
+                  order from one, the weights that would be deployed if training stopped after that epoch.
+                justification: |
+                  The number of epochs is chosen on the development set, which needs the deployable
+                  weights of every epoch and not only of the last one.
+                tests:
+                  - AveragedPerceptronTrainer_Train_ReportsEachEpochInOrder
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-Repeatable
+                title: >-
+                  The AveragedPerceptronTrainer class shall give the same weights after every epoch for
+                  the same corpus, settings and seed.
+                justification: |
+                  A model that cannot be reproduced cannot be checked for staleness, so the training must
+                  depend on nothing but its inputs.
+                tests:
+                  - AveragedPerceptronTrainer_Train_SameSeedTwice_GivesIdenticalWeights
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-Pruning
+                title: >-
+                  The AveragedPerceptronTrainer class shall drop every deployable weight whose magnitude
+                  does not exceed the prune threshold, so that a threshold above every weight leaves none
+                  and a threshold of zero leaves the weights that were learned.
+                justification: |
+                  Small weights add size to the model file without changing many decisions, and the
+                  threshold lets the owner trade size against accuracy.
+                tests:
+                  - AveragedPerceptronTrainer_Train_PruneThreshold_DropsSmallWeights
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-NaturalRowWeight
+                title: >-
+                  The AveragedPerceptronTrainer class shall let the natural-row weight setting change
+                  what is learned when the training data has natural rows, by giving each natural row
+                  that many turns in every epoch.
+                justification: |
+                  The natural sentences are the closest examples to the text the analyzer meets, and the
+                  synthetic ones are many more. The setting lets the owner decide how much the natural
+                  ones count.
+                tests:
+                  - AveragedPerceptronTrainer_Train_NaturalWeight_ChangesTheWeights
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-IgnoredRows
+                title: >-
+                  The AveragedPerceptronTrainer class shall learn nothing from a row that is not aligned
+                  or whose word has a single candidate reading, so that adding such rows to the training
+                  data does not change the weights.
+                justification: |
+                  A row the analyzer cannot classify, or that has nothing to decide, carries no signal for
+                  the model and must not move it.
+                tests:
+                  - AveragedPerceptronTrainer_Train_UnalignedAndSingleCandidateRows_AreIgnored
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-SettingsValidation
+                title: >-
+                  The AveragedPerceptronTrainer constructor shall throw InvalidDataException for settings
+                  outside their range, before any training, and ArgumentNullException for a null corpus.
+                justification: |
+                  A setting outside its range, such as a table size no model file can hold, has to fail at
+                  once and not after a long training run.
+                tests:
+                  - AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException

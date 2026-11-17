@@ -17,7 +17,8 @@ flags, the cancellation inside normalization and the counts) and the annotation 
 initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary by the `PronunciationOverrides`
 unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see *SpeechTextEn
 NormalizationSubsystem Verification*). The heteronym readings are verified at this level through the real
-HeteronymSubsystem with a hand-built fixture model (no trained model is shipped), and their rules in detail
+HeteronymSubsystem with a hand-built fixture model and with the shipped model (the default analyzer), and their rules
+in detail
 (the coexistence rules, the single-candidate rule, diagnostics, cancellation) by the `EnglishTextAnalyzer`
 unit tests in `EnglishTextAnalyzerReadingTests.cs`.
 
@@ -136,8 +137,9 @@ confidence (read with `TryReadReadingConfidence`) are present on the same start 
 
 **Test**: `AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts`
 
-A dictionary read from two `reading` lines is applied by an analyzer with no model to `They read the record.`: the
-readings are `read.past` and `record.noun`, the analysis event reports `2 overrides applied, 0 overrides ignored`, and
+A dictionary read from two `reading` lines is applied by the default analyzer to `They read the record.`: the
+readings are `read.past` and `record.noun` (the override decides both words, whatever the embedded model would choose),
+the analysis event reports `2 overrides applied, 0 overrides ignored`, and
 a `reading` line whose id is not a candidate of its word is rejected with `InvalidDataException` when the file is read.
 
 #### Cancellation

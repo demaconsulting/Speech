@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 /// </summary>
 internal enum ModelLoadStatus
 {
-    /// <summary>No model exists (none is embedded in this build, or the source supplied none); not an error.</summary>
+    /// <summary>No model exists (the provider has no source, or the source supplied none); not an error.</summary>
     NotShipped = 0,
 
     /// <summary>The model loaded and a classifier is available.</summary>
@@ -38,13 +38,13 @@ internal enum ModelLoadStatus
 ///     inventory table, which is a broken build with nothing to degrade to.)
 ///     </para>
 ///     <para>
-///     <see cref="Embedded"/> is the process-wide provider over the model embedded in this assembly; this
-///     build embeds none, so it is never configured. Instances are thread-safe.
+///     <see cref="Embedded"/> is the process-wide provider over the model embedded in this assembly,
+///     which is configured in a normal build. Instances are thread-safe.
 ///     </para>
 /// </remarks>
 internal sealed class HeteronymModelProvider
 {
-    /// <summary>The manifest name under which a later increment embeds the model.</summary>
+    /// <summary>The manifest name under which the model is embedded.</summary>
     internal const string EmbeddedResourceName = "DemaConsulting.Speech.Text.En.Resources.heteronyms.bin";
 
     /// <summary>Opens the model's bytes, or returns null when there is none; null for a provider with no source.</summary>
@@ -100,7 +100,7 @@ internal sealed class HeteronymModelProvider
     }
 
     /// <summary>
-    ///     Gets the process-wide provider over the embedded model; this build embeds none, so it is not configured.
+    ///     Gets the process-wide provider over the embedded model; it is configured when the assembly embeds one.
     /// </summary>
     internal static HeteronymModelProvider Embedded { get; } = new(
         static () => typeof(HeteronymModelProvider).Assembly.GetManifestResourceInfo(EmbeddedResourceName) is not null,

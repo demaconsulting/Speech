@@ -112,7 +112,7 @@ public sealed class AnalysisSubsystemTests
         // Assert: identical to the space version, and "record" is a verb because "will" before the tag is still context
         Assert.Equal(spaced.Annotations, tagged.Annotations);
         Assert.DoesNotContain(tagged.Annotations, annotation => annotation.Start <= 7 && 7 < annotation.End);
-        var record = tagged.Annotations.Single(annotation => withTag.Substring(annotation.Start, annotation.Length) == "record");
+        var record = tagged.Annotations.Single(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && withTag.Substring(annotation.Start, annotation.Length) == "record");
         Assert.Equal("VERB", record.Value);
     }
 

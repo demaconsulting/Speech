@@ -27,6 +27,11 @@ needs-review:
   - "data/text-en/whd-mapping.tsv"                                  # Text.En evaluation id mapping (ids only)
   - "data/text-en/extension-decisions.tsv"                          # Text.En inventory extension decisions
   - "data/text-en/leakage-report.tsv"                               # Text.En recorded external leakage result
+  - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
+  - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
+  - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
+  - "docs/evaluation/**/*.md"                                       # Text.En heteronym model evaluation record documents
+  - "docs/evaluation/**/*.tsv"                                      # Text.En heteronym model evaluation record tables
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -37,6 +42,10 @@ needs-review:
   - "!data/text-en/external/**"      # Exclude local evaluation caches (never committed)
   - "!data/text-en/work/**"          # Exclude local scratch (never committed)
   # The Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer) is NOT excluded: it is reviewed.
+  # The trained heteronym model (src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin) is deliberately not a
+  # review file: it is a binary that a person cannot review. It is pinned by the reviewed training.json (the SHA-256
+  # of its uncompressed image, the hash of its inputs and its settings) and verified by the trainer's train --check
+  # command, which retrains it, as the design documents explain.
   # The large data tables of data/text-en (train, dev, holdout-*, both provenance tables, exclusions, gaps,
   # extension candidates, audit/*.tsv, check-output.txt) are deliberately not review files: they are pinned by
   # the reviewed MANIFEST.tsv and verified by the trainer's check-data command, as the design documents explain.
@@ -3758,6 +3767,186 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/CheckDataCommand.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/CheckDataCommandTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-TrainingSubsystem
+    title: Review that SpeechTextEn TrainingSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"            # subsystem requirements
+      - "docs/design/speech-text-en/training-subsystem.md"                 # subsystem design
+      - "docs/verification/speech-text-en/training-subsystem.md"           # subsystem verification
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/TrainingFixture.cs"  # test data set built in code
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/CommandHarness.cs"   # runs the commands in memory
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"            # trainer commands and determinism contract
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"           # protocol, development exploration and gate runs
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"        # committed training record of the shipped model
+      - "docs/evaluation/text-en/**/*"                                     # committed evaluation record of the shipped model
+
+  # SpeechTextEn-TrainingSubsystem-TrainingCorpus Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-TrainingCorpus
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem TrainingCorpus Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/training-corpus.yaml"
+      - "docs/design/speech-text-en/training-subsystem/training-corpus.md"
+      - "docs/verification/speech-text-en/training-subsystem/training-corpus.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/TrainingCorpus.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/TrainingCorpusTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-DeterministicRandom Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-DeterministicRandom
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem DeterministicRandom Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/deterministic-random.yaml"
+      - "docs/design/speech-text-en/training-subsystem/deterministic-random.md"
+      - "docs/verification/speech-text-en/training-subsystem/deterministic-random.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/DeterministicRandom.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/DeterministicRandomTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-DeterministicMath Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-DeterministicMath
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem DeterministicMath Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/deterministic-math.yaml"
+      - "docs/design/speech-text-en/training-subsystem/deterministic-math.md"
+      - "docs/verification/speech-text-en/training-subsystem/deterministic-math.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/DeterministicMath.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/DeterministicMathTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-AveragedPerceptronTrainer Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-AveragedPerceptronTrainer
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem AveragedPerceptronTrainer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/averaged-perceptron-trainer.yaml"
+      - "docs/design/speech-text-en/training-subsystem/averaged-perceptron-trainer.md"
+      - "docs/verification/speech-text-en/training-subsystem/averaged-perceptron-trainer.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/AveragedPerceptronTrainer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/AveragedPerceptronTrainerTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-ModelSelection Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-ModelSelection
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem ModelSelection Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/model-selection.yaml"
+      - "docs/design/speech-text-en/training-subsystem/model-selection.md"
+      - "docs/verification/speech-text-en/training-subsystem/model-selection.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/ModelSelection.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/ModelSelectionTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-TrainingRecord Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-TrainingRecord
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem TrainingRecord Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/training-record.yaml"
+      - "docs/design/speech-text-en/training-subsystem/training-record.md"
+      - "docs/verification/speech-text-en/training-subsystem/training-record.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/TrainingRecord.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/TrainingRecordTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-TrainCommand Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-TrainCommand
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem TrainCommand Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/train-command.yaml"
+      - "docs/design/speech-text-en/training-subsystem/train-command.md"
+      - "docs/verification/speech-text-en/training-subsystem/train-command.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/TrainCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/TrainCommandTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-HeteronymEvaluator Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-HeteronymEvaluator
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem HeteronymEvaluator Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/heteronym-evaluator.yaml"
+      - "docs/design/speech-text-en/training-subsystem/heteronym-evaluator.md"
+      - "docs/verification/speech-text-en/training-subsystem/heteronym-evaluator.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/HeteronymEvaluator.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/HeteronymEvaluatorTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-EvaluationRecord Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-EvaluationRecord
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem EvaluationRecord Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/evaluation-record.yaml"
+      - "docs/design/speech-text-en/training-subsystem/evaluation-record.md"
+      - "docs/verification/speech-text-en/training-subsystem/evaluation-record.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluationRecord.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluationRecordTests.cs"
+
+  # SpeechTextEn-TrainingSubsystem-EvaluateCommand Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-EvaluateCommand
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem EvaluateCommand Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/evaluate-command.yaml"
+      - "docs/design/speech-text-en/training-subsystem/evaluate-command.md"
+      - "docs/verification/speech-text-en/training-subsystem/evaluate-command.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluateCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluateCommandTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

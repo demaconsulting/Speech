@@ -46,9 +46,11 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     mark which pronunciation reading a word such as <c>record</c> has, as a
 ///     <see cref="TextEnAnnotations.Reading"/> annotation and its
 ///     <see cref="TextEnAnnotations.ReadingConfidence"/> companion on exactly that word's token. The
-///     classifier needs a trained heteronym model, and this release embeds none, so an analyzer built
-///     with the public constructors emits no classified readings; it still emits a reading for a word that
-///     a <see cref="OverrideAction.Reading"/> override names. The model is loaded lazily and shared: never
+///     classifier decides with the trained heteronym model embedded in this package, so an analyzer built
+///     with the public constructors emits a classified reading for each heteronym word, and a reading for a
+///     word that a <see cref="OverrideAction.Reading"/> override names. If the model cannot be used the
+///     analysis continues without classified readings and reports one warning. The model is loaded lazily
+///     and shared: never
 ///     for an analyzer that is not invoked, a text without a heteronym form, or a selection without the
 ///     family. A token that carries a replacement, a pronunciation or any other override never receives a
 ///     reading, so the annotations never contradict each other.
@@ -650,7 +652,7 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             // One context array per sentence that has a candidate, reused across sentences.
             if (_context is null || _contextSentence != sentenceIndex)
             {
-                _context = BuildContext(_analysisText, sentence, _context);
+                _context = PartOfSpeechAdapter.DescribeSentence(_analysisText, sentence, _context);
                 _contextSentence = sentenceIndex;
             }
 
@@ -663,30 +665,6 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             }
 
             return (_inventory.ReadingIdAt(prediction.ReadingIndex), prediction.Confidence, low);
-        }
-
-        /// <summary>
-        ///     Describes every token of one sentence for the heteronym classifier, reusing a buffer.
-        /// </summary>
-        /// <param name="analysisText">The analyzed text the tokens index (placeholders neutralized).</param>
-        /// <param name="sentence">The sentence's tokens, tagged.</param>
-        /// <param name="buffer">A buffer from an earlier call, or <see langword="null"/>; reused when it is long enough.</param>
-        /// <returns>A buffer whose first <c>sentence.Count</c> entries describe the sentence's tokens.</returns>
-        private static ContextToken[] BuildContext(string analysisText, IReadOnlyList<AdaptedToken> sentence, ContextToken[]? buffer)
-        {
-            // One array per request grows to the longest sentence that has a candidate word.
-            if (buffer is null || buffer.Length < sentence.Count)
-            {
-                buffer = new ContextToken[sentence.Count];
-            }
-
-            for (var i = 0; i < sentence.Count; i++)
-            {
-                var token = sentence[i];
-                buffer[i] = HeteronymContext.Create(analysisText, token.Start, token.Length, token.Tag, token.Confidence);
-            }
-
-            return buffer;
         }
     }
 

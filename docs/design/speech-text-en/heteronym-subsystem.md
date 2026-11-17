@@ -18,12 +18,13 @@ AnalysisSubsystem turns the answer into annotations. It contains the following u
   (`HeteronymContext`, `ContextToken`), the hash functions (`FeatureHashing`) and the extraction of the hashed
   features of a target word from the tokens of its sentence
 - **SparsePerceptronModel**: the internal sparse averaged-perceptron model: the `HETW` file format, its strict loader
-  (with the internal writer that tests and the later trainer use), and the immutable weight lookup
+  (with the internal writer that tests and the trainer use), and the immutable weight lookup
 - **HeteronymClassifier**: the internal candidate-restricted classifier, with the `HeteronymModelProvider` that
   supplies it lazily and once
 
-The model itself is data, not code: this release embeds the two inventory tables but no trained weights, so the
-classifier is effective only where a model source exists (see *Heteronym Readings* in *SpeechTextEn System Design*).
+The model itself is data, not code: this release embeds the two inventory tables and the trained weights
+(`heteronyms.bin`), so the classifier is effective wherever a model source exists, which the default analyzer has (see
+*Heteronym Readings* in *SpeechTextEn System Design*).
 
 ### Interfaces
 
@@ -64,16 +65,20 @@ opens a model and decides whether it is usable, and it reports the result as a s
 
 **Feature parity (decision).** A trained model is valid only while the features the runtime extracts are exactly the
 features the trainer extracted. The two must therefore call the same code rather than two copies of it: the feature
-extractor, `HeteronymContext.Create` and `FeatureHashing` are the single implementation, and the later trainer will
-reach them through `InternalsVisibleTo` granted to the trainer assembly when the trainer is added. The alternatives were
-rejected for stated reasons: a source-linked copy compiled into the trainer drifts and doubles the review, and a public
-extractor freezes the feature set under semantic versioning although the feature set is meant to change with a
-feature-set version. No `InternalsVisibleTo` is added now, because it would be dead configuration until the trainer
-exists. Two guards keep the parity checkable: golden feature vectors, which lock the exact hashes of a set of
+extractor, `HeteronymContext.Create` and `FeatureHashing` are the single implementation, and the trainer reaches them
+through `InternalsVisibleTo`, which the library's project file grants to the trainer assembly and to the trainer's test
+assembly. The same holds for the bucket a feature selects for a reading (`FeatureHashing.Bucket`) and for the integer
+score of a candidate (`HeteronymClassifier.ScoreCandidate`), each defined once and called by the classifier and by the
+trainer. The alternatives were rejected for stated reasons: a source-linked copy compiled into the trainer drifts and
+doubles the review, and a public extractor freezes the feature set under semantic versioning although the feature set is
+meant to change with a feature-set version. The grant adds nothing to the public surface of the package. Two guards keep
+the parity checkable: golden feature vectors, which lock the exact hashes of a set of
 sentences under several cultures, and a tokenization-parity test, which proves that equivalent spellings that the
 tokenizer splits differently (`can't` and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the
 same token texts and the same features for the target. A feature-set version in every model file makes a mismatch an
-incompatible model instead of silent wrong weights (see *HeteronymFeatureExtractor Design*).
+incompatible model instead of silent wrong weights (see *HeteronymFeatureExtractor Design*). A third guard runs over the
+trainer's data and is described with the trainer (*TrainingSubsystem Design*): the evaluation compares the analyzer's
+readings with the trainer's direct classification and reports any mismatch.
 
 **Inventory-version policy (decision).** The inventory carries an integer revision that is a constant of the code; the
 revision grows when readings are added. A model records the revision it was trained for and binds its weights to
@@ -82,11 +87,12 @@ revision is the same as or lower than the inventory's revision (a newer inventor
 scored) and rejected when it is higher (the model may score readings this build does not know). The check is made by
 the classifier, because it needs both the model and the inventory (see *HeteronymClassifier Design*).
 
-**Embedded data and the missing model.** The inventory tables are the repository's data files, embedded by link under
-fixed manifest names, so the data has one source of truth. The model is looked for under one more fixed manifest
-name, and this release embeds none, so `HeteronymModelProvider.Embedded` is not configured: the analyzer sees that
-without loading anything and emits no classified readings. A later increment adds the file and nothing else needs to
-change in this subsystem.
+**Embedded data and the model.** The inventory tables are the repository's data files, embedded by link under
+fixed manifest names, so the data has one source of truth. The model is the committed file
+`Resources/heteronyms.bin` that the trainer writes, embedded under the manifest name
+`DemaConsulting.Speech.Text.En.Resources.heteronyms.bin`, so `HeteronymModelProvider.Embedded` is configured and loads
+it on first use. A provider with no source (`HeteronymModelProvider.None`) is not configured: the analyzer sees that
+without loading anything and emits no classified readings.
 
 **Concurrency.** Every unit is immutable after construction or stateless. The default inventory and each provider's
 result are created under `Lazy<T>` with `ExecutionAndPublication`, so concurrent first use loads each exactly once. The

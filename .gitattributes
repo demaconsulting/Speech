@@ -6,5 +6,8 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
+# The embedded heteronym model is a hash-pinned binary file: never converted or diffed as text.
+*.bin binary
+
 # The Text.En training data is verified by SHA-256 (data/text-en/MANIFEST.tsv): always LF, never converted.
 data/text-en/** text eol=lf

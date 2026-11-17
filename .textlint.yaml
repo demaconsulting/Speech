@@ -415,3 +415,8 @@ overrides:
       - /\S*TEXTEN_EVAL_SETS\S*/
       - /\S*TEXTEN\S*/
       - /\S*texten\S*/
+  # The Tatoeba sentence corpus, named in the license file and the notices of the Text.En package because the
+  # embedded heteronym model was trained in part on its CC0 sentences
+  - filename: '{src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md,src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md,.textlint.yaml}'
+    words:
+      - tatoeba

@@ -5,7 +5,7 @@ package SpeechTextEn {
              * numeric fallbacks, overrides applied and overrides ignored), plus an optional second
              * counts-only event when heteronym readings were assigned (TextEn.Heteronym) and a
              * one-time warning that a heteronym model is invalid or incompatible (TextEn.Model; silent
-             * when no model is shipped), built from fixed words and
+             * when there is no model source), built from fixed words and
              * numbers only so no text content and no dictionary content can
              * reach the sink, and
              * containing any failure of the sink. */

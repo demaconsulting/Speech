@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 /// </summary>
 /// <remarks>
 ///     Internal because the only writers are tests (which build hand-made models through the
-///     real format) and the offline trainer of a later increment. The writer refuses anything the
+///     real format) and the offline trainer tool. The writer refuses anything the
 ///     loader would refuse, so a model it produces always loads. It is stateless and thread-safe.
 /// </remarks>
 internal static class SparsePerceptronModelWriter

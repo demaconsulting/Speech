@@ -278,9 +278,9 @@ letters that is spoken by letter name (an initialism such as "FBI" gives the val
 below). Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix stays in
 one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke."). A host can also override how
 individual words are spoken or pronounced with a dictionary of *pronunciation overrides* (see *Pronunciation overrides
-for English text analysis* below). A heteronym such as "record" can carry a reading id with a confidence (kinds
-`"en.reading"` and `"en.reading-confidence"`), but no trained model ships in this release, so only a host's
-`Reading` override produces one today (see *Heteronym readings* below).
+for English text analysis* below). A heteronym such as "record" carries a reading id with a confidence (kinds
+`"en.reading"` and `"en.reading-confidence"`) chosen by a trained model that ships inside the package, and a host's
+`Reading` override can fix it (see *Heteronym readings* below).
 
 *What is read.* The numeric normalization reads en-US text only (a comma separates thousands, a period is the
 decimal point, and a numeric date is month first): cardinal numbers and numbers with thousands separators
@@ -629,12 +629,44 @@ word, and the reading ids a word can have are listed by the public `ReadingInven
 (`ReadingIds`, `Contains(id)`, `CandidatesFor(word)` and the `Version` of the inventory). Reading ids are
 lower-case, with two or three parts separated by dots.
 
-**No model ships yet.** The classifier that chooses a reading from the context needs a trained heteronym
-model, and this release embeds none (a later release adds it). `Reading` is part of the default selection, but
-until a model exists the default analyzer **produces no classified readings**: a backend sees `"en.reading"`
-only for a word that carries a `Reading` override (below). The reading tables are embedded and need no
-model, so a host can already list the readings and validate its ids. A model that is present but invalid or
-incompatible disables the readings and is reported once (see the diagnostics below).
+**The model.** The classifier that chooses a reading from the sentence context is a small trained model (about
+250 KB) embedded in the package: there is nothing to download or configure, and `Reading` is part of the default
+selection, so the default analyzer marks each heteronym word of the inventory (207 words with 395 readings, US
+English) with its reading. The reading tables are embedded too, so a host can list the readings and validate its ids.
+A model that is present but invalid or incompatible disables the readings and is reported once (see the diagnostics
+below). The model decides from the words around the heteronym and from the part of speech of the tagger it depends
+on; it looks at one sentence at a time.
+
+**How accurate it is.** The figures below are the committed evaluation record (`docs/evaluation/text-en/` in the
+repository), measured on held-out sentences that were never used to train or to choose any setting. Every figure is
+the share of heteronym words for which the analyzer emitted the labeled reading, so a word that gets no reading
+counts as wrong.
+
+| Held-out set | Words | Model | Part of speech alone | Most common reading |
+| --- | ---: | ---: | ---: | ---: |
+| Natural sentences (266 documents) | 1,167 | 96.2% | 90.7% | 82.0% |
+| Sentences written blind by a different model family | 1,972 | 95.4% | 91.2% | 51.4% |
+
+"Part of speech alone" is the reading that the tag of the word decides, and "Most common reading" is the reading the
+form has most often in the training data. Five training runs that differ only in the random seed give 95.5 to 97.0
+percent on the natural set and 95.4 to 97.1 percent on the other. These figures come with limits that you should know:
+
+- **Labels are not human-verified.** The labeled reading of a sentence was chosen by a rule from the part of speech or
+  by a language model and audited blind by a second model; no human reviewed them. The accuracy is agreement with
+  those labels.
+- **The natural set flatters the tagger.** Part of its sentences come from the data on which the part-of-speech tagger
+  was itself trained, so the tag-based cues are better there than on new text. The set written by a different model
+  family never reached the tagger and agrees within about one percentage point, but it is synthetic text.
+- **The gain over the tag comes from the hard cases.** On sentences whose reading follows from the part of speech the
+  tag alone is already right, and the model sometimes does worse than the tag there: for example "read" in the past
+  tense (11 of 17 right in the natural set, where the tag alone gets all 17) and "reading" the act (21 of 29).
+  The improvement over the tag, about 5.6 points on the natural set, is statistically positive (95 percent interval 3.2
+  to 8.2 points), and it comes from words whose reading depends on meaning, not on grammar.
+- **Some readings are weak.** In the independent set, for example, "bass" the fish, "sewer" the seamstress, "number" the
+  noun, "August" the month, "bow" the weapon and "put" are right in at most two of five sentences.
+- **Confidence is informative.** At a confidence of 0.90 or more the reading was right for 99.3 percent of the natural
+  words (1,035 of 1,042); below 0.60 only about half were right (10 of 21 in the natural set, 30 of 53 in the other).
+  A host that needs a specific reading for a word can fix it with a `Reading` override, which beats the model.
 
 - **Coexistence.** `"en.reading"` coexists on its span with `"en.upos"`. It is never emitted for a word that
   overlaps an `"en.norm"`, `"en.spell"`, or `"en.pron"` annotation or that carries any other override, so a
@@ -645,11 +677,11 @@ incompatible disables the readings and is reported once (see the diagnostics bel
   `false`, never an exception. `TryReadReading` checks the form of the id, not that it is in the inventory (use
   `ReadingInventory.Default.Contains` for that).
 - **The `Reading` override.** `PronunciationOverrideEntry.Reading("record", "record.noun")` (or a TSV row with the
-  action `reading`) fixes the reading of a word without any model; the confidence is `1.000`. The id must exist in
-  the inventory, be active, and be a candidate of the word, or building the dictionary fails with the position
-  and a fixed reason like any other bad entry. The word is spoken as written, and no built-in rule runs for it.
-  Like every override it needs `TextEnAnnotationSelection.Normalization`, and it produces an annotation only
-  when `TextEnAnnotationSelection.Reading` is selected.
+  action `reading`) fixes the reading of a word, and the model does not decide it; the confidence is `1.000`. The id
+  must exist in the inventory, be active, and be a candidate of the word, or building the dictionary fails with the
+  position and a fixed reason like any other bad entry. The word is spoken as written, and no built-in rule runs for it.
+  Like every override it needs `TextEnAnnotationSelection.Normalization`, and it produces an annotation only when
+  `TextEnAnnotationSelection.Reading` is selected.
 - **`LowConfidenceThreshold`.** `EnglishTextAnalyzerOptions.LowConfidenceThreshold` (0.60 by default, a finite number
   from 0 to 1) marks a classified reading below it as low confidence: it is counted in the diagnostics and
   `AnalyzedToken.IsLowConfidenceReading` is set. The reading is still emitted; the threshold never removes it.
@@ -658,8 +690,8 @@ incompatible disables the readings and is reported once (see the diagnostics bel
 - **Diagnostics.** The `TextEn.Analysis` event above is unchanged. A second event, category `TextEn.Heteronym`
   (level `Info`), is sent only when readings were assigned and holds counts only: how many were classified,
   had a single candidate, came from an override, or fell below the threshold. A `TextEn.Model` event (level
-  `Warning`) is sent once per analyzer, only when a heteronym model exists but is invalid or incompatible;
-  nothing is sent when no model ships. Neither event contains a word or a reading id.
+  `Warning`) is sent once per analyzer, only when the heteronym model is invalid or incompatible, in which case the
+  analysis goes on without classified readings. Neither event contains a word or a reading id.
 
 ```csharp
 var overrides = PronunciationOverrides.Create(
@@ -677,7 +709,7 @@ foreach (var annotation in annotations)
     }
     else if (TextEnAnnotations.TryReadReadingConfidence(annotation, out var confidence))
     {
-        // 1.0 for an override.
+        // 1.0 for an override; the model's confidence for a word it classified.
     }
 }
 ```

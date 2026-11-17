@@ -207,7 +207,7 @@ Speech, not a subsystem of it, and the library must never depend on it:
   English text (abbreviations, symbols, apostrophes, acronyms and initialisms, and en-US numbers,
   currency, units, times and dates) is spoken, marks letter sequences to be spoken by letter name,
   lets a host override how individual words are spoken, pronounced or read (which reading of a heteronym such as
-  `record` is meant), assigns heteronym reading ids with a confidence once a model exists (none ships yet), and
+  `record` is meant), assigns heteronym reading ids with a confidence from an embedded trained model, and
   supplies authoritative sentence boundaries reconciled with that normalization, built
   on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
@@ -236,6 +236,13 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `DataManifest` verifier, the `SpanValidator` whole-word span check, the `CheckReport` finding collector, the
   `SchemaChecker`, `LicenseChecker` and `LeakageChecker` checks, and the `CheckDataCommand` entry (with the
   `Program.cs` glue)
+- **TrainingSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `train` and `evaluate` commands of the same
+  `DemaConsulting.Speech.Text.En.Trainer` tool, which train the heteronym model from the training and development
+  data, verify a committed model by retraining, and measure a model end to end on the development and holdout sets with
+  the library's own internals (through `InternalsVisibleTo`): the `TrainingCorpus` loader, the `DeterministicRandom` and
+  `DeterministicMath` helpers, the `AveragedPerceptronTrainer`, the `ModelSelection` of the epoch and temperature, the
+  `TrainingRecord` of the settings and results, the `TrainCommand` entry, the `HeteronymEvaluator` with the quality
+  gate, the `EvaluationRecord` files and the `EvaluateCommand` entry (with the `Program.cs` glue)
 
 The following OTS items are also covered:
 
@@ -388,14 +395,18 @@ analyzer to them:
   dictionary, the part-of-speech adapter and the counts-only diagnostics reporter), `NormalizationSubsystem` (the
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the abbreviation
   resolver and the acronym recognizer, with two embedded lexicons) and `HeteronymSubsystem` (the reading inventory
-  with its two embedded tables, the feature extractor, the sparse perceptron model and the classifier; no trained
-  model ships yet); the first uses the other two, never the reverse. It
+  with its two embedded tables, the feature extractor, the sparse perceptron model and the classifier, which uses the
+  trained model embedded in the package); the first uses the other two, never the reverse. It
   implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on the
-  `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime. A third subsystem, `TrainingDataSubsystem`
-  (the strict file reader, the typed data loader, the manifest verifier, the span validator, the finding collector, the
-  schema, license and leakage checks and the command entry), belongs to the system but not to the package: it is the
-  `check-data` command of the non-shipped trainer tool that verifies the training data in `data/text-en/`, uses only the
-  .NET base class library and is not used by the three runtime subsystems.
+  `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime. Two further subsystems belong to the system
+  but not to the package, both in the non-shipped trainer tool. `TrainingDataSubsystem` (the strict file reader, the
+  typed data loader, the manifest verifier, the span validator, the finding collector, the schema, license and leakage
+  checks and the command entry) is the `check-data` command that verifies the training data in `data/text-en/`, uses
+  only the .NET base class library and is not used by the three runtime subsystems. `TrainingSubsystem` (the corpus
+  loader, the deterministic random generator and math, the integer averaged perceptron, the model selection, the
+  training record and command, the evaluator, the evaluation record and the evaluate command) is the `train` and
+  `evaluate` commands that train and measure the heteronym model; it references the library and reuses its internals
+  through `InternalsVisibleTo`, and the library does not know it exists.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -786,11 +797,12 @@ The SpeechTextEn library's folder structure likewise mirrors its software struct
 
 ```text
 src/DemaConsulting.Speech.Text.En/
-├── PACKAGE-LICENSE.md                                     — Package license file (packaging file, not a software item)
-├── THIRD-PARTY-NOTICES.md                                 — Notices for the dependency's embedded data (packaging file, not a software item)
+├── PACKAGE-LICENSE.md                                     — Package license file, MIT AND CC-BY-3.0-US (packaging file, not a software item)
+├── THIRD-PARTY-NOTICES.md                                 — Attribution of the model's MASC-derived training data and notices for the dependency's embedded data (packaging file, not a software item)
 ├── Resources/
 │   ├── abbreviations.tsv                                  — Embedded abbreviation lexicon (data, reviewed with AbbreviationResolver)
-│   └── acronyms.tsv                                       — Embedded initialism lexicon (data, reviewed with AcronymRecognizer)
+│   ├── acronyms.tsv                                       — Embedded initialism lexicon (data, reviewed with AcronymRecognizer)
+│   └── heteronyms.bin                                     — Embedded trained heteronym model written by the trainer's train command (binary; pinned by training.json, not reviewed as text)
 ├── AnalysisSubsystem/
 │   ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech, normalization, readings and sentence breaks
 │   ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result with its token and normalization records
@@ -799,18 +811,18 @@ src/DemaConsulting.Speech.Text.En/
 │   ├── PronunciationOverrides.cs                          — Immutable dictionary of host pronunciation overrides, TSV loader and token lookup
 │   ├── PronunciationOverrideEntry.cs                      — Override entry record, its factories and the OverrideAction/PronunciationScheme enums
 │   ├── OverrideSyntax.cs                                  — Internal key, payload and pronunciation grammars shared by the loader and the readers
-│   ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
+│   ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package (with the sentence-to-context-token description shared with the trainer)
 │   ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
 │   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ├── HeteronymSubsystem/
 │   ├── ReadingInventory.cs                                — Public inventory of heteronym readings and forms, with the internal reading id grammar
 │   ├── HeteronymFeatureExtractor.cs                       — Internal deterministic feature extraction for one heteronym occurrence
 │   ├── HeteronymContext.cs                                — Internal context token builder (word class, shape and tag codes)
-│   ├── FeatureHashing.cs                                  — Internal stable hash functions and salts of the feature set
+│   ├── FeatureHashing.cs                                  — Internal stable hash functions, salts and the feature bucket of the feature set
 │   ├── SparsePerceptronModel.cs                           — Internal sparse averaged-perceptron model and its strict loader
-│   ├── SparsePerceptronModelWriter.cs                     — Internal model writer used by tests and the later trainer
+│   ├── SparsePerceptronModelWriter.cs                     — Internal model writer used by tests and the trainer
 │   ├── ModelBinaryFormat.cs                               — Internal model file layout, checksum and compression primitives
-│   ├── HeteronymClassifier.cs                             — Internal candidate-restricted classifier with calibrated confidence
+│   ├── HeteronymClassifier.cs                             — Internal candidate-restricted classifier with calibrated confidence and the shared candidate scoring
 │   ├── HeteronymModelProvider.cs                          — Internal lazy, once-only model provider and its load status
 │   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 └── NormalizationSubsystem/
@@ -823,22 +835,36 @@ src/DemaConsulting.Speech.Text.En/
     └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ```
 
-The Text.En trainer is a non-shipped tool whose source and tests are reviewed like the libraries'. Its single
-subsystem has the following layout, and the data it checks is a tool input in a separate folder, not a software item:
+The Text.En trainer is a non-shipped tool whose source and tests are reviewed like the libraries'. Its two
+subsystems have the following layout, and the data it reads is a tool input in a separate folder, not a software item:
 
 ```text
 tools/DemaConsulting.Speech.Text.En.Trainer/
-├── Program.cs                                             — Entry point glue that dispatches to CheckDataCommand (not a unit)
-└── TrainingDataSubsystem/
-    ├── CheckDataCommand.cs                                — Command line entry: options, folder discovery, check order, exit codes
-    ├── CheckReport.cs                                     — Collector of findings and information lines; decides the exit code
-    ├── TsvTable.cs                                        — Strict tab-separated file reader (with the TsvRow value)
-    ├── TextEnDataSet.cs                                   — Typed loader of every table, with the source vocabulary and its records
-    ├── DataManifest.cs                                    — Verifier of MANIFEST.tsv against the data folder
-    ├── SpanValidator.cs                                   — Strict whole-word span check
-    ├── SchemaChecker.cs                                   — Inventory, reference, row, provenance-id and gap-table checks (with ReadingCounts)
-    ├── LicenseChecker.cs                                  — License allow-list, source policy, restricted terms, paths, attribution
-    └── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
+├── Program.cs                                             — Entry point glue that dispatches to the three commands (not a unit)
+├── README.md                                              — Usage of the tool (not a software item)
+├── RUN-LOG.md                                             — Hand-written record of the model configuration and the gate runs (not a software item)
+├── training.json                                          — Committed training record of the shipped model: settings, input hashes and the model image hash (written by train, reviewed data)
+├── TrainingDataSubsystem/
+│   ├── CheckDataCommand.cs                                — Command line entry: options, folder discovery, check order, exit codes
+│   ├── CheckReport.cs                                     — Collector of findings and information lines; decides the exit code
+│   ├── TsvTable.cs                                        — Strict tab-separated file reader (with the TsvRow value)
+│   ├── TextEnDataSet.cs                                   — Typed loader of every table, with the source vocabulary and its records
+│   ├── DataManifest.cs                                    — Verifier of MANIFEST.tsv against the data folder
+│   ├── SpanValidator.cs                                   — Strict whole-word span check
+│   ├── SchemaChecker.cs                                   — Inventory, reference, row, provenance-id and gap-table checks (with ReadingCounts)
+│   ├── LicenseChecker.cs                                  — License allow-list, source policy, restricted terms, paths, attribution
+│   └── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
+└── TrainingSubsystem/
+    ├── TrainingCorpus.cs                                  — Loader of the four training inputs; row preparation with the runtime's own units (with LabeledRow, PreparedRow and RowPreparer)
+    ├── DeterministicRandom.cs                             — SplitMix64 generator with unbiased draws and a Fisher-Yates shuffle
+    ├── DeterministicMath.cs                               — Exponential and natural logarithm from basic arithmetic only
+    ├── AveragedPerceptronTrainer.cs                       — Candidate-restricted integer averaged perceptron (with EpochWeights and ShortWeights)
+    ├── ModelSelection.cs                                  — Development-set epoch and temperature choices and the model images (with TrainedModel and EpochScore)
+    ├── TrainingRecord.cs                                  — Training and evaluation settings, inputs, result and the training.json form (with TrainingSettings, EvaluationSettings, TrainingInputs and TrainingResult)
+    ├── TrainCommand.cs                                    — Command line entry of train and train --check
+    ├── HeteronymEvaluator.cs                              — End-to-end evaluation, baselines, strata, clustered bootstrap, gate and parity (with its result records)
+    ├── EvaluationRecord.cs                                — Six deterministic tab-separated evaluation record files (with EvaluationReport)
+    └── EvaluateCommand.cs                                 — Command line entry of evaluate
 
 data/text-en/
 ├── README.md, ATTRIBUTION.md, MANIFEST.tsv                — Documents, attribution and the pinned manifest (reviewed data)
@@ -849,6 +875,10 @@ data/text-en/
 ├── exclusions.tsv, extension-candidates.tsv, check-output.txt — Removed rows, candidates and the recorded check output
 ├── audit/                                                 — Blind audit records and their summary
 └── prompts/                                               — The prompts that produced the generated and labeled data
+
+docs/evaluation/text-en/
+├── README.md                                              — Method, headline results and the limits of the evidence (hand-written, reviewed data)
+└── summary.tsv, gate.tsv, by-source.tsv, per-reading.tsv, confidence.tsv, seeds.tsv — Deterministic evaluation record written by evaluate --write and verified by evaluate --check (reviewed data)
 ```
 
 ## Document Conventions
@@ -872,7 +902,8 @@ Each software item has corresponding artifacts in parallel directory trees:
 - Source code: `src/{System}/.../{Item}.cs` (PascalCase for C#); the Text.En trainer's source is the exception
   in `tools/DemaConsulting.Speech.Text.En.Trainer/.../{Item}.cs`
 - Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#); the trainer's tests are in
-  `test/DemaConsulting.Speech.Text.En.Trainer.Tests/{Item}Tests.cs`
+  `test/DemaConsulting.Speech.Text.En.Trainer.Tests/{Subsystem}/{Item}Tests.cs`, with the subsystem-level tests
+  directly in that folder (`TrainingDataSubsystemTests.cs` and `TrainingSubsystemTests.cs`)
 - SysML2 model: `docs/sysml2/model/{system}/.../{item}.sysml` (kebab-case)
 - Review-sets: defined in `.reviewmark.yaml`
 
@@ -900,11 +931,14 @@ The SysML2 model intentionally follows these rules; they are not omissions:
 - **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only
   namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
   behavior and are covered by the view-model or panel unit they accompany. The trainer's `Program.cs`
-  is entry-point glue that only dispatches to `CheckDataCommand`; it is listed in that unit's
-  `sourceRef`.
+  is entry-point glue that only dispatches to `CheckDataCommand`, `TrainCommand` and `EvaluateCommand`; it is listed in
+  the `sourceRef` of those units.
 - **Data is a tool input, not a software item.** The training and evaluation data in `data/text-en/` is described
   in the design of the subsystem that checks it (*SpeechTextEn TrainingDataSubsystem Design*), reviewed through its
-  own review sets and pinned by its manifest; it has no requirement, design or SysML2 part of its own.
+  own review sets and pinned by its manifest; it has no requirement, design or SysML2 part of its own. Likewise the
+  trained model `Resources/heteronyms.bin` is data produced by the training subsystem: it is pinned by
+  `training.json` and verified by `train --check`, and the committed evaluation record in `docs/evaluation/text-en/`
+  is verified by `evaluate --check`; neither has a software item of its own.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
   ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.
