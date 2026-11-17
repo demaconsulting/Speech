@@ -19,7 +19,8 @@ enumerates the folder.
 
 The valid fixture gives no finding and a count of the rows per license. A restricted license on a row, a generated row
 that is not `CC0-1.0`, a row of the American National Corpus source that is not `CC-BY-3.0-US`, and a harvested row
-without a provenance record each give a finding; a restricted term in a provenance table (including the word Misaki) and
+without a provenance record each give a finding, while an unknown source is left to the schema check and gives no
+license finding; a restricted term in a provenance table (including the word Misaki) and
 in the source column of a data row gives a finding with its line, while the same term inside a sentence gives none; a
 file named after an evaluation-only corpus gives a finding, while the mapping table and the local cache folders are not
 reported; a `CC-BY-3.0-US` row without an attribution file, or with one that does not name the corpus, gives a finding,
@@ -36,7 +37,8 @@ a missing audit summary each give a finding.
 ##### Source policy
 
 **Tests**: `LicenseChecker_Run_GeneratedRowNotCc0_ReportsFinding`, `LicenseChecker_Run_MascRowNotCcBy_ReportsFinding`,
-`LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding`
+`LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding`,
+`LicenseChecker_Run_UnknownSource_IsReportedOnlyBySchemaCheck`
 
 ##### Restricted terms
 

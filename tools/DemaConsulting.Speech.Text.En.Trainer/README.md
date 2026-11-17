@@ -23,7 +23,8 @@ Options:
 - `--eval-sets <dir>`: local evaluation sets for the optional external leakage check (or set `TEXTEN_EVAL_SETS`).
   Each `*.txt` file is one set (one sentence per line); each `*.tsv` file is one set (a header row and a `sentence`
   or `text` column, no quoting). Evaluation data must never be committed.
-- `--leakage-report <file>`: write the per-set, per-split counts (needs `--eval-sets`; outside the data folder)
+- `--leakage-report <file>`: write the per-set, per-split counts (requires evaluation sets supplied via `--eval-sets` or
+  `TEXTEN_EVAL_SETS`; outside the data folder)
 - `--max-findings <n>`: findings printed per check (default 25)
 - `--counts`: print the per-reading row counts
 

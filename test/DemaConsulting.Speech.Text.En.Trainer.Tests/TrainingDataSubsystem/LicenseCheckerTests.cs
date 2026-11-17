@@ -90,6 +90,25 @@ public sealed class LicenseCheckerTests
         Assert.True(DatasetFixture.Has(report, License, "harvest-00003: harvested row without an entry in harvest-provenance.tsv"));
     }
 
+    /// <summary>Proves an unknown source is reported only once, by the schema check, and not again as a missing provenance entry.</summary>
+    [Fact]
+    public void LicenseChecker_Run_UnknownSource_IsReportedOnlyBySchemaCheck()
+    {
+        // Arrange: a source outside the closed vocabulary that has no harvest provenance entry
+        using var fixture = new DatasetFixture();
+        fixture.EditRow("train.tsv", "syn-00001", ("source", "scraped-web"));
+
+        // Act
+        var licenseReport = fixture.CheckLicense();
+        var schemaReport = fixture.CheckSchema();
+
+        // Assert: the license check stays silent and the unknown source is reported exactly once, by the schema check
+        Assert.Empty(licenseReport.Findings);
+        var unknown = schemaReport.Findings.Where(finding => finding.Message.Contains("unknown source 'scraped-web'", StringComparison.Ordinal)).ToList();
+        var single = Assert.Single(unknown);
+        Assert.Equal("schema", single.Check);
+    }
+
     /// <summary>Proves a file whose path names an evaluation-only set is rejected.</summary>
     [Theory]
     [InlineData("audit/heteronym-bench-copy.md")]

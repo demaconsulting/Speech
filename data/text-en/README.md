@@ -301,7 +301,7 @@ Options:
 - `--data <dir>`: the data folder to check (default: the first `data/text-en` folder found walking up from the current directory, then from the tool's folder).
 - `--eval-sets <dir>` (or the environment variable `TEXTEN_EVAL_SETS`; the option wins): a folder of neutral evaluation sets for the optional external leakage check
   (see below).
-- `--leakage-report <file>`: with `--eval-sets`, writes the per-set and per-split counts in the format of `leakage-report.tsv`.
+- `--leakage-report <file>`: requires evaluation sets supplied via `--eval-sets` or `TEXTEN_EVAL_SETS`; writes the per-set and per-split counts in the format of `leakage-report.tsv`.
 - `--max-findings <n>`: the number of findings printed per check (the rest is counted).
 - `--counts`: also prints the per-reading count table.
 - `--help`: prints the usage.

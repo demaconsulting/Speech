@@ -109,9 +109,8 @@ internal sealed class LicenseChecker
                 _report.Add(CheckName, row.Location, $"{row.Id}: {error}");
             }
 
-            // A harvested sentence must say where it came from
-            var generated = SourceInfo.TryGet(row.Source, out var info) && info.IsGenerated;
-            if (!generated && !provenance.Contains(row.Id))
+            // A harvested sentence must say where it came from; an unknown source is a schema finding only
+            if (SourceInfo.KindOf(row.Source) == SourceKind.Harvest && !provenance.Contains(row.Id))
             {
                 _report.Add(CheckName, row.Location, $"{row.Id}: harvested row without an entry in harvest-provenance.tsv");
             }

@@ -52,7 +52,8 @@ internal static class CheckDataCommand
           --eval-sets <dir>       A folder of local evaluation sets (*.txt: one sentence per line; *.tsv: a header
                                   row and a 'sentence' or 'text' column). Enables the external leakage check.
                                   Default: the folder named by the TEXTEN_EVAL_SETS environment variable.
-          --leakage-report <file> Writes the per-set, per-split leakage counts (needs --eval-sets).
+          --leakage-report <file> Writes the per-set, per-split leakage counts (requires
+                                  evaluation sets supplied via --eval-sets or TEXTEN_EVAL_SETS).
           --max-findings <n>      Findings printed per check (default 25); the exit code counts all of them.
           --counts                Prints the per-reading row counts.
           --help                  Shows this text.

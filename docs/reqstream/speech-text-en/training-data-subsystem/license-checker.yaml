@@ -45,6 +45,7 @@ sections:
                   - LicenseChecker_Run_GeneratedRowNotCc0_ReportsFinding
                   - LicenseChecker_Run_MascRowNotCcBy_ReportsFinding
                   - LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding
+                  - LicenseChecker_Run_UnknownSource_IsReportedOnlyBySchemaCheck
 
               - id: SpeechTextEn-TrainingData-LicenseChecker-RestrictedTerms
                 title: >-

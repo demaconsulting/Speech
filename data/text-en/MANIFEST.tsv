@@ -1,7 +1,7 @@
 # Checksums of the files of data/text-en/, verified by the check-data command of the Text.En trainer; MANIFEST.tsv itself and the local caches external/ and work/ are not listed
 # columns = file, sha256, bytes, rows (lines minus the header for .tsv files, lines for all other files)
 ATTRIBUTION.md	841bf1862cbf3017dd1090243835c262d3a5a438a12eb2411c47abf0b83e1e0c	2698	39
-README.md	c920d34c096bac73057359741382542bd42157a76b79b1da83f3e3e8311d99a9	37311	352
+README.md	dc32801fa722115bb45a75d2b779fe22eeaf9ad010962f27745a2698e72c37c0	37366	352
 audit/adjudication.tsv	143c53f1e124b2d5e3d7fe16f2a761f13117cea12238412f80b7ce2aa198e6ec	9952	85
 audit/audit-summary.md	2c5067b5d599a458a0b84da5c4332c5e51a3c8abec30ca522f0b501e93e1db2e	9312	121
 audit/consistency-fixes.tsv	ce8e67110b396db315f93a56975b9b97d1c96fcb1d444530524eeb46e68b4c00	3072	27
