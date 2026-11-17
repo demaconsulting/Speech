@@ -26,7 +26,7 @@ Four kinds of evidence are used:
   produces per-runtime evidence for case folding of supplementary-plane letters.
 - **Instrumented inputs**: a counting `TextReader` proves that the tab-separated reader stops reading an endless
   input at its limit, a failing reader and a tracking reader prove how reader exceptions and disposal are
-  handled, and an allocation test measures the bytes that the lookup allocates over non-matching tokens.
+  handled.
 
 Only the syntax of a pronunciation is verified here. Whether a phoneme belongs to the inventory of a backend, and
 how a backend speaks it, is out of scope: the backends own their inventories.
@@ -61,7 +61,7 @@ current culture, a sensitive entry beats an insensitive one, and no normalizatio
 matches (never a piece next to a letter, a mark or a digit), clitic stems, hyphen compounds, both apostrophe styles and
 words next to a tag placeholder behave as documented; each action maps to its directive, with at most one directive per
 token in ascending order; the lookup agrees with the naive reference for 20,000 random cases; cancellation is checked
-before any work and every 256 visited tokens; non-matching tokens allocate nothing and a large text resolves in linear
+before any work and every 256 visited tokens; non-matching tokens yield no directive and a large text resolves in linear
 time; invalid arguments to the lookup throw; and every row of the golden file normalizes as documented.
 
 #### Test Scenarios
@@ -267,16 +267,17 @@ overridable, the stem of a split contraction never matches, and an override on a
 number rule already consumed is ignored and counted (multi-word keys are not matched because a key cannot contain a
 space, which the entry validation scenario covers).
 
-##### Cancellation and allocation
+##### Cancellation and size
 
 **Tests**: `PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken`,
-`PronunciationOverrides_Resolve_NoMatches_AllocatesNothingPerToken`,
+`PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives`,
 `PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget`
 
 The cancellation test resolves 1,000 tokens that never match with an observer that cancels while token 300 is
 visited and requires that exactly the tokens 0 to 510 were visited (the next periodic check is at the 512th token)
-and then that an already canceled token visits nothing. The allocation test warms up, then resolves 5,000 tokens
-against a 2,000-entry dictionary and requires fewer than 512 bytes allocated for the whole lookup. The size test
+and then that an already canceled token visits nothing. The no-match test resolves 5,000 tokens against a
+2,000-entry dictionary, some of which pass the matching gates and some of which do not, and requires no directive.
+The size test
 resolves a text of about one million characters and a single 100,000-character token against a 10,000-entry
 dictionary within a generous time budget, which detects a super-linear lookup.
 

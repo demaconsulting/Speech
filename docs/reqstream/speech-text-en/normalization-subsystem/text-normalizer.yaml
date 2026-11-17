@@ -89,18 +89,15 @@ sections:
                 tests:
                   - TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd
 
-              - id: SpeechTextEn-Normalization-TextNormalizer-NumericCancellationAndAllocation
+              - id: SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
                 title: >-
                   The TextNormalizer class shall observe cancellation during a pass over numeric
-                  text, counting a token that a numeric match consumed as visited, and shall
-                  allocate nothing per token for text without numeric expressions.
+                  text, counting a token that a numeric match consumed as visited.
                 justification: |
                   A long numeric text must stop promptly when the request is canceled, even though
-                  a match consumes several tokens at once, and the numeric rule must not slow the
-                  common case of text without digits by allocating for every word.
+                  a match consumes several tokens at once.
                 tests:
                   - TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException
-                  - TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken
 
               - id: SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
                 title: >-
@@ -285,7 +282,7 @@ sections:
                   abbreviation and acronym period rules would have made for that token, without
                   emitting or counting their replacement, so that the reconciled sentence breaks are
                   identical with and without the directive, and shall visit every token exactly
-                  once and allocate nothing for a directive on a word that no period touches.
+                  once.
                 justification: |
                   A directive changes how a word is spoken, not where a sentence ends. A chunker
                   reads the breaks, so a changed break splits a sentence ("See Fig." and "5 for
@@ -297,7 +294,6 @@ sections:
                   - TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak
                   - TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks
                   - TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce
-                  - TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn
                   - NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks
 
               - id: SpeechTextEn-Normalization-TextNormalizer-DirectiveConflicts

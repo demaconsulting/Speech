@@ -23,7 +23,7 @@ no model resource exists); every reading id of the embedded inventory satisfies 
 ordinal and unique; the candidates of a form are in the order of the table rows and the lookup folds ASCII case only
 (unknown words, the empty text, compounds, spaces, a period, non-ASCII letters and the Kelvin sign have no candidates)
 under any culture; a null argument to a public lookup throws `ArgumentNullException`; `Contains` compares ordinally; the
-whole-token lookup allocates nothing; the internal accessors agree with the public lookup; the public collections are
+whole-token lookup agrees with the public lookup through the internal accessors; the public collections are
 read-only; hand-built valid tables parse (with the supplied revision) and a deprecated reading is inactive; every defect
 of either table (a byte-order mark, a carriage return, a wrong header, an empty table, a wrong column count, an
 ill-formed or duplicate id, an empty lemma, an unknown status, an unknown reading, a bad form, an empty kind, a
@@ -59,14 +59,12 @@ of the rows of the forms table. Anything that is not exactly a form has no candi
 `Contains` accepts the exact id and rejects another case and an unknown id. Under `tr-TR`, `RECORD` is found and a word
 with the dotted capital I (at the end of `REC` or inside `m` and `nd`) is not.
 
-##### Allocation-free whole-token lookup and accessors
+##### Internal accessors and immutability
 
-**Tests**: `ReadingInventory_TryFindForm_ManyLookups_AllocatesNothing`,
-`ReadingInventory_InternalAccessors_AgreeWithPublicLookup`,
+**Tests**: `ReadingInventory_InternalAccessors_AgreeWithPublicLookup`,
 `ReadingInventory_ReadingIdsAndCandidates_AreReadOnly`
 
-After a warm-up, 10,000 repetitions of one hit (`Record`) and one miss (`elephant`) allocate zero bytes on the current
-thread and the hits are exactly counted. For `record` the candidate indexes name `record.noun` and `record.verb`, are
+For `record` the candidate indexes name `record.noun` and `record.verb`, are
 active and carry the label salt of the id and the role salt of the role, and the reverse index lookup agrees. The
 public id and candidate collections are read-only through a cast and throw `NotSupportedException` when written.
 

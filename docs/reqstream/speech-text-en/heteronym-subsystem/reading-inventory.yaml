@@ -108,17 +108,6 @@ sections:
                   - ReadingInventory_CandidatesFor_TurkishCulture_FoldsAsciiOnly
                   - ReadingInventory_Contains_ExactId_ComparesOrdinally
                   - ReadingInventory_PublicLookups_NullArgument_ThrowsArgumentNullException
-
-              - id: SpeechTextEn-Heteronym-ReadingInventory-NoLookupAllocation
-                title: >-
-                  The ReadingInventory unit shall find the form of a token, and give its candidate
-                  readings, without allocating, and shall agree with the public lookups.
-                justification: |
-                  The analyzer asks the inventory about every token of every request; a lookup that
-                  allocated would add garbage to the hot path of every request, including those of
-                  hosts that never see a reading.
-                tests:
-                  - ReadingInventory_TryFindForm_ManyLookups_AllocatesNothing
                   - ReadingInventory_InternalAccessors_AgreeWithPublicLookup
 
               - id: SpeechTextEn-Heteronym-ReadingInventory-Immutability

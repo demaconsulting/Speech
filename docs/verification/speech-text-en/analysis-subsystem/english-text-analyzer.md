@@ -43,14 +43,14 @@ language-neutral one; a token that is an abbreviation carries its part of speech
 text order; normalization alone needs no tagger and adds no part of speech, and without normalization the tokenizer's
 breaks are returned unchanged and no `en.norm` annotation or clitic role is produced; the detailed analysis lists every
 normalization with its source text, spoken text and kind and every clitic with its role; the diagnostics event counts
-the normalizations and the ambiguous abbreviations; the language-neutral path allocates clearly less than the detailed
-path; concurrent requests agree and create the tagger once; and the analyzer does not keep the analyzed text alive. With
+the normalizations and the ambiguous abbreviations; concurrent requests agree and create the tagger once; and the
+analyzer does not keep the analyzed text alive. With
 a pronunciation dictionary, a say, spell or pronunciation override annotates exactly its token (`en.norm`, `en.spell`,
 `en.pron`), a skip override annotates nothing and bypasses the built-in rule, the word keeps its part of speech before
 the replacement, overrides work around a tag placeholder, the detailed analysis lists a say or spell override with the
 override kind, both entry points agree, sentence breaks are unchanged, every row of the golden file matches through the
 public analyzer, the diagnostics event reports the two override counts and no content, cancellation inside the lookup
-throws without a report, and a dictionary without hits adds no per-token allocation. A non-empty dictionary without the
+throws without a report. A non-empty dictionary without the
 normalization family is rejected at construction, an empty dictionary is accepted, and the options are copied at
 construction. Initialisms, dotted initialisms, single initials, credentials, the letters of a time such as `p.m.` and
 ampersand initialisms are annotated `en.spell` with unchanged spoken text (the `and` of an ampersand initialism and
@@ -68,8 +68,8 @@ reading, the confidence and the low-confidence flag, and agrees with the languag
 invariant under any culture; the threshold counts classified readings below it and never removes one; the heteronym
 event is one counts-only message at most once per request and the model warning is reported once per analyzer and only
 for an unusable (invalid or incompatible) model, never for an absent one; a throwing sink changes nothing; cancellation
-before any work, between candidate words and during the last candidate throws without a result and reports nothing; the
-language-neutral path adds no per-token allocation; and concurrent requests agree and load the model once.
+before any work, between candidate words and during the last candidate throws without a result and reports nothing; and
+concurrent requests agree and load the model once.
 
 #### Test Scenarios
 
@@ -141,14 +141,10 @@ thread; they are verified by review, since a deterministic test would need a tim
 **Tests**: `EnglishTextAnalyzer_AnalyzeDetailed_Sentence_ListsTokensWithTagConfidenceAndKnownWordFlag`,
 `EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_ReturnsSameAnnotationsAndBreaks`,
 `EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks`,
-`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`,
-`EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess`
+`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`
 
 The varied-texts theory compares the two entry points over empty, placeholder-only, emoji, CRLF, several-sentence and
-abbreviation texts (`Dr.` and `p.m.` are normalized under the default options). The allocation test runs the two entry
-points over the same large normalization-only text, after a warm-up, and requires the language-neutral path to allocate
-less than 90 percent of what the detailed path does, because it builds no token or normalization object and no text
-copy.
+abbreviation texts (`Dr.` and `p.m.` are normalized under the default options).
 
 ##### Normalization annotations and reconciled breaks
 
@@ -249,8 +245,7 @@ only part of speech selected, a text full of initialisms yields only `en.upos` a
 ##### Override golden cases and counts
 
 **Tests**: `EnglishTextAnalyzer_Analyze_GoldenCases_MatchThroughThePublicApi`,
-`EnglishTextAnalyzer_Analyze_Overrides_ReportCountsAndNoContent`,
-`EnglishTextAnalyzer_Analyze_OverridesWithoutHits_AddNoPerTokenAllocation`
+`EnglishTextAnalyzer_Analyze_Overrides_ReportCountsAndNoContent`
 
 For each row of the golden file the test builds an analyzer with the sample dictionary, normalization only and a
 recording sink, and requires the spoken text, the pronunciation marks, the spelled spans and the tail of the
@@ -259,8 +254,7 @@ annotation to be readable through a typed reader, and mismatches are collected s
 The counts test uses a dictionary of a sentinel word and payload and a text that repeats the sentinel word, followed by
 `and 5 kg`,
 expecting two applied overrides and one ignored (the unit consumed by the number) with neither the key nor the
-payload in the message. The allocation test analyzes 4,000 repetitions of a pangram with and without the sample
-dictionary after a warm-up and requires the dictionary to add fewer than 4,096 bytes.
+payload in the message.
 
 ##### Heteronym reading annotations
 
@@ -343,17 +337,14 @@ event with the fixed message after two requests, no heteronym event, and an abse
 at all. A model trained for a newer inventory revision gives no readings and one warning over two requests. A sink that
 throws changes nothing: both readings are still returned.
 
-##### Heteronym cancellation, allocation and concurrency
+##### Heteronym cancellation and concurrency
 
 **Tests**: `EnglishTextAnalyzer_Analyze_Cancellation_ThrowsAndReportsNothing`,
-`EnglishTextAnalyzer_Analyze_WithModel_AddsNoPerTokenAllocationAndBuildsNoTokenObjects`,
 `EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults`
 
 In a text with three candidate words, a token canceled before the call, or by the classifier observer after the first,
 second or third classification, makes the request throw `OperationCanceledException` and report no event (and, for the
-canceled-before case, never open the model). A text without a heteronym word allocates the same, within 2 percent, with
-a model as without, and the language-neutral path allocates less than the detailed path for a text full of heteronym
-words, so no per-token object is built for readings. Thirty-two concurrent requests on one analyzer return identical
+canceled-before case, never open the model). Thirty-two concurrent requests on one analyzer return identical
 annotations and open the model once.
 
 ##### Concurrency and no retained references

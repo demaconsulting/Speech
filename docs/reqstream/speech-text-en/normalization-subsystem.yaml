@@ -226,7 +226,7 @@ sections:
             children:
               - SpeechTextEn-Normalization-TextNormalizer-Cancellation
               - SpeechTextEn-Normalization-TextNormalizer-Concurrency
-              - SpeechTextEn-Normalization-TextNormalizer-NumericCancellationAndAllocation
+              - SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
               - SpeechTextEn-Normalization-NumericExpressionRecognizer-Concurrency
             tests:
               - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget

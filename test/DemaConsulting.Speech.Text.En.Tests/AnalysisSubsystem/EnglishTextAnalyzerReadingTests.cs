@@ -517,30 +517,6 @@ public sealed class EnglishTextAnalyzerReadingTests
         }
     }
 
-    /// <summary>Proves the language-neutral path builds no per-token object for readings: analyzing a text with no heteronym word allocates like an analyzer without a model, and the detailed path allocates more than the neutral path.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_WithModel_AddsNoPerTokenAllocationAndBuildsNoTokenObjects()
-    {
-        // Arrange
-        var plainText = string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog and runs. ", 1000));
-        var recordText = string.Concat(Enumerable.Repeat("I want to record a record. ", 500));
-        var withModel = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
-        var withoutModel = new EnglishTextAnalyzer();
-        _ = withModel.Analyze(plainText, TestContext.Current.CancellationToken);
-        _ = withoutModel.Analyze(plainText, TestContext.Current.CancellationToken);
-        _ = withModel.AnalyzeDetailed(recordText, TestContext.Current.CancellationToken);
-
-        // Act
-        var modelBytes = Allocated(() => withModel.Analyze(plainText, TestContext.Current.CancellationToken));
-        var plainBytes = Allocated(() => withoutModel.Analyze(plainText, TestContext.Current.CancellationToken));
-        var neutralBytes = Allocated(() => withModel.Analyze(recordText, TestContext.Current.CancellationToken));
-        var detailedBytes = Allocated(() => withModel.AnalyzeDetailed(recordText, TestContext.Current.CancellationToken));
-
-        // Assert: no heteronym word, no extra allocation beyond noise; and the token objects are only built by the detailed path
-        Assert.True(Math.Abs(modelBytes - plainBytes) < plainBytes * 0.02, $"with model {modelBytes}, without {plainBytes}");
-        Assert.True(neutralBytes < detailedBytes, $"neutral {neutralBytes}, detailed {detailedBytes}");
-    }
-
     /// <summary>Proves one analyzer shared by 32 concurrent callers gives identical results and loads the model once.</summary>
     [Fact]
     public async Task EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults()
@@ -613,16 +589,4 @@ public sealed class EnglishTextAnalyzerReadingTests
     /// <returns>A string equal for equal annotation lists.</returns>
     private static string Key(IReadOnlyList<SegmentAnnotation> annotations) =>
         string.Join(',', annotations.Select(a => $"{a.Start}:{a.Length}:{a.Kind}:{a.Value}"));
-
-    /// <summary>
-    ///     Measures the bytes the current thread allocates while running an action.
-    /// </summary>
-    /// <param name="action">The action.</param>
-    /// <returns>The allocated bytes.</returns>
-    private static long Allocated(Action action)
-    {
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        action();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
 }

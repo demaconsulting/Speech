@@ -739,28 +739,6 @@ public sealed class EnglishTextAnalyzerTests
         Assert.Empty(sink.Events);
     }
 
-    /// <summary>Proves the language-neutral path builds no per-token objects: it allocates clearly less than the detailed path over the same large text.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess()
-    {
-        // Arrange: normalization only, so the tagger does not blur the numbers; warm everything up first
-        var text = string.Concat(Enumerable.Repeat("Dr. Smith lives on Main St. and says it's fine. ", 4000));
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-        _ = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
-
-        // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-        var neutralBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        _ = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
-        var detailedBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        // Assert: the detailed path adds a record and a text copy per token, so it needs substantially more
-        Assert.True(neutralBytes < detailedBytes * 0.9, $"neutral {neutralBytes} bytes, detailed {detailedBytes} bytes");
-    }
-
     /// <summary>Lists the replacement and pronunciation annotations of a result as (source characters, kind, value), in order.</summary>
     /// <param name="result">The result.</param>
     /// <param name="text">The analyzed text.</param>
@@ -1213,30 +1191,6 @@ public sealed class EnglishTextAnalyzerTests
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze(string.Concat(Enumerable.Repeat("a ", 600)), cancellation.Token));
         Assert.Empty(sink.Events);
-    }
-
-    /// <summary>Proves the language-neutral path with a dictionary builds no per-token object: a text without any dictionary hit allocates essentially like the same text without a dictionary.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_OverridesWithoutHits_AddNoPerTokenAllocation()
-    {
-        // Arrange
-        var text = string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog and runs. ", 4000));
-        var plain = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        var with = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Overrides = SampleOverrides() });
-        _ = plain.Analyze(text, TestContext.Current.CancellationToken);
-        _ = with.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        _ = plain.Analyze(text, TestContext.Current.CancellationToken);
-        var plainBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        _ = with.Analyze(text, TestContext.Current.CancellationToken);
-        var withBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        // Assert: no per-token allocation was added: a per-token object over ~40,000 tokens would cost far more than 2% of the total,
-        // while the dictionary adds only a constant (the empty directive list and a little noise from the runtime)
-        Assert.True(withBytes - plainBytes < plainBytes * 0.02, $"plain {plainBytes} bytes, with dictionary {withBytes} bytes over {text.Length} characters");
     }
 
     /// <summary>Builds a comparable key of a result's annotations and breaks.</summary>

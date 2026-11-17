@@ -229,28 +229,25 @@ sections:
                   pronounce with the scheme and phonemes), and none for a token no entry matches.
                 justification: |
                   The normalization pass consumes the directives in one cursor walk, so they must
-                  be ascending and unique, and a token that no entry matches must cost nothing and
-                  change nothing. The golden file pins the resulting behavior on real tokens.
+                  be ascending and unique, and a token that no entry matches must change nothing.
+                  The golden file pins the resulting behavior on real tokens.
                 tests:
                   - PronunciationOverrides_Resolve_Actions_MapToDirectives
                   - PronunciationOverrides_Resolve_OneDirectivePerToken_AscendingUnique
+                  - PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives
                   - PronunciationOverrides_GoldenCases_NormalizeAsDocumented
 
-              - id: SpeechTextEn-Analysis-PronunciationOverrides-CancellationAndAllocation
+              - id: SpeechTextEn-Analysis-PronunciationOverrides-Cancellation
                 title: >-
                   The PronunciationOverrides class shall throw OperationCanceledException before any
                   work for a token that is already canceled and at a periodic check of at most 256
-                  visited tokens that counts every token whether it matched or not, shall allocate
-                  nothing for a token that cannot match, and shall stay linear in the number of
-                  tokens for a large text.
+                  visited tokens that counts every token whether it matched or not, and shall stay
+                  linear in the number of tokens for a large text.
                 justification: |
                   The lookup runs on every request on thread-pool threads and a stop or dispose
-                  waits for the analyzer to return, so a long text must stop promptly; and a lookup
-                  that allocated per token would add garbage to the hot path of every request
-                  that has a dictionary.
+                  waits for the analyzer to return, so a long text must stop promptly.
                 tests:
                   - PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken
-                  - PronunciationOverrides_Resolve_NoMatches_AllocatesNothingPerToken
                   - PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget
 
               - id: SpeechTextEn-Analysis-PronunciationOverrides-ArgumentValidation

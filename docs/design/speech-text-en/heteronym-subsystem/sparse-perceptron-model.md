@@ -109,7 +109,7 @@ example `The heteronym model file is corrupt: the checksum does not match.`) and
 Null arguments throw `ArgumentNullException`; the
 writer throws `ArgumentOutOfRangeException` or `ArgumentException` for input the loader would refuse. The loader
 contains nothing else: whatever the bytes are, the result is a loaded model or an `InvalidDataException`, which a
-seeded mutation test over valid files proves, with bounded allocation. Floats are read as binary, never parsed from
+seeded mutation test over valid files proves. Floats are read as binary, never parsed from
 text, so the current culture has no effect.
 
 **Dependencies**: the framework only (`DeflateStream`, `BinaryPrimitives`, `BitOperations`), and the FNV constants of

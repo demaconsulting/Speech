@@ -39,7 +39,6 @@ sections:
               - SpeechTextEn-Heteronym-ReadingInventory-StrictParsing
               - SpeechTextEn-Heteronym-ReadingInventory-BoundedTables
               - SpeechTextEn-Heteronym-ReadingInventory-CandidateLookup
-              - SpeechTextEn-Heteronym-ReadingInventory-NoLookupAllocation
               - SpeechTextEn-Heteronym-ReadingInventory-Immutability
             tests:
               - ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts
@@ -116,13 +115,13 @@ sections:
               The HeteronymSubsystem shall read and write the sparse model format (a fixed
               80-byte header and a compressed list of bucket gaps and 16-bit weights) so that a
               model round-trips exactly, shall reject every defect of a file with an
-              InvalidDataException that names the defect but never holds its data, and shall bound
-              every allocation by validated header fields rather than by the file's claims.
+              InvalidDataException that names the defect but never holds its data, and shall
+              reject a file whose claimed lengths exceed fixed caps.
             justification: |
               The file is the interface between the trainer and the runtime and an input from
               outside the process. A format with a version, flags, a checksum of the stored bytes
               and exact length rules lets the loader refuse anything it does not fully understand,
-              and a loader that never allocates what an untrusted count asks for cannot be turned
+              and a loader that refuses a hostile length claim cannot be turned
               into an out-of-memory failure. A fuzz test with a seeded generator shows that no
               mutation produces anything but a model or the one documented exception.
             children:
@@ -131,7 +130,7 @@ sections:
               - SpeechTextEn-Heteronym-SparsePerceptronModel-ChecksumOfStoredBytes
               - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictPayload
               - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictDeflate
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-BoundedAllocation
+              - SpeechTextEn-Heteronym-SparsePerceptronModel-PayloadLengthLimits
               - SpeechTextEn-Heteronym-SparsePerceptronModel-OnlyInvalidDataException
               - SpeechTextEn-Heteronym-SparsePerceptronModel-Immutability
               - SpeechTextEn-Heteronym-SparsePerceptronModel-WriterValidation

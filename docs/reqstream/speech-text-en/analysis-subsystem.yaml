@@ -205,7 +205,7 @@ sections:
               - SpeechTextEn-Analysis-PronunciationOverrides-Directives
               - SpeechTextEn-Analysis-PronunciationOverrides-WholeWordMatching
               - SpeechTextEn-Analysis-PronunciationOverrides-CaseRules
-              - SpeechTextEn-Analysis-PronunciationOverrides-CancellationAndAllocation
+              - SpeechTextEn-Analysis-PronunciationOverrides-Cancellation
             tests:
               - AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders
               - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
@@ -271,14 +271,12 @@ sections:
               other override, shall decide each reading in the context of the sentence of the
               word, shall flag a reading below a configurable threshold in the detailed result
               without withholding it, shall name and read back both annotations through the
-              documented vocabulary, and shall build no per-token object for them in the
-              language-neutral analysis.
+              documented vocabulary.
             justification: |
               This decomposes the system reading requirement: the analyzer asks the classifier,
               the options select the family and the threshold, and the vocabulary gives a backend
               typed readers. The annotations sit on the word because they say how it is spoken, so
-              a token that another rule has already decided has no reading, and the hot path stays
-              cheap because only the richer result needs a token list.
+              a token that another rule has already decided has no reading.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingAnnotations
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
@@ -286,7 +284,6 @@ sections:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingTaggingRule
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingCancellation
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingDetailedTokens
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoTokenObjects
               - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-ReadingSelection
               - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-LowConfidenceThreshold
               - SpeechTextEn-Analysis-TextEnAnnotations-KindNames

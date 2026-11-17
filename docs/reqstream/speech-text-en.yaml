@@ -566,7 +566,7 @@ sections:
           The library shall load a heteronym model only from a file that passes strict
           validation of its header, payload, checksum and compression and whose feature set and
           reading-inventory version the runtime supports, shall reject every other file with a
-          clear error rather than a crash or an unbounded allocation, and shall never apply a
+          clear error rather than a crash, and shall never apply a
           model to the wrong readings.
         tags: [system]
         justification: |

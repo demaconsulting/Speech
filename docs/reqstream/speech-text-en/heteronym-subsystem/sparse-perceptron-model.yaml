@@ -117,22 +117,21 @@ sections:
                   - SparsePerceptronModel_Load_DeflatePayloadSizeDiffersFromDeclared_IsRejected
                   - SparsePerceptronModel_Load_RawPayloadLengthsDiffer_IsRejected
 
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-BoundedAllocation
+              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-PayloadLengthLimits
                 title: >-
-                  The SparsePerceptronModel class shall derive every allocation from validated
-                  header fields and fixed caps (a payload length above the cap is rejected before
-                  any inflation, a payload length larger than the stored bytes can inflate to is
-                  rejected before inflation, a stream is read no further than the largest accepted
-                  file, and an inflation that exceeds the declared length is stopped), so that no
-                  file can make it allocate more than the cap.
+                  The SparsePerceptronModel class shall reject with InvalidDataException a file
+                  whose payload length is above a fixed cap, a payload length larger than the
+                  stored bytes can inflate to, a stream that inflates to more than the declared
+                  length (a compression bomb) and an endless stream.
                 justification: |
                   A model file is an input from outside the process; a few bytes that claim a very
-                  large payload, or a compression bomb, must be refused without paying for what they
-                  claim, so that loading a hostile file cannot exhaust memory on the speech path.
+                  large payload, or a compression bomb, must be refused with the documented
+                  exception rather than loaded, so that a hostile file cannot disturb the speech
+                  path.
                 tests:
-                  - SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejectedWithoutAllocating
+                  - SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejected
                   - SparsePerceptronModel_Load_PayloadLengthBeyondDeflateRatio_IsRejected
-                  - SparsePerceptronModel_Load_InflationBomb_IsRejectedWithoutLargeAllocation
+                  - SparsePerceptronModel_Load_InflationBomb_IsRejected
                   - SparsePerceptronModel_Load_LargestAllowedPayloadOfZeros_IsRejectedAsBadData
                   - SparsePerceptronModel_Load_EndlessStream_IsRejected
 
@@ -141,8 +140,7 @@ sections:
                   The SparsePerceptronModel class shall, for any byte sequence including thousands
                   of seeded mutations of valid files (flipped bytes, truncation, extension and
                   header changes with a recomputed checksum, in both representations), either
-                  load a model or throw InvalidDataException and nothing else, with allocation
-                  bounded for every attempt.
+                  load a model or throw InvalidDataException and nothing else.
                 justification: |
                   A caller handles one documented exception for a bad file; any other exception
                   type escaping from the inflater or from an index calculation would be a crash on

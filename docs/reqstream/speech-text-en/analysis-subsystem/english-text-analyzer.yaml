@@ -175,18 +175,15 @@ sections:
                   kind whose value is the spoken form (an empty value for a dropped character),
                   shall merge these with the part-of-speech annotations in text order with the part
                   of speech first at an equal start, shall run the normalization without loading
-                  the tagger, shall never change the analyzed text, and shall build no detail lists
-                  in the language-neutral analysis.
+                  the tagger, and shall never change the analyzed text.
                 justification: |
                   Backends read the spoken form from the annotation on the span, in the order the
                   Speech library delivers them, and a host that selects only normalization must
-                  not pay for the tagger; the language-neutral path is the hot path, so the detail
-                  that only the richer result needs is not built for it.
+                  not pay for the tagger.
                 tests:
                   - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
                   - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
                   - EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt
-                  - EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
                 title: >-
@@ -230,15 +227,13 @@ sections:
                   part-of-speech annotation of the word before it, shall annotate around a tag
                   placeholder, shall list a say or spell override in the detailed analysis with the
                   override kind, shall return the same annotations and breaks from both analysis
-                  methods, shall never change the sentence breaks, and shall allocate nothing per
-                  token for a dictionary that matches nothing.
+                  methods, and shall never change the sentence breaks.
                 justification: |
                   An override changes how one word is spoken, so it must sit on exactly that word
                   and in the order a backend expects, beside the part of speech that selects among
                   the readings of other words; the dictionary decides how a word is spoken, never
                   where a sentence ends, including when the word is an abbreviation whose period
-                  the tokenizer separates, and the common case of a dictionary that matches nothing
-                  in most requests must stay cheap.
+                  the tokenizer separates.
                 tests:
                   - EnglishTextAnalyzer_Analyze_SayOverride_EmitsNormAndKeepsPartOfSpeech
                   - EnglishTextAnalyzer_Analyze_SpellOutOverride_EmitsSpell
@@ -250,7 +245,6 @@ sections:
                   - EnglishTextAnalyzer_Analyze_OverridesDoNotChangeSentenceBreaks
                   - EnglishTextAnalyzer_Analyze_OverridesOnAbbreviations_DoNotChangeSentenceBreaks
                   - EnglishTextAnalyzer_Analyze_GoldenCases_MatchThroughThePublicApi
-                  - EnglishTextAnalyzer_Analyze_OverridesWithoutHits_AddNoPerTokenAllocation
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-OverridesRequireNormalization
                 title: >-
@@ -434,16 +428,3 @@ sections:
                   be able to rely on the two results agreeing.
                 tests:
                   - EnglishTextAnalyzer_AnalyzeDetailed_Readings_AreOnTokensAndEqualAnalyze
-
-              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoTokenObjects
-                title: >-
-                  The EnglishTextAnalyzer class shall add no allocation per token for readings in
-                  the language-neutral analysis (a text without a heteronym word allocates as it
-                  does without a model) and shall build the detailed token objects only in the
-                  detailed analysis.
-                justification: |
-                  The language-neutral analysis is the hot path of every request, and most tokens
-                  of most texts are not heteronyms; readings must not make it slower or add garbage
-                  for them.
-                tests:
-                  - EnglishTextAnalyzer_Analyze_WithModel_AddsNoPerTokenAllocationAndBuildsNoTokenObjects

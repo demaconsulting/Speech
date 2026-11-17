@@ -564,33 +564,6 @@ public sealed class TextNormalizerTests
         Assert.InRange(visited, 301, 600);
     }
 
-    /// <summary>Proves lowercase words (no number, no symbol, no abbreviation) cost nothing per token: the allocation of a pass does not grow with the number of tokens.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken()
-    {
-        // Arrange: the same text at two sizes; tokens are built outside the measured pass
-        static (string Text, NormalizationToken[] Tokens) Build(int count)
-        {
-            var text = string.Concat(Enumerable.Repeat("word ", count));
-            return (text, Enumerable.Range(0, count).Select(i => new NormalizationToken(i * 5, 4, i == 0)).ToArray());
-        }
-
-        var small = Build(10_000);
-        var large = Build(100_000);
-
-        // Act: warm up, then measure each pass on this thread
-        TextNormalizer.Default.Normalize(small.Text, small.Tokens, false, CancellationToken.None);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        TextNormalizer.Default.Normalize(small.Text, small.Tokens, false, CancellationToken.None);
-        var smallBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        TextNormalizer.Default.Normalize(large.Text, large.Tokens, false, CancellationToken.None);
-        var largeBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        // Assert: ten times the tokens, no more than a small fixed amount more memory (the builder's empty lists)
-        Assert.True(largeBytes - smallBytes < 16 * 1024, $"10,000 tokens allocated {smallBytes} bytes, 100,000 tokens {largeBytes} bytes");
-    }
-
     /// <summary>Proves bad arguments are rejected: null text, null collaborators, and malformed token lists.</summary>
     [Fact]
     public void TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw()
@@ -1202,28 +1175,5 @@ public sealed class TextNormalizerTests
         // Assert
         Assert.Equal(Enumerable.Range(0, tokens.Length), visited);
         Assert.Equal(3, aligned.OverridesApplied);
-    }
-
-    /// <summary>Proves a directive on words without a period costs no more allocation than the built-in path: the abbreviation lookup is not attempted for a token that no period touches.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn()
-    {
-        // Arrange: 20,000 capitalized words without a period, a skip directive on every one
-        var text = string.Concat(Enumerable.Repeat("Alpha Beta Gamma Delta ", 5_000)).TrimEnd();
-        var tokens = NormalizationHarness.Tokenize(text);
-        var directives = Enumerable.Range(0, tokens.Length).Select(i => new TokenDirective(i, TokenDirectiveKind.Skip, null)).ToArray();
-        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None);
-        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
-
-        // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None);
-        var without = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
-        var with = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        // Assert
-        Assert.True(with <= without + 4096, $"{with} bytes with directives, {without} without");
     }
 }

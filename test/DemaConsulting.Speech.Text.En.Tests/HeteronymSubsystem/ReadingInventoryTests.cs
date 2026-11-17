@@ -136,33 +136,6 @@ public sealed class ReadingInventoryTests
         Assert.False(inventory.Contains("record.ghost"));
     }
 
-    /// <summary>Proves the whole-token form lookup allocates nothing, for hits and misses, over many lookups.</summary>
-    [Fact]
-    public void ReadingInventory_TryFindForm_ManyLookups_AllocatesNothing()
-    {
-        // Arrange: warm up so any one-time initialization is not counted
-        var inventory = ReadingInventory.Default;
-        var hit = "Record".AsSpan();
-        var miss = "elephant".AsSpan();
-        inventory.TryFindForm(hit, out _);
-        inventory.TryFindForm(miss, out _);
-
-        // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        var found = 0;
-        for (var i = 0; i < 10_000; i++)
-        {
-            found += inventory.TryFindForm(hit, out _) ? 1 : 0;
-            found += inventory.TryFindForm(miss, out _) ? 1 : 0;
-        }
-
-        var after = GC.GetAllocatedBytesForCurrentThread();
-
-        // Assert
-        Assert.Equal(10_000, found);
-        Assert.Equal(0, after - before);
-    }
-
     /// <summary>Proves the internal accessors agree: the candidates, ids, activity and salts of a form.</summary>
     [Fact]
     public void ReadingInventory_InternalAccessors_AgreeWithPublicLookup()

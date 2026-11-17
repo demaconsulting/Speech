@@ -10,8 +10,7 @@ negative values and the largest magnitudes), and the defect tests change one fie
 hardest cases forge a file so that every cheap check passes: the stored length and the checksum are recomputed after the
 tampering, so only the strict inflater and the structural decoding can reject it, and a Deflate stream is built by hand
 for the inflation bomb and for the largest allowed payload of zeros. A seeded fuzz test applies thousands of random
-mutations to valid files of both representations. Allocation is measured with the bytes allocated on the current thread
-to prove that no hostile length drives a large allocation. No fake is needed.
+mutations to valid files of both representations. No fake is needed.
 
 #### Test Environment
 
@@ -30,12 +29,12 @@ uncompressed bytes; loading from a stream equals loading from bytes and an endle
 throws `ArgumentNullException`; every defect of the header (magic, short header, format version, flags, feature-set
 version, inventory version, hash bits, reserved fields, temperature and scale, row count, payload length against its cap
 and its row count, stored length, an uncompressed length mismatch, a length no Deflate stream could reach) is rejected
-with a message that names it and without any allocation driven by the hostile value; a changed stored byte or checksum
+with a message that names it; a changed stored byte or checksum
 fails the checksum; every defect of the payload (a gap of zero, a bucket outside the table, a bad varint, a weight of 0
 or -32768, a payload that does not fit its structure) is rejected; a Deflate stream that is cut off, has trailing bytes
 in its region, inflates to fewer or more bytes than declared or is an inflation bomb is rejected, even when the lengths
-and the checksum are forged to match, after at most the declared length plus one byte is inflated; arbitrary seeded
-mutations only load or throw `InvalidDataException` with bounded allocation; the writer sorts its input, drops zero
+and the checksum are forged to match; arbitrary seeded
+mutations only load or throw `InvalidDataException`; the writer sorts its input, drops zero
 weights, refuses what the loader would refuse and writes the same bytes to a stream; a loaded model is read concurrently
 without differences; and the culture has no effect.
 
@@ -80,17 +79,17 @@ loads and keeps its version), inventory version 0, hash bits 15 and 25, and a no
 bytes or in the reserved word, each with a message that names the field. The float theory rejects a temperature or scale
 that is NaN, infinite, zero, negative or above 1e6. The values 1e6 and a tiny positive value are accepted.
 
-##### Lengths and allocation
+##### Lengths
 
 **Tests**: `SparsePerceptronModel_Load_RowCountAboveTable_IsRejected`,
-`SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejectedWithoutAllocating`,
+`SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejected`,
 `SparsePerceptronModel_Load_PayloadLengthNotFittingRowCount_IsRejected` (a theory over 29 and 71),
 `SparsePerceptronModel_Load_StoredLengthMismatch_IsRejected`,
 `SparsePerceptronModel_Load_RawPayloadLengthsDiffer_IsRejected`,
 `SparsePerceptronModel_Load_PayloadLengthBeyondDeflateRatio_IsRejected`
 
 A row count above the hash table or the payload cap is rejected. A payload length above 32 MiB is rejected before any
-inflation and without a large allocation. A payload length of 29 bytes for 10 rows (below three bytes per row) or 71
+inflation. A payload length of 29 bytes for 10 rows (below three bytes per row) or 71
 (above seven) is rejected as not fitting. A stored length shorter than the bytes present reports unexpected trailing
 bytes and a longer one reports truncation. An uncompressed payload whose stored and payload lengths differ is rejected.
 A declared payload that the stored bytes could not inflate to even at the maximum ratio is rejected without inflating.
@@ -118,16 +117,15 @@ weights are each rejected with the message that names the defect.
 **Tests**: `SparsePerceptronModel_Load_CutOffDeflateWithForgedLengthAndChecksum_IsRejected` (a theory over 1, 2 and 5
 removed bytes), `SparsePerceptronModel_Load_TrailingBytesInsideDeflateRegion_IsRejected`,
 `SparsePerceptronModel_Load_DeflatePayloadSizeDiffersFromDeclared_IsRejected`,
-`SparsePerceptronModel_Load_InflationBomb_IsRejectedWithoutLargeAllocation`,
+`SparsePerceptronModel_Load_InflationBomb_IsRejected`,
 `SparsePerceptronModel_Load_LargestAllowedPayloadOfZeros_IsRejectedAsBadData`
 
 A Deflate stream with its last 1, 2 or 5 bytes removed is rejected as cut off although the stored length and the
 checksum were recomputed to match (the case a plain Deflate reader accepts). Bytes after the end of the Deflate stream
 inside the stored region are rejected as trailing. A stream that inflates to one byte fewer than declared reports that
 it is too short or cut off, and one that inflates to one byte more reports that it is longer than declared. A stream of
-64 MiB of zeros under a header that declares 300,000 bytes is rejected as longer than declared with less than 8 MB
-allocated. A valid stream of 32 MiB of zeros at the largest allowed size is inflated and then rejected for its first gap
-of zero, with less than 48 MiB allocated.
+64 MiB of zeros under a header that declares 300,000 bytes is rejected as longer than declared. A valid stream of 32 MiB
+of zeros at the largest allowed size is inflated and then rejected for its first gap of zero.
 
 ##### Seeded fuzz
 
@@ -135,8 +133,7 @@ of zero, with less than 48 MiB allocated.
 
 Six thousand mutations of four valid files (two models, each compressed and raw) by a deterministic generator (byte
 flips, truncation, extension and changes of header fields, with and without a repaired checksum) each either load or
-throw `InvalidDataException` and nothing else; more than half are rejected; the worst allocation of one attempt stays
-below 48 MiB.
+throw `InvalidDataException` and nothing else; more than half are rejected.
 
 ##### Writer
 

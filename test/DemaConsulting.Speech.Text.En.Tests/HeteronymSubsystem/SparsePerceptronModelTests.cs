@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.HeteronymSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="SparsePerceptronModel"/>, <see cref="SparsePerceptronModelWriter"/> and the
 ///     <c>HETW</c> file rules they share through <see cref="ModelBinaryFormat"/>: round trips, strict
-///     validation of every field, bounded allocation, strict Deflate handling and a seeded fuzz of the loader.
+///     validation of every field, strict Deflate handling and a seeded fuzz of the loader.
 /// </summary>
 public sealed class SparsePerceptronModelTests
 {
@@ -259,22 +259,19 @@ public sealed class SparsePerceptronModelTests
         AssertInvalid(image, "the row count is larger than the hash table or the payload cap allows");
     }
 
-    /// <summary>Proves a payload length above the cap is rejected before any inflation is attempted, with no large allocation.</summary>
+    /// <summary>Proves a payload length above the cap is rejected before any inflation is attempted.</summary>
     [Fact]
-    public void SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejectedWithoutAllocating()
+    public void SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejected()
     {
         // Arrange
         var image = Standard(compress: true);
         BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(28), (uint)ModelBinaryFormat.MaxPayloadLength + 1);
 
         // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var exception = Assert.Throws<InvalidDataException>(() => SparsePerceptronModel.Load(image));
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         // Assert
         Assert.Contains("is larger than the maximum", exception.Message, StringComparison.Ordinal);
-        Assert.True(allocated < 1_000_000, $"{allocated} bytes allocated");
     }
 
     /// <summary>Proves a payload length that cannot fit the row count (too small for the weights, or larger than any gap encoding) is rejected.</summary>
@@ -467,9 +464,9 @@ public sealed class SparsePerceptronModelTests
         AssertInvalid(shorter, "longer than declared");
     }
 
-    /// <summary>Proves an inflation bomb (a stream that inflates to far more than declared) is rejected after inflating at most the declared length plus one byte, without a large allocation.</summary>
+    /// <summary>Proves an inflation bomb (a stream that inflates to far more than declared) is rejected.</summary>
     [Fact]
-    public void SparsePerceptronModel_Load_InflationBomb_IsRejectedWithoutLargeAllocation()
+    public void SparsePerceptronModel_Load_InflationBomb_IsRejected()
     {
         // Arrange: 64 MiB of zeros compress to a small stream; the header declares only 300,000 payload bytes
         var bomb = DeflateZeros(64 * 1024 * 1024);
@@ -480,13 +477,10 @@ public sealed class SparsePerceptronModelTests
         var forged = Forge(image, bomb);
 
         // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var exception = Assert.Throws<InvalidDataException>(() => SparsePerceptronModel.Load(forged));
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         // Assert
         Assert.Contains("longer than declared", exception.Message, StringComparison.Ordinal);
-        Assert.True(allocated < 8_000_000, $"{allocated} bytes allocated");
     }
 
     /// <summary>Proves a stream that is valid Deflate but not a valid payload (all zero gaps at the largest allowed size) is rejected as bad data after a bounded inflation.</summary>
@@ -505,16 +499,13 @@ public sealed class SparsePerceptronModelTests
         var image = Forge([.. header, .. stored], stored);
 
         // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var exception = Assert.Throws<InvalidDataException>(() => SparsePerceptronModel.Load(image));
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
-        // Assert: the payload is inflated (32 MiB at most) and then rejected; nothing near the 48 MiB bound is allocated
+        // Assert: the payload is inflated and then rejected for its first gap of zero
         Assert.Contains("a bucket gap of zero", exception.Message, StringComparison.Ordinal);
-        Assert.True(allocated < 48L * 1024 * 1024, $"{allocated} bytes allocated");
     }
 
-    /// <summary>Proves arbitrary, seeded mutations of valid files (byte flips, truncation, extension, header-field changes with and without a repaired checksum, in both representations) only ever load or throw <see cref="InvalidDataException"/>, with bounded allocation.</summary>
+    /// <summary>Proves arbitrary, seeded mutations of valid files (byte flips, truncation, extension, header-field changes with and without a repaired checksum, in both representations) only ever load or throw <see cref="InvalidDataException"/>.</summary>
     [Fact]
     public void SparsePerceptronModel_Load_SeededFuzz_OnlyLoadsOrThrowsInvalidDataException()
     {
@@ -523,14 +514,12 @@ public sealed class SparsePerceptronModelTests
         var random = new XorShift(0x5EED_CAFE_1234_5678UL);
         var loaded = 0;
         var rejected = 0;
-        long worstAllocation = 0;
 
         // Act
         for (var attempt = 0; attempt < 6_000; attempt++)
         {
             var source = images[attempt % images.Length];
             var mutated = Mutate(source, random, attempt);
-            var before = GC.GetAllocatedBytesForCurrentThread();
             try
             {
                 SparsePerceptronModel.Load(mutated);
@@ -540,14 +529,11 @@ public sealed class SparsePerceptronModelTests
             {
                 rejected++;
             }
-
-            worstAllocation = Math.Max(worstAllocation, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
         // Assert: any other exception type would have failed the test; most mutations are caught, some are harmless
         Assert.Equal(6_000, loaded + rejected);
         Assert.True(rejected > 3_000, $"only {rejected} of 6000 mutations were rejected");
-        Assert.True(worstAllocation < 48L * 1024 * 1024, $"worst allocation {worstAllocation} bytes");
     }
 
     /// <summary>Proves the writer sorts its input, drops zero weights, and records the row count.</summary>

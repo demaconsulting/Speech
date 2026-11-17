@@ -40,20 +40,19 @@ invisible-character and clitic rules and before the abbreviation rule (so `5 ft.
 number to the numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
 adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period (consumed
 mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no token that contains an
-invisible character as a number, observes cancellation in the middle of a numeric pass, and allocates nothing per token
-for lower-case text without digits. A user directive on a token wins over every built-in rule for the spoken form of
-that token, while the sentence-break edits of the abbreviation and acronym rules are still made (see *Directive sentence
-breaks*): a skip directive and a reading directive emit nothing (the token is spoken as written), a replace directive
-emits one span of the override kind padded by at most one space, a spell directive spells ASCII letters (and leaves
-anything else as written, counted as ignored), and a pronounce directive adds a pronunciation mark without a span or a
-change of the spoken text. A directive on a token that an earlier multi-token match consumed is ignored, counted and
-leaves the match unchanged; every directive is counted exactly once as applied or ignored; directives that are out of
-order, repeated, negative or beyond the tokens are rejected without arithmetic on the index; the cancellation cadence
-counts every visited token with directives present; and thousands of directives over a large text complete within the
-time budget. The shape of a replacement decides whether it is spelled (letter-name replacements are, word, symbol and
-number replacements are not), an ampersand initialism is decomposed into spelled letter spans and an `and` span with
-unchanged spoken text and the possessive tail outside every span, and adjacent replacements are separated by exactly one
-space.
+invisible character as a number, and observes cancellation in the middle of a numeric pass. A user directive on a token
+wins over every built-in rule for the spoken form of that token, while the sentence-break edits of the abbreviation and
+acronym rules are still made (see *Directive sentence breaks*): a skip directive and a reading directive emit nothing
+(the token is spoken as written), a replace directive emits one span of the override kind padded by at most one space, a
+spell directive spells ASCII letters (and leaves anything else as written, counted as ignored), and a pronounce
+directive adds a pronunciation mark without a span or a change of the spoken text. A directive on a token that an
+earlier multi-token match consumed is ignored, counted and leaves the match unchanged; every directive is counted
+exactly once as applied or ignored; directives that are out of order, repeated, negative or beyond the tokens are
+rejected without arithmetic on the index; the cancellation cadence counts every visited token with directives present;
+and thousands of directives over a large text complete within the time budget. The shape of a replacement decides
+whether it is spelled (letter-name replacements are, word, symbol and number replacements are not), an ampersand
+initialism is decomposed into spelled letter spans and an `and` span with unchanged spoken text and the possessive tail
+outside every span, and adjacent replacements are separated by exactly one space.
 
 #### Test Scenarios
 
@@ -141,15 +140,12 @@ visited. `50%` produces `fifty` and `" percent"` with one space between the two 
 offset, and `5–10` produces `five`, `" to "` and `ten`; a numeric token with a zero-width space inside produces
 only the dropped span.
 
-##### Numeric cancellation and allocation
+##### Numeric cancellation
 
-**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken`
+**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`
 
 For a long hand-built numeric text, an observer cancels the token mid-pass and the pass stops at the next periodic
-check (at most 256 tokens later). For 100,000 lower-case word tokens the bytes allocated by the pass do not
-depend on the number of tokens beyond the builder's fixed lists (a generous threshold calibrated by the test), so
-the numeric rule adds no per-token allocation to text without numbers.
+check (at most 256 tokens later).
 
 ##### Cancellation and observer
 
@@ -218,7 +214,6 @@ texts: `Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-fina
 `TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak`,
 `TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks`,
 `TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce`,
-`TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn`,
 `NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks`
 
 For every row and for each of the four directive kinds (skip, replace, spell, pronounce) the reconciled breaks equal
@@ -230,8 +225,7 @@ token's range, which never covers a separate period token, and a skip or pronoun
 example has the tokenizer break `[9]` suppressed with and without a `Say` directive. A defective directive (a
 replacement or pronunciation without a value, a spell-out of a token that is not ASCII letters) is ignored and
 counted, and still keeps the built-in breaks. With directives on abbreviations an observer sees every token index
-exactly once, in order. A directive on every capitalized word of a 20,000-word text without a period allocates no
-more than the built-in pass (the abbreviation lookup is not attempted). The seeded differential test (seed
+exactly once, in order. The seeded differential test (seed
 20261116, 400 random abbreviation-rich texts with periods, dashes and tag placeholders) puts each of the four kinds
 on every word token that a period touches and on up to 16 other word tokens, and once a directive on every sampled
 word at once; the reconciled breaks always equal those without directives, every directive is counted exactly
