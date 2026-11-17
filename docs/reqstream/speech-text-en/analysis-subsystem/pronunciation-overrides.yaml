@@ -265,3 +265,50 @@ sections:
                 tests:
                   - PronunciationOverrides_Resolve_NullText_Throws
                   - PronunciationOverrides_Resolve_TokenOutsideText_Throws
+
+              - id: SpeechTextEn-Analysis-PronunciationOverrides-ReadingAction
+                title: >-
+                  The PronunciationOverrides class shall accept a reading entry (the reading action,
+                  numeric value 5, built with the entry factory or written as the action word
+                  reading in the tab-separated file) whose payload is a reading id, shall reject a
+                  null word or payload in the entry factory, and shall still reject every other
+                  unknown action word with the line number and a fixed reason.
+                justification: |
+                  A host fixes the reading of a word with the same dictionary, file format and
+                  rules it uses for the other overrides, so there is one set of rules to learn; the
+                  action word is part of the file format and the numeric value part of the public
+                  enumeration, so both are pinned.
+                tests:
+                  - PronunciationOverrideEntry_Reading_CreatesReadingEntryWithIdPayload
+                  - PronunciationOverrides_FromTsv_ReadingAction_IsValidatedWithLineNumbers
+
+              - id: SpeechTextEn-Analysis-PronunciationOverrides-ReadingStrictValidation
+                title: >-
+                  The PronunciationOverrides class shall validate a reading entry against the
+                  reading inventory when the dictionary is built, rejecting, with the entry index
+                  or the line number and a fixed reason that never echoes the word or the id, a
+                  missing or empty reading id, an ill-formed id, an id that is not in the inventory
+                  and a word that is not a form of that reading (compared with ASCII-only case
+                  folding, so a non-ASCII look-alike is not a form).
+                justification: |
+                  A reading id that no word can have, or an id attached to the wrong word, would be
+                  silently ignored at run time, which hides a configuration mistake until a user
+                  hears the wrong word; checking when the entry is written puts the error where
+                  the line is. The reasons are fixed text because a dictionary may hold names.
+                tests:
+                  - PronunciationOverrides_Create_ReadingEntryInvalid_ThrowsFixedReason
+                  - PronunciationOverrides_Create_ReadingEntryWordCase_IsFoldedAsciiOnly
+                  - PronunciationOverrides_FromTsv_ReadingAction_IsValidatedWithLineNumbers
+
+              - id: SpeechTextEn-Analysis-PronunciationOverrides-ReadingDirective
+                title: >-
+                  The PronunciationOverrides class shall resolve a token that a reading entry
+                  matches to a reading directive carrying the reading id, matching a
+                  case-insensitive entry whatever the case of the token and a case-sensitive entry
+                  only in its own case.
+                justification: |
+                  The analyzer turns the directive into the reading annotations and the
+                  normalization pass speaks the word as written; the matching rules are those of
+                  every other action, so a reading entry never surprises a host that knows them.
+                tests:
+                  - PronunciationOverrides_Create_ReadingEntry_AcceptedAndResolvesToReadingDirective

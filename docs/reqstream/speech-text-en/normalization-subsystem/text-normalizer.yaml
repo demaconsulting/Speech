@@ -327,6 +327,20 @@ sections:
                 tests:
                   - TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException
 
+              - id: SpeechTextEn-Normalization-TextNormalizer-ReadingDirective
+                title: >-
+                  The TextNormalizer class shall treat a reading directive as a request to speak its
+                  token as written: it emits no span and no pronunciation mark for the token,
+                  bypasses every built-in rule that would otherwise handle it (an initialism that
+                  would be spelled, for example) and counts the directive as applied.
+                justification: |
+                  A reading override fixes which reading of a word the backend uses, not how the
+                  word is spelled out, so the normalization must leave the word alone and must not
+                  let a built-in rule rewrite it; the reading itself is carried by the analysis
+                  annotations, which the normalization knows nothing about.
+                tests:
+                  - TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied
+
               - id: SpeechTextEn-Normalization-TextNormalizer-SpelledReplacements
                 title: >-
                   The TextNormalizer class shall mark a replacement as spelled when its spoken text,

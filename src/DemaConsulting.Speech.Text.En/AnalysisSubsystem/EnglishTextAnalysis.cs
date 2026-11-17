@@ -42,6 +42,27 @@ public sealed record AnalyzedToken(int Start, int Length, string Text, string? P
     ///     heuristic: <c>the dog's training session</c> reads as a contraction.
     /// </remarks>
     public CliticKind Clitic { get; init; }
+
+    /// <summary>
+    ///     Gets the heteronym reading id assigned to this token (for example <c>record.noun</c>), or
+    ///     <see langword="null"/> when none was: the token is not a heteronym form, the reading family was
+    ///     not selected or has no model, or the token was a replacement or carried another override.
+    /// </summary>
+    /// <remarks>Equals the <c>Value</c> of the token's <see cref="TextEnAnnotations.Reading"/> annotation.</remarks>
+    public string? Reading { get; init; }
+
+    /// <summary>
+    ///     Gets the confidence of <see cref="Reading"/> from 0 to 1 (1 for a single-candidate form or an
+    ///     override), or 0 when the token has no reading.
+    /// </summary>
+    public double ReadingConfidence { get; init; }
+
+    /// <summary>
+    ///     Gets a value indicating whether the token's classified reading is below
+    ///     <see cref="EnglishTextAnalyzerOptions.LowConfidenceThreshold"/>; <see langword="false"/> when
+    ///     the token has no reading and for a single-candidate or overridden reading.
+    /// </summary>
+    public bool IsLowConfidenceReading { get; init; }
 }
 
 /// <summary>

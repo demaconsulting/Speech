@@ -16,9 +16,10 @@ release provides part-of-speech annotation, alignment-preserving normalization o
 (abbreviations including month and weekday abbreviations, symbols, apostrophes, acronyms and initialisms,
 and en-US numbers, ordinals, years, currency, percent, units, times and dates), a spell-out annotation for
 letter sequences, host-supplied pronunciation overrides (a dictionary of whole words that are spoken as
-written, replaced by plain words, spelled letter by letter or given a phoneme string) and authoritative
-sentence boundaries, and later releases are planned to add heteronym pronunciation readings on top of the
-same two subsystems.
+written, replaced by plain words, spelled letter by letter, given a phoneme string or given a fixed heteronym
+reading) and authoritative sentence boundaries, and heteronym pronunciation readings: a model-driven choice of which
+reading a word such as `record` has, reported as a reading id with a confidence, which needs a trained model that this
+release does not yet ship (see *Heteronym Readings*).
 
 SpeechTextEn is a sibling system to Speech rather than a subsystem of it, for the same reasons the model
 packages are: it is a separately built, separately packaged software item with its own dependency, and
@@ -27,7 +28,7 @@ the Speech library must never depend on it. It uses the Speech library only thro
 package's project file has one project reference, to `DemaConsulting.Speech`, and no reference to ONNX
 Runtime or any inference package, so any model package can use it.
 
-The library consists of two runtime subsystems:
+The library consists of three runtime subsystems:
 
 - **AnalysisSubsystem**: the `EnglishTextAnalyzer` analyzer (with its `EnglishTextAnalysis`,
   `AnalyzedToken` and `AnalyzedNormalization` result types), its `EnglishTextAnalyzerOptions`, the
@@ -36,6 +37,10 @@ The library consists of two runtime subsystems:
   `OverrideAction` and `PronunciationScheme` enumerations), the internal `PartOfSpeechAdapter` that
   isolates the part-of-speech package, and the internal `AnalysisDiagnostics` reporter - see *SpeechTextEn
   AnalysisSubsystem Design*
+- **HeteronymSubsystem**: the public `ReadingInventory` of heteronym readings (embedded from the repository's
+  inventory tables), the internal feature extractor with its hash functions, the internal sparse model with its
+  strict file loader, and the internal classifier with its lazy model provider - see *SpeechTextEn
+  HeteronymSubsystem Design*
 - **NormalizationSubsystem**: the alignment model (`NormalizationAlignment.cs`, which also declares the
   public `NormalizationKind` and `CliticKind` enumerations), the internal `TextNormalizer` that decides
   which spans are spoken differently, the internal `AbbreviationResolver` with its embedded abbreviation
@@ -44,16 +49,18 @@ The library consists of two runtime subsystems:
   spoken, and the internal `NumberVerbalizer` that builds the English words of a number - see *SpeechTextEn
   NormalizationSubsystem Design*
 
-The dependency between the subsystems is one way: the AnalysisSubsystem uses the NormalizationSubsystem,
-which knows nothing of the analyzer, the tagger or the diagnostics sink. The NormalizationSubsystem does not
-use the part-of-speech package in production code at all; it receives token offsets from the analyzer as
-plain values (only its tests feed it the real tokenizer's tokens). Both subsystems are small enough that
-neither needs nested subsystems of its own.
+The dependencies between the subsystems are one way: the AnalysisSubsystem uses the NormalizationSubsystem and the
+HeteronymSubsystem, and neither of them knows anything of the analyzer, the tagger or the diagnostics sink. The
+NormalizationSubsystem does not use the part-of-speech package in production code at all; it receives token offsets
+from the analyzer as plain values (only its tests feed it the real tokenizer's tokens). The HeteronymSubsystem does
+not use it either: the analyzer describes each token to it with plain values (offsets, a tag name and a confidence). The
+two lower subsystems do not depend on each other. All three are small enough that none needs nested subsystems of its
+own.
 
-A third subsystem belongs to the system but not to the package:
+A fourth subsystem belongs to the system but not to the package:
 
 - **TrainingDataSubsystem**: the `check-data` command of the non-shipped trainer tool
-  (`tools/DemaConsulting.Speech.Text.En.Trainer`) that verifies the training and evaluation data of the future
+  (`tools/DemaConsulting.Speech.Text.En.Trainer`) that verifies the training and evaluation data of the
   heteronym classifier in `data/text-en/` (the strict file reader, the typed data loader, the manifest verifier, the
   span validator, the finding collector, and the schema, license and leakage checks) - see *SpeechTextEn
   TrainingDataSubsystem Design* and *Training Data and Trainer* below
@@ -73,11 +80,14 @@ increment adds a sibling subsystem that trains the classifier from the same data
 | `EnglishTextAnalyzerOptions` | Inbound |
 | `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme` | Inbound |
 | `TextEnAnnotations` | Inbound |
+| `ReadingInventory` | Inbound |
 | `NormalizationKind`, `CliticKind` | Inbound |
 | `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` | Outbound |
 | `ISpeechDiagnostics.Report` | Outbound |
 | `DemaConsulting.PartOfSpeech` tokenizer and tagger | Outbound |
 | Embedded lexicons `abbreviations.tsv`, `acronyms.tsv` | Internal |
+| Embedded inventory tables `readings.tsv`, `forms.tsv` | Internal |
+| Heteronym model file (`HETW` format) | Internal |
 
 **Interface details:**
 
@@ -86,11 +96,12 @@ increment adds a sibling subsystem that trains the classifier from the same data
   - Constraints: Thread-safe; honors cancellation; throws only for a null argument or cancellation
 - `EnglishTextAnalyzer.AnalyzeDetailed`
   - Format: Public method call
-  - Constraints: Result carries words, normalizations and clitic roles; local use only
+  - Constraints: Result carries words, normalizations, clitic roles and heteronym readings; local use only
 - `EnglishTextAnalyzerOptions`
   - Format: Public record
-  - Constraints: Validated on initialization; default selects part of speech and normalization; carries the optional
-    `Overrides` dictionary, which requires normalization
+  - Constraints: Validated on initialization; default selects part of speech, normalization and readings (the readings
+    are effective only where a model exists); carries the optional `Overrides` dictionary, which requires
+    normalization, and the `LowConfidenceThreshold` from 0 to 1
 - `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme`
   - Format: Public classes and enumerations; `Create(entries)` and `FromTsv(reader)`
   - Constraints: Immutable and thread-safe; entries validated and bounded; errors give an index or line number and never
@@ -98,7 +109,11 @@ increment adds a sibling subsystem that trains the classifier from the same data
 - `TextEnAnnotations`
   - Format: Public constants and readers
   - Constraints: Closed kind vocabulary; ignore unknown kinds; `en.norm` and `en.spell` follow the *Alignment Contract*;
-    `en.pron` follows *Pronunciation Overrides*
+    `en.pron` follows *Pronunciation Overrides*; `en.reading` and `en.reading-confidence` follow *Heteronym Readings*
+- `ReadingInventory`
+  - Format: Public sealed class; `Default`, `Version`, `ReadingIds`, `Contains` and `CandidatesFor`
+  - Constraints: Immutable and thread-safe; a reading id is checked by exact comparison and a form by ASCII case
+    folding; see *Heteronym Readings*
 - `NormalizationKind`, `CliticKind`
   - Format: Public enumerations
   - Constraints: Closed vocabularies reported by `AnalyzeDetailed` only
@@ -114,11 +129,17 @@ increment adds a sibling subsystem that trains the classifier from the same data
 - Embedded lexicons `abbreviations.tsv`, `acronyms.tsv`
   - Format: Embedded resources, tab-separated text
   - Constraints: Read once, lazily, by the NormalizationSubsystem; a malformed table is a defective build
+- Embedded inventory tables `readings.tsv`, `forms.tsv`
+  - Format: Embedded resources (linked from `data/text-en/`), tab-separated text
+  - Constraints: Read once, lazily, by the `ReadingInventory`; a malformed table is a defective build
+- Heteronym model file (`HETW` format)
+  - Format: Binary file in the format of *Heteronym Readings*, looked up as an embedded resource
+  - Constraints: Read once, lazily, only when needed; strictly validated; this release embeds none
 
 ## Dependencies
 
-SpeechTextEn has one project dependency, the Speech library, and one NuGet dependency (plus its own two
-embedded lexicon tables, which are data written for this package, not a dependency):
+SpeechTextEn has one project dependency, the Speech library, and one NuGet dependency (plus its own embedded
+tables - two lexicons and the reading inventory - which are data written for this package, not a dependency):
 
 - **DemaConsulting.PartOfSpeech** supplies the English tokenizer, the sentence splitter and the
   Universal Dependencies tagger with its embedded lexicon and weights. It is an OTS item of this
@@ -150,7 +171,8 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
    tagging only, so every offset in the neutralized text is also an offset in the original
 3. **Splitting**: `PartOfSpeechAdapter` splits the neutralized text into sentences and tokens (needing no
    tagger) with token offsets that index the text
-4. **Tagging**: when part-of-speech annotation is selected, the adapter tags each sentence, checking the
+4. **Tagging**: when part-of-speech annotation is selected, or when the reading family is effective (selected and a
+   heteronym model exists, see *Heteronym Readings*), the adapter tags each sentence, checking the
    cancellation token before each one, after the tagger is obtained and after each sentence is tagged; the
    shared tagger is obtained on the first sentence that is tagged. Tagging runs on the raw tokens, never on
    normalized text (see *Why tagging runs on raw tokens* below)
@@ -166,16 +188,20 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
    numeric fallback count, the counts of overrides applied and ignored and, only for `AnalyzeDetailed`, the
    clitic roles. It needs no tagger and does not look at the tags
 6. **Result building**: the analyzer emits one `en.upos` annotation per word token (tokens tagged `PUNCT`
-   or `SYM`, and tokens without a letter or digit, are skipped) followed by the replacement annotations of the
+   or `SYM`, and tokens without a letter or digit, are skipped) followed by the reading pair of that token when it has
+   a heteronym reading (`en.reading` and `en.reading-confidence` on the same whole-token span, see *Heteronym
+   Readings*), then by the replacement annotations of the
    spans that start inside that token (`en.spell` for a spelled span, `en.norm` otherwise) and then by the
    `en.pron` annotation of a pronunciation mark on that token, so annotations are in text order and, at an
-   equal start, the part of speech precedes the replacement or pronunciation (a token carries a replacement
-   or a pronunciation, never both).
+   equal start, the part of speech precedes the reading, the replacement or the pronunciation (a token carries a
+   replacement or a pronunciation, never both, and never a reading together with either).
    Sentence breaks are the tokenizer's breaks (the first token of every sentence after the first)
    **reconciled** with the normalization edits: every tokenizer break and forced break, minus the suppressed
    ones. The cancellation token is checked periodically while the result is built
 7. **Reporting**: unless the request was canceled at any earlier point (including during the last
-   sentence), `AnalysisDiagnostics` reports one counts-only event to the optional sink
+   sentence), `AnalysisDiagnostics` reports one counts-only event to the optional sink, followed by one
+   counts-only heteronym event when at least one reading was assigned, and, once per analyzer, a warning when a model
+   exists but cannot be used
 8. **Output**: a `TextAnalysisResult` whose annotations and non-null, reconciled sentence breaks index the
    original text; the session re-bases them onto its segments and chunks, and a backend that implements
    `IAnnotatedSynthesisBackend` receives them with each segment and applies the replacement annotations
@@ -407,7 +433,7 @@ user guide has worked examples and a backend snippet.
 A host builds one immutable `PronunciationOverrides` dictionary (from entries in code with
 `PronunciationOverrides.Create`, or from a tab-separated file with `PronunciationOverrides.FromTsv`) and sets
 it as `EnglishTextAnalyzerOptions.Overrides`. Each entry has a **word** (the key), a **case flag**, an
-**action** and, for two actions, a **payload**. The analyzed text is never rewritten; the action decides which
+**action** and, for three actions, a **payload**. The analyzed text is never rewritten; the action decides which
 annotation, if any, the matching word gets:
 
 | Action | TSV word | Payload |
@@ -416,6 +442,7 @@ annotation, if any, the matching word gets:
 | `Say` | `say` | plain words |
 | `SpellOut` | `spell` | none |
 | `Pronunciation` | `pron` | `ipa:...` or `arpabet:...` |
+| `Reading` | `reading` | a reading id such as `record.noun` |
 
 **Action details:**
 
@@ -434,10 +461,18 @@ annotation, if any, the matching word gets:
   - Result for the word: One `en.pron` annotation on the word; the word is not replaced
   - Example (key, then text and result): `Polish` pron `ipa:ˈpoʊlɪʃ`: `Polish food` keeps its text and the backend
     receives the phonemes
+- `Reading`
+  - Result for the word: One `en.reading` annotation whose value is the payload and one `en.reading-confidence`
+    annotation `1.000` on the word; the spoken text is unchanged (the word is spoken as written), and no model is needed
+  - Example (key, then text and result): `record` reading `record.noun`: `Please record the record.` gives both words
+    the reading `record.noun`
 
-`Reading` (selecting a heteronym reading such as the noun or the verb of `record`) is a reserved fifth action
-that is not part of this release: the `OverrideAction` value 5 is reserved and the TSV loader rejects the word
-`reading`. It will be added with the heteronym classifier.
+The `Reading` action fixes the heteronym reading of a word (the noun or the verb of `record`) and beats the
+classifier (rank 5 of the precedence table). It is validated strictly when the dictionary is built: the payload must be
+a well-formed reading id (see *Heteronym Readings*), the id must exist in the inventory and be active, and the entry's
+word, folded to ASCII case, must be a form that the id is a candidate of. The reading annotations of an override are
+emitted only when the reading family is selected; the override is counted in `overrides applied` in every case. The
+`OverrideAction` value 5 is the reading action and the values outside 1 to 5 are undefined.
 
 ### Precedence
 
@@ -452,7 +487,9 @@ Several sources can decide how a word is spoken. Each rank beats every rank belo
    apostrophes. Mechanism: unchanged rule order of the *TextNormalizer Design*
 4. Part of speech. Mechanism: independent: `en.upos` is still emitted for an overridden word and may overlap
    `en.pron`
-5. Heteronym classification (a later release). Mechanism: see *Seam for heteronym readings* below
+5. Heteronym classification. Mechanism: the analyzer's reading pass, which skips every token that a decision of rank 1
+   to 3 replaced, spelled or pronounced (see *Heteronym Readings*); a `Reading` override, itself rank 1 or 2, fixes the
+   reading and the classifier is not consulted
 
 One exception to rank 1 and 2 beating rank 3: a word that an **earlier** multi-token match has already
 consumed. A number with its unit (`5 kg`), a currency amount with its magnitude word (`$5 million`) and a time
@@ -522,15 +559,17 @@ counts the directive as ignored rather than corrupting the alignment.
 
 ### Dictionary entry rules and limits
 
-The key, the payloads and the limits are specified in *PronunciationOverrides Design* and summarized in the
-user guide. The ones a host most needs: a key is 1 to 64 UTF-16 code units, starts with a letter, ends with a
-letter or a decimal digit and contains only letters, combining marks, decimal digits and `'`, `’`, `-`, `.`,
-`&`, `/` and `_`; a `Say` payload is plain words (no digit, no punctuation: write a number in words); a
-`Pronunciation` payload is `ipa:` or `arpabet:` followed by phonemes in that notation's syntax; a dictionary
-holds at most 10,000 entries; a duplicate (same word, same case flag) is an error, never "last one wins". An
-invalid entry throws `ArgumentException` from `Create` with the message `Entry {zero-based index}: {reason}.`
-and an invalid file throws `InvalidDataException` from `FromTsv` with `Line {one-based number}: {reason}.`;
-the reasons are fixed text and never echo the word, the payload or the line.
+The key, the payloads and the limits are specified in *PronunciationOverrides Design* and summarized in the user guide.
+The ones a host most needs: a key is 1 to 64 UTF-16 code units, starts with a letter, ends with a letter or a decimal
+digit and contains only letters, combining marks, decimal digits and `'`, `’`, `-`, `.`, `&`, `/` and `_`; a `Say`
+payload is plain words (no digit, no punctuation: write a number in words); a `Pronunciation` payload is `ipa:` or
+`arpabet:` followed by phonemes in that notation's syntax; a `Reading` payload is a reading id that exists and is active
+in the reading inventory and that has the entry's word, folded to ASCII case, among its forms (the inventory is loaded
+only when a `Reading` entry is validated, and only for a well-formed id); a dictionary holds at most 10,000 entries; a
+duplicate (same word, same case flag) is an error, never "last one wins". An invalid entry throws `ArgumentException`
+from `Create` with the message `Entry {zero-based index}: {reason}.` and an invalid file throws `InvalidDataException`
+from `FromTsv` with `Line {one-based number}: {reason}.`; the reasons are fixed text and never echo the word, the
+payload or the line.
 
 ### Tab-separated format
 
@@ -546,9 +585,9 @@ the reasons are fixed text and never echo the word, the payload or the line.
 - **Control characters**: any control character other than the tab separator is an error on every line,
   comment lines included
 - **Columns**: three or four, separated by a tab; the `case` column is exactly `sensitive` or `insensitive`;
-  the `action` column is exactly `skip`, `say`, `spell` or `pron`; `skip` and `spell` take no payload (an
-  empty fourth column is tolerated); `say` and `pron` require one; no column may begin or end with whitespace;
-  there is no quoting or escaping
+  the `action` column is exactly `skip`, `say`, `spell`, `pron` or `reading`; `skip` and `spell` take no payload (an
+  empty fourth column is tolerated); `say`, `pron` and `reading` require one; no column may begin or end with
+  whitespace; there is no quoting or escaping
 - **Limits**: at most 1,024 characters per line, at most 50,000 lines (blank and comment lines count) and at
   most 10,000 entries; the reader is consumed through a bounded buffer so an endless input is rejected
 - **Errors**: `InvalidDataException`, message `Line {n}: {reason}.`; the reader is not disposed or retained
@@ -624,21 +663,164 @@ dictionary ever reaches the sink, and the dictionary builders report only a posi
 `Normalizations` keeps counting replacement spans, now `en.norm` and `en.spell` together; a pronunciation
 counts in `Annotations` and in `overrides applied` only.
 
-### Seam for heteronym readings
+### Overrides and heteronym readings
 
-A later increment (P2-6) will select a reading for ambiguous words. It is a binding design constraint on that
-increment that it **skips every token that carries an `en.pron` annotation or is covered by an override
-replacement** (an `en.norm` or `en.spell` annotation of kind `Override`): the host's override outranks any
-heteronym classification (rank 5 of the precedence table). This release states the constraint but forward-declares
-no requirement for it.
+The heteronym reading pass (see *Heteronym Readings*) **skips every token that carries an `en.pron` annotation or is
+covered by an `en.norm` or `en.spell` annotation, and every token with an override other than a `Reading` override**:
+the host's override outranks any heteronym classification (rank 5 of the precedence table). The reading annotations of
+a `Reading` override are the reading by decree, with confidence `1.000`. This is verified by requirements and tests of
+the analyzer, and the coexistence rules of *Heteronym Readings* state it normatively.
+
+## Heteronym Readings
+
+This section is normative for hosts, for backends and for the units that implement it (*HeteronymSubsystem Design*,
+*EnglishTextAnalyzer Design*, *PronunciationOverrides Design*). It describes which annotations name the reading of a
+heteronym, when they are emitted, how a model chooses the reading, and what the library reports about it. A *reading*
+is one pronunciation of a written word (`record` as a noun or as a verb); the **reading id** names it
+(`record.noun`, `record.verb`, `read.past`, `read.present`).
+
+### Annotations and selection
+
+The analyzer marks a heteronym with two annotations on the **same span**: `en.reading` whose value is the reading id,
+and `en.reading-confidence` whose value is the confidence written as `0.000` to `1.000` (three decimals, a period,
+invariant culture). A backend reads them with `TextEnAnnotations.TryReadReading` (a well-formed id; the reader does not
+look the id up in the inventory) and `TextEnAnnotations.TryReadReadingConfidence` (a strict grammar: `0` or `1`, then
+optionally a period and one to six ASCII digits, not above 1; never an exception), and may ignore the confidence. A
+reading id has two or three segments of `a` to `z`, `0` to `9` and `-` separated by single dots, no segment starts or
+ends with `-`, and the whole id is at most 64 characters; the text after the first dot is its **role** (`noun`,
+`verb`, `adj-noun`). `ReadingInventory` lists the ids and the written forms they can carry.
+
+The family is selected by `TextEnAnnotationSelection.Reading` (the value 4), which is part of the default selection and
+covers both annotations; there is no separate confidence flag. The family is **effective only where a model exists**:
+the reading classifier needs trained weights, and **this release embeds the inventory tables but no weights**, so a
+default analyzer emits no classified reading. It still emits the reading of a word that a `Reading` override names, with
+the confidence `1.000`, without any model. The options carry `LowConfidenceThreshold` (default 0.60, a finite number
+from 0 to 1): a classified reading whose confidence is below it is counted and flagged
+(`AnalyzedToken.IsLowConfidenceReading`) but **still emitted**; the threshold never suppresses a reading. A backend
+that wants to ignore uncertain readings compares the confidence itself.
+
+### Which words get a reading
+
+A token is a candidate when the **whole tokenizer token** is a form of the inventory, compared with ASCII case folding
+only (`Record`, `RECORD` and a sentence-initial `Record` are forms; `record-label`, `record.` and a word with a
+non-ASCII letter are not, because a hyphenated compound is one token and `-` is not a letter). A candidate that is
+neither overlapped by a replacement or a pronunciation nor carries an override other than a `Reading` override gets
+a reading:
+
+- a form with several candidate readings is **classified**: the model chooses one candidate and gives the confidence;
+- a form with exactly one candidate (not ambiguous) gets that reading with confidence `1.000`, but **only when a model
+  exists** (when the family is effective), so a default analyzer emits nothing;
+- a token with a `Reading` override gets the override's id with confidence `1.000`.
+
+### Coexistence rules
+
+These rules are normative and verified by the analyzer tests:
+
+1. `en.reading` and `en.reading-confidence` annotate **exactly one whole tokenizer token**: the same `[start, start +
+   length)` for both. The token is an ASCII-letter form of the inventory, so the span starts and ends on a letter,
+   never splits a surrogate pair, never contains whitespace, a comma, a colon or a semicolon, and always lies in one
+   chunk of the Speech library
+2. They **coexist with `en.upos`** on the same span (the part of speech is independent of them and comes first)
+3. They are **never** emitted for a token that overlaps an `en.norm`, `en.spell` or `en.pron` annotation, so a reading
+   annotation never overlaps one of those, and never for a token that carries an override directive other than a
+   `Reading` override. The reading of a `Reading` override is the reading by decree: the token has no other replacement
+   or pronunciation by construction, because one word has one directive
+4. There is at most one `en.reading` and one `en.reading-confidence` per token, in text order; at an equal start the
+   order is `en.upos`, `en.reading`, `en.reading-confidence`, then a replacement or a pronunciation (which cannot
+   coexist with a reading). The core's permission for overlapping annotations is relied on only for the same-span
+   triple of part of speech, reading and confidence
+5. A backend ignores kinds it does not recognize and may ignore `en.reading-confidence`; a backend that cannot use a
+   reading id speaks the word as it would without the annotation
+
+### How the reading is chosen
+
+For a form with several candidates, the classifier extracts the hashed features of the word in its sentence (the
+templates of *HeteronymFeatureExtractor Design*: the word and its neighbors, the part of speech and the closed classes
+around it, the position in the sentence), binds them to each candidate through two salts (one from the full reading id,
+one from its role, so evidence is shared across words with the same role) and adds the model weights its features
+select. The highest integer score wins and an exact tie goes to the first candidate in the order of the rows of
+`forms.tsv` (the inventory has no default reading). The confidence is the softmax probability of the winner at the
+model's temperature (see *HeteronymClassifier Design*).
+
+The context of a classification is the word's **own sentence** (positions beyond it are sentence markers), described
+with the part of speech and its confidence from the tagger. Reading needs the tagger, so the analyzer tags when the
+part of speech or an effective reading family is selected; `en.upos` and the unknown-word count stay conditioned on the
+part-of-speech selection alone, so a reading-only selection tags for context and emits no `en.upos`.
+
+### Feature parity between the analyzer and the trainer (decision)
+
+A trained model is valid only while the runtime extracts exactly the features the trainer extracted. The feature
+extractor, the token description and the hash functions are therefore **one implementation**, `internal` in this
+assembly, that the later trainer will call through `InternalsVisibleTo` granted when the trainer is added (not now:
+it would be dead configuration). Rejected alternatives: a source-linked copy in the trainer (drift and a double
+review) and a public extractor (it would freeze the feature set under semantic versioning, although the feature
+set changes with its own version). Two guards keep the parity checkable: golden feature vectors that lock the exact
+hashes under several cultures, and a tokenization-parity test that shows equivalent spellings which the tokenizer
+splits differently (`can't` and `ca n't`, `John's` and `John 's`, quotes, brackets, abbreviations) give the same token
+texts and the same features for the target. Every model records the feature-set version and a build rejects any other.
+The comparison over the whole corpus with the trainer's own data belongs to the trainer increment, which has the data.
+
+### Inventory version and model compatibility (policy)
+
+The inventory has an integer revision that is a constant of the library; a test pins it with the counts of the
+embedded tables, so a change of the data needs a deliberate decision about the revision. A model records the revision
+it was trained for and binds its weights to reading ids through salts, never to table positions. A model is accepted
+when its revision is the same as or lower than the inventory's and rejected as incompatible when it is higher. A model
+with another feature-set version is rejected by the loader.
+
+### Model format and delivery
+
+The model is a `HETW` file (format version 1): a fixed 80-byte little-endian header that records the format version,
+flags (only one: the payload is raw Deflate), the feature-set and inventory versions, the number of hash bits (16 to
+24), the calibration temperature and the fixed-point scale of the integer weights, the row and length counts, a
+checksum of the stored bytes and informational fields for the trainer version and the training-data manifest hash;
+then a payload of sparse buckets as gaps (varints) followed by one signed 16-bit weight per bucket, never 0 and never
+-32768. The loader never trusts a file: it checks every field and every length against fixed caps before allocating,
+verifies the checksum before inflating, inflates through a strict reader that detects a cut-off stream, trailing bytes
+and a size that differs from the declared one (an inflation bomb included), and decodes the payload strictly. Every
+defect is an `InvalidDataException` with a fixed message that never carries the data. The complete rules are in
+*SparsePerceptronModel Design*.
+
+The model is looked up as one embedded resource and loaded **lazily and once** for the process, only when an analyzer
+that selects readings meets a candidate word: never at construction, never for a text without a candidate word and
+never for a selection without the family. This release embeds no model, so the lookup finds none and the family is not
+effective. A model that is absent is not an error and is silent; a model that exists but is invalid or incompatible
+disables the family and is reported once (see *Heteronym Diagnostics* below).
+
+### Heteronym Diagnostics
+
+The existing `TextEn.Analysis` event is unchanged. Two further events exist, both built only from fixed words and
+numbers, never a word, a reading id or a model name:
+
+- **`TextEn.Heteronym`**, Info level, at most one per request, when at least one reading was assigned:
+  `Assigned {n} heteronym readings: {c} classified, {s} single-candidate, {o} by override, {l} below confidence {t}.`,
+  with `n` the total, `l` the classified readings below the threshold `t` (written with two decimals, invariant
+  culture)
+- **`TextEn.Model`**, Warning level, **once per analyzer instance**, and only when a model exists but cannot be used (an
+  invalid or an incompatible file): `Heteronym model unusable (invalid or incompatible file); readings disabled.` A
+  model that is not shipped is silent, because a permanent warning for every default user would be noise and would not
+  be actionable
+
+A canceled request reports nothing, as before. The detailed analysis carries the same data per token
+(`AnalyzedToken.Reading`, `ReadingConfidence` and `IsLowConfidenceReading`).
+
+### Cost and concurrency
+
+A token that is not a form costs a length test, a letter test and a hash probe, with no allocation. A candidate word
+costs one cancellation check; the feature buffers of a classification are on the stack, the context of a sentence is one
+array per request that grows to the longest sentence with a candidate, and no object is created per token on the
+language-neutral path. The analyzer keeps no per-request state in its fields; the reading state of one request lives in
+a private pass object on the caller's thread, the model and the inventory are immutable, and one analyzer, and one
+shared model, serve any number of concurrent requests.
 
 ## Training Data and Trainer
 
-This section describes the data that a later increment will train the heteronym classifier on, and the command that
-guards it. It changes nothing in the runtime of the library: in this release no part of `data/text-en/` is embedded in,
-referenced by or shipped with the package (the "Data Embedded in This Package: None" statement of the package's
-third-party notices stays true), and the analyzer, the normalization and the annotation vocabulary behave exactly as
-before.
+This section describes the data that the heteronym classifier is trained on, and the command that guards it. The data
+and the command change nothing in the runtime of the library except one thing: the two small inventory tables of the
+data (`readings.tsv` and `forms.tsv`) are embedded in the package, by link, and are the reading inventory of the
+HeteronymSubsystem (see *Heteronym Readings*). Nothing else of `data/text-en/` is embedded in, referenced by or shipped
+with the package: not the training and evaluation sentences, not the provenance records, and no trained weights (the
+package's license file describes the embedded tables).
 
 **What the data is.** `data/text-en/` holds, for the English heteronym classifier, an inventory of readings with
 identifiers owned by this repository (a *reading* is one pronunciation of a written word, such as `record` as a noun or
@@ -678,8 +860,9 @@ the last such run.
 manifest and guarded by the command instead, as the subsystem design explains.
 
 **Trainer scope.** The trainer in this release is a skeleton with the `check-data` command only; it targets `net10.0`,
-is not packable and is not part of the public surface. The training command, the model format and the way trained
-weights ship are later increments.
+is not packable and is not part of the public surface. The training command and the way trained weights ship are later
+increments; the runtime half of the classifier (the inventory, the features, the model format and its strict loader, and
+the classifier) is in the library and is described in *Heteronym Readings*.
 
 ## Design Constraints
 
@@ -696,9 +879,10 @@ weights ship are later increments.
   placeholder
 - **Diagnostics are counts only**: the library's diagnostics contract forbids synthesized text in any
   report. The analyzer reports sentence, token, annotation, unknown-word, normalization, ambiguous-reading
-  (abbreviations and numeric defaults), numeric-fallback, overrides-applied and overrides-ignored counts built
-  from fixed words and numbers, never a word, a spoken replacement or any content of a pronunciation dictionary,
-  and
+  (abbreviations and numeric defaults), numeric-fallback, overrides-applied and overrides-ignored counts, the
+  counts of the assigned heteronym readings (classified, single-candidate, by override and below the confidence
+  threshold) and one fixed warning about an unusable heteronym model, all built from fixed words and numbers, never a
+  word, a spoken replacement, a reading id or any content of a pronunciation dictionary, and
   detailed per-word data is available only through `AnalyzeDetailed`, which returns it to the caller
   instead of a sink
 - **Linear time**: every normalization rule looks at a constant number of neighboring tokens (the numeric
@@ -719,16 +903,17 @@ weights ship are later increments.
   handled and their text is passed through unchanged
 - **First-use latency of the tagger**: the shared tagger inflates and validates about 1.3 MB of embedded
   data on first use, which takes noticeable time once per process. It is deliberately not loaded when an
-  analyzer is constructed, when a text has no tokens, or when part-of-speech annotation is not selected,
-  and no warm-up API is provided in this release; a host that wants the cost paid early can analyze one
-  short text at start-up. The two embedded lexicons are small and are parsed once, on the first
-  normalization, never at construction
+  analyzer is constructed, when a text has no tokens, or when neither part-of-speech annotation nor an effective
+  reading family is selected, and no warm-up API is provided in this release; a host that wants the cost paid early
+  can analyze one short text at start-up. The embedded lexicons and the reading inventory are small and are parsed
+  once, on the first normalization or the first heteronym lookup, never at construction, and a heteronym model, where
+  one exists, is loaded once on the first candidate word (see *Heteronym Readings*)
 - **Immutable and thread-safe**: an analyzer keeps no per-request state, copies its options at
   construction (the pronunciation dictionary is immutable, so sharing its reference is the copy), keeps no
   reference to an analyzed text or to a result after the call returns, and may
-  serve any number of concurrent requests; the normalizer and both lexicon units are immutable after
-  loading. The tagging package's own working buffers are cleared by the pinned version; see *Retention
-  Verification*
+  serve any number of concurrent requests; the normalizer, both lexicon units, the reading inventory and a loaded
+  heteronym model are immutable after loading. The tagging package's own working buffers are cleared by the pinned
+  version; see *Retention Verification*
 - **No inference dependency**: the library references no ONNX Runtime package and has no native assets
 - **No command-line or demo integration** in this release
 - **Compliance**: all functionality must be traceable to requirements
@@ -753,11 +938,10 @@ pass-through items are asserted by a golden row, so a later increment changes th
   magnitude letters without a currency symbol (`10k`, `1.5M`), feet and inches (`5'10"`), the numero sign,
   `Q3 2024`-style quarter names, decimal-comma locales and other en-GB or non-English conventions, and the
   single-letter and word-like units (`m`, `g`, `l`, `s`, `in`), which are too ambiguous to read after a number
-- **Heteronym readings and the `Reading` override action**: the `en.reading` and `en.reading-confidence`
-  kinds stay reserved and are never emitted, and the fifth override action (`Reading`, selecting a reading
-  of an ambiguous word) is not provided; both belong to the heteronym increment (P2-6), which must skip
-  every word that has an override (see *Seam for heteronym readings*). This release holds only the training data
-  and its checking command (see *Training Data and Trainer*); no classifier is trained, embedded or shipped
+- **Heteronym model weights**: the reading classifier is complete at run time, but no trained weights ship in this
+  release, so a default analyzer emits no classified `en.reading` and `en.reading-confidence` annotations; it emits the
+  reading of a word that a `Reading` override names (see *Heteronym Readings*). The trainer that produces the weights
+  and the embedding of them are later increments
 - **Multi-word override entries**: an entry is one token; a phrase cannot be overridden as a unit, because
   an annotation across whitespace could be cut by the core chunker and silently lost. A phrase can be
   covered word by word. A later increment may add multi-word entries by per-token decomposition
@@ -831,10 +1015,12 @@ run against the repository files.
 
 The package contains code under the MIT License and embeds two small lexicon tables of its own (a list of
 written-English abbreviations with their spoken forms and a list of initialisms), which DEMA Consulting wrote
-from scratch for this package under the same MIT License; no third-party list was copied and the package
-embeds no third-party data. It therefore declares MIT only: it names a license file, `PACKAGE-LICENSE.md`,
-that starts with the SPDX
-line `SPDX-License-Identifier: MIT`, contains the MIT license text, describes the two lexicon tables, and
+from scratch for this package under the same MIT License, and the two small tables of the reading inventory
+(heteronym readings and the written forms that carry them), which DEMA Consulting wrote and dedicated to the public
+domain under CC0 1.0; no third-party list was copied and the package
+embeds no third-party data and no trained weights. It therefore declares MIT only: it names a license file,
+`PACKAGE-LICENSE.md`, that starts with the SPDX
+line `SPDX-License-Identifier: MIT`, contains the MIT license text, describes the embedded tables, and
 states that the required package
 `DemaConsulting.PartOfSpeech` is a separate NuGet dependency, not bundled in this package, that carries
 its own license files. The package also ships `THIRD-PARTY-NOTICES.md`, clearly scoped as a dependency
@@ -844,8 +1030,8 @@ WordNet, under CC BY 4.0, and the Manually Annotated Sub-Corpus under CC BY 3.0 
 attribution, license links, statement of changes and the Princeton WordNet notice verbatim, for the
 reader's convenience. The composite license chain belongs to the dependency, not to this package, so it
 is not claimed in this package's declaration. If a later increment embeds third-party data in this package
-(for example trained weights), the declaration and the notices will be revisited. Both files are packed at
-the package root and are packaging files, not software items.
+(for example trained weights derived from third-party data), the declaration and the notices will be revisited. Both
+files are packed at the package root and are packaging files, not software items.
 
 ### Platform Support
 
@@ -869,7 +1055,9 @@ The library targets the same frameworks as the Speech library:
   annotations with `TextEnAnnotations.TryReadPartOfSpeech`, `TextEnAnnotations.TryReadReplacement` (the
   `en.norm` and `en.spell` replacements, applied as described in *Alignment Contract*, speaking spelled
   values by letter name) and `TextEnAnnotations.TryReadPronunciation` (the phonemes for a word, when it
-  supports the scheme), ignoring kinds it does not recognize
+  supports the scheme), ignoring kinds it does not recognize. To use a heteronym reading it also reads
+  `TextEnAnnotations.TryReadReading` (the reading id) and, optionally, `TextEnAnnotations.TryReadReadingConfidence`
+  from the annotations that share one whole-token span (see *Heteronym Readings*)
 - **Host dictionary**: a host or model package builds one `PronunciationOverrides` with `Create` or
   `FromTsv` (for example from a file next to its model) and passes it in the `Overrides` option of the
   analyzer it returns; one dictionary is shared by every analyzer

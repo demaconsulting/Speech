@@ -3281,6 +3281,7 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalyzer.cs"
       - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalysis.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs"  # heteronym reading tests
 
   # SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzerOptions Review (one per unit)
   - id: SpeechTextEn-AnalysisSubsystem-EnglishTextAnalyzerOptions
@@ -3367,6 +3368,93 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/AnalysisDiagnostics.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/RecordingDiagnostics.cs"
+
+  # SpeechTextEn-HeteronymSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-HeteronymSubsystem
+    title: Review that SpeechTextEn HeteronymSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/heteronym-subsystem.yaml"       # subsystem requirements
+      - "docs/design/speech-text-en/heteronym-subsystem.md"            # subsystem design
+      - "docs/verification/speech-text-en/heteronym-subsystem.md"      # subsystem verification
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+      - "test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/HeteronymSubsystemTests.cs"
+
+  # SpeechTextEn-HeteronymSubsystem-ReadingInventory Review (one per unit)
+  - id: SpeechTextEn-HeteronymSubsystem-ReadingInventory
+    title: >-
+      Review that SpeechTextEn HeteronymSubsystem ReadingInventory Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/heteronym-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/heteronym-subsystem.yaml"
+      - "data/text-en/readings.tsv"                                  # embedded reading inventory (reviewed in SpeechTextEn-TrainingDataInventory)
+      - "data/text-en/forms.tsv"                                     # embedded forms (reviewed in SpeechTextEn-TrainingDataInventory)
+    paths:
+      - "docs/reqstream/speech-text-en/heteronym-subsystem/reading-inventory.yaml"
+      - "docs/design/speech-text-en/heteronym-subsystem/reading-inventory.md"
+      - "docs/verification/speech-text-en/heteronym-subsystem/reading-inventory.md"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/ReadingInventory.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/ReadingInventoryTests.cs"
+
+  # SpeechTextEn-HeteronymSubsystem-HeteronymFeatureExtractor Review (one per unit)
+  - id: SpeechTextEn-HeteronymSubsystem-HeteronymFeatureExtractor
+    title: >-
+      Review that SpeechTextEn HeteronymSubsystem HeteronymFeatureExtractor Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/heteronym-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/heteronym-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/heteronym-subsystem/heteronym-feature-extractor.yaml"
+      - "docs/design/speech-text-en/heteronym-subsystem/heteronym-feature-extractor.md"
+      - "docs/verification/speech-text-en/heteronym-subsystem/heteronym-feature-extractor.md"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/HeteronymFeatureExtractor.cs"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/HeteronymContext.cs"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/FeatureHashing.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/HeteronymFeatureExtractorTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/TestData/heteronym-feature-vectors.tsv"  # golden feature vectors
+
+  # SpeechTextEn-HeteronymSubsystem-SparsePerceptronModel Review (one per unit)
+  - id: SpeechTextEn-HeteronymSubsystem-SparsePerceptronModel
+    title: >-
+      Review that SpeechTextEn HeteronymSubsystem SparsePerceptronModel Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/heteronym-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/heteronym-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/heteronym-subsystem/sparse-perceptron-model.yaml"
+      - "docs/design/speech-text-en/heteronym-subsystem/sparse-perceptron-model.md"
+      - "docs/verification/speech-text-en/heteronym-subsystem/sparse-perceptron-model.md"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/SparsePerceptronModel.cs"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/SparsePerceptronModelWriter.cs"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/ModelBinaryFormat.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/SparsePerceptronModelTests.cs"
+
+  # SpeechTextEn-HeteronymSubsystem-HeteronymClassifier Review (one per unit)
+  - id: SpeechTextEn-HeteronymSubsystem-HeteronymClassifier
+    title: >-
+      Review that SpeechTextEn HeteronymSubsystem HeteronymClassifier Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/heteronym-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/heteronym-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/heteronym-subsystem/heteronym-classifier.yaml"
+      - "docs/design/speech-text-en/heteronym-subsystem/heteronym-classifier.md"
+      - "docs/verification/speech-text-en/heteronym-subsystem/heteronym-classifier.md"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/HeteronymClassifier.cs"
+      - "src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/HeteronymModelProvider.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/HeteronymClassifierTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/HeteronymFixtureModel.cs"  # fixture model built through the real pipeline
+      - "test/DemaConsulting.Speech.Text.En.Tests/Fakes/CountingModelSource.cs"    # counting model source
 
   # SpeechTextEn-NormalizationSubsystem Review (one per subsystem)
   - id: SpeechTextEn-NormalizationSubsystem

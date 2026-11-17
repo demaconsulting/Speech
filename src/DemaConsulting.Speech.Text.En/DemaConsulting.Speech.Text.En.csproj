@@ -17,7 +17,8 @@
       tags the words of a speech request with their Universal Dependencies part of speech
       (through the DemaConsulting.PartOfSpeech tagger), describes how abbreviations, symbols,
       apostrophes and initialisms are spoken as replacement-span annotations over the original
-      text (with host-supplied pronunciation overrides that take precedence), and supplies authoritative sentence boundaries, for text-to-speech models that use
+      text (with host-supplied pronunciation overrides that take precedence), supplies authoritative sentence boundaries, and
+      can mark which reading a heteronym such as record has (when a trained heteronym model is available; none ships yet), for text-to-speech models that use
       sentence-level context. A model package
       returns an EnglishTextAnalyzer from ISynthesisModel.TextAnalyzer; the analysis reaches an
       annotation-aware synthesis backend as language-neutral annotations on each speech segment.
@@ -127,6 +128,15 @@
        normalizer reads at run time; manifest names are DemaConsulting.Speech.Text.En.Resources.*.tsv -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\*.tsv" />
+  </ItemGroup>
+
+  <!-- The heteronym reading inventory (CC0-1.0 tables written by DEMA Consulting), embedded by link from
+       data/text-en so the data folder stays the single source of truth (MANIFEST.tsv pins both files).
+       The logical names are fixed and do not clash with the Resources\*.tsv names above. No trained
+       weights are embedded in this release. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\text-en\readings.tsv" LogicalName="DemaConsulting.Speech.Text.En.Resources.readings.tsv" />
+    <EmbeddedResource Include="..\..\data\text-en\forms.tsv" LogicalName="DemaConsulting.Speech.Text.En.Resources.forms.tsv" />
   </ItemGroup>
 
   <ItemGroup>

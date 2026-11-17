@@ -1,4 +1,6 @@
+using System.Globalization;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
@@ -12,10 +14,11 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     The core library carries <see cref="SegmentAnnotation"/>s opaquely, so the vocabulary has
 ///     to live with the package that produces it. All six kinds the package family defines are
 ///     declared here so a backend can reference stable names from the first release; this release
-///     produces <see cref="PartOfSpeech"/>, <see cref="Normalized"/>, <see cref="SpellOut"/> and
-///     <see cref="Pronunciation"/>, and <see cref="Reading"/> and <see cref="ReadingConfidence"/>
-///     are reserved for a later release and are never emitted today. A backend must ignore any
-///     kind it does not recognize. The type is static and therefore thread-safe.
+///     produces all of them: <see cref="PartOfSpeech"/>, <see cref="Normalized"/>,
+///     <see cref="SpellOut"/>, <see cref="Pronunciation"/>, and the pair <see cref="Reading"/> and
+///     <see cref="ReadingConfidence"/>, the last two only when a heteronym model is available or a
+///     <see cref="OverrideAction.Reading"/> override names the word (this release embeds no model). A
+///     backend must ignore any kind it does not recognize. The type is static and therefore thread-safe.
 ///     <para>
 ///     <b>Replacement family.</b> <see cref="Normalized"/> and <see cref="SpellOut"/> are the two
 ///     annotations that replace the spoken text of a span. Together they form one sequence of
@@ -77,15 +80,42 @@ public static class TextEnAnnotations
     public const string PartOfSpeech = "en.upos";
 
     /// <summary>
-    ///     Reserved, not yet emitted: the <c>Value</c> is a self-owned pronunciation-reading id
-    ///     that selects among the readings of a heteronym such as <c>record</c>.
+    ///     The <c>Value</c> is a self-owned pronunciation-reading id that selects among the readings of a
+    ///     heteronym such as <c>record</c>, for example <c>record.noun</c> or <c>record.verb</c>.
+    ///     Emitted together with <see cref="ReadingConfidence"/> on the same span; see
+    ///     <see cref="TryReadReading"/>.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     The annotation covers exactly one whole tokenizer token, an ASCII-letter form of the reading
+    ///     inventory (<see cref="ReadingInventory"/>), so its span starts and ends on a letter, never
+    ///     splits a surrogate pair and contains no whitespace, comma, semicolon or colon; it survives the
+    ///     core library's chunking. It is emitted for a word the classifier decided (which needs a trained
+    ///     heteronym model, none of which this release embeds), for a word whose form has only one
+    ///     candidate reading (confidence <c>1.000</c>, again only when the classifier is available), and
+    ///     for a word that a <see cref="OverrideAction.Reading"/> override names (confidence
+    ///     <c>1.000</c>, no model needed).
+    ///     </para>
+    ///     <para>
+    ///     <b>Coexistence.</b> It coexists on the same span with <see cref="PartOfSpeech"/>, and it is
+    ///     never emitted for a token that overlaps an <see cref="Normalized"/>, <see cref="SpellOut"/>
+    ///     or <see cref="Pronunciation"/> span or that carries any other override, so a backend never has
+    ///     to reconcile a reading with a replacement. At most one reading annotation is emitted per
+    ///     token. A backend that does not understand readings ignores it and speaks the word as usual.
+    ///     </para>
+    /// </remarks>
     public const string Reading = "en.reading";
 
     /// <summary>
-    ///     Reserved, not yet emitted: the <c>Value</c> is the invariant-culture confidence of the
-    ///     reading annotation that covers the same span.
+    ///     The <c>Value</c> is the invariant-culture confidence, from <c>0.000</c> to <c>1.000</c>, of the
+    ///     <see cref="Reading"/> annotation that covers the same span; see
+    ///     <see cref="TryReadReadingConfidence"/>.
     /// </summary>
+    /// <remarks>
+    ///     Always three decimals (<c>0.873</c>, <c>1.000</c>) written with a period whatever the current
+    ///     culture. A backend may ignore it. A confidence below the analyzer's
+    ///     <see cref="EnglishTextAnalyzerOptions.LowConfidenceThreshold"/> is still emitted.
+    /// </remarks>
     public const string ReadingConfidence = "en.reading-confidence";
 
     /// <summary>
@@ -298,5 +328,109 @@ public static class TextEnAnnotations
 
         isSpelled = false;
         return false;
+    }
+
+    /// <summary>
+    ///     Reads the reading id out of a <see cref="Reading"/> annotation.
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="readingId">
+    ///     When this method returns <see langword="true"/>, the reading id (for example
+    ///     <c>record.noun</c>); otherwise an empty string.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="annotation"/> has kind <see cref="Reading"/> and a
+    ///     value that satisfies the reading-id grammar (two or three dot-separated segments of lower-case
+    ///     letters, digits and inner hyphens, at most 64 characters); otherwise
+    ///     <see langword="false"/>. A wrong kind or a malformed value is an ordinary "no", never an
+    ///     exception, and the id is not looked up in the inventory (see
+    ///     <see cref="ReadingInventory.Contains"/> for that).
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>Stateless and thread-safe.</remarks>
+    public static bool TryReadReading(SegmentAnnotation annotation, out string readingId)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        if (string.Equals(annotation.Kind, Reading, StringComparison.Ordinal) && ReadingIdSyntax.IsValid(annotation.Value))
+        {
+            readingId = annotation.Value;
+            return true;
+        }
+
+        readingId = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    ///     Reads the confidence out of a <see cref="ReadingConfidence"/> annotation.
+    /// </summary>
+    /// <param name="annotation">The annotation to read. Must not be null.</param>
+    /// <param name="confidence">
+    ///     When this method returns <see langword="true"/>, the confidence from 0 to 1; otherwise 0.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="annotation"/> has kind
+    ///     <see cref="ReadingConfidence"/> and a value of the form <c>0</c> or <c>1</c> optionally followed
+    ///     by a period and one to six ASCII digits, not above 1 (so <c>0.5</c>, <c>0.873</c>,
+    ///     <c>1.000</c> and <c>1</c> are accepted; a sign, an exponent, whitespace, a comma decimal
+    ///     separator, non-ASCII digits and <c>1.001</c> are not); otherwise <see langword="false"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is null.</exception>
+    /// <remarks>
+    ///     The value is parsed with the invariant culture whatever the current culture. Stateless and
+    ///     thread-safe; never throws for a malformed value.
+    /// </remarks>
+    public static bool TryReadReadingConfidence(SegmentAnnotation annotation, out double confidence)
+    {
+        ArgumentNullException.ThrowIfNull(annotation);
+
+        if (string.Equals(annotation.Kind, ReadingConfidence, StringComparison.Ordinal)
+            && IsConfidenceText(annotation.Value)
+            && double.TryParse(annotation.Value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var parsed)
+            && parsed <= 1.0)
+        {
+            confidence = parsed;
+            return true;
+        }
+
+        confidence = 0.0;
+        return false;
+    }
+
+    /// <summary>
+    ///     Tells whether text has the exact shape of a confidence: <c>0</c> or <c>1</c>, optionally a period
+    ///     and one to six ASCII digits.
+    /// </summary>
+    /// <param name="value">The candidate.</param>
+    /// <returns><see langword="true"/> for the grammar; the numeric bound is checked by the caller.</returns>
+    private static bool IsConfidenceText(string value)
+    {
+        const int MaxFractionDigits = 6;
+        if (value.Length == 0 || value[0] is not ('0' or '1'))
+        {
+            return false;
+        }
+
+        if (value.Length == 1)
+        {
+            return true;
+        }
+
+        // A period and one to six ASCII digits; nothing else (no sign, exponent, space or other digit script).
+        if (value[1] != '.' || value.Length < 3 || value.Length - 2 > MaxFractionDigits)
+        {
+            return false;
+        }
+
+        for (var i = 2; i < value.Length; i++)
+        {
+            if (value[i] is < '0' or > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

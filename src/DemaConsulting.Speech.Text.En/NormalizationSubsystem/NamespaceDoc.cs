@@ -12,7 +12,8 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 ///     the normalizer the tokens of the text and turns the aligned result into <c>en.norm</c>
 ///     annotations and reconciled sentence breaks. Numbers, ordinals, years, currency, percent,
 ///     units, times and dates (en-US) are normalized by this release; URLs, markup, Roman
-///     numerals and heteronym readings arrive in later releases. Host-supplied pronunciation
+///     numerals arrive in later releases (heteronym readings are produced by the heteronym
+///     subsystem, not by normalization). Host-supplied pronunciation
 ///     overrides are resolved to per-token directives by the analysis subsystem and applied here
 ///     before every built-in rule; letter-name replacements (initialisms, initials, meridiems)
 ///     are marked spelled and become <c>en.spell</c> annotations.

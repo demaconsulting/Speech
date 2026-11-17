@@ -206,7 +206,8 @@ Speech, not a subsystem of it, and the library must never depend on it:
   their Universal Dependencies part of speech, describes with replacement-span annotations how
   English text (abbreviations, symbols, apostrophes, acronyms and initialisms, and en-US numbers,
   currency, units, times and dates) is spoken, marks letter sequences to be spoken by letter name,
-  lets a host override how individual words are spoken or pronounced, and
+  lets a host override how individual words are spoken, pronounced or read (which reading of a heteronym such as
+  `record` is meant), assigns heteronym reading ids with a confidence once a model exists (none ships yet), and
   supplies authoritative sentence boundaries reconciled with that normalization, built
   on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
@@ -215,7 +216,14 @@ Speech, not a subsystem of it, and the library must never depend on it:
   pronunciation overrides (with its `PronunciationOverrideEntry` record, `OverrideAction` and
   `PronunciationScheme` enumerations and the internal `OverrideSyntax` grammars), the internal
   `PartOfSpeechAdapter` seam over the tagging package, and
-  the internal `AnalysisDiagnostics` counts-only reporter
+  the internal `AnalysisDiagnostics` counts-only reporter. It depends on the NormalizationSubsystem and the
+  HeteronymSubsystem, never the reverse
+- **HeteronymSubsystem (Subsystem of SpeechTextEn)** — The public `ReadingInventory` of heteronym readings with its
+  embedded reading and form tables, the internal `HeteronymFeatureExtractor` that turns a tagged sentence into
+  deterministic hashed features (with the `HeteronymContext` and `FeatureHashing` helpers), the internal
+  `SparsePerceptronModel` with its strict loader (and the `SparsePerceptronModelWriter` and `ModelBinaryFormat`
+  helpers), and the internal `HeteronymClassifier` that picks a candidate reading with a calibrated confidence
+  (with the lazy `HeteronymModelProvider`); it has no dependency on the other subsystems
 - **NormalizationSubsystem (Subsystem of SpeechTextEn)** — The alignment model with its public
   `NormalizationKind` and `CliticKind` enumerations (`NormalizationAlignment`), the internal
   `TextNormalizer` orchestrator, the internal `NumericExpressionRecognizer` that finds numeric
@@ -375,17 +383,19 @@ analyzer to them:
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
   (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
   and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
-- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two subsystems,
+- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in three subsystems,
   `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation vocabulary, the pronunciation-override
-  dictionary, the part-of-speech adapter and the counts-only diagnostics reporter) and `NormalizationSubsystem` (the
+  dictionary, the part-of-speech adapter and the counts-only diagnostics reporter), `NormalizationSubsystem` (the
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the abbreviation
-  resolver and the acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
+  resolver and the acronym recognizer, with two embedded lexicons) and `HeteronymSubsystem` (the reading inventory
+  with its two embedded tables, the feature extractor, the sparse perceptron model and the classifier; no trained
+  model ships yet); the first uses the other two, never the reverse. It
   implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on the
   `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime. A third subsystem, `TrainingDataSubsystem`
   (the strict file reader, the typed data loader, the manifest verifier, the span validator, the finding collector, the
   schema, license and leakage checks and the command entry), belongs to the system but not to the package: it is the
   `check-data` command of the non-shipped trainer tool that verifies the training data in `data/text-en/`, uses only the
-  .NET base class library and is not used by the two runtime subsystems.
+  .NET base class library and is not used by the three runtime subsystems.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -563,6 +573,10 @@ file of their own, and are documented with that owning unit:
 - `PronunciationOverrideEntry`, `OverrideAction` and `PronunciationScheme` are declared in
   `PronunciationOverrideEntry.cs`, and the internal `OverrideSyntax` grammars in `OverrideSyntax.cs`; all are
   documented with the PronunciationOverrides unit.
+- `HeteronymContext` and `FeatureHashing` (the context builder and hash functions of the heteronym feature set) are
+  documented with the HeteronymFeatureExtractor unit, `SparsePerceptronModelWriter` and `ModelBinaryFormat` with the
+  SparsePerceptronModel unit, and `HeteronymModelProvider` (with `ModelLoadStatus`) with the HeteronymClassifier
+  unit; all are internal and live in files of their own.
 - `NormalizationKind` and `CliticKind` (the public enumerations of the NormalizationSubsystem) are
   declared in `NormalizationAlignment.cs` and are documented with the NormalizationAlignment unit, as are
   the internal `TokenDirective`, `TokenDirectiveKind`, `PronunciationMark` and `SpelledGrammar` declared there.
@@ -778,7 +792,7 @@ src/DemaConsulting.Speech.Text.En/
 │   ├── abbreviations.tsv                                  — Embedded abbreviation lexicon (data, reviewed with AbbreviationResolver)
 │   └── acronyms.tsv                                       — Embedded initialism lexicon (data, reviewed with AcronymRecognizer)
 ├── AnalysisSubsystem/
-│   ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech, normalization and sentence breaks
+│   ├── EnglishTextAnalyzer.cs                             — English ITextAnalyzer: part of speech, normalization, readings and sentence breaks
 │   ├── EnglishTextAnalysis.cs                             — Detailed, local-only analysis result with its token and normalization records
 │   ├── EnglishTextAnalyzerOptions.cs                      — Options record and the annotation-selection flags enum
 │   ├── TextEnAnnotations.cs                               — Annotation kind constants and typed readers
@@ -787,6 +801,17 @@ src/DemaConsulting.Speech.Text.En/
 │   ├── OverrideSyntax.cs                                  — Internal key, payload and pronunciation grammars shared by the loader and the readers
 │   ├── PartOfSpeechAdapter.cs                             — Internal seam over the DemaConsulting.PartOfSpeech package
 │   ├── AnalysisDiagnostics.cs                             — Internal counts-only diagnostics reporter
+│   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+├── HeteronymSubsystem/
+│   ├── ReadingInventory.cs                                — Public inventory of heteronym readings and forms, with the internal reading id grammar
+│   ├── HeteronymFeatureExtractor.cs                       — Internal deterministic feature extraction for one heteronym occurrence
+│   ├── HeteronymContext.cs                                — Internal context token builder (word class, shape and tag codes)
+│   ├── FeatureHashing.cs                                  — Internal stable hash functions and salts of the feature set
+│   ├── SparsePerceptronModel.cs                           — Internal sparse averaged-perceptron model and its strict loader
+│   ├── SparsePerceptronModelWriter.cs                     — Internal model writer used by tests and the later trainer
+│   ├── ModelBinaryFormat.cs                               — Internal model file layout, checksum and compression primitives
+│   ├── HeteronymClassifier.cs                             — Internal candidate-restricted classifier with calibrated confidence
+│   ├── HeteronymModelProvider.cs                          — Internal lazy, once-only model provider and its load status
 │   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 └── NormalizationSubsystem/
     ├── NormalizationAlignment.cs                          — Alignment model, contract-enforcing builder and the public NormalizationKind/CliticKind enums
@@ -817,7 +842,7 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 
 data/text-en/
 ├── README.md, ATTRIBUTION.md, MANIFEST.tsv                — Documents, attribution and the pinned manifest (reviewed data)
-├── readings.tsv, forms.tsv, whd-mapping.tsv               — Reading inventory, forms and id-only evaluation mapping (reviewed data)
+├── readings.tsv, forms.tsv, whd-mapping.tsv               — Reading inventory, forms (both also embedded in the package, read by ReadingInventory) and id-only evaluation mapping (reviewed data)
 ├── extension-decisions.tsv                                — Decisions on candidate readings (reviewed data)
 ├── train.tsv, dev.tsv, holdout-natural.tsv, holdout-independent.tsv — Labeled rows (large; pinned by the manifest)
 ├── harvest-provenance.tsv, synthetic-provenance.tsv, gaps-v4.tsv, leakage-report.tsv — Records and reports

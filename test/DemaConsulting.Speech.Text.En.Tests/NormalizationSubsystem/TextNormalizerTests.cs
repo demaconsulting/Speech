@@ -748,6 +748,21 @@ public sealed class TextNormalizerTests
         Assert.Equal("US troops", aligned.ApplySpokenForms());
     }
 
+    /// <summary>Proves a reading directive speaks the token as written (like a skip), bypasses the built-in rules for it, and is counted as applied.</summary>
+    [Fact]
+    public void TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied()
+    {
+        // Act
+        var aligned = WithDirective("US troops", "US", TokenDirectiveKind.Reading, "record.noun");
+
+        // Assert: the built-in initialism rule would have spelled "US"; the directive leaves it, emitting nothing
+        Assert.Empty(aligned.Spans);
+        Assert.Empty(aligned.Pronunciations);
+        Assert.Equal(1, aligned.OverridesApplied);
+        Assert.Equal(0, aligned.OverridesIgnored);
+        Assert.Equal("US troops", aligned.ApplySpokenForms());
+    }
+
     /// <summary>Proves a replace directive emits one override span with the value, padded with exactly one space where a previous spoken letter touches it.</summary>
     [Fact]
     public void TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding()

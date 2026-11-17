@@ -38,9 +38,12 @@ SOFTWARE.
 
 This package embeds two small lexicon tables of its own: a list of written-English abbreviations with their spoken
 forms and a list of initialisms. DEMA Consulting wrote both from scratch for this package; no third-party list was
-copied. They are released under the MIT License above, like the code, and the package embeds no third-party data. If
-a later release embeds data from a third party (for example trained weights), this file and `THIRD-PARTY-NOTICES.md`
-will describe it and state its license.
+copied. They are released under the MIT License above, like the code. The package also embeds the reading inventory,
+two small tables (`readings.tsv` and `forms.tsv`) that list the pronunciation readings of English heteronyms such as
+*record* and the written forms that can carry them. DEMA Consulting wrote these tables too, and released them under
+CC0-1.0 (the Creative Commons CC0 1.0 Universal public-domain dedication). The package embeds no third-party data and
+no trained weights in this release. If a later release embeds data from a third party (for example trained weights),
+this file and `THIRD-PARTY-NOTICES.md` will describe it and state its license.
 
 ## Dependency: DemaConsulting.PartOfSpeech
 

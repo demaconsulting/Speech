@@ -6,8 +6,8 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     Selects which annotation families <see cref="EnglishTextAnalyzer"/> produces.
 /// </summary>
 /// <remarks>
-///     A <see cref="FlagsAttribute"/> enumeration so later releases can add families (for
-///     example heteronym readings) without changing the meaning of existing values.
+///     A <see cref="FlagsAttribute"/> enumeration so later releases can add families without
+///     changing the meaning of existing values.
 /// </remarks>
 [Flags]
 public enum TextEnAnnotationSelection
@@ -27,6 +27,18 @@ public enum TextEnAnnotationSelection
     ///     with them. It needs no tagger.
     /// </summary>
     Normalization = 2,
+
+    /// <summary>
+    ///     A <see cref="TextEnAnnotations.Reading"/> annotation and its
+    ///     <see cref="TextEnAnnotations.ReadingConfidence"/> companion on each heteronym word (such as
+    ///     <c>record</c>), always together and on the same span. The classifier is effective only when a
+    ///     trained heteronym model is available; this release embeds none, so selecting it (it is part of
+    ///     the default) produces readings only for words that carry a
+    ///     <see cref="OverrideAction.Reading"/> override. The classifier needs the part-of-speech tagger
+    ///     for its context but does not emit <see cref="TextEnAnnotations.PartOfSpeech"/> annotations
+    ///     unless that family is selected as well.
+    /// </summary>
+    Reading = 4,
 }
 
 /// <summary>
@@ -43,20 +55,29 @@ public enum TextEnAnnotationSelection
 public sealed record EnglishTextAnalyzerOptions
 {
     /// <summary>The selection that covers every annotation family this release defines.</summary>
-    private const TextEnAnnotationSelection AllFamilies = TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization;
+    private const TextEnAnnotationSelection AllFamilies = TextEnAnnotationSelection.PartOfSpeech | TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading;
+
+    /// <summary>The default confidence below which a classified reading counts as low confidence.</summary>
+    private const double DefaultLowConfidenceThreshold = 0.60;
 
     /// <summary>Backing field for <see cref="Annotations"/>.</summary>
     private readonly TextEnAnnotationSelection _annotations = AllFamilies;
 
+    /// <summary>Backing field for <see cref="LowConfidenceThreshold"/>.</summary>
+    private readonly double _lowConfidenceThreshold = DefaultLowConfidenceThreshold;
+
     /// <summary>
-    ///     Gets the sink the analyzer reports one aggregate-counts event per analyzed request to,
-    ///     or <see langword="null"/> (the default) for no reporting.
+    ///     Gets the sink the analyzer reports aggregate-counts events to (one per analyzed request, plus
+    ///     one heteronym event when readings were assigned and a model warning), or
+    ///     <see langword="null"/> (the default) for no reporting.
     /// </summary>
     /// <remarks>
     ///     The library's diagnostics contract forbids sending text content to a sink, so the
     ///     analyzer reports only counts (sentences, tokens, annotations, unknown words,
     ///     normalizations, ambiguous abbreviations, numeric fallbacks, overrides applied and
-    ///     overrides ignored) and never a word. A sink that throws never interrupts an analysis.
+    ///     overrides ignored; for readings: how many were classified, single-candidate, set by an
+    ///     override and below the confidence threshold) and never a word or a reading id. A sink that
+    ///     throws never interrupts an analysis.
     /// </remarks>
     public ISpeechDiagnostics? Diagnostics { get; init; }
 
@@ -76,8 +97,10 @@ public sealed record EnglishTextAnalyzerOptions
 
     /// <summary>
     ///     Gets the annotation families to produce. Defaults to
-    ///     <see cref="TextEnAnnotationSelection.PartOfSpeech"/> combined with
-    ///     <see cref="TextEnAnnotationSelection.Normalization"/>.
+    ///     <see cref="TextEnAnnotationSelection.PartOfSpeech"/>,
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/> and
+    ///     <see cref="TextEnAnnotationSelection.Reading"/> combined; the reading family is effective
+    ///     only when a heteronym model is available (none is embedded in this release).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">
     ///     The value contains a flag this release does not define.
@@ -95,6 +118,32 @@ public sealed record EnglishTextAnalyzerOptions
             }
 
             _annotations = value;
+        }
+    }
+
+    /// <summary>
+    ///     Gets the confidence below which a classified reading is counted as low confidence in the
+    ///     heteronym diagnostics event and flagged by <see cref="AnalyzedToken.IsLowConfidenceReading"/>;
+    ///     0.60 by default.
+    /// </summary>
+    /// <remarks>
+    ///     A low-confidence reading is still emitted: the threshold only counts and flags. The value is
+    ///     validated on every <c>init</c>, including in a <c>with</c> expression, which replaces only the
+    ///     property it names and re-validates it.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number from 0 to 1.</exception>
+    public double LowConfidenceThreshold
+    {
+        get => _lowConfidenceThreshold;
+        init
+        {
+            // NaN and infinities fail the finite check, and everything else must lie in [0, 1].
+            if (!double.IsFinite(value) || value < 0.0 || value > 1.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "The low-confidence threshold must be a finite number from 0 to 1.");
+            }
+
+            _lowConfidenceThreshold = value;
         }
     }
 }

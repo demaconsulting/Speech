@@ -5,7 +5,8 @@
 `EnglishTextAnalyzerOptions` and `TextEnAnnotationSelection` are verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs`. The only
 collaborators are a recording diagnostics sink, used as an opaque value, and a small real `PronunciationOverrides`
-dictionary, used as an opaque reference.
+dictionary, used as an opaque reference; the analyzer's use of the selection and the threshold is verified in the
+`EnglishTextAnalyzer` unit tests.
 
 #### Test Environment
 
@@ -16,12 +17,15 @@ dictionary, used as an opaque reference.
 
 #### Acceptance Criteria
 
-The defaults select part-of-speech and normalization annotations with no sink; initialization sets both
-values and a with-expression copies without changing the original; every combination of the defined flags
-(none, each family alone and both) is accepted; an undefined flag throws `ArgumentOutOfRangeException` at
-initialization and in a with-expression (including the formerly undefined value 4 combined with a defined
-flag); and the selection enumeration is a flags enumeration with `None` equal to zero, `PartOfSpeech` equal
-to one and `Normalization` equal to two. The pronunciation dictionary defaults to null, can be set at
+The defaults select part-of-speech, normalization and reading annotations with no sink and a low-confidence threshold of
+0.60; initialization sets both values and a with-expression copies without changing the original; every combination of
+the defined flags (none, each of the three families alone, and every combination of them) is accepted; an undefined flag
+throws `ArgumentOutOfRangeException` at initialization and in a with-expression (including the value 8, which is the
+first undefined bit now that 4 is the `Reading` flag, combined with a defined flag); and the selection enumeration is a
+flags enumeration with `None` equal to zero, `PartOfSpeech` equal to one, `Normalization` equal to two and `Reading`
+equal to four. The threshold accepts every finite value from 0 to 1, keeps it through a with-expression and re-validates
+it there, and rejects a negative value, a value above 1, a NaN and both infinities at initialization and in a
+with-expression. The pronunciation dictionary defaults to null, can be set at
 initialization, is kept by reference through a with-expression of another property and can be replaced without
 changing the original.
 
@@ -29,7 +33,7 @@ changing the original.
 
 ##### Defaults
 
-**Test**: `EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink`
+**Test**: `EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink`
 
 ##### Initialization and copying
 
@@ -37,8 +41,8 @@ changing the original.
 
 ##### Defined flag combinations
 
-**Test**: `EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted` (a theory over the four
-combinations of the two defined flags)
+**Test**: `EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted` (a theory over `None`, each of
+the three families alone, the three pairs and all three)
 
 ##### Undefined flag
 
@@ -47,6 +51,16 @@ combinations of the two defined flags)
 ##### Enumeration shape
 
 **Test**: `TextEnAnnotationSelection_Members_AreFlagsWithNoneZero`
+
+##### Low-confidence threshold
+
+**Tests**: `EnglishTextAnalyzerOptions_LowConfidenceThreshold_ValuesFromZeroToOne_AreAcceptedAndCopied` (a theory over
+0, 0.6, 0.999 and 1),
+`EnglishTextAnalyzerOptions_LowConfidenceThreshold_OutOfRange_ThrowsArgumentOutOfRangeException` (a theory over -0.001,
+1.001, NaN and both infinities)
+
+An accepted value is returned unchanged and is kept by a with-expression that changes another property; a rejected value
+throws in an object initializer and in a with-expression.
 
 ##### Pronunciation dictionary
 

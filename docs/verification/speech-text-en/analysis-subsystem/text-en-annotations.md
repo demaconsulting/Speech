@@ -30,13 +30,22 @@ scheme's syntax; another kind, an unknown, upper-case or missing scheme, or malf
 pronunciation without throwing, with the default scheme and empty phonemes. The combined replacement reader accepts
 a normalization annotation (including the empty one) and a well-formed spell-out annotation, flags only the spelled
 one, and reports false, without throwing, for any other kind or a malformed spelled value; a null annotation throws
-`ArgumentNullException` from the replacement, spell-out and pronunciation readers as well.
+`ArgumentNullException` from the replacement, spell-out and pronunciation readers as well. A reading annotation with a
+well-formed reading id (two or three dot-separated segments of lower-case letters, digits and inner hyphens) is read
+back exactly, and the id is not checked against the inventory (an unknown but well-formed id is accepted); another kind,
+a differently cased kind or an ill-formed id (upper case, a space, a pipe, a colon, a missing or an extra segment, an
+edge hyphen, an empty value) is reported as not a reading without throwing. A reading-confidence annotation is read back
+as the invariant number for `0`, `1`, and `0` or `1` followed by a period and one to six ASCII digits, under every
+culture, and a value above 1, negative, signed, not a number, in exponent form, with whitespace, with a comma separator,
+with a missing digit, with too many decimals, with non-ASCII digits or empty, or another kind, is reported as not a
+confidence without throwing. The two reading kinds are the ones the two readers accept.
 
 #### Test Scenarios
 
 ##### Kind names
 
-**Test**: `TextEnAnnotations_Kinds_HaveDocumentedDistinctNames`
+**Test**: `TextEnAnnotations_Kinds_HaveDocumentedDistinctNames` (the six names in their documented order,
+`en.norm`, `en.upos`, `en.reading`, `en.reading-confidence`, `en.pron` and `en.spell`)
 
 ##### Reading a part of speech
 
@@ -96,3 +105,32 @@ and that only the spell-out is flagged as spelled. The second test shows that a 
 pronunciation annotation and a malformed spell-out give false with an empty value and no spelled flag, and that a
 null annotation throws `ArgumentNullException` from the replacement reader and, in the same test, from the
 spell-out and the pronunciation readers.
+
+##### Reading a reading id
+
+**Test**: `TextEnAnnotations_TryReadReading_WellFormedId_ReturnsId` (a theory over `record.noun`, `abstract.adj-noun`,
+`a.b.c` and the unknown but well-formed `unknown.reading`)
+
+##### Not a reading
+
+**Test**: `TextEnAnnotations_TryReadReading_OtherKindOrIllFormedId_ReturnsFalse` (a theory over another kind, a
+differently cased kind and the ill-formed values: empty, one segment, upper case, a trailing space, a space, a pipe, a
+colon, four segments and an edge hyphen)
+
+##### Reading a confidence
+
+**Test**: `TextEnAnnotations_TryReadReadingConfidence_ValidValue_ReturnsInvariantNumberUnderEveryCulture` (a theory over
+`0.000`, `1.000`, `1`, `0`, `0.5`, `0.873`, `0.123456`, `1.0` and `1.000000`, read under several cultures)
+
+##### Not a confidence
+
+**Test**: `TextEnAnnotations_TryReadReadingConfidence_InvalidValueOrKind_ReturnsFalse` (a theory over `1.001`, `2`,
+`-0.1`, `+0.5`, `NaN`, `1e-1`, a leading or a trailing space, `0,5`, `.5`, `0.`, seven decimals, Arabic-Indic digits,
+the empty value and the other kinds `en.reading` and `en.upos`)
+
+##### Reading kinds agree with the readers
+
+**Test**: `TextEnAnnotations_ReadingKinds_AreTheOnesTheReadersAccept`
+
+A reading and a confidence annotation built from the two kind constants are accepted by their own reader and rejected by
+the other one.

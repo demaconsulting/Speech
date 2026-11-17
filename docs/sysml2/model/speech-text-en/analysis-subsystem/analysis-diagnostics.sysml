@@ -2,7 +2,10 @@ package SpeechTextEn {
     part def AnalysisDiagnostics {
         doc /* Internal reporter of one aggregate-counts diagnostics event per completed analysis
              * (sentences, tokens, annotations, unknown words, normalizations, ambiguous readings,
-             * numeric fallbacks, overrides applied and overrides ignored), built from fixed words and
+             * numeric fallbacks, overrides applied and overrides ignored), plus an optional second
+             * counts-only event when heteronym readings were assigned (TextEn.Heteronym) and a
+             * one-time warning that a heteronym model is invalid or incompatible (TextEn.Model; silent
+             * when no model is shipped), built from fixed words and
              * numbers only so no text content and no dictionary content can
              * reach the sink, and
              * containing any failure of the sink. */

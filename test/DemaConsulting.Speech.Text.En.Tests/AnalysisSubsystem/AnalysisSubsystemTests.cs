@@ -295,4 +295,49 @@ public sealed class AnalysisSubsystemTests
         Assert.Contains(covering, annotation => annotation.Kind == TextEnAnnotations.SpellOut);
         Assert.Contains(covering, annotation => annotation.Kind == TextEnAnnotations.Normalized);
     }
+
+    /// <summary>Proves the reading annotations of an analysis with a model read back through the typed readers on the words they annotate, coexist with the part of speech on the same span and are the only annotations that do.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech()
+    {
+        // Arrange
+        const string text = "I want to record a record.";
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: reading id and confidence read back at "record", with the part of speech on the same span
+        var readings = result.Annotations
+            .Select(annotation => TextEnAnnotations.TryReadReading(annotation, out var id) ? (annotation.Start, annotation.Length, Id: id) : default)
+            .Where(item => item.Id is not null)
+            .ToList();
+        Assert.Equal(["record.verb", "record.noun"], readings.Select(item => item.Id));
+        foreach (var (start, length, _) in readings)
+        {
+            Assert.Equal("record", text.Substring(start, length));
+            Assert.Contains(result.Annotations, annotation => TextEnAnnotations.TryReadPartOfSpeech(annotation, out _) && annotation.Start == start && annotation.Length == length);
+            Assert.Contains(result.Annotations, annotation => TextEnAnnotations.TryReadReadingConfidence(annotation, out _) && annotation.Start == start && annotation.Length == length);
+        }
+    }
+
+    /// <summary>Proves a reading override read from the tab-separated format and the options work together: the id is validated when the file is read, applied by the analyzer, and counted as an applied override.</summary>
+    [Fact]
+    public void AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts()
+    {
+        // Arrange
+        const string text = "They read the record.";
+        var overrides = PronunciationOverrides.FromTsv(new StringReader("read\tinsensitive\treading\tread.past\nrecord\tinsensitive\treading\trecord.noun\n"));
+        var sink = new RecordingDiagnostics();
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides, Diagnostics = sink });
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(["read.past", "record.noun"], result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).Select(annotation => annotation.Value));
+        Assert.Contains(sink.Events, e => e.Message.Contains("2 overrides applied, 0 overrides ignored", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader("read\tinsensitive\treading\trecord.noun\n")));
+    }
 }

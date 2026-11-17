@@ -189,6 +189,12 @@ internal enum TokenDirectiveKind
 
     /// <summary>Attach the directive's <c>scheme:phonemes</c> value to the token without replacing it.</summary>
     Pronounce = 3,
+
+    /// <summary>
+    ///     Fix the token's heteronym reading to the directive's reading id: the normalizer speaks the token as
+    ///     written (like <see cref="Skip"/>) and the analyzer emits the reading annotation.
+    /// </summary>
+    Reading = 4,
 }
 
 /// <summary>
@@ -197,9 +203,9 @@ internal enum TokenDirectiveKind
 /// <param name="TokenIndex">The index of the token in the token list; strictly ascending across a directive list.</param>
 /// <param name="Kind">What to do with the token.</param>
 /// <param name="Value">
-///     The replacement words (<see cref="TokenDirectiveKind.Replace"/>) or the
-///     <c>scheme:phonemes</c> value (<see cref="TokenDirectiveKind.Pronounce"/>); null for the
-///     other kinds.
+///     The replacement words (<see cref="TokenDirectiveKind.Replace"/>), the
+///     <c>scheme:phonemes</c> value (<see cref="TokenDirectiveKind.Pronounce"/>) or the reading id
+///     (<see cref="TokenDirectiveKind.Reading"/>); null for the other kinds.
 /// </param>
 internal readonly record struct TokenDirective(int TokenIndex, TokenDirectiveKind Kind, string? Value);
 

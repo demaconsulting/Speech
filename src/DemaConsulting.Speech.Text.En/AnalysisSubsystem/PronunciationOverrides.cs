@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
@@ -9,7 +10,8 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     An immutable dictionary of host-supplied pronunciation overrides for
 ///     <see cref="EnglishTextAnalyzer"/>: whole words that are spoken as written, replaced by plain
 ///     words, spelled letter by letter or given a phoneme string, whatever the built-in rules
-///     would have done.
+///     would have done. A fifth action fixes the heteronym reading of a word (<c>record.noun</c>)
+///     instead of letting the classifier decide.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -123,9 +125,10 @@ public sealed class PronunciationOverrides
                 OverrideAction.Skip => TokenDirectiveKind.Skip,
                 OverrideAction.Say => TokenDirectiveKind.Replace,
                 OverrideAction.SpellOut => TokenDirectiveKind.Spell,
+                OverrideAction.Reading => TokenDirectiveKind.Reading,
                 _ => TokenDirectiveKind.Pronounce,
             };
-            var value = entry.Action is OverrideAction.Say or OverrideAction.Pronunciation ? entry.Payload : null;
+            var value = entry.Action is OverrideAction.Say or OverrideAction.Pronunciation or OverrideAction.Reading ? entry.Payload : null;
             var rows = entry.CaseSensitive ? sensitive : insensitive;
             rows.Add(new Row(key, kind, value));
 
@@ -222,9 +225,10 @@ public sealed class PronunciationOverrides
     ///     the first line is skipped. Empty lines and lines starting with <c>#</c> are ignored; a
     ///     line of only whitespace is an error and there is no header row. The <c>case</c> column
     ///     is <c>sensitive</c> or <c>insensitive</c>; the <c>action</c> column is <c>skip</c>,
-    ///     <c>say</c>, <c>spell</c> or <c>pron</c>; <c>skip</c> and <c>spell</c> take no payload
-    ///     (an empty fourth column is tolerated), <c>say</c> takes the spoken words and
-    ///     <c>pron</c> takes <c>ipa:...</c> or <c>arpabet:...</c>. No field may have leading or
+    ///     <c>say</c>, <c>spell</c>, <c>pron</c> or <c>reading</c>; <c>skip</c> and <c>spell</c> take no payload
+    ///     (an empty fourth column is tolerated), <c>say</c> takes the spoken words,
+    ///     <c>pron</c> takes <c>ipa:...</c> or <c>arpabet:...</c> and <c>reading</c> takes a reading id
+    ///     that exists in the <see cref="ReadingInventory"/> and is a candidate for the word. No field may have leading or
     ///     trailing whitespace; there is no quoting or escaping; a control character other than
     ///     the tab separator is an error. Each entry is validated with the same rules as
     ///     <see cref="Create"/>.
@@ -489,13 +493,17 @@ public sealed class PronunciationOverrides
         {
             action = OverrideAction.Pronunciation;
         }
+        else if (actionColumn.SequenceEqual("reading"))
+        {
+            action = OverrideAction.Reading;
+        }
         else
         {
-            return "the action column must be 'skip', 'say', 'spell' or 'pron'";
+            return "the action column must be 'skip', 'say', 'spell', 'pron' or 'reading'";
         }
 
         string? payloadText = null;
-        if (action is OverrideAction.Say or OverrideAction.Pronunciation)
+        if (action is OverrideAction.Say or OverrideAction.Pronunciation or OverrideAction.Reading)
         {
             payloadText = payload.ToString();
         }
@@ -671,7 +679,7 @@ public sealed class PronunciationOverrides
         /// <returns><see langword="null"/> when valid; otherwise the reason (fixed text, never the entry's content).</returns>
         private static string? ValidateEntry(PronunciationOverrideEntry entry)
         {
-            if (entry.Action is not (OverrideAction.Skip or OverrideAction.Say or OverrideAction.SpellOut or OverrideAction.Pronunciation))
+            if (entry.Action is not (OverrideAction.Skip or OverrideAction.Say or OverrideAction.SpellOut or OverrideAction.Pronunciation or OverrideAction.Reading))
             {
                 return "the action is not defined";
             }
@@ -692,6 +700,8 @@ public sealed class PronunciationOverrides
                         : OverrideSyntax.ValidateSpellKey(entry.Word);
                 case OverrideAction.Say:
                     return OverrideSyntax.ValidateSayPayload(entry.Payload);
+                case OverrideAction.Reading:
+                    return OverrideSyntax.ValidateReading(entry.Word, entry.Payload);
                 default:
                     return OverrideSyntax.ParsePronunciation(entry.Payload, out _, out _);
             }

@@ -16,14 +16,17 @@ sections:
             requirements:
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Defaults
                 title: >-
-                  The EnglishTextAnalyzerOptions record shall default to selecting both the
-                  part-of-speech and the normalization annotations and to having no diagnostics
-                  sink.
+                  The EnglishTextAnalyzerOptions record shall default to selecting the
+                  part-of-speech, the normalization and the reading annotations and to having no
+                  diagnostics sink.
                 justification: |
                   A host that just constructs an analyzer gets the useful behavior without
-                  configuration and no reporting it did not ask for.
+                  configuration and no reporting it did not ask for. The reading family is part of
+                  the default selection, but it produces annotations only when a heteronym model
+                  is available, which this release does not embed, so the default output is
+                  unchanged.
                 tests:
-                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink
+                  - EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Initialization
                 title: >-
@@ -51,16 +54,46 @@ sections:
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-NormalizationSelection
                 title: >-
                   The EnglishTextAnalyzerOptions record shall accept every combination of the
-                  defined selection flags (none, part of speech, normalization, or both), so that a
-                  host can select the normalization annotations independently of the
-                  part-of-speech annotations.
+                  defined selection flags (none, part of speech, normalization, reading, and
+                  every combination of them), so that a host can select each annotation family
+                  independently of the others.
                 justification: |
                   Normalization needs no tagger and the part of speech needs no normalization, so
-                  a host may want either alone; the combinations must be valid rather than merely
-                  not undefined.
+                  a host may want either alone, and the reading family can be chosen with or
+                  without the part-of-speech annotation it uses as context; the combinations must
+                  be valid rather than merely not undefined.
                 tests:
                   - EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted
-                  - EnglishTextAnalyzerOptions_Defaults_SelectPartOfSpeechAndNormalizationAndNoSink
+                  - EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-ReadingSelection
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall define the reading family as the
+                  selection flag with the value 4, include it in the default selection, and treat
+                  any flag above it as undefined.
+                justification: |
+                  The flag values are part of the public contract and a host may store them, so the
+                  reading flag has a fixed value; including it in the default means a host gets
+                  readings as soon as a model is available without changing its options.
+                tests:
+                  - TextEnAnnotationSelection_Members_AreFlagsWithNoneZero
+                  - EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink
+                  - EnglishTextAnalyzerOptions_Annotations_UndefinedFlag_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-LowConfidenceThreshold
+                title: >-
+                  The EnglishTextAnalyzerOptions record shall carry a low-confidence threshold of
+                  0.60 by default, shall accept at initialization any finite value from 0 to 1
+                  including both ends and keep it in a with-expression copy, and shall throw
+                  ArgumentOutOfRangeException for a value below 0, above 1 or not finite.
+                justification: |
+                  A confidence is a probability, so a threshold outside 0 to 1 or not a number
+                  is a mistake that would silently flag everything or nothing; the threshold is
+                  only used to count and flag doubtful readings, never to withhold one.
+                tests:
+                  - EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink
+                  - EnglishTextAnalyzerOptions_LowConfidenceThreshold_ValuesFromZeroToOne_AreAcceptedAndCopied
+                  - EnglishTextAnalyzerOptions_LowConfidenceThreshold_OutOfRange_ThrowsArgumentOutOfRangeException
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Overrides
                 title: >-

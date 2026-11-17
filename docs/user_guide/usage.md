@@ -278,7 +278,9 @@ letters that is spoken by letter name (an initialism such as "FBI" gives the val
 below). Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix stays in
 one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke."). A host can also override how
 individual words are spoken or pronounced with a dictionary of *pronunciation overrides* (see *Pronunciation overrides
-for English text analysis* below).
+for English text analysis* below). A heteronym such as "record" can carry a reading id with a confidence (kinds
+`"en.reading"` and `"en.reading-confidence"`), but no trained model ships in this release, so only a host's
+`Reading` override produces one today (see *Heteronym readings* below).
 
 *What is read.* The numeric normalization reads en-US text only (a comma separates thousands, a period is the
 decimal point, and a numeric date is month first): cardinal numbers and numbers with thousands separators
@@ -311,14 +313,16 @@ annotates the "5" and the "2024" and leaves the month name and the comma alone, 
 analyzer cannot read is not annotated, so a backend must still be prepared to receive digits.
 
 Read an annotation with `TextEnAnnotations.TryReadPartOfSpeech`, `TextEnAnnotations.TryReadReplacement` (the
-`"en.norm"` and `"en.spell"` annotations), or `TextEnAnnotations.TryReadPronunciation` (the `"en.pron"`
-annotations of the overrides), and ignore the other kinds in `TextEnAnnotations`, which are reserved for
-later releases (`"en.reading"` and `"en.reading-confidence"`) or that your backend does not use. The analyzer is
-thread-safe and cheap to share; the first request that needs tags loads the tagger (about 1.3 MB of embedded
+`"en.norm"` and `"en.spell"` annotations), `TextEnAnnotations.TryReadPronunciation` (the `"en.pron"`
+annotations of the overrides), or `TextEnAnnotations.TryReadReading` and
+`TextEnAnnotations.TryReadReadingConfidence` (the `"en.reading"` and `"en.reading-confidence"` annotations; see
+*Heteronym readings* below), and ignore the other kinds in `TextEnAnnotations` that your backend does not use. The
+analyzer is thread-safe and cheap to share; the first request that needs tags loads the tagger (about 1.3 MB of
+embedded
 data), so that request is slower than the rest. `EnglishTextAnalyzerOptions` selects the annotation families
-with the `TextEnAnnotationSelection` flags (`PartOfSpeech` and the new `Normalization`, both on by default;
+with the `TextEnAnnotationSelection` flags (`PartOfSpeech`, `Normalization` and `Reading`, all on by default;
 numbers are normalized whenever `Normalization` is selected, there is no separate option), carries the optional
-`Overrides` dictionary,
+`Overrides` dictionary, the `LowConfidenceThreshold` (see *Heteronym readings*),
 and supplies a diagnostics sink, which receives only counts, never text: one event per analyzed text with the
 message `Analyzed one text: N sentences, N tokens, N annotations, N unknown words, N normalizations, N
 ambiguous readings, N numeric fallbacks, N overrides applied, N overrides ignored.` The "ambiguous readings"
@@ -327,7 +331,7 @@ were read by a default, "numeric fallbacks" the numbers that were left as writte
 because of a limit, and "overrides applied" and "overrides ignored" the words your override dictionary changed
 and the entries that matched a word but were overruled (see *Overrides that are ignored*); the message is
 informational and is not meant to be parsed. It never contains a word, and never any content of your
-dictionary.
+dictionary. Two further events exist for heteronym readings; see *Heteronym readings*.
 
 A backend applies the replacement annotations (`"en.norm"` and `"en.spell"`) of a chunk in four steps: read
 each with `TextEnAnnotations.TryReadReplacement`, sort them by `Start` (they never overlap), copy each gap of
@@ -395,7 +399,7 @@ its own `"en.spell"` annotation. The kind is the only signal: `"en.spell"` means
 value is always spoken as words, even when it is a single capital letter (a host's `Say("foo", "I")` override
 gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` value.
 
-**The four actions.** Each entry has a word, a case flag, an action and, for two actions, a payload:
+**The five actions.** Each entry has a word, a case flag, an action and, for three actions, a payload:
 
 | Action | Payload |
 | --- | --- |
@@ -403,6 +407,7 @@ gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` va
 | `Say` (`say`) | plain words |
 | `SpellOut` (`spell`) | none |
 | `Pronunciation` (`pron`) | `ipa:...` or `arpabet:...` |
+| `Reading` (`reading`) | a reading id such as `record.noun` |
 
 **Action details:**
 
@@ -418,10 +423,13 @@ gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` va
 - `Pronunciation` (`pron`)
   - What the matching word gets: One `"en.pron"` annotation on the word; **the word is not replaced**
   - Example: `Polish food` keeps its text, and a backend that supports the notation receives the phonemes
+- `Reading` (`reading`)
+  - What the matching word gets: One `"en.reading"` annotation with its `"en.reading-confidence"` of `1.000`; **the
+    word is spoken as written** and no built-in rule runs for it (see *Heteronym readings*)
+  - Example: `Read the record.` with `record` set to `record.noun` marks the word with the reading `record.noun`
 
 A `Say` payload is plain words: letters, apostrophes, hyphens, and single spaces, with no digit and no
-punctuation, so it can never change how a backend splits clauses (write a number in words). A selection of a
-heteronym reading (the noun or the verb of "record") is reserved for a later release and is not an action yet.
+punctuation, so it can never change how a backend splits clauses (write a number in words).
 
 **Precedence.** Several sources can decide how a word is spoken. The first row that applies wins:
 
@@ -532,8 +540,9 @@ NASA→sensitive→skip
 The format rules:
 
 - the `case` column is exactly `sensitive` or `insensitive`, and the `action` column exactly `skip`, `say`,
-  `spell`, or `pron`; `skip` and `spell` take no payload (an empty fourth column is tolerated); `say` and `pron`
-  require one; no column may start or end with whitespace; there is no quoting and no header row
+  `spell`, `pron`, or `reading`; `skip` and `spell` take no payload (an empty fourth column is tolerated); `say`,
+  `pron`, and `reading` require one; no column may start or end with whitespace; there is no quoting and no
+  header row
 - empty lines and lines whose first character is `#` are ignored; a line of only whitespace is an error
 - lines end with LF or CRLF (a lone carriage return is an error), a byte-order mark at the start of the file is
   skipped, and a control character other than the tab separator is an error on any line, comments included
@@ -610,6 +619,70 @@ A replacement and a pronunciation never overlap, because a word is either replac
 
 The same text with a key that cannot match is simply left alone: `Mr. Smith` is read by the abbreviation rules
 (`Mister Smith`) because a key cannot end with a period, and `Don't go` is not changed by a key for `Do`.
+
+**Heteronym readings (`"en.reading"`, preview).** A heteronym is a word whose pronunciation depends on its
+meaning, such as the noun and the verb of "record". The `Reading` selection flag asks the analyzer to mark such a
+word with two annotations on the same span, always together: `"en.reading"`, whose value is a *reading id* such as
+`record.noun` or `record.verb`, and `"en.reading-confidence"`, whose value is the confidence from `0.000` to
+`1.000`, written with three decimals and a period whatever the culture. The annotation covers exactly one whole
+word, and the reading ids a word can have are listed by the public `ReadingInventory.Default`
+(`ReadingIds`, `Contains(id)`, `CandidatesFor(word)` and the `Version` of the inventory). Reading ids are
+lower-case, with two or three parts separated by dots.
+
+**No model ships yet.** The classifier that chooses a reading from the context needs a trained heteronym
+model, and this release embeds none (a later release adds it). `Reading` is part of the default selection, but
+until a model exists the default analyzer **produces no classified readings**: a backend sees `"en.reading"`
+only for a word that carries a `Reading` override (below). The reading tables are embedded and need no
+model, so a host can already list the readings and validate its ids. A model that is present but invalid or
+incompatible disables the readings and is reported once (see the diagnostics below).
+
+- **Coexistence.** `"en.reading"` coexists on its span with `"en.upos"`. It is never emitted for a word that
+  overlaps an `"en.norm"`, `"en.spell"`, or `"en.pron"` annotation or that carries any other override, so a
+  backend never has to reconcile a reading with a replacement. A word has at most one reading. A backend that
+  does not understand readings ignores both kinds and speaks the word as usual.
+- **Reading the annotations.** `TextEnAnnotations.TryReadReading` returns the reading id and
+  `TextEnAnnotations.TryReadReadingConfidence` the confidence; a wrong kind or a malformed value is an ordinary
+  `false`, never an exception. `TryReadReading` checks the form of the id, not that it is in the inventory (use
+  `ReadingInventory.Default.Contains` for that).
+- **The `Reading` override.** `PronunciationOverrideEntry.Reading("record", "record.noun")` (or a TSV row with the
+  action `reading`) fixes the reading of a word without any model; the confidence is `1.000`. The id must exist in
+  the inventory, be active, and be a candidate of the word, or building the dictionary fails with the position
+  and a fixed reason like any other bad entry. The word is spoken as written, and no built-in rule runs for it.
+  Like every override it needs `TextEnAnnotationSelection.Normalization`, and it produces an annotation only
+  when `TextEnAnnotationSelection.Reading` is selected.
+- **`LowConfidenceThreshold`.** `EnglishTextAnalyzerOptions.LowConfidenceThreshold` (0.60 by default, a finite number
+  from 0 to 1) marks a classified reading below it as low confidence: it is counted in the diagnostics and
+  `AnalyzedToken.IsLowConfidenceReading` is set. The reading is still emitted; the threshold never removes it.
+  The detailed result (`AnalyzeDetailed`) also carries `AnalyzedToken.Reading` and
+  `AnalyzedToken.ReadingConfidence`.
+- **Diagnostics.** The `TextEn.Analysis` event above is unchanged. A second event, category `TextEn.Heteronym`
+  (level `Info`), is sent only when readings were assigned and holds counts only: how many were classified,
+  had a single candidate, came from an override, or fell below the threshold. A `TextEn.Model` event (level
+  `Warning`) is sent once per analyzer, only when a heteronym model exists but is invalid or incompatible;
+  nothing is sent when no model ships. Neither event contains a word or a reading id.
+
+```csharp
+var overrides = PronunciationOverrides.Create(
+[
+    PronunciationOverrideEntry.Reading("record", "record.noun"),
+]);
+var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+
+// In your IAnnotatedSynthesisBackend.GenerateAnnotated:
+foreach (var annotation in annotations)
+{
+    if (TextEnAnnotations.TryReadReading(annotation, out var readingId))
+    {
+        // For example "record.noun"; its "en.reading-confidence" annotation covers the same range.
+    }
+    else if (TextEnAnnotations.TryReadReadingConfidence(annotation, out var confidence))
+    {
+        // 1.0 for an override.
+    }
+}
+```
+
+In a TSV file the same entry is the row `record→insensitive→reading→record.noun`.
 
 *Preview note.* The override dictionary and the new annotation kinds are part of the same preview as the rest
 of the package: the details of the

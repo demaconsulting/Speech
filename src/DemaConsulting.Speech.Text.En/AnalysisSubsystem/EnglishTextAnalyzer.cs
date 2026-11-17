@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
@@ -22,7 +24,8 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     part of a word or an annotation, and the words on both sides of a tag are analyzed as one
 ///     sentence (context is carried across the tag). The part of speech comes from the shared
 ///     <c>Tagger.Default</c>, which is created lazily at most once per process; constructing an
-///     analyzer, analyzing an empty text, and not selecting part-of-speech annotations all leave
+///     analyzer, analyzing an empty text, and selecting neither part-of-speech annotations nor an
+///     effective reading family all leave
 ///     it unloaded. Its first use inflates about 1.3 MB of embedded data, so the first request
 ///     that needs tags is slower than the rest. Tagging runs on the raw tokens, never on
 ///     normalized text, so the tags are those the tagger was trained on.
@@ -37,6 +40,18 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     (<see cref="EnglishTextAnalyzerOptions.Overrides"/>) is applied by the same pass and beats
 ///     every built-in rule; its pronunciation entries become
 ///     <see cref="TextEnAnnotations.Pronunciation"/> annotations.
+///     </para>
+///     <para>
+///     Heteronym readings (selected by default with <see cref="TextEnAnnotationSelection.Reading"/>)
+///     mark which pronunciation reading a word such as <c>record</c> has, as a
+///     <see cref="TextEnAnnotations.Reading"/> annotation and its
+///     <see cref="TextEnAnnotations.ReadingConfidence"/> companion on exactly that word's token. The
+///     classifier needs a trained heteronym model, and this release embeds none, so an analyzer built
+///     with the public constructors emits no classified readings; it still emits a reading for a word that
+///     a <see cref="OverrideAction.Reading"/> override names. The model is loaded lazily and shared: never
+///     for an analyzer that is not invoked, a text without a heteronym form, or a selection without the
+///     family. A token that carries a replacement, a pronunciation or any other override never receives a
+///     reading, so the annotations never contradict each other.
 ///     </para>
 ///     <para>
 ///     Instances are immutable and thread-safe: one analyzer may serve any number of concurrent
@@ -70,18 +85,34 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     /// <summary>The aggregate-counts reporter.</summary>
     private readonly AnalysisDiagnostics _diagnostics;
 
-    /// <summary>Whether this analyzer tags tokens and emits part-of-speech annotations.</summary>
+    /// <summary>Whether this analyzer emits part-of-speech annotations (and counts unknown words).</summary>
     private readonly bool _tagPartOfSpeech;
 
     /// <summary>Whether this analyzer normalizes and reconciles sentence breaks.</summary>
     private readonly bool _normalize;
 
+    /// <summary>Whether the reading family was selected (reading overrides are honored).</summary>
+    private readonly bool _selectReading;
+
+    /// <summary>Whether the classifier is effective: the family was selected and a model source exists (checked without loading it).</summary>
+    private readonly bool _readingsEnabled;
+
+    /// <summary>The confidence below which a classified reading counts as low confidence.</summary>
+    private readonly double _lowConfidenceThreshold;
+
+    /// <summary>The lazy, shared supplier of the heteronym classifier.</summary>
+    private readonly HeteronymModelProvider _modelProvider;
+
+    /// <summary>1 once the model warning was reported by this analyzer, otherwise 0; changed only with <see cref="Interlocked"/>.</summary>
+    private int _modelWarned;
+
     /// <summary>The host-supplied overrides, or <see langword="null"/> when there are none (an empty dictionary is stored as none); immutable, so sharing the reference is the snapshot.</summary>
     private readonly PronunciationOverrides? _overrides;
 
     /// <summary>
-    ///     Initializes a new instance with the default options: part-of-speech and normalization
-    ///     annotations on and no diagnostics sink.
+    ///     Initializes a new instance with the default options: part-of-speech, normalization and
+    ///     reading annotations on (the reading classifier is effective only with a model, which this
+    ///     release does not embed) and no diagnostics sink.
     /// </summary>
     public EnglishTextAnalyzer()
         : this(new EnglishTextAnalyzerOptions())
@@ -130,17 +161,42 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
     ///     <see cref="TextEnAnnotationSelection.Normalization"/>, which is what applies overrides.
     /// </exception>
     internal EnglishTextAnalyzer(EnglishTextAnalyzerOptions options, PartOfSpeechAdapter adapter, TextNormalizer? normalizer)
+        : this(options, adapter, normalizer, HeteronymModelProvider.Embedded)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance over a specific adapter, normalizer and heteronym model provider, so
+    ///     tests can supply hand-built models and count model loads.
+    /// </summary>
+    /// <param name="options">The options. Must not be null.</param>
+    /// <param name="adapter">The part-of-speech seam to use. Must not be null.</param>
+    /// <param name="normalizer">The normalizer to use, or <see langword="null"/> for the shared default.</param>
+    /// <param name="modelProvider">The heteronym model provider. Must not be null.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/>, <paramref name="adapter"/> or <paramref name="modelProvider"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="options"/> carries a non-empty override dictionary but does not select
+    ///     <see cref="TextEnAnnotationSelection.Normalization"/>, which is what applies overrides.
+    /// </exception>
+    internal EnglishTextAnalyzer(EnglishTextAnalyzerOptions options, PartOfSpeechAdapter adapter, TextNormalizer? normalizer, HeteronymModelProvider modelProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(adapter);
+        ArgumentNullException.ThrowIfNull(modelProvider);
 
         // Snapshot everything needed now so the analyzer is immutable from here on.
         _adapter = adapter;
         _normalizer = normalizer;
+        _modelProvider = modelProvider;
         _diagnostics = new AnalysisDiagnostics(options.Diagnostics);
         _tagPartOfSpeech = options.Annotations.HasFlag(TextEnAnnotationSelection.PartOfSpeech);
         _normalize = options.Annotations.HasFlag(TextEnAnnotationSelection.Normalization);
+        _selectReading = options.Annotations.HasFlag(TextEnAnnotationSelection.Reading);
+        _lowConfidenceThreshold = options.LowConfidenceThreshold;
         _overrides = options.Overrides is { Count: > 0 } overrides ? overrides : null;
+
+        // Whether a model source exists is a cheap question; the model itself is not loaded here.
+        _readingsEnabled = _selectReading && modelProvider.IsConfigured;
 
         // Overrides are applied by the normalization pass; silently ignoring them would hide a
         // configuration mistake, so the combination is rejected up front.
@@ -255,10 +311,12 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         // Step 1: make tag placeholders opaque separators without moving a single offset.
         var analysisText = NeutralizePlaceholders(text);
 
-        // Step 2: split (and, when selected, tag) the neutralized text; offsets index both the
+        // Step 2: split (and, when needed, tag) the neutralized text; offsets index both the
         // neutralized text and, because the lengths are equal, the source. Tagging deliberately
-        // sees the raw tokens: the tagger was trained on them and normalized text tags worse.
-        var sentences = _adapter.Analyze(analysisText, _tagPartOfSpeech, cancellationToken);
+        // sees the raw tokens: the tagger was trained on them and normalized text tags worse. The
+        // tagger is needed to annotate parts of speech and as context for the reading classifier,
+        // which is only effective when a model source exists.
+        var sentences = _adapter.Analyze(analysisText, _tagPartOfSpeech || _readingsEnabled, cancellationToken);
 
         // Step 3: normalize over the same tokens, independently of tagging. Clitic roles are
         // public detail, so only the detailed path pays for classifying them. User overrides are
@@ -283,6 +341,12 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
         var pronunciationIndex = 0;
         var cliticIndex = 0;
 
+        // The state of the reading family for this request: which directive comes next, how far the
+        // emitted replacements reach, and the per-request classification state and counts.
+        var directiveIndex = 0;
+        var coveredEnd = 0;
+        var reading = new ReadingPass(this, analysisText);
+
         // Step 4: build the tokens, annotations and tokenizer sentence breaks from the source text.
         var annotations = new List<SegmentAnnotation>();
         var tokenizerBreaks = new List<int>();
@@ -300,15 +364,41 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                 tokenizerBreaks.Add(sentence[0].Start);
             }
 
-            foreach (var token in sentence)
+            for (var tokenInSentence = 0; tokenInSentence < sentence.Count; tokenInSentence++)
             {
+                var token = sentence[tokenInSentence];
+                var tokenEnd = token.Start + token.Length;
+
                 // Building the result is part of the request: look at the token periodically.
                 if (tokenCount % PartOfSpeechAdapter.CancellationCheckInterval == PartOfSpeechAdapter.CancellationCheckInterval - 1)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                // Only the detailed path pays for the token object and its text copy.
+                // The token's heteronym reading, decided before its annotations are added so the
+                // detailed token can carry it. Directives are ascending, so the next one is either
+                // this token's or a later token's.
+                string? readingId = null;
+                var readingConfidence = 0.0;
+                var lowConfidence = false;
+                var hasDirective = directiveIndex < directives.Length && directives[directiveIndex].TokenIndex == tokenCount;
+                var directive = hasDirective ? directives[directiveIndex++] : default;
+                if (_selectReading)
+                {
+                    // A token that carries or lies inside a replacement or a pronunciation never gets a
+                    // reading: spans already emitted reach up to coveredEnd, and the next spans and
+                    // marks may start inside this token.
+                    var overlaps = token.Start < coveredEnd
+                        || (spans is not null && spanIndex < spans.Count && spans[spanIndex].Start < tokenEnd)
+                        || (pronunciations is not null && pronunciationIndex < pronunciations.Count && pronunciations[pronunciationIndex].Start < tokenEnd);
+                    if (!overlaps)
+                    {
+                        (readingId, readingConfidence, lowConfidence) = reading.Assign(hasDirective, directive, sentence, sentenceIndex, tokenInSentence, cancellationToken);
+                    }
+                }
+
+                // Only the detailed path pays for the token object and its text copy. The tagger's
+                // opinion is public only when part-of-speech annotation was selected.
                 if (detailedTokens is not null)
                 {
                     var clitic = CliticKind.None;
@@ -322,11 +412,14 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                         token.Start,
                         token.Length,
                         text.Substring(token.Start, token.Length),
-                        token.Tag,
-                        token.Confidence,
-                        token.IsKnownWord)
+                        _tagPartOfSpeech ? token.Tag : null,
+                        _tagPartOfSpeech ? token.Confidence : 0.0,
+                        _tagPartOfSpeech && token.IsKnownWord)
                     {
                         Clitic = clitic,
+                        Reading = readingId,
+                        ReadingConfidence = readingConfidence,
+                        IsLowConfidenceReading = lowConfidence,
                     });
                 }
 
@@ -336,7 +429,7 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                 // without a letter or digit have none: the tagger labels a lone "*", "~" or invisible
                 // character as a word in some contexts, but such a token speaks nothing of its own and
                 // must not make a clause of it look like content to the Speech library's chunker).
-                if (token.Tag is not null && token.Tag is not (PunctuationTag or SymbolTag)
+                if (_tagPartOfSpeech && token.Tag is not null && token.Tag is not (PunctuationTag or SymbolTag)
                     && !HasNoLetterOrDigit(text, token.Start, token.Length))
                 {
                     if (!token.IsKnownWord && token.Tag != NumeralTag)
@@ -352,19 +445,29 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
                     }
                 }
 
+                // Then the reading and its confidence on the same span (an ASCII-letter token, so never
+                // a split surrogate pair), always as a pair.
+                if (readingId is not null)
+                {
+                    annotations.Add(new SegmentAnnotation(token.Start, token.Length, TextEnAnnotations.Reading, readingId));
+                    annotations.Add(new SegmentAnnotation(token.Start, token.Length, TextEnAnnotations.ReadingConfidence, readingConfidence.ToString("0.000", CultureInfo.InvariantCulture)));
+                }
+
                 // Then every replacement (normalization or spelling) that starts inside this token, and
                 // then every pronunciation, so the annotations stay in text order with the part of
                 // speech first at equal starts. A token carries either a replacement or a
                 // pronunciation, never both.
-                while (spans is not null && spanIndex < spans.Count && spans[spanIndex].Start < token.Start + token.Length)
+                while (spans is not null && spanIndex < spans.Count && spans[spanIndex].Start < tokenEnd)
                 {
                     AddNormalization(text, spans[spanIndex], annotations, detailedNormalizations);
+                    coveredEnd = Math.Max(coveredEnd, spans[spanIndex].Start + spans[spanIndex].Length);
                     spanIndex++;
                 }
 
-                while (pronunciations is not null && pronunciationIndex < pronunciations.Count && pronunciations[pronunciationIndex].Start < token.Start + token.Length)
+                while (pronunciations is not null && pronunciationIndex < pronunciations.Count && pronunciations[pronunciationIndex].Start < tokenEnd)
                 {
                     annotations.Add(new SegmentAnnotation(pronunciations[pronunciationIndex].Start, pronunciations[pronunciationIndex].Length, TextEnAnnotations.Pronunciation, pronunciations[pronunciationIndex].Value));
+                    coveredEnd = Math.Max(coveredEnd, pronunciations[pronunciationIndex].Start + pronunciations[pronunciationIndex].Length);
                     pronunciationIndex++;
                 }
             }
@@ -389,8 +492,9 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             : aligned.ReconcileBreaks(tokenizerBreaks);
 
         // Step 6: a request canceled while the result was being built (including during its last
-        // sentence) must neither return nor report; then report one aggregate-counts event and
-        // return the immutable result.
+        // sentence) must neither return nor report; then report one aggregate-counts event, the
+        // heteronym counts when readings were assigned, the model warning (once per analyzer) when a
+        // model exists but cannot be used, and return the immutable result.
         cancellationToken.ThrowIfCancellationRequested();
         _diagnostics.ReportRequest(new AnalysisCounts(
             sentenceBreaks.Count + (tokenCount > 0 ? 1 : 0),
@@ -402,7 +506,188 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
             aligned?.FallbackCount ?? 0,
             aligned?.OverridesApplied ?? 0,
             aligned?.OverridesIgnored ?? 0));
+        _diagnostics.ReportReadings(reading.Counts, _lowConfidenceThreshold);
+        if (reading.ModelProblem && Interlocked.CompareExchange(ref _modelWarned, 1, 0) == 0)
+        {
+            _diagnostics.ReportModelProblem();
+        }
+
         return (annotations.AsReadOnly(), sentenceBreaks);
+    }
+
+    /// <summary>
+    ///     The per-request state of the heteronym reading family: the lazily obtained classifier, the
+    ///     reusable context buffer and the counts, so the per-token loop of the analysis stays readable.
+    /// </summary>
+    /// <remarks>
+    ///     One instance lives for one request on one thread and is never shared; it creates no object per
+    ///     token (the context array is built once per sentence that has a candidate word and reused).
+    /// </remarks>
+    private sealed class ReadingPass
+    {
+        /// <summary>The analyzer whose snapshot (selection, provider, threshold) this request uses.</summary>
+        private readonly EnglishTextAnalyzer _owner;
+
+        /// <summary>The text the tokens index, with placeholders neutralized.</summary>
+        private readonly string _analysisText;
+
+        /// <summary>The inventory, resolved on the first token that needs it.</summary>
+        private ReadingInventory? _inventory;
+
+        /// <summary>The classifier once obtained; null when the model is unavailable.</summary>
+        private HeteronymClassifier? _classifier;
+
+        /// <summary>Whether the provider has been asked for the classifier in this request.</summary>
+        private bool _resolved;
+
+        /// <summary>The reusable context buffer.</summary>
+        private ContextToken[]? _context;
+
+        /// <summary>The index of the sentence the context buffer describes, or -1.</summary>
+        private int _contextSentence = -1;
+
+        /// <summary>The number of readings the model decided.</summary>
+        private int _classified;
+
+        /// <summary>The number of single-candidate readings.</summary>
+        private int _single;
+
+        /// <summary>The number of readings fixed by an override.</summary>
+        private int _byOverride;
+
+        /// <summary>The number of classified readings below the threshold.</summary>
+        private int _low;
+
+        /// <summary>
+        ///     Initializes a new instance for one request.
+        /// </summary>
+        /// <param name="owner">The analyzer.</param>
+        /// <param name="analysisText">The analyzed text with placeholders neutralized.</param>
+        internal ReadingPass(EnglishTextAnalyzer owner, string analysisText)
+        {
+            _owner = owner;
+            _analysisText = analysisText;
+        }
+
+        /// <summary>Gets a value indicating whether a model exists but cannot be used (reported once per analyzer after the request).</summary>
+        internal bool ModelProblem { get; private set; }
+
+        /// <summary>Gets the counts of the readings assigned so far.</summary>
+        internal ReadingCounts Counts => new(_classified, _single, _byOverride, _low);
+
+        /// <summary>
+        ///     Decides the reading of one token that no replacement or pronunciation covers.
+        /// </summary>
+        /// <param name="hasDirective">Whether a user override names this token.</param>
+        /// <param name="directive">The override, when <paramref name="hasDirective"/> is true.</param>
+        /// <param name="sentence">The token's sentence.</param>
+        /// <param name="sentenceIndex">The sentence's index in the request.</param>
+        /// <param name="tokenInSentence">The token's index within the sentence.</param>
+        /// <param name="cancellationToken">Checked before each candidate word is handled.</param>
+        /// <returns>
+        ///     The reading id (null for none), its confidence (0 for none) and whether a classified reading
+        ///     is below the low-confidence threshold.
+        /// </returns>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is canceled.</exception>
+        internal (string? Id, double Confidence, bool Low) Assign(
+            bool hasDirective,
+            TokenDirective directive,
+            IReadOnlyList<AdaptedToken> sentence,
+            int sentenceIndex,
+            int tokenInSentence,
+            CancellationToken cancellationToken)
+        {
+            // Only a reading override assigns a reading by decree; any other override owns its token.
+            if (hasDirective)
+            {
+                if (directive.Kind == TokenDirectiveKind.Reading && directive.Value is not null)
+                {
+                    _byOverride++;
+                    return (directive.Value, 1.0, false);
+                }
+
+                return (null, 0.0, false);
+            }
+
+            // Without an effective classifier (or after the model proved unavailable) there is nothing to do.
+            if (!_owner._readingsEnabled || (_resolved && _classifier is null))
+            {
+                return (null, 0.0, false);
+            }
+
+            // The cheap inventory test first; only a heteronym form goes further.
+            var token = sentence[tokenInSentence];
+            _inventory ??= _owner._modelProvider.Inventory;
+            if (!_inventory.TryFindForm(_analysisText.AsSpan(token.Start, token.Length), out var formIndex))
+            {
+                return (null, 0.0, false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Obtain the classifier once per request, on the first candidate word; a model that is not
+            // shipped silently turns the family off, one that is unusable also earns the warning.
+            if (!_resolved)
+            {
+                _classifier = _owner._modelProvider.GetClassifier(out var status);
+                _resolved = true;
+                ModelProblem = status is ModelLoadStatus.Invalid or ModelLoadStatus.Incompatible;
+            }
+
+            if (_classifier is null)
+            {
+                return (null, 0.0, false);
+            }
+
+            // A form with one candidate is not ambiguous: no model decision is needed.
+            var candidates = _inventory.GetCandidates(formIndex);
+            if (candidates.Length == 1)
+            {
+                _single++;
+                return (_inventory.ReadingIdAt(candidates[0]), 1.0, false);
+            }
+
+            // One context array per sentence that has a candidate, reused across sentences.
+            if (_context is null || _contextSentence != sentenceIndex)
+            {
+                _context = BuildContext(_analysisText, sentence, _context);
+                _contextSentence = sentenceIndex;
+            }
+
+            var prediction = _classifier.Classify(_context.AsSpan(0, sentence.Count), tokenInSentence, formIndex);
+            var low = prediction.Confidence < _owner._lowConfidenceThreshold;
+            _classified++;
+            if (low)
+            {
+                _low++;
+            }
+
+            return (_inventory.ReadingIdAt(prediction.ReadingIndex), prediction.Confidence, low);
+        }
+
+        /// <summary>
+        ///     Describes every token of one sentence for the heteronym classifier, reusing a buffer.
+        /// </summary>
+        /// <param name="analysisText">The analyzed text the tokens index (placeholders neutralized).</param>
+        /// <param name="sentence">The sentence's tokens, tagged.</param>
+        /// <param name="buffer">A buffer from an earlier call, or <see langword="null"/>; reused when it is long enough.</param>
+        /// <returns>A buffer whose first <c>sentence.Count</c> entries describe the sentence's tokens.</returns>
+        private static ContextToken[] BuildContext(string analysisText, IReadOnlyList<AdaptedToken> sentence, ContextToken[]? buffer)
+        {
+            // One array per request grows to the longest sentence that has a candidate word.
+            if (buffer is null || buffer.Length < sentence.Count)
+            {
+                buffer = new ContextToken[sentence.Count];
+            }
+
+            for (var i = 0; i < sentence.Count; i++)
+            {
+                var token = sentence[i];
+                buffer[i] = HeteronymContext.Create(analysisText, token.Start, token.Length, token.Tag, token.Confidence);
+            }
+
+            return buffer;
+        }
     }
 
     /// <summary>

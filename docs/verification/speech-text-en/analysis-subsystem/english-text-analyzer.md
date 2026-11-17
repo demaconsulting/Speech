@@ -13,7 +13,13 @@ is observed through a counting adapter, and the one test that must cancel inside
 analyzer. Golden assertions use only sentences whose tags the tagger assigns with full confidence, and one
 property-style test checks the structural guarantees against a large number of random, deliberately hostile texts.
 Which phonemes a backend can speak is not verified here; the tests check only that annotations carry what the
-dictionary says.
+dictionary says. The heteronym reading behavior is verified by
+`test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs`: the real
+HeteronymSubsystem and the real tagger are used with a hand-built fixture model (the test fixture builds it through the
+real feature extractor and the real model writer from labeled example sentences, so no binary file is committed and it
+can never go stale against the feature set), supplied through the analyzer's internal constructor with a counting model
+source that counts opens and can supply a corrupt or absent model, and with an observer that cancels at an exact
+classification. The accuracy of a real trained model is not verified here: none ships in this release.
 
 #### Test Environment
 
@@ -21,7 +27,8 @@ dictionary says.
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Text.En.Tests`
 - **Isolation**: no test needs network access; the random-text test uses a fixed seed so a failure is
-  reproducible
+  reproducible; the heteronym tests build their own analyzer, provider and counting model source, so a model load
+  count is per test; the culture tests set the current culture and restore it in a `finally` block
 
 #### Acceptance Criteria
 
@@ -48,6 +55,21 @@ normalization family is rejected at construction, an empty dictionary is accepte
 construction. Initialisms, dotted initialisms, single initials, credentials, the letters of a time such as `p.m.` and
 ampersand initialisms are annotated `en.spell` with unchanged spoken text (the `and` of an ampersand initialism and
 every word replacement stay `en.norm`), and nothing is spelled when normalization is not selected.
+
+For heteronym readings: the reading and the confidence of a word are annotations on exactly the word's whole token,
+after its part of speech and valid, in text order, only for a whole-token inventory form (not a hyphenated compound); a
+default analyzer, which has no model, emits no reading, creates no tagger when part of speech is not selected, and a
+selection without the reading family never opens a model; a reading-only selection tags for context and emits no
+`en.upos`; the model is opened lazily and once; a form with one candidate gets confidence `1.000` only when a model
+exists; a token that a replacement, a pronunciation or any override other than a reading override covers never has a
+reading while the other words still do; a reading override fixes the reading with confidence `1.000`, without a model
+and over the classifier, and is ignored when the reading family is not selected; the detailed analysis carries the
+reading, the confidence and the low-confidence flag, and agrees with the language-neutral path; the confidence text is
+invariant under any culture; the threshold counts classified readings below it and never removes one; the heteronym
+event is one counts-only message at most once per request and the model warning is reported once per analyzer and only
+for an unusable (invalid or incompatible) model, never for an absent one; a throwing sink changes nothing; cancellation
+before any work, between candidate words and during the last candidate throws without a result and reports nothing; the
+language-neutral path adds no per-token allocation; and concurrent requests agree and load the model once.
 
 #### Test Scenarios
 
@@ -239,6 +261,100 @@ The counts test uses a dictionary of a sentinel word and payload and a text that
 expecting two applied overrides and one ignored (the unit consumed by the number) with neither the key nor the
 payload in the message. The allocation test analyzes 4,000 repetitions of a pangram with and without the sample
 dictionary after a warm-up and requires the dictionary to add fewer than 4,096 bytes.
+
+##### Heteronym reading annotations
+
+**Tests**: `EnglishTextAnalyzer_Analyze_RecordSentence_EmitsReadingPairsOnExactSpansAfterPartOfSpeech`,
+`EnglishTextAnalyzer_Analyze_WordShapes_ReadingOnWholeTokenOnly`,
+`EnglishTextAnalyzer_Analyze_TagPlaceholders_KeepOffsetsAndReadings`,
+`EnglishTextAnalyzer_Analyze_MultipleSentences_ReadingsMatchSingleSentenceAnalysis`
+
+In `I want to record a record.` each `record` has, on exactly its own span, the part of speech, then `en.reading`, then
+`en.reading-confidence` (`record.verb` for the first and `record.noun` for the second with the fixture model), the
+confidence text matches `[01].ddd`, and the start offsets of all annotations are in text order.
+`A record-breaking year.` has no reading (a hyphenated compound is one token that is not a form), while `RECORD`, a
+sentence-initial `Record` and the `record` of `The record's value fell.` each get one reading on the word's own token
+only. A tag placeholder between the words leaves both readings at their exact source offsets. For a text of two
+sentences the readings equal those of the two sentences analyzed separately, so the context of a word is its own
+sentence.
+
+##### Heteronym selection, effectiveness and laziness
+
+**Tests**: `EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings`,
+`EnglishTextAnalyzer_Analyze_ReadingNotSelected_NeverOpensModelOrTagger`,
+`EnglishTextAnalyzer_Analyze_ReadingOnlySelection_EmitsReadingsWithoutPartOfSpeech`,
+`EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce`,
+`EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel`
+
+The default analyzer, which has no embedded model, emits no reading kind, and an analyzer that selects normalization and
+readings without a model yields no annotation at all and creates no tagger. With a fixture model and the selection
+`Normalization` only, neither the model source nor the tagger is touched. With the selection `Reading` only, the text is
+tagged once for context, readings are emitted, no `en.upos` annotation is emitted and the detailed tokens carry no part
+of speech, confidence or known-word flag. The model source is not opened by construction, by an empty text or by a text
+without a heteronym word, and is opened exactly once across later requests. A form with exactly one candidate (the test
+takes the first in the inventory) gets that reading with confidence `1.000` and one `single-candidate` in the heteronym
+event when a model exists, and nothing without one.
+
+##### Heteronym coexistence with replacements, pronunciations and overrides
+
+**Tests**: `EnglishTextAnalyzer_Analyze_MixedCorpus_ReadingNeverOverlapsReplacementOrPronunciation`,
+`EnglishTextAnalyzer_Analyze_OtherOverridesOnHeteronym_SuppressClassifier`
+
+Over a corpus of four texts that mixes titles, currency, units, times, initialisms and overrides of the kinds say,
+spell, pronounce and skip on heteronym forms (`wound`, `lead`, `tear`, `close`), no reading annotation overlaps an
+`en.norm`, `en.spell` or `en.pron` annotation, every reading has its confidence on the same span, the counts of the two
+kinds are equal, and some readings are still classified (so the rule is not vacuous). A skip, say, spell-out or
+pronunciation override on `record` suppresses both readings of `I want to record a record.`, and an override of another
+word leaves both.
+
+##### Heteronym reading overrides
+
+**Tests**: `EnglishTextAnalyzer_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel`,
+`EnglishTextAnalyzer_Analyze_ReadingOverrideWithoutReadingFamily_EmitsNothing`
+
+A `Reading` override for `record` with `record.noun` gives both words the reading `record.noun` with confidence `1.000`,
+with a model that would say verb for the first and with no model at all; the event reports `2 overrides applied` and a
+heteronym event of `0 classified, 0 single-candidate, 2 by override`. When the selection lacks the reading family, the
+same override emits no reading and no replacement, no pronunciation and no spelling.
+
+##### Heteronym detail, confidence text and threshold
+
+**Tests**: `EnglishTextAnalyzer_AnalyzeDetailed_Readings_AreOnTokensAndEqualAnalyze`,
+`EnglishTextAnalyzer_Analyze_ConfidenceText_IsInvariantUnderTurkishAndFrenchCultures`,
+`EnglishTextAnalyzer_Analyze_LowConfidenceThreshold_CountsClassifiedReadingsBelowIt`
+
+With a threshold of 1 the detailed analysis lists the two `record` tokens with their reading, a confidence from 0.5 to 1
+and the low-confidence flag, every other token with no reading, zero confidence and no flag, and the annotations of both
+entry points agree. Under `tr-TR`, `fr-FR` and `ar-SA` the confidence text keeps a period and three ASCII digits. The
+threshold theory (0, 0.6 and 1) emits both readings every time and reports `0`, `0` and `2` readings below the
+confidence, with the threshold written with two decimals.
+
+##### Heteronym diagnostics
+
+**Tests**: `EnglishTextAnalyzer_Analyze_Diagnostics_HeteronymEventIsCountsOnlyAndAtMostOnce`,
+`EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel`,
+`EnglishTextAnalyzer_Analyze_IncompatibleModel_NoReadingsAndOneWarning`,
+`EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained`
+
+Two requests (one with a heteronym word, one without) under `ar-SA` give two `TextEn.Analysis` events and one Info-level
+`TextEn.Heteronym` event that matches the fixed template with digits and a decimal period only and names neither a word
+nor a reading id. A corrupt model (a changed last byte) gives no reading and exactly one Warning-level `TextEn.Model`
+event with the fixed message after two requests, no heteronym event, and an absent model gives no warning and no event
+at all. A model trained for a newer inventory revision gives no readings and one warning over two requests. A sink that
+throws changes nothing: both readings are still returned.
+
+##### Heteronym cancellation, allocation and concurrency
+
+**Tests**: `EnglishTextAnalyzer_Analyze_Cancellation_ThrowsAndReportsNothing`,
+`EnglishTextAnalyzer_Analyze_WithModel_AddsNoPerTokenAllocationAndBuildsNoTokenObjects`,
+`EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults`
+
+In a text with three candidate words, a token canceled before the call, or by the classifier observer after the first,
+second or third classification, makes the request throw `OperationCanceledException` and report no event (and, for the
+canceled-before case, never open the model). A text without a heteronym word allocates the same, within 2 percent, with
+a model as without, and the language-neutral path allocates less than the detailed path for a text full of heteronym
+words, so no per-token object is built for readings. Thirty-two concurrent requests on one analyzer return identical
+annotations and open the model once.
 
 ##### Concurrency and no retained references
 

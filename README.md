@@ -66,7 +66,9 @@ word with its part of speech, describes how abbreviations, symbols, apostrophes,
 times and units are spoken as aligned replacement spans over the original text (`en.norm` annotations, and `en.spell`
 annotations for letters that are spoken by letter name; the text is never rewritten), supplies sentence boundaries, and
 lets a host override how individual words are spoken or pronounced with a dictionary of pronunciation overrides
-(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide).
+(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide). A
+heteronym reading id with a confidence (`en.reading`) needs a trained model, and none ships yet, so only a reading
+override fixes a word's reading today.
 
 ### PortAudio runtime support
 
