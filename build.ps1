@@ -39,9 +39,19 @@ try {
         exit 1
     }
 
-    # Every packable project under src/ (IsPackable not false) must yield a .nupkg
-    $packable = Get-ChildItem -Path src -Recurse -Filter *.csproj |
-        Where-Object { (Get-Content $_.FullName -Raw) -notmatch '<IsPackable>\s*false\s*</IsPackable>' }
+    # Every effectively packable project under src/ must yield a .nupkg. Packability is evaluated by
+    # MSBuild with the same PackageVersion used to pack above (not by text search), because it can be
+    # conditional (e.g. Text.En is packable only for a prerelease version).
+    $packable = @()
+    foreach ($project in (Get-ChildItem -Path src -Recurse -Filter *.csproj)) {
+        $isPackable = (dotnet msbuild $project.FullName -getProperty:IsPackable `
+            --property:Configuration=Release --property:PackageVersion=0.0.1-test | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Pack verification failed: could not evaluate IsPackable for $($project.Name)."
+            exit 1
+        }
+        if ($isPackable -ne 'false') { $packable += $project }
+    }
     foreach ($project in $packable) {
         $id = [System.IO.Path]::GetFileNameWithoutExtension($project.Name)
         if (-not (Test-Path (Join-Path $packDir "$id.0.0.1-test.nupkg"))) {

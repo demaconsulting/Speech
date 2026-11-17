@@ -405,9 +405,10 @@ runs the comparison on `0.1.0-beta.5`, `-beta.6`, `-beta.10`, `-rc.1`, `0.1.0`, 
 *Retention* below); and that the project is packable only when the package version has a prerelease label
 (not packable by default; packable when the effective version, `PackageVersion` when given and otherwise
 `Version`, has a hyphen before any build metadata) for as long as the pinned tagging package is a prerelease,
-and carries no such guard once the pin is a stable version. The first seven run in the test project: the
-project-file and file-content tests read repository files, and the version-comparison theory exercises its
-comparison helper directly. The last, `TextEn_PackageLicenseFiles_Content`, is a FileAssert test over the
+and carries no such guard once the pin is a stable version. The first seven (three license/file tests, the two
+pin tests, the SemVer theory and the packaging-guard test) run in the test project: the project-file and
+file-content tests read repository files, and the version-comparison theory exercises its comparison helper
+directly. The last, `TextEn_PackageLicenseFiles_Content`, is a FileAssert test over the
 **built package**, not a repository file: when a `.nupkg` was built (only for a prerelease version) it contains
 `PACKAGE-LICENSE.md` (starting with the line `SPDX-License-Identifier: MIT` followed by the license heading, and
 naming `THIRD-PARTY-NOTICES.md`) and `THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the
