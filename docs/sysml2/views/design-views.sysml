@@ -206,4 +206,8 @@ package SpeechTextEn {
     view TextEnNormalizationSubsystemView {
         expose NormalizationSubsystem;
     }
+
+    view TextEnTrainingDataSubsystemView {
+        expose TrainingDataSubsystem;
+    }
 }

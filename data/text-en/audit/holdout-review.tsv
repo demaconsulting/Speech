@@ -1,0 +1,269 @@
+id	original	review	agree	decision	note
+harvest-u00000	read.past	read.past	true	keep	I'd read ... before is a completed prior action; rhymes with bed.
+harvest-u00001	reading.act	reading.act	true	keep	Reading comics is the activity, not a town.
+harvest-u00041	read.past	read.past	true	keep	Were it read by is passive; past participle rhymes with bed.
+harvest-u00042	read.past	read.past	true	keep	"Reading is coordinated with the completed action ""thought."""
+harvest-u00045	reading.act	reading.act	true	keep	Reading an article aloud is the activity.
+harvest-u00046	read.past	read.past	true	keep	Narration of reading a specific book in preparation indicates a completed action.
+harvest-u00047	read.past	read.past	true	keep	As I read ... I found places the reading in the past.
+harvest-u00048	reading.act	reading.act	true	keep	Reading this material is an ongoing activity.
+harvest-u00049	mobile.movable	mobile.movable	true	keep	Contact-information label for a mobile telephone.
+harvest-u00056	august.month	august.month	true	keep	July and August are adjacent calendar months.
+harvest-u00057	august.month	august.month	true	keep	July and August refer to calendar months.
+harvest-u00077	associate.adj-noun	associate.adj-noun	true	keep	Associates is the plural professional noun in a firm's name; not the verb.
+harvest-u00204	read.past	read.past	true	keep	"Third-person ""he ... read"" in a past narrative requires the past tense."
+harvest-u00205	read.present	read.present	true	keep	"Base form after ""couldn't""; rhymes with need."
+harvest-u00206	read.past	read.past	true	keep	It read reports what the writing said; third-person past tense.
+harvest-u00207	row.line	row.line	true	keep	A row of tabular information, not a quarrel.
+harvest-u00208	read.past	read.past	true	keep	A row that read describes what the row said in a past narrative.
+harvest-u00209	read.past	read.past	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""it read"" is past tense, but the supplied target span is ""ad ,"" rather than ""read""; drop for invalid offsets."
+harvest-u00210	read.present	read.present	true	keep	Had to read uses the infinitive, not the past-tense pronunciation.
+harvest-u00211	wind.air	wind.air	true	keep	Icy moving air at the top of a mound.
+harvest-u00266	mate.companion	mate.companion	true	keep	A shopping companion or partner, not tea.
+harvest-u00339	job.work	job.work	true	keep	An employment coach, not the biblical figure.
+harvest-u00340	job.work	job.work	true	keep	Restaurant work or employment.
+harvest-u00341	job.work	job.work	true	keep	A fulfilling position of employment.
+harvest-u00342	job.work	job.work	true	keep	Skills needed for employment.
+harvest-u00343	job.work	job.work	true	keep	A good position of employment.
+harvest-u00344	job.work	job.work	true	keep	Employment at a foundry.
+harvest-u00345	job.work	job.work	true	keep	Employment earned through Goodwill.
+harvest-u00385	read.present	read.present	true	keep	The reader is reading the letter while the described action is occurring.
+harvest-u00391	read.past	read.past	true	keep	Had read is the past participle; rhymes with bed.
+harvest-u00392	read.present	read.present	true	keep	"Base form after ""didn't""; rhymes with need."
+harvest-u00393	jesus.english	jesus.english	true	keep	An English exclamation of surprise, not an addressed Spanish personal name.
+harvest-u00394	jesus.english	jesus.english	true	keep	An English exclamation before addressing Clark.
+harvest-u00396	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00397	read.present	read.present	true	keep	"Base form after ""can't""; rhymes with need."
+harvest-u00398	read.present	read.present	true	keep	"Infinitive in ""to read the Bible."""
+harvest-u00399	wind.air	wind.air	true	keep	The wind blowing someone back is moving air.
+harvest-u00400	row.line	row.line	true	keep	To propel a boat across the water.
+harvest-u00401	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00402	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00403	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00404	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00405	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00406	wind.air	wind.air	true	keep	Sailing against moving air.
+harvest-u00407	wind.air	wind.air	true	keep	Sailing with the wind, continuing the sailing context.
+harvest-u00408	mate.companion	mate.companion	true	keep	A friendly form of address.
+harvest-u00411	job.work	job.work	true	keep	An occupation related to automotive work.
+harvest-u00412	read.present	read.present	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""couldn't read"" requires the base form, but the supplied span is ""ead ""; drop for invalid offsets."
+harvest-u00413	job.work	job.work	true	keep	A technician's position of employment.
+harvest-u00414	job.work	job.work	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""got a job"" concerns employment, but the supplied span is ""ob ""; drop for invalid offsets."
+harvest-u00415	job.work	job.work	true	keep	Employment as a copyright assistant.
+harvest-u00416	job.work	job.work	true	keep	A person's responsibility or task.
+harvest-u00417	job.work	job.work	true	keep	A person's responsibility or task.
+harvest-u00418	close.adj-noun	close.adj-noun	true	keep	Came close to means nearly; final voiceless s.
+harvest-u00419	row.line	row.line	true	keep	Death row is a prison section, not a quarrel.
+harvest-u00420	row.line	row.line	true	keep	Death row is a prison section, not a quarrel.
+harvest-u00432	close.adj-noun	close.adj-noun	true	keep	Spatial proximity to another zone; final voiceless s.
+harvest-u00492	house.noun	house.noun	true	keep	A building named Jardine House.
+harvest-u00493	house.noun	house.noun	true	keep	A residence named Government House.
+harvest-u00494	row.line	row.line	true	keep	The street name Lascar Row uses row as a line or street.
+harvest-u00495	close.adj-noun	close.adj-noun	true	keep	Staying near each other; final voiceless s.
+harvest-u00496	house.noun	house.noun	true	keep	A palace named Government House.
+harvest-u00497	house.noun	house.noun	true	keep	A memorial building, not the verb meaning accommodate.
+harvest-u00498	reading.act	reading.act	true	keep	Reading email is the activity.
+harvest-u00499	reading.act	reading.act	true	keep	Reading a newspaper is the activity.
+harvest-u00500	mobile.movable	mobile.movable	true	keep	A mobile telephone used for Twitter.
+harvest-u00501	mobile.movable	mobile.movable	true	keep	Explicitly a mobile phone.
+harvest-u00502	read.present	read.present	true	keep	Noun for a brief instance of reading; rhymes with need.
+harvest-u00503	mobile.movable	mobile.movable	true	keep	A mobile telephone, identified as an N95.
+harvest-u00504	mobile.movable	mobile.movable	true	keep	Mobile access to Twitter, not a city or hanging sculpture.
+harvest-u00505	reading.act	reading.act	true	keep	Reading a software-design text, not the town.
+harvest-u00506	read.present	read.present	true	keep	"Infinitive after ""like to""; rhymes with need."
+harvest-u00507	job.work	job.work	true	keep	Type design as an occupation.
+harvest-u00508	job.work	job.work	true	keep	A task or professional role in a design context.
+harvest-u00509	content.noun	content.noun	true	keep	Typeface content is textual material, not satisfaction.
+harvest-u00510	content.noun	content.noun	true	keep	Creating material around a typeface, not making someone satisfied.
+harvest-u00511	job.work	job.work	true	keep	Employment at which the speaker is working.
+harvest-u00512	job.work	job.work	true	keep	Employment involving giving bonuses.
+harvest-u00513	august.month	august.month	true	keep	Booking a tour in the month of August.
+harvest-u00514	reading.act	reading.act	true	keep	Reading Atlas Shrugged is an activity.
+harvest-u00515	reading.act	reading.act	true	keep	Reading a pathology book is an activity.
+harvest-u00516	reading.act	reading.act	true	keep	Reading a linked news story.
+harvest-u00517	reading.act	reading.act	true	keep	Reading a news story is an activity.
+harvest-u00518	rebel.noun	rebel.noun	true	keep	Rebels is a sports-team name in a score; initial-stress noun.
+harvest-u00519	job.work	job.work	true	keep	Good job praises work or achievement.
+harvest-u00520	job.work	job.work	true	keep	Good job praises work or achievement.
+harvest-u00521	read.present	read.present	true	keep	Imperative invitation to read more.
+harvest-u00522	read.present	read.present	true	keep	Imperative invitation to read a story.
+harvest-u00523	job.work	job.work	true	keep	Employment sought with a printed CV.
+harvest-u00524	reading.act	reading.act	true	keep	Reading about a person is the activity.
+harvest-u00525	buffet.strike	buffet.strike	true	keep	The intended surname of Warren Buffett has the BUFF-it pronunciation, matching the strike class rather than a buffet meal.
+harvest-u00526	job.work	job.work	true	keep	A freelance design assignment.
+harvest-u00527	job.work	job.work	true	keep	Job in an employment-and-money fragment, not the biblical figure.
+harvest-u00528	reading.act	reading.act	true	keep	Reading a script is the activity.
+harvest-u00529	reading.act	reading.act	true	keep	Reading a book at work is the activity.
+harvest-u00530	reading.act	reading.act	true	keep	Reading a book is the activity.
+harvest-u00531	read.present	read.present	true	keep	Imperative invitation to read more.
+harvest-u00532	read.present	read.present	true	keep	A great read is a noun for reading material; rhymes with need.
+harvest-u00533	read.present	read.present	true	keep	Imperative invitation to read more.
+harvest-u00534	reading.act	reading.act	true	keep	Reading a linked article.
+harvest-u00535	reading.act	reading.act	true	keep	Reading a linked article.
+harvest-u00536	job.work	job.work	true	keep	A position of employment ending today.
+harvest-u00537	reading.act	reading.act	true	keep	Reading a linked article.
+harvest-u00538	job.work	job.work	true	keep	A new position of employment.
+harvest-u00539	reading.act	reading.act	true	keep	Reading up on software is the activity.
+harvest-u00540	reading.act	reading.act	true	keep	Reading a linked news article.
+harvest-u00541	reading.act	reading.act	true	keep	Reading a linked article.
+harvest-u00542	reading.act	reading.act	true	keep	Reading a linked blog.
+harvest-u00543	reading.act	reading.act	true	keep	Finishing reading a book.
+harvest-u00544	affiliate.noun	affiliate.noun	true	keep	An affiliate program; the attributive noun ends in a reduced vowel, not verb -ate.
+harvest-u00545	reading.act	reading.act	true	keep	Reading a linked interview.
+harvest-u00546	job.work	job.work	true	keep	A new position of employment requiring training.
+harvest-u00547	job.work	job.work	true	keep	A new position of employment.
+harvest-u00548	reading.act	reading.act	true	keep	Reading a screenplay is the activity.
+harvest-u00549	reading.act	reading.act	true	keep	Reading a screenplay is the activity.
+harvest-u00550	read.past	read.past	true	keep	A page is read is passive; the participle rhymes with bed.
+harvest-u00551	reading.act	reading.act	true	keep	Reading blogs is the activity.
+harvest-u00552	job.work	job.work	true	keep	Job hunting means seeking employment.
+harvest-u00553	reading.act	reading.act	true	keep	Reading a linked item.
+harvest-u00605	read.present	read.present	true	keep	"Infinitive after ""encourages ... to."""
+harvest-u00639	read.present	read.present	true	keep	"Negative imperative ""don't ... read."""
+harvest-u00640	read.present	unsure	false	drop	What you read can mean material you habitually read (need) or material you previously read (bed); neither tense is fixed by this sentence.
+harvest-u00641	read.present	unsure	false	drop	If you read ... write about it permits either a prospective present-tense condition (need) or an already-completed past-tense condition (bed).
+harvest-u00643	close.adj-noun	close.adj-noun	true	keep	Spatial proximity to each other; final voiceless s.
+harvest-u00646	read.past	read.past	true	keep	Was read by is passive; past participle rhymes with bed.
+harvest-u00665	job.work	job.work	true	keep	Employment at a marketing company.
+harvest-u00666	job.work	job.work	true	keep	A position of employment the speaker wants to obtain.
+harvest-u00668	appropriate.adj	appropriate.adj	true	keep	Explicitly an adjective meaning suitable; final syllable is not verb -ate.
+harvest-u00672	job.work	job.work	true	keep	The task a word or structure must perform.
+harvest-u00673	reading.act	reading.act	true	keep	Reading is paired with writing as an activity.
+harvest-u00686	house.noun	house.noun	true	keep	The White House is the presidential residence and institution.
+harvest-u00723	bass.fish	bass.fish	true	keep	Explicitly listed among species of fish; rhymes with mass.
+harvest-u00999	wind.air	wind.air	true	keep	Natural wind falls and snow walls concern protection from moving air.
+harvest-u01000	wind.air	wind.air	true	keep	Protection from moving air.
+harvest-u01002	wind.air	wind.air	true	keep	Snow walls protect against moving air.
+harvest-u01071	read.past	read.past	true	keep	Had ... orders read to us uses a passive past participle.
+harvest-u01076	august.month	august.month	true	keep	A calendar date, August 29.
+harvest-u01101	house.noun	house.noun	true	keep	House is a noun in the organization name Freedom House.
+harvest-u01117	read.past	read.past	true	keep	Had never seen ... or read shares the perfect auxiliary; past participle.
+harvest-u01130	mobile.city	mobile.city	true	keep	Mobile is the Gulf Coast city near Biloxi.
+harvest-u01141	sake.purpose	sake.purpose	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""for Heaven's sake"" means purpose or benefit, but the supplied span is ""ake ""; drop for invalid offsets."
+harvest-u01144	wind.air	wind.air	true	keep	Moving air carrying hopes metaphorically.
+harvest-u01155	reading.act	reading.act	true	keep	Reading as an intellectual activity.
+harvest-u01169	lead.metal	lead.metal	true	keep	A pencil's graphite core takes the metal-like pronunciation, rhyming with bed.
+harvest-u01170	wind.air	wind.air	true	keep	Moving air and waves erode sand sculptures.
+harvest-u01180	wind.air	wind.air	true	keep	Cold moving air is blowing fiercely.
+harvest-u01206	read.present	read.present	true	keep	"Infinitive in ""able to read and write."""
+harvest-u01207	job.work	job.work	true	keep	On the job means engaged in work.
+harvest-u01210	tear.drop	tear.drop	true	keep	A tear falling onto a cheek is eye fluid.
+harvest-u01214	read.present	read.present	true	keep	"Base form after ""shall."""
+harvest-u01229	sake.purpose	sake.purpose	true	keep	For the sake of means purpose or benefit, not rice wine.
+harvest-u01239	tear.drop	tear.drop	true	keep	Shedding an eye-fluid tear.
+harvest-u01243	present.adj-noun	present.adj-noun	true	keep	At present means now; initial stress.
+harvest-u01245	august.month	august.month	true	keep	A calendar date, the second of August.
+harvest-u01253	sow.plant	sow.plant	true	keep	Sowing is coordinated with tilling and planting; rhymes with go.
+harvest-u01256	read.present	read.present	true	keep	"Infinitive in ""needs to read."""
+harvest-u01259	aged.adj	aged.adj	true	keep	Elderly parents; the two-syllable adjective.
+harvest-u01270	house.noun	house.noun	true	keep	The White House is a building.
+harvest-u01285	read.past	read.past	true	keep	"Third-person ""he read"" occurs within a past-tense narrative."
+harvest-u01304	wind.air	wind.air	true	keep	Cold moving air, plural winds.
+harvest-u01329	read.past	read.past	true	keep	Lately locates the reading of a particular romance in the recent past.
+harvest-u01343	wind.air	wind.air	true	keep	Moving air is blowing violently.
+harvest-u01344	wind.air	wind.air	true	keep	Moving air metaphorically hums songs.
+harvest-u01352	wind.air	wind.air	true	keep	Sailing into a bay with this wind.
+harvest-u01357	bow.weapon	bow.weapon	true	keep	A pushed bow in the action metaphor is a bow stroke or implement, pronounced like go, not a bending gesture.
+harvest-u01389	bow.bend	bow.bend	true	keep	Servants bend in a gesture and wait on the speaker; rhymes with cow.
+harvest-u01391	wind.air	wind.air	true	keep	Movement compared to gentle moving air.
+harvest-u01423	mobile.movable	mobile.movable	true	keep	Brows capable of movement or expression, not a city or sculpture.
+harvest-u01425	abstract.adj-noun	abstract.adj-noun	true	keep	Abstract Expressionism uses the adjective, with initial stress.
+harvest-u01428	sake.purpose	sake.purpose	true	keep	For her sake means for her benefit or on her account.
+harvest-u01429	row.line	row.line	true	keep	Rotten Row is the place name, pronounced with row rhyming with go.
+cand-00001	use.verb	use.verb	true	keep	"Passive ""was used with great success""; yoozd, not habitual yoost."
+cand-00002	use.verb	use.verb	true	keep	Passive utilization of crisis services; yoozd.
+cand-00010	use.verb	use.verb	true	keep	"Passive ""be used"" means employed; yoozd."
+cand-00032	use.verb	use.verb	true	keep	Signals are employed to prevent fire fights; passive yoozd.
+cand-00034	primer.paint	primer.paint	true	keep	An engine-priming circuit; primer rhymes with timer, not the US elementary-textbook pronunciation.
+cand-00038	use.verb	use.verb	true	keep	An axe or tool can be employed; passive yoozd.
+cand-00046	use.verb	use.verb	true	keep	"Elliptical passive ""if used"" for a power supply; yoozd."
+cand-00063	use.verb	use.verb	true	keep	Techniques can be employed to create an attachment point; yoozd.
+cand-00064	use.verb	use.verb	true	keep	A map is to be employed by a convoy; passive yoozd.
+cand-00066	use.verb	use.verb	true	keep	Past-tense employed or utilized; yoozd.
+cand-00078	use.habitual	use.habitual	true	keep	Being used to reading means accustomed to; voiceless ending, not yoozd.
+cand-00094	use.verb	use.verb	true	keep	Past-tense employed the fact as a catalyst; yoozd.
+cand-00095	use.verb	use.verb	true	keep	"Passive participle ""used correctly""; yoozd."
+cand-00096	use.verb	use.verb	true	keep	"Passive participle ""used wrongly""; yoozd."
+cand-00098	research.noun	research.noun	true	keep	Research is the noun modifier in an organization's name.
+cand-00108	use.verb	use.verb	true	keep	Character sets employed by the people concerned; passive yoozd.
+cand-00109	use.verb	use.verb	true	keep	Scripts employed in Europe; passive yoozd.
+cand-00110	use.verb	use.verb	true	keep	Character sets employed by a system; passive yoozd.
+cand-00119	use.verb	use.verb	true	keep	An argument has been employed; passive yoozd.
+cand-00120	use.verb	use.verb	true	keep	Propaganda was employed to unleash violence; passive yoozd.
+cand-00121	use.verb	use.verb	true	keep	Would have used is a perfect participle of employ; yoozd.
+cand-00122	use.verb	use.verb	true	keep	Claims can be employed against someone; passive yoozd.
+cand-00123	use.verb	use.verb	true	keep	A quotation is employed as a visual citation; passive yoozd.
+cand-00124	use.verb	use.verb	true	keep	Has used is a perfect participle of employ; yoozd.
+cand-00167	use.verb	use.verb	true	keep	Past-tense employed a motion as cover; yoozd.
+cand-00168	use.verb	use.verb	true	keep	Past-tense employed one leg to check the other; yoozd.
+cand-00185	use.habitual	use.habitual	true	keep	Used to take expresses a former repeated habit; voiceless ending.
+cand-00217	use.verb	use.verb	true	keep	"A gift will be employed to support work; passive yoozd despite following ""to."""
+cand-00231	put.verb	put.verb	true	keep	Putting up money means providing it; not the golf verb putt.
+cand-00232	use.verb	use.verb	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended funds ""used for cash purposes"" is passive yoozd, but the supplied span is ""sed ""; drop for invalid offsets."
+cand-00265	use.verb	use.verb	true	keep	Ferries employed by islanders; passive yoozd.
+cand-00266	use.verb	use.verb	true	keep	A building now employed as a court; passive yoozd.
+cand-00267	use.verb	use.verb	true	keep	A table employed for a signing ceremony; passive yoozd.
+cand-00268	use.verb	use.verb	true	keep	A fortress now employed as an inn; passive yoozd.
+cand-00269	use.verb	use.verb	true	keep	A stage employed by an opera company; passive yoozd.
+cand-00270	use.habitual	use.habitual	true	keep	Used to belong describes a former state; voiceless ending.
+cand-00271	use.verb	use.verb	true	keep	Sedan chairs once employed for transportation; passive yoozd.
+cand-00272	use.verb	use.verb	true	keep	"Never used it again is past-tense utilization, not habitual ""used to."""
+cand-00273	put.verb	put.verb	true	keep	Putting finishing touches means applying them; not golf putting.
+cand-00283	tear.drop	tear.drop	true	keep	Bitter tears during an emotional response are eye fluid.
+cand-00289	use.habitual	use.habitual	true	keep	Used to say describes a former repeated habit; voiceless ending.
+cand-00325	use.verb	use.verb	true	keep	Dishware can be employed for decades; passive yoozd.
+cand-00339	use.verb	use.verb	true	keep	A band is not employed for interpretation; passive yoozd.
+cand-00342	survey.noun	survey.noun	true	keep	Survey is the noun in a government agency's name.
+cand-00347	use.habitual	use.habitual	true	keep	Used to be describes a former state; voiceless ending.
+cand-00358	use.habitual	use.habitual	true	keep	Used to be married describes a former state; voiceless ending.
+cand-00370	use.verb	use.verb	true	keep	"Despite the stray ""a,"" the vine is employed to make an anesthetic; passive yoozd, not accustomed to making."
+cand-00386	research.noun	research.noun	true	keep	Research is a noun modifier in the center's name.
+cand-00387	research.noun	research.noun	true	keep	Research is a noun modifier in the center's name.
+cand-00388	use.verb	use.verb	true	keep	Cores are employed for educational and research purposes; passive yoozd.
+cand-00389	research.noun	research.noun	true	keep	Research modifies purposes; noun, not verb.
+cand-00409	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00416	use.verb	use.verb	true	keep	An aircraft was employed to teach a route; passive yoozd.
+cand-00422	use.verb	use.verb	true	keep	Data can be employed to guide recovery; passive yoozd.
+cand-00423	sewer.drain	sewer.drain	true	keep	Sewer infrastructure paired with water systems; not a person who sews.
+cand-00424	use.verb	use.verb	true	keep	Information employed by FEMA; passive yoozd.
+cand-00426	use.verb	use.verb	true	keep	Marks can be employed for various purposes; passive yoozd.
+cand-00427	use.verb	use.verb	true	keep	Models employed for prediction; passive yoozd.
+cand-00431	use.verb	use.verb	true	keep	Limestone employed to make cement; passive yoozd, not a former habit.
+cand-00432	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00433	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00439	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00448	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00453	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00454	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00475	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00483	survey.noun	survey.noun	true	keep	Survey is the noun in a geological agency's name.
+cand-00502	use.verb	use.verb	true	keep	Past-tense employed a triple negative; yoozd.
+cand-00509	use.verb	use.verb	true	keep	Expressions were first employed years ago; passive yoozd.
+cand-00531	use.verb	use.verb	true	keep	A container employed to hold gunpowder; passive yoozd.
+cand-00548	use.verb	use.verb	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""still used today"" is passive yoozd, but the supplied span is ""ed t""; drop for invalid offsets."
+cand-00569	use.verb	use.verb	true	keep	KEPT: the span in the file is valid; the reviewer's reader dropped the leading quotation mark and shifted the offsets. "Intended ""is used for talking"" is passive yoozd, but the supplied span is ""ed f""; drop for invalid offsets."
+cand-00570	use.verb	use.verb	true	keep	"A verb employed to make metaphors; passive yoozd, not habitual ""used to."""
+cand-00571	use.verb	use.verb	true	keep	Past-tense employed a simile; yoozd.
+cand-00586	use.verb	use.verb	true	keep	Expressions employed in a conversation; passive yoozd.
+cand-00598	do.verb	do.verb	true	keep	Does is a third-person singular auxiliary, not plural female deer.
+cand-00607	row.line	row.line	true	keep	Rows of huts are lines, not arguments.
+cand-00608	use.verb	use.verb	true	keep	Apartments employed as bedrooms; passive yoozd.
+cand-00612	tear.drop	tear.drop	true	keep	Tears of regret are eye fluid.
+cand-00613	use.verb	use.verb	true	keep	Machines employed in hospitals; passive yoozd.
+cand-00615	use.habitual	use.habitual	true	keep	Used to dread describes a former state or repeated experience; voiceless ending.
+cand-00622	do.verb	do.verb	true	keep	Does is a question-forming auxiliary, not plural female deer.
+cand-00634	put.verb	put.verb	true	keep	Plants putting out leaves means producing leaves; not golf putting.
+cand-00651	use.verb	use.verb	true	keep	Land could be employed to grow crops; passive yoozd.
+cand-00661	use.verb	use.verb	true	keep	Preservatives employed in curing meat; passive yoozd.
+cand-00669	use.habitual	use.habitual	true	keep	Used to be a communist describes a former state; voiceless ending.
+cand-00681	do.verb	do.verb	true	keep	Does is a question-forming auxiliary, not plural female deer.
+cand-00685	use.verb	use.verb	true	keep	Minerals employed in technology; passive yoozd.
+cand-00702	do.verb	do.verb	true	keep	Does is a question-forming auxiliary, not plural female deer.
+cand-00719	tear.drop	tear.drop	true	keep	Tears paired with reproaches refer to crying.
+cand-00720	put.verb	put.verb	true	keep	Putting questions means asking them; not golf putting.
+cand-00721	regiment.noun	regiment.noun	true	keep	A Highlander military unit; noun, not the verb meaning organize strictly.
+cand-00724	use.verb	use.verb	true	keep	"A place formerly employed as a promenade; passive yoozd, not habitual ""used to."""
+cand-00754	use.verb	use.verb	true	keep	Boundary conditions are employed for computational boundaries; passive yoozd.
+cand-00758	use.verb	use.verb	true	keep	Data has been employed to characterize behavior; passive yoozd.
+cand-00760	use.verb	use.verb	true	keep	"Danger marks are employed to mark dangers; passive yoozd despite following ""to."""
+cand-00799	put.verb	put.verb	true	keep	Placing an arrowhead at a line's end; not golf putting.

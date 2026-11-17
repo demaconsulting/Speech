@@ -222,6 +222,12 @@ Speech, not a subsystem of it, and the library must never depend on it:
   expressions and decides how each token of one is spoken, the internal `NumberVerbalizer` that builds
   the English words of a number, the internal `AbbreviationResolver` with its embedded abbreviation
   lexicon, and the internal `AcronymRecognizer` with its embedded initialism lexicon
+- **TrainingDataSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `check-data` command of the
+  `DemaConsulting.Speech.Text.En.Trainer` tool, which verifies the training and evaluation data in `data/text-en/`: the
+  internal `TsvTable` strict file reader, the `TextEnDataSet` typed loader with its source vocabulary, the
+  `DataManifest` verifier, the `SpanValidator` whole-word span check, the `CheckReport` finding collector, the
+  `SchemaChecker`, `LicenseChecker` and `LeakageChecker` checks, and the `CheckDataCommand` entry (with the
+  `Program.cs` glue)
 
 The following OTS items are also covered:
 
@@ -255,7 +261,8 @@ Version applicability: This design applies to all versions of the Speech.
 The following topics are explicitly excluded from this design documentation:
 
 - External library internals beyond the integration points used by this repository
-- Build pipeline configuration and CI/CD processes
+- Build pipeline configuration and CI/CD processes (the wiring of the `check-data` command into the lint script and
+  the build job is described with the subsystem, but the pipeline files are not documented here)
 - Deployment and distribution mechanisms (the packaging mechanism itself is not specified; a
   packaging constraint that shapes a design, such as SpeechCli's `net10.0`-only target, is
   stated only where it applies)
@@ -368,15 +375,17 @@ analyzer to them:
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
   (engine, networks, token selector, conditioning, capability profile). It depends on `Speech`
   and Microsoft.ML.OnnxRuntime (OTS) only; unlike the other two it does not use `SpeechOnnx`.
-- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two
-  subsystems, `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation
-  vocabulary, the pronunciation-override dictionary, the part-of-speech adapter and the counts-only
-  diagnostics reporter) and
-  `NormalizationSubsystem` (the alignment model, the text normalizer, the numeric expression recognizer,
-  the number verbalizer, the abbreviation resolver and the
-  acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
-  implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on
-  the `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime.
+- `SpeechTextEn` (`DemaConsulting.Speech.Text.En`, a preview) supplies English text analysis in two subsystems,
+  `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation vocabulary, the pronunciation-override
+  dictionary, the part-of-speech adapter and the counts-only diagnostics reporter) and `NormalizationSubsystem` (the
+  alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the abbreviation
+  resolver and the acronym recognizer, with two embedded lexicons); the first uses the second, never the reverse. It
+  implements Speech's `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on the
+  `DemaConsulting.PartOfSpeech` OTS package, and uses no inference runtime. A third subsystem, `TrainingDataSubsystem`
+  (the strict file reader, the typed data loader, the manifest verifier, the span validator, the finding collector, the
+  schema, license and leakage checks and the command entry), belongs to the system but not to the package: it is the
+  `check-data` command of the non-shipped trainer tool that verifies the training data in `data/text-en/`, uses only the
+  .NET base class library and is not used by the two runtime subsystems.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -789,6 +798,34 @@ src/DemaConsulting.Speech.Text.En/
     └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ```
 
+The Text.En trainer is a non-shipped tool whose source and tests are reviewed like the libraries'. Its single
+subsystem has the following layout, and the data it checks is a tool input in a separate folder, not a software item:
+
+```text
+tools/DemaConsulting.Speech.Text.En.Trainer/
+├── Program.cs                                             — Entry point glue that dispatches to CheckDataCommand (not a unit)
+└── TrainingDataSubsystem/
+    ├── CheckDataCommand.cs                                — Command line entry: options, folder discovery, check order, exit codes
+    ├── CheckReport.cs                                     — Collector of findings and information lines; decides the exit code
+    ├── TsvTable.cs                                        — Strict tab-separated file reader (with the TsvRow value)
+    ├── TextEnDataSet.cs                                   — Typed loader of every table, with the source vocabulary and its records
+    ├── DataManifest.cs                                    — Verifier of MANIFEST.tsv against the data folder
+    ├── SpanValidator.cs                                   — Strict whole-word span check
+    ├── SchemaChecker.cs                                   — Inventory, reference, row, provenance-id and gap-table checks (with ReadingCounts)
+    ├── LicenseChecker.cs                                  — License allow-list, source policy, restricted terms, paths, attribution
+    └── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
+
+data/text-en/
+├── README.md, ATTRIBUTION.md, MANIFEST.tsv                — Documents, attribution and the pinned manifest (reviewed data)
+├── readings.tsv, forms.tsv, whd-mapping.tsv               — Reading inventory, forms and id-only evaluation mapping (reviewed data)
+├── extension-decisions.tsv                                — Decisions on candidate readings (reviewed data)
+├── train.tsv, dev.tsv, holdout-natural.tsv, holdout-independent.tsv — Labeled rows (large; pinned by the manifest)
+├── harvest-provenance.tsv, synthetic-provenance.tsv, gaps-v4.tsv, leakage-report.tsv — Records and reports
+├── exclusions.tsv, extension-candidates.tsv, check-output.txt — Removed rows, candidates and the recorded check output
+├── audit/                                                 — Blind audit records and their summary
+└── prompts/                                               — The prompts that produced the generated and labeled data
+```
+
 ## Document Conventions
 
 Throughout this document:
@@ -807,8 +844,10 @@ Each software item has corresponding artifacts in parallel directory trees:
 - Requirements: `docs/reqstream/{system}/.../{item}.yaml` (kebab-case)
 - Design docs: `docs/design/{system}/.../{item}.md` (kebab-case)
 - Verification design: `docs/verification/{system}/.../{item}.md` (kebab-case)
-- Source code: `src/{System}/.../{Item}.cs` (PascalCase for C#)
-- Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#)
+- Source code: `src/{System}/.../{Item}.cs` (PascalCase for C#); the Text.En trainer's source is the exception
+  in `tools/DemaConsulting.Speech.Text.En.Trainer/.../{Item}.cs`
+- Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#); the trainer's tests are in
+  `test/DemaConsulting.Speech.Text.En.Trainer.Tests/{Item}Tests.cs`
 - SysML2 model: `docs/sysml2/model/{system}/.../{item}.sysml` (kebab-case)
 - Review-sets: defined in `.reviewmark.yaml`
 
@@ -835,7 +874,12 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   `ots.sysml`).
 - **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only
   namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
-  behavior and are covered by the view-model or panel unit they accompany.
+  behavior and are covered by the view-model or panel unit they accompany. The trainer's `Program.cs`
+  is entry-point glue that only dispatches to `CheckDataCommand`; it is listed in that unit's
+  `sourceRef`.
+- **Data is a tool input, not a software item.** The training and evaluation data in `data/text-en/` is described
+  in the design of the subsystem that checks it (*SpeechTextEn TrainingDataSubsystem Design*), reviewed through its
+  own review sets and pinned by its manifest; it has no requirement, design or SysML2 part of its own.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
   ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.

@@ -1,0 +1,28 @@
+id	action	old	new	source	note
+harvest-01927	relabel	close.adj-noun	close.verb	consistency-recheck	noun "the close of it" (end): final z sound, as close.verb now states
+harvest-04470	relabel	close.adj-noun	close.verb	consistency-recheck	noun "at the close of the day" (end): final z sound
+harvest-04849	relabel	close.adj-noun	close.verb	consistency-recheck	noun "till the close of the evening" (end): final z sound
+harvest-01445	relabel	close.adj-noun	close.verb	consistency-recheck	noun "after the close of trading" (end): final z sound
+harvest-01174	relabel	close.adj-noun	close.verb	consistency-recheck	noun "come to a close" (end): final z sound
+harvest-04802	relabel	close.adj-noun	close.verb	consistency-recheck	noun "brings the first act to a close" (end): final z sound
+harvest-00250	relabel	blessed.adj	bless.verb	consistency-recheck	predicative "remain blessed" is one syllable, not the attributive two-syllable adjective
+syn-01450	relabel	blessed.adj	bless.verb	consistency-recheck	"blessed enough to" is one syllable, like "blessed with/to"
+syn-06496	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish (jesus.english description)
+syn-06513	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+syn-06526	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+syn2-0-417	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+hind-1143	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+hind-1144	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+hind-1145	drop	jesus.spanish		consistency-recheck	bare personal name Jesus, no cue for English versus Spanish
+syn-01838	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn-05862	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn-09331	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-0-546	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-0-548	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-1-124	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-2-118	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-2-204	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-3-553	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-3-555	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-3-594	move-to-train	dev	train	template-rule	template shared with a train row of the same reading
+syn2-3-961	move-to-train	dev	train	template-rule	template shared with a train row of the same reading

@@ -102,3 +102,7 @@ versionmark-*.json
 # Agent report files
 AGENT_REPORT_*.md
 .agent-logs/
+
+# Text.En training data: local caches (evaluation sets and CMUdict evidence, working inputs) that are not part of the data
+data/text-en/external/
+data/text-en/work/

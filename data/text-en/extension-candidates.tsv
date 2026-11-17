@@ -1,0 +1,61 @@
+rank	lemma	forms	kind	proposed_reading_ids	pos_hints	pattern	class	natural_count	upos_split	in_branch_inventory	notes
+1	do	does	new-lemma	do.verb;doe.plural	AUX|VERB;NOUN	lexical	R	605	AUX:547 VERB:57 NOUN:1	N	verb "does" vs plural of doe (deer); minority reading is almost absent in natural text, needs synthetic data
+2	use	used	new-reading	use.habitual	VERB|ADJ	tense/aspect	Y	552	VERB:545 ADJ:7	Y	"used to" (habit, accustomed) differs from past/participle of use.verb; spike counted 552 occurrences, none auto-labelable
+3	number	number	new-lemma	number.noun;number.numb	NOUN;ADJ	lexical	R	307	NOUN:305 VERB:1	N	comparative of numb (more numb) is the rare reading
+4	research	research	new-lemma	research.noun;research.verb	NOUN;VERB	stress	S	226	NOUN:200 PROPN:22 VERB:3	N	noun stress varies by dialect
+5	survey	survey,surveys	new-lemma	survey.noun;survey.verb	NOUN;VERB	stress	Y	205	NOUN:134 PROPN:63 VERB:7	Y	
+6	inside	inside	new-lemma	inside.adj-noun;inside.adv-prep	ADJ|NOUN;ADV|ADP	stress	S	138	ADP:56 ADV:49 NOUN:24 ADJ:9	Y	preposition/adverb vs adjective/noun; stress only
+7	address	address,addresses	new-lemma	address.noun;address.verb	NOUN;VERB	stress	S	107	NOUN:66 VERB:41	N	noun stress varies by dialect
+8	tear	tears	new-forms	tear.drop;tear.rip	NOUN|VERB	lexical	Y	49	NOUN:44	Y	plural/3sg of an existing lemma; WHD has no key for the form
+9	combat	combat,combats	new-lemma	combat.noun;combat.verb	NOUN;VERB	stress	Y	46	NOUN:39 VERB:6 PROPN:1	N	
+10	lead	leads	new-forms	lead.guide;lead.metal	VERB|NOUN	lexical	Y	43	VERB:37 NOUN:6	Y	plural/3sg of an existing lemma
+11	put	putting	new-lemma	put.verb;putt.verb	VERB;VERB	lexical	R	37	VERB:37	N	golf putting is the rare reading
+12	recall	recall,recalls	new-lemma	recall.noun;recall.verb	NOUN;VERB	stress	Y	37	VERB:32 NOUN:5	Y	
+13	nearby	nearby	new-lemma	nearby.adj;nearby.adv	ADJ;ADV	stress	S	33	ADJ:19 ADV:14	Y	
+14	overall	overall	new-lemma	overall.adj;overall.adv	ADJ;ADV	stress	S	33	ADJ:29 ADV:4	Y	
+15	close	closer	new-forms	close.adj-noun;close.verb	ADJ|ADV;NOUN	voicing	R	28	ADV:16 ADJ:12	Y	comparative (nearer) vs noun "one who closes"
+16	regiment	regiment,regiments	new-lemma	regiment.noun;regiment.verb	NOUN;VERB	stress/vowel	Y	28	NOUN:27	Y	verb is rare
+17	content	contents	new-forms	content.noun;content.satisfied	NOUN;VERB	lexical	Y	25	NOUN:25	Y	plural noun vs 3sg of the verb "content"; WHD has no key for the form
+18	concert	concert,concerts	new-lemma	concert.noun;concert.verb	NOUN;VERB	stress	Y	24	NOUN:24	Y	verb is rare (concerted)
+19	offset	offset,offsets	new-lemma	offset.noun;offset.verb	NOUN;VERB	stress	Y	22	VERB:12 NOUN:10	Y	
+20	segment	segment,segments	new-lemma	segment.noun;segment.verb	NOUN;VERB	stress/vowel	Y	22	NOUN:22	Y	verb is rare
+21	underground	underground	new-lemma	underground.adj-noun;underground.adv	ADJ|NOUN;ADV	stress	S	21	ADJ:13 ADV:7 PROPN:1	Y	
+22	compliment	compliment,compliments	new-lemma	compliment.noun;compliment.verb	NOUN;VERB	vowel	Y	17	NOUN:15 VERB:2	Y	
+23	overhead	overhead	new-lemma	overhead.adj-noun;overhead.adv	ADJ|NOUN;ADV	stress	S	16	ADV:9 NOUN:4 ADJ:3	Y	
+24	incorporate	incorporate,incorporated	new-lemma	incorporate.adj;incorporate.verb	ADJ;VERB	vowel	Y	15	VERB:15	Y	
+25	uplift	uplift	new-lemma	uplift.noun;uplift.verb	NOUN;VERB	stress	Y	14	NOUN:12 PROPN:1 VERB:1	Y	
+26	certificate	certificate,certificates	new-lemma	certificate.noun;certificate.verb	NOUN;VERB	vowel	Y	13	NOUN:13	Y	verb is rare
+27	confederate	confederate,confederates	new-lemma	confederate.adj-noun;confederate.verb	ADJ|NOUN;VERB	vowel	Y	13	ADJ:8 NOUN:4 PROPN:1	Y	
+28	legitimate	legitimate	new-lemma	legitimate.adj;legitimate.verb	ADJ;VERB	vowel	Y	13	ADJ:13	Y	verb is rare
+29	absent	absent	new-lemma	absent.adj;absent.verb	ADJ;VERB	stress	Y	12	ADJ:11 ADP:1	Y	
+30	orient	orient,orients	new-lemma	orient.noun;orient.verb	NOUN;VERB	vowel	Y	12	VERB:9 NOUN:1 PROPN:1	Y	
+31	overweight	overweight	new-lemma	overweight.adj-noun;overweight.verb	ADJ|NOUN;VERB	stress	S	12	ADJ:12	Y	
+32	row	rows	new-forms	row.line;row.argument	NOUN|VERB	lexical	Y	12	NOUN:11	Y	plural/3sg of an existing lemma
+33	essay	essay,essays	new-lemma	essay.noun;essay.verb	NOUN;VERB	stress	S	10	NOUN:10	Y	verb is rare
+34	overlap	overlap	new-lemma	overlap.noun;overlap.verb	NOUN;VERB	stress	S	10	VERB:6 NOUN:4	Y	
+35	overlook	overlook,overlooks	new-lemma	overlook.noun;overlook.verb	NOUN;VERB	stress	S	10	VERB:6 NOUN:3 PROPN:1	Y	
+36	proceeds	proceeds	new-lemma	proceeds.noun;proceeds.verb	NOUN;VERB	stress	Y	10	VERB:9 NOUN:1	Y	money vs 3sg of proceed
+37	conserve	conserve	new-lemma	conserve.noun;conserve.verb	NOUN;VERB	stress	Y	9	VERB:9	Y	noun (jam) is the rare reading
+38	discourse	discourse	new-lemma	discourse.noun;discourse.verb	NOUN;VERB	stress	Y	9	NOUN:9	Y	
+39	relay	relay,relays	new-lemma	relay.noun;relay.verb	NOUN;VERB	stress	Y	9	NOUN:8 VERB:1	Y	
+40	bow	bows	new-forms	bow.bend;bow.weapon	NOUN|VERB	lexical	Y	8	NOUN:4 VERB:4	Y	plural/3sg of an existing lemma
+41	convoy	convoy	new-lemma	convoy.noun;convoy.verb	NOUN;VERB	stress	S	6	NOUN:6	N	
+42	overlay	overlay,overlays	new-lemma	overlay.noun;overlay.verb	NOUN;VERB	stress	S	6	NOUN:6	Y	
+43	recharge	recharge	new-lemma	recharge.noun;recharge.verb	NOUN;VERB	stress	Y	6	VERB:4 NOUN:2	Y	
+44	augment	augment	new-lemma	augment.noun;augment.verb	NOUN;VERB	stress	Y	5	VERB:5	Y	
+45	intercept	intercept	new-lemma	intercept.noun;intercept.verb	NOUN;VERB	stress	Y	5	VERB:3 NOUN:2	Y	
+46	merchandise	merchandise	new-lemma	merchandise.noun;merchandise.verb	NOUN;VERB	voicing	Y	5	NOUN:5	Y	
+47	reboot	reboot	new-lemma	reboot.noun;reboot.verb	NOUN;VERB	stress	S	5	VERB:5	Y	
+48	recoil	recoil	new-lemma	recoil.noun;recoil.verb	NOUN;VERB	stress	S	5	VERB:3 NOUN:2	Y	
+49	underestimate	underestimate	new-lemma	underestimate.noun;underestimate.verb	NOUN;VERB	vowel	Y	5	VERB:5	Y	
+50	intern	intern,interns	new-lemma	intern.noun;intern.verb	NOUN;VERB	stress	Y	4	NOUN:4	N	
+51	overdose	overdose	new-lemma	overdose.noun;overdose.verb	NOUN;VERB	stress	S	4	NOUN:2 VERB:2	Y	
+52	overload	overload	new-lemma	overload.noun;overload.verb	NOUN;VERB	stress	S	4	NOUN:4	Y	
+53	overturn	overturn	new-lemma	overturn.noun;overturn.verb	NOUN;VERB	stress	S	4	VERB:3 NOUN:1	Y	
+54	primer	primer	new-lemma	primer.paint;primer.textbook	NOUN;NOUN	lexical	R	4	NOUN:4	N	two noun senses with different vowels
+55	overhaul	overhaul	new-lemma	overhaul.noun;overhaul.verb	NOUN;VERB	stress	S	3	NOUN:3	Y	
+56	replicate	replicate	new-lemma	replicate.adj-noun;replicate.verb	ADJ|NOUN;VERB	vowel	Y	3	VERB:2 ADJ:1	Y	
+57	sewer	sewer	new-lemma	sewer.drain;sewer.seamstress	NOUN;NOUN	lexical	R	3	NOUN:3	N	rare reading is one who sews
+58	designate	designate	new-lemma	designate.adj;designate.verb	ADJ;VERB	vowel	Y	2	VERB:2	N	
+59	mediate	mediate	new-lemma	mediate.adj;mediate.verb	ADJ;VERB	vowel	Y	2	VERB:2	Y	
+60	nominate	nominate	new-lemma	nominate.adj;nominate.verb	ADJ;VERB	vowel	Y	2	VERB:2	Y	

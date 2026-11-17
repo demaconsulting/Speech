@@ -220,6 +220,16 @@ includes:
   - docs/reqstream/speech-text-en/normalization-subsystem/number-verbalizer.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/tsv-table.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/text-en-data-set.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/data-manifest.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/span-validator.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/check-report.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/schema-checker.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/license-checker.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/leakage-checker.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

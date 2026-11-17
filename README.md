@@ -523,6 +523,13 @@ Consulting wrote from scratch under the MIT License; it embeds no third-party da
 WordNet (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
 `THIRD-PARTY-NOTICES.md` file, a dependency notice, reproduces that attribution for your convenience.
 
+The repository folder `data/text-en/` holds the training, development and holdout data, the reading inventory and the
+provenance records for a future English heteronym classifier. It is not part of any package in this release. Each row of
+the data carries its own license (CC0-1.0, Public-Domain or CC-BY-3.0-US, with the attribution for the Manually
+Annotated Sub-Corpus sentences in its `ATTRIBUTION.md`); the content generated or labeled by language models for this
+repository by DEMA Consulting is dedicated to the public domain under CC0 1.0. The data uses no Misaki data, and the
+evaluation-only corpora used to measure the classifier are never committed.
+
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 
 <!-- Badge References -->

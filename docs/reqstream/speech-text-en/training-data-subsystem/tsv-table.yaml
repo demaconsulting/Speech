@@ -1,0 +1,80 @@
+---
+# Software Unit Requirements for TsvTable
+#
+# These requirements describe the design-level behavior of the TsvTable unit, the strict reader of
+# the tab-separated files of the Text.En training data, decomposing the parent SpeechTextEn
+# TrainingDataSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/TsvTableTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: TsvTable Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-TsvTable-StrictFormat
+                title: >-
+                  The TsvTable class shall report a finding, and never throw, for every tab-separated
+                  file that is missing, is empty, is not valid UTF-8, starts with a byte order mark,
+                  contains a carriage return, lacks a final newline, contains an empty line, has a line
+                  with a different number of columns than the first line, or has a line that is not in
+                  Unicode normalization form C, and shall not return a line with the wrong number of
+                  columns as a row.
+                justification: |
+                  Sentence offsets are counted in UTF-16 code units of the text as stored, and the
+                  manifest pins the exact bytes of every file. A byte order mark, a carriage return
+                  or a different normalization form would shift offsets or hashes silently on another
+                  platform, so every such deviation must fail the check instead of being tolerated,
+                  and a row with missing cells must never reach a check that indexes its cells.
+                tests:
+                  - TsvTable_Load_ValidFile_ReturnsHeaderAndRowsWithoutFindings
+                  - TsvTable_Load_MissingFile_ReportsFindingAndReturnsEmptyTable
+                  - TsvTable_Load_EmptyFile_ReportsFinding
+                  - TsvTable_Load_InvalidUtf8_ReportsFinding
+                  - TsvTable_Load_ByteOrderMark_ReportsFindingOnly
+                  - TsvTable_Load_CarriageReturn_ReportsFindingWithLine
+                  - TsvTable_Load_MissingFinalNewline_ReportsFinding
+                  - TsvTable_Load_EmptyLine_ReportsFindingWithLine
+                  - TsvTable_Load_WrongColumnCount_ReportsFindingAndSkipsRow
+                  - TsvTable_Load_NonNfcLine_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-TsvTable-NoQuoting
+                title: >-
+                  The TsvTable class shall split every line on the tab character only and shall
+                  never interpret quotation marks, so that a sentence that begins with or contains a
+                  quotation mark keeps it and keeps its column and its character offsets.
+                justification: |
+                  The training sentences are natural text and contain quotation marks. A
+                  quoting-aware reader would strip or merge them and move every offset after them, so
+                  the span checks would validate a different text than the one the trainer reads.
+                tests:
+                  - TsvTable_Load_SentenceStartingWithQuote_KeepsQuoteAndColumns
+
+              - id: SpeechTextEn-TrainingData-TsvTable-HeaderAndComments
+                title: >-
+                  The TsvTable class shall, when the caller expects a header, report a finding and
+                  return no rows if the header differs, and shall skip a line that begins with a number
+                  sign only when the caller allows comment lines, treating it otherwise as an ordinary
+                  line subject to every other rule.
+                justification: |
+                  A renamed or reordered column would make every later check read the wrong data,
+                  and only the manifest carries comment lines. A comment accepted in a data file would
+                  hide a row from every check, so comments must be opt-in.
+                tests:
+                  - TsvTable_Load_WrongHeader_ReportsFindingAndReturnsNoRows
+                  - TsvTable_Load_CommentLinesAllowed_AreSkipped
+                  - TsvTable_Load_CommentLinesNotAllowed_AreTreatedAsRows
+
+              - id: SpeechTextEn-TrainingData-TsvTable-FindingLocations
+                title: >-
+                  The TsvTable class shall give each finding the file name and the one-based line
+                  number of the defect and shall give each row it returns its one-based line number.
+                justification: |
+                  A maintainer fixing a failed check must find the offending line without searching
+                  a file of thousands of rows, and the later checks locate their own findings
+                  through the line numbers of the rows.
+                tests:
+                  - TsvTable_Load_FormatDefect_FindingCarriesFileAndLine
+                  - TsvTable_Load_ValidFile_ReturnsHeaderAndRowsWithoutFindings

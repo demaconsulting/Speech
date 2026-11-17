@@ -1,0 +1,396 @@
+reading_id	lemma	pos_hint	description	status
+absent.adj	absent	ADJ	Adjective use of "absent", as opposed to its verb.	active
+absent.verb	absent	VERB	Verb use of "absent", as opposed to its adjective.	active
+abstract.adj-noun	abstract	ADJ|NOUN	Adjective and noun use of "abstract", as opposed to its verb.	active
+abstract.verb	abstract	VERB	Verb use of "abstract", as opposed to its adjective and noun.	active
+abuse.noun	abuse	NOUN	Noun use of "abuse", as opposed to its verb.	active
+abuse.verb	abuse	VERB	Verb use of "abuse", as opposed to its noun.	active
+addict.noun	addict	NOUN	Noun use of "addict", as opposed to its verb.	active
+addict.verb	addict	VERB	Verb use of "addict", as opposed to its noun.	active
+address.noun	address	NOUN	Noun use of "address", as opposed to its verb.	active
+address.verb	address	VERB	Verb use of "address", as opposed to its noun.	active
+advocate.noun	advocate	NOUN	Noun use of "advocate", as opposed to its verb.	active
+advocate.verb	advocate	VERB	Verb use of "advocate", as opposed to its noun.	active
+affect.psych	affect	NOUN	Noun in psychology: a person's observable emotional expression or mood.	active
+affect.verb	affect	VERB	Verb: to influence, to have an effect on.	active
+affiliate.noun	affiliate	NOUN	Noun use of "affiliate", as opposed to its verb.	active
+affiliate.verb	affiliate	VERB	Verb use of "affiliate", as opposed to its noun.	active
+age.verb	age	VERB	Participle after a number: having reached an age ("aged five"); one-syllable form.	active
+aged.adj	aged	ADJ	Adjective: old, elderly; two-syllable form.	active
+aggregate.adj-noun	aggregate	ADJ|NOUN	Adjective and noun use of "aggregate", as opposed to its verb.	active
+aggregate.verb	aggregate	VERB	Verb use of "aggregate", as opposed to its adjective and noun.	active
+alternate.adj-noun	alternate	ADJ|NOUN	Adjective and noun use of "alternate", as opposed to its verb.	active
+alternate.verb	alternate	VERB	Verb use of "alternate", as opposed to its adjective and noun.	active
+analyse.verb	analyse	VERB	Third person singular of analyse (analyze).	active
+analysis.plural	analysis	NOUN	Plural of analysis.	active
+animate.adj-noun	animate	ADJ|NOUN	Adjective and noun use of "animate", as opposed to its verb.	active
+animate.verb	animate	VERB	Verb use of "animate", as opposed to its adjective and noun.	active
+appropriate.adj	appropriate	ADJ	Adjective use of "appropriate", as opposed to its verb.	active
+appropriate.verb	appropriate	VERB	Verb use of "appropriate", as opposed to its adjective.	active
+approximate.adj-noun	approximate	ADJ|NOUN	Adjective and noun use of "approximate", as opposed to its verb.	active
+approximate.verb	approximate	VERB	Verb use of "approximate", as opposed to its adjective and noun.	active
+articulate.adj	articulate	ADJ	Adjective use of "articulate", as opposed to its verb.	active
+articulate.verb	articulate	VERB	Verb use of "articulate", as opposed to its adjective.	active
+associate.adj-noun	associate	ADJ|NOUN	Adjective and noun use of "associate", as opposed to its verb.	active
+associate.verb	associate	VERB	Verb use of "associate", as opposed to its adjective and noun.	active
+attribute.noun	attribute	NOUN	Noun use of "attribute", as opposed to its verb.	active
+attribute.verb	attribute	VERB	Verb use of "attribute", as opposed to its noun.	active
+augment.noun	augment	NOUN	Noun use of "augment", as opposed to its verb.	active
+augment.verb	augment	VERB	Verb use of "augment", as opposed to its noun.	active
+august.majestic	august	ADJ	Adjective: venerable, majestic, inspiring respect.	active
+august.month	august	PROPN	The month of August.	active
+august.name	august	PROPN	The given name August.	active
+axe.tool	axe	NOUN|VERB	Plural of axe (the chopping tool), or the verb axes (to chop, to cut).	active
+axis.plural	axis	NOUN	Plural of axis.	active
+bass.fish	bass	NOUN	The bass fish.	active
+bass.music	bass	NOUN|ADJ	Low-pitched voice, sound, instrument or part (music).	active
+bless.verb	bless	VERB|ADJ	One-syllable "blest": past tense and past participle of bless, including fortunate or favored in "blessed with", "blessed to", "blessed by" and "richly blessed in"; these stay one syllable when used adjectivally.	active
+blessed.adj	blessed	ADJ	Two-syllable "bless-ed": selected religious, attributive or emphatic uses, such as the Blessed Virgin, the blessed, or a blessed event. Ordinary "blessed with/to/by" normally has one syllable and belongs to bless.verb.	active
+bologna.city	bologna	PROPN	Bologna, the city in Italy.	active
+bologna.sausage	bologna	NOUN	Bologna, the sliced lunch meat.	active
+bow.bend	bow	NOUN|VERB	Bending forward as a gesture, the front of a ship, the dog sound "bow-wow"; rhymes with "cow".	active
+bow.weapon	bow	NOUN	Archery bow, tied ribbon or knot, violin bow; also the district of London.	active
+buffet.meal	buffet	NOUN	A buffet meal or the counter that serves one.	active
+buffet.strike	buffet	VERB|NOUN	To strike repeatedly, batter (wind, waves); a blow; also the surname.	active
+celtic.culture	celtic	ADJ|NOUN	Of the Celtic peoples, languages or art.	active
+celtic.team	celtic	PROPN|ADJ	The sports team name (Celtic, the Boston Celtics).	active
+certificate.noun	certificate	NOUN	Noun use of "certificate", as opposed to its verb.	active
+certificate.verb	certificate	VERB	Verb use of "certificate", as opposed to its noun.	active
+close.adj-noun	close	ADJ|NOUN	Final "s" sound (like "mouse"): adjective meaning near, intimate or shut; also the noun for an enclosed precinct, as in a cathedral close. Excludes the noun meaning conclusion or end, which has the final "z" sound of close.verb.	active
+close.verb	close	VERB|NOUN	Final "z" sound: verb meaning shut or conclude; also the noun meaning conclusion or end, as in "at the close of business".	active
+combat.noun	combat	NOUN	Noun use of "combat", as opposed to its verb.	active
+combat.verb	combat	VERB	Verb use of "combat", as opposed to its noun.	active
+combine.noun	combine	NOUN	Noun use of "combine", as opposed to its verb.	active
+combine.verb	combine	VERB	Verb use of "combine", as opposed to its noun.	active
+compact.adj-noun	compact	ADJ|NOUN	Adjective and noun use of "compact", as opposed to its verb.	active
+compact.verb	compact	VERB	Verb use of "compact", as opposed to its adjective and noun.	active
+compliment.noun	compliment	NOUN	Noun use of "compliment", as opposed to its verb.	active
+compliment.verb	compliment	VERB	Verb use of "compliment", as opposed to its noun.	active
+compound.noun	compound	NOUN	Noun use of "compound", as opposed to its verb.	active
+compound.verb	compound	VERB	Verb use of "compound", as opposed to its noun.	active
+compress.noun	compress	NOUN	Noun use of "compress", as opposed to its other reading.	active
+compress.verb	compress	VERB	Verb: to press together, squeeze, reduce in size.	active
+concert.noun	concert	NOUN	Noun use of "concert", as opposed to its verb.	active
+concert.verb	concert	VERB	Verb use of "concert", as opposed to its noun.	active
+conduct.noun	conduct	NOUN	Noun use of "conduct", as opposed to its verb.	active
+conduct.verb	conduct	VERB	Verb use of "conduct", as opposed to its noun.	active
+confederate.adj-noun	confederate	ADJ|NOUN	Adjective and noun use of "confederate", as opposed to its verb.	active
+confederate.verb	confederate	VERB	Verb use of "confederate", as opposed to its adjective and noun.	active
+confine.noun	confine	NOUN	Noun confines: limits, boundaries.	active
+confine.verb	confine	VERB	Verb: to restrict, keep within limits.	active
+conflict.noun	conflict	NOUN	Noun use of "conflict", as opposed to its verb.	active
+conflict.verb	conflict	VERB	Verb use of "conflict", as opposed to its noun.	active
+conglomerate.adj-noun	conglomerate	ADJ|NOUN	Adjective and noun use of "conglomerate", as opposed to its verb.	active
+conglomerate.verb	conglomerate	VERB	Verb use of "conglomerate", as opposed to its adjective and noun.	active
+conjugate.adj-noun	conjugate	ADJ|NOUN	Adjective and noun use of "conjugate", as opposed to its verb.	active
+conjugate.verb	conjugate	VERB	Verb use of "conjugate", as opposed to its adjective and noun.	active
+conscript.noun	conscript	NOUN	Noun use of "conscript", as opposed to its verb.	active
+conscript.verb	conscript	VERB	Verb use of "conscript", as opposed to its noun.	active
+conserve.noun	conserve	NOUN	Noun: a preserve of fruit, jam.	active
+conserve.verb	conserve	VERB	Verb: to save, protect from loss.	active
+console.noun	console	NOUN	Noun use of "console", as opposed to its verb.	active
+console.verb	console	VERB	Verb use of "console", as opposed to its noun.	active
+consort.noun	consort	NOUN	Noun use of "consort", as opposed to its verb.	active
+consort.verb	consort	VERB	Verb use of "consort", as opposed to its noun.	active
+construct.noun	construct	NOUN	Noun use of "construct", as opposed to its verb.	active
+construct.verb	construct	VERB	Verb use of "construct", as opposed to its noun.	active
+consummate.adj	consummate	ADJ	Adjective use of "consummate", as opposed to its verb.	active
+consummate.verb	consummate	VERB	Verb use of "consummate", as opposed to its adjective.	active
+content.noun	content	NOUN	Noun: what is contained, subject matter, material.	active
+content.satisfied	content	ADJ|NOUN|VERB	Satisfied, at ease; also contentment (noun) and to make content (verb).	active
+contest.noun	contest	NOUN	Noun use of "contest", as opposed to its verb.	active
+contest.verb	contest	VERB	Verb use of "contest", as opposed to its noun.	active
+contract.noun	contract	NOUN	Noun use of "contract", as opposed to its verb.	active
+contract.verb	contract	VERB	Verb use of "contract", as opposed to its noun.	active
+contrast.noun	contrast	NOUN	Noun use of "contrast", as opposed to its verb.	active
+contrast.verb	contrast	VERB	Verb use of "contrast", as opposed to its noun.	active
+converse.adj-noun	converse	ADJ|NOUN	Adjective and noun use of "converse", as opposed to its verb.	active
+converse.verb	converse	VERB	Verb use of "converse", as opposed to its adjective and noun.	active
+convert.noun	convert	NOUN	Noun use of "convert", as opposed to its verb.	active
+convert.verb	convert	VERB	Verb use of "convert", as opposed to its noun.	active
+convict.noun	convict	NOUN	Noun use of "convict", as opposed to its verb.	active
+convict.verb	convict	VERB	Verb use of "convict", as opposed to its noun.	active
+coordinate.adj-noun	coordinate	ADJ|NOUN	Adjective and noun use of "coordinate", as opposed to its verb.	active
+coordinate.verb	coordinate	VERB	Verb use of "coordinate", as opposed to its adjective and noun.	active
+correlate.noun	correlate	NOUN	Noun: either of two things that are correlated.	active
+correlate.verb	correlate	VERB	Verb: to have, or to establish, a mutual relationship.	active
+decrease.noun	decrease	NOUN	Noun use of "decrease", as opposed to its verb.	active
+decrease.verb	decrease	VERB	Verb use of "decrease", as opposed to its noun.	active
+defect.noun	defect	NOUN	Noun use of "defect", as opposed to its verb.	active
+defect.verb	defect	VERB	Verb use of "defect", as opposed to its noun.	active
+degenerate.adj-noun	degenerate	ADJ|NOUN	Adjective and noun use of "degenerate", as opposed to its verb.	active
+degenerate.verb	degenerate	VERB	Verb use of "degenerate", as opposed to its adjective and noun.	active
+delegate.noun	delegate	NOUN	Noun use of "delegate", as opposed to its verb.	active
+delegate.verb	delegate	VERB	Verb use of "delegate", as opposed to its noun.	active
+deliberate.adj	deliberate	ADJ	Adjective use of "deliberate", as opposed to its verb.	active
+deliberate.verb	deliberate	VERB	Verb use of "deliberate", as opposed to its adjective.	active
+desert.noun	desert	NOUN	Noun: a dry, barren region ("the Sahara desert"), including the plural "deserts" in that sense.	active
+desert.verb	desert	VERB|NOUN	Stress on the second syllable, like "dessert": verb meaning abandon or leave; also "just deserts" (what one deserves), and the local pronunciation of Desert in Mount Desert Island, Maine (like "dessert").	active
+designate.adj	designate	ADJ	Adjective use of "designate", as opposed to its verb.	active
+designate.verb	designate	VERB	Verb use of "designate", as opposed to its adjective.	active
+deviate.noun	deviate	NOUN	Noun use of "deviate", as opposed to its verb.	active
+deviate.verb	deviate	VERB	Verb use of "deviate", as opposed to its noun.	active
+diagnose.verb	diagnose	VERB	Third person singular of diagnose.	active
+diagnosis.plural	diagnosis	NOUN	Plural of diagnosis.	active
+diffuse.adj	diffuse	ADJ	Adjective use of "diffuse", as opposed to its verb.	active
+diffuse.verb	diffuse	VERB	Verb use of "diffuse", as opposed to its adjective.	active
+discard.noun	discard	NOUN	Noun use of "discard", as opposed to its verb.	active
+discard.verb	discard	VERB	Verb use of "discard", as opposed to its noun.	active
+discharge.noun	discharge	NOUN	Noun use of "discharge", as opposed to its verb.	active
+discharge.verb	discharge	VERB	Verb use of "discharge", as opposed to its noun.	active
+discount.noun	discount	NOUN	Noun use of "discount", as opposed to its verb.	active
+discount.verb	discount	VERB	Verb use of "discount", as opposed to its noun.	active
+discourse.noun	discourse	NOUN	Noun use of "discourse", as opposed to its verb.	active
+discourse.verb	discourse	VERB	Verb use of "discourse", as opposed to its noun.	active
+dive.past	dive	VERB	Past tense of dive ("he dove into the pool").	active
+do.verb	do	AUX|VERB	The verb does: third person singular of do, also the auxiliary.	active
+document.noun	document	NOUN	Noun use of "document", as opposed to its verb.	active
+document.verb	document	VERB	Verb use of "document", as opposed to its noun.	active
+doe.plural	doe	NOUN	Plural of doe, the female deer.	active
+dove.bird	dove	NOUN	The bird; also the name of a river.	active
+duplicate.adj-noun	duplicate	ADJ|NOUN	Adjective and noun use of "duplicate", as opposed to its verb.	active
+duplicate.verb	duplicate	VERB	Verb use of "duplicate", as opposed to its adjective and noun.	active
+elaborate.adj	elaborate	ADJ	Adjective use of "elaborate", as opposed to its verb.	active
+elaborate.verb	elaborate	VERB	Verb use of "elaborate", as opposed to its adjective.	active
+entrance.noun	entrance	NOUN	Noun use of "entrance", as opposed to its verb.	active
+entrance.verb	entrance	VERB	Verb use of "entrance", as opposed to its noun.	active
+escort.noun	escort	NOUN	Noun use of "escort", as opposed to its verb.	active
+escort.verb	escort	VERB	Verb use of "escort", as opposed to its noun.	active
+essay.noun	essay	NOUN	Noun use of "essay", as opposed to its verb.	active
+essay.verb	essay	VERB	Verb use of "essay", as opposed to its noun.	active
+estimate.noun	estimate	NOUN	Noun use of "estimate", as opposed to its verb.	active
+estimate.verb	estimate	VERB	Verb use of "estimate", as opposed to its noun.	active
+excuse.noun	excuse	NOUN	Noun use of "excuse", as opposed to its verb.	active
+excuse.verb	excuse	VERB	Verb use of "excuse", as opposed to its noun.	active
+expatriate.noun	expatriate	NOUN	Noun use of "expatriate", as opposed to its verb.	active
+expatriate.verb	expatriate	VERB	Verb use of "expatriate", as opposed to its noun.	active
+exploit.noun	exploit	NOUN	Noun use of "exploit", as opposed to its verb.	active
+exploit.verb	exploit	VERB	Verb use of "exploit", as opposed to its noun.	active
+export.noun	export	NOUN	Noun use of "export", as opposed to its verb.	active
+export.verb	export	VERB	Verb use of "export", as opposed to its noun.	active
+expose.noun	expose	NOUN	Noun (exposé): a news report that reveals something.	active
+expose.verb	expose	VERB	Verb use of "expose", as opposed to its other reading.	active
+extract.noun	extract	NOUN	Noun use of "extract", as opposed to its verb.	active
+extract.verb	extract	VERB	Verb use of "extract", as opposed to its noun.	active
+fragment.noun	fragment	NOUN	Noun use of "fragment", as opposed to its verb.	active
+fragment.verb	fragment	VERB	Verb use of "fragment", as opposed to its noun.	active
+frequent.adj	frequent	ADJ	Adjective use of "frequent", as opposed to its verb.	active
+frequent.verb	frequent	VERB	Verb use of "frequent", as opposed to its adjective.	active
+graduate.adj-noun	graduate	ADJ|NOUN	Adjective and noun use of "graduate", as opposed to its verb.	active
+graduate.verb	graduate	VERB	Verb use of "graduate", as opposed to its adjective and noun.	active
+house.noun	house	NOUN	Noun use of "house", as opposed to its verb.	active
+house.verb	house	VERB	Verb use of "house", as opposed to its noun.	active
+impact.noun	impact	NOUN	Noun use of "impact", as opposed to its verb.	active
+impact.verb	impact	VERB	Verb use of "impact", as opposed to its noun.	active
+implant.noun	implant	NOUN	Noun use of "implant", as opposed to its verb.	active
+implant.verb	implant	VERB	Verb use of "implant", as opposed to its noun.	active
+implement.noun	implement	NOUN	Noun use of "implement", as opposed to its verb.	active
+implement.verb	implement	VERB	Verb use of "implement", as opposed to its noun.	active
+import.noun	import	NOUN	Noun use of "import", as opposed to its verb.	active
+import.verb	import	VERB	Verb use of "import", as opposed to its noun.	active
+incense.noun	incense	NOUN	Noun use of "incense", as opposed to its verb.	active
+incense.verb	incense	VERB	Verb use of "incense", as opposed to its noun.	active
+incline.noun	incline	NOUN	Noun use of "incline", as opposed to its verb.	active
+incline.verb	incline	VERB	Verb use of "incline", as opposed to its noun.	active
+incorporate.adj	incorporate	ADJ	Adjective use of "incorporate", as opposed to its verb.	active
+incorporate.verb	incorporate	VERB	Verb use of "incorporate", as opposed to its adjective.	active
+increase.noun	increase	NOUN	Noun use of "increase", as opposed to its verb.	active
+increase.verb	increase	VERB	Verb use of "increase", as opposed to its noun.	active
+increment.noun	increment	NOUN	Noun use of "increment", as opposed to its verb.	active
+increment.verb	increment	VERB	Verb use of "increment", as opposed to its noun.	active
+initiate.noun	initiate	NOUN	Noun use of "initiate", as opposed to its verb.	active
+initiate.verb	initiate	VERB	Verb use of "initiate", as opposed to its noun.	active
+insert.noun	insert	NOUN	Noun use of "insert", as opposed to its verb.	active
+insert.verb	insert	VERB	Verb use of "insert", as opposed to its noun.	active
+inside.adj-noun	inside	ADJ|NOUN	Adjective and noun use of "inside", as opposed to its adverb and preposition.	active
+inside.adv-prep	inside	ADV|ADP	Adverb and preposition use of "inside", as opposed to its adjective and noun.	active
+instrument.noun	instrument	NOUN	Noun use of "instrument", as opposed to its verb.	active
+instrument.verb	instrument	VERB	Verb use of "instrument", as opposed to its noun.	active
+insult.noun	insult	NOUN	Noun use of "insult", as opposed to its verb.	active
+insult.verb	insult	VERB	Verb use of "insult", as opposed to its noun.	active
+intercept.noun	intercept	NOUN	Noun use of "intercept", as opposed to its verb.	active
+intercept.verb	intercept	VERB	Verb use of "intercept", as opposed to its noun.	active
+interchange.noun	interchange	NOUN	Noun use of "interchange", as opposed to its verb.	active
+interchange.verb	interchange	VERB	Verb use of "interchange", as opposed to its noun.	active
+intern.noun	intern	NOUN	Noun use of "intern", as opposed to its verb.	active
+intern.verb	intern	VERB	Verb use of "intern", as opposed to its noun.	active
+intimate.adj	intimate	ADJ	Adjective use of "intimate", as opposed to its verb.	active
+intimate.verb	intimate	VERB	Verb use of "intimate", as opposed to its adjective.	active
+intrigue.noun	intrigue	NOUN	Noun: a secret plot or scheme; a love affair.	active
+intrigue.verb	intrigue	VERB	Verb: to arouse curiosity or interest; to plot.	active
+invalid.adj	invalid	ADJ	Adjective use of "invalid", as opposed to its noun.	active
+invalid.noun	invalid	NOUN	Noun use of "invalid", as opposed to its adjective.	active
+invert.adj-noun	invert	ADJ|NOUN	Adjective and noun use of "invert", as opposed to its verb.	active
+invert.verb	invert	VERB	Verb use of "invert", as opposed to its adjective and noun.	active
+invite.noun	invite	NOUN	Noun use of "invite", as opposed to its verb.	active
+invite.verb	invite	VERB	Verb use of "invite", as opposed to its noun.	active
+isolate.noun	isolate	NOUN	Noun: an isolated individual, strain or sample.	active
+isolate.verb	isolate	VERB	Verb: to set apart, separate from others.	active
+jesus.english	jesus	PROPN	English pronunciation ("JEE-zus") of Jesus, for the religious figure or a personal name pronounced the same way. A bare personal-name occurrence does not establish English versus Spanish-derived pronunciation.	active
+jesus.spanish	jesus	PROPN	The Spanish given name Jesús.	active
+job.bible	job	PROPN	Job, the biblical figure or book.	active
+job.work	job	NOUN	A job, a piece of work, a task.	active
+laminate.noun	laminate	NOUN	Noun use of "laminate", as opposed to its verb.	active
+laminate.verb	laminate	VERB	Verb use of "laminate", as opposed to its noun.	active
+lead.guide	lead	VERB|NOUN	Rhymes with "need" (leads rhymes with "needs"): guide or go in front; also leadership, a leash, a clue, and an electrical connection, wire or ECG lead or channel. Not the metal (rhymes with "bed").	active
+lead.metal	lead	NOUN	The metal; also the graphite core of a pencil.	active
+learn.verb	learn	VERB	Past tense and past participle of learn.	active
+learned.adj	learned	ADJ	Adjective: scholarly, erudite; two-syllable form.	active
+legitimate.adj	legitimate	ADJ	Adjective use of "legitimate", as opposed to its verb.	active
+legitimate.verb	legitimate	VERB	Verb use of "legitimate", as opposed to its adjective.	active
+life.plural	life	NOUN	Plural of life.	active
+live.adj	live	ADJ	Adjective use of "live", as opposed to its verb.	active
+live.verb	live	VERB	Verb use of "live", as opposed to its adjective.	active
+mate.companion	mate	NOUN|VERB	Companion, partner or friend; chess checkmate; to pair (animals).	active
+mate.drink	mate	NOUN	Maté, the South American tea.	active
+mediate.adj	mediate	ADJ	Adjective use of "mediate", as opposed to its verb.	active
+mediate.verb	mediate	VERB	Verb use of "mediate", as opposed to its adjective.	active
+merchandise.noun	merchandise	NOUN	Noun use of "merchandise", as opposed to its verb.	active
+merchandise.verb	merchandise	VERB	Verb use of "merchandise", as opposed to its noun.	active
+minute.time	minute	NOUN|VERB	A unit of time; the minutes of a meeting; to record minutes.	active
+minute.tiny	minute	ADJ	Adjective: extremely small, very detailed.	active
+misuse.noun	misuse	NOUN	Noun use of "misuse", as opposed to its verb.	active
+misuse.verb	misuse	VERB	Verb use of "misuse", as opposed to its noun.	active
+mobile.city	mobile	PROPN	Mobile, the city in Alabama.	active
+mobile.movable	mobile	ADJ|NOUN	Movable, not fixed; a mobile phone.	active
+mobile.sculpture	mobile	NOUN	A hanging decorative sculpture; a baby mobile.	active
+moderate.adj-noun	moderate	ADJ|NOUN	Adjective and noun use of "moderate", as opposed to its verb.	active
+moderate.verb	moderate	VERB	Verb use of "moderate", as opposed to its adjective and noun.	active
+mope.verb	mope	VERB	Past tense and past participle of mope.	active
+moped.noun	moped	NOUN	A motorized bicycle or scooter.	active
+mouth.noun	mouth	NOUN	Noun use of "mouth", as opposed to its verb.	active
+mouth.verb	mouth	VERB	Verb use of "mouth", as opposed to its noun.	active
+nestle.company	nestle	PROPN	Nestlé, the company or surname.	active
+nestle.snuggle	nestle	VERB	Verb: to settle snugly, snuggle.	active
+nominate.adj	nominate	ADJ	Adjective use of "nominate", as opposed to its verb.	active
+nominate.verb	nominate	VERB	Verb use of "nominate", as opposed to its adjective.	active
+number.noun	number	NOUN|VERB	Noun (a count, a figure) and the verb "to number".	active
+number.numb	number	ADJ	Comparative of numb: more numb.	active
+object.noun	object	NOUN	Noun use of "object", as opposed to its verb.	active
+object.verb	object	VERB	Verb use of "object", as opposed to its noun.	active
+offset.noun	offset	NOUN	Noun use of "offset", as opposed to its verb.	active
+offset.verb	offset	VERB	Verb use of "offset", as opposed to its noun.	active
+orient.noun	orient	NOUN	Noun use of "orient", as opposed to its verb.	active
+orient.verb	orient	VERB	Verb use of "orient", as opposed to its noun.	active
+ornament.noun	ornament	NOUN	Noun use of "ornament", as opposed to its verb.	active
+ornament.verb	ornament	VERB	Verb use of "ornament", as opposed to its noun.	active
+overthrow.noun	overthrow	NOUN	Noun use of "overthrow", as opposed to its verb.	active
+overthrow.verb	overthrow	VERB	Verb use of "overthrow", as opposed to its noun.	active
+pasty.adj	pasty	ADJ	Adjective use of "pasty", as opposed to its noun.	active
+pasty.noun	pasty	NOUN	Noun use of "pasty", as opposed to its adjective.	active
+perfect.adj	perfect	ADJ	Adjective use of "perfect", as opposed to its verb.	active
+perfect.verb	perfect	VERB	Verb use of "perfect", as opposed to its adjective.	active
+perfume.noun	perfume	NOUN	Noun use of "perfume", as opposed to its verb.	active
+perfume.verb	perfume	VERB	Verb use of "perfume", as opposed to its noun.	active
+permit.noun	permit	NOUN	Noun use of "permit", as opposed to its verb.	active
+permit.verb	permit	VERB	Verb use of "permit", as opposed to its noun.	active
+pervert.noun	pervert	NOUN	Noun use of "pervert", as opposed to its verb.	active
+pervert.verb	pervert	VERB	Verb use of "pervert", as opposed to its noun.	active
+pigment.noun	pigment	NOUN	Noun use of "pigment", as opposed to its verb.	active
+pigment.verb	pigment	VERB	Verb use of "pigment", as opposed to its noun.	active
+polish.nationality	polish	ADJ|NOUN|PROPN	Of Poland, its people or its language.	active
+polish.shine	polish	NOUN|VERB	To make shiny or refined; shoe or furniture polish.	active
+postulate.noun	postulate	NOUN	Noun use of "postulate", as opposed to its verb.	active
+postulate.verb	postulate	VERB	Verb use of "postulate", as opposed to its noun.	active
+precipitate.adj-noun	precipitate	ADJ|NOUN	Adjective and noun use of "precipitate", as opposed to its verb.	active
+precipitate.verb	precipitate	VERB	Verb use of "precipitate", as opposed to its adjective and noun.	active
+predicate.noun	predicate	NOUN	Noun use of "predicate", as opposed to its verb.	active
+predicate.verb	predicate	VERB	Verb use of "predicate", as opposed to its noun.	active
+present.adj-noun	present	ADJ|NOUN	Adjective and noun use of "present", as opposed to its verb.	active
+present.verb	present	VERB	Verb use of "present", as opposed to its adjective and noun.	active
+primer.paint	primer	NOUN	Rhymes with "timer": a first coat of paint, a priming substance, or an ignition or priming device such as an ammunition or explosive primer. Contrasts with the usual US elementary-textbook primer (short "i").	active
+primer.textbook	primer	NOUN	An elementary textbook or introduction.	active
+proceeds.noun	proceeds	NOUN	Noun proceeds: money raised or earned.	active
+proceeds.verb	proceeds	VERB	Third person singular of proceed: goes on, continues.	active
+produce.noun	produce	NOUN	Noun use of "produce", as opposed to its verb.	active
+produce.verb	produce	VERB	Verb use of "produce", as opposed to its noun.	active
+progress.noun	progress	NOUN	Noun use of "progress", as opposed to its verb.	active
+progress.verb	progress	VERB	Verb use of "progress", as opposed to its noun.	active
+project.noun	project	NOUN	Noun use of "project", as opposed to its verb.	active
+project.verb	project	VERB	Verb use of "project", as opposed to its noun.	active
+protest.noun	protest	NOUN	Noun use of "protest", as opposed to its verb.	active
+protest.verb	protest	VERB	Verb use of "protest", as opposed to its noun.	active
+put.verb	put	VERB	The verb put (to place), as in "putting it down".	active
+putt.verb	putt	VERB	The verb putt (to strike a golf ball gently on the green).	active
+ravel.composer	ravel	PROPN	Maurice Ravel, the composer.	active
+ravel.tangle	ravel	NOUN|VERB	To tangle or untangle; a tangle.	active
+read.past	read	VERB	Past tense and past participle of read.	active
+read.present	read	VERB|NOUN	Rhymes with "need": base form, infinitive, imperative and present tense of read; also the noun for reading material or an instance of reading, as in "a good read". Not the past tense or past participle (rhymes with "bed").	active
+reading.act	reading	NOUN|VERB	The act of reading; present participle of read.	active
+reading.town	reading	PROPN	Reading, the town in England (and places named after it).	active
+rebel.noun	rebel	NOUN	Noun use of "rebel", as opposed to its verb.	active
+rebel.verb	rebel	VERB	Verb use of "rebel", as opposed to its noun.	active
+recall.noun	recall	NOUN	Noun use of "recall", as opposed to its verb.	active
+recall.verb	recall	VERB	Verb use of "recall", as opposed to its noun.	active
+recharge.noun	recharge	NOUN	Noun use of "recharge", as opposed to its verb.	active
+recharge.verb	recharge	VERB	Verb use of "recharge", as opposed to its noun.	active
+record.noun	record	NOUN	Noun use of "record", as opposed to its verb.	active
+record.verb	record	VERB	Verb use of "record", as opposed to its noun.	active
+recount.again	recount	NOUN|VERB	To count again, with a full "ree" prefix: verb (recounted, recounts) and the noun for a second count, stressed on the first syllable. Not narrating events.	active
+recount.narrate	recount	VERB	Verb with the short "ri" prefix of "rely": to tell, narrate or relate events (recounted, recounts). Not counting objects or votes again.	active
+refund.noun	refund	NOUN	Noun use of "refund", as opposed to its verb.	active
+refund.verb	refund	VERB	Verb use of "refund", as opposed to its noun.	active
+refuse.noun	refuse	NOUN	Noun use of "refuse", as opposed to its verb.	active
+refuse.verb	refuse	VERB	Verb use of "refuse", as opposed to its noun.	active
+regiment.noun	regiment	NOUN	Noun use of "regiment", as opposed to its verb.	active
+regiment.verb	regiment	VERB	Verb use of "regiment", as opposed to its noun.	active
+reject.noun	reject	NOUN	Noun use of "reject", as opposed to its verb.	active
+reject.verb	reject	VERB	Verb use of "reject", as opposed to its noun.	active
+relay.noun	relay	NOUN	Noun use of "relay", as opposed to its verb.	active
+relay.verb	relay	VERB	Verb use of "relay", as opposed to its noun.	active
+replicate.adj-noun	replicate	ADJ|NOUN	Adjective and noun use of "replicate", as opposed to its verb.	active
+replicate.verb	replicate	VERB	Verb use of "replicate", as opposed to its adjective and noun.	active
+rerelease.noun	rerelease	NOUN	Noun: a new release of an earlier work.	active
+rerelease.verb	rerelease	VERB	Verb: to release again.	active
+research.noun	research	NOUN	Noun use of "research", as opposed to its verb.	active
+research.verb	research	VERB	Verb use of "research", as opposed to its noun.	active
+resume.noun	resume	NOUN	Noun (résumé): a summary of qualifications and experience.	active
+resume.verb	resume	VERB	Verb use of "resume", as opposed to its other reading.	active
+retard.noun	retard	NOUN	Noun use of "retard", as opposed to its verb.	active
+retard.verb	retard	VERB	Verb use of "retard", as opposed to its noun.	active
+rodeo.drive	rodeo	PROPN	Stress on the second syllable ("roh-DAY-oh"): Rodeo Drive in Beverly Hills and Rodeo, California. Not the usual cowboy-event pronunciation ("ROH-dee-oh").	active
+rodeo.event	rodeo	NOUN|VERB	A rodeo, the cowboy competition.	active
+row.argument	row	NOUN|VERB	A noisy quarrel; to quarrel.	active
+row.line	row	NOUN|VERB	A line of things; to propel a boat with oars.	active
+sake.drink	sake	NOUN	Japanese rice wine.	active
+sake.purpose	sake	NOUN	Benefit or purpose, as in "for the sake of".	active
+segment.noun	segment	NOUN	Noun use of "segment", as opposed to its verb.	active
+segment.verb	segment	VERB	Verb use of "segment", as opposed to its noun.	active
+separate.adj	separate	ADJ	Adjective use of "separate", as opposed to its verb.	active
+separate.verb	separate	VERB	Verb use of "separate", as opposed to its adjective.	active
+sewer.drain	sewer	NOUN	An underground drain for waste water.	active
+sewer.seamstress	sewer	NOUN	One who sews.	active
+sow.pig	sow	NOUN	An adult female pig.	active
+sow.plant	sow	VERB	To plant seed, scatter seed.	active
+subject.adj-noun	subject	ADJ|NOUN	Adjective and noun use of "subject", as opposed to its verb.	active
+subject.verb	subject	VERB	Verb use of "subject", as opposed to its adjective and noun.	active
+subordinate.adj-noun	subordinate	ADJ|NOUN	Adjective and noun use of "subordinate", as opposed to its verb.	active
+subordinate.verb	subordinate	VERB	Verb use of "subordinate", as opposed to its adjective and noun.	active
+supplement.noun	supplement	NOUN	Noun use of "supplement", as opposed to its verb.	active
+supplement.verb	supplement	VERB	Verb use of "supplement", as opposed to its noun.	active
+survey.noun	survey	NOUN	Noun use of "survey", as opposed to its verb.	active
+survey.verb	survey	VERB	Verb use of "survey", as opposed to its noun.	active
+suspect.adj-noun	suspect	ADJ|NOUN	Adjective and noun use of "suspect", as opposed to its verb.	active
+suspect.verb	suspect	VERB	Verb use of "suspect", as opposed to its adjective and noun.	active
+syndicate.noun	syndicate	NOUN	Noun use of "syndicate", as opposed to its verb.	active
+syndicate.verb	syndicate	VERB	Verb use of "syndicate", as opposed to its noun.	active
+tear.drop	tear	NOUN	A drop of fluid from the eye.	active
+tear.rip	tear	VERB|NOUN	To rip; a rip or hole in cloth or paper.	active
+transform.noun	transform	NOUN	Noun use of "transform", as opposed to its other reading.	active
+transform.verb	transform	VERB	Verb: to change the form or nature of something.	active
+transplant.noun	transplant	NOUN	Noun use of "transplant", as opposed to its verb.	active
+transplant.verb	transplant	VERB	Verb use of "transplant", as opposed to its noun.	active
+transport.noun	transport	NOUN	Noun use of "transport", as opposed to its verb.	active
+transport.verb	transport	VERB	Verb use of "transport", as opposed to its noun.	active
+underestimate.noun	underestimate	NOUN	Noun use of "underestimate", as opposed to its verb.	active
+underestimate.verb	underestimate	VERB	Verb use of "underestimate", as opposed to its noun.	active
+uplift.noun	uplift	NOUN	Noun use of "uplift", as opposed to its verb.	active
+uplift.verb	uplift	VERB	Verb use of "uplift", as opposed to its noun.	active
+upset.noun	upset	NOUN	Noun use of "upset", as opposed to its verb.	active
+upset.verb	upset	VERB	Verb use of "upset", as opposed to its noun.	active
+use.habitual	use	VERB|ADJ	The "used to" construction: formerly did, or accustomed to; the voiceless ending, as opposed to the past participle of use (use.verb).	active
+use.noun	use	NOUN	Noun use of "use", as opposed to its verb.	active
+use.verb	use	VERB	Verb "use" with the final "z" sound, with ordinary past tense and past participle "used" ("yoozd"). Excludes habitual "used to" and accustomed "be/get used to", whose "used" ends in an "s" or "t" sound and belongs to use.habitual.	active
+wind.air	wind	NOUN	Moving air, breath; includes the plural winds.	active
+wind.coil	wind	VERB|NOUN	To coil, turn or twist, including winds and past tense wound; a bend or turn.	active
+wound.injury	wound	NOUN|VERB	An injury to the body; to injure.	active

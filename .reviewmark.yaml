@@ -20,12 +20,26 @@ needs-review:
   - "src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md"      # Text.En third-party notices
   - "src/DemaConsulting.Speech.Text.En/Resources/*.tsv"             # Text.En embedded lexicon tables
   - "test/DemaConsulting.Speech.Text.En.Tests/TestData/*.tsv"       # Text.En golden test data
+  - "data/text-en/**/*.md"                                          # Text.En training data documents, audit summary and prompts
+  - "data/text-en/MANIFEST.tsv"                                     # Text.En training data manifest (pins every data file)
+  - "data/text-en/readings.tsv"                                     # Text.En reading inventory
+  - "data/text-en/forms.tsv"                                        # Text.En reading forms
+  - "data/text-en/whd-mapping.tsv"                                  # Text.En evaluation id mapping (ids only)
+  - "data/text-en/extension-decisions.tsv"                          # Text.En inventory extension decisions
+  - "data/text-en/leakage-report.tsv"                               # Text.En recorded external leakage result
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
   - "!node_modules/**"           # Exclude npm dependencies
   - "!**/.venv/**"                # Exclude Python virtual environment
-  - "!tools/**"                   # Exclude dev-only tools/spikes (not part of the public surface)
+  - "!tools/KokoroOnnxBenchmark/**"  # Exclude dev-only benchmark spike (not part of the public surface)
+  - "!tools/ModelDownloader/**"      # Exclude dev-only model downloader (not part of the public surface)
+  - "!data/text-en/external/**"      # Exclude local evaluation caches (never committed)
+  - "!data/text-en/work/**"          # Exclude local scratch (never committed)
+  # The Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer) is NOT excluded: it is reviewed.
+  # The large data tables of data/text-en (train, dev, holdout-*, both provenance tables, exclusions, gaps,
+  # extension candidates, audit/*.tsv, check-output.txt) are deliberately not review files: they are pinned by
+  # the reviewed MANIFEST.tsv and verified by the trainer's check-data command, as the design documents explain.
 
 # Evidence source: review data and index.json are located in the 'reviews' branch
 # of this repository, accessed through the GitHub public HTTPS raw content access.
@@ -3468,6 +3482,192 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AcronymRecognizer.cs"
       - "src/DemaConsulting.Speech.Text.En/Resources/acronyms.tsv"  # embedded acronym lexicon
       - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AcronymRecognizerTests.cs"
+
+  # SpeechTextEn-TrainingDataProvenance Review (one per system data set)
+  # The large tables of data/text-en are not review files (see the needs-review note above); the reviewed
+  # MANIFEST.tsv pins every one of them, so a change to any data file changes this review set's fingerprint.
+  - id: SpeechTextEn-TrainingDataProvenance
+    title: Review that SpeechTextEn Training Data Provenance and Licensing are Complete and Accurate
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "data/text-en/README.md"                                    # data folder overview, rules, provenance and CC0 dedication
+      - "data/text-en/ATTRIBUTION.md"                               # attribution for the MASC-derived sentences
+      - "data/text-en/MANIFEST.tsv"                                 # hash, size and row count of every data file
+      - "data/text-en/leakage-report.tsv"                           # recorded external leakage result
+      - "data/text-en/audit/audit-summary.md"                       # blind audit summary
+      - "data/text-en/prompts/*.md"                                 # prompts that produced the generated and labeled data
+
+  # SpeechTextEn-TrainingDataInventory Review (one per system data set)
+  - id: SpeechTextEn-TrainingDataInventory
+    title: Review that SpeechTextEn Reading Inventory is Correct and Self-Owned
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "data/text-en/readings.tsv"                                 # reading inventory
+      - "data/text-en/forms.tsv"                                    # forms of each reading
+      - "data/text-en/whd-mapping.tsv"                              # id-only evaluation mapping
+      - "data/text-en/extension-decisions.tsv"                      # decisions on candidate readings
+
+  # SpeechTextEn-TrainingDataSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-TrainingDataSubsystem
+    title: Review that SpeechTextEn TrainingDataSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"       # subsystem requirements
+      - "docs/design/speech-text-en/training-data-subsystem.md"            # subsystem design
+      - "docs/verification/speech-text-en/training-data-subsystem.md"      # subsystem verification
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DatasetFixture.cs"  # test data set built in code
+
+  # SpeechTextEn-TrainingDataSubsystem-TsvTable Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-TsvTable
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem TsvTable Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/tsv-table.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/tsv-table.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/tsv-table.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/TsvTable.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/TsvTableTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-TextEnDataSet Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-TextEnDataSet
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem TextEnDataSet Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/text-en-data-set.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/text-en-data-set.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/text-en-data-set.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/TextEnDataSet.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/TextEnDataSetTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-DataManifest Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-DataManifest
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem DataManifest Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/data-manifest.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/data-manifest.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/data-manifest.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/DataManifest.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/DataManifestTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-SpanValidator Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-SpanValidator
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem SpanValidator Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/span-validator.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/span-validator.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/span-validator.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/SpanValidator.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/SpanValidatorTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-CheckReport Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-CheckReport
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem CheckReport Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/check-report.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/check-report.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/check-report.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/CheckReport.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/CheckReportTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-SchemaChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-SchemaChecker
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem SchemaChecker Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/schema-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/schema-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/schema-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/SchemaChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/SchemaCheckerTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-LicenseChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-LicenseChecker
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem LicenseChecker Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/license-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/license-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/license-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/LicenseChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LicenseCheckerTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-LeakageChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-LeakageChecker
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem LeakageChecker Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/leakage-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/leakage-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/leakage-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/LeakageChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LeakageCheckerTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-CheckDataCommand Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-CheckDataCommand
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem CheckDataCommand Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/check-data-command.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/check-data-command.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/CheckDataCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/CheckDataCommandTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

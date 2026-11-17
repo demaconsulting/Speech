@@ -15,8 +15,9 @@ annotations survive chunking of a long text, that its sentence breaks (not the p
 where sentences are split, and that audio tags inside a request leave the words around them annotated.
 
 Below the system level, the unit and subsystem behavior is verified by the AnalysisSubsystem tests (see
-*SpeechTextEn AnalysisSubsystem Verification*) and the NormalizationSubsystem tests (see *SpeechTextEn
-NormalizationSubsystem Verification*), and the part-of-speech package the analysis builds on is
+*SpeechTextEn AnalysisSubsystem Verification*), the NormalizationSubsystem tests (see *SpeechTextEn
+NormalizationSubsystem Verification*) and the TrainingDataSubsystem tests (see *SpeechTextEn
+TrainingDataSubsystem Verification*), and the part-of-speech package the analysis builds on is
 verified separately as an OTS item (see *PartOfSpeech Verification*). The system tests of the normalization
 check its observable result: the `en.norm` annotations a caller reads, the text they produce when applied by
 an independent applier that follows the documented consumer algorithm, the sentence breaks, and what a real
@@ -46,7 +47,10 @@ multi-word entry or a key with a trailing period never matches, an override on t
 on a word consumed by a number rule is not applied) are not defects: they are pinned by rows of the golden file and
 by unit tests, so a change of the tokenizer or of the number rules cannot silently change them.
 
-System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project.
+System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project. The training-data tooling
+(the non-shipped trainer) has its own test project, `test/DemaConsulting.Speech.Text.En.Trainer.Tests`, which holds the
+system-level scenarios of the training-data requirements and the tests of the TrainingDataSubsystem (see *SpeechTextEn
+TrainingDataSubsystem Verification*).
 
 ## Test Environment
 
@@ -430,6 +434,28 @@ the dependency is moved below the fixed version (the comparison follows Semantic
 a later prerelease or a stable release is accepted), and the remaining gap (no repository-owned test of the
 dependency's private state) is stated there for the repository owner's approval.
 
+### Training Data
+
+**Tests**: `TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks`,
+`TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck`,
+`TrainingDataSubsystem_CheckData_ManifestDrift_NamesFileAndPassesAfterRegeneration`,
+`TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied`,
+`TrainingDataSubsystem_CheckData_NoEvaluationSets_PassesAndSaysSkipped`
+
+These tests reside in `test/DemaConsulting.Speech.Text.En.Trainer.Tests` and are described in *SpeechTextEn
+TrainingDataSubsystem Verification*. They verify the four training-data system requirements (open licenses, integrity,
+evaluation isolation and provenance) through the one observable interface of the data tooling, the `check-data` command:
+the real committed `data/text-en` folder passes every check, and each class of defect (a restricted license, a malformed
+file, a changed file, a wrong label or span, a sentence, document or template shared between splits, a missing
+attribution file, an evaluation-only file name, an overlap with an external evaluation set) written into a temporary
+copy makes the command fail with a finding that names the check. The external comparison is verified only with synthetic
+evaluation sets written by the tests: the real evaluation corpora are never committed and never used by an automated
+test, so the comparison of the committed data with them is an operator task whose last result the data README records,
+and the automated tests claim only that the check works and that, without evaluation sets, the run passes and says the
+external check was skipped. The provenance records are checked by the unit tests of the schema and license checks, and
+at system level by the committed-data run. The correctness of the labels themselves is not claimed by any automated
+test.
+
 ## Acceptance Criteria
 
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions, every subsystem
@@ -450,4 +476,6 @@ remaining gap (no repository-owned test of that private state) stated for the re
 as verified here. The package
 license files are also part of the acceptance criteria: both must be present, the project must pack them at the package
 root, the license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
-absence of third-party data, and the dependency notice must keep the attribution chain intact.
+absence of third-party data, and the dependency notice must keep the attribution chain intact. The training-data
+scenarios pass when the real committed data passes `check-data` and each class of seeded defect is reported by
+the check that owns it; the labels of the data are not claimed as verified.

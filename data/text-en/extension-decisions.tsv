@@ -1,0 +1,61 @@
+rank	lemma	forms	kind	class	decision	reason	cmudict_evidence	readings	readings_added
+1	do	does	new-lemma	R	add	class R	does: 2 entries, stress patterns 0/1	do.verb;doe.plural	2
+2	use	used	new-reading	Y	add	class Y	used: 1 entries, stress patterns 1	use.habitual	1
+3	number	number	new-lemma	R	add	class R	number: 1 entries, stress patterns 10	number.noun;number.numb	2
+4	research	research	new-lemma	S	add	class S with distinct stress variants in CMUdict	research: 2 entries, stress patterns 01/10	research.noun;research.verb	2
+5	survey	survey,surveys	new-lemma	Y	add	class Y	survey: 2 entries, stress patterns 01/12	survey.noun;survey.verb	2
+6	inside	inside	new-lemma	S	add	class S with distinct stress variants in CMUdict	inside: 2 entries, stress patterns 12/21	inside.adj-noun;inside.adv-prep	2
+7	address	address,addresses	new-lemma	S	add	class S with distinct stress variants in CMUdict	address: 2 entries, stress patterns 01/12	address.noun;address.verb	2
+8	tear	tears	new-forms	Y	add	class Y	tears: 2 entries, stress patterns 1	tear.drop;tear.rip	0
+9	combat	combat,combats	new-lemma	Y	add	class Y	combat: 2 entries, stress patterns 01/10	combat.noun;combat.verb	2
+10	lead	leads	new-forms	Y	add	class Y	leads: 1 entries, stress patterns 1	lead.guide;lead.metal	0
+11	put	putting	new-lemma	R	add	class R	putting: 2 entries, stress patterns 10	put.verb;putt.verb	2
+12	recall	recall,recalls	new-lemma	Y	add	class Y	recall: 2 entries, stress patterns 01/12	recall.noun;recall.verb	2
+13	nearby	nearby	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	nearby: 1 entries, stress patterns 11		0
+14	overall	overall	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overall: 1 entries, stress patterns 102		0
+15	close	closer	new-forms	R	add	class R	closer: 2 entries, stress patterns 10	close.adj-noun;close.verb	0
+16	regiment	regiment,regiments	new-lemma	Y	add	class Y	regiment: 1 entries, stress patterns 100	regiment.noun;regiment.verb	2
+17	content	contents	new-forms	Y	add	class Y	contents: 2 entries, stress patterns 01/10	content.noun;content.satisfied	0
+18	concert	concert,concerts	new-lemma	Y	add	class Y	concert: 2 entries, stress patterns 01/10	concert.noun;concert.verb	2
+19	offset	offset,offsets	new-lemma	Y	add	class Y	offset: 2 entries, stress patterns 01/12	offset.noun;offset.verb	2
+20	segment	segment,segments	new-lemma	Y	add	class Y	segment: 2 entries, stress patterns 10/21	segment.noun;segment.verb	2
+21	underground	underground	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	underground: 1 entries, stress patterns 102		0
+22	compliment	compliment,compliments	new-lemma	Y	add	class Y	compliment: 1 entries, stress patterns 100	compliment.noun;compliment.verb	2
+23	overhead	overhead	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overhead: 1 entries, stress patterns 101		0
+24	incorporate	incorporate	new-lemma	Y	add	class Y	incorporate: 1 entries, stress patterns 2102	incorporate.adj;incorporate.verb	2
+25	uplift	uplift	new-lemma	Y	add	class Y	uplift: 1 entries, stress patterns 10	uplift.noun;uplift.verb	2
+26	certificate	certificate,certificates	new-lemma	Y	add	class Y	certificate: 1 entries, stress patterns 0100	certificate.noun;certificate.verb	2
+27	confederate	confederate,confederates	new-lemma	Y	add	class Y	confederate: 2 entries, stress patterns 0100/0102	confederate.adj-noun;confederate.verb	2
+28	legitimate	legitimate	new-lemma	Y	add	class Y	legitimate: 1 entries, stress patterns 0100	legitimate.adj;legitimate.verb	2
+29	absent	absent	new-lemma	Y	add	class Y	absent: 1 entries, stress patterns 10	absent.adj;absent.verb	2
+30	orient	orient,orients	new-lemma	Y	add	class Y	orient: 1 entries, stress patterns 102	orient.noun;orient.verb	2
+31	overweight	overweight	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overweight: 1 entries, stress patterns 201		0
+32	row	rows	new-forms	Y	add	class Y	rows: 1 entries, stress patterns 1	row.line;row.argument	0
+33	essay	essay,essays	new-lemma	S	add	class S with distinct stress variants in CMUdict	essay: 2 entries, stress patterns 01/12	essay.noun;essay.verb	2
+34	overlap	overlap	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overlap: 1 entries, stress patterns 102		0
+35	overlook	overlook,overlooks	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overlook: 1 entries, stress patterns 102		0
+36	proceeds	proceeds	new-lemma	Y	add	class Y	proceeds: 2 entries, stress patterns 01	proceeds.noun;proceeds.verb	2
+37	conserve	conserve	new-lemma	Y	add	class Y	conserve: 1 entries, stress patterns 01	conserve.noun;conserve.verb	2
+38	discourse	discourse	new-lemma	Y	add	class Y	discourse: 1 entries, stress patterns 10	discourse.noun;discourse.verb	2
+39	relay	relay,relays	new-lemma	Y	add	class Y	relay: 1 entries, stress patterns 12	relay.noun;relay.verb	2
+40	bow	bows	new-forms	Y	add	class Y	bows: 2 entries, stress patterns 1	bow.bend;bow.weapon	0
+41	convoy	convoy	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	convoy: 1 entries, stress patterns 12		0
+42	overlay	overlay,overlays	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overlay: 1 entries, stress patterns 102		0
+43	recharge	recharge	new-lemma	Y	add	class Y	recharge: 1 entries, stress patterns 01	recharge.noun;recharge.verb	2
+44	augment	augment	new-lemma	Y	add	class Y	augment: 1 entries, stress patterns 01	augment.noun;augment.verb	2
+45	intercept	intercept	new-lemma	Y	add	class Y	intercept: 2 entries, stress patterns 201	intercept.noun;intercept.verb	2
+46	merchandise	merchandise	new-lemma	Y	add	class Y	merchandise: 1 entries, stress patterns 102	merchandise.noun;merchandise.verb	2
+47	reboot	reboot	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	reboot: 1 entries, stress patterns 01		0
+48	recoil	recoil	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	recoil: 1 entries, stress patterns 01		0
+49	underestimate	underestimate	new-lemma	Y	add	class Y	underestimate: 2 entries, stress patterns 10100/10102	underestimate.noun;underestimate.verb	2
+50	intern	intern,interns	new-lemma	Y	add	class Y	intern: 1 entries, stress patterns 10	intern.noun;intern.verb	2
+51	overdose	overdose	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overdose: 1 entries, stress patterns 102		0
+52	overload	overload	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overload: 1 entries, stress patterns 102		0
+53	overturn	overturn	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overturn: 1 entries, stress patterns 102		0
+54	primer	primer	new-lemma	R	add	class R	primer: 1 entries, stress patterns 10	primer.paint;primer.textbook	2
+55	overhaul	overhaul	new-lemma	S	defer	class S and CMUdict lists no distinct stress variants	overhaul: 1 entries, stress patterns 102		0
+56	replicate	replicate	new-lemma	Y	add	class Y	replicate: 1 entries, stress patterns 102	replicate.adj-noun;replicate.verb	2
+57	sewer	sewer	new-lemma	R	add	class R	sewer: 1 entries, stress patterns 10	sewer.drain;sewer.seamstress	2
+58	designate	designate	new-lemma	Y	add	class Y	designate: 2 entries, stress patterns 102	designate.adj;designate.verb	2
+59	mediate	mediate	new-lemma	Y	add	class Y	mediate: 1 entries, stress patterns 102	mediate.adj;mediate.verb	2
+60	nominate	nominate	new-lemma	Y	add	class Y	nominate: 2 entries, stress patterns 100/102	nominate.adj;nominate.verb	2

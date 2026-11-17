@@ -202,6 +202,16 @@ input-files:
   - docs/verification/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md
+  - docs/verification/speech-text-en/training-data-subsystem.md
+  - docs/verification/speech-text-en/training-data-subsystem/tsv-table.md
+  - docs/verification/speech-text-en/training-data-subsystem/text-en-data-set.md
+  - docs/verification/speech-text-en/training-data-subsystem/data-manifest.md
+  - docs/verification/speech-text-en/training-data-subsystem/span-validator.md
+  - docs/verification/speech-text-en/training-data-subsystem/check-report.md
+  - docs/verification/speech-text-en/training-data-subsystem/schema-checker.md
+  - docs/verification/speech-text-en/training-data-subsystem/license-checker.md
+  - docs/verification/speech-text-en/training-data-subsystem/leakage-checker.md
+  - docs/verification/speech-text-en/training-data-subsystem/check-data-command.md
   - docs/verification/speech-sherpa.md
   - docs/verification/speech-sherpa/model-management-subsystem.md
   - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

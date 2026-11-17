@@ -1,0 +1,71 @@
+id	reason	detail
+cand-00226	llm-skipped	labeler-v2: garbled
+cand-x00430	eval-near-duplicate	pos-eval-shapes-dev-defined-terms,pos-gold-v2,pos-open-dev,pos-open-test
+cand-x00431	eval-near-duplicate	pos-eval-shapes-dev-defined-terms,pos-gold-v2,pos-open-dev,pos-open-test
+ext-00330	eval-near-duplicate	pos-open-dev
+harvest-02062	eval-near-duplicate	pos-gold,pos-gold-v2
+harvest-02770	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02773	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02778	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02782	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02784	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02785	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02787	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02790	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02791	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02792	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02794	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-02795	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-03010	eval-near-duplicate	pos-gold,pos-gold-v2
+harvest-u00151	audit-drop	
+harvest-u00195	audit-drop	
+harvest-u00250	audit-drop	
+harvest-u00256	audit-drop	
+harvest-u00376	audit-drop	
+harvest-u00377	audit-drop	
+harvest-u00640	holdout-review-drop	ambiguous: no tense or sense cue
+harvest-u00641	holdout-review-drop	ambiguous: no tense or sense cue
+harvest-u00792	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00794	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00795	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00797	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00798	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00799	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00803	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00805	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00806	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00807	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00808	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00811	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u00812	eval-near-duplicate	pos-open-dev,pos-open-test
+harvest-u01113	audit-drop	
+hind-1143	consistency-drop	
+hind-1144	consistency-drop	
+hind-1145	consistency-drop	
+syn-06496	consistency-drop	
+syn-06513	consistency-drop	
+syn-06526	consistency-drop	
+syn-08506	audit-drop	
+syn0-2501	eval-exact	branch-gold-raw,branch-gold-tagged,heteronym-bench
+syn1-1253	eval-exact	heteronym-bench
+syn1-1512	eval-exact	heteronym-bench
+syn1-2507	eval-exact	heteronym-bench
+syn2-0-372	eval-near-duplicate	heteronym-bench
+syn2-0-417	consistency-drop	
+syn2-0-617	eval-exact	heteronym-bench
+syn2-395	eval-exact	branch-gold-raw,branch-gold-tagged
+syn2-964	eval-exact	branch-gold-raw,branch-gold-tagged
+syn3-0-105	template-in-dev	
+syn3-0-197	template-in-dev	
+syn3-0-204	template-in-dev	
+syn3-0-29	template-in-dev	
+syn3-0-318	template-in-dev	
+syn3-0-337	template-in-dev	
+syn3-0-8	template-in-dev	
+syn3-0-98	template-in-dev	
+syn3-1-109	template-in-dev	
+syn3-1-126	template-in-dev	
+syn3-1-185	template-in-dev	
+syn3-1-206	template-in-dev	
+syn3-1-71	template-in-dev	
+syn3-1-91	template-in-dev	
