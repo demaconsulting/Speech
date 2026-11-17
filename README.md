@@ -511,8 +511,10 @@ Copyright (c) DEMA Consulting. Licensed under the MIT License. See [LICENSE][lin
 details.
 
 The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU Pronouncing Dictionary
-(a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
-its `THIRD-PARTY-NOTICES.md` file at the package root.
+(a BSD-style license) and generated with misaki (Apache-2.0), and ships their license texts and attribution in
+its `THIRD-PARTY-NOTICES.md` file at the package root. misaki does not document the upstream provenance of its
+own dictionaries, which that file explains; the Kokoro lexicon is scheduled to be replaced by one generated solely
+from the CMU Pronouncing Dictionary.
 
 The `DemaConsulting.Speech.Text.En` package (pre-release) is licensed under the MIT License (its
 `PACKAGE-LICENSE.md` declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA
