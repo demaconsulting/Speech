@@ -4,6 +4,7 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 using DemaConsulting.Speech.Text.En.Tests.Fakes;
+using NuGet.Versioning;
 
 namespace DemaConsulting.Speech.Text.En.Tests;
 
@@ -346,38 +347,116 @@ public sealed class SpeechTextEnTests
         Assert.DoesNotContain(packageReferences.Keys, name => name.Contains("Onnx", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>The first version of the tagger package that clears its per-thread working buffers.</summary>
+    private const string TaggerRetentionFixVersion = "0.1.0-beta.5";
+
+    /// <summary>
+    ///     Tells whether a version is the same as or newer than a minimum version under Semantic Versioning 2.0.0
+    ///     precedence: the major, minor and patch numbers first, then a version without a prerelease label is newer
+    ///     than one with a label, and prerelease labels compare identifier by identifier (numeric identifiers
+    ///     numerically, others lexically, and a longer label wins when all its leading identifiers are equal).
+    /// </summary>
+    /// <param name="version">The version to check.</param>
+    /// <param name="minimum">The oldest acceptable version.</param>
+    /// <returns><see langword="true"/> when <paramref name="version"/> is not older than <paramref name="minimum"/>.</returns>
+    private static bool IsSameOrNewerVersion(string version, string minimum) =>
+        NuGetVersion.Parse(version).CompareTo(NuGetVersion.Parse(minimum)) >= 0;
+
+    /// <summary>Reads the exact version the project file pins the tagger package to.</summary>
+    /// <returns>The pinned version, without the surrounding exact-range brackets.</returns>
+    private static string ReadTaggerPin()
+    {
+        var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
+        var pin = project.Descendants("PackageReference")
+            .Where(element => (string?)element.Attribute("Include") == "DemaConsulting.PartOfSpeech")
+            .Select(element => (string?)element.Attribute("Version"))
+            .Single();
+        var range = VersionRange.Parse(pin ?? string.Empty);
+        Assert.True(
+            range.IsMinInclusive && range.IsMaxInclusive && range.MinVersion is not null && range.MinVersion == range.MaxVersion,
+            $"The pin '{pin}' is not an exact version, written [version]");
+        return range.MinVersion.ToNormalizedString();
+    }
+
     /// <summary>
     ///     Proves the pinned tagger package version is at least 0.1.0-beta.5, the first version that clears its
     ///     per-thread working buffers (upstream issue demaconsulting/PartOfSpeech#29), so the pin cannot be moved back
-    ///     to a version that retains analyzed text. The buffers themselves are private to the dependency and are
+    ///     to a version that retains analyzed text. A newer version, including a later prerelease such as
+    ///     0.1.0-rc.1 or a stable release, is accepted. The buffers themselves are private to the dependency and are
     ///     covered by the upstream package's own tests (see the PartOfSpeech verification document).
     /// </summary>
     [Fact]
     public void SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater()
     {
+        // Act
+        var pin = ReadTaggerPin();
+
+        // Assert: an exact pin whose version is not older than 0.1.0-beta.5
+        Assert.True(IsSameOrNewerVersion(pin, TaggerRetentionFixVersion), $"The pin '{pin}' is older than {TaggerRetentionFixVersion}");
+    }
+
+    /// <summary>Proves the version check follows Semantic Versioning 2.0.0 precedence: numeric prerelease identifiers compare numerically, a release is newer than its prereleases, and older versions are rejected.</summary>
+    /// <param name="version">The version to check against 0.1.0-beta.5.</param>
+    /// <param name="expected">Whether the version is accepted.</param>
+    [Theory]
+    [InlineData("0.1.0-beta.5", true)]
+    [InlineData("0.1.0-beta.6", true)]
+    [InlineData("0.1.0-beta.10", true)]
+    [InlineData("0.1.0-rc.1", true)]
+    [InlineData("0.1.0", true)]
+    [InlineData("0.2.0", true)]
+    [InlineData("0.1.0-beta.4", false)]
+    [InlineData("0.1.0-alpha.9", false)]
+    [InlineData("0.0.9", false)]
+    public void SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence(string version, bool expected)
+    {
+        // Act
+        var accepted = IsSameOrNewerVersion(version, TaggerRetentionFixVersion);
+
+        // Assert
+        Assert.Equal(expected, accepted);
+    }
+
+    /// <summary>
+    ///     Proves the package is packable only for a prerelease version while the tagger dependency it pins is a
+    ///     prerelease: the project is not packable by default, becomes packable only when the package version (the
+    ///     PackageVersion property when given, otherwise Version) has a hyphen before any build metadata, and the
+    ///     guard is gone once the pin is a stable version. A stable package may not depend on a prerelease package
+    ///     (NuGet NU5104), and the shared release workflow can pack a stable version.
+    /// </summary>
+    [Fact]
+    public void SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease()
+    {
         // Arrange
         var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
+        var taggerIsPrerelease = NuGetVersion.Parse(ReadTaggerPin()).IsPrerelease;
 
         // Act
-        var pin = project.Descendants("PackageReference")
-            .Where(element => (string?)element.Attribute("Include") == "DemaConsulting.PartOfSpeech")
-            .Select(element => (string?)element.Attribute("Version"))
-            .Single();
-        var match = System.Text.RegularExpressions.Regex.Match(pin ?? string.Empty, @"^\[(?<core>\d+\.\d+\.\d+)(?:-(?<label>[A-Za-z]+)\.(?<number>\d+))?\]$");
+        var isPackable = project.Descendants("IsPackable").ToList();
+        var effectiveVersion = project.Descendants("TextEnEffectiveVersion").ToList();
+        var versionCore = project.Descendants("TextEnVersionCore").Select(element => element.Value.Trim()).ToList();
 
-        // Assert: an exact pin whose version is not older than 0.1.0-beta.5 (a release without a label is newer)
-        Assert.True(match.Success, $"The pin '{pin}' is not an exact version of the form [major.minor.patch-label.number]");
-        var core = Version.Parse(match.Groups["core"].Value);
-        var fixedCore = new Version(0, 1, 0);
-        if (core == fixedCore && match.Groups["label"].Success)
+        // Assert
+        if (!taggerIsPrerelease)
         {
-            Assert.Equal("beta", match.Groups["label"].Value);
-            Assert.True(int.Parse(match.Groups["number"].Value, System.Globalization.CultureInfo.InvariantCulture) >= 5, $"The pin '{pin}' is older than 0.1.0-beta.5");
+            // The tagger is stable: the guard is obsolete and must be removed so a stable release publishes the package
+            Assert.Empty(isPackable);
+            Assert.Empty(effectiveVersion);
+            return;
         }
-        else
-        {
-            Assert.True(core >= fixedCore, $"The pin '{pin}' is older than 0.1.0-beta.5");
-        }
+
+        // Not packable by default (unconditional), packable again only under a prerelease condition
+        Assert.Single(isPackable, element => element.Attribute("Condition") is null && element.Value.Trim() == "false");
+        var enable = Assert.Single(isPackable, element => element.Attribute("Condition") is not null);
+        Assert.Equal("true", enable.Value.Trim());
+        Assert.Equal("$(TextEnVersionCore.Contains('-'))", (string?)enable.Attribute("Condition"));
+
+        // The version checked is PackageVersion when given (the workflows pass it to pack), otherwise Version,
+        // and build metadata after '+' is ignored
+        Assert.Contains(effectiveVersion, element => element.Attribute("Condition") is null && element.Value.Trim() == "$(Version)");
+        Assert.Contains(effectiveVersion, element =>
+            (string?)element.Attribute("Condition") == "'$(PackageVersion)' != ''" && element.Value.Trim() == "$(PackageVersion)");
+        Assert.Equal(["$(TextEnEffectiveVersion.Split('+')[0])"], versionCore);
     }
 
     /// <summary>Proves an abbreviation is described by an <c>en.norm</c> annotation over its exact source characters, the text itself is never changed, and unchanged words get no such annotation.</summary>

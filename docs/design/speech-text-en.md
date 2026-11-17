@@ -115,8 +115,9 @@ embedded lexicon tables, which are data written for this package, not a dependen
 The tagging package is pre-release software and is referenced with an exact-version pin, so a restore can
 never move to a different build and silently change the analysis. NuGet does not allow a stable package
 to depend on a pre-release package (warning NU5104), so a stable release of this package is blocked until
-`DemaConsulting.PartOfSpeech` publishes a stable version; until then this package is released only as a
-pre-release, in the same release line as the rest of the repository. The pin is at least 0.1.0-beta.5, the
+`DemaConsulting.PartOfSpeech` publishes a stable version; until then this package is packed and released only
+for a pre-release version (the project is not packable for a stable version; see *Release*), in the same
+release line as the rest of the repository. The pin is at least 0.1.0-beta.5, the
 first version that clears the tagger's working buffers (see *Retention Verification*).
 
 ## Risk Control Measures
@@ -744,13 +745,23 @@ are not retained by the adapter.
 
 ### Release
 
-The package is packable: `dotnet pack` for the solution produces `DemaConsulting.Speech.Text.En` like every
-other package, and the build's pack verification requires it. The license-file requirement is verified on
-the built package by the `TextEn_PackageLicenseFiles_Content` FileAssert test (the license file and the
-notices at the package root and the `.nuspec` license reference), together with the project-file and
-content tests that run against the repository files. NuGet does not allow a stable package to depend on a
-pre-release package (NU5104), so the package is released as a pre-release until the tagging package
-publishes a stable version.
+The package is packable only for a prerelease version. `DemaConsulting.Speech.Text.En.csproj` sets
+`IsPackable` to `false` and turns it back to `true` only when the effective package version (the
+`PackageVersion` property when given, as the build and release workflows do when they pack, otherwise
+`Version`) has a prerelease label, that is a hyphen before any build metadata; the local default version
+`0.0.0` is stable. `dotnet pack` for the solution with a prerelease version (for example `1.0.0-beta.1`, the
+`0.0.1-test` version of the build's pack verification, or the `0.0.0-run.N` version of a push build) produces
+`DemaConsulting.Speech.Text.En` like every other package, and the build's pack verification requires it;
+with a stable version (for example `1.0.0`) the project is skipped and every other package still packs. The
+shared release workflow packs every packable project with one version, which may be stable, and NuGet does not
+allow a stable package to depend on a prerelease package (NU5104), so without this guard a stable release would
+fail or publish an invalid package. The guard is temporary: it, and the requirement
+`SpeechTextEn-Packaging-PrereleaseOnly`, are removed once `DemaConsulting.PartOfSpeech` publishes a stable
+version and the pin moves to it (a test fails if the guard remains with a stable pin). The license-file
+requirement is verified on the built package by the `TextEn_PackageLicenseFiles_Content` FileAssert test (the
+license file and the notices at the package root and the `.nuspec` license reference; for a stable version no
+package is built and the test accepts the absence of one), together with the project-file and content tests that
+run against the repository files.
 
 ### Package License Files
 

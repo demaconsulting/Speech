@@ -385,6 +385,8 @@ does the same.
 `SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData`,
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime`,
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`,
+`SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence`,
+`SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease`,
 `TextEn_PackageLicenseFiles_Content`
 
 Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression)
@@ -395,13 +397,22 @@ embeds two small lexicon tables of its own, written from scratch by DEMA Consult
 and no third-party data; that the notices are scoped as a dependency notice, state that this package embeds
 no third-party data in this release, and reproduce the Manually Annotated Sub-Corpus
 and Open English WordNet attribution and the Princeton WordNet notice; that the project pins the tagging
-package with an exact version range, references only the Speech project, and references no ONNX package; and that
-the pinned tagging package version is 0.1.0-beta.5 or later, the first version that clears its working buffers (see
-*Retention* below). The first six run in the test project against the repository files; the last is a
-FileAssert test over the **built package**: the `.nupkg` contains `PACKAGE-LICENSE.md` (starting with the line
-`SPDX-License-Identifier: MIT` followed by the license heading, and naming `THIRD-PARTY-NOTICES.md`) and
-`THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the package root, and its `.nuspec`
-references `PACKAGE-LICENSE.md` as the license file.
+package with an exact version range, references only the Speech project, and references no ONNX package; that
+the pinned tagging package version is 0.1.0-beta.5 or later under Semantic Versioning 2.0.0 precedence (so a
+later prerelease such as 0.1.0-rc.1 or `0.1.0-beta.10` is accepted and `0.1.0-beta.4` is rejected; the theory
+runs the comparison on `0.1.0-beta.5`, `-beta.6`, `-beta.10`, `-rc.1`, `0.1.0`, `0.2.0` (accepted) and
+`0.1.0-beta.4`, `0.1.0-alpha.9`, `0.0.9` (rejected)), the first version that clears its working buffers (see
+*Retention* below); and that the project is packable only when the package version has a prerelease label
+(not packable by default; packable when the effective version, `PackageVersion` when given and otherwise
+`Version`, has a hyphen before any build metadata) for as long as the pinned tagging package is a prerelease,
+and carries no such guard once the pin is a stable version. The first seven run in the test project: the
+project-file and file-content tests read repository files, and the version-comparison theory exercises its
+comparison helper directly. The last, `TextEn_PackageLicenseFiles_Content`, is a FileAssert test over the
+**built package**, not a repository file: when a `.nupkg` was built (only for a prerelease version) it contains
+`PACKAGE-LICENSE.md` (starting with the line `SPDX-License-Identifier: MIT` followed by the license heading, and
+naming `THIRD-PARTY-NOTICES.md`) and `THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the
+package root, and its `.nuspec` references `PACKAGE-LICENSE.md` as the license file; for a stable version no
+package is built, and the test accepts the absence of a package (it rejects more than one).
 
 ### Retention
 
@@ -414,7 +425,8 @@ Retention of analyzed text has two parts. This library's own state is verified b
 this repository has no test that tags a sentinel and then a short string on one thread and inspects the buffer:
 that would need reflection or a memory scan of private state, which is not an acceptable substitute. Instead the
 upstream fix's own regression tests are cited by version in *PartOfSpeech Verification*, the pin test fails if
-the dependency is moved below the fixed version, and the remaining gap (no repository-owned test of the
+the dependency is moved below the fixed version (the comparison follows Semantic Versioning 2.0.0 precedence, so
+a later prerelease or a stable release is accepted), and the remaining gap (no repository-owned test of the
 dependency's private state) is stated there for the repository owner's approval.
 
 ## Acceptance Criteria

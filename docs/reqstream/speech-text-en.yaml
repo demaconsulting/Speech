@@ -554,7 +554,29 @@ sections:
           The analyzer's own state is verified by a weak-reference test.
         tests:
           - SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater
+          - SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence
           - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults
+
+      - id: SpeechTextEn-Packaging-PrereleaseOnly
+        title: >-
+          While the part-of-speech tagging package it depends on is a pre-release, the package
+          shall be packed only for a pre-release package version, so that a stable version packs
+          every other package and neither fails nor publishes a stable package that depends on a
+          pre-release one.
+        tags: [system]
+        justification: |
+          NuGet does not allow a stable package to depend on a pre-release package (NU5104).
+          The shared build and release workflows pack every packable project with one version,
+          and the release version can be stable, so the project is packable only when the
+          effective package version (PackageVersion when given, otherwise Version, ignoring
+          build metadata) has a prerelease label. A stable version then skips this project
+          and still packs the other packages, and a pre-release version, including the
+          versions of the push build and of the pack verification, packs it. This is a
+          temporary guard: the requirement and the guard are removed once
+          DemaConsulting.PartOfSpeech ships a stable release and the pin moves to it, and the
+          test fails if the guard outlives a pre-release pin.
+        tests:
+          - SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease
 
       - id: SpeechTextEn-Packaging-PinnedDependency
         title: >-

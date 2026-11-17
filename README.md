@@ -59,14 +59,14 @@ adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatte
 only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
 language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
-`DemaConsulting.Speech.Text.En` package (pre-release, depends on the `DemaConsulting.PartOfSpeech` tagger, which clears
-its working buffers so no analyzed text is retained, as the core `ITextAnalyzer` contract requires) supplies such an
-analyzer for English: `new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how
-abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned
-replacement spans over the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken
-by letter name; the text is never rewritten), supplies sentence boundaries, and lets a host override how individual
-words are spoken or pronounced with a dictionary of pronunciation overrides (`EnglishTextAnalyzerOptions.Overrides`,
-built in code or loaded from a tab-separated file; see the usage guide).
+`DemaConsulting.Speech.Text.En` package (pre-release, published only in pre-release versions, depends on the
+`DemaConsulting.PartOfSpeech` tagger, which clears its working buffers so no analyzed text is retained, as the core
+`ITextAnalyzer` contract requires) supplies such an analyzer for English: `new EnglishTextAnalyzer()` annotates each
+word with its part of speech, describes how abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates,
+times and units are spoken as aligned replacement spans over the original text (`en.norm` annotations, and `en.spell`
+annotations for letters that are spoken by letter name; the text is never rewritten), supplies sentence boundaries, and
+lets a host override how individual words are spoken or pronounced with a dictionary of pronunciation overrides
+(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide).
 
 ### PortAudio runtime support
 
