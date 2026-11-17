@@ -10,8 +10,8 @@ SpeechCli is a cross-platform .NET command-line tool, installed under the comman
 `speech-cli`, that exposes the Speech library's model
 management, audio device inspection, text-to-speech, and speech-to-text capabilities from the
 command line. Like SpeechDemo, it is a sibling system to Speech rather than a subsystem of it: it
-is separately built, separately versioned, it has its own users (command-
-line operators and scripts rather than an interactive desktop user), and the library must never
+is separately built, separately versioned, it has its own users (command-line
+operators and scripts rather than an interactive desktop user), and the library must never
 depend on it. How the tool is packaged and distributed (as a .NET global tool) is outside the scope
 of this design (see the introduction); only the constraints that packaging places on the design are
 noted under Platform Support.
@@ -132,8 +132,8 @@ symmetric to the synthesis pair, rather than introducing a second, competing sea
 ### ConversationCommandSubsystem
 
 **ConversationCommandSubsystem** covers the one voice-conversation subcommand -
-`ask` - which speaks a prompt and then listens for the reply, combining `speak`'s synthesis-then-
-play flow and `recognize --mic`'s mic-listen flow into a single invocation. It introduces no new
+`ask` - which speaks a prompt and then listens for the reply, combining `speak`'s synthesis-then-play
+flow and `recognize --mic`'s mic-listen flow into a single invocation. It introduces no new
 `ICliModelCatalog` seam member: it reuses the `CreateSynthesizerEngineAsync` and
 `CreateRecognizerEngineAsync` members exactly as `speak` and `recognize` already do individually.
 It adds the CLI-owned `ICliCaptureDeviceSource` seam for microphone resolution, and reuses
