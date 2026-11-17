@@ -266,7 +266,7 @@ public sealed class MyBackend : IAnnotatedSynthesisBackend
 }
 ```
 
-**English text analysis (preview; not yet published to NuGet).** Instead of writing your own analyzer, a model for
+**English text analysis (preview).** Instead of writing your own analyzer, a model for
 English can return the `EnglishTextAnalyzer` of the optional, pre-release `DemaConsulting.Speech.Text.En` package (it
 depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). Its analysis gives each word one annotation of kind
 `"en.upos"` whose value is the word's Universal Dependencies part of speech (for example `"NOUN"`), skips punctuation
@@ -339,15 +339,15 @@ word (see *Spelled letters*). Only `isSpelled` (the `"en.spell"` kind) means spe
 `"en.norm"` annotation is always spoken as words, whatever letters it holds, so never infer spelling from an
 `"en.norm"` value.
 
-*Preview note: retained text; not yet published to NuGet.* The analyzer itself keeps no reference to the
-text it analyzes after a call returns, but the pre-release `DemaConsulting.PartOfSpeech` tagger
-(0.1.0-beta.4) keeps the characters of analyzed words in a private per-thread buffer that it never clears,
-so analyzed words can remain in process memory after the request. That currently violates the core
-`ITextAnalyzer` contract, which requires an analyzer not to retain `text`
-([upstream issue](https://github.com/demaconsulting/PartOfSpeech/issues/29)). For that reason the
-`DemaConsulting.Speech.Text.En` package is **not yet published to NuGet**: it will not be published until
-the tagger is fixed and its version pin is updated. Until then it can be built from source only, and a
-host that must guarantee that no spoken text outlives a request must not rely on it.
+*Retained text.* The analyzer keeps no reference to the
+text it analyzes after a call returns. The pre-release `DemaConsulting.PartOfSpeech` tagger it uses keeps the
+characters of analyzed words in private per-thread buffers while it works; versions up to 0.1.0-beta.4 never
+cleared them, so analyzed words could remain in process memory after the request
+([upstream issue](https://github.com/demaconsulting/PartOfSpeech/issues/29)). The package pins version
+0.1.0-beta.5, which clears those buffers when each call ends, including when it throws, so the core `ITextAnalyzer`
+contract that an analyzer must not retain `text` is met. Managed strings that the tagger creates itself (for
+example the normalized copy of a non-ASCII word) cannot be cleared; a host with a strict memory-forensics
+requirement should account for that.
 
 ```csharp
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
@@ -612,7 +612,7 @@ The same text with a key that cannot match is simply left alone: `Mr. Smith` is 
 (`Mister Smith`) because a key cannot end with a period, and `Don't go` is not changed by a key for `Do`.
 
 *Preview note.* The override dictionary and the new annotation kinds are part of the same preview as the rest
-of the package: they are not yet published to NuGet (see the retained-text note above), and the details of the
+of the package: the details of the
 annotation values may still change before the first release.
 
 #### Further public building blocks for model authors

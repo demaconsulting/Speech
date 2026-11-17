@@ -8,14 +8,6 @@
     <RootNamespace>DemaConsulting.Speech.Text.En</RootNamespace>
     <AssemblyName>DemaConsulting.Speech.Text.En</AssemblyName>
 
-    <!-- RELEASE GATE: this package is NOT published (dotnet pack produces no package for it) until
-         DemaConsulting.PartOfSpeech fixes issue #29 (https://github.com/demaconsulting/PartOfSpeech/issues/29:
-         the tagger keeps the characters of analyzed tokens in a never-cleared thread-static buffer, which
-         violates the "must not retain the text" contract of the core ITextAnalyzer) and the pin below is
-         bumped to the fixed version. Remove this property only as part of that bump, together with the
-         release-gate steps in docs/design/speech-text-en.md. -->
-    <IsPackable>false</IsPackable>
-
     <!-- NuGet Package Configuration -->
     <PackageId>DemaConsulting.Speech.Text.En</PackageId>
     <Version>0.0.0</Version>
@@ -65,6 +57,26 @@
     <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
   </PropertyGroup>
 
+  <!-- Prerelease-only packing (TEMPORARY GUARD).
+       DemaConsulting.PartOfSpeech is published only as 0.1.0-beta.N, and a stable package may not
+       depend on a prerelease package (NuGet NU5104). The shared build and release workflows pack
+       every packable project with one version (the PackageVersion property), which may be
+       stable (for example 1.0.0), so this project is packable only when the package version carries
+       a prerelease label. A stable version skips this project (the other packages still pack); a
+       prerelease such as 1.0.0-beta.1 packs it. The effective version is PackageVersion when given
+       (as the workflows do) and Version otherwise; SemVer build metadata after '+' is ignored, so
+       only a hyphen in the version proper counts. The local default Version of 0.0.0 is stable, so
+       a plain local pack skips this project unless a prerelease version is passed.
+       REMOVE this guard (and its requirement SpeechTextEn-Packaging-PrereleaseOnly) once
+       DemaConsulting.PartOfSpeech ships a stable release and the pin below is moved to it. -->
+  <PropertyGroup>
+    <TextEnEffectiveVersion>$(Version)</TextEnEffectiveVersion>
+    <TextEnEffectiveVersion Condition="'$(PackageVersion)' != ''">$(PackageVersion)</TextEnEffectiveVersion>
+    <TextEnVersionCore>$(TextEnEffectiveVersion.Split('+')[0])</TextEnVersionCore>
+    <IsPackable>false</IsPackable>
+    <IsPackable Condition="$(TextEnVersionCore.Contains('-'))">true</IsPackable>
+  </PropertyGroup>
+
   <!-- Build Tool Dependencies -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
@@ -79,9 +91,10 @@
          restore can never float to a different build of the tagger and silently change the
          analysis. All use of it is confined to the internal PartOfSpeechAdapter; no PartOfSpeech
          type appears in this package's public API. Because a stable package may not depend on a
-         pre-release package (NU5104), a stable release of this package must wait until
+         pre-release package (NU5104), this package is packed only for a pre-release version (see
+         the prerelease-only packing guard above); a stable release of it must wait until
          DemaConsulting.PartOfSpeech publishes a stable version. -->
-    <PackageReference Include="DemaConsulting.PartOfSpeech" Version="[0.1.0-beta.4]" />
+    <PackageReference Include="DemaConsulting.PartOfSpeech" Version="[0.1.0-beta.5]" />
   </ItemGroup>
 
   <!-- Project References -->

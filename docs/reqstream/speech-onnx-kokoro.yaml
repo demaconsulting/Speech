@@ -129,6 +129,9 @@ sections:
           copyright notice and conditions to be reproduced in binary distributions) and misaki
           (Apache-2.0, which requires the license text to travel with the work), plus a tokenizer
           from the Apache-2.0 Kokoro export, while declaring only the MIT license for the code.
+          The upstream provenance and licensing of misaki's own dictionaries are undocumented, so
+          the notices state what is known and claim nothing beyond misaki's repository license;
+          the lexicon is scheduled to be replaced by one generated solely from CMUdict.
           A package can carry a license expression or a license file, so a combined license file
           is the way to let every applicable license travel with the package.
         tests:

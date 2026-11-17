@@ -41,19 +41,13 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     <para>
 ///     Instances are immutable and thread-safe: one analyzer may serve any number of concurrent
 ///     requests, and none keeps a reference to the analyzed text or to a result after the call
-///     returns. That statement covers this library's own state only. The tagger package keeps
-///     the characters of tokens it tagged in an internal per-thread working buffer that it
-///     never clears (upstream issue
+///     returns. The pinned tagger package (0.1.0-beta.5 or later) clears the working buffers in which
+///     it keeps the characters of the tokens it tags on every entry point, including when an
+///     exception is thrown (upstream issue
 ///     <see href="https://github.com/demaconsulting/PartOfSpeech/issues/29">demaconsulting/PartOfSpeech#29</see>),
-///     so words analyzed on a thread can remain recoverable from the process memory after the
-///     request; a host with a strict requirement that no text outlive a request must account
-///     for this until the tagger package is fixed.
-///     </para>
-///     <para>
-///     Because the core <c>ITextAnalyzer</c> contract requires an analyzer not to retain the text, this
-///     retention is a violation of that contract by the current tagger package. The
-///     <c>DemaConsulting.Speech.Text.En</c> package is therefore not packed or published until the
-///     tagger package fixes the issue and the version pin is updated.
+///     so the core <c>ITextAnalyzer</c> contract that an analyzer must not retain the text is met.
+///     Managed strings that the tagger package itself creates and the result objects it returns are
+///     outside what it can clear; this library keeps neither.
 ///     </para>
 /// </remarks>
 public sealed class EnglishTextAnalyzer : ITextAnalyzer

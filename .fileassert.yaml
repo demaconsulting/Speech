@@ -51,28 +51,37 @@ tests:
               text:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
-  # The Text.En project is currently not packable (IsPackable=false, gated on DemaConsulting.PartOfSpeech
-  # issue  # 29), so no .nupkg exists to inspect. This test therefore verifies the license files that the
-  # project packs, in the repository. Restore the original nupkg-based assertion (the zip entries
-  # PACKAGE-LICENSE.md and THIRD-PARTY-NOTICES.md at the package root and the nuspec license reference)
-  # when IsPackable is re-enabled; see the release gate in docs/design/speech-text-en.md.
   - name: TextEn_PackageLicenseFiles_Content
-    description: "Text.En package license file and dependency notice, the files its project packs, have the required content"
+    description: "Text.En NuGet package, when it is packed (only for a pre-release version), ships its license file and dependency notice at the package root and names the license file in its nuspec"
     tags: [api-docs]
     files:
-      - pattern: "src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md"
-        count: 1
-        text:
-          # The line break makes the match exact: the declaration is MIT only, never a longer expression that merely starts with MIT.
-          - contains: "SPDX-License-Identifier: MIT\n\n# License of the DemaConsulting.Speech.Text.En Package"
-          - contains: "THIRD-PARTY-NOTICES.md"
-      - pattern: "src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md"
-        count: 1
-        text:
-          - contains: "Dependency Notice"
-          - contains: "Princeton University"
-          - contains: "Manually Annotated Sub-Corpus"
-          - contains: "https://github.com/demaconsulting/PartOfSpeech/issues/29"
+      # Text.En is packed only for a pre-release version while its DemaConsulting.PartOfSpeech
+      # dependency is pre-release, so no package at all (min: 0) is valid for a stable version;
+      # when a package exists it must be exactly one and satisfy every check below.
+      - pattern: "src/DemaConsulting.Speech.Text.En/bin/Release/DemaConsulting.Speech.Text.En.*.nupkg"
+        min: 0
+        max: 1
+        zip:
+          files:
+            - pattern: "PACKAGE-LICENSE.md"
+              min: 1
+              max: 1
+              text:
+                # The line break makes the match exact: the declaration is MIT only, never a longer expression that merely starts with MIT.
+                - contains: "SPDX-License-Identifier: MIT\n\n# License of the DemaConsulting.Speech.Text.En Package"
+                - contains: "THIRD-PARTY-NOTICES.md"
+            - pattern: "THIRD-PARTY-NOTICES.md"
+              min: 1
+              max: 1
+              text:
+                - contains: "Dependency Notice"
+                - contains: "Princeton University"
+                - contains: "Manually Annotated Sub-Corpus"
+            - pattern: "DemaConsulting.Speech.Text.En.nuspec"
+              min: 1
+              max: 1
+              text:
+                - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
   # --- BUILD NOTES ---
 

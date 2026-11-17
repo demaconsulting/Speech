@@ -71,15 +71,21 @@ throws `ArgumentNullException`.
   always rendered with the one pronunciation misaki's isolated, no-context G2P call chose for
   that spelling - the same simplification every static-dictionary G2P makes.
 
-**Lexicon Provenance**: precomputed once, offline, by running the real `misaki.en.G2P` tool (the
-same phonemizer `hexgrad/kokoro` itself depends on) over every single-pronunciation, purely
+**Lexicon Provenance**: precomputed once, offline, by running misaki's English G2P (`misaki.en.G2P`, version 0.7.4;
+the phonemizer `hexgrad/kokoro` itself depends on) over every single-pronunciation, purely
 alphabetic word, plus every apostrophe contraction (for example "don't" or "can't"), in the
 CMUdict word list (BSD-style license; see the package's `THIRD-PARTY-NOTICES.md`), so every
 phoneme string this class ever emits was produced by the same tool Kokoro's own authors use, not
 by this library's own guesswork. The CMUdict license requires its copyright notice and conditions
 to be reproduced in binary distributions, and the misaki repository is distributed under
-Apache-2.0 (misaki does not document the upstream provenance of its dictionaries, which the
-notices state rather than claim more), so the package ships both notices (see *SpeechOnnxKokoro System Design*).
+Apache-2.0, so the package ships both notices (see *SpeechOnnxKokoro System Design*).
+misaki's G2P reads misaki's own gold and silver dictionaries as shipped; misaki does not document their
+upstream provenance, the misaki author states (issue 51 of the misaki repository) that the gold dictionaries
+derive from unnamed local IPA-labeled datasets and the silver dictionaries from espeak-ng 1.52 run over the
+`dwyl/english-words` list, and this repository has not independently verified those statements or the licensing
+of that data, so the notices claim nothing beyond misaki's Apache-2.0 repository license. **Planned
+replacement**: this lexicon is scheduled to be replaced in a later phase by one generated solely from the
+CMUdict word list; this unit's lookup contract does not change when that happens.
 Kokoro's phoneme encoding packs several common diphthongs and affricates into single, non-obvious
 Unicode characters (for example `I` represents the diphthong `/aɪ/` as in "life", and `O`
 represents `/oʊ/` as in "know") - confirmed empirically rather than assumed.

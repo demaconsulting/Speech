@@ -541,7 +541,7 @@ public sealed class EnglishTextAnalyzerTests
 
     /// <summary>
     ///     Proves the analyzer keeps no reference to the analyzed text or to its results after the call returns
-    ///     (this library's own state only; the tagger package's separate, documented text-retention limitation is not covered here).
+    ///     (this library's own state only; the tagger package's private working buffers are covered by the upstream package's tests).
     /// </summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults()

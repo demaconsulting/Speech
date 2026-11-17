@@ -73,7 +73,7 @@ public sealed class SpeechOnnxKokoroTests
         Assert.Contains(ThirdPartyNoticesFileName, text, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves the third-party notices attribute the embedded data to its sources with their license texts and claim no public-domain status.</summary>
+    /// <summary>Proves the third-party notices attribute the embedded data to its sources with their license texts, state the misaki provenance limits without over-claiming, and claim no public-domain status.</summary>
     [Fact]
     public void SpeechOnnxKokoro_ThirdPartyNotices_File_AttributesEmbeddedData()
     {
@@ -91,6 +91,13 @@ public sealed class SpeechOnnxKokoroTests
         Assert.Contains("hexgrad/misaki", text, StringComparison.Ordinal);
         Assert.Contains("cmusphinx/cmudict", text, StringComparison.Ordinal);
         Assert.DoesNotContain("public domain", text, StringComparison.OrdinalIgnoreCase);
+
+        // The misaki provenance statement: version, undocumented upstream data, unverified author statements, planned replacement
+        var flat = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
+        Assert.Contains("version 0.7.4", flat, StringComparison.Ordinal);
+        Assert.Contains("does not document the upstream provenance", flat, StringComparison.Ordinal);
+        Assert.Contains("We have not independently verified these statements or the licensing of the upstream data", flat, StringComparison.Ordinal);
+        Assert.Contains("scheduled to be replaced by one generated solely from the CMU Pronouncing Dictionary", flat, StringComparison.Ordinal);
     }
 
     /// <summary>Finds a file in the repository by walking up from the test output folder to the repository root.</summary>

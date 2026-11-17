@@ -21,17 +21,6 @@ The notices below are reproduced from the `THIRD-PARTY-NOTICES.md` of `DemaConsu
 repository. The complete notices of that package, including courtesy notices for sources that do not require
 attribution, are shipped in that package.
 
-## Known Limitation of the Dependency: Text Retention
-
-`DemaConsulting.PartOfSpeech` 0.1.0-beta.4 keeps the characters of the tokens it tags in a per-thread working buffer
-that it never clears, so words analyzed on a thread can remain recoverable from the process memory after the request
-ends. This package keeps no reference to the analyzed text or to its results after a call returns, but it cannot clear
-the dependency's private buffer, so `EnglishTextAnalyzer` currently does not meet the core `ITextAnalyzer` contract
-that an analyzer must not retain the text. The issue is tracked upstream at
-<https://github.com/demaconsulting/PartOfSpeech/issues/29>. For that reason this package is not yet published to
-NuGet: it is gated until the dependency is fixed and the pin is bumped. A host that builds it from source and has a
-strict requirement that no analyzed text outlive a request must account for this.
-
 ## Data Embedded in This Package
 
 None in this release. This package embeds no third-party data. The only data it embeds are two small lexicon tables

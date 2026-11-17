@@ -59,15 +59,14 @@ adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatte
 only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
 language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
-`DemaConsulting.Speech.Text.En` package (pre-release, depends on the `DemaConsulting.PartOfSpeech` tagger; **not yet
-published to NuGet**, because that tagger currently retains analyzed text, which violates the core `ITextAnalyzer`
-contract - see [PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an
-analyzer for English: `new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how
-abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned
-replacement spans over the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken
-by letter name; the text is never rewritten), supplies sentence boundaries, and lets a host override how individual
-words are spoken or pronounced with a dictionary of pronunciation overrides (`EnglishTextAnalyzerOptions.Overrides`,
-built in code or loaded from a tab-separated file; see the usage guide).
+`DemaConsulting.Speech.Text.En` package (pre-release, published only in pre-release versions, depends on the
+`DemaConsulting.PartOfSpeech` tagger, which clears its working buffers so no analyzed text is retained, as the core
+`ITextAnalyzer` contract requires) supplies such an analyzer for English: `new EnglishTextAnalyzer()` annotates each
+word with its part of speech, describes how abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates,
+times and units are spoken as aligned replacement spans over the original text (`en.norm` annotations, and `en.spell`
+annotations for letters that are spoken by letter name; the text is never rewritten), supplies sentence boundaries, and
+lets a host override how individual words are spoken or pronounced with a dictionary of pronunciation overrides
+(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide).
 
 ### PortAudio runtime support
 
@@ -512,10 +511,12 @@ Copyright (c) DEMA Consulting. Licensed under the MIT License. See [LICENSE][lin
 details.
 
 The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU Pronouncing Dictionary
-(a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
-its `THIRD-PARTY-NOTICES.md` file at the package root.
+(a BSD-style license) and generated with misaki (Apache-2.0), and ships their license texts and attribution in
+its `THIRD-PARTY-NOTICES.md` file at the package root. misaki does not document the upstream provenance of its
+own dictionaries, which that file explains; the Kokoro lexicon is scheduled to be replaced by one generated solely
+from the CMU Pronouncing Dictionary.
 
-The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its
+The `DemaConsulting.Speech.Text.En` package (pre-release) is licensed under the MIT License (its
 `PACKAGE-LICENSE.md` declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA
 Consulting wrote from scratch under the MIT License; it embeds no third-party data. It depends on the separate
 `DemaConsulting.PartOfSpeech` package, which carries its own license files and embeds data adapted from Open English

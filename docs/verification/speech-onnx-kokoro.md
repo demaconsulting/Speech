@@ -95,7 +95,9 @@ Verifies that the project file names `PACKAGE-LICENSE.md` as the package license
 expression) and packs both it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file
 starts with the package's SPDX expression, contains the MIT license text for the code and covers both
 embedded data files by name; and that the third-party notices attribute the embedded data to CMUdict
-(with its verbatim license text) and misaki (with the Apache-2.0 text), and make no public-domain
+(with its verbatim license text) and misaki (with the Apache-2.0 text), state the misaki version, record the
+undocumented upstream provenance of misaki's dictionaries as unverified statements of its author, and name the
+planned replacement of the lexicon, and make no public-domain
 claim. The first three tests run in the Kokoro test project against the repository files; the last is
 a FileAssert test that, after `dotnet pack`, confirms the built `.nupkg` contains both files and that
 its `.nuspec` references the license file.

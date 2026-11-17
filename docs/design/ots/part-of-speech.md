@@ -62,14 +62,15 @@ own package reproduces as a dependency notice (see *SpeechTextEn System Design*)
 pre-release package, a stable release of SpeechTextEn is blocked until the package publishes a stable
 version (NuGet warning NU5104).
 
-### Known Limitation: Text Retention
+### Text Retention
 
-`DemaConsulting.PartOfSpeech` 0.1.0-beta.4 keeps the characters of the tokens it decodes in a thread-static
-working buffer of its tag decoder that it never clears, so words analyzed on a thread remain recoverable
-from the process memory after the request has returned, although the analyzer holds no reference to the
-text or the results. This library cannot fix it and does not reach into the dependency's private state; the
-defect is filed upstream as <https://github.com/demaconsulting/PartOfSpeech/issues/29>. Requirements and
-tests that say SpeechTextEn "retains no text" are scoped to this library's own state. Moving the exact
-version pin to a release that clears the buffer closes the limitation; until then the SpeechTextEn package is
-gated (not packed or published) and a host that builds it from source with a strict no-retained-text
-requirement must account for it (see *SpeechTextEn System Design*, *Known Limitations* and *Release Gate*).
+`DemaConsulting.PartOfSpeech` 0.1.0-beta.4 and earlier kept the characters of the tokens they decoded in
+thread-static working buffers that were never cleared, so words analyzed on a thread remained recoverable
+from the process memory after the request had returned (upstream issue
+<https://github.com/demaconsulting/PartOfSpeech/issues/29>). Version 0.1.0-beta.5, the version pinned in
+`DemaConsulting.Speech.Text.En.csproj`, clears the decoder and glossary workspaces in a `finally` block on every
+public entry point (upstream pull request <https://github.com/demaconsulting/PartOfSpeech/pull/30>), so the
+core `ITextAnalyzer` no-retention contract can be met. Managed strings that the package itself creates (for
+example the normalized copy of a non-ASCII token) and the result objects it returns are not cleared; SpeechTextEn
+keeps neither. The workspaces are private and this repository does not inspect them (see *SpeechTextEn System
+Design*, *Retention Verification*, and *PartOfSpeech Verification*).
