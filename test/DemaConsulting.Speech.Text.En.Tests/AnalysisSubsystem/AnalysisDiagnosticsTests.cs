@@ -81,4 +81,106 @@ public sealed class AnalysisDiagnosticsTests
         Assert.Null(exception);
         Assert.Single(sink.Events);
     }
+
+    /// <summary>Proves the heteronym event is one Info event in its own category, built from the counts and the threshold, and the existing request event is untouched.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_ReportReadings_Counts_ReceivesOneInfoEventInHeteronymCategory()
+    {
+        // Arrange
+        var sink = new RecordingDiagnostics();
+        var diagnostics = new AnalysisDiagnostics(sink);
+
+        // Act
+        diagnostics.ReportReadings(new ReadingCounts(3, 2, 1, 1), 0.6);
+
+        // Assert
+        var reported = Assert.Single(sink.Events);
+        Assert.Equal(SpeechDiagnosticLevel.Info, reported.Level);
+        Assert.Equal("TextEn.Heteronym", reported.Category);
+        Assert.Equal("Assigned 6 heteronym readings: 3 classified, 2 single-candidate, 1 by override, 1 below confidence 0.60.", reported.Message);
+    }
+
+    /// <summary>Proves the heteronym message uses invariant digits and a period under a culture with other digits and separators, and contains only fixed words and numbers.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers()
+    {
+        // Arrange
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("ar-SA");
+
+            // Act
+            var message = AnalysisDiagnostics.FormatReadingMessage(new ReadingCounts(1234, 5, 6, 7), 0.5);
+
+            // Assert
+            Assert.Equal("Assigned 1245 heteronym readings: 1234 classified, 5 single-candidate, 6 by override, 7 below confidence 0.50.", message);
+            Assert.Matches(new Regex(@"^Assigned \d+ heteronym readings: \d+ classified, \d+ single-candidate, \d+ by override, \d+ below confidence \d\.\d\d\.$", RegexOptions.CultureInvariant), message);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    /// <summary>Proves no heteronym event is reported when no reading was assigned, even with a sink.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_ReportReadings_NothingAssigned_ReportsNothing()
+    {
+        // Arrange
+        var sink = new RecordingDiagnostics();
+        var diagnostics = new AnalysisDiagnostics(sink);
+
+        // Act
+        diagnostics.ReportReadings(new ReadingCounts(0, 0, 0, 0), 0.6);
+
+        // Assert
+        Assert.Empty(sink.Events);
+        Assert.Equal(0, new ReadingCounts(0, 0, 0, 0).Assigned);
+    }
+
+    /// <summary>Proves the model warning is one fixed Warning message in its own category that names neither a file nor any text.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning()
+    {
+        // Arrange
+        var sink = new RecordingDiagnostics();
+        var diagnostics = new AnalysisDiagnostics(sink);
+
+        // Act
+        diagnostics.ReportModelProblem();
+
+        // Assert
+        var reported = Assert.Single(sink.Events);
+        Assert.Equal(SpeechDiagnosticLevel.Warning, reported.Level);
+        Assert.Equal("TextEn.Model", reported.Category);
+        Assert.Equal("Heteronym model unusable (invalid or incompatible file); readings disabled.", reported.Message);
+    }
+
+    /// <summary>Proves the heteronym and model reports tolerate a missing sink and a sink that throws.</summary>
+    [Fact]
+    public void AnalysisDiagnostics_ReportReadingsAndModelProblem_NullOrThrowingSink_AreContained()
+    {
+        // Arrange
+        var throwing = new RecordingDiagnostics(throwOnReport: true);
+
+        // Act
+        var none = Record.Exception(() =>
+        {
+            var diagnostics = new AnalysisDiagnostics(null);
+            diagnostics.ReportReadings(new ReadingCounts(1, 0, 0, 0), 0.6);
+            diagnostics.ReportModelProblem();
+        });
+        var thrown = Record.Exception(() =>
+        {
+            var diagnostics = new AnalysisDiagnostics(throwing);
+            diagnostics.ReportReadings(new ReadingCounts(1, 0, 0, 0), 0.6);
+            diagnostics.ReportModelProblem();
+        });
+
+        // Assert
+        Assert.Null(none);
+        Assert.Null(thrown);
+        Assert.Equal(2, throwing.Events.Count);
+    }
 }

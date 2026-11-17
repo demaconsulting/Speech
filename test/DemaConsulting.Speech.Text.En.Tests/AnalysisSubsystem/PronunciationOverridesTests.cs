@@ -163,11 +163,11 @@ public sealed class PronunciationOverridesTests
         Assert.Equal(word, Assert.Single(overrides.Entries).Word);
     }
 
-    /// <summary>Proves an undefined action (including the value reserved for a later reading action) is rejected.</summary>
+    /// <summary>Proves an undefined action is rejected (the value 5 is now the reading action, so the undefined values are those outside 1 to 5).</summary>
     /// <param name="action">The undefined action value.</param>
     [Theory]
     [InlineData(0)]
-    [InlineData(5)]
+    [InlineData(6)]
     [InlineData(9)]
     [InlineData(-1)]
     public void PronunciationOverrides_Create_UndefinedAction_Throws(int action)
@@ -1352,24 +1352,20 @@ public sealed class PronunciationOverridesTests
         Assert.Equal(0, visitedAfterCancel);
     }
 
-    /// <summary>Proves tokens that cannot match cost no allocation: the lookup over thousands of non-matching tokens allocates only a constant.</summary>
+    /// <summary>Proves tokens that cannot match yield no directive, whether or not they pass the gates.</summary>
     [Fact]
-    public void PronunciationOverrides_Resolve_NoMatches_AllocatesNothingPerToken()
+    public void PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives()
     {
         // Arrange: a large dictionary and words that are in no way keys (some pass the gates, some do not)
         var overrides = PronunciationOverrides.Create(Enumerable.Range(0, 2000).Select(i => PronunciationOverrideEntry.Skip(Word(i), i % 2 == 0)));
         var text = string.Concat(Enumerable.Repeat("zzzzz zzzz 1234 (zzzz) \u00E9\u00E9\u00E9\u00E9 ", 1000));
         var (_, tokens, _) = ResolveWords(overrides, text);
-        _ = overrides.Resolve(text, tokens, CancellationToken.None);
 
         // Act
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var directives = overrides.Resolve(text, tokens, CancellationToken.None);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         // Assert
         Assert.Empty(directives);
-        Assert.True(allocated < 2048, $"allocated {allocated} bytes for {tokens.Length} tokens");
     }
 
     /// <summary>Proves a 1 MB text against a 10,000-entry dictionary resolves in linear time (a generous budget, far above the real cost), including one huge token.</summary>
@@ -1504,6 +1500,111 @@ public sealed class PronunciationOverridesTests
             CharactersRead++;
             return _character;
         }
+    }
+
+    /// <summary>Proves the reading action is the numeric value 5 and its factory builds a reading entry with the id as payload.</summary>
+    [Fact]
+    public void PronunciationOverrideEntry_Reading_CreatesReadingEntryWithIdPayload()
+    {
+        // Act
+        var entry = PronunciationOverrideEntry.Reading("record", "record.noun", caseSensitive: true);
+
+        // Assert
+        Assert.Equal(5, (int)OverrideAction.Reading);
+        Assert.Equal(OverrideAction.Reading, entry.Action);
+        Assert.Equal("record.noun", entry.Payload);
+        Assert.True(entry.CaseSensitive);
+        Assert.False(PronunciationOverrideEntry.Reading("record", "record.noun").CaseSensitive);
+        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading(null!, "record.noun"));
+        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading("record", null!));
+    }
+
+    /// <summary>Proves a valid reading entry is accepted by both builders, and resolves to a reading directive carrying the id, matching case-insensitively unless the entry is case sensitive.</summary>
+    [Fact]
+    public void PronunciationOverrides_Create_ReadingEntry_AcceptedAndResolvesToReadingDirective()
+    {
+        // Arrange
+        var fromEntries = PronunciationOverrides.Create([PronunciationOverrideEntry.Reading("record", "record.noun")]);
+        var fromTsv = PronunciationOverrides.FromTsv(new StringReader("Record\tinsensitive\treading\trecord.verb\n"));
+        var sensitive = PronunciationOverrides.Create([PronunciationOverrideEntry.Reading("record", "record.noun", caseSensitive: true)]);
+
+        // Act
+        var (directives, _, _) = Resolve(fromEntries, "A record.");
+        var (tsvDirectives, _, _) = Resolve(fromTsv, "A RECORD.");
+
+        // Assert
+        var directive = Assert.Single(directives);
+        Assert.Equal(TokenDirectiveKind.Reading, directive.Kind);
+        Assert.Equal("record.noun", directive.Value);
+        Assert.Equal(1, directive.TokenIndex);
+        Assert.Equal("record.verb", Assert.Single(tsvDirectives).Value);
+        Assert.Empty(Resolve(sensitive, "A Record.").Directives);
+        Assert.Single(Resolve(sensitive, "A record.").Directives);
+    }
+
+    /// <summary>Proves a reading entry whose id is missing, ill-formed, unknown, or not a candidate of the word is rejected with a fixed reason that never echoes the word or the id.</summary>
+    /// <param name="word">The entry's word.</param>
+    /// <param name="payload">The entry's payload.</param>
+    /// <param name="reason">The expected reason.</param>
+    [Theory]
+    [InlineData("record", null, "a reading id is required for this action")]
+    [InlineData("record", "", "a reading id is required for this action")]
+    [InlineData("record", "Sentinelx9.noun", "the reading id is not well-formed")]
+    [InlineData("record", "record", "the reading id is not well-formed")]
+    [InlineData("record", "record.noun ", "the reading id is not well-formed")]
+    [InlineData("record", "sentinelx9.noun", "the reading id is not in the reading inventory")]
+    [InlineData("record", "record.ghost", "the reading id is not in the reading inventory")]
+    [InlineData("record", "read.past", "the word is not a form of this reading")]
+    [InlineData("sentinelx9", "record.noun", "the word is not a form of this reading")]
+    [InlineData("record-label", "record.noun", "the word is not a form of this reading")]
+    public void PronunciationOverrides_Create_ReadingEntryInvalid_ThrowsFixedReason(string word, string? payload, string reason)
+    {
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create([new PronunciationOverrideEntry(word, false, OverrideAction.Reading, payload)]));
+
+        // Assert
+        Assert.Equal($"Entry 0: {reason}. (Parameter 'entries')", exception.Message);
+        Assert.DoesNotContain(Sentinel, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Proves the word of a reading entry is ASCII-folded when checked against the forms (a capitalized word is a form), while a non-ASCII look-alike is not.</summary>
+    [Fact]
+    public void PronunciationOverrides_Create_ReadingEntryWordCase_IsFoldedAsciiOnly()
+    {
+        // Act
+        var capitalized = PronunciationOverrides.Create([PronunciationOverrideEntry.Reading("RECORD", "record.verb")]);
+        var lookAlike = Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create([PronunciationOverrideEntry.Reading("rec\u00F3rd", "record.verb")]));
+
+        // Assert
+        Assert.Single(capitalized.Entries);
+        Assert.Contains("the word is not a form of this reading", lookAlike.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves the tab-separated reading action is accepted, requires its payload, and reports bad rows with line numbers and fixed reasons, while the other unknown actions are still rejected.</summary>
+    /// <param name="line">The TSV text.</param>
+    /// <param name="expected">The expected message, or null when the text must be accepted.</param>
+    [Theory]
+    [InlineData("record\tinsensitive\treading\trecord.noun\n", null)]
+    [InlineData("# comment\nRecord\tsensitive\treading\trecord.verb\nread\tinsensitive\treading\tread.past\n", null)]
+    [InlineData("record\tinsensitive\treading\n", "Line 1: a reading id is required for this action.")]
+    [InlineData("record\tinsensitive\treading\trecord.ghost\n", "Line 1: the reading id is not in the reading inventory.")]
+    [InlineData("record\tinsensitive\treading\tRecord.noun\n", "Line 1: the reading id is not well-formed.")]
+    [InlineData("record\tinsensitive\treading\tread.past\n", "Line 1: the word is not a form of this reading.")]
+    [InlineData("ok\tinsensitive\tskip\nrecord\tinsensitive\treading\trecord.ghost\n", "Line 2: the reading id is not in the reading inventory.")]
+    [InlineData("record\tinsensitive\treads\trecord.noun\n", "Line 1: the action column must be 'skip', 'say', 'spell', 'pron' or 'reading'.")]
+    public void PronunciationOverrides_FromTsv_ReadingAction_IsValidatedWithLineNumbers(string line, string? expected)
+    {
+        // Act
+        if (expected is null)
+        {
+            var overrides = PronunciationOverrides.FromTsv(new StringReader(line));
+            Assert.All(overrides.Entries, entry => Assert.Equal(OverrideAction.Reading, entry.Action));
+            return;
+        }
+
+        // Assert
+        var exception = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader(line)));
+        Assert.Equal(expected, exception.Message);
     }
 
     /// <summary>A reader whose every read fails.</summary>

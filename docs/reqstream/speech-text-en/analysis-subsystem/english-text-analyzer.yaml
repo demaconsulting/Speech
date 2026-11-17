@@ -6,7 +6,10 @@
 # decomposing the parent SpeechTextEn AnalysisSubsystem requirements. Each requirement states one
 # observable behavior.
 #
-# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs.
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs and, for the
+# heteronym reading requirements,
+# test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -172,18 +175,15 @@ sections:
                   kind whose value is the spoken form (an empty value for a dropped character),
                   shall merge these with the part-of-speech annotations in text order with the part
                   of speech first at an equal start, shall run the normalization without loading
-                  the tagger, shall never change the analyzed text, and shall build no detail lists
-                  in the language-neutral analysis.
+                  the tagger, and shall never change the analyzed text.
                 justification: |
                   Backends read the spoken form from the annotation on the span, in the order the
                   Speech library delivers them, and a host that selects only normalization must
-                  not pay for the tagger; the language-neutral path is the hot path, so the detail
-                  that only the richer result needs is not built for it.
+                  not pay for the tagger.
                 tests:
                   - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
                   - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
                   - EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt
-                  - EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
                 title: >-
@@ -222,19 +222,18 @@ sections:
                   pronunciation dictionary and select normalization, annotate each word the
                   dictionary matches on exactly that token with a normalization annotation (a say
                   entry), a spell-out annotation (a spell entry), a pronunciation annotation (a
-                  pronounce entry) or no annotation (a skip entry), shall still emit the
+                  pronounce entry) or no annotation (a skip entry; a reading entry is covered by
+                  SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingOverride), shall still emit the
                   part-of-speech annotation of the word before it, shall annotate around a tag
                   placeholder, shall list a say or spell override in the detailed analysis with the
                   override kind, shall return the same annotations and breaks from both analysis
-                  methods, shall never change the sentence breaks, and shall allocate nothing per
-                  token for a dictionary that matches nothing.
+                  methods, and shall never change the sentence breaks.
                 justification: |
                   An override changes how one word is spoken, so it must sit on exactly that word
                   and in the order a backend expects, beside the part of speech that selects among
                   the readings of other words; the dictionary decides how a word is spoken, never
                   where a sentence ends, including when the word is an abbreviation whose period
-                  the tokenizer separates, and the common case of a dictionary that matches nothing
-                  in most requests must stay cheap.
+                  the tokenizer separates.
                 tests:
                   - EnglishTextAnalyzer_Analyze_SayOverride_EmitsNormAndKeepsPartOfSpeech
                   - EnglishTextAnalyzer_Analyze_SpellOutOverride_EmitsSpell
@@ -246,7 +245,6 @@ sections:
                   - EnglishTextAnalyzer_Analyze_OverridesDoNotChangeSentenceBreaks
                   - EnglishTextAnalyzer_Analyze_OverridesOnAbbreviations_DoNotChangeSentenceBreaks
                   - EnglishTextAnalyzer_Analyze_GoldenCases_MatchThroughThePublicApi
-                  - EnglishTextAnalyzer_Analyze_OverridesWithoutHits_AddNoPerTokenAllocation
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-OverridesRequireNormalization
                 title: >-
@@ -283,3 +281,150 @@ sections:
                   - EnglishTextAnalyzer_Analyze_WordReplacement_StaysNorm
                   - EnglishTextAnalyzer_Analyze_AmpersandInitialism_EmitsLetterSpansAndAndNorm
                   - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_EmitsNoSpell
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingAnnotations
+                title: >-
+                  The EnglishTextAnalyzer class shall, when its options select the reading family
+                  and a heteronym model is available, annotate each token that is a whole form of
+                  the reading inventory (in any letter case, sentence-initial or possessive, but
+                  not part of a hyphenated compound) with an annotation of the reading kind whose
+                  value is the reading id and one of the reading-confidence kind whose value is
+                  the confidence written with an invariant period and three decimals under any
+                  culture, both on exactly the span of the token (also across a tag placeholder),
+                  in text order with the part-of-speech annotation first, shall decide the reading
+                  from the tokens of the word's own sentence, and shall give identical results to
+                  any number of concurrent requests.
+                justification: |
+                  The two annotations are the analyzer's answer to which of its readings a word
+                  has; they sit on exactly the word so that the Speech library can re-base them onto
+                  a chunk, the confidence is text a backend must be able to parse under any
+                  culture, and the context is the sentence because that is what the model was
+                  trained on. A shared analyzer serves many threads.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_RecordSentence_EmitsReadingPairsOnExactSpansAfterPartOfSpeech
+                  - EnglishTextAnalyzer_Analyze_WordShapes_ReadingOnWholeTokenOnly
+                  - EnglishTextAnalyzer_Analyze_TagPlaceholders_KeepOffsetsAndReadings
+                  - EnglishTextAnalyzer_Analyze_MultipleSentences_ReadingsMatchSingleSentenceAnalysis
+                  - EnglishTextAnalyzer_Analyze_ConfidenceText_IsInvariantUnderTurkishAndFrenchCultures
+                  - EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
+                title: >-
+                  The EnglishTextAnalyzer class shall emit no reading and no confidence for a token
+                  that carries or lies inside a normalization, a spell-out or a pronunciation
+                  annotation, nor for a token that has a skip, say, spell-out or pronunciation
+                  override, while still annotating the other heteronym words of the text.
+                justification: |
+                  A span that another rule has replaced, spelled or pronounced already has its
+                  spoken form, and a reading on it would contradict that form; the user's override is
+                  a decision that a guess must not overrule. The coexistence rules of the design
+                  allow the reading only beside the part of speech on the same span.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_MixedCorpus_ReadingNeverOverlapsReplacementOrPronunciation
+                  - EnglishTextAnalyzer_Analyze_OtherOverridesOnHeteronym_SuppressClassifier
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingOverride
+                title: >-
+                  The EnglishTextAnalyzer class shall emit, for a token that has a reading
+                  override, that reading id with a confidence of 1.000 on the token's span without
+                  loading or needing any model and without consulting the classifier, shall count
+                  it as applied and as set by override, and shall emit nothing for it when the
+                  reading family is not selected.
+                justification: |
+                  A reading override is the host's decision, so it needs no model and no doubt, and
+                  it has to beat the classifier; when the family is not selected the host asked for
+                  no readings, so the override must not produce any.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel
+                  - EnglishTextAnalyzer_Analyze_ReadingOverrideWithoutReadingFamily_EmitsNothing
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSingleCandidate
+                title: >-
+                  The EnglishTextAnalyzer class shall give a token whose form has exactly one
+                  candidate reading that reading with a confidence of 1.000, counted as
+                  single-candidate, only when a heteronym model is available, and none otherwise.
+                justification: |
+                  A single-candidate form is certain, but its reading belongs to the same family as
+                  the classified ones, so a host that has no model sees no reading at all rather
+                  than a partial family that depends on the inventory.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingTaggingRule
+                title: >-
+                  The EnglishTextAnalyzer class shall tag the text for the context of a reading
+                  when readings are active even if the part-of-speech family is not selected,
+                  without emitting a part-of-speech annotation or a tag in the detailed tokens in
+                  that case, and shall neither open a model nor create the tagger when the reading
+                  family is not selected.
+                justification: |
+                  The classifier uses the part of speech as context, but a host that selects only
+                  readings did not ask for tags in the output, and a host that does not select
+                  readings must not pay for the model or the tagger.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_ReadingOnlySelection_EmitsReadingsWithoutPartOfSpeech
+                  - EnglishTextAnalyzer_Analyze_ReadingNotSelected_NeverOpensModelOrTagger
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
+                title: >-
+                  The EnglishTextAnalyzer class shall, when no heteronym model is available (the
+                  case of an analyzer built with the options only, since this release embeds none),
+                  emit no reading or confidence annotation and create no tagger on account of
+                  readings, so that its output is unchanged from a release without readings.
+                justification: |
+                  A host that upgrades to this release must see no change in output or cost until a
+                  model is supplied; the reading feature is inert without one.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingLazyModel
+                title: >-
+                  The EnglishTextAnalyzer class shall not open the heteronym model at construction,
+                  for an empty text or for a text without a word of the inventory, and shall open
+                  it once for any number of later requests.
+                justification: |
+                  Loading the model is the expensive step; an analyzer that is never asked about a
+                  heteronym must never pay for it, and an analyzer that is must pay once.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
+                title: >-
+                  The EnglishTextAnalyzer class shall continue without readings, reporting one
+                  warning per analyzer however many requests follow, when the heteronym model is
+                  damaged or was trained for a newer inventory, and shall stay silent when the
+                  model is merely absent.
+                justification: |
+                  A model that cannot be used must not stop speech, and a host should be told once
+                  rather than on every request; an absent model is the normal state of this
+                  release and needs no warning.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
+                  - EnglishTextAnalyzer_Analyze_IncompatibleModel_NoReadingsAndOneWarning
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingCancellation
+                title: >-
+                  The EnglishTextAnalyzer class shall check the cancellation token before every
+                  classification of a candidate word and throw OperationCanceledException, without
+                  returning a result, reporting an event or (for a token canceled beforehand)
+                  opening the model, when it is canceled before any work, between candidate words
+                  or while the last one is classified.
+                justification: |
+                  A text can hold many heteronym words and each classification costs real time, so a
+                  stop or dispose must not wait for all of them; a canceled request that returned
+                  normally would report work the caller abandoned.
+                tests:
+                  - EnglishTextAnalyzer_Analyze_Cancellation_ThrowsAndReportsNothing
+
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingDetailedTokens
+                title: >-
+                  The EnglishTextAnalyzer class shall carry in the detailed analysis, on each
+                  token that has a reading, the reading id, the confidence and a flag that the
+                  confidence is below the threshold of the options (0 and false on every other
+                  token), and shall return the same annotations as the language-neutral analysis.
+                justification: |
+                  The low-confidence flag and the numeric confidence have no place in the
+                  language-neutral annotations but a model package and tests need them, and they must
+                  be able to rely on the two results agreeing.
+                tests:
+                  - EnglishTextAnalyzer_AnalyzeDetailed_Readings_AreOnTokensAndEqualAnalyze

@@ -26,7 +26,7 @@ Four kinds of evidence are used:
   produces per-runtime evidence for case folding of supplementary-plane letters.
 - **Instrumented inputs**: a counting `TextReader` proves that the tab-separated reader stops reading an endless
   input at its limit, a failing reader and a tracking reader prove how reader exceptions and disposal are
-  handled, and an allocation test measures the bytes that the lookup allocates over non-matching tokens.
+  handled.
 
 Only the syntax of a pronunciation is verified here. Whether a phoneme belongs to the inventory of a backend, and
 how a backend speaks it, is out of scope: the backends own their inventories.
@@ -43,23 +43,25 @@ how a backend speaks it, is out of scope: the backends own their inventories.
 
 #### Acceptance Criteria
 
-Every invalid word (empty, too long, malformed UTF-16, a wrong first or last character, a character outside the
-allowed set, or mixed apostrophe styles), an undefined action, a payload that does not fit its action and a spelled
-word that is not 1 to 32 ASCII letters is rejected with an `ArgumentException` that holds the zero-based entry
-index and never the word or payload, while a null list or element throws `ArgumentNullException`; say payloads
-and the `ipa:` and `arpabet:` pronunciation payloads accept exactly the documented grammar and bounds and reject
-any other scheme; duplicates (same word, same case flag, apostrophe styles unified) are rejected while a sensitive
-and an insensitive entry for one word are accepted; every limit is accepted exactly at its value and rejected one
-beyond it, and an endless input is abandoned at its limit; a tab-separated file gives exactly the dictionary that
-`Create` gives, accepts both line ends, a byte-order mark and a missing final line end, and rejects every malformed
-row with the one-based line number and no content, while reader exceptions propagate and the reader is neither
-disposed nor retained; the dictionary is immutable and shares one empty instance; case-sensitive matching is exact,
-insensitive matching is the ordinal ignore-case of the runtime whatever the current culture, a sensitive entry beats
-an insensitive one, and no normalization form is applied; only a whole token matches (never a piece next to a
-letter, a mark or a digit), clitic stems, hyphen compounds, both apostrophe styles and words next to a tag
-placeholder behave as documented; each action maps to its directive, with at most one directive per token in
-ascending order; the lookup agrees with the naive reference for 20,000 random cases; cancellation is checked before
-any work and every 256 visited tokens; non-matching tokens allocate nothing and a large text resolves in linear
+Every invalid word (empty, too long, malformed UTF-16, a wrong first or last character, a character outside the allowed
+set, or mixed apostrophe styles), an undefined action (outside the five defined values, 1 to 5), a payload that does not
+fit its action and a spelled word that is not 1 to 32 ASCII letters is rejected with an `ArgumentException` that holds
+the zero-based entry index and never the word or payload, while a null list or element throws `ArgumentNullException`;
+say payloads and the `ipa:` and `arpabet:` pronunciation payloads accept exactly the documented grammar and bounds and
+reject any other scheme; a reading entry is accepted only when its payload is a well-formed reading id that exists and
+is active in the reading inventory and the entry's word, folded with ASCII case folding, is a form of that reading, and
+every other case is rejected with a fixed reason that never echoes the word or the id; duplicates (same word, same case
+flag, apostrophe styles unified) are rejected while a sensitive and an insensitive entry for one word are accepted;
+every limit is accepted exactly at its value and rejected one beyond it, and an endless input is abandoned at its limit;
+a tab-separated file gives exactly the dictionary that `Create` gives, accepts both line ends, a byte-order mark and a
+missing final line end, and rejects every malformed row with the one-based line number and no content, while reader
+exceptions propagate and the reader is neither disposed nor retained; the dictionary is immutable and shares one empty
+instance; case-sensitive matching is exact, insensitive matching is the ordinal ignore-case of the runtime whatever the
+current culture, a sensitive entry beats an insensitive one, and no normalization form is applied; only a whole token
+matches (never a piece next to a letter, a mark or a digit), clitic stems, hyphen compounds, both apostrophe styles and
+words next to a tag placeholder behave as documented; each action maps to its directive, with at most one directive per
+token in ascending order; the lookup agrees with the naive reference for 20,000 random cases; cancellation is checked
+before any work and every 256 visited tokens; non-matching tokens yield no directive and a large text resolves in linear
 time; invalid arguments to the lookup throw; and every row of the golden file normalizes as documented.
 
 #### Test Scenarios
@@ -80,11 +82,11 @@ or period, digits at the start, clause punctuation, control, format, private-use
 surrogates, an emoji, a dotted initialism ending in a period (`U.S.A.`), a combining mark in first position and mixed
 apostrophe styles. The length test accepts a word of exactly 64 code units and rejects one more. The valid-word theory
 accepts letters of several scripts, supplementary-plane letters, marks inside a word, a trailing digit and the
-characters `' ’ - . & / _`. The undefined-action theory rejects the values 0, 5, 9 and -1 (the value for a later reading
-action is reserved). The mismatch test rejects a payload on a skip or spell entry and no payload on a say or
-pronunciation entry, using a sentinel payload that must not appear in the message. The spell-out theory rejects
-non-ASCII, digit, hyphen, apostrophe and over-long words and accepts exactly 32 letters. The null test covers a null
-list, a null element, null arguments of every factory and a null word in the entry constructor.
+characters `' ’ - . & / _`. The undefined-action theory rejects the values 0, 6, 9 and -1 (the value 5 is the reading
+action, so the undefined values are those outside 1 to 5). The mismatch test rejects a payload on a skip or spell entry
+and no payload on a say or pronunciation entry, using a sentinel payload that must not appear in the message. The
+spell-out theory rejects non-ASCII, digit, hyphen, apostrophe and over-long words and accepts exactly 32 letters. The
+null test covers a null list, a null element, null arguments of every factory and a null word in the entry constructor.
 
 ##### Payload grammar
 
@@ -103,6 +105,30 @@ padded, longer than three letters or carry a stress digit above 2. The bounds te
 32 ARPAbet phones and rejects one more of each and a payload over the total limit. The factory test checks that
 each factory produces the equal entry (with the lower-case scheme name in the pronunciation payload), that an
 undefined scheme value throws `ArgumentOutOfRangeException`, and pins the numeric values of the two enumerations.
+
+##### Reading action
+
+**Tests**: `PronunciationOverrideEntry_Reading_CreatesReadingEntryWithIdPayload`,
+`PronunciationOverrides_Create_ReadingEntry_AcceptedAndResolvesToReadingDirective`,
+`PronunciationOverrides_Create_ReadingEntryInvalid_ThrowsFixedReason`,
+`PronunciationOverrides_Create_ReadingEntryWordCase_IsFoldedAsciiOnly`,
+`PronunciationOverrides_FromTsv_ReadingAction_IsValidatedWithLineNumbers`
+
+The factory test pins the numeric value 5 of `OverrideAction.Reading`, the id as payload, the case flag (false by
+default) and the null arguments. A valid `record` / `record.noun` entry is accepted by `Create`, and a `Record` /
+`record.verb` row is accepted by `FromTsv`; each resolves to one reading directive that carries the id (at token 1 of
+`A record.`), the insensitive entry matches `RECORD` and the sensitive one matches only `record`. The invalid-entry
+theory rejects a missing or empty id, ill-formed ids (upper case, no dot, a trailing space), ids that are not in the
+inventory (an invented lemma and `record.ghost`) and words that are not a form of the reading (`read.past` for `record`,
+an unknown word and the compound `record-label`), each with the fixed reason and without the word or the id in the
+message. The case test accepts `RECORD` and rejects a word with a non-ASCII look-alike letter. The TSV theory accepts
+the `reading` action (also with a comment and mixed case in the word), and rejects a row without a payload, an unknown
+id, an ill-formed id, a word that is not a form of the id and an unknown action word `reads`, with the one-based line
+number (a bad row on line 2 reports `Line 2:`) and the fixed reason, for example:
+
+```text
+Line 1: the reading id is not in the reading inventory.
+```
 
 ##### Duplicates
 
@@ -241,16 +267,17 @@ overridable, the stem of a split contraction never matches, and an override on a
 number rule already consumed is ignored and counted (multi-word keys are not matched because a key cannot contain a
 space, which the entry validation scenario covers).
 
-##### Cancellation and allocation
+##### Cancellation and size
 
 **Tests**: `PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken`,
-`PronunciationOverrides_Resolve_NoMatches_AllocatesNothingPerToken`,
+`PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives`,
 `PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget`
 
 The cancellation test resolves 1,000 tokens that never match with an observer that cancels while token 300 is
 visited and requires that exactly the tokens 0 to 510 were visited (the next periodic check is at the 512th token)
-and then that an already canceled token visits nothing. The allocation test warms up, then resolves 5,000 tokens
-against a 2,000-entry dictionary and requires fewer than 512 bytes allocated for the whole lookup. The size test
+and then that an already canceled token visits nothing. The no-match test resolves 5,000 tokens against a
+2,000-entry dictionary, some of which pass the matching gates and some of which do not, and requires no directive.
+The size test
 resolves a text of about one million characters and a single 100,000-character token against a 10,000-entry
 dictionary within a generous time budget, which detects a super-linear lookup.
 

@@ -8,7 +8,8 @@
 # immutable dictionary of host-supplied pronunciation overrides (PronunciationOverrides), the
 # internal seam over the part-of-speech tagging package (PartOfSpeechAdapter), and the aggregate
 # diagnostics reporter (AnalysisDiagnostics). It drives the NormalizationSubsystem, which never
-# depends on it, and turns the normalization result into annotations and sentence breaks. Each
+# depends on it, and the HeteronymSubsystem (reading inventory and classifier), which never depends
+# on it either, and turns their results into annotations and sentence breaks. Each
 # requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
@@ -154,8 +155,10 @@ sections:
             title: >-
               The AnalysisSubsystem shall report one event of counts per completed analysis to the
               optional diagnostics sink, counting sentences, tokens, annotations, unknown words,
-              normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides
-              ignored, built from fixed words and numbers only,
+              normalizations, ambiguous readings, numeric fallbacks, overrides applied and
+              overrides ignored, built from fixed words and numbers only (the readings assigned
+              to heteronyms are reported by their own event, see
+              SpeechTextEn-Analysis-ReadingDiagnostics),
               shall report nothing when no sink is configured or the analysis is canceled, and
               shall contain a failing sink.
             justification: |
@@ -202,7 +205,7 @@ sections:
               - SpeechTextEn-Analysis-PronunciationOverrides-Directives
               - SpeechTextEn-Analysis-PronunciationOverrides-WholeWordMatching
               - SpeechTextEn-Analysis-PronunciationOverrides-CaseRules
-              - SpeechTextEn-Analysis-PronunciationOverrides-CancellationAndAllocation
+              - SpeechTextEn-Analysis-PronunciationOverrides-Cancellation
             tests:
               - AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders
               - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
@@ -255,3 +258,101 @@ sections:
               - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
               - EnglishTextAnalyzer_Analyze_Initialisms_EmitSpellInsteadOfNorm
               - EnglishTextAnalyzer_AnalyzeDetailed_ListsOverrideNormalizationKind
+
+          - id: SpeechTextEn-Analysis-ReadingAnnotations
+            title: >-
+              The AnalysisSubsystem shall, when its options select the reading family (as they do
+              by default) and a heteronym model is available, annotate each whole word token that
+              is a form of the reading inventory with an annotation of the reading kind (the
+              reading id) and one of the reading-confidence kind (the confidence with three
+              decimals and an invariant period), both on exactly the span of the token and after
+              the part-of-speech annotation of the word, shall never emit them for a token that
+              carries or lies inside a replacement, a spell-out or a pronunciation or that has any
+              other override, shall decide each reading in the context of the sentence of the
+              word, shall flag a reading below a configurable threshold in the detailed result
+              without withholding it, shall name and read back both annotations through the
+              documented vocabulary.
+            justification: |
+              This decomposes the system reading requirement: the analyzer asks the classifier,
+              the options select the family and the threshold, and the vocabulary gives a backend
+              typed readers. The annotations sit on the word because they say how it is spoken, so
+              a token that another rule has already decided has no reading.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingAnnotations
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSingleCandidate
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingTaggingRule
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingCancellation
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingDetailedTokens
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-ReadingSelection
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-LowConfidenceThreshold
+              - SpeechTextEn-Analysis-TextEnAnnotations-KindNames
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReading
+              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReadingConfidence
+            tests:
+              - AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech
+
+          - id: SpeechTextEn-Analysis-ReadingModelAvailability
+            title: >-
+              The AnalysisSubsystem shall emit no reading, load no model and create no tagger for
+              readings alone when no heteronym model is available (as is the case for the default
+              analyzer of this release) or the reading family is not selected, shall obtain a
+              model only when a text first contains a word of the inventory, and shall continue
+              without readings when the model is damaged or incompatible.
+            justification: |
+              The reading runtime ships before the first trained weights, and a host that does
+              nothing must see no change in output or cost; when a model is supplied the cost of
+              loading it is paid by the first request that needs it, and a model that cannot be
+              used must degrade the analysis to what it was without it.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingLazyModel
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
+            tests:
+              - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
+              - EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce
+
+          - id: SpeechTextEn-Analysis-ReadingOverrides
+            title: >-
+              The AnalysisSubsystem shall let a reading entry of the pronunciation dictionary fix
+              the reading of a word, emitting the id with a confidence of 1.000 on the word's span
+              without any model and without letting the classifier overrule it, shall validate
+              such an entry against the reading inventory when the dictionary is built, shall
+              resolve it to a directive that speaks the word as written, and shall let any other
+              override of a heteronym word suppress the classifier for that word.
+            justification: |
+              A classifier is right most of the time, not always; the host that knows the reading
+              of a name must be able to say so with the dictionary it already uses, and the entry
+              must be checked when it is written because a reading id that no word can have would
+              otherwise be silently ignored.
+            children:
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingOverride
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
+              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingAction
+              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingStrictValidation
+              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingDirective
+              - SpeechTextEn-Normalization-TokenDirectives
+            tests:
+              - AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts
+
+          - id: SpeechTextEn-Analysis-ReadingDiagnostics
+            title: >-
+              The AnalysisSubsystem shall report, when readings were assigned to a text, one
+              Info-level event of counts only (classified, single-candidate, set by override and
+              below the threshold) in the category TextEn.Heteronym, and, once per analyzer, one
+              Warning-level event in the category TextEn.Model when the heteronym model is damaged
+              or incompatible, shall build both from fixed words and numbers only and shall
+              contain a failing sink.
+            justification: |
+              This decomposes the system reading-diagnostics requirement: a host learns how many
+              readings were decided and how many were doubtful, and that its model was refused,
+              without any word or reading id reaching a log, and a sink is an observer whose fault
+              must never stop speech.
+            children:
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymEvent
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymNoTextContent
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-ModelWarningOncePerAnalyzer
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymSinkFailureContained
+            tests:
+              - EnglishTextAnalyzer_Analyze_Diagnostics_HeteronymEventIsCountsOnlyAndAtMostOnce
+              - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel

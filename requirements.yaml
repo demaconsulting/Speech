@@ -213,6 +213,11 @@ includes:
   - docs/reqstream/speech-text-en/analysis-subsystem/text-en-annotations.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/part-of-speech-adapter.yaml
   - docs/reqstream/speech-text-en/analysis-subsystem/analysis-diagnostics.yaml
+  - docs/reqstream/speech-text-en/heteronym-subsystem.yaml
+  - docs/reqstream/speech-text-en/heteronym-subsystem/reading-inventory.yaml
+  - docs/reqstream/speech-text-en/heteronym-subsystem/heteronym-feature-extractor.yaml
+  - docs/reqstream/speech-text-en/heteronym-subsystem/sparse-perceptron-model.yaml
+  - docs/reqstream/speech-text-en/heteronym-subsystem/heteronym-classifier.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/normalization-alignment.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/text-normalizer.yaml

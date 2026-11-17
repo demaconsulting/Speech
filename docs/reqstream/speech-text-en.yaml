@@ -11,8 +11,12 @@
 # apostrophes and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and
 # dates, delivered as annotations that never rewrite the text), host-supplied pronunciation overrides
 # (whole words spoken as written, replaced by plain words, spelled letter by letter or given a
-# phoneme string) and the spell-out annotation for letter sequences are provided; later increments add
-# heteronym readings. Each requirement
+# phoneme string) and the spell-out annotation for letter sequences are provided. The heteronym
+# reading runtime is provided as well (SpeechTextEn-Heteronym-*): a reading inventory embedded in the
+# package, a deterministic feature extractor, a strict loader for the sparse model format and a
+# classifier that annotates the words of the inventory with a reading id and a confidence when a
+# model is available. This release embeds no model, so by default no reading is emitted; a host
+# override can still fix a reading. Each requirement
 # states one observable behavior.
 #
 # The training-data requirements at the end of this file (SpeechTextEn-TrainingData-*) describe the
@@ -100,8 +104,10 @@ sections:
 
       - id: SpeechTextEn-Analysis-Diagnostics
         title: >-
-          The library shall report one aggregate-counts event per analyzed text to a host-supplied
-          diagnostics sink, counting sentences, tokens, annotations, unknown words, normalizations,
+          The library shall report one aggregate-counts analysis event per analyzed text to a
+          host-supplied diagnostics sink (readings assigned are reported by their own event, see
+          SpeechTextEn-Heteronym-Diagnostics), counting sentences, tokens, annotations, unknown
+          words, normalizations,
           ambiguous readings, numeric fallbacks, overrides applied and overrides ignored, shall
           never include any text content or any content of a pronunciation dictionary in it, and
           shall not let a failing sink interrupt an analysis.
@@ -507,6 +513,136 @@ sections:
           - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
           - SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget
 
+      - id: SpeechTextEn-Heteronym-Readings
+        title: >-
+          The library shall, when the reading annotation family is selected and a heteronym model
+          is available, annotate each word of an English text that has more than one reading in
+          the reading inventory (and each single-reading form of the inventory) with the id of its
+          reading and a confidence, as two annotations on the word's exact span that coexist with
+          the part-of-speech annotation, are never placed on text that carries a normalization,
+          a spell-out or a pronunciation, and survive the Speech library's chunking of the text.
+        tags: [system]
+        justification: |
+          English spells different words alike ("record" the noun and "record" the verb), and a
+          phoneme-driven model can only pronounce them correctly if something decides which one a
+          sentence means. The reading id names the decision in a stable vocabulary and the
+          confidence lets a backend or a host judge it. The annotations belong to the word and
+          nothing else: a span that is already replaced, spelled or pronounced by another rule has
+          a spoken form, so a reading there would contradict it, and the Speech library re-bases
+          the annotations of a long text onto its chunks, so they have to hold up in whichever
+          chunk the word lands.
+        children:
+          - SpeechTextEn-Analysis-ReadingAnnotations
+          - SpeechTextEn-Heteronym-Classification
+          - SpeechTextEn-Heteronym-Confidence
+        tests:
+          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking
+          - EnglishTextAnalyzer_Analyze_MixedCorpus_ReadingNeverOverlapsReplacementOrPronunciation
+
+      - id: SpeechTextEn-Heteronym-ModelAvailability
+        title: >-
+          The library shall emit no reading for a text when no heteronym model is available, as
+          is the case for the default analyzer of this release, which embeds none, so that a host
+          that does nothing sees the same annotations as before, shall load a model only when a
+          text first contains a word of the inventory, once per process and never again after a
+          failure, and shall continue without readings, with one warning per analyzer, when a
+          model is damaged or incompatible.
+        tags: [system]
+        justification: |
+          The reading runtime ships before the first trained weights do, and a host must be able
+          to upgrade without any change in behavior or cost: no model file is opened, no tagger
+          is created for readings alone and nothing is emitted. When a model is supplied, loading
+          is a cost paid by the first request that needs it, shared by every analyzer, and a
+          model that cannot be used must not break speech or be retried on every request, so the
+          analysis goes on as if there were none and the host is told once.
+        children:
+          - SpeechTextEn-Analysis-ReadingModelAvailability
+          - SpeechTextEn-Heteronym-LazySharedModel
+        tests:
+          - SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations
+
+      - id: SpeechTextEn-Heteronym-ModelIntegrity
+        title: >-
+          The library shall load a heteronym model only from a file that passes strict
+          validation of its header, payload, checksum and compression and whose feature set and
+          reading-inventory version the runtime supports, shall reject every other file with a
+          clear error rather than a crash, and shall never apply a
+          model to the wrong readings.
+        tags: [system]
+        justification: |
+          A model file is data from outside the process: it can be truncated, corrupted, hostile
+          or trained for another version of the reading inventory. Trusting it would risk wrong
+          pronunciations of common words, an out-of-memory failure or a crash on the speech path,
+          so every defect is detected before any weight is used, and a model is bound to reading
+          ids so that an inventory that adds or reorders readings cannot silently change what a
+          weight means.
+        children:
+          - SpeechTextEn-Heteronym-SparseFormat
+          - SpeechTextEn-Heteronym-InventoryModelCompatibility
+          - SpeechTextEn-Analysis-ReadingModelAvailability
+        tests:
+          - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
+          - EnglishTextAnalyzer_Analyze_IncompatibleModel_NoReadingsAndOneWarning
+
+      - id: SpeechTextEn-Heteronym-Determinism
+        title: >-
+          The library shall derive the features of a reading decision, and shall write the
+          confidence of a reading, identically on every operating system, runtime and current
+          culture, so that a model trained on one machine decides the same way on every other.
+        tags: [system]
+        justification: |
+          The weights are indexed by hashed features. A hash that depends on the culture (a
+          Turkish dotted I), the platform or the runtime would make a model decide differently
+          from the one that was trained, which no test of the weights alone could reveal. The
+          hashes are therefore specified exactly and locked by golden vectors, and the
+          confidence is written with the invariant culture so that a backend can always parse it.
+        children:
+          - SpeechTextEn-Heteronym-FeatureDeterminism
+          - SpeechTextEn-Analysis-ReadingAnnotations
+        tests:
+          - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
+          - EnglishTextAnalyzer_Analyze_ConfidenceText_IsInvariantUnderTurkishAndFrenchCultures
+
+      - id: SpeechTextEn-Heteronym-OverridesFirst
+        title: >-
+          The library shall let a host fix the reading of a word with a reading entry of the
+          pronunciation dictionary (validated against the reading inventory), shall emit that
+          reading with a confidence of 1.000 without any model, shall let it beat the classifier,
+          and shall never classify a word that carries any other override.
+        tags: [system]
+        justification: |
+          A classifier is right most of the time, not always, and a host that knows the reading
+          of a product name or a recurring phrase must be able to say so, with the same
+          dictionary it already uses for pronunciations. An override is the host's decision, so
+          it needs no model and no confidence below certainty, and a word the host has replaced,
+          spelled, skipped or pronounced has been decided by the host and must not be overruled
+          by a guess.
+        children:
+          - SpeechTextEn-Analysis-ReadingOverrides
+        tests:
+          - SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel
+
+      - id: SpeechTextEn-Heteronym-Diagnostics
+        title: >-
+          The library shall report the readings assigned to an analyzed text as one aggregate
+          event of counts only (readings classified, single-candidate, set by override and below
+          the confidence threshold) to the host's diagnostics sink, shall never include any text,
+          word or reading id in it, shall report an unusable model once per analyzer, and shall
+          not let a failing sink interrupt an analysis.
+        tags: [system]
+        justification: |
+          The Speech library's diagnostics contract forbids synthesized text in any report, so a
+          host can learn how many readings were decided and how many were doubtful, which is the
+          evidence for tuning the threshold or fixing a word with an override, but never which
+          words they were. An unusable model is the one condition a host can act on, so it is
+          reported, but once, not on every request.
+        children:
+          - SpeechTextEn-Analysis-ReadingDiagnostics
+        tests:
+          - SpeechTextEn_Diagnostics_Readings_AreCountsOnly
+          - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
+          - EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained
+
       - id: SpeechTextEn-Packaging-LicenseNotices
         title: >-
           The package shall declare the MIT License only, through a license file that starts with
@@ -595,6 +731,25 @@ sections:
           package, so it must not drag an inference runtime into every consumer.
         tests:
           - SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime
+
+      - id: SpeechTextEn-Packaging-ReadingInventory
+        title: >-
+          The package shall embed the two reading inventory tables (readings and forms) from the
+          repository's Text.En data under fixed resource names, by link and without a copy in
+          the project, and shall embed no heteronym model in this release.
+        tags: [system]
+        justification: |
+          The reading ids that hosts name in overrides and that backends receive in annotations
+          are defined by these tables, so they must travel with the code that validates them and
+          cannot be a separate download. They are CC0 data written by DEMA Consulting. Linking
+          the repository files keeps one source of truth for the trainer and the runtime, and
+          the fixed resource names are what the loader asks for. No model is embedded until
+          trained weights are reviewed and released, and a test fails if one appears before the
+          release is meant to carry it.
+        children:
+          - SpeechTextEn-Heteronym-ReadingIds
+        tests:
+          - SpeechTextEn_ProjectFile_EmbedsInventoryTablesByLinkAndNoModel
 
       # The training data of the heteronym reading classifier (data/text-en/) is a tool input of the
       # non-shipped Text.En trainer; the requirements below are verified by its check-data command.

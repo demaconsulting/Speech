@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
@@ -200,6 +201,46 @@ internal static class OverrideSyntax
         }
 
         return hasLetter ? null : "the spoken text must contain a letter";
+    }
+
+    /// <summary>
+    ///     Validates a reading entry: the payload is a well-formed id that exists and is active in the
+    ///     inventory, and the entry's word is one of the forms that can carry it.
+    /// </summary>
+    /// <param name="word">A word that already passed <see cref="ValidateKey"/>.</param>
+    /// <param name="payload">The reading id; may be null.</param>
+    /// <returns>
+    ///     <see langword="null"/> when valid; otherwise the fixed-text reason, which never contains the word
+    ///     or the id. The inventory is loaded only when the id is well-formed, so a dictionary without
+    ///     reading entries never touches it.
+    /// </returns>
+    internal static string? ValidateReading(string word, string? payload)
+    {
+        if (string.IsNullOrEmpty(payload))
+        {
+            return "a reading id is required for this action";
+        }
+
+        if (!ReadingIdSyntax.IsValid(payload))
+        {
+            return "the reading id is not well-formed";
+        }
+
+        var inventory = ReadingInventory.Default;
+        if (!inventory.TryGetReadingIndex(payload, out var readingIndex))
+        {
+            return "the reading id is not in the reading inventory";
+        }
+
+        if (!inventory.IsActive(readingIndex))
+        {
+            return "the reading id is not active in the reading inventory";
+        }
+
+        // The word must be a form of the inventory whose candidates include this reading.
+        return inventory.TryFindForm(word, out var formIndex) && inventory.GetCandidates(formIndex).Contains(readingIndex)
+            ? null
+            : "the word is not a form of this reading";
     }
 
     /// <summary>

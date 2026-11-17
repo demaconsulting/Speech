@@ -445,7 +445,9 @@ internal sealed class TextNormalizer
             switch (directive.Kind)
             {
                 case TokenDirectiveKind.Skip:
-                    // Nothing is emitted: the token is spoken as written.
+                case TokenDirectiveKind.Reading:
+                    // Nothing is emitted: the token is spoken as written (a reading directive only
+                    // concerns the analyzer's reading annotation, never the spoken text).
                     return true;
 
                 case TokenDirectiveKind.Replace when !string.IsNullOrEmpty(directive.Value):

@@ -207,6 +207,10 @@ package SpeechTextEn {
         expose NormalizationSubsystem;
     }
 
+    view TextEnHeteronymSubsystemView {
+        expose HeteronymSubsystem;
+    }
+
     view TextEnTrainingDataSubsystemView {
         expose TrainingDataSubsystem;
     }

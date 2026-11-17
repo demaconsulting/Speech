@@ -55,7 +55,8 @@ ascending, each naming an existing token), creates one `AlignedTextBuilder` and
 one `Pass` over the tokens, and returns the builder's `AlignedText`. For each token, in order, the first
 matching rule wins (see *TextNormalizer Design* for the rule order and every table):
 
-0. a **user directive** for the token (speak as written, replace, spell or pronounce) wins over every rule
+0. a **user directive** for the token (speak as written, replace, spell, pronounce or keep a reading, which is spoken as
+   written) wins over every rule
    below for the spoken form, while the sentence-break edits of rules 3 and 4 are still made for the token
    (decision-only, nothing emitted or counted); a directive whose token an earlier multi-token match has
    consumed is ignored and counted;

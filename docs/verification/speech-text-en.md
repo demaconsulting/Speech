@@ -15,7 +15,8 @@ annotations survive chunking of a long text, that its sentence breaks (not the p
 where sentences are split, and that audio tags inside a request leave the words around them annotated.
 
 Below the system level, the unit and subsystem behavior is verified by the AnalysisSubsystem tests (see
-*SpeechTextEn AnalysisSubsystem Verification*), the NormalizationSubsystem tests (see *SpeechTextEn
+*SpeechTextEn AnalysisSubsystem Verification*), the HeteronymSubsystem tests (see *SpeechTextEn HeteronymSubsystem
+Verification*), the NormalizationSubsystem tests (see *SpeechTextEn
 NormalizationSubsystem Verification*) and the TrainingDataSubsystem tests (see *SpeechTextEn
 TrainingDataSubsystem Verification*), and the part-of-speech package the analysis builds on is
 verified separately as an OTS item (see *PartOfSpeech Verification*). The system tests of the normalization
@@ -34,6 +35,16 @@ chunking. The same statements are checked on hostile random text by property tes
 alignment contract of the public analyzer here, and the unit and subsystem property tests below this level).
 Verifying that a phoneme string is correct is out of scope: only the syntax of a pronunciation is verified, and
 the backends own their phoneme inventories and the decision whether and how to speak a pronunciation.
+
+The system tests of the heteronym readings check the observable behavior of the reading family through the public
+API: that the default analyzer, which embeds no trained model, emits no reading annotation, that a `Reading` override
+fixes the reading with no model at all and beats a classifier, that a real session delivers reading and confidence
+annotations to an annotation-aware backend, re-based into whichever chunk holds the word, and that the heteronym
+diagnostics are counts only. No trained model ships in this release, so the classified readings are verified with a
+hand-built fixture model that the test project produces by running the real tagger, the real feature extractor and the
+real model writer on a few labeled example sentences (no binary model is committed); it exercises the real format, the
+real loader and the real classifier, but it does not measure the accuracy of any real model, which is not claimed. The
+embedded inventory tables are verified by the project-file test and the subsystem tests.
 
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences:
 the analyzer relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only
@@ -57,9 +68,10 @@ TrainingDataSubsystem Verification*).
 - **Framework**: xUnit v3 running under the .NET SDK, on every target framework of the library
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: no external services, no network access, no native runtime and no audio hardware; the
-  part-of-speech package's embedded model, the library's own two embedded lexicon tables and the sample
+  part-of-speech package's embedded model, the library's own embedded tables (the two lexicons and the reading
+  inventory) and the sample
   pronunciation dictionary file `TestData/overrides-dictionary.tsv` (copied next to the test assembly) are the only
-  data used
+  data used; the heteronym tests build their model in memory
 - **Isolation**: each end-to-end test uses a fresh scratch model directory and its own recording backend
 
 ## External Interface Simulation
@@ -371,6 +383,32 @@ to a text that uses three of them and a unit after a number, produces one `TextE
 fixed template with `3 overrides applied, 1 overrides ignored`, and that the message contains none of the
 sentinel words, payloads, scheme names, phonemes or words of the analyzed text.
 
+### Heteronym Readings
+
+**Tests**: `SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations`,
+`SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel`,
+`SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking`
+
+Verifies that the default analyzer (the public constructor, which embeds no model) analyzes `I want to record a record.`
+with only part-of-speech annotations, so a host that does nothing sees no change. It verifies that a reading entry
+`record` / `record.noun`, loaded from the tab-separated format, gives both `record` words the reading `record.noun` with
+the confidence `1.000`, readable through `TryReadReading`, both with an analyzer that has no model and with one that has
+a fixture model that would otherwise choose the verb for the first word, so the override beats the classifier and needs
+no model. It verifies, through a real synthesis session, that a text of ten repeated sentences (more than three chunk
+lengths) delivers to an annotation-aware backend in several calls exactly the readings the analyzer produced (twenty in
+all), each reading read through `TryReadReading` on exactly the characters `record` of its chunk and with its
+confidence annotation, read through `TryReadReadingConfidence`, on the same start and length, so no reading is lost,
+duplicated or moved by the chunking.
+
+### Heteronym Diagnostics
+
+**Test**: `SpeechTextEn_Diagnostics_Readings_AreCountsOnly`
+
+Verifies that an analysis of `I want to record a record.` with a fixture model reports two events to the sink: the
+`TextEn.Analysis` event with its unchanged wording (the exact template ending `overrides ignored.`) and one
+`TextEn.Heteronym` event of the form `Assigned 2 heteronym readings: 2 classified, 0 single-candidate, 0 by override,
+{n} below confidence 0.60.`; and that no message contains the word `record` or the reading name `noun`.
+
 ### Linear Time
 
 **Tests**: `SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget`,
@@ -390,33 +428,34 @@ does the same.
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime`,
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`,
 `SpeechTextEn_ProjectFile_Dependencies_VersionCheck_FollowsSemVerPrecedence`,
+`SpeechTextEn_ProjectFile_EmbedsInventoryTablesByLinkAndNoModel`,
 `SpeechTextEn_PackageVersion_ProjectFile_PacksOnlyPrereleaseWhileTaggerIsPrerelease`,
 `TextEn_PackageLicenseFiles_Content`
 
-Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression)
-and packs both it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file starts with the
-SPDX line `MIT` and nothing else, contains the MIT license text, describes the tagging package as a
-separate dependency that is not bundled and carries its own license files, and states that this package
-embeds two small lexicon tables of its own, written from scratch by DEMA Consulting under the same license,
-and no third-party data; that the notices are scoped as a dependency notice, state that this package embeds
-no third-party data in this release, and reproduce the Manually Annotated Sub-Corpus
-and Open English WordNet attribution and the Princeton WordNet notice; that the project pins the tagging
-package with an exact version range, references only the Speech project, and references no ONNX package; that
-the pinned tagging package version is 0.1.0-beta.5 or later under Semantic Versioning 2.0.0 precedence (so a
-later prerelease such as 0.1.0-rc.1 or `0.1.0-beta.10` is accepted and `0.1.0-beta.4` is rejected; the theory
-runs the comparison on `0.1.0-beta.5`, `-beta.6`, `-beta.10`, `-rc.1`, `0.1.0`, `0.2.0` (accepted) and
-`0.1.0-beta.4`, `0.1.0-alpha.9`, `0.0.9` (rejected)), the first version that clears its working buffers (see
-*Retention* below); and that the project is packable only when the package version has a prerelease label
-(not packable by default; packable when the effective version, `PackageVersion` when given and otherwise
-`Version`, has a hyphen before any build metadata) for as long as the pinned tagging package is a prerelease,
-and carries no such guard once the pin is a stable version. The first seven (three license/file tests, the two
-pin tests, the SemVer theory and the packaging-guard test) run in the test project: the project-file and
-file-content tests read repository files, and the version-comparison theory exercises its comparison helper
-directly. The last, `TextEn_PackageLicenseFiles_Content`, is a FileAssert test over the
-**built package**, not a repository file: when a `.nupkg` was built (only for a prerelease version) it contains
-`PACKAGE-LICENSE.md` (starting with the line `SPDX-License-Identifier: MIT` followed by the license heading, and
-naming `THIRD-PARTY-NOTICES.md`) and `THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the
-package root, and its `.nuspec` references `PACKAGE-LICENSE.md` as the license file; for a stable version no
+Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression) and packs both
+it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file starts with the SPDX line `MIT` and nothing
+else, contains the MIT license text, describes the tagging package as a separate dependency that is not bundled and
+carries its own license files, and states that this package embeds two small lexicon tables of its own, written from
+scratch by DEMA Consulting under the same license, and no third-party data; that the notices are scoped as a dependency
+notice, state that this package embeds no third-party data in this release, and reproduce the Manually Annotated
+Sub-Corpus and Open English WordNet attribution and the Princeton WordNet notice; that the project pins the tagging
+package with an exact version range, references only the Speech project, and references no ONNX package; that the pinned
+tagging package version is 0.1.0-beta.5 or later under Semantic Versioning 2.0.0 precedence (so a later prerelease such
+as 0.1.0-rc.1 or `0.1.0-beta.10` is accepted and `0.1.0-beta.4` is rejected; the theory runs the comparison on
+`0.1.0-beta.5`, `-beta.6`, `-beta.10`, `-rc.1`, `0.1.0`, `0.2.0` (accepted) and `0.1.0-beta.4`, `0.1.0-alpha.9`, `0.0.9`
+(rejected)), the first version that clears its working buffers (see *Retention* below); and that the project is packable
+only when the package version has a prerelease label (not packable by default; packable when the effective version,
+`PackageVersion` when given and otherwise `Version`, has a hyphen before any build metadata) for as long as the pinned
+tagging package is a prerelease, and carries no such guard once the pin is a stable version; and that the project file
+embeds the reading inventory tables `readings.tsv` and `forms.tsv` of the data folder by link under the fixed logical
+names `DemaConsulting.Speech.Text.En.Resources.readings.tsv` and `...forms.tsv` and names no heteronym model resource.
+The first eight (three license/file tests, the two pin tests, the SemVer theory, the packaging-guard test and the
+embedded-tables test) run in the test project: the project-file and file-content tests read repository files, and the
+version-comparison theory exercises its comparison helper directly. The last, `TextEn_PackageLicenseFiles_Content`, is a
+FileAssert test over the **built package**, not a repository file: when a `.nupkg` was built (only for a prerelease
+version) it contains `PACKAGE-LICENSE.md` (starting with the line `SPDX-License-Identifier: MIT` followed by the license
+heading, and naming `THIRD-PARTY-NOTICES.md`) and `THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution)
+at the package root, and its `.nuspec` references `PACKAGE-LICENSE.md` as the license file; for a stable version no
 package is built, and the test accepts the absence of a package (it rejects more than one).
 
 ### Retention
@@ -466,16 +505,20 @@ numeric constructs whose tokens are separated by clause cuts and budget cuts), t
 clitic, initialism and numeric behavior (the golden readings, the documented defaults and their counts), the behavior of
 user pronunciation overrides (whole-word matching, one annotation per action on the exact source characters, precedence
 over the built-in rules, counts only in the diagnostics, identical results under concurrent use, and the documented
-limitations pinned by the golden rows), the spelled-initialism annotations, the linear-time guard and the packaging
+limitations pinned by the golden rows), the spelled-initialism annotations, the heteronym reading behavior (no reading
+annotation from a default analyzer, a `Reading` override that fixes the reading without a model and beats a classifier,
+the survival of the reading and confidence annotations through real chunking, and the counts-only heteronym
+diagnostics), the linear-time guard and the packaging
 configuration are claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging
-package's own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
+package's own evaluation, the accuracy of a trained heteronym model is not claimed (none ships, and the fixture model
+only proves the mechanics), the abbreviation readings are claimed only for the documented cases and cues, the numeric
 readings only for the documented en-US policy, the correctness of the phonemes of a pronunciation override (only its
 syntax is verified; the backends own their phoneme inventories) is not claimed, and the clearing of the tagging
 package's private working buffers is evidenced by the upstream package's regression tests cited by version, with the
 remaining gap (no repository-owned test of that private state) stated for the repository owner's approval, not claimed
 as verified here. The package
 license files are also part of the acceptance criteria: both must be present, the project must pack them at the package
-root, the license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
+root, the license declaration must be MIT only, the license file must describe the embedded tables and the
 absence of third-party data, and the dependency notice must keep the attribution chain intact. The training-data
 scenarios pass when the real committed data passes `check-data` and each class of seeded defect is reported by
 the check that owns it; the labels of the data are not claimed as verified.

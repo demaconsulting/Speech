@@ -15,7 +15,10 @@ merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detai
 flags, the cancellation inside normalization and the counts) and the annotation of overrides and spelled
 initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary by the `PronunciationOverrides`
 unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see *SpeechTextEn
-NormalizationSubsystem Verification*).
+NormalizationSubsystem Verification*). The heteronym readings are verified at this level through the real
+HeteronymSubsystem with a hand-built fixture model (no trained model is shipped), and their rules in detail
+(the coexistence rules, the single-candidate rule, laziness, diagnostics, cancellation) by the `EnglishTextAnalyzer`
+unit tests in `EnglishTextAnalyzerReadingTests.cs`.
 
 ### Test Environment
 
@@ -24,8 +27,8 @@ NormalizationSubsystem Verification*).
 - **Project**: `test/DemaConsulting.Speech.Text.En.Tests`
 - **Isolation**: every test builds its own analyzer; counting adapters are per test; no test depends on
   whether another test has already loaded the shared tagger
-- **Fixtures**: a recording diagnostics sink (optionally throwing) and a counting tagger source, both
-  defined in the test project
+- **Fixtures**: a recording diagnostics sink (optionally throwing), a counting tagger source and, for the heteronym
+  tests, a counting model source and a fixture model builder, all defined in the test project
 
 ### Acceptance Criteria
 
@@ -40,7 +43,10 @@ annotations, unknown words, normalizations, ambiguous readings, numeric fallback
 ignored) is reported without any word and a throwing sink changes nothing; every action of a pronunciation
 dictionary read from the documented file format reaches a consumer through the typed readers, which, applied by the
 documented algorithm, give the expected spoken text and phonemes; the replacement annotations of every kind form
-one ascending, disjoint sequence and the pronunciations are disjoint from them; and cancellation, whether it arrives
+one ascending, disjoint sequence and the pronunciations are disjoint from them; the reading annotations of an analysis
+with a model read back through the typed readers at exactly the words they annotate and coexist with the part of speech
+on the same span; a reading override loaded from the tab-separated format is validated when it is read, applied by the
+analyzer and counted as an applied override; and cancellation, whether it arrives
 during tagger initialization or during the last sentence, throws `OperationCanceledException` and reports nothing.
 
 ### Test Scenarios
@@ -109,6 +115,24 @@ A text that mixes a title, an ampersand, an override, currency, a unit, a time, 
 analyzed with the sample dictionary. Every annotation other than the part of speech, in start order, ends before
 the next one starts, so the replacements of both kinds and the pronunciations form one non-overlapping sequence,
 and at least one pronunciation, one spell-out and one normalization annotation are present.
+
+#### Heteronym readings through the typed readers
+
+**Test**: `AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech`
+
+The text `I want to record a record.` is analyzed by an analyzer with the default options and a provider over a
+hand-built fixture model (the HeteronymSubsystem is real; only the weights are made by the test, see *SpeechTextEn
+HeteronymSubsystem Verification*). Reading the annotations with `TextEnAnnotations.TryReadReading` gives `record.verb`
+and then `record.noun`, each on exactly the characters `record`, and on every such span the part of speech and the
+confidence (read with `TryReadReadingConfidence`) are present on the same start and length.
+
+#### Reading override from the tab-separated format
+
+**Test**: `AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts`
+
+A dictionary read from two `reading` lines is applied by an analyzer with no model to `They read the record.`: the
+readings are `read.past` and `record.noun`, the analysis event reports `2 overrides applied, 0 overrides ignored`, and
+a `reading` line whose id is not a candidate of its word is rejected with `InvalidDataException` when the file is read.
 
 #### Cancellation
 

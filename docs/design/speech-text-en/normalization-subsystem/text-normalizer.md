@@ -64,10 +64,15 @@ million`, the `pm` of `5 pm`), the match is atomic and wins, and each such direc
 A directive at the token's own index is applied and the token is done (`return index + 1`): rules 1, 2, 2a, 5
 and 6 do not run, and rules 3 and 4 run only in decision-only mode (below), so a directive beats clitics,
 symbols, numeric heads, lexicon abbreviations, the acronym table and rule, and ampersand initialisms for the
-spoken form. The four kinds:
+spoken form. The five kinds:
 
 - `Skip`
   - Effect: Nothing is emitted; the token is spoken as written
+  - Counted: applied
+- `Reading`
+  - Effect: Nothing is emitted; the token is spoken as written, exactly like `Skip`. The directive's value (a reading
+    id) is not used here: it only concerns the analyzer's reading annotation, never the spoken text, so a reading
+    directive keeps every other rule from touching the word while the analyzer fixes the reading
   - Counted: applied
 - `Replace`
   - Effect: One `Override` span over the token whose spoken text is the directive's value, through `Emit` (so the A6

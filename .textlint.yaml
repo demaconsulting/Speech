@@ -102,6 +102,8 @@ words:
   - fftbins
   - filterbank
   - hann
+  # The magic bytes (HETW) of the heteronym model file format
+  - hetw
   - hexgrad
   - huggingface
   - ieth
@@ -167,6 +169,8 @@ words:
   - sinc
   - slaney
   - snupkg
+  # The normalized exponential that calibrates the confidence of the heteronym classifier
+  - softmax
   - sonarscanner
   - sonatype
   - soundfile
@@ -192,6 +196,9 @@ words:
   - upmixed
   - upmixes
   - upmixing
+  # Variable-length integers (the bucket gaps of the heteronym model file)
+  - varint
+  - varints
   - vits
   - wasapi
   - wavs

@@ -40,11 +40,11 @@ invisible-character and clitic rules and before the abbreviation rule (so `5 ft.
 number to the numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
 adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period (consumed
 mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no token that contains an
-invisible character as a number, observes cancellation in the middle of a numeric pass, and allocates nothing per token
-for lower-case text without digits. A user directive on a token wins over every built-in rule for the spoken form of
-that token, while the sentence-break edits of the abbreviation and acronym rules are still made (see *Directive sentence
-breaks*): a skip directive emits nothing, a replace directive emits one span of the override kind padded by at most one
-space, a spell directive spells ASCII letters (and leaves anything else as written, counted as ignored), and a pronounce
+invisible character as a number, and observes cancellation in the middle of a numeric pass. A user directive on a token
+wins over every built-in rule for the spoken form of that token, while the sentence-break edits of the abbreviation and
+acronym rules are still made (see *Directive sentence breaks*): a skip directive and a reading directive emit nothing
+(the token is spoken as written), a replace directive emits one span of the override kind padded by at most one space, a
+spell directive spells ASCII letters (and leaves anything else as written, counted as ignored), and a pronounce
 directive adds a pronunciation mark without a span or a change of the spoken text. A directive on a token that an
 earlier multi-token match consumed is ignored, counted and leaves the match unchanged; every directive is counted
 exactly once as applied or ignored; directives that are out of order, repeated, negative or beyond the tokens are
@@ -140,15 +140,12 @@ visited. `50%` produces `fifty` and `" percent"` with one space between the two 
 offset, and `5–10` produces `five`, `" to "` and `ten`; a numeric token with a zero-width space inside produces
 only the dropped span.
 
-##### Numeric cancellation and allocation
+##### Numeric cancellation
 
-**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_NonNumericLowercaseText_AllocatesNothingPerToken`
+**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`
 
 For a long hand-built numeric text, an observer cancels the token mid-pass and the pass stops at the next periodic
-check (at most 256 tokens later). For 100,000 lower-case word tokens the bytes allocated by the pass do not
-depend on the number of tokens beyond the builder's fixed lists (a generous threshold calibrated by the test), so
-the numeric rule adds no per-token allocation to text without numbers.
+check (at most 256 tokens later).
 
 ##### Cancellation and observer
 
@@ -179,12 +176,16 @@ live on Main Street.`
 ##### User directives
 
 **Tests**: `TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied`,
+`TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied`,
 `TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding`,
 `TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly`,
 `TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan`
 
 A skip directive on `US` in `US troops` leaves no span and no mark, counts one applied override and leaves the text
-as written. A replace directive on `Nginx` in `use Nginx now` yields one span of the `Override` kind at offset 4,
+as written. A reading directive (with the value `record.noun`) on the same token behaves exactly like a skip: the
+initialism rule that would spell `US` does not run, no span and no mark is emitted, one override is applied and none
+ignored, and the spoken text is `US troops`, so the reading id never reaches the spoken text. A replace directive on
+`Nginx` in `use Nginx now` yields one span of the `Override` kind at offset 4,
 length 5, not spelled, with the value `engine ex`; with a trademark mark directly before the word (two hand-built
 tokens) the replacement gets exactly one separating space and the spoken text is `trademark engine ex`. A spell
 directive on `gif` yields the spelled span `G I F` (padded the same way after a mark); on `café` it yields no span
@@ -213,7 +214,6 @@ texts: `Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-fina
 `TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak`,
 `TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks`,
 `TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce`,
-`TextNormalizer_Normalize_DirectiveOnTokensWithoutPeriod_AllocatesNoMoreThanBuiltIn`,
 `NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks`
 
 For every row and for each of the four directive kinds (skip, replace, spell, pronounce) the reconciled breaks equal
@@ -225,8 +225,7 @@ token's range, which never covers a separate period token, and a skip or pronoun
 example has the tokenizer break `[9]` suppressed with and without a `Say` directive. A defective directive (a
 replacement or pronunciation without a value, a spell-out of a token that is not ASCII letters) is ignored and
 counted, and still keeps the built-in breaks. With directives on abbreviations an observer sees every token index
-exactly once, in order. A directive on every capitalized word of a 20,000-word text without a period allocates no
-more than the built-in pass (the abbreviation lookup is not attempted). The seeded differential test (seed
+exactly once, in order. The seeded differential test (seed
 20261116, 400 random abbreviation-rich texts with periods, dashes and tag placeholders) puts each of the four kinds
 on every word token that a period touches and on up to 16 other word tokens, and once a directive on every sampled
 word at once; the reconciled breaks always equal those without directives, every directive is counted exactly

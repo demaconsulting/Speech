@@ -226,7 +226,7 @@ sections:
             children:
               - SpeechTextEn-Normalization-TextNormalizer-Cancellation
               - SpeechTextEn-Normalization-TextNormalizer-Concurrency
-              - SpeechTextEn-Normalization-TextNormalizer-NumericCancellationAndAllocation
+              - SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
               - SpeechTextEn-Normalization-NumericExpressionRecognizer-Concurrency
             tests:
               - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget
@@ -471,7 +471,8 @@ sections:
             title: >-
               The NormalizationSubsystem shall accept, with the tokens of a text, user directives
               that name tokens by index (speak as written, replace with plain words, spell by
-              letter name, attach a pronunciation), shall apply a directive to its token before
+              letter name, attach a pronunciation, fix a reading, which leaves the token spoken as
+              written), shall apply a directive to its token before
               every built-in rule so that it wins over them, shall record a pronunciation as a mark
               on the exact token that replaces nothing and neither overlaps another mark nor a
               span, shall leave a token that an earlier multi-token match has consumed to that
@@ -494,6 +495,7 @@ sections:
               - SpeechTextEn-Normalization-TextNormalizer-DirectiveSentenceBreaks
               - SpeechTextEn-Normalization-TextNormalizer-DirectiveConflicts
               - SpeechTextEn-Normalization-TextNormalizer-DirectiveValidation
+              - SpeechTextEn-Normalization-TextNormalizer-ReadingDirective
               - SpeechTextEn-Normalization-NormalizationAlignment-PronunciationMarks
               - SpeechTextEn-Normalization-NormalizationAlignment-OverrideCounts
             tests:
@@ -503,6 +505,7 @@ sections:
               - NormalizationSubsystem_Overrides_OnAbbreviations_RealChunker_ChunksEqualTheBuiltInChunks
               - NormalizationSubsystem_OverrideAnnotations_RealChunker_KeepEveryAnnotationInExactlyOneChunk
               - NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults
+              - TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied
 
           - id: SpeechTextEn-Normalization-SpelledReplacements
             title: >-

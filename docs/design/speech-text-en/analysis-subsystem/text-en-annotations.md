@@ -7,10 +7,9 @@ produces it.
 
 **Data Model**: a static class with six public string constants, one per annotation kind of the package
 family: `Normalized` (`en.norm`), `PartOfSpeech` (`en.upos`), `Reading` (`en.reading`),
-`ReadingConfidence` (`en.reading-confidence`), `Pronunciation` (`en.pron`) and `SpellOut` (`en.spell`).
-`PartOfSpeech`, `Normalized`, `SpellOut` and `Pronunciation` are produced by this release; `Reading` and
-`ReadingConfidence` are declared so a backend can reference stable names from the first release and are
-documented as reserved. The `Value` of an `en.norm`
+`ReadingConfidence` (`en.reading-confidence`), `Pronunciation` (`en.pron`) and `SpellOut` (`en.spell`). All six
+kinds are emitted by the analyzer: the reading pair only where a heteronym model exists or a `Reading` override names
+the word. The `Value` of an `en.norm`
 annotation is the exact spoken replacement for the annotated span (empty means speak nothing), and its
 documentation states the consumer algorithm and the guarantees of the *Alignment Contract* (see *SpeechTextEn
 System Design*). The `Value` of an `en.spell` annotation is the same kind of replacement, restricted to single
@@ -21,7 +20,14 @@ spelling from an `en.norm` value, and a meridiem glued to its number is split in
 `en.spell` span. The `en.norm` and `en.spell` annotations form the
 *replacement family*: one ascending, non-overlapping sequence. The `Value` of an `en.pron` annotation is
 `scheme:phonemes` with a lower-case scheme from the closed list `ipa` and `arpabet`; it replaces nothing and
-is disjoint from every replacement (A12). A private set holds the 17 Universal Dependencies tag names that a
+is disjoint from every replacement (A12). The `Value` of an `en.reading` annotation is a reading id (two or three
+dot-separated segments of lower-case letters, digits and inner hyphens, at most 64 characters, the grammar of the
+HeteronymSubsystem's `ReadingIdSyntax`, which this unit calls rather than repeats), and the `Value` of an
+`en.reading-confidence` annotation is the confidence with three decimals and a period (`0.000` to `1.000`,
+invariant culture). The two annotate exactly one whole token with the same span, coexist with `en.upos` there, and
+never overlap an `en.norm`, `en.spell` or `en.pron` annotation (the coexistence rules of *Heteronym Readings* in
+*SpeechTextEn System Design*); this unit's documentation states them. A private set holds the 17 Universal Dependencies
+tag names that a
 `PartOfSpeech` value may take. The reader grammars of `en.spell` and `en.pron` are not duplicated here: the
 spelled-letter grammar is the alignment contract's `SpelledGrammar` and the pronunciation grammar is
 `OverrideSyntax.ParsePronunciation`, the same functions that the alignment builder and the dictionary loader
@@ -48,12 +54,23 @@ use, so what is produced, validated and read cannot drift apart.
   replacement family: true for an `en.norm` annotation (`isSpelled` false, always, whatever the value holds)
   and for a well-formed `en.spell`
   annotation (`isSpelled` true); false for any other kind or a malformed spelled value
+- **TryReadReading(annotation, out readingId)**: returns true and the id when the kind is exactly `en.reading` (ordinal
+  comparison) and the value satisfies the reading id grammar; otherwise false with an empty string. The id is **not**
+  looked up in the inventory (`ReadingInventory.Contains` does that), so a backend built against a newer inventory still
+  reads an id this build does not know. A wrong kind or a malformed value (upper case, a space, a pipe or a colon, a
+  missing or an extra segment, an empty value) is an ordinary "no", never an exception
+- **TryReadReadingConfidence(annotation, out confidence)**: returns true and the number when the kind is exactly
+  `en.reading-confidence` and the value is `0` or `1`, optionally followed by a period and one to six ASCII digits, and
+  not above 1; otherwise false with 0. The value is parsed with the invariant culture whatever the current culture; a
+  sign, an exponent, whitespace, a comma separator, a missing digit, non-ASCII digits and `1.001` are rejected, and
+  nothing throws for a malformed value
 
 **Error Handling**: a null annotation throws `ArgumentNullException` (from every reader); nothing else is
 thrown.
 
 **Dependencies**: the Speech library's `SegmentAnnotation`, the NormalizationSubsystem's `SpelledGrammar`, the
-`PronunciationScheme` enumeration and `OverrideSyntax` (both of the PronunciationOverrides unit).
+`PronunciationScheme` enumeration and `OverrideSyntax` (both of the PronunciationOverrides unit) and the
+HeteronymSubsystem's `ReadingIdSyntax`.
 
 **Callers**: `EnglishTextAnalyzer` (the kind constants), synthesis backends that implement
 `IAnnotatedSynthesisBackend`, and the test projects.

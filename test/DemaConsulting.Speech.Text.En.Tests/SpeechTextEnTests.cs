@@ -241,6 +241,125 @@ public sealed class SpeechTextEnTests
         Assert.Contains("again", annotatedWords);
     }
 
+    /// <summary>Proves the default analyzer, which embeds no heteronym model, emits no reading annotations through the public API, so nothing changes for a host that does nothing.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations()
+    {
+        // Arrange
+        const string text = "I want to record a record.";
+        ITextAnalyzer analyzer = new EnglishTextAnalyzer();
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: part-of-speech annotations only
+        Assert.NotEmpty(result.Annotations);
+        Assert.All(result.Annotations, annotation => Assert.Equal(TextEnAnnotations.PartOfSpeech, annotation.Kind));
+    }
+
+    /// <summary>Proves a reading override fixes the reading of a word through the public API with no model at all, and the classifier loses to it when a model exists.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel()
+    {
+        // Arrange
+        const string text = "I want to record a record.";
+        var overrides = PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.noun\n"));
+        var options = new EnglishTextAnalyzerOptions { Overrides = overrides };
+        var plain = new EnglishTextAnalyzer(options);
+        var withModel = new EnglishTextAnalyzer(options, PartOfSpeechAdapter.Shared, null, HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples))));
+
+        // Act
+        var results = new[] { plain.Analyze(text, TestContext.Current.CancellationToken), withModel.Analyze(text, TestContext.Current.CancellationToken) };
+
+        // Assert: both records are the noun reading with confidence 1.000
+        foreach (var result in results)
+        {
+            var readings = result.Annotations.Where(annotation => TextEnAnnotations.TryReadReading(annotation, out _)).ToList();
+            Assert.Equal(2, readings.Count);
+            Assert.All(readings, annotation => Assert.Equal("record.noun", annotation.Value));
+            Assert.Equal(["1.000", "1.000"], result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence).Select(annotation => annotation.Value));
+        }
+    }
+
+    /// <summary>
+    ///     Proves a real synthesis session delivers reading and confidence annotations to an annotation-aware
+    ///     backend, re-based exactly into whichever chunk holds the word, for a long multi-sentence text.
+    /// </summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking()
+    {
+        // Arrange: well over the chunk length, every sentence carrying a verb and a noun "record"
+        var text = string.Join(' ', Enumerable.Repeat("I want to record a record of the quiet river bank near the old mill.", 10));
+        Assert.True(text.Length > 3 * SentenceChunker.DefaultMaxChunkLength);
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
+        var expected = analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations
+            .Where(annotation => annotation.Kind == TextEnAnnotations.Reading)
+            .Select(annotation => annotation.Value)
+            .ToList();
+        var backend = new RecordingAnnotatedBackend();
+
+        // Act
+        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
+
+        // Assert: several chunks; every reading sits exactly on the word "record" of its chunk, with its confidence on the same span
+        var calls = backend.Calls;
+        Assert.True(calls.Count > 1);
+        var delivered = new List<string>();
+        foreach (var call in calls)
+        {
+            foreach (var reading in call.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading))
+            {
+                Assert.True(TextEnAnnotations.TryReadReading(reading, out var id));
+                Assert.Equal("record", call.Text.Substring(reading.Start, reading.Length));
+                var confidence = Assert.Single(call.Annotations, annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence && annotation.Start == reading.Start && annotation.Length == reading.Length);
+                Assert.True(TextEnAnnotations.TryReadReadingConfidence(confidence, out _));
+                delivered.Add(id);
+            }
+        }
+
+        Assert.Equal(20, expected.Count);
+        Assert.Equal(expected, delivered);
+    }
+
+    /// <summary>Proves the heteronym diagnostics are counts only: no word, no reading id, and the analysis event keeps its exact wording.</summary>
+    [Fact]
+    public void SpeechTextEn_Diagnostics_Readings_AreCountsOnly()
+    {
+        // Arrange
+        const string text = "I want to record a record.";
+        var sink = new RecordingDiagnostics();
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink }, PartOfSpeechAdapter.Shared, null, provider);
+
+        // Act
+        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, sink.Events.Count);
+        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, \d+ normalizations, \d+ ambiguous readings, \d+ numeric fallbacks, \d+ overrides applied, \d+ overrides ignored\.$", sink.Events[0].Message);
+        Assert.Equal("TextEn.Heteronym", sink.Events[1].Category);
+        Assert.Matches(@"^Assigned 2 heteronym readings: 2 classified, 0 single-candidate, 0 by override, \d+ below confidence 0\.60\.$", sink.Events[1].Message);
+        Assert.All(sink.Events, e =>
+        {
+            Assert.DoesNotContain("record", e.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("noun", e.Message, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Proves the project file embeds the reading inventory tables by link under their fixed names and embeds no model.</summary>
+    [Fact]
+    public void SpeechTextEn_ProjectFile_EmbedsInventoryTablesByLinkAndNoModel()
+    {
+        // Arrange
+        var project = File.ReadAllText(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
+
+        // Assert
+        Assert.Contains("Include=\"..\\..\\data\\text-en\\readings.tsv\" LogicalName=\"DemaConsulting.Speech.Text.En.Resources.readings.tsv\"", project, StringComparison.Ordinal);
+        Assert.Contains("Include=\"..\\..\\data\\text-en\\forms.tsv\" LogicalName=\"DemaConsulting.Speech.Text.En.Resources.forms.tsv\"", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("heteronyms.bin", project, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves the project file names the combined license file, packs both notice files at the package root, and pins its one tagger dependency.</summary>
     [Fact]
     public void SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot()

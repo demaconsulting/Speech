@@ -1,11 +1,12 @@
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
+
 namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
 /// <summary>
 ///     What a <see cref="PronunciationOverrideEntry"/> does to the word it matches.
 /// </summary>
 /// <remarks>
-///     The numeric values are part of the contract and never change; <c>5</c> is reserved for a
-///     later <c>Reading</c> action (selecting a heteronym reading) and must not be reused.
+///     The numeric values are part of the contract and never change.
 /// </remarks>
 public enum OverrideAction
 {
@@ -32,6 +33,15 @@ public enum OverrideAction
     ///     <see cref="TextEnAnnotations.Pronunciation"/> annotation; the word itself is not replaced.
     /// </summary>
     Pronunciation = 4,
+
+    /// <summary>
+    ///     Fix the heteronym reading of the word to the entry's payload (a reading id such as
+    ///     <c>record.noun</c>): one <see cref="TextEnAnnotations.Reading"/> annotation with confidence
+    ///     <c>1.000</c>, and the word is spoken as written otherwise. It beats the classifier and needs no
+    ///     model. The id must exist in the <see cref="ReadingInventory"/> and be a
+    ///     candidate for the entry's word.
+    /// </summary>
+    Reading = 5,
 }
 
 /// <summary>
@@ -75,9 +85,9 @@ public enum PronunciationScheme
 /// <param name="Action">What to do with the word.</param>
 /// <param name="Payload">
 ///     The action's payload: the spoken words for <see cref="OverrideAction.Say"/>, the
-///     <c>scheme:phonemes</c> text for <see cref="OverrideAction.Pronunciation"/>, and
-///     <see langword="null"/> for <see cref="OverrideAction.Skip"/> and
-///     <see cref="OverrideAction.SpellOut"/>.
+///     <c>scheme:phonemes</c> text for <see cref="OverrideAction.Pronunciation"/>, the reading id for
+///     <see cref="OverrideAction.Reading"/>, and <see langword="null"/> for
+///     <see cref="OverrideAction.Skip"/> and <see cref="OverrideAction.SpellOut"/>.
 /// </param>
 /// <remarks>
 ///     An entry is a plain immutable value: nothing is checked when it is created (except by the
@@ -147,5 +157,20 @@ public sealed record PronunciationOverrideEntry(string Word, bool CaseSensitive,
         var name = OverrideSyntax.SchemeName(scheme)
             ?? throw new ArgumentOutOfRangeException(nameof(scheme), scheme, "The pronunciation scheme is not defined.");
         return new PronunciationOverrideEntry(word, caseSensitive, OverrideAction.Pronunciation, name + ":" + phonemes);
+    }
+
+    /// <summary>
+    ///     Creates an entry that fixes the heteronym reading of the word.
+    /// </summary>
+    /// <param name="word">The word; its ASCII-folded spelling must be a form of the reading. Must not be null.</param>
+    /// <param name="readingId">The reading id, for example <c>record.noun</c>. Must not be null.</param>
+    /// <param name="caseSensitive">Whether the comparison is case sensitive; <see langword="false"/> by default.</param>
+    /// <returns>The entry; the id is checked against the <see cref="ReadingInventory"/> when the entry is added to a dictionary.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="word"/> or <paramref name="readingId"/> is null.</exception>
+    public static PronunciationOverrideEntry Reading(string word, string readingId, bool caseSensitive = false)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(readingId);
+        return new PronunciationOverrideEntry(word, caseSensitive, OverrideAction.Reading, readingId);
     }
 }

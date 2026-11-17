@@ -5,9 +5,12 @@ package SpeechTextEn {
      * implementation of the Speech library's ITextAnalyzer seam: part-of-speech annotation of the
      * words of a speech request, normalization of abbreviations, symbols, apostrophes and
      * initialisms into aligned spoken forms, host-supplied pronunciation overrides, letter
-     * sequences marked to be spelled, and authoritative sentence boundaries, delivered to
+     * sequences marked to be spelled, heteronym reading ids with a confidence (from a host
+     * reading override today, and from a classifier once a model ships; none ships yet), and
+     * authoritative sentence boundaries, delivered to
      * an annotation-aware synthesis backend as language-neutral annotations. The Analysis
-     * subsystem depends on the Normalization subsystem, never the reverse. It is a preview. Speech
+     * subsystem depends on the Normalization subsystem and the Heteronym subsystem, never the
+     * reverse. It is a preview. Speech
      * must never depend on it. It depends on the Speech library's public API and on the
      * DemaConsulting.PartOfSpeech package (an OTS item), and on no inference runtime. The
      * TrainingDataSubsystem is the non-shipped check-data command of the trainer tool that verifies
@@ -25,6 +28,7 @@ package SpeechTextEn {
 
         part analysisSubsystem : AnalysisSubsystem;
         part normalizationSubsystem : NormalizationSubsystem;
+        part heteronymSubsystem : HeteronymSubsystem;
         part trainingDataSubsystem : TrainingDataSubsystem;
         part partOfSpeech : PartOfSpeech;
     }

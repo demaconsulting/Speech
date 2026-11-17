@@ -5,7 +5,9 @@
 # the parent SpeechTextEn AnalysisSubsystem requirements. Each requirement states one observable
 # behavior.
 #
-# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs.
+# Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs
+# and, for the heteronym events as the analyzer reports them,
+# test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -90,3 +92,64 @@ sections:
                   anyway, the speech request it was observing must still complete.
                 tests:
                   - AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymEvent
+                title: >-
+                  The AnalysisDiagnostics class shall report, when at least one reading was
+                  assigned to a request, exactly one Info-level event in the category
+                  TextEn.Heteronym carrying the numbers of readings assigned, classified by the
+                  model, taken from a form with a single candidate, set by a reading override and
+                  below the confidence threshold (which the message also states), and shall
+                  report no such event when no reading was assigned, leaving the TextEn.Analysis
+                  event unchanged.
+                justification: |
+                  A host can group and filter by category; the counts tell it how much of the
+                  assignment came from the model and how much from its own entries, and how many
+                  readings were doubtful, which is the evidence for tuning the threshold. A
+                  separate event leaves the existing analysis message, which hosts may already
+                  parse, exactly as it was.
+                tests:
+                  - AnalysisDiagnostics_ReportReadings_Counts_ReceivesOneInfoEventInHeteronymCategory
+                  - AnalysisDiagnostics_ReportReadings_NothingAssigned_ReportsNothing
+                  - EnglishTextAnalyzer_Analyze_Diagnostics_HeteronymEventIsCountsOnlyAndAtMostOnce
+                  - EnglishTextAnalyzer_Analyze_LowConfidenceThreshold_CountsClassifiedReadingsBelowIt
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymNoTextContent
+                title: >-
+                  The AnalysisDiagnostics class shall build the heteronym message from fixed words
+                  and numbers written with the invariant culture only, so that no word, token,
+                  reading id or annotation value can appear in it under any culture.
+                justification: |
+                  The library's diagnostics contract forbids synthesized text content in any
+                  report; a reading id begins with the lemma of the word, so it would leak the
+                  text, and culture-specific digits would make the event differ between hosts.
+                tests:
+                  - AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-ModelWarningOncePerAnalyzer
+                title: >-
+                  The AnalysisDiagnostics class shall report a damaged or incompatible heteronym
+                  model as exactly one Warning-level event with a fixed message in the category
+                  TextEn.Model to its sink, and the analyzer shall report it at most once per
+                  analyzer however many requests follow and never for a model that is merely
+                  absent.
+                justification: |
+                  An unusable model is the one condition of the reading feature that a host can
+                  act on, so it is reported; repeating the warning on every request would flood a
+                  log, and an absent model is the normal state of this release.
+                tests:
+                  - AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning
+                  - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
+
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymSinkFailureContained
+                title: >-
+                  The AnalysisDiagnostics class shall accept a missing sink for the heteronym and
+                  model events and report nothing, and shall contain any exception thrown by the
+                  sink while they are reported, so that the analysis that assigned the readings
+                  still returns them.
+                justification: |
+                  A diagnostics sink is an observer whose contract forbids throwing; if one throws
+                  anyway, the speech request it was observing must still complete with its readings.
+                tests:
+                  - AnalysisDiagnostics_ReportReadingsAndModelProblem_NullOrThrowingSink_AreContained
+                  - EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained

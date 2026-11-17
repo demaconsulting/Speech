@@ -62,7 +62,9 @@ The internal values are read-only record structs:
   `en.norm`
 - `PronunciationMark(Start, Length, Value)`: a `scheme:phonemes` value attached to one token's exact source
   characters; the characters are not replaced
-- `TokenDirective(TokenIndex, Kind, Value)` with `TokenDirectiveKind` (`Skip`, `Replace`, `Spell`, `Pronounce`):
+- `TokenDirective(TokenIndex, Kind, Value)` with `TokenDirectiveKind` (`Skip`, `Replace`, `Spell`, `Pronounce`,
+  `Reading`; the value of `Reading`, a reading id, only concerns the analyzer and never the spoken text, so the
+  normalizer speaks the token as written like `Skip`):
   one decision of the host's override dictionary about one token, passed in by the analyzer
 - `SpelledGrammar.IsLetterSequence(value)`: the shared test for `[ ]?[A-Z]( [A-Z])*[ ]?` (single ASCII capitals
   separated by single spaces, at most one padding space per side), used by the builder and by the typed

@@ -21,11 +21,14 @@ sections:
                   pronunciation and spell-out) as distinct constants.
                 justification: |
                   Backends reference the kinds by name, so the full vocabulary has to be stable
-                  from the first release even though later releases will add the producers of the
-                  other kinds. This release produces four of the six (normalization, part of
-                  speech, spell-out and pronunciation); the two reading kinds are reserved.
+                  from the first release. This release produces all of the kinds: normalization,
+                  part of speech, spell-out and pronunciation from the earlier increments, and
+                  reading and reading confidence when a heteronym model is available or a host
+                  override fixes a reading. The two reading kinds are emitted together on the same
+                  span and are read back by the readers of the unit.
                 tests:
                   - TextEnAnnotations_Kinds_HaveDocumentedDistinctNames
+                  - TextEnAnnotations_ReadingKinds_AreTheOnesTheReadersAccept
 
               - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadPartOfSpeech
                 title: >-
@@ -50,6 +53,8 @@ sections:
                   - TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException
                   - TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException
                   - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
+                  - TextEnAnnotations_TryReadReading_OtherKindOrIllFormedId_ReturnsFalse
+                  - TextEnAnnotations_TryReadReadingConfidence_InvalidValueOrKind_ReturnsFalse
 
               - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
                 title: >-
@@ -111,3 +116,39 @@ sections:
                 tests:
                   - TextEnAnnotations_TryReadReplacement_NormAndSpell_ReturnValueAndSpelledFlag
                   - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReading
+                title: >-
+                  The TextEnAnnotations class shall read the reading id out of an annotation of the
+                  reading kind whose value is a well-formed reading id (two or three dot-separated
+                  segments of lowercase letters, digits and hyphens, none starting or ending with a
+                  hyphen, at most 64 characters), without checking the id against the inventory, and
+                  shall report false, without throwing, for an annotation of another kind or with an
+                  ill-formed value, and throw ArgumentNullException for a null annotation.
+                justification: |
+                  A backend that selects a pronunciation by reading calls the reader on every
+                  annotation of a segment and must not parse kind and value strings itself; a
+                  backend built against a newer inventory must still be able to read an id that
+                  this release does not know, so only the grammar is checked.
+                tests:
+                  - TextEnAnnotations_TryReadReading_WellFormedId_ReturnsId
+                  - TextEnAnnotations_TryReadReading_OtherKindOrIllFormedId_ReturnsFalse
+
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReadingConfidence
+                title: >-
+                  The TextEnAnnotations class shall read the confidence out of an annotation of the
+                  reading-confidence kind whose value is an unsigned decimal number from 0 to 1 in
+                  ASCII digits with an optional period and at most six decimals, giving the same
+                  number under every culture, and shall report false, without throwing, for an
+                  annotation of another kind or a value above 1, negative, signed, not a number, in
+                  exponent form, with whitespace, with a comma, without digits on either side of the
+                  period or with non-ASCII digits, and throw ArgumentNullException for a null
+                  annotation.
+                justification: |
+                  A backend that weighs a reading by its confidence must get one number from one
+                  grammar on every machine; reading with the current culture would give 0.5 on one
+                  machine and nothing or 5 on another, and a value outside the probability range
+                  must be an ordinary "no" rather than a crash or a wrongly weighted reading.
+                tests:
+                  - TextEnAnnotations_TryReadReadingConfidence_ValidValue_ReturnsInvariantNumberUnderEveryCulture
+                  - TextEnAnnotations_TryReadReadingConfidence_InvalidValueOrKind_ReturnsFalse

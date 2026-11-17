@@ -195,6 +195,11 @@ input-files:
   - docs/verification/speech-text-en/analysis-subsystem/text-en-annotations.md
   - docs/verification/speech-text-en/analysis-subsystem/part-of-speech-adapter.md
   - docs/verification/speech-text-en/analysis-subsystem/analysis-diagnostics.md
+  - docs/verification/speech-text-en/heteronym-subsystem.md
+  - docs/verification/speech-text-en/heteronym-subsystem/reading-inventory.md
+  - docs/verification/speech-text-en/heteronym-subsystem/heteronym-feature-extractor.md
+  - docs/verification/speech-text-en/heteronym-subsystem/sparse-perceptron-model.md
+  - docs/verification/speech-text-en/heteronym-subsystem/heteronym-classifier.md
   - docs/verification/speech-text-en/normalization-subsystem.md
   - docs/verification/speech-text-en/normalization-subsystem/normalization-alignment.md
   - docs/verification/speech-text-en/normalization-subsystem/text-normalizer.md

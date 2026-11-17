@@ -15,7 +15,11 @@ documented default or chose between competing cues; zero when normalization was 
 numeric shape; zero when normalization was not selected), overrides applied (user pronunciation overrides that took
 effect on a word) and overrides ignored (overrides that matched a word that an earlier multi-token match had already
 consumed); the last two are appended with a default of zero and are zero without a dictionary. The category is the
-constant `TextEn.Analysis`.
+constant `TextEn.Analysis`. `ReadingCounts` is an internal read-only record struct of four counts of the heteronym
+readings one request assigned: classified (decided by the model among several candidates), single-candidate (a form with
+one candidate), by override (fixed by a `Reading` override) and below the threshold (classified readings whose
+confidence was below the low-confidence threshold); its `Assigned` total is the first three added. The heteronym
+category is the constant `TextEn.Heteronym` and the model category is the constant `TextEn.Model`.
 
 **Key Methods**:
 
@@ -26,14 +30,25 @@ constant `TextEn.Analysis`.
   token, spoken replacement, annotation value or dictionary content (key, payload, scheme or entry count) can
   be in it - a leak is impossible by construction rather
   than merely avoided. (The count that earlier read "ambiguous abbreviations" is generalized to "ambiguous
-  readings"; the message is informational and a host should not parse it)
+  readings"; the message is informational and a host should not parse it.) The message is not changed by the heteronym
+  readings: they have their own event
 - **ReportRequest(counts)**: does nothing without a sink; otherwise sends one Info-level event in the
   `TextEn.Analysis` category. One report is made per completed request; a canceled or failed request
   reports nothing
+- **FormatReadingMessage(counts, threshold)**: builds the message `Assigned {n} heteronym readings: {c} classified, {s}
+  single-candidate, {o} by override, {l} below confidence {t}.` with invariant-culture numbers (`n` is the total and
+  `t` the threshold with two decimals and a period, so a culture with other digits or separators cannot change it),
+  from fixed words and numbers only, so no word, reading id or model name can be in it
+- **ReportReadings(counts, threshold)**: does nothing without a sink or when no reading was assigned; otherwise sends
+  one Info-level event in the `TextEn.Heteronym` category. At most one per request, made after the request event
+- **ReportModelProblem()**: does nothing without a sink; otherwise sends one Warning-level event in the `TextEn.Model`
+  category with the fixed message `Heteronym model unusable (invalid or incompatible file); readings disabled.`, which
+  names neither a file nor any text. The analyzer calls it at most once per analyzer instance, and only when a model
+  exists but cannot be used; a model that is not shipped is never reported
 
 **Error Handling**: any exception from the sink is caught and discarded here, because a diagnostics sink is
 an observer whose contract forbids throwing, and a fault in it must never interrupt the speech request it
-observes. This unit throws nothing else.
+observes. This applies to all three reports. This unit throws nothing else.
 
 **Dependencies**: the Speech library's `ISpeechDiagnostics` and `SpeechDiagnosticLevel`.
 

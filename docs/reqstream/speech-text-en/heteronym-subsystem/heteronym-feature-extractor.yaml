@@ -1,0 +1,145 @@
+---
+# Software Unit Requirements for HeteronymFeatureExtractor
+#
+# These requirements describe the design-level behavior of the HeteronymFeatureExtractor unit (and
+# the internal HeteronymContext, ContextToken and FeatureHashing members that are documented with
+# it), decomposing the parent SpeechTextEn HeteronymSubsystem requirements. The unit turns the
+# tokens of one sentence around a target word into hashed feature buckets, deterministically and
+# without allocating, in exactly the way the trainer must reproduce. Each requirement states one
+# observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/HeteronymFeatureExtractorTests.cs, with
+# the golden vectors TestData/heteronym-feature-vectors.tsv.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: HeteronymSubsystem Requirements
+        sections:
+          - title: HeteronymFeatureExtractor Requirements
+            requirements:
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-Deterministic
+                title: >-
+                  The HeteronymFeatureExtractor unit shall compute, for the same sentence and
+                  target, the same conjoined and shared feature buckets in every process, on every
+                  operating system and under every current culture, using only its own hash
+                  functions (FNV-1a with ASCII-only folding and a fixed mixing function), and shall
+                  reproduce the golden vectors of the repository, which cover each documented
+                  feature case.
+                justification: |
+                  The model weights are indexed by these buckets. The hash of a string in the
+                  runtime differs per process, and a culture-sensitive lowercase changes the letter
+                  I in Turkish, so either would make a runtime decide differently from the trainer
+                  without any visible error. Fixed algorithms, reference values and a golden file
+                  turn any such drift into a failing test.
+                tests:
+                  - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
+                  - HeteronymFeatureExtractor_Extract_GoldenVectors_CoverTheDocumentedCases
+                  - HeteronymFeatureExtractor_Extract_SameInputTwice_GivesIdenticalHashes
+                  - FeatureHashing_Fnv1a_KnownAnswers
+                  - FeatureHashing_Fnv1aFolded_FoldsAsciiOnly
+                  - FeatureHashing_MixAndFeature_ReferenceValues
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-FeatureSetVersion
+                title: >-
+                  The HeteronymFeatureExtractor unit shall declare the version of its feature set
+                  and the limits of its output (the number of conjoined and of shared features) as
+                  constants whose documented values the tests pin.
+                justification: |
+                  A model records the feature set it was trained with and the runtime refuses any
+                  other, so a change of the features has to change the version deliberately, and
+                  the output buffers of the callers are sized from the limits.
+                tests:
+                  - HeteronymFeatureExtractor_Constants_AreTheDocumentedOnes
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-SentenceLocalContext
+                title: >-
+                  The HeteronymFeatureExtractor unit shall build the features of a word from the
+                  tokens of its own sentence only, shall use sentence-start and sentence-end marker
+                  words for every position beyond the sentence, and shall not depend on where the
+                  sentence lies in the text.
+                justification: |
+                  The training examples are single sentences; a window that crossed into the
+                  neighboring sentence at runtime would present the model with context it never
+                  saw. The text offsets of the tokens identify them but carry no information.
+                tests:
+                  - HeteronymFeatureExtractor_Extract_SentenceOffsetsInText_DoNotChangeFeatures
+                  - HeteronymFeatureExtractor_Extract_SentenceEdges_UseMarkerWords
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BoundedFeatures
+                title: >-
+                  The HeteronymFeatureExtractor unit shall write at most the documented number of
+                  conjoined and of shared features for any sentence, however long, shall throw
+                  InvalidOperationException for an output buffer that is too small, and shall throw
+                  ArgumentOutOfRangeException for a target outside the sentence.
+                justification: |
+                  The analyzer gives the extractor buffers on the stack, so the number of features
+                  must have a proven bound; exceeding it is a defect that must fail loudly and not
+                  corrupt memory.
+                tests:
+                  - HeteronymFeatureExtractor_Extract_MaximalContext_StaysWithinBuffers
+                  - HeteronymFeatureExtractor_Extract_BufferTooSmall_ThrowsInvalidOperationException
+                  - HeteronymFeatureExtractor_Extract_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenNormalization
+                title: >-
+                  The HeteronymContext unit shall describe a token for the features by its hash of
+                  the ASCII-folded text with the typographic apostrophes read as the plain one and
+                  a digit-only token read as one number form (a Turkish dotted I is not folded), by
+                  its closed word class taken from the documented word lists, by the code of its
+                  Universal Dependencies tag, and by the bucket of its tag confidence.
+                justification: |
+                  These are the facts the model learns from. Each has to be defined by a rule that
+                  holds on every machine: the folding is ASCII only, the typographic and plain
+                  apostrophes must not split one word into two forms, every number is one form so
+                  that no number needs to be seen in training, and the confidence is grouped into
+                  the buckets the trainer uses.
+                tests:
+                  - HeteronymContext_Create_TurkishDottedI_IsNotFoldedToAscii
+                  - HeteronymContext_Create_CurlyApostrophes_NormalizeToPlain
+                  - HeteronymContext_Create_DigitOnlyTokens_ShareTheNumberForm
+                  - HeteronymContext_Create_Class_UsesTheClosedWordLists
+                  - HeteronymContext_Create_TagNames_MapToAlphabeticalCodes
+                  - HeteronymContext_Create_Confidence_FallsInDocumentedBucket
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RuneAwareShapes
+                title: >-
+                  The HeteronymContext unit shall decide whether a token is a word and which
+                  shape it has (punctuation, digits, lowercase, a single capital, uppercase,
+                  capitalized, mixed) per
+                  Unicode scalar rather than per UTF-16 code unit, treating a lone surrogate as a
+                  character that is not a letter.
+                justification: |
+                  Text from users contains emoji and supplementary-plane letters; deciding per code
+                  unit would split a character and make the shape depend on how it is encoded, and
+                  an invalid string must not throw on the speech path.
+                tests:
+                  - HeteronymContext_Create_Shape_IsDecidedPerScalar
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-OverflowSafeRanges
+                title: >-
+                  The HeteronymContext unit shall check the range of a token against its text
+                  without arithmetic that can overflow, shall throw ArgumentOutOfRangeException for
+                  a start or length outside the text (including a start of the largest integer and
+                  negative values), shall accept a token that ends exactly at the end of the
+                  text, and shall throw ArgumentNullException for a null text.
+                justification: |
+                  The ranges come from the tokenizer of another package; a sum that wraps around
+                  must not turn an invalid token into a valid one that reads outside the text.
+                tests:
+                  - HeteronymContext_Create_InvalidRange_ThrowsArgumentOutOfRangeException
+                  - HeteronymContext_Create_NullTextAndExactEnd_AreHandled
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenizationParity
+                title: >-
+                  The HeteronymFeatureExtractor unit shall give a word the same features whichever
+                  of the equivalent token splittings of the tagging package's tokenizer it arrives
+                  in (for example "ca n't" and "can't", "John 's" and "John's", quotes,
+                  parentheses, abbreviation periods and hyphenated compounds).
+                justification: |
+                  The trainer and the runtime tokenize differently at the edges, and a model must
+                  not behave differently for a contraction because of where the tokenizer cut it;
+                  the parity table pins the splittings that occur in English text.
+                tests:
+                  - HeteronymContext_Create_TokenizationParity_EquivalentSpellingsGiveTheSameFeatures
