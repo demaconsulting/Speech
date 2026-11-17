@@ -1,0 +1,114 @@
+---
+# Software Unit Requirements for LeakageChecker
+#
+# These requirements describe the design-level behavior of the LeakageChecker unit, the check that the
+# Text.En training, development and holdout data share no sentence, document or template and, when
+# evaluation sets are supplied, none with them, decomposing the parent SpeechTextEn
+# TrainingDataSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LeakageCheckerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: LeakageChecker Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-LeakageChecker-SplitSeparation
+                title: >-
+                  The LeakageChecker class shall report a finding for a sentence that occurs in more
+                  than one of the four data files, where two sentences are the same when they are equal
+                  after lowercasing and removing every character that is not an ASCII letter or digit,
+                  and shall not report a sentence that occurs more than once inside one file.
+                justification: |
+                  A model must be measured on sentences it never saw in training. The same sentence in
+                  two splits, even with different case or punctuation, invalidates every score
+                  measured on the later split. Repeats inside one file (the same sentence with
+                  different target words) are legitimate.
+                tests:
+                  - LeakageChecker_CheckInternal_ValidFixture_ReportsNothing
+                  - LeakageChecker_CheckInternal_SentenceInTwoFiles_ReportsFinding
+                  - LeakageChecker_CheckInternal_SentenceTwiceInOneFile_IsAllowed
+                  - SentenceKeys_Key_MixedText_KeepsLowerCaseLettersAndDigits
+
+              - id: SpeechTextEn-TrainingData-LeakageChecker-DocumentSeparation
+                title: >-
+                  The LeakageChecker class shall report a finding when sentences of the same natural
+                  source document occur in more than one split, and shall not report several sentences
+                  of one document inside one split, where a row is harvested by its source and not by its
+                  identifier.
+                justification: |
+                  Sentences of one document share names, topics and phrasing. Splitting a document
+                  across training and test lets a model memorize its surroundings, so a document may
+                  belong to exactly one split. A renamed row must still be checked as a harvested row.
+                tests:
+                  - LeakageChecker_CheckInternal_DocumentInTwoSplits_ReportsFinding
+                  - LeakageChecker_CheckInternal_DocumentTwiceInOneSplit_IsAllowed
+                  - LeakageChecker_CheckInternal_RenamedHarvestRowReusingDocument_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-LeakageChecker-TemplateSeparation
+                title: >-
+                  The LeakageChecker class shall report a finding when a synthetic sentence template
+                  of the same reading occurs in more than one data file, and shall not report the same
+                  template text for a different reading, where a row is synthetic or harvested by its
+                  source and not by its identifier.
+                justification: |
+                  Generated sentences from one template differ only in a few words. Spreading one
+                  template over two splits is the same leak as repeating a sentence. A row that was
+                  renamed must not leave the separation check that its source puts it in.
+                tests:
+                  - LeakageChecker_CheckInternal_TemplateInTwoFiles_ReportsFinding
+                  - LeakageChecker_CheckInternal_TemplateOfAnotherReading_IsAllowed
+                  - LeakageChecker_CheckInternal_RenamedSyntheticRowReusingTemplate_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-LeakageChecker-ExternalSets
+                title: >-
+                  The LeakageChecker class shall, for supplied evaluation sets, report a finding for a
+                  data row whose sentence equals an evaluation sentence and for a row of at least
+                  eight words of which at least 80 percent of the word five-grams occur in the
+                  evaluation sets, shall count per evaluation set and split the exact matches, near
+                  duplicates and rows that share any five-gram, and shall write that table to a report
+                  file in the format of the committed leakage report.
+                justification: |
+                  The evaluation corpora measure the finished model, so no training row may repeat or
+                  nearly repeat one of their sentences. The data was built against a fixed list of
+                  evaluation sets; the counts let an operator see that the result did not change
+                  when the data does.
+                tests:
+                  - LeakageChecker_CheckExternal_ExactMatch_ReportsFindingAndCounts
+                  - LeakageChecker_CheckExternal_NearDuplicate_ReportsFinding
+                  - LeakageChecker_CheckExternal_BelowContainmentThreshold_OnlyCountsSharedGram
+                  - LeakageChecker_CheckExternal_ShortSentenceFullyContained_IsNotNearDuplicate
+                  - LeakageChecker_CheckExternal_TwoSets_ReturnsRowPerSetAndSplitSortedByName
+                  - LeakageChecker_WriteReport_Rows_WritesDocumentedFormat
+                  - SentenceKeys_Words_MixedText_SplitsOnNonAlphanumerics
+                  - SentenceKeys_Ngrams_ShortAndLongSentence_ReturnsDistinctGrams
+
+              - id: SpeechTextEn-TrainingData-LeakageChecker-ExternalOptional
+                title: >-
+                  The LeakageChecker class shall load a folder of evaluation sets from its text files
+                  (one sentence per line) and its tab-separated files (the sentence column or else the
+                  text column), shall refuse a folder that is missing, holds no set, has a
+                  tab-separated set without such a column, or holds a file with no sentence (an empty
+                  file, a file of blank lines or a header-only table), naming that file, by throwing an
+                  error that the caller reports as a usage error rather than passing, shall refuse to
+                  compare against evaluation sets that hold no sentence at all, shall skip blank lines
+                  while keeping the original text of every other sentence, and shall tell whether one
+                  folder lies inside another.
+                justification: |
+                  The evaluation corpora are never committed, so the pipeline cannot run the external
+                  check and must stay green without them. A folder or a file that was asked for but is
+                  empty would otherwise let an operator believe the check passed when it examined
+                  nothing, and an evaluation folder inside the data folder would be committed with it.
+                tests:
+                  - LeakageChecker_LoadEvaluationSets_TsvSets_ReadSentenceOrTextColumn
+                  - LeakageChecker_LoadEvaluationSets_TsvWithoutSentenceColumn_ThrowsInvalidDataException
+                  - LeakageChecker_LoadEvaluationSets_MissingDirectory_ThrowsDirectoryNotFoundException
+                  - LeakageChecker_LoadEvaluationSets_EmptyDirectory_ThrowsInvalidDataException
+                  - LeakageChecker_LoadEvaluationSets_FileWithoutSentences_ThrowsNamingTheFile
+                  - LeakageChecker_LoadEvaluationSets_AllFilesEmpty_ThrowsInvalidDataException
+                  - LeakageChecker_LoadEvaluationSets_OneEmptyFileAmongGoodOnes_ThrowsNamingTheEmptyFile
+                  - LeakageChecker_LoadEvaluationSets_BlankLinesAmongSentences_AreSkippedAndTextIsKept
+                  - LeakageChecker_CheckExternal_SetsWithoutAnySentence_ThrowsInvalidDataException
+                  - LeakageChecker_IsInside_ComparesFullPaths

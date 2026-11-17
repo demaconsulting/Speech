@@ -1,0 +1,85 @@
+$ python tools/check_schema.py
+extension decisions 60 {'add': 45, 'defer': 15}
+readings 395 lemmas 207 mapped WHD ids 326 forms 501
+rows: {'train-nat': 6801, 'train-syn': 13064, 'dev-syn': 1934, 'test-hind': 1972, 'dev-nat': 1301, 'holdout-natural-nat': 1167}
+readings with a train row: 395 of 395; with a dev row: 393; with a holdout-natural row: 168
+readings with a holdout-independent row: 395; with fewer than 5: ['jesus.spanish']
+check_schema: OK (0 findings)
+
+$ python tools/check_licenses.py
+rows by license: {'CC-BY-3.0-US': 3423, 'CC0-1.0': 17791, 'Public-Domain': 5025}
+check_licenses: OK (0 findings)
+
+$ python tools/check_leakage.py --write-report
+evaluation sets 24 sentences 31324 distinct keys 28708
+eval set                           split              rows  exact   near    5gram
+branch-gold-raw                    train             19865      0      0       39
+branch-gold-raw                    dev                3235      0      0        8
+branch-gold-raw                    holdout-independent   1972      0      0        2
+branch-gold-tagged                 train             19865      0      0       30
+branch-gold-tagged                 dev                3235      0      0        8
+branch-gold-tagged                 holdout-independent   1972      0      0        2
+heteronym-bench                    train             19865      0      0       70
+heteronym-bench                    dev                3235      0      0       11
+heteronym-bench                    holdout-independent   1972      0      0        1
+pos-eval-shapes-dev-clause-verbs   train             19865      0      0       30
+pos-eval-shapes-dev-clause-verbs   dev                3235      0      0        4
+pos-eval-shapes-dev-clause-verbs   holdout-natural    1167      0      0        1
+pos-eval-shapes-dev-compound-head  train             19865      0      0        1
+pos-eval-shapes-dev-compound-head-2 train             19865      0      0        3
+pos-eval-shapes-dev-compound-head-2 dev                3235      0      0        1
+pos-eval-shapes-dev-defined-terms  train             19865      0      0       33
+pos-eval-shapes-dev-defined-terms  dev                3235      0      0        2
+pos-eval-shapes-dev-defined-terms  holdout-natural    1167      0      0        8
+pos-eval-shapes-dev-dev            train             19865      0      0       23
+pos-eval-shapes-dev-dev            dev                3235      0      0        3
+pos-eval-shapes-dev-dev            holdout-natural    1167      0      0        4
+pos-eval-shapes-dev-deverbal-heads train             19865      0      0        7
+pos-eval-shapes-dev-deverbal-heads dev                3235      0      0        3
+pos-eval-shapes-dev-deverbal-heads holdout-natural    1167      0      0        2
+pos-eval-shapes-dev-hard           train             19865      0      0        4
+pos-eval-shapes-dev-hard           dev                3235      0      0        1
+pos-eval-shapes-dev-hard           holdout-natural    1167      0      0        2
+pos-eval-shapes-dev-headings       train             19865      0      0        2
+pos-eval-shapes-dev-named-state    train             19865      0      0        1
+pos-eval-shapes-dev-named-state    dev                3235      0      0        1
+pos-eval-shapes-dev-step-lines     train             19865      0      0        1
+pos-eval-shapes-dev-step-lines     dev                3235      0      0        1
+pos-gold                           train             19865      0      0       20
+pos-gold                           dev                3235      0      0        4
+pos-gold                           holdout-natural    1167      0      0        5
+pos-gold-v2                        train             19865      0      0      229
+pos-gold-v2                        dev                3235      0      0       38
+pos-gold-v2                        holdout-natural    1167      0      0       37
+pos-open-dev                       train             19865      0      0      128
+pos-open-dev                       dev                3235      0      0        9
+pos-open-dev                       holdout-natural    1167      0      0       17
+pos-open-test                      train             19865      0      0      123
+pos-open-test                      dev                3235      0      0       15
+pos-open-test                      holdout-natural    1167      0      0       23
+pos-shapes-probe                   train             19865      0      0        1
+user36                             train             19865      0      0        7
+whd-converted-dev                  train             19865      0      0       71
+whd-converted-dev                  dev                3235      0      0       10
+whd-converted-dev                  holdout-independent   1972      0      0        1
+whd-eval                           train             19865      0      0       46
+whd-eval                           dev                3235      0      0       11
+whd-eval                           holdout-natural    1167      0      0        2
+whd-train                          train             19865      0      0      292
+whd-train                          dev                3235      0      0       39
+whd-train                          holdout-natural    1167      0      0       21
+whd-train                          holdout-independent   1972      0      0        2
+rows sharing >= 1 word 5-gram with any evaluation set, train: 688 of 19865
+rows sharing >= 1 word 5-gram with any evaluation set, dev: 93 of 3235
+rows sharing >= 1 word 5-gram with any evaluation set, holdout-natural: 68 of 1167
+rows sharing >= 1 word 5-gram with any evaluation set, holdout-independent: 4 of 1972
+check_leakage: OK (0 findings)
+
+$ python tools/gap_report.py
+readings 395
+readings with < 40 train rows: 14 ; need_synthetic sum 14 ; max need 1
+readings with 0 natural rows in train: 115 ; with 0 natural rows in any split: 106
+readings with < 10 natural train rows: 295
+readings with 0 dev rows: 2 ; 0 holdout-natural rows: 227 ; 0 holdout-independent rows: 0
+smallest train totals: [(39, 'absent.verb'), (39, 'axe.tool'), (39, 'deliberate.verb'), (39, 'discourse.verb'), (39, 'doe.plural'), (39, 'elaborate.verb'), (39, 'essay.verb'), (39, 'incline.noun')]
+

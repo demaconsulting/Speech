@@ -317,6 +317,16 @@ overrides:
       - zmir
       - zorblax
       - zorblaxsentinel
+  # The Text.En training data checks (non-shipped trainer): the environment variable and column names, a corpus
+  # source name, the regular expressions of the license checker (code, not prose) and the n-gram helper's test names
+  - filename: '{docs/**/training-data-subsystem.md,docs/**/training-data-subsystem/*.md,docs/**/training-data-subsystem/*.yaml,tools/DemaConsulting.Speech.Text.En.Trainer/README.md,.textlint.yaml}'
+    words:
+      - ngrams
+    ignoreRegExpList:
+      - /\S*TEXTEN_EVAL_SETS\S*/
+      - /\S*whd_wordid\S*/
+      - /\S*tech-deverbal\S*/
+      - /`[^`\n]*\|[^`\n]*`/
   # IPA phoneme strings (letters of the International Phonetic Alphabet are not words) in the override examples
   - filename: '**/{PronunciationOverrideEntry.cs,speech-text-en.md,usage.md,.textlint.yaml}'
     ignoreRegExpList:
@@ -333,3 +343,68 @@ overrides:
       - passonneau
       - treebank
       - wndb
+  # The Text.En training data folder: attribution names, corpus and column names, linguistic terms, data ids and
+  # IPA written by the reviewing models (not prose); no misspelled or British word is added
+  - filename: '{data/text-en/**,.textlint.yaml}'
+    words:
+      # MASC attribution (names of the authors and the corpus family)
+      - christiane
+      - fellbaum
+      - lrec
+      - oanc
+      - passonneau
+      - treebank
+      # The Tatoeba sentence corpus
+      - tatoeba
+      # The column name of the WikipediaHomographData ids in the id-only mapping
+      - wordid
+      - wordids
+      # A linguistics term (a noun derived from a verb) in the audit notes
+      - deverbal
+      # The id prefix of the candidate rows of the inventory extension
+      - cand
+      # The reading expose.noun is the noun exposé
+      - exposé
+    ignoreRegExpList:
+      # IPA transcriptions written by the reviewing models
+      - /\S*[\u0250-\u02FF]\S*/
+      # An immutable reading id (the lemma of the plural form analyses), not prose
+      - /\S*analyse\S*verb\S*/
+      # The environment variable that names the optional evaluation-set folder of check-data
+      - /\S*TEXTEN_EVAL_SETS\S*/
+  # The prompts are the verbatim task prompts of the generation, labeling and audit runs
+  - filename: '{data/text-en/prompts/**,.textlint.yaml}'
+    words:
+      - arpa
+      - partofspeech
+      - readset
+      - unpushed
+  # The Text.En trainer source and tests: column names, license-term fragments, evaluation corpus names, the
+  # environment variable and the synthetic strings of the span and leakage tests (identifiers, not prose)
+  - filename: '{tools/DemaConsulting.Speech.Text.En.Trainer/**/*.cs,test/DemaConsulting.Speech.Text.En.Trainer.Tests/**/*.cs,.textlint.yaml}'
+    words:
+      - conllu
+      - blankcells
+      - cand
+      - creativecommons
+      - derivat
+      - deverbal
+      - disjointness
+      - dlead
+      - heteronymbench
+      - isalnum
+      - leadx
+      - leadé
+      - ngram
+      - ngrams
+      - oclockcaf
+      - readingid
+      - semcor
+      - titlecase
+      - wordid
+      - xlead
+      - élead
+    ignoreRegExpList:
+      - /\S*TEXTEN_EVAL_SETS\S*/
+      - /\S*TEXTEN\S*/
+      - /\S*texten\S*/

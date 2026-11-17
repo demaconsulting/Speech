@@ -1,0 +1,66 @@
+---
+# Software Unit Requirements for TextEnDataSet
+#
+# These requirements describe the design-level behavior of the TextEnDataSet unit, the one-time
+# loader that turns the committed Text.En training data files into typed rows, decomposing the parent
+# SpeechTextEn TrainingDataSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/TextEnDataSetTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: TextEnDataSet Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-TextEnDataSet-Loading
+                title: >-
+                  The TextEnDataSet class shall load the reading inventory, the form table, the
+                  mapping table, the extension decisions, the four data files, both provenance tables
+                  and the gap table of a data folder once, shall check the format of every other table
+                  file, and shall report a finding, never an exception, for a missing file, a header
+                  that differs from the expected one or a value that is not an integer where an integer
+                  is required, and continue with the rest.
+                justification: |
+                  Every check works on the same tables, so they are read and format-checked once. A
+                  defective or missing file is the very thing the checks exist to find, so it has to
+                  become a reported finding that lets the other checks run, not an unhandled
+                  failure that hides them.
+                tests:
+                  - TextEnDataSet_Load_ValidFixture_LoadsAllTablesWithoutFindings
+                  - TextEnDataSet_Load_MissingFile_ReportsFindingAndContinues
+                  - TextEnDataSet_Load_NonIntegerOffsets_ReportsFindingAndKeepsRow
+                  - TextEnDataSet_Load_WrongDataHeader_ReportsFindingAndLoadsNoRowsOfThatFile
+                  - TextEnDataSet_Load_OtherTsvFileWithBadFormat_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-TextEnDataSet-TypedRows
+                title: >-
+                  The TextEnDataSet class shall give every data row, reading, form and provenance
+                  record as a typed value that carries the line it came from (and, for a data row, its
+                  file and split), keeping a sentence that begins with a quotation mark and its offsets
+                  intact, and shall give the forms listed for a reading.
+                justification: |
+                  The checkers compare columns by meaning, not by position, and report where they
+                  found a defect. Typed rows with their origin keep that knowledge in one place
+                  instead of repeating column indexes in every check.
+                tests:
+                  - TextEnDataSet_Load_Rows_CarryFileSplitLineAndOffsets
+                  - TextEnDataSet_Load_SentenceStartingWithQuote_KeepsSentenceAndOffsets
+                  - TextEnDataSet_FormsOf_KnownAndUnknownReading_ReturnListedForms
+
+              - id: SpeechTextEn-TrainingData-TextEnDataSet-SourceVocabulary
+                title: >-
+                  The TextEnDataSet class shall know the closed vocabulary of data sources, and for
+                  each source the set of licenses it may carry and whether its sentences are generated
+                  or taken from a natural document, with the kind of the source (harvest, synthetic or
+                  independent holdout), and shall report that a source outside the
+                  vocabulary is unknown.
+                justification: |
+                  The license policy per source and the provenance rules depend on knowing which
+                  sources exist and which are generated. A closed vocabulary means a new source
+                  cannot enter the data without a deliberate change that is reviewed.
+                tests:
+                  - SourceInfo_TryGet_KnownSource_ReturnsKindAndLicenses
+                  - SourceInfo_TryGet_UnknownSource_ReturnsFalse
+                  - SourceInfo_KindOf_Source_ReturnsKindOrNull

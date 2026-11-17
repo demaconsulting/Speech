@@ -1,0 +1,96 @@
+---
+# Software Unit Requirements for LicenseChecker
+#
+# These requirements describe the design-level behavior of the LicenseChecker unit, the check of the
+# licenses, the attribution and the excluded material of the Text.En training data, decomposing the
+# parent SpeechTextEn TrainingDataSubsystem requirements. Each requirement states one observable
+# behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LicenseCheckerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: LicenseChecker Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-LicenseChecker-AllowList
+                title: >-
+                  The LicenseChecker class shall report a finding for every data row whose license is
+                  not exactly one of CC0-1.0, Public-Domain or CC-BY-3.0-US, including any
+                  share-alike, non-commercial or no-derivatives license, and shall print the number of
+                  rows per license as information.
+                justification: |
+                  The data is published under open terms that allow commercial use and
+                  redistribution. A single row under a restrictive license would taint the whole
+                  folder, so the allow-list is closed and is checked for every row.
+                tests:
+                  - LicenseChecker_Run_ValidFixture_ReportsNothingAndCountsLicenses
+                  - LicenseChecker_Run_RestrictedLicenseOnRow_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-LicenseChecker-SourcePolicy
+                title: >-
+                  The LicenseChecker class shall report a finding for a row whose license is not one
+                  that its source may carry (generated rows are CC0-1.0, rows from the American
+                  National Corpus sample are CC-BY-3.0-US, other harvested rows are Public-Domain or
+                  CC0-1.0 as the source allows) and for a harvested row that has no entry in the
+                  harvest provenance table.
+                justification: |
+                  The license of a sentence follows from where it came from. Checking the license
+                  against the source catches a row whose license was copied wrongly, and
+                  requiring a provenance entry for each harvested row keeps the claim about where it
+                  came from checkable.
+                tests:
+                  - LicenseChecker_Run_GeneratedRowNotCc0_ReportsFinding
+                  - LicenseChecker_Run_MascRowNotCcBy_ReportsFinding
+                  - LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding
+                  - LicenseChecker_Run_UnknownSource_IsReportedOnlyBySchemaCheck
+
+              - id: SpeechTextEn-TrainingData-LicenseChecker-RestrictedTerms
+                title: >-
+                  The LicenseChecker class shall report a finding, with its line, for any
+                  restricted-license term, any reference to Wikipedia or to the Misaki data in the
+                  identifier, source or license cell of a data row or in any line of another table
+                  other than the manifest, and shall not scan the sentence text.
+                justification: |
+                  The owner decided that no restricted material and no Misaki data is used. A term
+                  scan over the metadata catches a restricted source named in a table; the sentence
+                  text is natural language that may legitimately mention such words and is
+                  covered by the provenance and source checks instead.
+                tests:
+                  - LicenseChecker_Run_MisakiTermInProvenanceTsv_ReportsFindingWithLine
+                  - LicenseChecker_Run_RestrictedTermInSourceColumn_ReportsFinding
+                  - LicenseChecker_Run_RestrictedTermInSentence_IsNotReported
+
+              - id: SpeechTextEn-TrainingData-LicenseChecker-EvaluationOnlyPaths
+                title: >-
+                  The LicenseChecker class shall report a finding for any file under the data folder
+                  whose path names an evaluation-only or restricted corpus, except the mapping table
+                  that holds identifiers only, and shall not look into the local cache folders.
+                justification: |
+                  The evaluation corpora are for measuring a trained model and must never be committed
+                  or become training data. Their only permitted trace is the table that maps their
+                  word identifiers to the readings of this inventory.
+                tests:
+                  - LicenseChecker_Run_EvaluationOnlyPath_ReportsFinding
+                  - LicenseChecker_Run_MappingFileAndLocalCaches_AreNotReportedAsEvaluationPaths
+
+              - id: SpeechTextEn-TrainingData-LicenseChecker-Attribution
+                title: >-
+                  The LicenseChecker class shall report a finding when a row carries the CC-BY-3.0-US
+                  license and the attribution file is missing or does not name its source, shall not
+                  require the attribution file otherwise, and shall report a finding when the readme,
+                  the prompts readme or the audit summary is missing or lacks a license line whose
+                  identifiers are all allowed.
+                justification: |
+                  A CC-BY license is only met if the attribution it requires is given. The folder's own
+                  documents must state their license so that a reader of any one of them can see under
+                  which terms it is published.
+                tests:
+                  - LicenseChecker_Run_AttributionFileMissing_ReportsFinding
+                  - LicenseChecker_Run_AttributionWithoutMasc_ReportsFinding
+                  - LicenseChecker_Run_NoAttributionRows_DoesNotRequireAttributionFile
+                  - LicenseChecker_Run_ReadmeWithoutLicenseLine_ReportsFinding
+                  - LicenseChecker_Run_ReadmeWithDisallowedLicense_ReportsFinding
+                  - LicenseChecker_Run_AuditSummaryMissing_ReportsFinding

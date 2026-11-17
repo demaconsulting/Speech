@@ -84,7 +84,12 @@ The following software items of the SpeechTextEn system are also covered; it is 
   the part-of-speech adapter and the diagnostics reporter) and its **NormalizationSubsystem** (the
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the
   abbreviation resolver and the acronym recognizer, whose
-  tests feed the real tokenizer's tokens to the normalizer through a test helper)
+  tests feed the real tokenizer's tokens to the normalizer through a test helper), and its
+  non-shipped **TrainingDataSubsystem** (the `check-data` command of the Text.En trainer that verifies the
+  training data in `data/text-en/`: the strict file reader, the typed loader, the manifest verifier, the span
+  validator, the finding collector, the schema, license and leakage checks and the command entry, verified in
+  `test/DemaConsulting.Speech.Text.En.Trainer.Tests` over data folders that the tests build in code and once over
+  the real committed data)
 
 The following software items of the SpeechCli system are also covered:
 
@@ -167,7 +172,9 @@ lives under `docs/verification/speech-sherpa/` (system document `docs/verificati
 its design under `docs/design/speech-sherpa/`, its source under `src/DemaConsulting.Speech.Sherpa/`,
 and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`. The SpeechCli, SpeechDemo, SpeechOnnx,
 SpeechOnnxKokoro, SpeechOnnxNemotronStt, SpeechOnnxChatterboxTurbo, and SpeechTextEn systems follow the
-same sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`.
+same sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`; the
+trainer tool of SpeechTextEn keeps its source in `tools/DemaConsulting.Speech.Text.En.Trainer/` and its tests in
+`test/DemaConsulting.Speech.Text.En.Trainer.Tests/`.
 
 OTS items have parallel artifacts in:
 

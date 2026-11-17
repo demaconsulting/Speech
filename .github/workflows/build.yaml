@@ -178,6 +178,21 @@ jobs:
           --configuration Release
           --property:Version=${{ inputs.version }}
 
+      # === CHECK TEXT.EN TRAINING DATA ===
+      # Verifies data/text-en/ (manifest hashes, file format, schema, strict whole-word spans,
+      # licenses and split separation). Running it in the OS matrix proves the manifest hashes
+      # hold on a Windows, Linux and macOS checkout (line endings and encoding), which the
+      # single-OS quality-checks job cannot. The external leakage check needs local evaluation
+      # sets that are never committed, so it is skipped here.
+      - name: Check Text.En training data
+        run: >
+          dotnet run
+          --project tools/DemaConsulting.Speech.Text.En.Trainer
+          --configuration Release
+          --no-build
+          --
+          check-data
+
       # === DOWNLOAD REAL SPEECH MODELS ===
       # Several tests (SherpaOnnxRecognitionEngineTests, SherpaOnnxRecognitionEngineAccuracyTests)
       # deliberately skip rather than fail when their real, production model is not installed in

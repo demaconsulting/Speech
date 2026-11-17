@@ -98,6 +98,14 @@ if (-not $skipDotnetTools) {
 
 # [PROJECT-SPECIFIC] Add additional lint checks here.
 
+# --- TEXT.EN TRAINING DATA SECTION ---
+# Verifies data/text-en/ (manifest hashes, file format, schema, strict whole-word spans, licenses and
+# split separation) with the trainer's check-data command. The optional external leakage check only
+# runs when TEXTEN_EVAL_SETS names a local folder of evaluation sets; CI never needs them.
+Write-Host "Linting: Text.En training data..."
+dotnet run --project tools/DemaConsulting.Speech.Text.En.Trainer --configuration Release -- check-data
+if ($LASTEXITCODE -ne 0) { $lintError = $true }
+
 # --- DOTNET LINTING SECTION ---
 # Runs compliance tools: reqstream, versionmark, reviewmark, sysml2tools.
 Write-Host "Linting: compliance tools..."

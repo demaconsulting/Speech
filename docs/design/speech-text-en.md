@@ -27,7 +27,7 @@ the Speech library must never depend on it. It uses the Speech library only thro
 package's project file has one project reference, to `DemaConsulting.Speech`, and no reference to ONNX
 Runtime or any inference package, so any model package can use it.
 
-The library consists of two subsystems:
+The library consists of two runtime subsystems:
 
 - **AnalysisSubsystem**: the `EnglishTextAnalyzer` analyzer (with its `EnglishTextAnalysis`,
   `AnalyzedToken` and `AnalyzedNormalization` result types), its `EnglishTextAnalyzerOptions`, the
@@ -49,6 +49,20 @@ which knows nothing of the analyzer, the tagger or the diagnostics sink. The Nor
 use the part-of-speech package in production code at all; it receives token offsets from the analyzer as
 plain values (only its tests feed it the real tokenizer's tokens). Both subsystems are small enough that
 neither needs nested subsystems of its own.
+
+A third subsystem belongs to the system but not to the package:
+
+- **TrainingDataSubsystem**: the `check-data` command of the non-shipped trainer tool
+  (`tools/DemaConsulting.Speech.Text.En.Trainer`) that verifies the training and evaluation data of the future
+  heteronym classifier in `data/text-en/` (the strict file reader, the typed data loader, the manifest verifier, the
+  span validator, the finding collector, and the schema, license and leakage checks) - see *SpeechTextEn
+  TrainingDataSubsystem Design* and *Training Data and Trainer* below
+
+The TrainingDataSubsystem shares no code with the library, references neither the Speech library nor the runtime
+subsystems, is not packed into the NuGet package and is not loaded by any host; the runtime subsystems do not know it
+exists. It is modeled as a subsystem of this system because its requirements are system requirements of this
+repository (the licensing and the integrity of the data the classifier is trained on), and because a later
+increment adds a sibling subsystem that trains the classifier from the same data.
 
 ## External Interfaces
 
@@ -618,6 +632,55 @@ replacement** (an `en.norm` or `en.spell` annotation of kind `Override`): the ho
 heteronym classification (rank 5 of the precedence table). This release states the constraint but forward-declares
 no requirement for it.
 
+## Training Data and Trainer
+
+This section describes the data that a later increment will train the heteronym classifier on, and the command that
+guards it. It changes nothing in the runtime of the library: in this release no part of `data/text-en/` is embedded in,
+referenced by or shipped with the package (the "Data Embedded in This Package: None" statement of the package's
+third-party notices stays true), and the analyzer, the normalization and the annotation vocabulary behave exactly as
+before.
+
+**What the data is.** `data/text-en/` holds, for the English heteronym classifier, an inventory of readings with
+identifiers owned by this repository (a *reading* is one pronunciation of a written word, such as `record` as a noun or
+as a verb), the forms each reading can take, labeled example sentences split into training, development and two
+holdout files, the provenance records of every row, a mapping of external evaluation identifiers to readings
+(identifiers only), and the documents, audit records and prompts that describe how it was made. Its structure,
+file formats and rules are described in *SpeechTextEn TrainingDataSubsystem Design*.
+
+**Licensing and provenance (owner decisions).**
+
+- Every row carries its license: `CC0-1.0`, `Public-Domain` or `CC-BY-3.0-US`, with the attribution that the last
+  requires in `ATTRIBUTION.md`. No share-alike, non-commercial or no-derivatives material is used.
+- The content that DEMA Consulting generated, labeled or wrote for the repository - the generated sentences, the
+  sentences written for the independent holdout, the readings chosen by language models for natural sentences, the
+  rule-derived labels, the audit records, the inventory and the selection and arrangement of the files - is dedicated
+  to the public domain under CC0 1.0. Language models wrote or labeled part of the data; the data records which
+  rows, with which model and on which date, and that a second model of another family judged them blind. No human
+  reviewed the model-written rows.
+- The evaluation-only corpora (WikipediaHomographData and heteronym-bench) are used for evaluation only and are
+  **never committed**; the only trace of them in the repository is the mapping of their word identifiers to our
+  reading identifiers. The reading identifiers, descriptions and forms are written in our own words, with no
+  pronunciation transcription and no text of those corpora.
+- Misaki data is not used anywhere in the data or in the trainer.
+
+**What the `check-data` gate does and does not prove.** The command (see *SpeechTextEn TrainingDataSubsystem Design*)
+proves that the committed files are exactly the reviewed files (a manifest of hashes pins them), that every file is in
+the canonical format, that every row is well formed and consistent with the inventory including a strict whole-word
+span, that no license outside the allow-list and no license a source may not carry is present, that the splits share
+no sentence, document or template, and that provenance, attribution and license statements exist. It runs in the
+lint script, in the build job on every operating system and as a test over the real data. It does not prove that
+a label is linguistically correct, that a harvested sentence really has the license of its source corpus, or that the
+data is free of overlap with an evaluation set that nobody supplied: the comparison with the evaluation corpora can be
+run only by an operator who has local copies (the pipeline never has them), and the data README records the result of
+the last such run.
+
+**Review.** The data documents and the small inventory tables are review files; the large tables are pinned by the
+manifest and guarded by the command instead, as the subsystem design explains.
+
+**Trainer scope.** The trainer in this release is a skeleton with the `check-data` command only; it targets `net10.0`,
+is not packable and is not part of the public surface. The training command, the model format and the way trained
+weights ship are later increments.
+
 ## Design Constraints
 
 - **Speech must never depend on SpeechTextEn**: the dependency direction is one way. Speech carries no
@@ -693,7 +756,8 @@ pass-through items are asserted by a golden row, so a later increment changes th
 - **Heteronym readings and the `Reading` override action**: the `en.reading` and `en.reading-confidence`
   kinds stay reserved and are never emitted, and the fifth override action (`Reading`, selecting a reading
   of an ambiguous word) is not provided; both belong to the heteronym increment (P2-6), which must skip
-  every word that has an override (see *Seam for heteronym readings*)
+  every word that has an override (see *Seam for heteronym readings*). This release holds only the training data
+  and its checking command (see *Training Data and Trainer*); no classifier is trained, embedded or shipped
 - **Multi-word override entries**: an entry is one token; a phrase cannot be overridden as a unit, because
   an annotation across whitespace could be cut by the core chunker and silently lost. A phrase can be
   covered word by word. A later increment may add multi-word entries by per-token decomposition

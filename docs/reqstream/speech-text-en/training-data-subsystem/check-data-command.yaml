@@ -1,0 +1,86 @@
+---
+# Software Unit Requirements for CheckDataCommand
+#
+# These requirements describe the design-level behavior of the CheckDataCommand unit, the command-line
+# entry of the Text.En trainer that runs every check of the training data, decomposing the parent
+# SpeechTextEn TrainingDataSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/CheckDataCommandTests.cs.
+# The program entry point (Program.cs) is glue that dispatches to this unit and is covered with it.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: CheckDataCommand Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-ExitCodes
+                title: >-
+                  The CheckDataCommand class shall give the exit code 0 when every check passes, 1 when
+                  any check reports a finding, and 2 for a usage or input error (an unknown command or
+                  option, a missing or invalid option value, a data folder that cannot be found, a
+                  malformed data or evaluation path, an evaluation folder that is missing or empty, or
+                  an evaluation file with no sentence), writing usage and input errors to the
+                  error stream.
+                justification: |
+                  The lint script and the build pipeline act on the exit code. A failed check and a
+                  broken invocation need different codes so an operator can tell a data problem from a
+                  mistake in the command.
+                tests:
+                  - CheckDataCommand_Run_ValidData_ExitsZeroAndSkipsExternalCheck
+                  - CheckDataCommand_Run_Violation_ExitsOneAndNamesCheckFileAndLine
+                  - CheckDataCommand_Run_UnknownOption_ExitsTwoWithMessage
+                  - CheckDataCommand_Run_OptionWithoutValue_ExitsTwo
+                  - CheckDataCommand_Run_InvalidMaxFindings_ExitsTwo
+                  - CheckDataCommand_Run_DataFolderMissing_ExitsTwo
+                  - CheckDataCommand_Run_NoDataFolderAnywhere_ExitsTwo
+                  - CheckDataCommand_Run_EvalSetsFolderMissing_ExitsTwo
+                  - CheckDataCommand_Run_EvalSetsFolderEmpty_ExitsTwo
+                  - CheckDataCommand_Run_EvalSetsFileEmpty_ExitsTwo
+                  - CheckDataCommand_Run_MalformedPath_ExitsTwo
+                  - Program_Run_MissingOrUnknownCommand_ExitsTwoWithUsage
+
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-Options
+                title: >-
+                  The CheckDataCommand class shall take the data folder from the data option, otherwise
+                  by searching upward from the working directory and then from the application folder;
+                  shall take the evaluation folder from the evaluation-sets option or else the
+                  evaluation-sets environment variable, the option winning; shall accept an option
+                  value after an equals sign; and shall accept options to write the leakage report file
+                  (only with evaluation sets and outside the data folder), to limit the findings
+                  printed per check, to print the per-reading counts and to print the usage.
+                justification: |
+                  The same command must run from the repository root, from a build output folder and
+                  from a script that supplies the evaluation sets, without the operator editing
+                  anything.
+                tests:
+                  - CheckDataCommand_Run_Help_PrintsUsageAndExitsZero
+                  - CheckDataCommand_Run_DataOptionWithEquals_IsAccepted
+                  - CheckDataCommand_Run_NoDataOption_DiscoversFolderFromCurrentDirectory
+                  - CheckDataCommand_Run_NoDataOption_DiscoversFolderFromToolDirectory
+                  - CheckDataCommand_Run_EvalSetsFromEnvironment_RunsExternalCheck
+                  - CheckDataCommand_Run_EvalSetsOptionAndEnvironment_OptionTakesPrecedence
+                  - CheckDataCommand_Run_LeakageReportOption_WritesReportFile
+                  - CheckDataCommand_Run_LeakageReportWithoutSetsOrInsideData_ExitsTwo
+                  - CheckDataCommand_Run_MaxFindings_CapsPrintedFindings
+                  - CheckDataCommand_Run_CountsOption_PrintsPerReadingTable
+                  - Program_Run_CheckDataHelp_PrintsCommandUsage
+
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-RunsAllChecks
+                title: >-
+                  The CheckDataCommand class shall run the manifest verification, the loading of the data,
+                  the schema check, the license check and the leakage checks in that order, shall run
+                  every check even when an earlier one reported a finding, shall run the external
+                  leakage check only when an evaluation folder is supplied and otherwise say that it was
+                  skipped, shall report an evaluation folder inside the data folder as a finding, and
+                  shall print which check each finding belongs to followed by the summary.
+                justification: |
+                  A maintainer fixing a data problem wants to see all findings in one run, not one per
+                  run. The fixed order makes the output comparable between runs, and an evaluation
+                  corpus inside the data folder would be committed with it.
+                tests:
+                  - CheckDataCommand_Run_ValidData_ExitsZeroAndSkipsExternalCheck
+                  - CheckDataCommand_Run_Violation_ExitsOneAndNamesCheckFileAndLine
+                  - CheckDataCommand_Run_EvalSetsOptionWithOverlap_ExitsOneAndReportsExactMatch
+                  - CheckDataCommand_Run_EvalSetsInsideDataFolder_ExitsOneWithFinding

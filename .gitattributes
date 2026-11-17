@@ -5,3 +5,6 @@
 # Windows batch files require CRLF line endings to function correctly.
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# The Text.En training data is verified by SHA-256 (data/text-en/MANIFEST.tsv): always LF, never converted.
+data/text-en/** text eol=lf
