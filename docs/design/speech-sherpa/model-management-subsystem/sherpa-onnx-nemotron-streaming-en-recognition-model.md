@@ -70,8 +70,8 @@ against a real download in this project's development sandbox, not fabricated).
   `Rule2MinTrailingSilence`/`Rule3MinUtteranceLength` above remain unchanged - this fix decouples
   "when reset fires" from "whether audio is lost across it" rather than tuning endpoint
   sensitivity. **Replay is only attempted by the shared engine when genuine recognized text has
-  occurred since the stream's most recent reset** - a regression fix for a leading/inter-utterance-
-  silence corruption defect found and resolved after this value was first selected (see the
+  occurred since the stream's most recent reset** - a regression fix for a leading/inter-utterance-silence
+  corruption defect found and resolved after this value was first selected (see the
   RecognitionSubsystem design chapter's "Replay eligibility is gated on genuine recognized text
   since the last reset" section for the full mechanism and its resolution); the `800` value itself
   is unaffected by that fix.

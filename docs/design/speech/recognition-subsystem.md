@@ -124,14 +124,14 @@ previous session's `DisposeAsync` completes.
 
 Both the pump thread inside `RecognitionSession` and the model-load step inside `SpeechRecognizerFactory` run on a
 `DedicatedWorker`: a dedicated, long-running (`TaskCreationOptions.LongRunning`) thread rather than a pooled thread,
-because both can block inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
-then-abandon** policy: on cancellation it signals the delegate's own `CancellationToken` first, then waits up to a
-bounded timeout (`DefaultAbandonTimeout`, 2 seconds) for the delegate to observe it and return; if the delegate has not
-returned by then, the worker *abandons* it - the returned `Task` completes as canceled (an awaiting caller observes
-`OperationCanceledException`) without waiting for the native call to return, and the abandonment itself is reported
-through `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate. This bounds how
-long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an abandoned native thread to finish on
-its own; it never blocks indefinitely on a stuck backend.
+because both can block inside native interop for an unbounded time. `DedicatedWorker` applies a
+**cooperative-cancel-then-abandon** policy: on cancellation it signals the delegate's own `CancellationToken` first,
+then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds) for the delegate to observe it and return; if
+the delegate has not returned by then, the worker *abandons* it - the returned `Task` completes as canceled (an awaiting
+caller observes `OperationCanceledException`) without waiting for the native call to return, and the abandonment itself
+is reported through `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate. This
+bounds how long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an abandoned native thread to
+finish on its own; it never blocks indefinitely on a stuck backend.
 
 #### Backpressure policy
 
