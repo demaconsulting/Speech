@@ -455,9 +455,9 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         // Act
         var exception = Record.Exception(() => model.CreateBackend(_root));
 
-        // Assert: the missing file is reported and no session is left open
+        // Assert: the missing file is reported before any session is created
         Assert.IsType<FileNotFoundException>(exception);
-        Assert.All(tracking.Sessions, session => Assert.True(session.WasDisposed));
+        Assert.Empty(tracking.Sessions);
     }
 
     /// <summary>Proves a full synthetic installation yields a backend that synthesizes end to end.</summary>

@@ -24,9 +24,10 @@ message up to a bounded timeout.
 The unit passes when: only installed recognition models are offered, the selection survives a refresh, an empty catalog
 is explained (and the explanation clears when a model appears); partial results replace the trailing transcript line
 while finals commit in order and a new run clears the previous transcript; Stop releases only the single-use session, is
-a safe no-op when idle, and two concurrent Stop calls both complete; a cached each Start recognizes through the selected
-model, and a model change while idle releases the previous model's engine and applies to the next Start; a model change
-while listening is ignored (selection unchanged, session still running); a capture-device change or a device refresh
+a safe no-op when idle, and two concurrent Stop calls both complete; each Start recognizes through the selected model
+(reusing the cached engine), and a model change while idle releases the previous model's engine and applies to the next
+Start; a model change while listening is ignored (selection unchanged, session still running); a capture-device change
+or a device refresh
 releases the old session and applies to the next Start; overlapping Stop and device-change requests are serialized,
 never stopping or releasing the session twice; every unavailable state is reported honestly with resources released;
 Dispose releases the session and engine and unsubscribes from `ModelInstalled`; a matching-role `ModelInstalled` event
