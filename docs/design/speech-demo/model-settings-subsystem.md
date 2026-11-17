@@ -10,10 +10,10 @@ contains the following units, each documented in its own file:
 
 - **ModelSettingsViewModel**: the panel's presentation state — the rendered presenters, the
   selected model, the honest empty-state message, and the value-bag capture and restore — see
-  _ModelSettingsViewModel Design_ (`model-settings-subsystem/model-settings-view-model.md`)
+  *ModelSettingsViewModel Design* (`model-settings-subsystem/model-settings-view-model.md`)
 - **ParameterViewModels** (`ParameterViewModelBase`, `NumericParameterViewModel`,
   `ChoiceParameterViewModel`, `BooleanParameterViewModel`): the presenters, one per library
-  parameter type, over a shared base — see _ParameterViewModels Design_
+  parameter type, over a shared base — see *ParameterViewModels Design*
   (`model-settings-subsystem/parameter-view-models.md`)
 
 The abstract base class and the three concrete presenters are documented and verified as one unit.

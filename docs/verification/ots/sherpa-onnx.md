@@ -28,7 +28,7 @@ inference binary:
 
 Where the real native runtime and an installed model are available, the SpeechSherpa
 `SherpaOnnxRecognitionEngineTests`/`SherpaOnnxRecognitionEngineAccuracyTests` additionally
-exercise real native inference (see _SpeechSherpa RecognitionSubsystem Verification_); they
+exercise real native inference (see *SpeechSherpa RecognitionSubsystem Verification*); they
 self-skip when the model is not installed, so they are not relied on as this OTS item's
 requirement evidence.
 

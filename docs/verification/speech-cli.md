@@ -11,12 +11,12 @@ assert on its console output and exit code. It covers the tool's own behavior - 
 subcommand dispatch, version/help display, `--validate` self-testing, and .NET global tool
 packaging - plus all thirteen subcommands: the five model-management subcommands and the two
 reference-voice subcommands (`list-models`, `model-info`, `download`, `uninstall`, `clean`,
-`list-voices`, `voices`, verified in detail in _SpeechCli ModelCommandsSubsystem Verification_),
+`list-voices`, `voices`, verified in detail in *SpeechCli ModelCommandsSubsystem Verification*),
 the three device-related subcommands (`list-devices`, `devices test`, `doctor`, verified in
-_SpeechCli DeviceCommandsSubsystem Verification_), the text-to-speech subcommand (`speak`, verified
-in _SpeechCli SynthesisCommandSubsystem Verification_), the speech-to-text subcommand (`recognize`,
-verified in _SpeechCli RecognitionCommandSubsystem Verification_), and the voice-conversation
-subcommand (`ask`, verified in _SpeechCli ConversationCommandSubsystem Verification_).
+*SpeechCli DeviceCommandsSubsystem Verification*), the text-to-speech subcommand (`speak`, verified
+in *SpeechCli SynthesisCommandSubsystem Verification*), the speech-to-text subcommand (`recognize`,
+verified in *SpeechCli RecognitionCommandSubsystem Verification*), and the voice-conversation
+subcommand (`ask`, verified in *SpeechCli ConversationCommandSubsystem Verification*).
 
 Automated coverage **does not** extend to real audio hardware or to a real, downloaded speech
 model: the `--validate` self-test's audio and model-store checks are composed exactly as the
@@ -62,7 +62,7 @@ The SpeechCli system is accepted when all of the following hold (IEC 62304 §5.7
   option
 - An unrecognized subcommand or option exits non-zero with a one-line error and no stack trace
 - The ReqStream requirements-to-tests enforcement reports every SpeechCli requirement as covered
-- The manual build-time checks listed in _Build-Time Verification_ are performed for each
+- The manual build-time checks listed in *Build-Time Verification* are performed for each
   release and produce the expected result
 
 ## Test Scenarios
@@ -80,9 +80,9 @@ as a child process.
 
 ### Help Display
 
-**Tests**: `Program_Run_WithHelpFlag_DisplaysUsageInformation`,
-`Program_Run_WithShortHelpFlag_DisplaysUsage`, `Program_Run_WithQuestionMarkFlag_DisplaysUsage`,
-`Program_Run_NoArguments_DisplaysBannerAndUsage`, `Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`, `SpeechCli_HelpFlag_Provided_ListsAllSubcommands`,
+**Tests**: `Program_Run_WithHelpFlag_DisplaysUsageInformation`, `Program_Run_WithShortHelpFlag_DisplaysUsage`,
+`Program_Run_WithQuestionMarkFlag_DisplaysUsage`, `Program_Run_NoArguments_DisplaysBannerAndUsage`,
+`Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`, `SpeechCli_HelpFlag_Provided_ListsAllSubcommands`,
 `SpeechCli_NoArguments_Invoked_DisplaysBannerAndUsage`
 
 Verifies that `-h`/`-?`/`--help`, and running with no arguments at all, print the banner and usage
@@ -114,10 +114,10 @@ Verifies that `list-models` (representative of the five model-management subcomm
 `recognize`, and `ask` dispatch to their real handlers and do not throw `NotImplementedException`,
 that the `list-voices` and `voices` subcommands are registered in the dispatch table, and that an
 unrecognized subcommand name is rejected cleanly with a non-zero exit code rather than a stack
-trace (and that `--silent` suppresses that error output). See _SpeechCli ModelCommandsSubsystem
-Verification_, _SpeechCli DeviceCommandsSubsystem Verification_, _SpeechCli
-SynthesisCommandSubsystem Verification_, _SpeechCli RecognitionCommandSubsystem Verification_,
-and _SpeechCli ConversationCommandSubsystem Verification_ for the subcommands' own detailed test
+trace (and that `--silent` suppresses that error output). See *SpeechCli ModelCommandsSubsystem
+Verification*, *SpeechCli DeviceCommandsSubsystem Verification*, *SpeechCli
+SynthesisCommandSubsystem Verification*, *SpeechCli RecognitionCommandSubsystem Verification*,
+and *SpeechCli ConversationCommandSubsystem Verification* for the subcommands' own detailed test
 scenarios.
 
 ### Successful Speak and Ask Runs
@@ -151,15 +151,13 @@ supplemental manual check.
 `Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption`,
 `Context_Create_ResultsOptionWithoutValue_ThrowsArgumentException`
 
-Verifies that a global option appearing after the subcommand name is still recognized as a global
-option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
-actually suppress console output/write a log file respectively (SpeechCli-Cli-SilentOption,
-SpeechCli-Cli-LogOption, and SpeechCli-Cli-VerboseOption for `--verbose`).
-`--voices-dir` is parsed onto the context when it names an existing folder and rejected with `ArgumentException` otherwise.
-`--depth` accepts 1 through 6 and rejects 0, 7, negative, non-numeric, and missing values;
-`--verbose` and its `--diagnostics` alias set the diagnostics flag before or after the subcommand;
-`--no-emotions` is recognized before or after any subcommand; and `--results`/`--result` carry
-the results file path.
+Verifies that a global option appearing after the subcommand name is still recognized as a global option (not absorbed
+into the subcommand's raw argument list), and that `--silent`/`--log` actually suppress console output/write a log file
+respectively (SpeechCli-Cli-SilentOption, SpeechCli-Cli-LogOption, and SpeechCli-Cli-VerboseOption for `--verbose`).
+`--voices-dir` is parsed onto the context when it names an existing folder and rejected with `ArgumentException`
+otherwise. `--depth` accepts 1 through 6 and rejects 0, 7, negative, non-numeric, and missing values; `--verbose` and
+its `--diagnostics` alias set the diagnostics flag before or after the subcommand; `--no-emotions` is recognized before
+or after any subcommand; and `--results`/`--result` carry the results file path.
 
 ### Download Mirror Configuration
 
@@ -173,28 +171,25 @@ the results file path.
 `Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException`,
 `Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException`,
 `Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException`,
-`Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException` (SpeechCli-Cli-DownloadMirrorBearerTokenValidation),
+`Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException`
+(SpeechCli-Cli-DownloadMirrorBearerTokenValidation),
 `Context_CreateMirror_BasicCredentialsOverPlainHttp_ThrowsArgumentException`,
 `Context_CreateMirror_BearerTokenOverPlainHttp_ThrowsArgumentException`,
-`Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror`
-Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
-`DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
-token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
-`--mirror-password` pairing with a clean `ArgumentException` rather than letting the invalid
-configuration surface later from inside the download transport. The mutually-exclusive-token test
-confirms that supplying both a complete Basic credential pair and a bearer token together is
-rejected rather than silently preferring one over the other (SpeechCli-Cli-DownloadMirrorCredentialConflict) -
-`Context.CreateMirror` forwards
-both to `DownloadMirror`'s constructor, which enforces this exclusivity (along with the mirror
-URL's scheme/query/fragment/user-info shape, the non-empty-bearer-token rule, and the
-non-loopback-`http`-with-credentials rule) - see _Speech ModelManagementSubsystem Design_ for
-`DownloadMirror`'s own full validation rules. The without-mirror-url tests confirm that
-`--mirror-user`/`--mirror-password` and `--mirror-bearer-token` are each rejected outright when
-supplied with no `--mirror-url`, rather than being silently ignored - a credential with nowhere to
-apply almost always indicates a missing or misspelled `--mirror-url`. A mirror URL of an unsupported
-shape (scheme, query, fragment, or embedded user-info), a whitespace-only bearer token, and Basic or
-bearer credentials sent over cleartext `http` to a non-loopback host are each rejected with
-`ArgumentException`; a loopback `http` mirror is accepted.
+`Context_CreateMirror_BearerTokenOverPlainHttpLoopback_ReturnsMirror` Verifies `Context.CreateMirror()` returns `null`
+when `--mirror-url` is not supplied, builds a `DownloadMirror` carrying the configured base URI plus either HTTP Basic
+credentials or a bearer token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
+`--mirror-password` pairing with a clean `ArgumentException` rather than letting the invalid configuration surface later
+from inside the download transport. The mutually-exclusive-token test confirms that supplying both a complete Basic
+credential pair and a bearer token together is rejected rather than silently preferring one over the other
+(SpeechCli-Cli-DownloadMirrorCredentialConflict) - `Context.CreateMirror` forwards both to `DownloadMirror`'s
+constructor, which enforces this exclusivity (along with the mirror URL's scheme/query/fragment/user-info shape, the
+non-empty-bearer-token rule, and the non-loopback-`http`-with-credentials rule) - see *Speech ModelManagementSubsystem
+Design* for `DownloadMirror`'s own full validation rules. The without-mirror-url tests confirm that
+`--mirror-user`/`--mirror-password` and `--mirror-bearer-token` are each rejected outright when supplied with no
+`--mirror-url`, rather than being silently ignored - a credential with nowhere to apply almost always indicates a
+missing or misspelled `--mirror-url`. A mirror URL of an unsupported shape (scheme, query, fragment, or embedded
+user-info), a whitespace-only bearer token, and Basic or bearer credentials sent over cleartext `http` to a non-loopback
+host are each rejected with `ArgumentException`; a loopback `http` mirror is accepted.
 
 ### Mirror Environment Variables
 
@@ -275,10 +270,10 @@ Verifies `Program.Version` returns a non-empty string.
 
 ### Argument Errors
 
-Context argument-error messages carry no "(Parameter 'x')" suffix (`Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix`,
-`Context_Create_OptionMissingValue_MessageHasNoParameterSuffix`), and `WriteError` restores the console
-foreground color even
-when the error writer throws (`Context_WriteError_ErrorWriterThrows_RestoresForegroundColor`).
+Context argument-error messages carry no "(Parameter 'x')" suffix
+(`Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix`,
+`Context_Create_OptionMissingValue_MessageHasNoParameterSuffix`), and `WriteError` restores the console foreground color
+even when the error writer throws (`Context_WriteError_ErrorWriterThrows_RestoresForegroundColor`).
 
 **Tests**: `Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode`,
 `Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput`,

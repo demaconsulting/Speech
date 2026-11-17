@@ -14,7 +14,7 @@ times to the decoder input) and embedding size 1024.
 samples, empty when there is no speech), `HitTokenLimit` (true when a generation bound ended the
 segment instead of the stop token) and `SpeechTokenCount` (the number of speech tokens generated).
 `IChatterboxTurboNetworks` and `IChatterboxTurboLanguageModelState` are the internal seams to the
-four graphs and to one generation's cache (see _OnnxChatterboxTurboNetworks_ design); the engine
+four graphs and to one generation's cache (see *OnnxChatterboxTurboNetworks* design); the engine
 disposes each state it begins, and the networks it was given on `Dispose`.
 
 **Key Methods**:

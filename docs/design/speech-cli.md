@@ -79,7 +79,7 @@ supplied bearer token must not
 be empty or whitespace-only (SpeechCli-Cli-DownloadMirrorBearerTokenValidation); and a credentialed mirror
 must use `https` unless its host is a
 loopback address - is enforced once, centrally, by `DownloadMirror`'s own constructor (see
-_Speech ModelManagementSubsystem Design_), so the CLI never duplicates that logic. Any rejection
+*Speech ModelManagementSubsystem Design*), so the CLI never duplicates that logic. Any rejection
 surfaces as an `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code
 error identically to every other command-line configuration mistake - never a stack trace.
 
@@ -103,7 +103,7 @@ long-lived user and password.
 `model-info`, `download`, `uninstall`, and `clean` - plus the two reference-voice subcommands
 `list-voices` and `voices`, and the CLI-owned catalog seam (`ICliModelCatalog`/
 `SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they all share over the library's
-`SpeechModelCatalog`/`SpeechModelStore`. See _SpeechCli ModelCommandsSubsystem Design_ for its full design.
+`SpeechModelCatalog`/`SpeechModelStore`. See *SpeechCli ModelCommandsSubsystem Design* for its full design.
 
 ### DeviceCommandsSubsystem
 
@@ -111,15 +111,15 @@ long-lived user and password.
 `list-devices`, `devices test`, and `doctor` - directly over the library's already-public
 `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/`AudioDeviceFactory`, with no CLI-owned
 seam wrapper (unlike `ModelCommandsSubsystem`'s `ICliModelCatalog`), because those probe
-interfaces are already public and directly fakeable. See _SpeechCli DeviceCommandsSubsystem
-Design_ for its full design.
+interfaces are already public and directly fakeable. See *SpeechCli DeviceCommandsSubsystem
+Design* for its full design.
 
 ### SynthesisCommandSubsystem
 
 **SynthesisCommandSubsystem** covers the one text-to-speech subcommand -
 `speak` - and uses `ModelCommandsSubsystem`'s `ICliModelCatalog` seam members
 (`GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`) rather than introducing a second,
-competing seam. See _SpeechCli SynthesisCommandSubsystem Design_ for its full design.
+competing seam. See *SpeechCli SynthesisCommandSubsystem Design* for its full design.
 
 ### RecognitionCommandSubsystem
 
@@ -127,7 +127,7 @@ competing seam. See _SpeechCli SynthesisCommandSubsystem Design_ for its full de
 `recognize` - plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, and uses
 `ModelCommandsSubsystem`'s `ICliModelCatalog` seam member (`CreateRecognizerEngineAsync`)
 symmetric to the synthesis pair, rather than introducing a second, competing seam. See
-_SpeechCli RecognitionCommandSubsystem Design_ for its full design.
+*SpeechCli RecognitionCommandSubsystem Design* for its full design.
 
 ### ConversationCommandSubsystem
 
@@ -138,17 +138,16 @@ play flow and `recognize --mic`'s mic-listen flow into a single invocation. It i
 `CreateRecognizerEngineAsync` members exactly as `speak` and `recognize` already do individually.
 It adds the CLI-owned `ICliCaptureDeviceSource` seam for microphone resolution, and reuses
 `DeviceCommandsSubsystem`'s `DevicesTestCommand.ResolveDeviceSelectionOrThrow` for device
-selection. See _SpeechCli ConversationCommandSubsystem Design_ for its full design.
+selection. See *SpeechCli ConversationCommandSubsystem Design* for its full design.
 
 ### Subcommand Dispatch Table
 
-`CommandDispatch` defines the fixed, ordered set of subcommands SpeechCli recognizes:
-`list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`,
-`list-devices`, `devices`, `doctor`, `speak`, `recognize`, and `ask`. Each entry pairs the subcommand's canonical name with
-a one-line usage summary (shown by `--help`) and a handler delegate. All thirteen
-subcommands' handlers are the real `ModelCommandsSubsystem`/`DeviceCommandsSubsystem`/
-`SynthesisCommandSubsystem`/`RecognitionCommandSubsystem`/`ConversationCommandSubsystem`
-implementations described above.
+`CommandDispatch` defines the fixed, ordered set of subcommands SpeechCli recognizes: `list-models`, `model-info`,
+`download`, `uninstall`, `clean`, `list-voices`, `voices`, `list-devices`, `devices`, `doctor`, `speak`, `recognize`,
+and `ask`. Each entry pairs the subcommand's canonical name with a one-line usage summary (shown by `--help`) and a
+handler delegate. All thirteen subcommands' handlers are the real `ModelCommandsSubsystem`/`DeviceCommandsSubsystem`/
+`SynthesisCommandSubsystem`/`RecognitionCommandSubsystem`/`ConversationCommandSubsystem` implementations described
+above.
 
 ## External Interfaces
 
@@ -177,7 +176,7 @@ consumes.
 
 SpeechCli has these project dependencies - the Speech library, and the model-package libraries whose
 registration extension methods (`AddSherpaModels()`, `AddKokoroModels()`, `AddNemotronSttModels()`,
-`AddChatterboxTurboModels()`) populate the catalog the CLI composes (see _SpeechSherpa Design_ and the
+`AddChatterboxTurboModels()`) populate the catalog the CLI composes (see *SpeechSherpa Design* and the
 other model-package designs) - and the following NuGet dependencies:
 
 - **`DemaConsulting.TestResults`** supplies the `.trx`/JUnit `.xml` self-validation result

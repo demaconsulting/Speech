@@ -25,31 +25,29 @@ dictionary says.
 
 #### Acceptance Criteria
 
-Each word of a sentence has one annotation exactly on its source span, in order, with the expected tag and no
-annotation on punctuation or symbols; the same spelling is tagged by context; sentence breaks are non-null,
-at later sentence starts, not at abbreviations, and empty for one sentence; placeholders are never covered,
-separate touching words, give the same result as spaces and never host a break; for 300 random texts every
-annotation is in bounds, on non-whitespace edges, free of placeholders and surrogate-pair cuts, every
-part-of-speech annotation reads back, and every
-break is on a word start; texts without words yield empty results and no tagger load; cancellation throws
-before any work, between sentences and inside normalization; a null text or null options throws; the detailed
-analysis agrees with the language-neutral one; a token that is an abbreviation carries its part of speech and
-then its `en.norm` annotation, in text order; normalization alone needs no tagger and adds no part of speech,
-and without normalization the tokenizer's breaks are returned unchanged and no `en.norm` annotation or
-clitic role is produced; the detailed analysis lists every normalization with its source text, spoken text
-and kind and every clitic with its role; the diagnostics event counts the normalizations and the ambiguous
-abbreviations; the language-neutral path allocates clearly less than the detailed path; concurrent requests
-agree and create the tagger once; and the analyzer does not keep the analyzed text alive. With a pronunciation
-dictionary, a say, spell or pronunciation override annotates exactly its token (`en.norm`, `en.spell`, `en.pron`),
-a skip override annotates nothing and bypasses the built-in rule, the word keeps its part of speech before the
-replacement, overrides work around a tag placeholder, the detailed analysis lists a say or spell override with the
-override kind, both entry points agree, sentence breaks are unchanged, every row of the golden file matches
-through the public analyzer, the diagnostics event reports the two override counts and no content, cancellation
-inside the lookup throws without a report, and a dictionary without hits adds no per-token allocation. A
-non-empty dictionary without the normalization family is rejected at construction, an empty dictionary is
-accepted, and the options are copied at construction. Initialisms, dotted initialisms, single initials, credentials,
-the letters of a time such as `p.m.` and ampersand initialisms are annotated `en.spell` with unchanged spoken text (the `and` of an ampersand
-initialism and every word replacement stay `en.norm`), and nothing is spelled when normalization is not selected.
+Each word of a sentence has one annotation exactly on its source span, in order, with the expected tag and no annotation
+on punctuation or symbols; the same spelling is tagged by context; sentence breaks are non-null, at later sentence
+starts, not at abbreviations, and empty for one sentence; placeholders are never covered, separate touching words, give
+the same result as spaces and never host a break; for 300 random texts every annotation is in bounds, on non-whitespace
+edges, free of placeholders and surrogate-pair cuts, every part-of-speech annotation reads back, and every break is on a
+word start; texts without words yield empty results and no tagger load; cancellation throws before any work, between
+sentences and inside normalization; a null text or null options throws; the detailed analysis agrees with the
+language-neutral one; a token that is an abbreviation carries its part of speech and then its `en.norm` annotation, in
+text order; normalization alone needs no tagger and adds no part of speech, and without normalization the tokenizer's
+breaks are returned unchanged and no `en.norm` annotation or clitic role is produced; the detailed analysis lists every
+normalization with its source text, spoken text and kind and every clitic with its role; the diagnostics event counts
+the normalizations and the ambiguous abbreviations; the language-neutral path allocates clearly less than the detailed
+path; concurrent requests agree and create the tagger once; and the analyzer does not keep the analyzed text alive. With
+a pronunciation dictionary, a say, spell or pronunciation override annotates exactly its token (`en.norm`, `en.spell`,
+`en.pron`), a skip override annotates nothing and bypasses the built-in rule, the word keeps its part of speech before
+the replacement, overrides work around a tag placeholder, the detailed analysis lists a say or spell override with the
+override kind, both entry points agree, sentence breaks are unchanged, every row of the golden file matches through the
+public analyzer, the diagnostics event reports the two override counts and no content, cancellation inside the lookup
+throws without a report, and a dictionary without hits adds no per-token allocation. A non-empty dictionary without the
+normalization family is rejected at construction, an empty dictionary is accepted, and the options are copied at
+construction. Initialisms, dotted initialisms, single initials, credentials, the letters of a time such as `p.m.` and
+ampersand initialisms are annotated `en.spell` with unchanged spoken text (the `and` of an ampersand initialism and
+every word replacement stay `en.norm`), and nothing is spelled when normalization is not selected.
 
 #### Test Scenarios
 
@@ -124,10 +122,11 @@ thread; they are verified by review, since a deterministic test would need a tim
 `EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`,
 `EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_AllocatesLess`
 
-The varied-texts theory compares the two entry points over empty, placeholder-only, emoji, CRLF, several-sentence
-and abbreviation texts (`Dr.` and `p.m.` are normalized under the default options). The allocation test runs the two entry points over the same large normalization-only text, after a
-warm-up, and requires the language-neutral path to allocate less than 90 percent of what the detailed path
-does, because it builds no token or normalization object and no text copy.
+The varied-texts theory compares the two entry points over empty, placeholder-only, emoji, CRLF, several-sentence and
+abbreviation texts (`Dr.` and `p.m.` are normalized under the default options). The allocation test runs the two entry
+points over the same large normalization-only text, after a warm-up, and requires the language-neutral path to allocate
+less than 90 percent of what the detailed path does, because it builds no token or normalization object and no text
+copy.
 
 ##### Normalization annotations and reconciled breaks
 
@@ -255,5 +254,5 @@ against it is waived locally with that justification. What it proves is exactly 
 this library's own state, keeps no reference to the input string or to its results after the call returns.
 It does **not** prove that no copy of the words survives in memory: the tagging package keeps token
 characters in a private, never-cleared per-thread buffer (known limitation of the dependency, upstream
-issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>; see _SpeechTextEn System Design_), which
+issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>; see *SpeechTextEn System Design*), which
 is deliberately not inspected or cleared here.

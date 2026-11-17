@@ -24,7 +24,7 @@ repository treats it as an OTS item and pins it to one exact version in
 The NormalizationSubsystem never names a type of this package: it receives plain token offsets from the
 analyzer and is written against the tokenizer's observable conventions, which are therefore part of the
 contract this repository relies on and are locked by a test that fails when a version change alters them
-(see _PartOfSpeech Verification_):
+(see *PartOfSpeech Verification*):
 
 - **Abbreviations that keep their period inside one token**: `Dr.`, `St.`, `Mr.`, `Prof.`, `Capt.`, `Sgt.`,
   `Mt.`, `Ft.`, `Co.`, `Ltd.`, `Corp.`, `Sr.`, `Jr.`, `e.g.`, `i.e.`, `etc.`, `vs.`, the single initial `J.`,
@@ -58,7 +58,7 @@ adapter would supply; no production code outside the adapter uses the package.
 
 The package is a separate NuGet dependency: it is not bundled in this library's package, which declares the
 MIT License only. The package embeds data under licenses other than MIT, whose attribution this library's
-own package reproduces as a dependency notice (see _SpeechTextEn System Design_). Because it is a
+own package reproduces as a dependency notice (see *SpeechTextEn System Design*). Because it is a
 pre-release package, a stable release of SpeechTextEn is blocked until the package publishes a stable
 version (NuGet warning NU5104).
 
@@ -72,4 +72,4 @@ defect is filed upstream as <https://github.com/demaconsulting/PartOfSpeech/issu
 tests that say SpeechTextEn "retains no text" are scoped to this library's own state. Moving the exact
 version pin to a release that clears the buffer closes the limitation; until then the SpeechTextEn package is
 gated (not packed or published) and a host that builds it from source with a strict no-retained-text
-requirement must account for it (see _SpeechTextEn System Design_, _Known Limitations_ and _Release Gate_).
+requirement must account for it (see *SpeechTextEn System Design*, *Known Limitations* and *Release Gate*).

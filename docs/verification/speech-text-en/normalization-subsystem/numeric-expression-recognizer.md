@@ -93,10 +93,10 @@ and `$1,23` are left alone (the last is a fallback).
 `NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod`,
 `NumericExpressionRecognizer_Units_ExcludedAmbiguousForms_AreLeftAlone`
 
-`50%`, `50 %`, `3.5%` and `-5%` read as percent; a `%` alone or after two spaces does not. A table-driven test over every
-unit of the table checks the singular for `1` and the plural for `5` and `1.0`, the glued and the joined forms,
-that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 in`, `5 Kg` and a unit with
-no number before it are left alone.
+`50%`, `50 %`, `3.5%` and `-5%` read as percent; a `%` alone or after two spaces does not. A table-driven test over
+every unit of the table checks the singular for `1` and the plural for `5` and `1.0`, the glued and the joined forms,
+that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 in`, `5 Kg` and a unit with no
+number before it are left alone.
 
 ##### Times
 
@@ -104,9 +104,10 @@ no number before it are left alone.
 `NumericExpressionRecognizer_Meridiem_GluedSeparateAndDotted`
 
 Every valid time of the table and the invalid `25:99`, `3:2`, `5:60`, `5:30:15`, `1:1:1`, `13:30pm`, `0pm` and `13pm`;
-`5:30pm`, `5pm`, `12:00am` glued as two adjacent spans inside the token (the time or hour words, then the meridiem letters, with
-the offsets `[0,1)` and `[1,3)` for `5pm` and `[0,4)` and `[4,6)` for `5:30pm`), `5 pm`, `5:30 pm` and `5 am` as a time and a meridiem span, and `5:30 p.m.` and `5
-PM` as a time span only (the initialism rule reads the dotted and the upper-case letters).
+`5:30pm`, `5pm`, `12:00am` glued as two adjacent spans inside the token (the time or hour words, then the meridiem
+letters, with the offsets `[0,1)` and `[1,3)` for `5pm` and `[0,4)` and `[4,6)` for `5:30pm`), `5 pm`, `5:30 pm` and
+`5 am` as a time and a meridiem span, and `5:30 p.m.` and `5 PM` as a time span only (the initialism rule reads the
+dotted and the upper-case letters).
 
 ##### Dates
 

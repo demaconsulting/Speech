@@ -12,7 +12,7 @@ The out-of-process tests pass whether or not the host has audio hardware: `list-
 cleanly either way and `doctor` treats a missing audio backend as informational. They therefore
 prove the graceful-degradation behavior on whatever machine runs them but do not prove device
 discovery on real hardware. That, and real device creation for `devices test`, is verified manually
-(see _Manual Verification_ in the unit documents), following the repository's convention for
+(see *Manual Verification* in the unit documents), following the repository's convention for
 hardware-dependent behavior.
 
 ### Test Environment

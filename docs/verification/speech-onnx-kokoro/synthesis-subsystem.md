@@ -16,8 +16,8 @@ path. Voice-style-vector selection and the full phonemization-to-inference tenso
 proven end-to-end by `OnnxKokoroEnglishSynthesisModelTests`'
 `OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle`
 test (via `CreateBackend`), reused here rather than duplicated, since that path is only reachable
-through a synthesis model's own `CreateBackend` implementation (see _SpeechOnnxKokoro
-ModelManagementSubsystem Verification_).
+through a synthesis model's own `CreateBackend` implementation (see *SpeechOnnxKokoro
+ModelManagementSubsystem Verification*).
 
 One additional test, `Generate_RealInstalledModel_ProducesNonEmptyAudio`, exercises the real
 production Kokoro model end-to-end - through `OnnxKokoroEnglishSynthesisModel.CreateBackend` and
@@ -29,8 +29,8 @@ repository's established SpeechSherpa real-model-skip convention.
 
 All synthesis policy above the seam - Layer 2 rendering, chunking, the session state machine,
 cancellation, and fault containment - remains fully verified in the Speech library against a fake
-backend (see _Speech SynthesisSubsystem Verification_), and this model's engine configuration is
-verified in _SpeechOnnxKokoro ModelManagementSubsystem Verification_.
+backend (see *Speech SynthesisSubsystem Verification*), and this model's engine configuration is
+verified in *SpeechOnnxKokoro ModelManagementSubsystem Verification*.
 
 ### Test Environment
 
@@ -54,5 +54,5 @@ graph for zero-token text, throws `ArgumentNullException` for null text, and thr
 `ObjectDisposedException` after disposal; a second `Dispose` call is a no-op; `RunProbeInference`
 runs successfully against a runnable session; `CreateBackend`'s constructed engine forwards the
 requested voice's own style vector verbatim (proven in
-_SpeechOnnxKokoro ModelManagementSubsystem Verification_); and, when the real production model is
+*SpeechOnnxKokoro ModelManagementSubsystem Verification*); and, when the real production model is
 installed, the real engine produces non-empty 24000 Hz audio for known English text.

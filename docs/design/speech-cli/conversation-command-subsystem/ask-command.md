@@ -41,7 +41,7 @@ timeout and an 8-second start timeout.
   a boolean value is parsed as a boolean, and an undeclared key is rejected, all before any engine is loaded.
 - `PrewarmRecognizerAsync` resolves the capture device, creates the recognizer engine, and creates a session bound
   to that device, without starting capture. `RunAsync` starts it on a background task before the prompt is spoken
-  (see _Recognizer pre-warming_ below).
+  (see *Recognizer pre-warming* below).
 - `SpeakPromptAsync` runs the first phase: it resolves the playback device, creates the synthesizer engine and its
   session, and speaks the text, returning whether playback was canceled.
 - `Listen` runs the second phase on the already-created session, wrapped in the reused
@@ -50,18 +50,18 @@ timeout and an 8-second start timeout.
 
 **Design notes**:
 
-_Reuse of existing catalog members._ `ask` needs one synthesis-role model and one recognition-role model, never one
+*Reuse of existing catalog members.* `ask` needs one synthesis-role model and one recognition-role model, never one
 model serving both roles. It therefore calls the existing synthesizer-engine and recognizer-engine members of
 `ICliModelCatalog` once each, as `speak` and `recognize` do individually, and needs no combined catalog member. Each
 engine is created with no device bound; the device is bound when the session is created.
 
-_Two-phase execution._ The prompt is spoken to completion before listening begins: `ask` never starts microphone
+*Two-phase execution.* The prompt is spoken to completion before listening begins: `ask` never starts microphone
 capture while the prompt is still playing. The playback device is resolved, and found unknown or unavailable,
 before any synthesis starts, so a playback-device failure happens before the prompt is spoken. The first final
 recognition result ends the listen phase, because `ask` models one bounded question and answer rather than
 open-ended transcription.
 
-_Recognizer pre-warming._ Loading a recognition model is the expensive step in creating a recognizer. If the load
+*Recognizer pre-warming.* Loading a recognition model is the expensive step in creating a recognizer. If the load
 started only after the prompt finished, the reply window would open late and the start of a reply could be missed.
 `RunAsync` therefore creates the recognizer on a background task while the prompt plays, so it is ready when
 playback ends. Only the load and the session creation are brought forward: starting the session, which begins real
@@ -88,7 +88,7 @@ device. Three exit paths govern the pre-warmed recognizer:
 documented thread-safety concern for the concurrent engine creations. A future catalog implementation with
 non-thread-safe shared side effects would need to account for that concurrency.
 
-_Listen termination and timeouts._ The listen phase wraps the session in `SilenceTimeoutRecognizerSession`, always,
+*Listen termination and timeouts.* The listen phase wraps the session in `SilenceTimeoutRecognizerSession`, always,
 even when both timeout flags are omitted, so a reply that never starts or never finishes cannot block the command.
 The timeouts interact with results as follows:
 
@@ -105,11 +105,11 @@ The session start runs on a background task, because a real capture session may 
 stopped; the turn therefore cannot hang on a blocking start. If the start fails, the session is stopped so the
 result stream ends, and the start failure is re-thrown to the caller rather than the turn waiting for results.
 
-_Output._ The reply text, or an empty string when the turn ended by a timeout with no final result, is printed to
+*Output.* The reply text, or an empty string when the turn ended by a timeout with no final result, is printed to
 stdout by default or written to the `--output-text` file, replacing any previous content and leaving a completely
 empty file for an empty reply. `ask` never prints interim results.
 
-_Cancellation._ Cancellation during the setup steps (creating the synthesizer engine or session, or adopting the
+*Cancellation.* Cancellation during the setup steps (creating the synthesizer engine or session, or adopting the
 pre-warmed recognizer) is reported with the same clean message as cancellation during playback.
 `Ctrl+C` cancels one shared token,
 stops the live listen session, and sets the shared stop signal,
@@ -121,9 +121,9 @@ receives the token, so a cancellation observed at any of those points is reporte
 false success. The stop requested by Ctrl+C is not abandoned: its task is observed, and a failure from it is
 swallowed, because the process is already shutting down and the failure is not actionable.
 
-_Global-option absorption._ Global options are recognized in any position before `ask` reaches `ParseArguments`,
+*Global-option absorption.* Global options are recognized in any position before `ask` reaches `ParseArguments`,
 so a flag value that equals a global flag (for example `--text -v`) is absorbed as that global option and is never
-passed to `ask`. A value that must look like a global flag cannot be supplied (see _SpeechCli Design_).
+passed to `ask`. A value that must look like a global flag cannot be supplied (see *SpeechCli Design*).
 
 **Error Handling**: Operator mistakes are reported as `ArgumentException` (unsupported or valueless flag, missing
 model id, bad timeout, conflicting or absent text source, unknown or wrong-role or not-downloaded model, rejected

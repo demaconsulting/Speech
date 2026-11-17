@@ -46,13 +46,13 @@ without changing this unit's layered try/fall-back design at all.
 
 ### Error Handling
 
-The subsystem's exception contract is the same as the unit's: only a provider's _unavailability_
+The subsystem's exception contract is the same as the unit's: only a provider's *unavailability*
 (an `OnnxRuntimeException` or `DllNotFoundException` from a candidate's construction or probe) is
 swallowed into the CPU fallback. A null or empty model path is reported as `ArgumentException`
 (`ArgumentNullException` for null) before any provider is attempted; a missing, unreadable, or
 malformed model is reported as `OnnxRuntimeException` from the final CPU attempt; and any
 unexpected exception from the caller's `validateSession` probe propagates after the candidate's
-session is disposed. See _SpeechOnnx OnnxExecutionProviderSelector Design_.
+session is disposed. See *SpeechOnnx OnnxExecutionProviderSelector Design*.
 
 ### Test Isolation
 

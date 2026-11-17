@@ -54,15 +54,14 @@ The lexicon and the trained weights that `DemaConsulting.PartOfSpeech` embeds ar
 - **Citation:** Nancy Ide, Collin Baker, Christiane Fellbaum, Charles Fillmore and Rebecca Passonneau, "MASC: the
   Manually Annotated Sub-Corpus of American English", Proceedings of the Sixth International Conference on Language
   Resources and Evaluation (LREC 2008), <https://aclanthology.org/L08-1105/>
-- **Changes:** the work was adapted by DEMA Consulting. The Penn Treebank part-of-speech tags and tree positions of every
-  token were converted to Universal POS (UPOS) tags; the empty-category traces were removed, quotation marks and dashes
-  were normalized, the sentences were reduced to those of 3 to 70 tokens, and the spoken genre and a few documents and
-  sentences that overlap evaluation data were left out. The converted data is not the original MASC data. The trained
-  weights of the tagger (`weights.bin`) were learned in part from the converted data: they are numbers that a training
-  program computed from the tags and the text of the converted sentences, and they contain no MASC text. The weights are
-  provided under the terms of this license. The authors of
-  MASC do not endorse this project or the converted data. The full statement is `data/masc/ATTRIBUTION.md` in the
-  repository of `DemaConsulting.PartOfSpeech`.
+- **Changes:** the work was adapted by DEMA Consulting. The Penn Treebank part-of-speech tags and tree positions of
+  every token were converted to Universal POS (UPOS) tags; the empty-category traces were removed, quotation marks and
+  dashes were normalized, the sentences were reduced to those of 3 to 70 tokens, and the spoken genre and a few
+  documents and sentences that overlap evaluation data were left out. The converted data is not the original MASC data.
+  The trained weights of the tagger (`weights.bin`) were learned in part from the converted data: they are numbers that
+  a training program computed from the tags and the text of the converted sentences, and they contain no MASC text. The
+  weights are provided under the terms of this license. The authors of MASC do not endorse this project or the converted
+  data. The full statement is `data/masc/ATTRIBUTION.md` in the repository of `DemaConsulting.PartOfSpeech`.
 
 ## Open English WordNet
 
@@ -72,7 +71,8 @@ WordNet.
 - **Title:** Open English WordNet 2025 Edition
 - **Creators:** the Open English WordNet team and contributors (John P. McCrae and others)
 - **Source:** <https://en-word.net> and <https://github.com/globalwordnet/english-wordnet>
-- **License:** Creative Commons Attribution 4.0 International (CC BY 4.0), <https://creativecommons.org/licenses/by/4.0/>
+- **License:** Creative Commons Attribution 4.0 International (CC BY 4.0),
+  <https://creativecommons.org/licenses/by/4.0/>
 - **Changes:** only the spellings of the entries and their inflected forms were used. They were combined with other
   sources and reduced to a table that maps a lower-case spelling to the UPOS tags it may carry. The lexicon is not the
   original Open English WordNet data, and the glosses, examples and relations are not part of it. The analyses table,

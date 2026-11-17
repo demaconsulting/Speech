@@ -28,8 +28,8 @@ time; a host that needs two simultaneous sessions loads two engines. It contains
   **AudioFrameResampler** that converts captured audio into the format a model requires, the
   **RecognitionResultBuffer** backpressure buffer, and the **DedicatedWorker** pump-thread helper.
   The real sherpa-onnx `IRecognitionBackend` implementation, `SherpaOnnxRecognitionEngine`, is not
-  part of this subsystem: it lives in the sibling `SpeechSherpa` system - see _SpeechSherpa
-  RecognitionSubsystem Design_
+  part of this subsystem: it lives in the sibling `SpeechSherpa` system - see *SpeechSherpa
+  RecognitionSubsystem Design*
 - **UnavailableSpeechRecognizerEngine**, **UnavailableRecognitionSession**, and
   **SpeechRecognizerUnavailableException**: honest fallback behavior when no model, no backend,
   or no capture device is available
@@ -122,18 +122,16 @@ previous session's `DisposeAsync` completes.
 
 #### Cancellation and abandon policy
 
-Both the pump thread inside `RecognitionSession` and the model-load step inside
-`SpeechRecognizerFactory` run on a `DedicatedWorker`: a dedicated, long-running
-(`TaskCreationOptions.LongRunning`) thread rather than a pooled thread, because both can block
-inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
-then-abandon** policy: on cancellation it signals the delegate's own
-`CancellationToken` first, then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds)
-for the delegate to observe it and return; if the delegate has not returned by then, the worker
-_abandons_ it - the returned `Task` completes as canceled (an awaiting caller observes `OperationCanceledException`) without
-waiting for the native call to return, and the abandonment itself is reported through
-`ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate.
-This bounds how long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an
-abandoned native thread to finish on its own; it never blocks indefinitely on a stuck backend.
+Both the pump thread inside `RecognitionSession` and the model-load step inside `SpeechRecognizerFactory` run on a
+`DedicatedWorker`: a dedicated, long-running (`TaskCreationOptions.LongRunning`) thread rather than a pooled thread,
+because both can block inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
+then-abandon** policy: on cancellation it signals the delegate's own `CancellationToken` first, then waits up to a
+bounded timeout (`DefaultAbandonTimeout`, 2 seconds) for the delegate to observe it and return; if the delegate has not
+returned by then, the worker *abandons* it - the returned `Task` completes as canceled (an awaiting caller observes
+`OperationCanceledException`) without waiting for the native call to return, and the abandonment itself is reported
+through `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate. This bounds how
+long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an abandoned native thread to finish on
+its own; it never blocks indefinitely on a stuck backend.
 
 #### Backpressure policy
 
@@ -181,8 +179,8 @@ The public `IRecognitionBackend` seam, loaded through the internal
 `IRecognitionBackendFactory` seam, keeps every native inference
 call out of this subsystem entirely: `DefaultRecognitionBackendFactory` simply forwards to the
 model's own `IRecognitionModel.CreateBackend`, and the real sherpa-onnx backend
-(`SherpaOnnxRecognitionEngine`) lives in the sibling `SpeechSherpa` system (see _SpeechSherpa
-RecognitionSubsystem Design_). That seam is the
+(`SherpaOnnxRecognitionEngine`) lives in the sibling `SpeechSherpa` system (see *SpeechSherpa
+RecognitionSubsystem Design*). That seam is the
 reason the whole pipeline is verifiable in CI: the session's threading, conversion, fault
 containment, and result ordering are all exercised through pure managed fakes with no model file
 and no native inference binary present. It mirrors the `IPortAudioApi` seam used for audio
@@ -200,17 +198,17 @@ known-model list, and this subsystem names no concrete model or engine backend: 
 the catalog through `SpeechModelCatalog.AddModels` (or an extension method such as the sibling
 `SpeechSherpa` system's `AddSherpaModels`). Within this repository the session is therefore proven
 end to end against fake models and fake backends; real-model, real-native-runtime recognition
-evidence lives with the concrete backend in _SpeechSherpa RecognitionSubsystem Design_ and its
+evidence lives with the concrete backend in *SpeechSherpa RecognitionSubsystem Design* and its
 companion verification.
 
 #### Unit Design Documents
 
 The session coordinates several units, each documented in its own file under
-`recognition-subsystem/`: _SpeechRecognizerEngine_ (the engine that leases the backend and
-creates sessions), _RecognitionBackend_ (`IRecognitionBackend`, `IRecognitionBackendFactory`,
-`DefaultRecognitionBackendFactory`), _RecognitionResultBuffer_, _DedicatedWorker_,
-_AudioFrameResampler_, _UnavailableSpeechRecognizerEngine_ and _UnavailableRecognitionSession_ (the
-always-obtainable honest fallbacks), and the exception types _SpeechRecognizerUnavailableException_,
-_RecognitionEngineBusyException_, and _RecognitionSessionFaultedException_ (the fault type surfaced
+`recognition-subsystem/`: *SpeechRecognizerEngine* (the engine that leases the backend and
+creates sessions), *RecognitionBackend* (`IRecognitionBackend`, `IRecognitionBackendFactory`,
+`DefaultRecognitionBackendFactory`), *RecognitionResultBuffer*, *DedicatedWorker*,
+*AudioFrameResampler*, *UnavailableSpeechRecognizerEngine* and *UnavailableRecognitionSession* (the
+always-obtainable honest fallbacks), and the exception types *SpeechRecognizerUnavailableException*,
+*RecognitionEngineBusyException*, and *RecognitionSessionFaultedException* (the fault type surfaced
 through `GetResultsAsync`). The session's whole job is to move audio from the converter into the
-backend on the right thread and buffer the results back out; see _RecognitionSession_.
+backend on the right thread and buffer the results back out; see *RecognitionSession*.

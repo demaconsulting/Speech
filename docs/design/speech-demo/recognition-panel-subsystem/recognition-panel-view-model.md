@@ -87,7 +87,7 @@ resources, a live capture device, or a stale event subscription.
   (`CanStop` true) before invalidating the cached session, because the capture picker is never
   disabled while listening and disposing a session without stopping it first would leave `State`
   stuck at `Listening`. A change of `SelectedModel` while listening is not stopped-and-invalidated
-  but refused (see _Model-switch guard_).
+  but refused (see *Model-switch guard*).
 - **Stop before a shared device refresh**: the constructor registers a pre-refresh hook
   (`StopBeforeDeviceRefreshAsync`) with the shared `DeviceSelectionViewModel` via
   `RegisterPreRefreshHook`. The hook delegates to the same stop-then-invalidate-session path used

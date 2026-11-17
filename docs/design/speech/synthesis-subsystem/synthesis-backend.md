@@ -59,5 +59,5 @@ this subsystem; `ISynthesisModel` from the ModelManagementSubsystem.
 
 The real sherpa-onnx `ISynthesisBackend` implementation, `SherpaOnnxSynthesisEngine`, is no longer
 part of this subsystem: it moved, together with the concrete sherpa-onnx models that construct it,
-to the sibling `SpeechSherpa` system. See _SherpaOnnxSynthesisEngine_ in _SpeechSherpa
-SynthesisSubsystem Design_.
+to the sibling `SpeechSherpa` system. See *SherpaOnnxSynthesisEngine* in *SpeechSherpa
+SynthesisSubsystem Design*.

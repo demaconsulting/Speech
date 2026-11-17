@@ -21,7 +21,7 @@ package version that removes or reshapes one stops the test project from compili
 tokenizer conventions the normalization depends on, so that moving the exact version pin to a release that
 changes them fails loudly instead of silently changing which text is normalized or where sentences break.
 The NormalizationSubsystem tests also call the tokenizer directly, as a test-only dependency (see
-_SpeechTextEn NormalizationSubsystem Verification_). The tests do not claim to
+*SpeechTextEn NormalizationSubsystem Verification*). The tests do not claim to
 measure the tagger's accuracy, which the package documents and measures itself; they use only sentences whose
 tags it assigns with full confidence.
 
@@ -113,5 +113,5 @@ process memory after the request (upstream issue <https://github.com/demaconsult
 No requirement of this OTS item asserts otherwise, and no test inspects or clears that private state; the
 SpeechTextEn retention requirement and its weak-reference test are scoped to SpeechTextEn's own state.
 Because this violates the core `ITextAnalyzer` no-retention contract, SpeechTextEn is not packed or published
-until a fixed version is pinned and a retention test is added (see _SpeechTextEn System Design_, _Release
-Gate_); that retention test will also be cited here, by version, when it exists.
+until a fixed version is pinned and a retention test is added (see *SpeechTextEn System Design*, *Release
+Gate*); that retention test will also be cited here, by version, when it exists.

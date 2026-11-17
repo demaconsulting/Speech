@@ -4,8 +4,8 @@
 
 The RecognitionCommandSubsystem is verified through deterministic unit tests over hand-written
 test doubles, plus out-of-process integration tests that run the built tool. Each unit has its own
-verification document (see _RecognizeCommand Verification_ and _SilenceTimeoutRecognizerSession
-Verification_); this document covers only the behavior that spans both units and the tests that
+verification document (see *RecognizeCommand Verification* and *SilenceTimeoutRecognizerSession
+Verification*); this document covers only the behavior that spans both units and the tests that
 exercise the subsystem as a whole.
 
 The cross-unit flow is verified by driving `RecognizeCommand.RunAsync` in microphone mode through

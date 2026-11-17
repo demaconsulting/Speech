@@ -9,9 +9,9 @@ contains the following units, each documented in its own file:
 
 - **AudioDeviceService** (`IAudioDeviceService` / `AudioDeviceService`): the demo-owned
   enumeration seam and its real implementation over the library's `AudioDeviceFactory` - see
-  _AudioDeviceService Design_
+  *AudioDeviceService Design*
 - **DeviceSelectionViewModel**: the presentation state for both pickers - see
-  _DeviceSelectionViewModel Design_
+  *DeviceSelectionViewModel Design*
 
 The subsystem also contains **DeviceSelectionView**, the Avalonia view bound to
 `DeviceSelectionViewModel`. It is a declarative view with no logic of its own beyond binding, so it has
@@ -26,7 +26,7 @@ capture and playback devices). It consumes the library's `AudioDeviceFactory`,
 `AudioDeviceDescription` and `AudioDeviceSelection`. `DeviceSelectionViewModel` also exposes the
 `RefreshAsync` command and `RegisterPreRefreshHook`/`UnregisterPreRefreshHook`, through which a panel
 that holds a device open stops its session before a refresh; their contracts are in the
-_DeviceSelectionViewModel Design_.
+*DeviceSelectionViewModel Design*.
 
 ### Design
 

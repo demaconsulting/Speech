@@ -7,7 +7,7 @@ probe. With an injected probe, a selection the probe does not know resolves to t
 whether or not PortAudio is initialized, so every assertion is deterministic on any machine. Resolving a known named
 device to a usable device needs real hardware when it goes through the factory; that behavior is verified through the
 in-memory `FakeCaptureDeviceSource` in the `ICliCaptureDeviceSource` contract scenario and manually (see
-_ConversationCommandSubsystem Verification_).
+*ConversationCommandSubsystem Verification*).
 
 #### Test Environment
 

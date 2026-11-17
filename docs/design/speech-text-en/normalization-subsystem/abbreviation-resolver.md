@@ -7,7 +7,7 @@ nothing about spans, periods or sentence breaks, which belong to `TextNormalizer
 
 **Data Model**:
 
-_The lexicon_ is the embedded resource `abbreviations.tsv`: UTF-8, LF, tab-separated, written from scratch by
+*The lexicon* is the embedded resource `abbreviations.tsv`: UTF-8, LF, tab-separated, written from scratch by
 DEMA Consulting. Blank lines and lines that start with `#` are ignored; the first remaining line is the
 header; every other line is one reading of one written form, in six columns:
 
@@ -60,26 +60,26 @@ month names and `May` have no row, the break the tokenizer places after a period
 kept (`We finished in May. 5 people stayed.` has a sentence end after `May.`), and the numeric date context
 ignores that period as well, so `5` there is a cardinal and not a day.
 
-_The month vocabulary_ is shared with the numeric rule: the `next-date` guard asks
+*The month vocabulary* is shared with the numeric rule: the `next-date` guard asks
 `NumericExpressionRecognizer.IsMonthToken` whether a token is a month, so the lexicon and the numeric rule
 agree on what a month is, and a test cross-checks the recognizer's month and weekday abbreviation lists
 against the rows of the table. The two new guards test the **ASCII digits** only (a date is written with
 `0-9`); the three older guards keep `char.IsDigit`, which is unchanged and documented.
 
-_The sentence-starting words_ (`SentenceStarters`, a code constant, matched exactly and case-sensitively) are
+*The sentence-starting words* (`SentenceStarters`, a code constant, matched exactly and case-sensitively) are
 capitalized words that begin a sentence and are therefore no evidence of a name: The, A, An, He, She, It,
 They, We, I, You, This, That, These, Those, There, Then, Here, His, Her, Our, Their, My, Your, In, On, At,
 As, But, And, Or, So, If, When, While, After, Before, Because, However, Also, What, Who, Why, How, Where,
 Please, Let, Do, Does, Did, Is, Are, Was, Were, Will, Would, Can, Could, Should, May, Might, Must, Not, No,
-Yes, Now, Today, Tomorrow, Yesterday, Next. _The determiners_ (matched case-insensitively) are: the, a, an,
-my, our, your, his, her, their, this, that, these, those, any. _The name continuations_ (`NameContinuations`,
+Yes, Now, Today, Tomorrow, Yesterday, Next. *The determiners* (matched case-insensitively) are: the, a, an,
+my, our, your, his, her, their, this, that, these, those, any. *The name continuations* (`NameContinuations`,
 a code constant, matched exactly and case-sensitively, without the final period) are the name suffixes and
 credentials that continue a name: Jr, Sr, Esq, II, III, IV, Ph.D, PhD, M.D, D.D.S, D.M.D, D.V.M, D.O, J.D,
 R.N, C.P.A, MBA, CPA. They are a code constant rather than a lexicon column because no existing lexicon class
 separates them (`Jr.` and `Ave.` are both `suffix`, `Ph.D.` is `free`, `M.D.` is a rule-spelled initialism)
 and a new column would change the documented file format for no gain.
 
-_The match_ `AbbreviationMatch(Spoken, Class, UsedDefault, IncludesPeriodToken)` carries the chosen spoken
+*The match* `AbbreviationMatch(Spoken, Class, UsedDefault, IncludesPeriodToken)` carries the chosen spoken
 form, the class of the chosen reading (`AbbreviationClass`: `Prefix`, `Suffix`, `Free`, `Word`), whether the
 choice is counted as ambiguous, and whether the candidate is a word token plus its own adjacent period
 token (the tokenizer emits `Ave` and `.` as two tokens but keeps `Dr.` whole).
@@ -114,7 +114,7 @@ token (the tokenizer emits `Ave` and `.` as two tokens but keeps `Dr.` whole).
   or without its final period. Only a token of two to six characters that starts with an upper-case letter
   is looked up, so the check is constant time and allocates only for such short capitalized tokens. It is
   used by `TextNormalizer` (a name suffix directly followed by another continuation continues a name, see
-  _TextNormalizer Design_) and by the reading choice below
+  *TextNormalizer Design*) and by the reading choice below
 
 **The cues** are computed from at most three neighbor tokens and cross tokenizer sentence boundaries. `P` is
 the previous token (a possessive clitic directly before the abbreviation is skipped, so `Patrick's St.`
@@ -173,6 +173,6 @@ surfaces on every normalization rather than being retried. `TryResolve` never th
 candidate that is not an abbreviation simply returns false.
 
 **Dependencies**: the framework only (resource loading by reflection over the library assembly and string
-handling). It reads token offsets as `NormalizationToken` values from the _NormalizationAlignment_ unit.
+handling). It reads token offsets as `NormalizationToken` values from the *NormalizationAlignment* unit.
 
 **Callers**: `TextNormalizer` (rule 3), and the tests.

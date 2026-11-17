@@ -5,8 +5,8 @@
 ### Overview
 
 The SpeechSherpa RecognitionSubsystem supplies the real, sherpa-onnx-backed implementation of the
-core `Speech` library's public `IRecognitionBackend` seam (see _Speech RecognitionSubsystem
-Design_). It previously lived inside the core library's own RecognitionSubsystem; it moved here,
+core `Speech` library's public `IRecognitionBackend` seam (see *Speech RecognitionSubsystem
+Design*). It previously lived inside the core library's own RecognitionSubsystem; it moved here,
 unchanged in behavior, together with the models that construct it, so the core library carries no
 sherpa-onnx dependency at all. The core library's session, engine, resampling, and composition
 logic remain in the core library and drive this backend only through `IRecognitionBackend`. It
@@ -24,9 +24,9 @@ implements the core library's public `IRecognitionBackend` (`AcceptSamples`, `Tr
 `IRecognitionBackend` is public specifically so any package, not only this one, can supply its own
 implementation. It consumes the
 sherpa-onnx managed API (`OnlineRecognizer`, `OnlineStream`, `OnlineRecognizerConfig`; see
-_SherpaOnnx Design_). It is constructed only by this system's recognition models'
-`IRecognitionModel.CreateBackend` implementations (see _SpeechSherpa ModelManagementSubsystem
-Design_).
+*SherpaOnnx Design*). It is constructed only by this system's recognition models'
+`IRecognitionModel.CreateBackend` implementations (see *SpeechSherpa ModelManagementSubsystem
+Design*).
 
 ### Design
 
@@ -48,4 +48,4 @@ application rather than a crash.
 The warm-up replay mitigation is scoped per model and is opt-in: only the Nemotron model, whose
 endpoint detector was confirmed to cause post-reset word loss, enables it, while the Zipformer
 model keeps it disabled because enabling it was confirmed to duplicate text. See
-_SherpaOnnxRecognitionEngine_ for the full mechanism and its regression history.
+*SherpaOnnxRecognitionEngine* for the full mechanism and its regression history.

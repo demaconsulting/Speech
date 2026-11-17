@@ -51,7 +51,7 @@ subsystem contains the following direct units:
   backend via `ISynthesisModel.CreateBackend`) and enforcing single-session exclusivity via a
   fail-fast lease. The real sherpa-onnx `ISynthesisBackend` implementation,
   `SherpaOnnxSynthesisEngine`, is not part of this subsystem: it lives in the sibling `SpeechSherpa`
-  system - see _SpeechSherpa SynthesisSubsystem Design_
+  system - see *SpeechSherpa SynthesisSubsystem Design*
 - **SynthesisSession**: the real `ISynthesisSession` implementation, together with the
   **PlaybackAudioResampler** that converts synthesized audio into the format a playback device
   requires
@@ -101,33 +101,33 @@ error handling, and rationale are in its own document under `synthesis-subsystem
 
 Text flows through five stages, each owned by one unit:
 
-1. **Layer 1 - parsing**: _AudioTagParser_ turns bracketed text
+1. **Layer 1 - parsing**: *AudioTagParser* turns bracketed text
    into an ordered span list, via the `AudioTagCatalog` alias table. It never throws and never drops
    input: anything that is not a recognized tag stays plain text ("never worse than plain narration").
 2. **Text analysis (stage 1b, optional)**: when the selected model supplies an `ITextAnalyzer`
-   (`ISynthesisModel.TextAnalyzer`), _SynthesisSession_ builds the analysis text - the model-normalized
+   (`ISynthesisModel.TextAnalyzer`), *SynthesisSession* builds the analysis text - the model-normalized
    plain text in which each recognized audio tag is replaced by one opaque
    `TextAnalysisConventions.TagPlaceholder` - and calls the analyzer **exactly once per request**,
    on a thread-pool thread (never the thread that called `SpeakAsync`/`SynthesizeAsync`, so a
    slow analyzer cannot block that thread),
    before any chunking, so the analyzer sees whole-request sentence context that no chunk or
    tag-delimited fragment carries. The returned annotations and optional authoritative sentence
-   breaks are re-based onto the plain spans by _TextAnalysis_ (a break between two consecutive tags
+   breaks are re-based onto the plain spans by *TextAnalysis* (a break between two consecutive tags
    travels on the tag span). With no analyzer, or an analyzer that
    returns nothing, this stage changes nothing.
-3. **Layer 2 - rendering**: _Layer 2 rendering_
+3. **Layer 2 - rendering**: *Layer 2 rendering*
    (`IModelCapabilityProfile` / `DefaultModelCapabilityProfile`) turns the spans into a `SpeechPlan`
    according to the selected model's declared tag support; pause tags always render as real silence.
-   Narration between tags is split by _SentenceChunker_, which splits at the analyzer's sentence
+   Narration between tags is split by *SentenceChunker*, which splits at the analyzer's sentence
    breaks when it supplied them and otherwise at sentence-ending punctuation, and which re-bases each
    annotation onto the chunk containing it.
-4. **Synthesis**: _SynthesisSession_ synthesizes each segment in
-   turn through the _ISynthesisBackend_ seam (see _SynthesisBackend_), running each native
-   call on a _DedicatedWorker_. A segment that carries annotations goes to a backend that
-   implements _IAnnotatedSynthesisBackend_ through `GenerateAnnotated`; every other segment, and
+4. **Synthesis**: *SynthesisSession* synthesizes each segment in
+   turn through the *ISynthesisBackend* seam (see *SynthesisBackend*), running each native
+   call on a *DedicatedWorker*. A segment that carries annotations goes to a backend that
+   implements *IAnnotatedSynthesisBackend* through `GenerateAnnotated`; every other segment, and
    every legacy backend, goes through `Generate` with exactly the text it would have received before
    text analysis existed.
-5. **Playback**: for `SpeakAsync` only, each segment is converted by _PlaybackAudioResampler_ and written to the bound
+5. **Playback**: for `SpeakAsync` only, each segment is converted by *PlaybackAudioResampler* and written to the bound
    playback device and the next segment is then synthesized. Synthesis never runs ahead of the
    segments already handed to the device (no synthesis queue), but the device plays already-written
    audio concurrently, so playback of the first segment begins while later segments are still being
@@ -140,7 +140,7 @@ for a program's whole life. `CreateSessionAsync(device, cancellationToken)` bind
 `IAudioPlaybackDevice` and returns an `ISynthesisSession` that is reusable across many calls, so a host
 holds one session per device rather than one short-lived synthesizer per utterance. At most one session
 may be leased from an engine at a time; a second `CreateSessionAsync` fails immediately with
-`SynthesisEngineBusyException` instead of queueing (see _SpeechSynthesizerEngine_).
+`SynthesisEngineBusyException` instead of queueing (see *SpeechSynthesizerEngine*).
 
 Each session exposes an explicit `SynthesisSessionState` lifecycle. `Starting`/`Running`/`Stopping` denote
 one discrete in-flight operation, not a continuous stream: a session returns to `Stopped` after each
@@ -179,7 +179,7 @@ Operations on one session never overlap (a second call while an operation is in 
 `InvalidOperationException`), and a non-cancellation failure - including a canceled operation whose
 native call had to be abandoned - makes the session terminally `Faulted`, directly from `Running`
 (the only state a fault can occur in). The
-transition rules, the stop and dispose behavior, and the fault handling are specified in _SynthesisSession_.
+transition rules, the stop and dispose behavior, and the fault handling are specified in *SynthesisSession*.
 
 #### Units
 
@@ -188,11 +188,11 @@ The session coordinates several units, each documented in its own file under
 into the backend (via a dedicated worker), and the resulting audio through resampling onto its
 bound playback device. Internal helpers (`SpeechParameterConventions`, `AnnotationList`,
 `TextAnalysisMapper`, and `DedicatedWorkerRun<T>`) are documented with the unit that owns them
-(Layer 2 rendering, _TextAnalysis_, _TextAnalysis_, and _DedicatedWorker_ respectively); the public
-`SentenceChunk` result is documented with _SentenceChunker_.
+(Layer 2 rendering, *TextAnalysis*, *TextAnalysis*, and *DedicatedWorker* respectively); the public
+`SentenceChunk` result is documented with *SentenceChunker*.
 
 | Unit | Design document |
-| ---- | --------------- |
+| --- | --- |
 | `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
 | `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
 | `SentenceChunker` (with `SentenceChunk`) | `synthesis-subsystem/sentence-chunker.md` |
@@ -216,22 +216,22 @@ bound playback device. Internal helpers (`SpeechParameterConventions`, `Annotati
 
 **Volume and speed are applied by the session, not by tag rendering alone.** The backend seam has
 no volume input, so volume overrides are applied as post-hoc amplitude scaling, while speed
-overrides are passed to the backend; the exact mechanics are specified in _SynthesisSession_.
+overrides are passed to the backend; the exact mechanics are specified in *SynthesisSession*.
 
 **Voice/speaker selection is a session-level concern, not a per-segment override.** The speaker
 is resolved by the model from the session's selected parameter values, deliberately not through
 the transient, tag-scoped per-segment overrides. The exact resolution mechanics are specified in
-_SynthesisSession_.
+*SynthesisSession*.
 
 **Mechanisms behind the subsystem's observable behavior.** The requirements state only what a
 host observes; the mechanisms live here and in the unit documents. The optional parameter-value
 bag passed to `SpeechSynthesizerFactory` is forwarded to the session, which asks the model to
-resolve the speaker once per synthesized segment (_SpeechSynthesizerFactory_, _SynthesisSession_).
+resolve the speaker once per synthesized segment (*SpeechSynthesizerFactory*, *SynthesisSession*).
 Every native call runs on a dedicated long-running thread under a cooperative-cancel-then-abandon
 policy: cancellation is requested first, and a call that does not return within the abandon
-timeout is detached so the caller is never hung, leaving the session `Faulted` (_DedicatedWorker_,
-_SynthesisSession_). `StopAsync` cancels the in-flight operation and completes only when that
-operation has unwound, and does nothing when none is in flight (_SynthesisSession_).
+timeout is detached so the caller is never hung, leaving the session `Faulted` (*DedicatedWorker*,
+*SynthesisSession*). `StopAsync` cancels the in-flight operation and completes only when that
+operation has unwound, and does nothing when none is in flight (*SynthesisSession*).
 
 **Synthesized text is never reported through diagnostics.** Every diagnostic this subsystem emits
 is a structural fact - composed, started, stopped, faulted, or lease-related - and never includes
@@ -244,7 +244,7 @@ tag placeholder, crosses spans or chunks, starts or ends on trimmed whitespace, 
 and falls on a dropped degenerate piece, or lies outside the text is dropped rather than clipped,
 split, or shifted,
 because a misplaced annotation would silently change how the wrong word is spoken
-(_TextAnalysis_, _SentenceChunker_). A punctuation-only piece that wholly contains an annotation
+(*TextAnalysis*, *SentenceChunker*). A punctuation-only piece that wholly contains an annotation
 with a non-empty value (a symbol an analyzer normalized to words, such as `"&"`) is kept as its
 own chunk on the analyzed path instead of being merged or dropped; without annotations the legacy
 behavior is unchanged. A model whose backend does not accept annotations but whose model supplies an
@@ -263,4 +263,4 @@ existed. A backend that does not implement `IAnnotatedSynthesisBackend` is never
 **Analyzer failures never fault a session and never reach diagnostics as text.** An analyzer that
 throws is contained by the session, which synthesizes without annotations and reports a single
 warning naming only the exception type, never its message or any text; cancellation requested during
-analysis is honored and propagates as `OperationCanceledException` (_SynthesisSession_).
+analysis is honored and propagates as `OperationCanceledException` (*SynthesisSession*).

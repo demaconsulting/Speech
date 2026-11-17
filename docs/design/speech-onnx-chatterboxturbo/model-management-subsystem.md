@@ -45,7 +45,7 @@ name gets a `(user)` or `(pack)` suffix, and the clips are decoded lazily so lis
 one corrupt clip fails only when it is chosen. Duplicate ids among the explicit and directory voices throw
 `ArgumentException`. Library voices may carry mood clips (for example `sad` or `shout`) that the engine uses
 when the text is spoken in that mood; a voice without the mood uses its base clip. See
-_ReferenceVoiceLibrary_ in the core ModelManagementSubsystem design for the pack, layout and merge rules.
+*ReferenceVoiceLibrary* in the core ModelManagementSubsystem design for the pack, layout and merge rules.
 
 The model's catalog id is `chatterbox-turbo-onnx-en` for the default variants (fp16 language model,
 q4 auxiliary graphs) and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` otherwise, so

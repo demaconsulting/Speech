@@ -33,8 +33,8 @@ The real, native-backed `IRecognitionBackend` implementation, `SherpaOnnxRecogni
 not part of the Speech library: it ships in the sibling SpeechSherpa library, where its
 post-endpoint warm-up-replay bookkeeping, real-speech transcription accuracy, session-end
 `Reset()` buffered-audio fix, and `TryFlush()` trailing-audio recovery are verified directly
-against real, installed models and the real native runtime (see _SpeechSherpa
-RecognitionSubsystem Verification_). The seam is what keeps that native surface out of this
+against real, installed models and the real native runtime (see *SpeechSherpa
+RecognitionSubsystem Verification*). The seam is what keeps that native surface out of this
 library entirely - all policy above it is covered here against the fake backend.
 
 #### Trailing-Audio Flush Pipeline Evidence
@@ -90,7 +90,7 @@ and teardown still completes, in which case the trailing flush and/or the backen
 cannot be guaranteed, and in rare cases restart (via a new session from the same engine) may not
 fully recover the ability to decode. Acceptance criteria for the real sherpa-onnx backend's
 warm-up replay, transcription accuracy, `Reset()`, and `TryFlush()` behavior are defined in
-_SpeechSherpa RecognitionSubsystem Verification_.
+*SpeechSherpa RecognitionSubsystem Verification*.
 
 #### Test Scenarios
 

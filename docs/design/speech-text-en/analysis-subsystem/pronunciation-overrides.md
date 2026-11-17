@@ -7,7 +7,7 @@ the spoken form (never for where a sentence ends).
 The unit owns the entry model, the grammar of keys and payloads, the tab-separated file format, the bounded
 reader, the case and whole-word matching rules and the lookup tables. It never rewrites text and never decides
 what a span covers: it only produces token-indexed directives for the `TextNormalizer`. The normative rules for
-users are in _SpeechTextEn System Design_, _Pronunciation Overrides_; this document is the design of the unit
+users are in *SpeechTextEn System Design*, *Pronunciation Overrides*; this document is the design of the unit
 that implements them.
 
 **Data Model**:
@@ -21,18 +21,18 @@ lower-case wire name). Every factory takes `caseSensitive = false` last. `Overri
 action and is never reused. `PronunciationScheme` (public) is `Ipa` (1, wire name `ipa`) and `Arpabet` (2, wire
 name `arpabet`); the set is closed.
 
-`PronunciationOverrides` (public) is a sealed, immutable class. It keeps a private array copy of the validated
-entries (exposed only as a read-only view, `Entries`, in the order supplied), two sorted row arrays (the
-case-sensitive rows ordered by ordinal comparison, the case-insensitive rows by `OrdinalIgnoreCase`), and the
-shortest and longest key length. A row is a canonical key, the directive kind and the directive value. Every
-key that contains an apostrophe adds a second row with all apostrophes written as U+2019, so both spellings
-match. A canonical key holds only plain apostrophes and an alias only typographic ones, so within one row array
-an alias never equals a canonical key, and two aliases are equal only when their canonical keys are, which the
-duplicate rule already rejected; the arrays therefore hold unique keys, the sort is total and the binary search
-is deterministic. The case-sensitive array is searched first, so a case-sensitive entry (by its exact spelling or
-its alias) beats a case-insensitive one for the same token. `Empty` is one shared instance; `Count` is the number of entries. The six public constants are the
-limits: `MaxEntries` (10,000), `MaxWordLength` (64 UTF-16 code units), `MaxPayloadLength` (256),
-`MaxSpellOutLetters` (32), `MaxTsvLineLength` (1,024) and `MaxTsvLines` (50,000).
+`PronunciationOverrides` (public) is a sealed, immutable class. It keeps a private array copy of the validated entries
+(exposed only as a read-only view, `Entries`, in the order supplied), two sorted row arrays (the case-sensitive rows
+ordered by ordinal comparison, the case-insensitive rows by `OrdinalIgnoreCase`), and the shortest and longest key
+length. A row is a canonical key, the directive kind and the directive value. Every key that contains an apostrophe adds
+a second row with all apostrophes written as U+2019, so both spellings match. A canonical key holds only plain
+apostrophes and an alias only typographic ones, so within one row array an alias never equals a canonical key, and two
+aliases are equal only when their canonical keys are, which the duplicate rule already rejected; the arrays therefore
+hold unique keys, the sort is total and the binary search is deterministic. The case-sensitive array is searched first,
+so a case-sensitive entry (by its exact spelling or its alias) beats a case-insensitive one for the same token. `Empty`
+is one shared instance; `Count` is the number of entries. The six public constants are the limits: `MaxEntries`
+(10,000), `MaxWordLength` (64 UTF-16 code units), `MaxPayloadLength` (256), `MaxSpellOutLetters` (32),
+`MaxTsvLineLength` (1,024) and `MaxTsvLines` (50,000).
 
 `OverrideSyntax` (internal, static) holds the grammars so that the dictionary builders and the typed annotation
 readers of `TextEnAnnotations` share one definition: the key grammar, the spell-out key rule, the `say` payload

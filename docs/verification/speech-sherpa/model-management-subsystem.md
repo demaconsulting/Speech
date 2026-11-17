@@ -14,8 +14,8 @@ the `AddSherpaModels()` extension method is verified against a real Speech `Spee
 
 The models' `CreateBackend` implementations, which construct the real native backends, are not
 exercised here because doing so loads the native runtime; the real recognition backend is
-verified in _SpeechSherpa RecognitionSubsystem Verification_ and the real synthesis backend's
-coverage status is recorded in _SpeechSherpa SynthesisSubsystem Verification_. Where a model's
+verified in *SpeechSherpa RecognitionSubsystem Verification* and the real synthesis backend's
+coverage status is recorded in *SpeechSherpa SynthesisSubsystem Verification*. Where a model's
 behavior was decided by a one-time real spike (for example the synthesis models' voice selection
 or the Nemotron model's casing), that evidence is recorded in the model's own verification
 document.
@@ -40,8 +40,8 @@ See each unit's own verification document for its detailed test scenarios:
 
 The `SpeechModelCatalogSherpaExtensions` unit is verified by the system-level scenarios
 `AddSherpaModels_Called_ReturnsSameCatalogInstance` and
-`AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles`; see _SpeechSherpa System
-Verification_.
+`AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles`; see *SpeechSherpa System
+Verification*.
 
 ### Acceptance Criteria
 

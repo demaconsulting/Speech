@@ -17,36 +17,36 @@ The application consists of six subsystems and four units that sit directly unde
 - **ShellSubsystem**: the window shell and the panel wiring — it holds the demo's service adapters,
   injects them into the panel view models, and presents one titled, selectable panel per
   demonstrated capability; the composition root itself is `App` — see
-  _SpeechDemo ShellSubsystem Design_
+  *SpeechDemo ShellSubsystem Design*
 - **DeviceSelectionSubsystem**: the capture and playback device pickers — a demo-owned
   enumeration seam over the library's `AudioDeviceFactory` probes, plus the presentation state
   that lists devices, tracks the chosen device by name, refreshes on demand, and explains a
-  machine with no audio devices honestly — see _SpeechDemo DeviceSelectionSubsystem Design_
+  machine with no audio devices honestly — see *SpeechDemo DeviceSelectionSubsystem Design*
 - **ModelCatalogSubsystem**: the model catalog and download panel — a demo-owned catalog seam
   over the library's `SpeechModelCatalog`, plus the row presentation, download progress
   reporting, honest failure states, and the explanatory empty-catalog message — see
-  _SpeechDemo ModelCatalogSubsystem Design_
+  *SpeechDemo ModelCatalogSubsystem Design*
 - **ModelSettingsSubsystem**: the generic per-model tunable-parameter settings panel — presenters
   for the library's numeric, choice, and boolean parameter kinds chosen by concrete type alone,
   embedded within the synthesis panel for whichever model is selected there —
-  see _SpeechDemo ModelSettingsSubsystem Design_
+  see *SpeechDemo ModelSettingsSubsystem Design*
 - **SynthesisPanelSubsystem**: the text-to-speech panel — a demo-owned synthesizer composition
   seam over the library's `SpeechSynthesizerFactory`, a text input with example Natural Language
   Audio Tag hints, and the Play/Stop lifecycle with honest unavailable-state reporting — see
-  _SpeechDemo SynthesisPanelSubsystem Design_
+  *SpeechDemo SynthesisPanelSubsystem Design*
 - **RecognitionPanelSubsystem**: the speech-to-text panel — a demo-owned recognizer composition
   seam over the library's `SpeechRecognizerFactory`, and the Start/Stop streaming lifecycle with
   progressive partial-then-final transcript rendering and honest unavailable-state reporting —
-  see _SpeechDemo RecognitionPanelSubsystem Design_
+  see *SpeechDemo RecognitionPanelSubsystem Design*
 - **App**: the Avalonia application object and the manual composition root; it also sequences
-  the deferred asynchronous shutdown — see _SpeechDemo App Design_
+  the deferred asynchronous shutdown — see *SpeechDemo App Design*
 - **AppLaunchOptions**: the parser and holder of the demo's launch-time command-line options —
-  see _SpeechDemo AppLaunchOptions Design_
+  see *SpeechDemo AppLaunchOptions Design*
 - **MirrorOptionsFactory**: the shared validator that builds a `DownloadMirror` from raw strings
-  for both launch-time and in-app mirror configuration — see _SpeechDemo MirrorOptionsFactory
-  Design_
+  for both launch-time and in-app mirror configuration — see *SpeechDemo MirrorOptionsFactory
+  Design*
 - **Program**: the process entry point, which fails fast on invalid launch options and
-  configures the Avalonia application builder — see _SpeechDemo Program Design_
+  configures the Avalonia application builder — see *SpeechDemo Program Design*
 
 Together the panels cover text-to-speech, speech-to-text, per-model settings, device selection
 and the model catalog.
@@ -86,17 +86,17 @@ external interfaces are its user interface and the interfaces it consumes.
 
 SpeechDemo has the following project dependencies:
 
-- **Speech**: the core library (see _Speech Design_)
+- **Speech**: the core library (see *Speech Design*)
 - **SpeechSherpa**: `AddSherpaModels()` registers the shipped sherpa-onnx models with the
-  catalog the demo composes (see _SpeechSherpa Design_)
+  catalog the demo composes (see *SpeechSherpa Design*)
 - **SpeechOnnxKokoro**: `AddKokoroModels()` registers the shipped Kokoro ONNX text-to-speech
-  model (see _SpeechOnnxKokoro Design_)
+  model (see *SpeechOnnxKokoro Design*)
 - **SpeechOnnxNemotronStt**: `AddNemotronSttModels()` registers the shipped Nemotron ONNX
-  speech-recognition model (see _SpeechOnnxNemotronStt Design_)
+  speech-recognition model (see *SpeechOnnxNemotronStt Design*)
 - **SpeechOnnxChatterboxTurbo**: `AddChatterboxTurboModels()` registers the Chatterbox Turbo
   voice-cloning synthesis model, which consumes the core Speech library's shared
-  `ReferenceVoiceLibrary` for the optional reference voice pack (see _SpeechOnnxChatterboxTurbo
-  Design_)
+  `ReferenceVoiceLibrary` for the optional reference voice pack (see *SpeechOnnxChatterboxTurbo
+  Design*)
 
 SpeechDemo also depends on the following NuGet packages:
 
@@ -114,7 +114,7 @@ SpeechDemo also depends on the following NuGet packages:
   declares its native runtime packages as its own dependencies, so they restore transitively
   through the project reference
 
-See _OTS Integration Design_, _Avalonia Design_, and _CommunityToolkit.Mvvm Design_ for details.
+See *OTS Integration Design*, *Avalonia Design*, and *CommunityToolkit.Mvvm Design* for details.
 
 ## Risk Control Measures
 
@@ -130,8 +130,8 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
    constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
    `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxNemotronStt's
    `AddNemotronSttModels()`, and SpeechOnnxChatterboxTurbo's `AddChatterboxTurboModels()` over one
-   shared `ReferenceVoiceLibrary` (see _Launch Options and
-   Mirror Configuration_ and _Reference Voices_), wraps each in its demo-owned service
+   shared `ReferenceVoiceLibrary` (see *Launch Options and
+   Mirror Configuration* and *Reference Voices*), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel. On shutdown the `App` unit defers the
    shutdown, disposes the synthesis panel, the recognition panel and then the catalog service in
@@ -213,7 +213,7 @@ and let a shell or script configure the demo before it starts.
 
 `MirrorOptionsFactory` builds a `DownloadMirror` from raw strings and is shared by
 `AppLaunchOptions` (launch-time arguments) and `ModelCatalogViewModel` (the in-app mirror-settings
-panel described in _SpeechDemo ModelCatalogSubsystem Design_), so both entry points validate
+panel described in *SpeechDemo ModelCatalogSubsystem Design*), so both entry points validate
 mirror configuration identically — a mismatched username/password pairing, or any
 credential/bearer-token supplied without a mirror URL, is rejected locally by
 `MirrorOptionsFactory` itself (matching `DemaConsulting.Speech.Cli`'s own
@@ -222,13 +222,13 @@ user-info, credential/bearer-token mutual exclusivity, non-loopback-HTTP-with-cr
 enforced once, by `DownloadMirror`'s own constructor, rather than duplicated in either entry
 point.
 
-`App`'s composition root threads these options through a `CatalogFactory` local function —
-capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`/`AddChatterboxTurboModels()`
-composition — that `ModelCatalogService` (see _SpeechDemo ModelCatalogSubsystem Design_) calls
-again, with freshly resolved downloader options, whenever the user applies new mirror settings
-from the catalog panel. This is what lets the mirror be reconfigured from the running
-application instead of only at launch, without the library's own `SpeechModelCatalog` needing to
-support in-place reconfiguration.
+`App`'s composition root threads these options through a `CatalogFactory` local function — capturing the resolved
+`SpeechModelStoreOptions` and the
+`AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`/`AddChatterboxTurboModels()` composition — that
+`ModelCatalogService` (see *SpeechDemo ModelCatalogSubsystem Design*) calls again, with freshly resolved downloader
+options, whenever the user applies new mirror settings from the catalog panel. This is what lets the mirror be
+reconfigured from the running application instead of only at launch, without the library's own `SpeechModelCatalog`
+needing to support in-place reconfiguration.
 
 ## Reference Voices
 

@@ -113,5 +113,5 @@ dictionary and writing throws)
 
 **Test**: `ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed`
 
-Verifies `TryGetMoodClip` resolves `sad`, `SAD` and ` Sad ` to the same path, and that null, blank, unknown names and a
+Verifies `TryGetMoodClip` resolves `sad`, `SAD` and `Sad` to the same path, and that null, blank, unknown names and a
 voice without mood clips report no match.

@@ -37,4 +37,4 @@ error handling.
 `CreateSessionAsync` once per capture device.
 
 The exception this unit throws when the lease is held, `RecognitionEngineBusyException`, is
-documented in its own design document (_RecognitionEngineBusyException_).
+documented in its own design document (*RecognitionEngineBusyException*).

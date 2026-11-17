@@ -12,14 +12,14 @@ family: `Normalized` (`en.norm`), `PartOfSpeech` (`en.upos`), `Reading` (`en.rea
 `ReadingConfidence` are declared so a backend can reference stable names from the first release and are
 documented as reserved. The `Value` of an `en.norm`
 annotation is the exact spoken replacement for the annotated span (empty means speak nothing), and its
-documentation states the consumer algorithm and the guarantees of the _Alignment Contract_ (see _SpeechTextEn
-System Design_). The `Value` of an `en.spell` annotation is the same kind of replacement, restricted to single
+documentation states the consumer algorithm and the guarantees of the *Alignment Contract* (see *SpeechTextEn
+System Design*). The `Value` of an `en.spell` annotation is the same kind of replacement, restricted to single
 capital ASCII letters separated by single spaces with at most one padding space on either side (A11), with
 the promise that the letters are letter names. The kind is the only spell-out signal: an `en.norm` value is
 always spoken as words, whatever letters it holds (a `Say` override of `I` is the word), so no consumer infers
 spelling from an `en.norm` value, and a meridiem glued to its number is split into an `en.norm` span and an
 `en.spell` span. The `en.norm` and `en.spell` annotations form the
-_replacement family_: one ascending, non-overlapping sequence. The `Value` of an `en.pron` annotation is
+*replacement family*: one ascending, non-overlapping sequence. The `Value` of an `en.pron` annotation is
 `scheme:phonemes` with a lower-case scheme from the closed list `ipa` and `arpabet`; it replaces nothing and
 is disjoint from every replacement (A12). A private set holds the 17 Universal Dependencies tag names that a
 `PartOfSpeech` value may take. The reader grammars of `en.spell` and `en.pron` are not duplicated here: the

@@ -4,8 +4,8 @@
 
 Verified through direct unit tests in `AudioDeviceInUseExceptionTests.cs` of the three public
 constructors; no dependencies are mocked. The refusal behavior that throws this type is verified
-at the AudioSubsystem level (see the _PortAudio Environment: Refresh Success and Refusal_ and
-_Factory: RefreshDevices Delegation, In-Use Propagation, and Probe Re-Evaluation_ scenarios).
+at the AudioSubsystem level (see the *PortAudio Environment: Refresh Success and Refusal* and
+*Factory: RefreshDevices Delegation, In-Use Propagation, and Probe Re-Evaluation* scenarios).
 
 #### Test Environment
 

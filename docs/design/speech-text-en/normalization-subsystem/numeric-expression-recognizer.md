@@ -11,14 +11,14 @@ or a numeric fallback. It builds no `AlignedText`, decides no period or sentence
 limits below and two internal value types:
 
 - `NumericSpan(Start, Length, Spoken, Kind)`: one replacement the match asks for. `Kind` is `Number`,
-  `Currency`, `DateTime` or `Unit` (see _NormalizationAlignment Design_)
+  `Currency`, `DateTime` or `Unit` (see *NormalizationAlignment Design*)
 - `NumericMatch`: a readonly struct (no list is allocated per token) with up to two spans (`SpanCount`,
   indexer), `TokensConsumed` (at least 1), `Ambiguous` (at most one count per match), `Fallback` (the token
   looks numeric but is left as written, or was read digit by digit because of a limit) and `PeriodUnit` (the
   last span is a unit token that may carry an abbreviation period, so `TextNormalizer` applies its period and
   sentence rules to it). A match with no span and `Fallback` set means "numeric-looking, left as written"
 
-_Limits._ They bound the work per token and the size of any value, and are enforced before a reading is built.
+*Limits.* They bound the work per token and the size of any value, and are enforced before a reading is built.
 
 | Limit | Value | Behavior beyond it |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ _Limits._ They bound the work per token and the size of any value, and are enfor
 | Look-behind and look-ahead | at most 3 tokens, each a constant-time test | - |
 | Spoken value | 1,024 characters | Asserted for the worst case; the writer throws rather than truncates |
 
-_Tokens and context._ The tokenizer is whitespace driven and not uniform: `$5.50` is two tokens (`$`, `5.50`),
+*Tokens and context.* The tokenizer is whitespace driven and not uniform: `$5.50` is two tokens (`$`, `5.50`),
 `¥500` and `-$5` one, `50%` two (`50`, `%`), `5pm` one, `5-10` one, `5–10` (en dash) three, `1990's` one and
 `'90s` two, and `Jan. 5, Feb. 3` breaks sentences after each month. The recognizer therefore classifies whole
 tokens by shape and never assumes a split. Two tokens are **joined** when they are adjacent or separated by
@@ -41,7 +41,7 @@ turned a tag placeholder into one space, so a number, a tag and a unit with no s
 join. Every neighbor access first checks the neighbor's length and bounds (never `Start + Length` before
 `Length > text.Length - Start`), so a hostile token list cannot overflow or cause a long scan.
 
-_Vocabularies_ (private arrays in the unit, exposed only as cached read-only views, all case-sensitive unless
+*Vocabularies* (private arrays in the unit, exposed only as cached read-only views, all case-sensitive unless
 stated):
 
 - **Months**: the twelve Title Case full names and the abbreviations `Jan Feb Mar Apr Jun Jul Aug Sep Sept Oct
@@ -111,7 +111,7 @@ and the comma untouched; `3 1/2` is `3` (`three`) and `1/2` (`and one half`); `5
 
 The policy is normative: it is fixed, lexical (shapes, symbols, a few cue words; never the part of speech)
 and en-US. Every row of the tables below is a golden row of the subsystem tests, as are the deferrals. Spoken
-values follow the conventions of _SpeechTextEn System Design_, _Spoken-Text Conventions_.
+values follow the conventions of *SpeechTextEn System Design*, *Spoken-Text Conventions*.
 
 **Numeric alphabet.** Only the ASCII digits `0-9` make a number. Full-width, Arabic-Indic, mathematical and
 superscript digits are never numbers (identity); `char.IsDigit` is never used by this unit or by
@@ -157,17 +157,16 @@ four-digit integer from 1000 to 2099; everything else is a cardinal (`2100` is `
 | No cue and 1100 to 2099 | **Year**, counted as an **ambiguous reading**: `1999` is `nineteen ninety nine` |
 | No cue and 1000 to 1099 | **Cardinal**, counted ambiguous: `1066` is `one thousand sixty six` |
 
-Year words: `1999` `nineteen ninety nine`; `1905` `nineteen oh five`; `1900` `nineteen hundred`; `1100` `eleven hundred`;
-`2010` `twenty ten`; `2024` `twenty twenty four`; `2099` `twenty ninety nine`. The years 1000 and 2000 and
-2001 to 2009 read as their cardinals either way (`two thousand five`), so they are **never counted ambiguous**
-and the ambiguity flag is set only where the year and cardinal readings differ. The word `BC` after a number
-is not part of the number: `500 BC` is `five hundred B C`, because the existing initialism rule spells `BC`
-(only `AD` stays).
+Year words: `1999` `nineteen ninety nine`; `1905` `nineteen oh five`; `1900` `nineteen hundred`; `1100`
+`eleven hundred`; `2010` `twenty ten`; `2024` `twenty twenty four`; `2099` `twenty ninety nine`. The years 1000 and 2000
+and 2001 to 2009 read as their cardinals either way (`two thousand five`), so they are **never counted ambiguous** and
+the ambiguity flag is set only where the year and cardinal readings differ. The word `BC` after a number is not part of
+the number: `500 BC` is `five hundred B C`, because the existing initialism rule spells `BC` (only `AD` stays).
 
 A **date context** supplies the year cue when the previous token is a month (`May 2024`), a day that follows
 a month (`Dec 25 2024`) or the comma after such a day (`January 5, 2024`). The year is then a `DateTime`
 span. The look-behind covers at most three tokens and **never crosses a retained sentence boundary**: a
-boundary before token _k_ is retained when token _k_ starts a sentence and token _k-1_ is not the period of a
+boundary before token *k* is retained when token *k* starts a sentence and token *k-1* is not the period of a
 month abbreviation (the only break the abbreviation lexicon suppresses). Every link of the chain month, day,
 comma, year is checked, so a break between a month and a number, or between a day and a year, ends the date.
 After a full month name or `May` the period is a sentence end whether or not the tokenizer flagged a break.
@@ -331,7 +330,7 @@ token (very long, many separators, a digit run longer than the caps, supplementa
 neighbors, combining marks) is either not numeric (identity) or a counted fallback, and every neighbor access
 is bounds-checked. A numeric-looking token that cannot be read is never partially consumed (A7).
 
-**Dependencies**: `NumberVerbalizer` (every spoken value), and the _NormalizationAlignment_ unit's
+**Dependencies**: `NumberVerbalizer` (every spoken value), and the *NormalizationAlignment* unit's
 `NormalizationToken` and `NormalizationKind`. No OTS item and no lexicon file.
 
 **Callers**: `TextNormalizer` (rule 2a), `AbbreviationResolver` (`IsMonthToken`), and the tests.

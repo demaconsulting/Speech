@@ -24,24 +24,23 @@ authoritative sentence boundaries reconciled with that normalization. It contain
 - **AnalysisDiagnostics**: the internal reporter of one counts-only event per request
 
 The text normalization itself is not part of this subsystem: the analyzer calls the NormalizationSubsystem
-(see _SpeechTextEn NormalizationSubsystem Design_), which is one-way, and the analyzer is what turns its
+(see *SpeechTextEn NormalizationSubsystem Design*), which is one-way, and the analyzer is what turns its
 decisions into annotations and breaks. The same holds for overrides: this subsystem owns the dictionary and
 finds which tokens it matches, hands the matches to the normalizer as token directives, and the normalizer
 decides how they combine with the built-in rules.
 
 ### Interfaces
 
-The subsystem exposes `EnglishTextAnalyzer`, `EnglishTextAnalysis`, `AnalyzedToken`,
-`AnalyzedNormalization`, `EnglishTextAnalyzerOptions`, `TextEnAnnotationSelection`, `TextEnAnnotations`,
-`PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction` and `PronunciationScheme` as
-its public API; `PartOfSpeechAdapter`, `AnalysisDiagnostics` and `OverrideSyntax` are internal. It consumes the Speech
-library's `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`, `TextAnalysisConventions` and
-`ISpeechDiagnostics` (see _Speech SynthesisSubsystem Design_ and _Speech Diagnostics Design_), the
-NormalizationSubsystem's `TextNormalizer`, `AlignedText` and public `NormalizationKind` and `CliticKind`
-enumerations (and its internal `TokenDirective` hand-over values), and, only inside `PartOfSpeechAdapter`, the tokenizer and tagger of
-`DemaConsulting.PartOfSpeech` (see _PartOfSpeech Design_). The public classes live in the
-`DemaConsulting.Speech.Text.En.AnalysisSubsystem` namespace, following the convention of the Speech
-library's subsystem namespaces.
+The subsystem exposes `EnglishTextAnalyzer`, `EnglishTextAnalysis`, `AnalyzedToken`, `AnalyzedNormalization`,
+`EnglishTextAnalyzerOptions`, `TextEnAnnotationSelection`, `TextEnAnnotations`, `PronunciationOverrides`,
+`PronunciationOverrideEntry`, `OverrideAction` and `PronunciationScheme` as its public API; `PartOfSpeechAdapter`,
+`AnalysisDiagnostics` and `OverrideSyntax` are internal. It consumes the Speech library's `ITextAnalyzer`,
+`TextAnalysisResult`, `SegmentAnnotation`, `TextAnalysisConventions` and `ISpeechDiagnostics` (see *Speech
+SynthesisSubsystem Design* and *Speech Diagnostics Design*), the NormalizationSubsystem's `TextNormalizer`,
+`AlignedText` and public `NormalizationKind` and `CliticKind` enumerations (and its internal `TokenDirective` hand-over
+values), and, only inside `PartOfSpeechAdapter`, the tokenizer and tagger of `DemaConsulting.PartOfSpeech` (see
+*PartOfSpeech Design*). The public classes live in the `DemaConsulting.Speech.Text.En.AnalysisSubsystem` namespace,
+following the convention of the Speech library's subsystem namespaces.
 
 ### Design
 
@@ -54,7 +53,7 @@ over the options' sink, the adapter (the process-wide shared adapter in producti
 through an internal constructor) and, for tests only, an optional `TextNormalizer` (null means the shared
 default, resolved on first normalization so constructing an analyzer loads no lexicon).
 
-Analyzing a text is a fixed sequence (see _EnglishTextAnalyzer Design_ for the algorithm):
+Analyzing a text is a fixed sequence (see *EnglishTextAnalyzer Design* for the algorithm):
 
 1. Reject a null text and an already-canceled token before any work.
 2. Neutralize placeholders: every `U+FFFC` becomes a space of the same length, so the tokenizer treats it
@@ -79,15 +78,14 @@ Analyzing a text is a fixed sequence (see _EnglishTextAnalyzer Design_ for the a
 6. Check the token one last time, report one counts-only event through `AnalysisDiagnostics`, then return
    the result.
 
-`Analyze` returns the language-neutral `TextAnalysisResult` through the shared core without creating any
-per-token object or text copy; `AnalyzeDetailed` runs the same core and returns the same analysis
-with every token's text, tag, confidence, known-word flag and clitic role, and every normalization with its
-source text, spoken text, kind and spelled flag, which only the caller sees. The sentence breaks are always non-null so the
-Speech library treats the analyzer's opinion as authoritative. Selecting `PartOfSpeech` or nothing leaves the
-tokenizer's breaks unchanged; selecting `Normalization` reconciles them, and the part-of-speech selection never
-changes them. Overrides never change a break: the reconciled breaks are identical with and without the dictionary,
-because the normalizer still makes the abbreviation rules' break edits for an overridden word (see
-_Pronunciation Overrides_ in the system design).
+`Analyze` returns the language-neutral `TextAnalysisResult` through the shared core without creating any per-token
+object or text copy; `AnalyzeDetailed` runs the same core and returns the same analysis with every token's text, tag,
+confidence, known-word flag and clitic role, and every normalization with its source text, spoken text, kind and spelled
+flag, which only the caller sees. The sentence breaks are always non-null so the Speech library treats the analyzer's
+opinion as authoritative. Selecting `PartOfSpeech` or nothing leaves the tokenizer's breaks unchanged; selecting
+`Normalization` reconciles them, and the part-of-speech selection never changes them. Overrides never change a break:
+the reconciled breaks are identical with and without the dictionary, because the normalizer still makes the abbreviation
+rules' break edits for an overridden word (see *Pronunciation Overrides* in the system design).
 
 **Unit collaboration.** `EnglishTextAnalyzerOptions` configures the analyzer (including the dictionary);
 `TextEnAnnotations` supplies the kind strings the analyzer stamps on each annotation and the readers a backend
@@ -101,10 +99,10 @@ readings by adding units beside these, and lets the tagging package be replaced 
 
 **Concurrency.** Every unit is immutable after construction. The only shared mutable state is the adapter's
 tagger field, created under a lock with a null check (not `Lazy<T>`, which would cache a failed creation
-for the process lifetime; see _PartOfSpeechAdapter Design_), so concurrent first requests create it exactly
+for the process lifetime; see *PartOfSpeechAdapter Design*), so concurrent first requests create it exactly
 once, a failed attempt is retried by a later request, and tagging itself is documented by the package as
 safe for concurrent use. The shared default normalizer and its two lexicons are immutable after a one-time,
-thread-safe load (see _SpeechTextEn NormalizationSubsystem Design_).
+thread-safe load (see *SpeechTextEn NormalizationSubsystem Design*).
 
 **Cancellation.** The analyzer, the adapter, the override lookup and the normalizer check the token before any
 work, after the

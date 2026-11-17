@@ -346,5 +346,5 @@ A ModelManagementSubsystem test run passes when all of the following hold:
 
 The concrete
 `IRecognitionModel`/`ISynthesisModel` implementations shipped by this repository are not part of
-this subsystem; they are verified by the sibling SpeechSherpa library (see _SpeechSherpa
-ModelManagementSubsystem Verification_).
+this subsystem; they are verified by the sibling SpeechSherpa library (see *SpeechSherpa
+ModelManagementSubsystem Verification*).

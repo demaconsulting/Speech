@@ -46,8 +46,8 @@ its own engine-neutral backend interfaces, and its model-driven `DefaultRecognit
 `DefaultSynthesisBackendFactory` simply forward to the model. Public callers interact only through
 `ISpeechRecognizerEngine`, `IRecognitionSession`, `SpeechRecognitionResult`,
 `SpeechRecognizerFactory`, and their synthesis counterparts, keeping the "engine backend stays
-swappable at the public API surface" promise intact. See _SpeechSherpa RecognitionSubsystem
-Design_ and _SpeechSherpa SynthesisSubsystem Design_ for the backends' structure.
+swappable at the public API surface" promise intact. See *SpeechSherpa RecognitionSubsystem
+Design* and *SpeechSherpa SynthesisSubsystem Design* for the backends' structure.
 
 Engine construction is the only step that loads native code, and it happens inside
 `SpeechRecognizerFactory`'s and `SpeechSynthesizerFactory`'s guarded composition paths, so a

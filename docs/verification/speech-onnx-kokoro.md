@@ -13,20 +13,20 @@ integration point that ties the SpeechOnnxKokoro library to the Speech library's
 
 Below the system level, `OnnxKokoroEnglishSynthesisModel`'s identity, 30-file download descriptor,
 and speaker-id resolution are verified deterministically with no network access and no real
-production download (see _SpeechOnnxKokoro ModelManagementSubsystem Verification_), as are its
+production download (see *SpeechOnnxKokoro ModelManagementSubsystem Verification*), as are its
 owned text-to-phoneme-to-token pipeline units, `KokoroLexiconPhonemizer` and
 `KokoroPhonemeVocabulary`. The real, ONNX-Runtime-backed synthesis backend,
 `OnnxKokoroSynthesisEngine`, is verified both against a tiny, hand-built fixture model for its
 construction, short-circuit, disposal, and probe behavior, and end-to-end - through
 `OnnxKokoroEnglishSynthesisModel.CreateBackend` plus synthetic per-voice style-vector files -
-proving that `Generate` forwards the correct voice's style vector verbatim (see _SpeechOnnxKokoro
-SynthesisSubsystem Verification_).
+proving that `Generate` forwards the correct voice's style vector verbatim (see *SpeechOnnxKokoro
+SynthesisSubsystem Verification*).
 
 Automated coverage **does not** extend to synthesizing real, intelligible speech from the real
 ~88 MiB production model, or to playing or capturing audio through real hardware. One test,
 `Generate_RealInstalledModel_ProducesNonEmptyAudio`, exercises the real production model
 end-to-end when it is genuinely installed in the running environment, self-skipping (not failing)
-otherwise - see _SpeechOnnxKokoro SynthesisSubsystem Verification_ for the detail.
+otherwise - see *SpeechOnnxKokoro SynthesisSubsystem Verification* for the detail.
 
 System and unit tests reside in the `test/DemaConsulting.Speech.Onnx.Kokoro.Tests` project.
 
@@ -72,8 +72,8 @@ role.
 `ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder`
 
 Verifies that the model's declared identity and voice set, its speaker-id resolution, and its
-owned phonemizer/vocabulary units all behave as documented - see _SpeechOnnxKokoro
-ModelManagementSubsystem Verification_ for the full detail.
+owned phonemizer/vocabulary units all behave as documented - see *SpeechOnnxKokoro
+ModelManagementSubsystem Verification* for the full detail.
 
 ### Integration: the real backend generates audio using the selected voice's style
 
@@ -82,8 +82,8 @@ ModelManagementSubsystem Verification_ for the full detail.
 
 Verifies, through `CreateBackend` and a tiny fixture ONNX model, that the constructed engine's
 `Generate` selects and forwards the requested voice's own style vector, and that the
-accelerated-provider probe runs successfully against a runnable session - see _SpeechOnnxKokoro
-SynthesisSubsystem Verification_ for the full detail.
+accelerated-provider probe runs successfully against a runnable session - see *SpeechOnnxKokoro
+SynthesisSubsystem Verification* for the full detail.
 
 ### Package License Files
 

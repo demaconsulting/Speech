@@ -88,7 +88,8 @@ throws `InvalidDataException` naming the file.
 
 ##### Duplicate directory voice ids are rejected
 
-**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException`,
+**Tests**:
+`OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException`,
 `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException`
 
 ##### Repeated library label clashes get unique labels
@@ -100,7 +101,8 @@ list is unique.
 
 ##### A damaged store clip fails at first use only
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Generate_CorruptStoreVoice_FailsAtFirstUseNamingFileAndOtherVoiceWorks`
+**Test**:
+`OnnxChatterboxTurboEnglishSynthesisModel_Generate_CorruptStoreVoice_FailsAtFirstUseNamingFileAndOtherVoiceWorks`
 
 The damaged voice's first use fails naming its file, while another voice still synthesizes.
 

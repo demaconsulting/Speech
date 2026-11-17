@@ -75,7 +75,8 @@ returned; and that returned session is not disposed and remains usable for infer
 
 ##### A validateSession probe throwing a non-ORT exception propagates to the caller and the candidate is disposed
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
+**Test**:
+`OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
 
 Error scenario: the probe throws `InvalidOperationException` for the first of two candidates. The
 same exception instance reaches the caller, the second candidate is never tried, and the first

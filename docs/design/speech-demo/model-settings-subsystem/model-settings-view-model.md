@@ -54,14 +54,14 @@ bag onto a replacement model's presenters.
   does not reject them.
 - The library validates a choice parameter's default and the finiteness of numeric bounds when the
   descriptor is constructed, so the presenters need no defensive guards for those cases (see
-  _ParameterViewModels Design_).
+  *ParameterViewModels Design*).
 - A parameter kind the view model does not recognize is skipped, so a model carrying a custom
   `ISpeechModelParameter` implementation still presents every parameter that is recognized.
 
 **Dependencies**:
 
 - The library's `ISpeechModel` and `ISpeechModelParameter` descriptors
-- The presenters of the _ParameterViewModels_ unit
+- The presenters of the *ParameterViewModels* unit
 
 **Callers**:
 

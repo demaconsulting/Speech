@@ -15,9 +15,9 @@ annotations survive chunking of a long text, that its sentence breaks (not the p
 where sentences are split, and that audio tags inside a request leave the words around them annotated.
 
 Below the system level, the unit and subsystem behavior is verified by the AnalysisSubsystem tests (see
-_SpeechTextEn AnalysisSubsystem Verification_) and the NormalizationSubsystem tests (see _SpeechTextEn
-NormalizationSubsystem Verification_), and the part-of-speech package the analysis builds on is
-verified separately as an OTS item (see _PartOfSpeech Verification_). The system tests of the normalization
+*SpeechTextEn AnalysisSubsystem Verification*) and the NormalizationSubsystem tests (see *SpeechTextEn
+NormalizationSubsystem Verification*), and the part-of-speech package the analysis builds on is
+verified separately as an OTS item (see *PartOfSpeech Verification*). The system tests of the normalization
 check its observable result: the `en.norm` annotations a caller reads, the text they produce when applied by
 an independent applier that follows the documented consumer algorithm, the sentence breaks, and what a real
 session delivers to a backend after chunking.
@@ -186,18 +186,18 @@ Verifies that `US`, `IT`, `FBI` and `U.S.` are spoken letter by letter while the
 `SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`,
 `SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor`
 
-Verifies that for 200 random, deliberately hostile texts every replacement annotation (`en.norm` or `en.spell`) is ordered, disjoint, in
-bounds, free of whitespace edges, placeholders, clause separators and cut surrogate pairs, and that nothing
-outside the annotations is changed; that a text of more than 800 characters mixing every rule reaches a real
-session's backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own (same
-source characters and values, nothing lost or moved); and that an audio tag between an abbreviation and the
-name it belongs to leaves both `Dr.` and `&` annotated. Also verifies that a symbol-only text (`&`) reaches
-the backend as one chunk annotated `&` to `and`, that `©; Brand` reaches it as the chunks `©;` (annotated
-`©` to `copyright`) and `Brand` instead of losing the symbol, and that for a normalization-only analysis
-the invisible-only clause of `Hello, <zero-width space>, there` is still merged into the first chunk with its
-empty-valued annotation, also with the default analyzer (the part-of-speech tagger labels a zero-width space or
-a lone `*` between commas as a word, but the analyzer gives a token without a letter or digit no part of
-speech, so such a clause is not mistaken for content), and `Hello, *, there` is likewise two chunks.
+Verifies that for 200 random, deliberately hostile texts every replacement annotation (`en.norm` or `en.spell`) is
+ordered, disjoint, in bounds, free of whitespace edges, placeholders, clause separators and cut surrogate pairs, and
+that nothing outside the annotations is changed; that a text of more than 800 characters mixing every rule reaches a
+real session's backend as several chunks whose `en.norm` annotations equal, in order, the analyzer's own (same source
+characters and values, nothing lost or moved); and that an audio tag between an abbreviation and the name it belongs to
+leaves both `Dr.` and `&` annotated. Also verifies that a symbol-only text (`&`) reaches the backend as one chunk
+annotated `&` to `and`, that `©; Brand` reaches it as the chunks `©;` (annotated `©` to `copyright`) and `Brand` instead
+of losing the symbol, and that for a normalization-only analysis the invisible-only clause of
+`Hello, <zero-width space>, there` is still merged into the first chunk with its empty-valued annotation, also with the
+default analyzer (the part-of-speech tagger labels a zero-width space or a lone `*` between commas as a word, but the
+analyzer gives a token without a letter or digit no part of speech, so such a clause is not mistaken for content), and
+`Hello, *, there` is likewise two chunks.
 
 ### Numbers
 
@@ -276,20 +276,20 @@ keeps both annotations and covers no placeholder.
 `SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled`
 
 Verifies that in `A. Smith met the FBI at 5 p.m. in the U.S. with J. Doe, Ph.D.` every spelled replacement (the
-single-letter initials `A.` and `J.`, `FBI`, the meridiem `p.m.`, `U.S.` and the credential) is an `en.spell`
-annotation whose value reads back through `TryReadSpellOut` as capital letters, that no `en.norm` annotation has
-the shape of a letter sequence (so a backend never mistakes a lone `A` or `I` for a word), and that applying the
-annotations speaks `A Smith met the F B I at five P M in the U S with J Doe, P H D.`. It also verifies that `AT&T's R&D and Q&A.` is decomposed into letter-group spans
-of kind `en.spell` (`AT`, `T`, `R`, `D`, `Q`, `A`) and `&` spans of kind `en.norm` with the value ` and `, speaking
-`A T and T's R and D and Q and A.`, with the possessive tail outside every span. For the meridiem, `at 5pm today`,
-`at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each annotated as exactly two
-non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`, `twelve`; the glued
-ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the single
-separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with
-`isSpelled` false for the first and true for the second, and the applied text has exactly one space between the
-words. Finally a `Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which
-`TryReadReplacement` reports as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out
-promise and a backend must not infer spelling from its value.
+single-letter initials `A.` and `J.`, `FBI`, the meridiem `p.m.`, `U.S.` and the credential) is an `en.spell` annotation
+whose value reads back through `TryReadSpellOut` as capital letters, that no `en.norm` annotation has the shape of a
+letter sequence (so a backend never mistakes a lone `A` or `I` for a word), and that applying the annotations speaks
+`A Smith met the F B I at five P M in the U S with J Doe, P H D.`. It also verifies that `AT&T's R&D and Q&A.` is
+decomposed into letter-group spans of kind `en.spell` (`AT`, `T`, `R`, `D`, `Q`, `A`) and `&` spans of kind `en.norm`
+with the value `and`, speaking `A T and T's R and D and Q and A.`, with the possessive tail outside every span. For the
+meridiem, `at 5pm today`, `at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each annotated
+as exactly two non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`, `twelve`;
+the glued ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the single
+separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with `isSpelled`
+false for the first and true for the second, and the applied text has exactly one space between the words. Finally a
+`Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which `TryReadReplacement` reports
+as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out promise and a backend must not
+infer spelling from its value.
 
 ### Pronunciation Overrides
 
@@ -333,11 +333,11 @@ dictionary (none) and one chunk.
 `SpeechTextEn_Overrides_SharedAnalyzerConcurrentRequests_ReturnIdenticalResults`
 
 Verifies that the sample dictionary file loads through a `StreamReader` into 22 entries and drives an analysis end to
-end: `Wi-Fi and Nginx-based Kubernetes apps; Cafe,` followed by the Turkish place name with a dotted capital I,
-speaks as `why fie and engine ex based koo ber net eez
-apps; Cafe,` followed by that name in lower case (the sample entry for it says `istanbul`), with one `arpabet:K AE0 F EY1` pronunciation on `Cafe`. It also verifies that one analyzer
-with one dictionary, used by 32 concurrent workers that each analyze 20 of five different texts, returns for every
-request exactly the result (annotations and breaks) that a sequential analysis of the same text returned.
+end: `Wi-Fi and Nginx-based Kubernetes apps; Cafe,` followed by the Turkish place name with a dotted capital I, speaks
+as `why fie and engine ex based koo ber net eez apps; Cafe,` followed by that name in lower case (the sample entry for
+it says `istanbul`), with one `arpabet:K AE0 F EY1` pronunciation on `Cafe`. It also verifies that one analyzer with one
+dictionary, used by 32 concurrent workers that each analyze 20 of five different texts, returns for every request
+exactly the result (annotations and breaks) that a sequential analysis of the same text returned.
 
 ### Override Alignment Contract and Chunk Survival
 
@@ -372,11 +372,11 @@ sentinel words, payloads, scheme names, phonemes or words of the analyzed text.
 **Tests**: `SpeechTextEn_Analyze_LargeRepetitiveTexts_CompleteWithinBudget`,
 `SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_CompleteWithinBudget`
 
-Verifies, with normalization only (so no tagger is involved), that one megabyte of realistic text and of
-adversarially repeated `St.`, `A.`, `&` and `Dr. He` (each followed by a space) analyzes within a generous time budget under a
-cancellation safety limit, so a quadratic regression fails instead of hanging; and that one megabyte of each
-repetitive numeric unit (`1,234.50`, `$5.50`, `5:30pm`, `January 5, 2024`, `1/2`, `12/25/2024`, `5 kg`,
-`50 %`, `Jan. 5`, `5 ft.`) does the same.
+Verifies, with normalization only (so no tagger is involved), that one megabyte of realistic text and of adversarially
+repeated `St.`, `A.`, `&` and `Dr. He` (each followed by a space) analyzes within a generous time budget under a
+cancellation safety limit, so a quadratic regression fails instead of hanging; and that one megabyte of each repetitive
+numeric unit (`1,234.50`, `$5.50`, `5:30pm`, `January 5, 2024`, `1/2`, `12/25/2024`, `5 kg`, `50 %`, `Jan. 5`, `5 ft.`)
+does the same.
 
 ### Package Files
 
@@ -404,27 +404,26 @@ that confirms the content of the two license files in the repository (the licens
 
 **Pending while the package is gated**: the package is not packable, so no `.nupkg` exists and the built
 package is not inspected. The former FileAssert assertion over the built package (both files at the package
-root and the `.nuspec` license reference) is reinstated when packaging is re-enabled (see _SpeechTextEn
-System Design_, _Release Gate_), together with the retention test required there.
+root and the `.nuspec` license reference) is reinstated when packaging is re-enabled (see *SpeechTextEn
+System Design*, *Release Gate*), together with the retention test required there.
 
 ## Acceptance Criteria
 
-A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions,
-every subsystem and unit suite passes, and the automated verification boundary remains honest: structure,
-offsets, wiring, sentence breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm` and
-`en.spell` replacement annotations and the `en.pron` pronunciation annotations (including their survival through real chunking, also for numeric constructs whose tokens are
-separated by clause cuts and budget cuts), the documented abbreviation, symbol, clitic, initialism and
-numeric behavior (the golden readings, the documented defaults and their counts), the behavior of user
-pronunciation overrides (whole-word matching, one annotation per action on the exact source characters, precedence
+A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions, every subsystem
+and unit suite passes, and the automated verification boundary remains honest: structure, offsets, wiring, sentence
+breaks, placeholder handling, diagnostics, the alignment contract of the `en.norm` and `en.spell` replacement
+annotations and the `en.pron` pronunciation annotations (including their survival through real chunking, also for
+numeric constructs whose tokens are separated by clause cuts and budget cuts), the documented abbreviation, symbol,
+clitic, initialism and numeric behavior (the golden readings, the documented defaults and their counts), the behavior of
+user pronunciation overrides (whole-word matching, one annotation per action on the exact source characters, precedence
 over the built-in rules, counts only in the diagnostics, identical results under concurrent use, and the documented
-limitations pinned by the golden rows), the spelled-initialism annotations, the linear-time guard and the packaging configuration are
-claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
-own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
+limitations pinned by the golden rows), the spelled-initialism annotations, the linear-time guard and the packaging
+configuration are claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging
+package's own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
 readings only for the documented en-US policy, the correctness of the phonemes of a pronunciation override (only its
-syntax is verified; the backends own their phoneme inventories) is not claimed, and the
-retention of analyzed words inside the tagging package's private buffer (a known
-limitation of the dependency that violates the core `ITextAnalyzer` no-retention contract, and the reason
-the package is gated) is documented rather than claimed as verified. The package license files are also
-part of the acceptance criteria: both must be present, the project must pack them at the package root, the
-license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
+syntax is verified; the backends own their phoneme inventories) is not claimed, and the retention of analyzed words
+inside the tagging package's private buffer (a known limitation of the dependency that violates the core `ITextAnalyzer`
+no-retention contract, and the reason the package is gated) is documented rather than claimed as verified. The package
+license files are also part of the acceptance criteria: both must be present, the project must pack them at the package
+root, the license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
 absence of third-party data, and the dependency notice must keep the attribution chain intact.

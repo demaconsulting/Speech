@@ -50,7 +50,7 @@ rule-spelled one at most five, and a group beside an ampersand at most four.
    resolver first, because it runs before this unit
 2. **Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`): groups of one to four capital ASCII letters joined by
    `&` (at least two groups), optionally followed by a possessive `'s` in any apostrophe style. The groups are
-   spelled and joined by ` and `: `AT&T` becomes `A T and T`, and `AT&T's` becomes `A T and T's`
+   spelled and joined by `and`: `AT&T` becomes `A T and T`, and `AT&T's` becomes `A T and T's`
 3. **Listed forms**: an upper-case token of two to six capital ASCII letters that is in the lexicon is spoken
    as listed, unless it is marked ambiguous and the sentence is all capitals
 4. **Rule-spelled forms**: an unlisted token of two to five capital ASCII letters is spelled letter by letter

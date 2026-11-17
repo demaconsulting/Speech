@@ -9,10 +9,10 @@ The DeviceCommandsSubsystem implements the three device-related subcommands disp
 per subcommand, each documented in its own file:
 
 - **ListDevicesCommand**: implements `list-devices [--direction input|output]` - see
-  _ListDevicesCommand Design_
+  *ListDevicesCommand Design*
 - **DevicesTestCommand**: implements `devices test [--device <name>] [--direction input|output]` -
-  see _DevicesTestCommand Design_
-- **DoctorCommand**: implements `doctor` - see _DoctorCommand Design_
+  see *DevicesTestCommand Design*
+- **DoctorCommand**: implements `doctor` - see *DoctorCommand Design*
 
 ### Interfaces
 

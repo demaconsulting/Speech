@@ -49,7 +49,7 @@ because a failure is exceptional.
 propagates to the caller and is not remembered: the next request that needs the tagger invokes the
 factory again. A factory that returns null throws `InvalidOperationException`.
 
-**Dependencies**: OTS item `DemaConsulting.PartOfSpeech` (see _PartOfSpeech Design_): the tokenizer
+**Dependencies**: OTS item `DemaConsulting.PartOfSpeech` (see *PartOfSpeech Design*): the tokenizer
 (`Tokenizer.Tokenize`), the tagger (`Tagger.Default`, `Tagger.Tag`), the token and tagged-token types, and
 the tag-name conversion.
 

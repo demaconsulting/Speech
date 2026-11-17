@@ -152,30 +152,30 @@ audio is playing.
 **Observable outcomes and where the mechanism lives.** The unit requirements state only the
 outcome; the mechanisms that deliver them are described in this document:
 
-- _Embedded settings_ (`EmbeddedSettings`): assigning `SelectedModel` re-points the hosted
+- *Embedded settings* (`EmbeddedSettings`): assigning `SelectedModel` re-points the hosted
   `ModelSettingsViewModel` at the model (see "Embedded settings").
-- _Audio-tag hints_ (`AudioTagHints`): projected from the library's `AudioTagCatalog` (see "Audio
+- *Audio-tag hints* (`AudioTagHints`): projected from the library's `AudioTagCatalog` (see "Audio
   tag hints").
-- _Prepared-voice and playback reuse, reload on change_ (`EngineSessionReuse`, `SessionReuse`,
+- *Prepared-voice and playback reuse, reload on change* (`EngineSessionReuse`, `SessionReuse`,
   `EngineReloadOnChange`, `EngineReloadOnModelChange`, `SessionRecreateOnDeviceChange`): the
   cached engine and session and their lazy comparison (see "Engine/session reuse").
-- _Freed resources on unavailable or faulted synthesizers_ (`UnavailableEngineReleased`,
+- *Freed resources on unavailable or faulted synthesizers* (`UnavailableEngineReleased`,
   `UnavailableSessionReleased`, `SpeakFaultReleasesSession`, `SessionFaultRecovery`,
   `StaleSessionEventIgnored`): an engine or session that reports itself unavailable when it is
   loaded or created is disposed and never cached (an unavailable session leaves the already-cached
   engine in place); a session that faults while speaking is released; and state events are accepted
   only from the current session (see "State derivation" and "Error Handling"). An unavailable
   exception raised later, while speaking, is a different case: see the known limitations.
-- _Closing the panel_ (`ResourceLifetime`, `EngineLifetime`, `DisposeIdempotent`,
+- *Closing the panel* (`ResourceLifetime`, `EngineLifetime`, `DisposeIdempotent`,
   `DisposeStopsPlayback`, `DisposeUnsubscribes`, `SynthesisRefreshAfterDispose`): the ordered,
   repeat-safe `DisposeAsync` sequence described under Key Methods.
-- _Offered models after catalog events_ (`AutoRefreshOnInstall`, `AutoRefreshRoleFilter`,
+- *Offered models after catalog events* (`AutoRefreshOnInstall`, `AutoRefreshRoleFilter`,
   `SynthesisRefresh`, `SynthesisVoiceChoiceKept`): event subscriptions and the capture/restore of
   the settings value bag (see "Auto-refresh on install" and "Reference voice refresh and notice").
-- _Voice notice_ (`ConsentAndAttribution`, `PackAttribution`, `NoNoticeForOtherModels`): a single
+- *Voice notice* (`ConsentAndAttribution`, `PackAttribution`, `NoNoticeForOtherModels`): a single
   `VoiceNotice` string built from the consent note and the installed packs' attributions, `null`
   for any other model.
-- _Empty catalog_ (`HonestEmptyCatalogState`): `HasModels` is false, nothing is offered or
+- *Empty catalog* (`HonestEmptyCatalogState`): `HasModels` is false, nothing is offered or
   selected, `CanPlay` is false and `NoModelsMessage` is available to the view, which renders it
   when `HasModels` is false. The recognition panel follows the same convention with its own
   `NoModelsMessage`, so each panel owns the empty-state explanation for its own role.
@@ -197,7 +197,7 @@ fault releases the session (keeping the engine) and sets `Error`, rather than le
 known-dead session cached for the next Play. Stopping before a device refresh returns an
 interrupted state to `Idle` after the release.
 
-_Known limitations_:
+*Known limitations*:
 
 - Stop requested while the engine is still loading (before any session exists) has no session
   to stop; it only cancels the command's token. The load observes that token only if the seam

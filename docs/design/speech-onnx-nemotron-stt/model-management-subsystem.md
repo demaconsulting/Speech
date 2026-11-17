@@ -6,7 +6,7 @@
 
 The SpeechOnnxNemotronStt ModelManagementSubsystem supplies this package's one concrete,
 ONNX-Runtime-backed speech model as an implementation of the Speech library's `IRecognitionModel`
-extension point (see _Speech ModelManagementSubsystem Design_), together with the vocabulary unit
+extension point (see *Speech ModelManagementSubsystem Design*), together with the vocabulary unit
 that gives the model its language identifier, blank token id, and detokenization. It contains the
 following units:
 
@@ -23,12 +23,12 @@ following units:
 The subsystem exposes `SpeechModelCatalogNemotronSttExtensions` and
 `OnnxNemotronMultilingualRecognitionModel` as its public API (`NemotronVocabulary` is internal).
 It consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `IRecognitionModel`,
-`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the _Speech
-ModelManagementSubsystem Design_, `AudioFormat` from Speech's AudioSubsystem, and the sibling
-SpeechOnnx system's `OnnxExecutionProviderSelector` (see _SpeechOnnx OnnxRuntimeSubsystem
-Design_). `OnnxNemotronMultilingualRecognitionModel`'s public `CreateBackend` implementation
-constructs this system's own `OnnxNemotronRecognitionEngine` (see _SpeechOnnxNemotronStt
-RecognitionSubsystem Design_), returned to the Speech library only as its engine-neutral, equally
+`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the *Speech
+ModelManagementSubsystem Design*, `AudioFormat` from Speech's AudioSubsystem, and the sibling
+SpeechOnnx system's `OnnxExecutionProviderSelector` (see *SpeechOnnx OnnxRuntimeSubsystem
+Design*). `OnnxNemotronMultilingualRecognitionModel`'s public `CreateBackend` implementation
+constructs this system's own `OnnxNemotronRecognitionEngine` (see *SpeechOnnxNemotronStt
+RecognitionSubsystem Design*), returned to the Speech library only as its engine-neutral, equally
 public `IRecognitionBackend` seam.
 
 ### Design

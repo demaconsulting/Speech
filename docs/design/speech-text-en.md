@@ -7,7 +7,7 @@ This document provides the system-level design for the SpeechTextEn library.
 ## Architecture
 
 SpeechTextEn is a .NET library, intended to be published as the `DemaConsulting.Speech.Text.En` NuGet
-package (it is not yet published; see _Release Gate_), that
+package (it is not yet published; see *Release Gate*), that
 supplies an English implementation of the Speech library's `ITextAnalyzer` seam. A model package returns
 an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech library then runs the analyzer
 once per speech request over the whole request text and delivers the result to an annotation-aware
@@ -34,15 +34,15 @@ The library consists of two subsystems:
   `TextEnAnnotations` annotation vocabulary and typed readers, the `PronunciationOverrides` dictionary of
   host-supplied pronunciation overrides (with its `PronunciationOverrideEntry` record and the
   `OverrideAction` and `PronunciationScheme` enumerations), the internal `PartOfSpeechAdapter` that
-  isolates the part-of-speech package, and the internal `AnalysisDiagnostics` reporter - see _SpeechTextEn
-  AnalysisSubsystem Design_
+  isolates the part-of-speech package, and the internal `AnalysisDiagnostics` reporter - see *SpeechTextEn
+  AnalysisSubsystem Design*
 - **NormalizationSubsystem**: the alignment model (`NormalizationAlignment.cs`, which also declares the
   public `NormalizationKind` and `CliticKind` enumerations), the internal `TextNormalizer` that decides
   which spans are spoken differently, the internal `AbbreviationResolver` with its embedded abbreviation
   lexicon, the internal `AcronymRecognizer` with its embedded initialism lexicon, the internal
   `NumericExpressionRecognizer` that finds numeric expressions and decides how each token of one is
-  spoken, and the internal `NumberVerbalizer` that builds the English words of a number - see _SpeechTextEn
-  NormalizationSubsystem Design_
+  spoken, and the internal `NumberVerbalizer` that builds the English words of a number - see *SpeechTextEn
+  NormalizationSubsystem Design*
 
 The dependency between the subsystems is one way: the AnalysisSubsystem uses the NormalizationSubsystem,
 which knows nothing of the analyzer, the tagger or the diagnostics sink. The NormalizationSubsystem does not
@@ -72,7 +72,7 @@ embedded lexicon tables, which are data written for this package, not a dependen
 
 - **DemaConsulting.PartOfSpeech** supplies the English tokenizer, the sentence splitter and the
   Universal Dependencies tagger with its embedded lexicon and weights. It is an OTS item of this
-  repository (see _OTS Integration Design_ and _PartOfSpeech Design_). Its use is confined to the internal
+  repository (see *OTS Integration Design* and *PartOfSpeech Design*). Its use is confined to the internal
   `PartOfSpeechAdapter`, and no type of that package appears in any public signature of this library, so
   the package can be replaced or upgraded without changing this library's API
 
@@ -81,8 +81,8 @@ never move to a different build and silently change the analysis. NuGet does not
 to depend on a pre-release package (warning NU5104), so a stable release of this package is blocked until
 `DemaConsulting.PartOfSpeech` publishes a stable version; until then this package is released only as a
 pre-release, in the same release line as the rest of the repository. In addition, the package is not
-published at all until the text-retention defect described in _Known Limitations_ is fixed (see _Release
-Gate_).
+published at all until the text-retention defect described in *Known Limitations* is fixed (see *Release
+Gate*).
 
 ## Risk Control Measures
 
@@ -103,11 +103,11 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
 4. **Tagging**: when part-of-speech annotation is selected, the adapter tags each sentence, checking the
    cancellation token before each one, after the tagger is obtained and after each sentence is tagged; the
    shared tagger is obtained on the first sentence that is tagged. Tagging runs on the raw tokens, never on
-   normalized text (see _Why tagging runs on raw tokens_ below)
+   normalized text (see *Why tagging runs on raw tokens* below)
 5. **Normalization**: when normalization is selected, the analyzer flattens the tokenizer's sentences into
    one array of token offsets (each marked with whether it opens a tokenizer sentence). When the options
    carry a non-empty `Overrides` dictionary, `PronunciationOverrides.Resolve` first looks every token up in
-   the dictionary (whole-word, case rules of _Pronunciation Overrides_) and returns one directive per matching
+   the dictionary (whole-word, case rules of *Pronunciation Overrides*) and returns one directive per matching
    token. The analyzer hands the tokens, the directives and the neutralized text to `TextNormalizer`. One
    linear pass applies the ordered rules (a directive is rule 0 and wins over every built-in rule for the spoken
    form, while the abbreviation rules' sentence-break edits are still made) and returns
@@ -129,7 +129,7 @@ N/A - SpeechTextEn provides no safety-critical functionality requiring risk cont
 8. **Output**: a `TextAnalysisResult` whose annotations and non-null, reconciled sentence breaks index the
    original text; the session re-bases them onto its segments and chunks, and a backend that implements
    `IAnnotatedSynthesisBackend` receives them with each segment and applies the replacement annotations
-   (`en.norm` and `en.spell`) and the pronunciation annotations as described in _Alignment Contract_
+   (`en.norm` and `en.spell`) and the pronunciation annotations as described in *Alignment Contract*
 
 **Why reconciliation exists.** The tokenizer treats titles such as `Dr.` and `St.` as never ending a
 sentence, so `I live on Main St. It is nice.` is one tokenizer sentence, and the Speech library's chunker,
@@ -159,10 +159,10 @@ digits, short word lists), never part-of-speech tags, so the result does not dep
 This section is normative. The `en.norm`, `en.spell` and `en.pron` annotations are a contract between the
 analyzer that produces them and every backend that applies them, and the invariants below are enforced by the
 NormalizationSubsystem
-(see _NormalizationAlignment Design_ for the enforcement point of each) and verified by its property tests.
+(see *NormalizationAlignment Design* for the enforcement point of each) and verified by its property tests.
 The analyzed text is never rewritten: an `en.norm` or `en.spell` annotation names a span of the source text and
 the exact words or letters that replace it when the text is spoken, and an `en.pron` annotation names a word and
-the phonemes to speak for it. The two replacement kinds together are the _replacement family_.
+the phonemes to speak for it. The two replacement kinds together are the *replacement family*.
 
 | # | Invariant |
 | --- | --- |
@@ -180,7 +180,7 @@ the phonemes to speak for it. The two replacement kinds together are the _replac
 | A12 | The `en.pron` annotations of one analysis are ascending, pairwise disjoint and disjoint from every replacement annotation (a word is either replaced or pronounced, never both); each covers exactly one token, with no whitespace, placeholder or cut surrogate pair; its value is `<scheme>:<phonemes>` with a scheme from the closed list `ipa` and `arpabet`; the word's text is not replaced. `en.upos` stays independent of all of this and may overlap any annotation |
 
 **Enforcement.** The `AlignedTextBuilder` is the enforcement point: it rejects a replacement span that is not
-ascending and disjoint from every earlier span _and_ pronunciation mark (A1', A12), a span marked spelled whose
+ascending and disjoint from every earlier span *and* pronunciation mark (A1', A12), a span marked spelled whose
 value is not a letter sequence (A11), and a pronunciation mark with an edge, placeholder, surrogate, ordering or
 overlap defect, each with an `ArgumentException`. A defective rule therefore fails the whole analysis of the
 request (the Speech session contains an analyzer exception and speaks without annotations); it can never reach a
@@ -245,14 +245,14 @@ words and needs no number parser of its own:
 - **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a
   hyphenated compound such as `5-year-old`, a number beyond the documented limits) is left unannotated, and a
   backend must be prepared to receive digits for it. Where the library found a numeric-looking text that it
-  cannot read, it counts a numeric fallback (see _Diagnostics are counts only_ under _Design Constraints_)
+  cannot read, it counts a numeric fallback (see *Diagnostics are counts only* under *Design Constraints*)
 
 A numeric span covers the digits, separators and symbols of one token (or a currency symbol or apostrophe
 with its adjacent number token); the words that belong to the same construct but are separate tokens get
 spans of their own. For example `$5 million` has the span `$5` (`five`) and the span `million` (`million
 dollars`); `January 5, 2024` has the spans `5` (`fifth`) and `2024` (`twenty twenty four`) and leaves the
 word `January` and the comma untouched. A consumer applies each span independently, in text order, as
-described in the _Consumer algorithm_.
+described in the *Consumer algorithm*.
 
 The same conventions give the shape of the other replacement values. A spelled value (`en.spell`) is
 capital letters separated by single spaces (`F B I`), spoken by letter name (A11). A `Say` override value
@@ -282,8 +282,8 @@ counted in the diagnostics:
 | Digit groups | `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2` `one half`; `3 1/2` `three and one half` |
 | Month and weekday abbreviations | `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps both sentence breaks |
 
-The complete reading policy (every row, its notes and the limits) is in _NumericExpressionRecognizer Design_
-and _NumberVerbalizer Design_. The points a consumer most needs to know:
+The complete reading policy (every row, its notes and the limits) is in *NumericExpressionRecognizer Design*
+and *NumberVerbalizer Design*. The points a consumer most needs to know:
 
 - **Only the ASCII digits `0-9` are numbers.** Full-width, Arabic-Indic, mathematical and superscript digits
   are never read, and a number with letters mixed in (`3D`, `101A`, `1e5`, `0x1F`, `1_000`, `Q3`) is left alone
@@ -298,8 +298,8 @@ and _NumberVerbalizer Design_. The points a consumer most needs to know:
   counted as a numeric fallback; more than 64 digits, a token longer than 128 characters or a decimal with
   more than 32 fraction digits is left as written and counted as a numeric fallback
 - **Nothing is guessed silently**: the readings that were chosen by default (bare years, `3/4/2024`, a
-  fraction that could also be a date) are counted in the _ambiguous readings_ count, and the numeric-looking
-  text that was left as written is counted in the _numeric fallbacks_ count, both counts only, never text
+  fraction that could also be a date) are counted in the *ambiguous readings* count, and the numeric-looking
+  text that was left as written is counted in the *numeric fallbacks* count, both counts only, never text
 
 A span of the numeric kinds always replaces whole tokens of the source, and the sentence structure follows the
 text: a period that ends a sentence after a number (`Item 5.`) is never part of a span, and the period of a
@@ -308,8 +308,8 @@ where a capitalized word follows (`5 ft. Then ...`).
 
 ## Pronunciation Overrides
 
-This section is normative for hosts and for the units that implement it (_PronunciationOverrides Design_,
-_TextNormalizer Design_). It describes how a host overrides what the built-in rules do for a word, how the
+This section is normative for hosts and for the units that implement it (*PronunciationOverrides Design*,
+*TextNormalizer Design*). It describes how a host overrides what the built-in rules do for a word, how the
 override is matched, how the rules rank against each other, and how names and acronyms are handled. The
 user guide has worked examples and a backend snippet.
 
@@ -405,7 +405,7 @@ counts the directive as ignored rather than corrupting the alignment.
 
 ### Dictionary entry rules and limits
 
-The key, the payloads and the limits are specified in _PronunciationOverrides Design_ and summarized in the
+The key, the payloads and the limits are specified in *PronunciationOverrides Design* and summarized in the
 user guide. The ones a host most needs: a key is 1 to 64 UTF-16 code units, starts with a letter, ends with a
 letter or a decimal digit and contains only letters, combining marks, decimal digits and `'`, `’`, `-`, `.`,
 `&`, `/` and `_`; a `Say` payload is plain words (no digit, no punctuation: write a number in words); a
@@ -468,7 +468,7 @@ never as an exception.
 
 The built-in policy is the case-sensitive initialism table, the dotted and ampersand forms, the shouting guard
 (an all-capital sentence suspends the ambiguous forms) and the vowel-less rule, as described in
-_AcronymRecognizer Design_; its results are now annotated `en.spell`. A word that the built-in policy gets
+*AcronymRecognizer Design*; its results are now annotated `en.spell`. A word that the built-in policy gets
 wrong is corrected with an override rather than by a public policy type, which keeps the API small. The recipes:
 
 | Goal | Entry (word, case, action, payload) | Result |
@@ -488,7 +488,7 @@ differ only in case. Case-insensitive entries suit product names that are writte
 ### Diagnostics
 
 The diagnostics event gains two counts, `overrides applied` and `overrides ignored`, both zero without a
-dictionary: _applied_ is the number of overrides that took effect on a word, _ignored_ the number that matched
+dictionary: *applied* is the number of overrides that took effect on a word, *ignored* the number that matched
 a word but lost to an earlier multi-token match (a count above zero tells a host that an entry is shadowed by a
 number or unit rule). Only the counts are reported; no word, key, payload, scheme or entry count of the
 dictionary ever reaches the sink, and the dictionary builders report only a position and a fixed reason.
@@ -510,7 +510,7 @@ no requirement for it.
 - **Offsets are the contract**: all offsets are UTF-16 code unit indices into the exact analyzed text. The
   analyzer never rewrites, normalizes or re-indexes the text, so the placeholder neutralization is a
   same-length replacement, and normalization is expressed only as `en.norm` replacement annotations (see
-  _Alignment Contract_). An annotation never covers a placeholder, never starts or ends on whitespace,
+  *Alignment Contract*). An annotation never covers a placeholder, never starts or ends on whitespace,
   and never cuts a surrogate pair, whatever the input
 - **Placeholders are separators, not text**: the words on both sides of a tag are analyzed as one running
   text, so context such as the words around "[whispers]" is preserved (an abbreviation before a tag is
@@ -549,7 +549,7 @@ no requirement for it.
   construction (the pronunciation dictionary is immutable, so sharing its reference is the copy), keeps no
   reference to an analyzed text or to a result after the call returns, and may
   serve any number of concurrent requests; the normalizer and both lexicon units are immutable after
-  loading. This statement covers this library's own state only; see _Known Limitations_ for the
+  loading. This statement covers this library's own state only; see *Known Limitations* for the
   dependency's separate behavior
 - **No inference dependency**: the library references no ONNX Runtime package and has no native assets
 - **No command-line or demo integration** in this release
@@ -557,7 +557,7 @@ no requirement for it.
 
 ### Deferred Capabilities
 
-The normalization in this release reads the numeric expressions listed under _Numeric Normalization_ and
+The normalization in this release reads the numeric expressions listed under *Numeric Normalization* and
 the non-numeric text described elsewhere in this document. Everything below is either passed through unchanged
 (identity, never annotated) or not provided, and is documented here so a host does not assume it; the
 pass-through items are asserted by a golden row, so a later increment changes them knowingly:
@@ -578,7 +578,7 @@ pass-through items are asserted by a golden row, so a later increment changes th
 - **Heteronym readings and the `Reading` override action**: the `en.reading` and `en.reading-confidence`
   kinds stay reserved and are never emitted, and the fifth override action (`Reading`, selecting a reading
   of an ambiguous word) is not provided; both belong to the heteronym increment (P2-6), which must skip
-  every word that has an override (see _Seam for heteronym readings_)
+  every word that has an override (see *Seam for heteronym readings*)
 - **Multi-word override entries**: an entry is one token; a phrase cannot be overridden as a unit, because
   an annotation across whitespace could be cut by the core chunker and silently lost. A phrase can be
   covered word by word. A later increment may add multi-word entries by per-token decomposition
@@ -594,14 +594,14 @@ pass-through items are asserted by a golden row, so a later increment changes th
 
 The initialisms, dotted initialisms, single-letter initials, credentials and meridiem tokens that the built-in
 rules spell are annotated `en.spell`, so a phoneme backend never reads a lone `A` or `I` of a spelled
-sequence as a word (see _Alignment Contract_ and its residual consumer note for the one case that stays inside
+sequence as a word (see *Alignment Contract* and its residual consumer note for the one case that stays inside
 an `en.norm` value).
 
 ### Known Limitations
 
 - **Analyzed words can remain in the tagging package's memory (dependency bug; currently violates the
-  core `ITextAnalyzer` contract)**: the core `ITextAnalyzer` contract (see _Speech SynthesisSubsystem
-  TextAnalysis Design_) requires an analyzer to "not retain `text`". This library holds no reference to the
+  core `ITextAnalyzer` contract)**: the core `ITextAnalyzer` contract (see *Speech SynthesisSubsystem
+  TextAnalysis Design*) requires an analyzer to "not retain `text`". This library holds no reference to the
   text or to the results (a weak-reference test proves that), but the tagging package
   `DemaConsulting.PartOfSpeech` 0.1.0-beta.4 decodes tags through a decoder that keeps the characters of
   the tokens it processes in a thread-static working buffer that it never clears. Words analyzed on a
@@ -610,11 +610,11 @@ an `en.norm` value).
   to the dependency and this library does not use reflection or any other workaround to clear it; the
   defect is tracked upstream as <https://github.com/demaconsulting/PartOfSpeech/issues/29>. Because
   documentation alone is not an adequate remedy for a contract violation, the package is **gated**: it is
-  not packed, published or released (`IsPackable` is `false`; see _Release Gate_) until the dependency is
+  not packed, published or released (`IsPackable` is `false`; see *Release Gate*) until the dependency is
   fixed and the pin is moved to the fixed version. Every "no retained text" statement in this
   repository's requirements, tests and documentation for SpeechTextEn is scoped to this library's own
   state. A host that uses this library from source before then must account for this. The same limitation
-  is recorded in `THIRD-PARTY-NOTICES.md`, _PartOfSpeech Design_ and the user guide's preview note
+  is recorded in `THIRD-PARTY-NOTICES.md`, *PartOfSpeech Design* and the user guide's preview note
 
 ### Release Gate
 
@@ -631,14 +631,14 @@ Before `IsPackable` is re-enabled, all of these steps are required, in one chang
 
 1. **Bump the pin**: move the exact `DemaConsulting.PartOfSpeech` version pin to a release that fixes
    upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>, and update the version
-   statements in `THIRD-PARTY-NOTICES.md`, _PartOfSpeech Design_, _PartOfSpeech Verification_, the user
+   statements in `THIRD-PARTY-NOTICES.md`, *PartOfSpeech Design*, *PartOfSpeech Verification*, the user
    guide and the README, and remove the Known Limitation above.
 2. **Add a retention test**: add a test that proves no request text remains in the dependency's working
    state after an analysis: analyze a sentinel string of distinctive characters, then a short, different
    string, on one dedicated thread (the affected buffer is thread-static), and assert through the fixed
    dependency's public API or a documented test hook that no character of the sentinel remains. If the
    fixed dependency offers no public way to inspect that workspace, the verification approach is to cite
-   the upstream fix's own regression test by version in _PartOfSpeech Verification_ and to state the
+   the upstream fix's own regression test by version in *PartOfSpeech Verification* and to state the
    remaining gap there for the repository owner's approval; reflection or a memory scan of private
    state is not an acceptable substitute.
 3. **Restore the package assertions**: remove `<IsPackable>false</IsPackable>` and its comment, restore the
@@ -683,13 +683,13 @@ The library targets the same frameworks as the Speech library:
 ### Integration Patterns
 
 - **NuGet Packaging**: intended to be published as a separate package that depends on the Speech package
-  and the part-of-speech package; not yet published (see _Release Gate_)
+  and the part-of-speech package; not yet published (see *Release Gate*)
 - **Model-supplied analyzer**: a model package returns `new EnglishTextAnalyzer()` (or one built with
   options) from `ISynthesisModel.TextAnalyzer`; one instance can be shared by every engine of the model. A
-  model that does so keeps `ISpeechModel.NormalizeText` as the identity (see _Alignment Contract_)
+  model that does so keeps `ISpeechModel.NormalizeText` as the identity (see *Alignment Contract*)
 - **Annotation-aware backend**: a backend implements `IAnnotatedSynthesisBackend` and reads the
   annotations with `TextEnAnnotations.TryReadPartOfSpeech`, `TextEnAnnotations.TryReadReplacement` (the
-  `en.norm` and `en.spell` replacements, applied as described in _Alignment Contract_, speaking spelled
+  `en.norm` and `en.spell` replacements, applied as described in *Alignment Contract*, speaking spelled
   values by letter name) and `TextEnAnnotations.TryReadPronunciation` (the phonemes for a word, when it
   supports the scheme), ignoring kinds it does not recognize
 - **Host dictionary**: a host or model package builds one `PronunciationOverrides` with `Create` or

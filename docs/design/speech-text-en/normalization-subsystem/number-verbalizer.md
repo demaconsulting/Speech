@@ -8,13 +8,13 @@ what a span covers; that belongs to `NumericExpressionRecognizer`. It is a pure,
 **Data Model**: `NumberVerbalizer` is an `internal static` class. It holds only read-only tables and
 constants, and a small stack-only writer type declared in the same file.
 
-_The spoken-text style_ is the convention of _SpeechTextEn System Design_, _Spoken-Text Conventions_: lowercase
+*The spoken-text style* is the convention of *SpeechTextEn System Design*, *Spoken-Text Conventions*: lowercase
 ASCII words separated by single spaces, **no hyphens, no commas, no digits** (`twenty four`, never
 `twenty-four`), capitals only in the month names. The style follows from one reason: a phoneme backend then
 sees only plain words, no compound-word hyphenation and no clause punctuation that would change how the
 text is split into clauses.
 
-_The limits_ are named constants. The recognizer enforces them before it calls, so a call outside them is a
+*The limits* are named constants. The recognizer enforces them before it calls, so a call outside them is a
 defect of the caller and throws.
 
 | Constant | Value | Meaning |
@@ -24,7 +24,7 @@ defect of the caller and throws.
 | `MaxFractionDigits` | 32 | The most digits after a decimal point that are read |
 | `MaxSpokenLength` | 1,024 | The size in characters of the working buffer and so the upper bound of any spoken value |
 
-_The vocabulary_ is a closed set of read-only arrays: the words of 0 to 19 (`zero` to `nineteen`), the tens
+*The vocabulary* is a closed set of read-only arrays: the words of 0 to 19 (`zero` to `nineteen`), the tens
 (`twenty` to `ninety`, including the standard spelling `forty`), the scale words (`thousand`, `million`, `billion`,
 `trillion`), the plural decade words (`tens`, `twenties`, `thirties`, `forties`, `fifties`, `sixties`,
 `seventies`, `eighties`, `nineties`) and the twelve month names. Any value the unit produces is made of these
@@ -34,7 +34,7 @@ words plus `hundred`, `oh`, `o'clock`, `point`, `and`, the ordinal forms (`first
 `hundreds` and `thousands`. A property test proves that no value contains a digit or a word outside this
 closed set.
 
-_The writer_ `SpokenWriter` is a `ref struct` over a caller-supplied `Span<char>` (the methods use
+*The writer* `SpokenWriter` is a `ref struct` over a caller-supplied `Span<char>` (the methods use
 `stackalloc char[1024]`), so building a value allocates one `string` (the result) and nothing else. It appends
 a word preceded by exactly one space unless it is empty, can append characters directly after the last word
 (the plural `s`), replace the last word (a cardinal word becomes its ordinal word) and read the last word.

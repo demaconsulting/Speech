@@ -10,8 +10,8 @@ configuration is verified by loading an installed model through `SpeechRecognize
 asking an `IRecognitionModel` for its backend from an installed directory.
 
 The real, native-backed implementation, `SherpaOnnxRecognitionEngine`, is not part of the Speech
-library; it is verified in the sibling SpeechSherpa library (see _SpeechSherpa RecognitionSubsystem
-Verification_).
+library; it is verified in the sibling SpeechSherpa library (see *SpeechSherpa RecognitionSubsystem
+Verification*).
 
 #### Test Environment
 

@@ -5,8 +5,8 @@
 ### Overview
 
 The SpeechOnnxNemotronStt RecognitionSubsystem supplies the real, raw-ONNX-backed implementation of
-the core `Speech` library's public `IRecognitionBackend` seam (see _Speech RecognitionSubsystem
-Design_) for Nemotron 3.5 ASR streaming. Unlike the sibling `DemaConsulting.Speech.Sherpa`
+the core `Speech` library's public `IRecognitionBackend` seam (see *Speech RecognitionSubsystem
+Design*) for Nemotron 3.5 ASR streaming. Unlike the sibling `DemaConsulting.Speech.Sherpa`
 package, which drives a bundled native inference engine, this subsystem runs the model's three
 graphs directly through ONNX Runtime and owns the whole signal path itself in managed code. The
 core library's session, engine, resampling, and result-buffering logic remain in the core library
@@ -26,10 +26,10 @@ The subsystem exposes no public API: every type is `internal`. `OnnxNemotronReco
 implements the core library's public `IRecognitionBackend` (`AcceptSamples`, `TryDecode`,
 `TryFlush`, `Reset`, `Dispose`) and produces the core library's `SpeechRecognitionResult` values.
 It consumes the `Microsoft.ML.OnnxRuntime` managed API (`InferenceSession`, `OrtValue`) and the
-sibling `DemaConsulting.Speech.Onnx` system's `OnnxExecutionProviderSelector` (see _SpeechOnnx
-Design_) indirectly, through the model that constructs it. It is constructed only by
-`OnnxNemotronMultilingualRecognitionModel.CreateBackend` (see _SpeechOnnxNemotronStt
-ModelManagementSubsystem Design_).
+sibling `DemaConsulting.Speech.Onnx` system's `OnnxExecutionProviderSelector` (see *SpeechOnnx
+Design*) indirectly, through the model that constructs it. It is constructed only by
+`OnnxNemotronMultilingualRecognitionModel.CreateBackend` (see *SpeechOnnxNemotronStt
+ModelManagementSubsystem Design*).
 
 ### Design
 

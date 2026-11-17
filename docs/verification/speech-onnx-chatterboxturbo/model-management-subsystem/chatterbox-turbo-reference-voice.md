@@ -106,5 +106,5 @@ Blank mood names or paths throw an `ArgumentException`; a null mood map returns 
 
 **Test**: `ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed`
 
-Verifies `HasMood` and `TryGetMoodSamples` match `sad`, `SAD` and ` sAd ` to the same clip, and that null, empty,
+Verifies `HasMood` and `TryGetMoodSamples` match `sad`, `SAD` and `sAd` to the same clip, and that null, empty,
 whitespace and unknown names report the mood as absent.

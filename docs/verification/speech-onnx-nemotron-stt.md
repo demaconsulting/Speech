@@ -14,11 +14,11 @@ to the Speech library's `IRecognitionModel` extension seam.
 Below the system level, `OnnxNemotronMultilingualRecognitionModel`'s identity, 11-file download
 descriptor, language parameter, and `CreateBackend` validation, plus the owned
 `NemotronVocabulary`, are verified deterministically with no network access and no real
-production download (see _SpeechOnnxNemotronStt ModelManagementSubsystem Verification_). The
+production download (see *SpeechOnnxNemotronStt ModelManagementSubsystem Verification*). The
 streaming pipeline - `SilenceRunLimiter`, `DitherNoise`, `NemotronFeatureExtractor`,
 `NemotronRnntGreedyDecoder`, and `OnnxNemotronRecognitionEngine` - is verified entirely against
 managed fakes of the encoder and prediction networks, so the unit tests never depend on model
-files (see _SpeechOnnxNemotronStt RecognitionSubsystem Verification_).
+files (see *SpeechOnnxNemotronStt RecognitionSubsystem Verification*).
 
 Automated coverage **does not** extend to real recognition accuracy or to capturing audio through
 real hardware. One test, `CreateBackend_RealModel_TranscribesWhenPresent`, exercises the real
@@ -93,7 +93,7 @@ with the registration scenario above, this covers `SpeechOnnxNemotronStt-Models-
 
 Covers `SpeechOnnxNemotronStt-Models-RecognitionModel`. Verifies the registered model declares
 its catalog identity, audio format, and license, and lists all eleven files, each with a
-checksum and an HTTPS URI. See _SpeechOnnxNemotronStt ModelManagementSubsystem Verification_.
+checksum and an HTTPS URI. See *SpeechOnnxNemotronStt ModelManagementSubsystem Verification*.
 
 ### Integration: the host selects the recognition language
 
@@ -132,7 +132,7 @@ missing files, and a vocabulary lacking the selected locale.
 
 Covers `SpeechOnnxNemotronStt-Recognition-StreamingTranscription`. Verifies features are
 chunk-invariant, tokens are decoded greedily, and an engine over the pipeline reports text.
-See _SpeechOnnxNemotronStt RecognitionSubsystem Verification_.
+See *SpeechOnnxNemotronStt RecognitionSubsystem Verification*.
 
 ### Integration: quiet, isolated words are recovered
 
@@ -192,7 +192,7 @@ sample passes through the limiter.
 Covers `SpeechOnnxNemotronStt-Recognition-LeadingSilenceDithering`. Verifies the dither is
 reproducible and its standard deviation is within 10% of the configured amplitude.
 
-See _SpeechOnnxNemotronStt RecognitionSubsystem Verification_ for the quiet-word, text,
+See *SpeechOnnxNemotronStt RecognitionSubsystem Verification* for the quiet-word, text,
 session, limiting, and dither scenarios.
 
 ## Acceptance Criteria

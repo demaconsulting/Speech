@@ -266,21 +266,19 @@ public sealed class MyBackend : IAnnotatedSynthesisBackend
 }
 ```
 
-**English text analysis (preview; not yet published to NuGet).** Instead of writing your own analyzer, a model for English can
-return the `EnglishTextAnalyzer` of the optional, pre-release `DemaConsulting.Speech.Text.En`
-package (it depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). Its analysis gives
-each word one annotation of kind `"en.upos"` whose value is the word's Universal Dependencies part of
-speech (for example `"NOUN"`), skips punctuation and symbols, and supplies authoritative sentence
-boundaries so an abbreviation such as "Dr." does not split a sentence. By default it also normalizes the
-text: each abbreviation, symbol, apostrophe, initialism, or number it can read (for example "Dr.", "&", a
-typographic apostrophe, "FBI", or "$5.50") gets one annotation whose range is the original
-text and whose value is the words to speak instead: kind `"en.norm"` for words, and kind `"en.spell"` for a
-sequence of letters that is spoken by letter name (an initialism such as "FBI" gives the value `"F B I"`; see
-*Spelled letters* below).
-Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix
-stays in one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke.").
-A host can also override how individual words are spoken or pronounced with a dictionary of
-*pronunciation overrides* (see *Pronunciation overrides for English text analysis* below).
+**English text analysis (preview; not yet published to NuGet).** Instead of writing your own analyzer, a model for
+English can return the `EnglishTextAnalyzer` of the optional, pre-release `DemaConsulting.Speech.Text.En` package (it
+depends on the pre-release `DemaConsulting.PartOfSpeech` tagger). Its analysis gives each word one annotation of kind
+`"en.upos"` whose value is the word's Universal Dependencies part of speech (for example `"NOUN"`), skips punctuation
+and symbols, and supplies authoritative sentence boundaries so an abbreviation such as "Dr." does not split a sentence.
+By default it also normalizes the text: each abbreviation, symbol, apostrophe, initialism, or number it can read (for
+example "Dr.", "&", a typographic apostrophe, "FBI", or "$5.50") gets one annotation whose range is the original text
+and whose value is the words to speak instead: kind `"en.norm"` for words, and kind `"en.spell"` for a sequence of
+letters that is spoken by letter name (an initialism such as "FBI" gives the value `"F B I"`; see *Spelled letters*
+below). Adjacent marks are spoken as separate words (`A™®B` as "A trademark registered B"), and a name suffix stays in
+one sentence with the credentials that follow it ("John Smith Jr. Ph.D. spoke."). A host can also override how
+individual words are spoken or pronounced with a dictionary of *pronunciation overrides* (see *Pronunciation overrides
+for English text analysis* below).
 
 *What is read.* The numeric normalization reads en-US text only (a comma separates thousands, a period is the
 decimal point, and a numeric date is month first): cardinal numbers and numbers with thousands separators

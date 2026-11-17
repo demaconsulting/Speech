@@ -8,9 +8,9 @@ The ShellSubsystem owns the application's start-up composition and its navigatio
 contains the following units, each documented in its own file:
 
 - **MainWindowViewModel**: the window's navigation state - the ordered list of panels, the
-  currently selected panel, and the window title - see _MainWindowViewModel Design_
+  currently selected panel, and the window title - see *MainWindowViewModel Design*
 - **DemoPanelViewModel**: one navigable entry - a display title paired with the panel view model
-  the shell was composed with - see _DemoPanelViewModel Design_
+  the shell was composed with - see *DemoPanelViewModel Design*
 
 The composition root itself lives in the `App` unit (`App.axaml.cs`) alongside the process entry
 point, the `Program` unit (`Program.cs`). Both, together with `AppLaunchOptions` and
@@ -35,8 +35,8 @@ hardware. See each unit's own design document for its data model and error handl
 
 ### Composition Root
 
-`App.Compose`, called from `App.OnFrameworkInitializationCompleted` (see _SpeechDemo App
-Design_), is the single place the demo's object graph is built:
+`App.Compose`, called from `App.OnFrameworkInitializationCompleted` (see *SpeechDemo App
+Design*), is the single place the demo's object graph is built:
 
 1. Construct the library's `AudioDeviceFactory`
 2. Resolve the store and downloader options from `AppLaunchOptions` (when present)

@@ -53,19 +53,18 @@ The internal values are read-only record structs:
   untouched gap, whose `Spoken` is the source slice
 
 `AlignedTextBuilder` is a sealed class holding the source text, the accepted spans and pronunciation marks, the
-requested forced and
-suppressed break offsets, the accepted clitic marks, the end of the last accepted span, mark and clitic mark,
-and the ambiguity counter, the numeric fallback counter and the two override counters (applied and ignored). It is single-threaded and used for exactly one pass. `AlignedText` is a sealed
-immutable class with `Source`, `Spans` (changed spans only, ascending and disjoint), `Pronunciations` (the
-marks, ascending, disjoint from each other and from every span), `ForcedBreaks` and
-`SuppressedBreaks` (ascending, unique token-start offsets), `Clitics` (ascending; empty unless
-classification was requested), `AmbiguousCount`, `OverridesApplied` and `OverridesIgnored` and `FallbackCount` (the number of numeric-looking
-expressions left as written or read digit by digit because of a documented limit or an unsupported numeric
-shape); the fallback count, the marks and the two override counts are optional trailing constructor parameters
-that default to 0 or none.
+requested forced and suppressed break offsets, the accepted clitic marks, the end of the last accepted span, mark and
+clitic mark, and the ambiguity counter, the numeric fallback counter and the two override counters (applied and
+ignored). It is single-threaded and used for exactly one pass. `AlignedText` is a sealed immutable class with `Source`,
+`Spans` (changed spans only, ascending and disjoint), `Pronunciations` (the marks, ascending, disjoint from each other
+and from every span), `ForcedBreaks` and `SuppressedBreaks` (ascending, unique token-start offsets), `Clitics`
+(ascending; empty unless classification was requested), `AmbiguousCount`, `OverridesApplied` and `OverridesIgnored` and
+`FallbackCount` (the number of numeric-looking expressions left as written or read digit by digit because of a
+documented limit or an unsupported numeric shape); the fallback count, the marks and the two override counts are
+optional trailing constructor parameters that default to 0 or none.
 
-**Alignment invariants and where each is enforced** (the normative statement is in _SpeechTextEn System
-Design_, _Alignment Contract_):
+**Alignment invariants and where each is enforced** (the normative statement is in *SpeechTextEn System
+Design*, *Alignment Contract*):
 
 | # | Invariant | Enforced by |
 | --- | --- | --- |

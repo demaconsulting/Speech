@@ -20,7 +20,7 @@ this environment: it checks that every one of the model's 30 declared download f
 the default installed-model directory, not merely that the directory itself is non-empty, so a
 partial/interrupted real install still skips rather than failing with a misleading error. This
 mirrors this repository's established Sherpa real-model-skip convention (see, for example,
-_SpeechSherpa SynthesisSubsystem Verification_ and _SherpaOnnxRecognitionEngine Verification_,
+*SpeechSherpa SynthesisSubsystem Verification* and *SherpaOnnxRecognitionEngine Verification*,
 whose own real-model tests self-skip the same way). Following that same Sherpa precedent, this
 test is intentionally **not** linked in
 `docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml`: the CI

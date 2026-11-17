@@ -30,4 +30,4 @@ implements `ISpeechSynthesizerEngine`.
 model's role is not synthesis, or the backend cannot be loaded.
 
 The exception this unit throws, `SpeechSynthesizerUnavailableException`, is documented in its own
-design document (_SpeechSynthesizerUnavailableException_).
+design document (*SpeechSynthesizerUnavailableException*).

@@ -8,7 +8,7 @@ tested against a fake `IChatterboxTurboNetworks`; the ONNX networks are tested a
 graphs written by the test project (an encoder, an embedder using Mod and Gather, a language model
 using MatMul and Concat with a key/value cache, and a decoder using Cast); the token selector and
 capability profile are pure functions tested directly. End-to-end construction through
-`CreateBackend` is verified by the model unit (see _Integration evidence_ below); the
+`CreateBackend` is verified by the model unit (see *Integration evidence* below); the
 subsystem scenarios below use the engine and capability-profile unit tests as their evidence. The
 following behaviors are verified at unit level only, in the unit verification documents: networks
 disposal and use after dispose, non-finite logits, tag relocation details, segmentation details and
@@ -67,23 +67,23 @@ tests in `SpeechOnnxChatterboxTurboTests.cs`. Both live outside this subsystem's
 - **OnnxBackend, OnnxBackendSampleRate**:
   `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`;
   `OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz`
-- **MoodConditioning, MoodFallback**: _Mood conditioning_; _Mood fallback to the base clip_
-- **MoodTags, MoodSeamSilence**: _Tag rendering and mood join silence_
-- **TagProfile, TagBetweenSentences, TagOnlyChunk**: _Tag rendering and mood join silence_;
+- **MoodConditioning, MoodFallback**: *Mood conditioning*; *Mood fallback to the base clip*
+- **MoodTags, MoodSeamSilence**: *Tag rendering and mood join silence*
+- **TagProfile, TagBetweenSentences, TagOnlyChunk**: *Tag rendering and mood join silence*;
   `ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence`;
   `ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit`
 - **GenerationBounds, GenerationProportionalBound, GenerationTruncation, GenerationNoException**:
-  _Runaway generation is truncated, not failed_
+  *Runaway generation is truncated, not failed*
 - **VoiceCaching, VoiceConditioning**:
   `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`;
-  _Voice fallback for an unknown speaker id_
+  *Voice fallback for an unknown speaker id*
 - **MoodMarkerOnlyText**:
   `OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio`
-- **MoodMarkerHiding, MoodMarkerCallerSupplied**: _Mood conditioning_;
+- **MoodMarkerHiding, MoodMarkerCallerSupplied**: *Mood conditioning*;
   `ChatterboxTurboCapabilityProfile_Render_PlaceholderCharactersInUserText_AreRemoved`
 - **GenerationSegmentGuards**:
   `OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment`
-- **GenerationStop, RepetitionGuard**: _Stop after a capped run_; _Repeated speech token is capped_
+- **GenerationStop, RepetitionGuard**: *Stop after a capped run*; *Repeated speech token is capped*
 - **TagOmission, TagSilence**:
   `ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText`;
   `ChatterboxTurboCapabilityProfile_Render_ShortPause_BecomesThreeHundredMillisecondSilence`;

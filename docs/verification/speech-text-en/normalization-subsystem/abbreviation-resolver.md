@@ -58,13 +58,13 @@ sentences), `AbbreviationResolver_TryResolve_PossessiveBeforeAbbreviation_IsSkip
 `AbbreviationResolver_TryResolve_No_IsNumberBeforeDigitAndWordOtherwise`,
 `AbbreviationResolver_IsNameContinuation_ListedFormsOnly` (a theory)
 
-The sentences are the mutation pairs and the strong-evidence cases of the acceptance criteria, including
-`Mount St.` before a mountain name (Saint) and `St. Patrick's St. is closed.`, where the first reading is Saint. The second
-abbreviation of the latter resolves to class `Suffix` with the spoken form Street, which proves the
-possessive is skipped. `No. 5` is `Number` of class `Prefix` and `No. I don't know.` is class `Word`, neither
-counted. `Sr.` reads Senior before a credential (`John Smith Sr. Ph.D. spoke.`, `Joe Smith Sr. Esq. arrived.`)
-because the credential is not taken for the name of a Sister. The name-continuation theory accepts `Jr`, `Jr.`,
-`Ph.D`, `Ph.D.`, `III` and `M.D.` and rejects `Ave`, `Smith`, `V`, `He` and the lower-case `jr`.
+The sentences are the mutation pairs and the strong-evidence cases of the acceptance criteria, including `Mount St.`
+before a mountain name (Saint) and `St. Patrick's St. is closed.`, where the first reading is Saint. The second
+abbreviation of the latter resolves to class `Suffix` with the spoken form Street, which proves the possessive is
+skipped. `No. 5` is `Number` of class `Prefix` and `No. I don't know.` is class `Word`, neither counted. `Sr.` reads
+Senior before a credential (`John Smith Sr. Ph.D. spoke.`, `Joe Smith Sr. Esq. arrived.`) because the credential is not
+taken for the name of a Sister. The name-continuation theory accepts `Jr`, `Jr.`, `Ph.D`, `Ph.D.`, `III` and `M.D.` and
+rejects `Ave`, `Smith`, `V`, `He` and the lower-case `jr`.
 
 ##### Guards and defaults
 
@@ -86,17 +86,17 @@ flag.
 `AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms`
 
 The guard test uses small custom tables: `next-date` passes before an ASCII digit and before a month name or
-abbreviation (with or without its period) and fails before a lower-case word, a capitalized non-month and a
-non-ASCII digit; `prev-number` passes after an ASCII digit and fails after a letter, at the start of the text and
-after a non-ASCII digit; the two names are accepted by the loader and a misspelled guard is still rejected. The
-table test reads the shipped lexicon and asserts that the rows are exactly the month abbreviations with and
-without a period and the weekday abbreviations of `NumericExpressionRecognizer`, that every period form has
-a prefix row guarded by `next-date` and a default suffix row, that `Mar.` and `Sun.` have `prev-number` on the
-suffix reading, that the months written without a period are prefix rows with `next-digit`, and that there is no row for `May`.
-The resolution test asserts, on the real tokenizer's tokens, that `Jan. 5` and `Sat. 5 Jan. 2024` resolve to the
-prefix reading (period consumed, not counted ambiguous), that `in Dec. She left.` and `He left Mon. He came
-Tue.` resolve to the suffix reading, that `Then Fri. ended.` resolves to Friday, that `Jan 5` and `Sept 11` resolve
-without a period, and that a bare `Mar.`, a bare `Sun.` and the word `May` do not resolve.
+abbreviation (with or without its period) and fails before a lower-case word, a capitalized non-month and a non-ASCII
+digit; `prev-number` passes after an ASCII digit and fails after a letter, at the start of the text and after a
+non-ASCII digit; the two names are accepted by the loader and a misspelled guard is still rejected. The table test reads
+the shipped lexicon and asserts that the rows are exactly the month abbreviations with and without a period and the
+weekday abbreviations of `NumericExpressionRecognizer`, that every period form has a prefix row guarded by `next-date`
+and a default suffix row, that `Mar.` and `Sun.` have `prev-number` on the suffix reading, that the months written
+without a period are prefix rows with `next-digit`, and that there is no row for `May`. The resolution test asserts, on
+the real tokenizer's tokens, that `Jan. 5` and `Sat. 5 Jan. 2024` resolve to the prefix reading (period consumed, not
+counted ambiguous), that `in Dec. She left.` and `He left Mon. He came Tue.` resolve to the suffix reading, that
+`Then Fri. ended.` resolves to Friday, that `Jan 5` and `Sept 11` resolve without a period, and that a bare `Mar.`, a
+bare `Sun.` and the word `May` do not resolve.
 
 ##### Period shape and initials
 

@@ -22,8 +22,8 @@ manual/local verification activity. The real, native-backed `IRecognitionBackend
 implementation, `SherpaOnnxRecognitionEngine`, is no longer part of this subsystem: it ships in the
 sibling SpeechSherpa library, and its bookkeeping and accuracy against real installed models (when
 present) are verified there by `SherpaOnnxRecognitionEngineTests`/
-`SherpaOnnxRecognitionEngineAccuracyTests` (see _SpeechSherpa RecognitionSubsystem
-Verification_).
+`SherpaOnnxRecognitionEngineAccuracyTests` (see *SpeechSherpa RecognitionSubsystem
+Verification*).
 
 ### Test Environment
 
@@ -50,7 +50,7 @@ A RecognitionSubsystem test run passes when:
   parameters
 - A supplied `parameterValues` key naming a parameter not declared by the requested model is
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
-  supplied value for a parameter the model _does_ declare that fails that parameter's own
+  supplied value for a parameter the model *does* declare that fails that parameter's own
   validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
   option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) faults the returned task
   with `ArgumentException`, before any installed/role/backend-load check runs
@@ -142,7 +142,7 @@ backend factory.
 Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
 `parameterValues` key naming a parameter the model does not declare still composes a real engine
 and reports only an `Info` diagnostic, never faulting the task (preserving cross-model
-compatibility); a supplied value for a parameter the model _does_ declare, but that is invalid for
+compatibility); a supplied value for a parameter the model *does* declare, but that is invalid for
 it, faults the returned task with `ArgumentException` - before any installed/role/backend-load
 check runs - naming the parameter id, the model id, and the specific reason the value is invalid.
 
@@ -350,7 +350,7 @@ device is contained and surfaces to a reader as the faulted-session exception.
 #### Fallback Versus Fault Decision Table
 
 | Situation | Outcome |
-| --------- | ------- |
+| --- | --- |
 | Model not installed, wrong role, or recognizer cannot load (no native runtime) | Unavailable engine; no exception |
 | Capture device reports itself unavailable when a session is requested | Unavailable session; Warning diagnostic |
 | Unrecognized parameter id supplied | Ignored; Info diagnostic; real engine composed |

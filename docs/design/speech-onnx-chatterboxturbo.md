@@ -30,11 +30,11 @@ The library consists of two subsystems:
 
 - **ModelManagementSubsystem**: the `AddChatterboxTurboModels()` catalog extension method, the
   `OnnxChatterboxTurboEnglishSynthesisModel` concrete `ISynthesisModel`, the model-family-neutral
-  `ByteLevelBpeTokenizer`, and the `ChatterboxTurboReferenceVoice` type - see _SpeechOnnxChatterboxTurbo
-  ModelManagementSubsystem Design_
+  `ByteLevelBpeTokenizer`, and the `ChatterboxTurboReferenceVoice` type - see *SpeechOnnxChatterboxTurbo
+  ModelManagementSubsystem Design*
 - **SynthesisSubsystem**: `OnnxChatterboxTurboSynthesisEngine`, `OnnxChatterboxTurboNetworks`,
   `ChatterboxTurboTokenSelector`, `ChatterboxTurboConditioning` and `ChatterboxTurboCapabilityProfile` - see
-  _SpeechOnnxChatterboxTurbo SynthesisSubsystem Design_
+  *SpeechOnnxChatterboxTurbo SynthesisSubsystem Design*
 
 ## External Interfaces
 
@@ -58,8 +58,8 @@ and the reference-voice type. It implements Speech's public `ISynthesisModel` an
 
 SpeechOnnxChatterboxTurbo depends on the Speech library (project reference) and on
 **Microsoft.ML.OnnxRuntime** (NuGet), which runs the four graphs. Unlike SpeechOnnxKokoro it does
-not use the SpeechOnnx execution-provider selector: it is CPU-only. See _OTS Integration Design_ and
-_Microsoft.ML.OnnxRuntime Design_.
+not use the SpeechOnnx execution-provider selector: it is CPU-only. See *OTS Integration Design* and
+*Microsoft.ML.OnnxRuntime Design*.
 
 ## Risk Control Measures
 

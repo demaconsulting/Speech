@@ -10,18 +10,18 @@ normalization, with every offset indexing the exact text analyzed. The `EnglishT
 `AnalyzedToken` and `AnalyzedNormalization` types, which carry the richer result of `AnalyzeDetailed`, are
 documented with this unit.
 
-**Data Model**: `EnglishTextAnalyzer` is a sealed class holding immutable fields: the `PartOfSpeechAdapter`
-seam, an optional `TextNormalizer` (null means the shared default, resolved on first use), the
-`AnalysisDiagnostics` reporter, two flags saying whether part-of-speech annotation and normalization are
-selected, and the `PronunciationOverrides` dictionary (null when the options carry none or an empty one; the
-dictionary is immutable, so keeping the reference is the snapshot). It keeps no per-request state. `AnalyzedToken` is a sealed record of `Start`, `Length`, `Text`,
-`PartOfSpeech` (a Universal Dependencies tag name, or null when the text was not tagged), `Confidence` (0 when
-not tagged) and `IsKnownWord`, with an `init` property `Clitic` (a `CliticKind`; `None` for a non-clitic and
-always `None` when normalization was not selected). `AnalyzedNormalization` is a sealed record of `Start`,
-`Length`, `Text` (the source slice), `SpokenText` and `Kind` (a `NormalizationKind`), with an `init` property
-`IsSpelled` (false by default): the same span as the `en.norm` or, when `IsSpelled`, `en.spell` annotation. A
-pronunciation override is an annotation but not a replacement, so it is not listed. `EnglishTextAnalysis` is a sealed class, constructible only by the analyzer, with
-read-only `Tokens`, `SentenceBreaks`, `Annotations` and `Normalizations` lists; `Normalizations` is empty when
+**Data Model**: `EnglishTextAnalyzer` is a sealed class holding immutable fields: the `PartOfSpeechAdapter` seam, an
+optional `TextNormalizer` (null means the shared default, resolved on first use), the `AnalysisDiagnostics` reporter,
+two flags saying whether part-of-speech annotation and normalization are selected, and the `PronunciationOverrides`
+dictionary (null when the options carry none or an empty one; the dictionary is immutable, so keeping the reference is
+the snapshot). It keeps no per-request state. `AnalyzedToken` is a sealed record of `Start`, `Length`, `Text`,
+`PartOfSpeech` (a Universal Dependencies tag name, or null when the text was not tagged), `Confidence` (0 when not
+tagged) and `IsKnownWord`, with an `init` property `Clitic` (a `CliticKind`; `None` for a non-clitic and always `None`
+when normalization was not selected). `AnalyzedNormalization` is a sealed record of `Start`, `Length`, `Text` (the
+source slice), `SpokenText` and `Kind` (a `NormalizationKind`), with an `init` property `IsSpelled` (false by default):
+the same span as the `en.norm` or, when `IsSpelled`, `en.spell` annotation. A pronunciation override is an annotation
+but not a replacement, so it is not listed. `EnglishTextAnalysis` is a sealed class, constructible only by the analyzer,
+with read-only `Tokens`, `SentenceBreaks`, `Annotations` and `Normalizations` lists; `Normalizations` is empty when
 normalization was not selected.
 
 **Key Methods**:
@@ -89,16 +89,16 @@ during tagger initialization, during the override lookup, during normalization o
 sentence. Nothing else is
 thrown by this unit for any text: the diagnostics sink's failures are contained by `AnalysisDiagnostics`. A failure
 inside the tagging package propagates to the caller, and the Speech library's session contains it and
-synthesizes without annotations. A failed tagger creation is not remembered (see _PartOfSpeechAdapter
-Design_), so a later request retries. An exception from the normalizer (which can only mean a defective
+synthesizes without annotations. A failed tagger creation is not remembered (see *PartOfSpeechAdapter
+Design*), so a later request retries. An exception from the normalizer (which can only mean a defective
 build, such as a malformed embedded lexicon) propagates the same way.
 
 **Retention**: the analyzer keeps no reference to the analyzed text or to a result in its own state after
 the call returns (no field holds either, and a weak-reference test proves that). That claim is scoped to
 this unit: the tagging package keeps token characters in a private, never-cleared per-thread buffer, which
 currently violates the core `ITextAnalyzer` contract that an analyzer must not retain the text, so the
-package is gated and not published (see _SpeechTextEn System Design_, _Known Limitations_ and _Release
-Gate_, and upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
+package is gated and not published (see *SpeechTextEn System Design*, *Known Limitations* and *Release
+Gate*, and upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
 
 **Dependencies**: `PartOfSpeechAdapter` (splitting and tagging), `PronunciationOverrides` (the token
 directives of the host's dictionary), the NormalizationSubsystem's

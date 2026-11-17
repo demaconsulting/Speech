@@ -25,11 +25,11 @@ and the mood-to-path representation of `MoodClips` are design decisions recorded
             voices-emotion\<id>\<mood>.flac ...  voices-emotion\README.md   <- only when installed with emotions
 ```
 
-**Key Methods**: `RootPath`, `UserDirectory`, static `Packs`, `EnsureUserDirectory()`,
-`GetPackDirectory(packId)`, `GetPackState(packId)`, `InstallPackAsync(packId, includeEmotions = true, progress, ct)`
-(plus a source-compatible
+**Key Methods**: `RootPath`, `UserDirectory`, static `Packs`, `EnsureUserDirectory()`, `GetPackDirectory(packId)`,
+`GetPackState(packId)`, `InstallPackAsync(packId, includeEmotions = true, progress, ct)` (plus a source-compatible
 `InstallPackAsync(packId, progress, ct)` overload that includes emotions), `UninstallPackAsync(packId, ct)`,
-`PackHasEmotionsAsync(packId, ct)`, `GetPackInstalledVariantsAsync(packId, ct)`, `EnumerateVoices(extraDirectories)`, `Dispose()`.
+`PackHasEmotionsAsync(packId, ct)`, `GetPackInstalledVariantsAsync(packId, ct)`, `EnumerateVoices(extraDirectories)`,
+`Dispose()`.
 
 - `InstallPackAsync` calls the downloader's internal install-hook overload with the pack's descriptor
   and `ReferenceVoicePackInstaller.InstallAsync` as the hook, so the whole archive is fetched through

@@ -250,7 +250,7 @@ scenarios above.
 
 The managed WAV/FLAC decoding, `AudioFileReader` container detection and size caps,
 `AudioClip`, and `AudioResampler` are verified by their own unit verification documents
-(_AudioFileReader_, _WavDecoder_, _FlacDecoder_, _AudioClip_, and _AudioResampler_ under this
+(*AudioFileReader*, *WavDecoder*, *FlacDecoder*, *AudioClip*, and *AudioResampler* under this
 subsystem); this subsystem document does not duplicate their scenarios. The subsystem-level
 behaviors they provide are exercised by these parent-level tests:
 `AudioFileReader_Read_DetectsContainerByContent` and

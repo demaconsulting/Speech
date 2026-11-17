@@ -27,4 +27,4 @@ one place operational misuse surfaces, and only when actually invoked. This mirr
 model's role is not recognition, or the backend cannot be loaded.
 
 The exception this unit and its session throw, `SpeechRecognizerUnavailableException`, is
-documented in its own design document (_SpeechRecognizerUnavailableException_).
+documented in its own design document (*SpeechRecognizerUnavailableException*).

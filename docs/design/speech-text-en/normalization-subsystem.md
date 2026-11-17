@@ -45,7 +45,7 @@ the tag placeholder character) and the framework: its production code does not r
 `DemaConsulting.PartOfSpeech` package, the analyzer, the dictionary, the diagnostics reporter or the options.
 A directive is a plain value (token index, kind, optional text), so the dictionary and its matching rules stay
 entirely in the AnalysisSubsystem. Only the tests
-use the real tokenizer of that OTS package (see _PartOfSpeech Design_), through a test helper, to produce
+use the real tokenizer of that OTS package (see *PartOfSpeech Design*), through a test helper, to produce
 the token offsets the analyzer would supply.
 
 ### Design
@@ -53,7 +53,7 @@ the token offsets the analyzer would supply.
 `TextNormalizer.Normalize` validates its arguments, the token list and the directive list (strictly
 ascending, each naming an existing token), creates one `AlignedTextBuilder` and
 one `Pass` over the tokens, and returns the builder's `AlignedText`. For each token, in order, the first
-matching rule wins (see _TextNormalizer Design_ for the rule order and every table):
+matching rule wins (see *TextNormalizer Design* for the rule order and every table):
 
 0. a **user directive** for the token (speak as written, replace, spell or pronounce) wins over every rule
    below for the spoken form, while the sentence-break edits of rules 3 and 4 are still made for the token
@@ -61,7 +61,7 @@ matching rule wins (see _TextNormalizer Design_ for the rule order and every tab
    consumed is ignored and counted;
 1. invisible characters and bullets are dropped explicitly;
 2. clitic tokens have their typographic apostrophe canonicalized and, on request, their role recorded;
-3. numeric expressions (rule 2a in _TextNormalizer Design_, which keeps the numbers of the other rules) are
+3. numeric expressions (rule 2a in *TextNormalizer Design*, which keeps the numbers of the other rules) are
    recognized by `NumericExpressionRecognizer`, which says how each token of the expression is spoken;
    `NumberVerbalizer` builds the words; a unit that may carry an abbreviation period uses the same period and
    sentence rules as an abbreviation;
@@ -72,14 +72,14 @@ matching rule wins (see _TextNormalizer Design_ for the rule order and every tab
    for dotted forms; an ampersand initialism is emitted as spelled letter-group spans and `and` spans;
 6. symbols, marks and the slash and ampersand inside a word are spoken as words;
 7. typographic apostrophes inside a word (elisions) are canonicalized;
-8. everything else is identity: the capabilities listed in _SpeechTextEn System Design_, _Deferred
-   Capabilities_ (and every number the recognizer does not read) pass through untouched.
+8. everything else is identity: the capabilities listed in *SpeechTextEn System Design*, *Deferred
+   Capabilities* (and every number the recognizer does not read) pass through untouched.
 
-Every span goes through `AlignedTextBuilder.Add`, which enforces the alignment contract (see _Alignment
-Contract_ in _SpeechTextEn System Design_ and _NormalizationAlignment Design_), so a defective rule fails
+Every span goes through `AlignedTextBuilder.Add`, which enforces the alignment contract (see *Alignment
+Contract* in *SpeechTextEn System Design* and *NormalizationAlignment Design*), so a defective rule fails
 loudly with an `ArgumentException` instead of producing an annotation that a backend would misapply. The
 normalizer adds the A6 separating spaces itself when it emits a span, including the separator between two
-adjacent word-producing replacements (`50%` gives `fifty` and `percent`, `5–10` gives `five`, ` to ` and
+adjacent word-producing replacements (`50%` gives `fifty` and `percent`, `5–10` gives `five`, `to` and
 `ten`). When it emits a span it also decides, once, by the shape of the spoken text, whether the replacement is
 **spelled** (single capital letters separated by single spaces: `F B I`), so the analyzer annotates it
 `en.spell` rather than `en.norm`; a pronunciation directive adds a mark that replaces nothing.
@@ -126,7 +126,7 @@ Turkish, Arabic, German, Thai and Persian cultures). Only the ASCII digits `0-9`
 **Resources.** The two lexicons are embedded resources of the library assembly, `abbreviations.tsv` and
 `acronyms.tsv` in the `Resources` folder, written from scratch by DEMA Consulting under the package's MIT
 License. They are plain tab-separated text so a non-programmer can review them; their formats are documented
-in _AbbreviationResolver Design_ and _AcronymRecognizer Design_. The numeric tables (units, currencies,
+in *AbbreviationResolver Design* and *AcronymRecognizer Design*. The numeric tables (units, currencies,
 month and weekday names, cue words) are read-only arrays in the code of the recognizer and are documented in
-_NumericExpressionRecognizer Design_; the month and weekday vocabulary is shared with the abbreviation
+*NumericExpressionRecognizer Design*; the month and weekday vocabulary is shared with the abbreviation
 lexicon and a test checks that the two agree.

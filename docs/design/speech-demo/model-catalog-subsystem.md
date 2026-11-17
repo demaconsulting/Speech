@@ -9,13 +9,13 @@ following units, each documented in its own file:
 
 - **ModelCatalogService** (`IModelCatalogService` / `ModelCatalogService`): the demo-owned
   catalog seam and its real implementation over the library's `SpeechModelCatalog` — see
-  _ModelCatalogService Design_
+  *ModelCatalogService Design*
 - **ModelCatalogViewModel**: the panel's presentation state — the rows, the selection, the
-  refresh and download commands, and the empty-catalog message — see _ModelCatalogViewModel
-  Design_
-- **ModelListItemViewModel**: one row's presentation state — see _ModelListItemViewModel Design_
+  refresh and download commands, and the empty-catalog message — see *ModelCatalogViewModel
+  Design*
+- **ModelListItemViewModel**: one row's presentation state — see *ModelListItemViewModel Design*
 - **ReferenceVoicePackListItemViewModel**: one reference voice pack row's presentation state — see
-  _ReferenceVoicePackListItemViewModel Design_
+  *ReferenceVoicePackListItemViewModel Design*
 
 The subsystem also contains **ModelCatalogView**, the Avalonia view bound to
 `ModelCatalogViewModel`, and **ModelCatalogComposition**, the value that pairs a library catalog
@@ -56,8 +56,8 @@ own public URI) while the application keeps running, through `ApplyMirror(Downlo
 swaps the service's current catalog to the one the factory returns, and disposes the catalog it
 replaced; a service constructed over a single, externally owned catalog has no factory to call
 and instead throws `InvalidOperationException` from `ApplyMirror`, rather than silently doing
-nothing. See _ModelCatalogService Design_ for this seam's exact ownership and disposal contract,
-and _Launch Options and Mirror Configuration_ in the SpeechDemo system design document for how
+nothing. See *ModelCatalogService Design* for this seam's exact ownership and disposal contract,
+and *Launch Options and Mirror Configuration* in the SpeechDemo system design document for how
 the composition root wires a `CatalogFactory` closure that both `App` (via launch-time mirror
 arguments) and this panel (via its own mirror-settings fields) can invoke.
 
