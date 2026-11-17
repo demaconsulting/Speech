@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.Text.En.Tests;
 ///     System-level tests for SpeechTextEn: the English text analysis exercised through its public
 ///     API, end to end through the real core <c>SynthesisSession</c> and an annotation-aware
 ///     backend, and the package license files. The content of the license files is also asserted by the
-///     <c>TextEn_PackageLicenseFiles_Content</c> FileAssert test; the package is not packable while it is gated.
+///     <c>TextEn_PackageLicenseFiles_Content</c> FileAssert test, which inspects the built package.
 /// </summary>
 public sealed class SpeechTextEnTests
 {
@@ -298,7 +298,7 @@ public sealed class SpeechTextEnTests
         Assert.Contains(ThirdPartyNoticesFileName, text, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves the third-party notices are scoped as a dependency notice, carry the attribution chain (MASC, Open English WordNet, Princeton WordNet) and record the dependency's text-retention limitation.</summary>
+    /// <summary>Proves the third-party notices are scoped as a dependency notice, carry the attribution chain (MASC, Open English WordNet, Princeton WordNet).</summary>
     [Fact]
     public void SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData()
     {
@@ -320,7 +320,6 @@ public sealed class SpeechTextEnTests
         Assert.Contains("WordNet 3.1 Copyright 2011 by Princeton University.  All rights reserved.", text, StringComparison.Ordinal);
         Assert.Contains("Princeton WordNet", text, StringComparison.Ordinal);
         Assert.Contains("do not endorse", text, StringComparison.Ordinal);
-        Assert.Contains("https://github.com/demaconsulting/PartOfSpeech/issues/29", text, StringComparison.Ordinal);
     }
 
     /// <summary>Proves the project depends on exactly one version of the tagger package and on no speech-engine runtime.</summary>
@@ -347,22 +346,38 @@ public sealed class SpeechTextEnTests
         Assert.DoesNotContain(packageReferences.Keys, name => name.Contains("Onnx", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Proves the project is not packable and states why, so the package cannot be built or published while the tagger package retains analyzed text.</summary>
+    /// <summary>
+    ///     Proves the pinned tagger package version is at least 0.1.0-beta.5, the first version that clears its
+    ///     per-thread working buffers (upstream issue demaconsulting/PartOfSpeech#29), so the pin cannot be moved back
+    ///     to a version that retains analyzed text. The buffers themselves are private to the dependency and are
+    ///     covered by the upstream package's own tests (see the PartOfSpeech verification document).
+    /// </summary>
     [Fact]
-    public void SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText()
+    public void SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater()
     {
         // Arrange
-        var projectPath = FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj");
+        var project = XDocument.Load(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
 
         // Act
-        var project = XDocument.Load(projectPath);
-        var isPackable = project.Descendants("IsPackable").Select(element => element.Value.Trim()).ToList();
-        var projectText = File.ReadAllText(projectPath);
+        var pin = project.Descendants("PackageReference")
+            .Where(element => (string?)element.Attribute("Include") == "DemaConsulting.PartOfSpeech")
+            .Select(element => (string?)element.Attribute("Version"))
+            .Single();
+        var match = System.Text.RegularExpressions.Regex.Match(pin ?? string.Empty, @"^\[(?<core>\d+\.\d+\.\d+)(?:-(?<label>[A-Za-z]+)\.(?<number>\d+))?\]$");
 
-        // Assert: packing is switched off, and the project file explains the gate and names the upstream issue
-        Assert.Equal(["false"], isPackable);
-        Assert.Contains("RELEASE GATE", projectText, StringComparison.Ordinal);
-        Assert.Contains("https://github.com/demaconsulting/PartOfSpeech/issues/29", projectText, StringComparison.Ordinal);
+        // Assert: an exact pin whose version is not older than 0.1.0-beta.5 (a release without a label is newer)
+        Assert.True(match.Success, $"The pin '{pin}' is not an exact version of the form [major.minor.patch-label.number]");
+        var core = Version.Parse(match.Groups["core"].Value);
+        var fixedCore = new Version(0, 1, 0);
+        if (core == fixedCore && match.Groups["label"].Success)
+        {
+            Assert.Equal("beta", match.Groups["label"].Value);
+            Assert.True(int.Parse(match.Groups["number"].Value, System.Globalization.CultureInfo.InvariantCulture) >= 5, $"The pin '{pin}' is older than 0.1.0-beta.5");
+        }
+        else
+        {
+            Assert.True(core >= fixedCore, $"The pin '{pin}' is older than 0.1.0-beta.5");
+        }
     }
 
     /// <summary>Proves an abbreviation is described by an <c>en.norm</c> annotation over its exact source characters, the text itself is never changed, and unchanged words get no such annotation.</summary>

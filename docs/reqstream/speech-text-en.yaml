@@ -524,33 +524,37 @@ sections:
           dependency contains and under which licenses. The dependency notice (clearly scoped as
           such) does that, and will be revisited if a later increment embeds third-party data in
           this package.
-          While the package is not packable (see SpeechTextEn-Packaging-ReleaseGate) no built
-          package exists, so the packed-at-root property is verified at the project-file level
-          (the files exist and the project packs them at the package root) and the content of
-          the two files is verified in the repository; the inspection of the built package is
-          reinstated when packaging is re-enabled.
+          The built package is inspected: the FileAssert test checks that both files are at the
+          package root of the .nupkg with the required content and that the .nuspec names the
+          license file, and the project-file and file-content tests check the same properties
+          against the repository files.
         tests:
           - SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
           - SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice
           - SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData
           - TextEn_PackageLicenseFiles_Content
 
-      - id: SpeechTextEn-Packaging-ReleaseGate
+      - id: SpeechTextEn-Retention-TaggerWorkspaces
         title: >-
-          The package shall not be packable or published while the part-of-speech tagging
-          package it depends on retains analyzed text, and its project file shall say why.
+          The package shall depend on a version of the part-of-speech tagging package that clears
+          the working buffers in which it keeps the characters of analyzed tokens, and shall keep
+          no reference to an analyzed text or a result in its own state.
         tags: [system]
         justification: |
           The core ITextAnalyzer contract requires an analyzer not to retain the request text,
-          but DemaConsulting.PartOfSpeech 0.1.0-beta.4 keeps the characters of tagged tokens in
-          a never-cleared thread-static buffer (upstream issue
-          https://github.com/demaconsulting/PartOfSpeech/issues/29), so the analyzer cannot
-          currently honor that contract. Documentation alone is not enough, so the package is
-          not shipped until the dependency is fixed and the pin is bumped. Gating at the project
-          file is enforced by the build (a non-packable project yields no package, and the pack
-          verification skips it) and checked by a test.
+          which is the user's speech content. DemaConsulting.PartOfSpeech 0.1.0-beta.4 and earlier
+          kept the characters of tagged tokens in never-cleared thread-static buffers (upstream
+          issue https://github.com/demaconsulting/PartOfSpeech/issues/29); version 0.1.0-beta.5
+          clears them on every public entry point, on the normal and the exceptional path. Those
+          buffers are private and the tagger offers no public way to inspect them, so the
+          repository cites the upstream package's own regression tests by version (see the
+          PartOfSpeech verification document) and verifies that the pin cannot move below the
+          fixed version; the remaining gap, the absence of a repository-owned test of the
+          dependency's private state, is stated there for the repository owner's approval.
+          The analyzer's own state is verified by a weak-reference test.
         tests:
-          - SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText
+          - SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater
+          - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults
 
       - id: SpeechTextEn-Packaging-PinnedDependency
         title: >-

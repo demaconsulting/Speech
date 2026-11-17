@@ -59,9 +59,8 @@ adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatte
 only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
 language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
-`DemaConsulting.Speech.Text.En` package (pre-release, depends on the `DemaConsulting.PartOfSpeech` tagger; **not yet
-published to NuGet**, because that tagger currently retains analyzed text, which violates the core `ITextAnalyzer`
-contract - see [PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an
+`DemaConsulting.Speech.Text.En` package (pre-release, depends on the `DemaConsulting.PartOfSpeech` tagger, which clears
+its working buffers so no analyzed text is retained, as the core `ITextAnalyzer` contract requires) supplies such an
 analyzer for English: `new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how
 abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned
 replacement spans over the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken
@@ -515,7 +514,7 @@ The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU
 (a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
 its `THIRD-PARTY-NOTICES.md` file at the package root.
 
-The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its
+The `DemaConsulting.Speech.Text.En` package (pre-release) is licensed under the MIT License (its
 `PACKAGE-LICENSE.md` declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA
 Consulting wrote from scratch under the MIT License; it embeds no third-party data. It depends on the separate
 `DemaConsulting.PartOfSpeech` package, which carries its own license files and embeds data adapted from Open English

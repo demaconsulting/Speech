@@ -97,11 +97,10 @@ Design*), so a later request retries. An exception from the normalizer (which ca
 build, such as a malformed embedded lexicon) propagates the same way.
 
 **Retention**: the analyzer keeps no reference to the analyzed text or to a result in its own state after
-the call returns (no field holds either, and a weak-reference test proves that). That claim is scoped to
-this unit: the tagging package keeps token characters in a private, never-cleared per-thread buffer, which
-currently violates the core `ITextAnalyzer` contract that an analyzer must not retain the text, so the
-package is gated and not published (see *SpeechTextEn System Design*, *Known Limitations* and *Release
-Gate*, and upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
+the call returns (no field holds either, and a weak-reference test proves that). The tagging package's own
+per-thread working buffers are cleared by the pinned version (0.1.0-beta.5 or later; upstream issue
+<https://github.com/demaconsulting/PartOfSpeech/issues/29>), which this repository cannot inspect through a
+public API; see *SpeechTextEn System Design*, *Retention Verification*.
 
 **Dependencies**: `PartOfSpeechAdapter` (splitting and tagging), `PronunciationOverrides` (the token
 directives of the host's dictionary), the NormalizationSubsystem's

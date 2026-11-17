@@ -6,8 +6,8 @@ This document provides the system-level design for the SpeechTextEn library.
 
 ## Architecture
 
-SpeechTextEn is a .NET library, intended to be published as the `DemaConsulting.Speech.Text.En` NuGet
-package (it is not yet published; see *Release Gate*), that
+SpeechTextEn is a .NET library, published as the `DemaConsulting.Speech.Text.En` NuGet
+package (a pre-release; see *Release*), that
 supplies an English implementation of the Speech library's `ITextAnalyzer` seam. A model package returns
 an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech library then runs the analyzer
 once per speech request over the whole request text and delivers the result to an annotation-aware
@@ -116,9 +116,8 @@ The tagging package is pre-release software and is referenced with an exact-vers
 never move to a different build and silently change the analysis. NuGet does not allow a stable package
 to depend on a pre-release package (warning NU5104), so a stable release of this package is blocked until
 `DemaConsulting.PartOfSpeech` publishes a stable version; until then this package is released only as a
-pre-release, in the same release line as the rest of the repository. In addition, the package is not
-published at all until the text-retention defect described in *Known Limitations* is fixed (see *Release
-Gate*).
+pre-release, in the same release line as the rest of the repository. The pin is at least 0.1.0-beta.5, the
+first version that clears the tagger's working buffers (see *Retention Verification*).
 
 ## Risk Control Measures
 
@@ -664,8 +663,8 @@ no requirement for it.
   construction (the pronunciation dictionary is immutable, so sharing its reference is the copy), keeps no
   reference to an analyzed text or to a result after the call returns, and may
   serve any number of concurrent requests; the normalizer and both lexicon units are immutable after
-  loading. This statement covers this library's own state only; see *Known Limitations* for the
-  dependency's separate behavior
+  loading. The tagging package's own working buffers are cleared by the pinned version; see *Retention
+  Verification*
 - **No inference dependency**: the library references no ONNX Runtime package and has no native assets
 - **No command-line or demo integration** in this release
 - **Compliance**: all functionality must be traceable to requirements
@@ -712,57 +711,46 @@ rules spell are annotated `en.spell`, so a phoneme backend never reads a lone `A
 sequence as a word (see *Alignment Contract* and its residual consumer note for the one case that stays inside
 an `en.norm` value).
 
-### Known Limitations
+### Retention Verification
 
-- **Analyzed words can remain in the tagging package's memory (dependency bug; currently violates the
-  core `ITextAnalyzer` contract)**: the core `ITextAnalyzer` contract (see *Speech SynthesisSubsystem
-  TextAnalysis Design*) requires an analyzer to "not retain `text`". This library holds no reference to the
-  text or to the results (a weak-reference test proves that), but the tagging package
-  `DemaConsulting.PartOfSpeech` 0.1.0-beta.4 decodes tags through a decoder that keeps the characters of
-  the tokens it processes in a thread-static working buffer that it never clears. Words analyzed on a
-  thread therefore remain recoverable from the process memory (for example from a memory dump) after the
-  request ends, so `EnglishTextAnalyzer` **currently does not meet that contract**. The buffer is private
-  to the dependency and this library does not use reflection or any other workaround to clear it; the
-  defect is tracked upstream as <https://github.com/demaconsulting/PartOfSpeech/issues/29>. Because
-  documentation alone is not an adequate remedy for a contract violation, the package is **gated**: it is
-  not packed, published or released (`IsPackable` is `false`; see *Release Gate*) until the dependency is
-  fixed and the pin is moved to the fixed version. Every "no retained text" statement in this
-  repository's requirements, tests and documentation for SpeechTextEn is scoped to this library's own
-  state. A host that uses this library from source before then must account for this. The same limitation
-  is recorded in `THIRD-PARTY-NOTICES.md`, *PartOfSpeech Design* and the user guide's preview note
+The core `ITextAnalyzer` contract (see *Speech SynthesisSubsystem TextAnalysis Design*) requires an
+analyzer to "not retain `text`". Two parts of the system carry that property, and each is verified
+differently:
 
-### Release Gate
+- **This library's own state**: no field holds an analyzed text or a result after a call returns; a
+  weak-reference test proves that (see *EnglishTextAnalyzer Verification*).
+- **The tagging package's working buffers**: `DemaConsulting.PartOfSpeech` versions up to 0.1.0-beta.4
+  kept the characters of the tokens they tagged in thread-static working buffers that were never cleared
+  (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>). Version 0.1.0-beta.5
+  clears the decoder and glossary workspaces in a `finally` block on every public entry point, on the
+  normal and on the exceptional path (upstream pull request
+  <https://github.com/demaconsulting/PartOfSpeech/pull/30>). `DemaConsulting.Speech.Text.En.csproj` pins
+  that version exactly, and the test `SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`
+  fails if the pin is ever moved to an earlier version.
 
-`DemaConsulting.Speech.Text.En.csproj` sets `<IsPackable>false</IsPackable>` with a comment naming this
-gate, so `dotnet pack` for the solution produces no package for this project (the build's pack
-verification already skips projects that are not packable) and no Text.En package reaches the NuGet push in
-the release workflow. The license-file requirement stays truthful while the package cannot be inspected: the
-project-file test and the `TextEn_PackageLicenseFiles_Content` FileAssert test verify the project's packing
-configuration and the content of the files in the repository, and the gate itself is checked by
-`SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText`. The license files stay in the
-repository.
+The workspaces are private to the dependency: version 0.1.0-beta.5 offers no public API or documented
+test hook that inspects them (its test hook, `TagDecoder.CurrentThreadWorkspace`, is internal). A test
+here that tagged a sentinel and then a short string on one thread could therefore not observe the buffer
+without reflection or a memory scan of private state, which this repository does not use. The verification
+approach is the one this design requires when the dependency offers no public way to inspect its workspace:
+the upstream fix's own regression tests, cited by version in *PartOfSpeech Verification*, prove the clearing
+(they fail when the clearing is disabled and assert that the whole of each buffer is zero after a long
+request followed by a shorter one, after an exception half way through a request and for every public
+`Tagger` entry point), and the remaining gap is stated there for the repository owner's approval: this
+repository has no test of its own over the dependency's private state, and managed strings that the
+dependency itself creates (for example the normalized copy of a non-ASCII token) are outside what it can
+clear. This library holds no reference to the text or the results, and the result objects of the tagger
+are not retained by the adapter.
 
-Before `IsPackable` is re-enabled, all of these steps are required, in one change:
+### Release
 
-1. **Bump the pin**: move the exact `DemaConsulting.PartOfSpeech` version pin to a release that fixes
-   upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>, and update the version
-   statements in `THIRD-PARTY-NOTICES.md`, *PartOfSpeech Design*, *PartOfSpeech Verification*, the user
-   guide and the README, and remove the Known Limitation above.
-2. **Add a retention test**: add a test that proves no request text remains in the dependency's working
-   state after an analysis: analyze a sentinel string of distinctive characters, then a short, different
-   string, on one dedicated thread (the affected buffer is thread-static), and assert through the fixed
-   dependency's public API or a documented test hook that no character of the sentinel remains. If the
-   fixed dependency offers no public way to inspect that workspace, the verification approach is to cite
-   the upstream fix's own regression test by version in *PartOfSpeech Verification* and to state the
-   remaining gap there for the repository owner's approval; reflection or a memory scan of private
-   state is not an acceptable substitute.
-3. **Restore the package assertions**: remove `<IsPackable>false</IsPackable>` and its comment, restore the
-   nupkg-based FileAssert test (the license file and notices at the package root and the nuspec license
-   reference) in place of `TextEn_PackageLicenseFiles_Content`, replace the gate test and requirement
-   (`SpeechTextEn-Packaging-ReleaseGate`) with the retention test, and update the requirements that
-   cite them.
-4. **Update the user-facing notes**: replace the "not yet published to NuGet" preview notes in the README
-   and the user guide.
+The package is packable: `dotnet pack` for the solution produces `DemaConsulting.Speech.Text.En` like every
+other package, and the build's pack verification requires it. The license-file requirement is verified on
+the built package by the `TextEn_PackageLicenseFiles_Content` FileAssert test (the license file and the
+notices at the package root and the `.nuspec` license reference), together with the project-file and
+content tests that run against the repository files. NuGet does not allow a stable package to depend on a
+pre-release package (NU5104), so the package is released as a pre-release until the tagging package
+publishes a stable version.
 
 ### Package License Files
 
@@ -798,7 +786,7 @@ The library targets the same frameworks as the Speech library:
 ### Integration Patterns
 
 - **NuGet Packaging**: intended to be published as a separate package that depends on the Speech package
-  and the part-of-speech package; not yet published (see *Release Gate*)
+  and the part-of-speech package; published as a pre-release (see *Retention Verification*)
 - **Model-supplied analyzer**: a model package returns `new EnglishTextAnalyzer()` (or one built with
   options) from `ISynthesisModel.TextAnalyzer`; one instance can be shared by every engine of the model. A
   model that does so keeps `ISpeechModel.NormalizeText` as the identity (see *Alignment Contract*)

@@ -384,7 +384,7 @@ does the same.
 `SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice`,
 `SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData`,
 `SpeechTextEn_ProjectFile_Dependencies_PinTaggerExactlyAndReferenceNoInferenceRuntime`,
-`SpeechTextEn_ProjectFile_Packaging_IsGatedUntilTaggerStopsRetainingText`,
+`SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`,
 `TextEn_PackageLicenseFiles_Content`
 
 Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression)
@@ -393,19 +393,29 @@ SPDX line `MIT` and nothing else, contains the MIT license text, describes the t
 separate dependency that is not bundled and carries its own license files, and states that this package
 embeds two small lexicon tables of its own, written from scratch by DEMA Consulting under the same license,
 and no third-party data; that the notices are scoped as a dependency notice, state that this package embeds
-no third-party data in this release, reproduce the Manually Annotated Sub-Corpus
-and Open English WordNet attribution and the Princeton WordNet notice, and record the dependency's
-text-retention limitation with its upstream issue link; that the project pins the tagging package with
-an exact version range, references only the Speech project, and references no ONNX package; and that the
-project is not packable (`IsPackable` is `false`) and its comment names the release gate and the upstream
-issue. The first five run in the test project against the repository files; the last is a FileAssert test
-that confirms the content of the two license files in the repository (the license declaration is exactly
-`MIT`, and the notices carry the attribution and the issue link).
+no third-party data in this release, and reproduce the Manually Annotated Sub-Corpus
+and Open English WordNet attribution and the Princeton WordNet notice; that the project pins the tagging
+package with an exact version range, references only the Speech project, and references no ONNX package; and that
+the pinned tagging package version is 0.1.0-beta.5 or later, the first version that clears its working buffers (see
+*Retention* below). The first six run in the test project against the repository files; the last is a
+FileAssert test over the **built package**: the `.nupkg` contains `PACKAGE-LICENSE.md` (starting with the line
+`SPDX-License-Identifier: MIT` followed by the license heading, and naming `THIRD-PARTY-NOTICES.md`) and
+`THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the package root, and its `.nuspec`
+references `PACKAGE-LICENSE.md` as the license file.
 
-**Pending while the package is gated**: the package is not packable, so no `.nupkg` exists and the built
-package is not inspected. The former FileAssert assertion over the built package (both files at the package
-root and the `.nuspec` license reference) is reinstated when packaging is re-enabled (see *SpeechTextEn
-System Design*, *Release Gate*), together with the retention test required there.
+### Retention
+
+**Tests**: `EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults`,
+`SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`
+
+Retention of analyzed text has two parts. This library's own state is verified by the weak-reference test
+(see *EnglishTextAnalyzer Verification*). The tagging package's per-thread working buffers are private, and
+`DemaConsulting.PartOfSpeech` 0.1.0-beta.5 offers no public API or documented test hook that inspects them, so
+this repository has no test that tags a sentinel and then a short string on one thread and inspects the buffer:
+that would need reflection or a memory scan of private state, which is not an acceptable substitute. Instead the
+upstream fix's own regression tests are cited by version in *PartOfSpeech Verification*, the pin test fails if
+the dependency is moved below the fixed version, and the remaining gap (no repository-owned test of the
+dependency's private state) is stated there for the repository owner's approval.
 
 ## Acceptance Criteria
 
@@ -421,9 +431,10 @@ limitations pinned by the golden rows), the spelled-initialism annotations, the 
 configuration are claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging
 package's own evaluation, the abbreviation readings are claimed only for the documented cases and cues, the numeric
 readings only for the documented en-US policy, the correctness of the phonemes of a pronunciation override (only its
-syntax is verified; the backends own their phoneme inventories) is not claimed, and the retention of analyzed words
-inside the tagging package's private buffer (a known limitation of the dependency that violates the core `ITextAnalyzer`
-no-retention contract, and the reason the package is gated) is documented rather than claimed as verified. The package
+syntax is verified; the backends own their phoneme inventories) is not claimed, and the clearing of the tagging
+package's private working buffers is evidenced by the upstream package's regression tests cited by version, with the
+remaining gap (no repository-owned test of that private state) stated for the repository owner's approval, not claimed
+as verified here. The package
 license files are also part of the acceptance criteria: both must be present, the project must pack them at the package
 root, the license declaration must be MIT only, the license file must describe the two embedded lexicon tables and the
 absence of third-party data, and the dependency notice must keep the attribution chain intact.

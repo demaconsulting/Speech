@@ -252,7 +252,7 @@ liveness in Debug versus Release nor collector timing differences between operat
 object alive or make the test flaky. The forced collection is the point of the test, so the analyzer rule
 against it is waived locally with that justification. What it proves is exactly this: the analyzer, as
 this library's own state, keeps no reference to the input string or to its results after the call returns.
-It does **not** prove that no copy of the words survives in memory: the tagging package keeps token
-characters in a private, never-cleared per-thread buffer (known limitation of the dependency, upstream
-issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>; see *SpeechTextEn System Design*), which
-is deliberately not inspected or cleared here.
+It does **not** prove that no copy of the words survives in the tagging package's private per-thread buffers
+(upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>), which are deliberately not inspected
+here; the pinned version (0.1.0-beta.5 or later) clears them, evidenced by the upstream package's own tests (see
+*PartOfSpeech Verification* and *SpeechTextEn System Design*, *Retention Verification*).

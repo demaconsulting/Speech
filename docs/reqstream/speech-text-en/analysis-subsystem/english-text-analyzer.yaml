@@ -145,11 +145,8 @@ sections:
                   One model instance may back several engines, so its analyzer is called
                   concurrently; the library requires that an analyzer not retain the request text,
                   which is the user's speech content. This requirement covers the analyzer's own
-                  state only: the tagging package keeps the characters of tagged tokens in an
-                  internal per-thread buffer it never clears (a known limitation of the
-                  dependency, documented in the design and tracked upstream as
-                  https://github.com/demaconsulting/PartOfSpeech/issues/29), which this library
-                  cannot clear and which is therefore not claimed to be fixed here.
+                  state only; the tagging package's working buffers are covered by
+                  SpeechTextEn-Retention-TaggerWorkspaces.
                 tests:
                   - EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResultsAndLoadTaggerOnce
                   - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults

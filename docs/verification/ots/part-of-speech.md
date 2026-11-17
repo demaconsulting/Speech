@@ -104,14 +104,23 @@ the symbols `&`, `@`, `+`, `=`, `<`, `>` and `/` are single tokens; each joined 
 one sentence while `Acme Inc. Smith left.` is two. A version change that alters any of these makes the test
 fail, so the abbreviation, clitic and break rules cannot drift silently.
 
-### Known Limitation Not Covered by Verification
+### Text Retention Evidence
 
-The tests above give no evidence about, and this repository does not claim, that the package keeps analyzed
-text out of memory. Version 0.1.0-beta.4 keeps the characters of tagged tokens in a thread-static working
-buffer of its tag decoder that is never cleared, so words analyzed on a thread remain recoverable from the
-process memory after the request (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>).
-No requirement of this OTS item asserts otherwise, and no test inspects or clears that private state; the
-SpeechTextEn retention requirement and its weak-reference test are scoped to SpeechTextEn's own state.
-Because this violates the core `ITextAnalyzer` no-retention contract, SpeechTextEn is not packed or published
-until a fixed version is pinned and a retention test is added (see *SpeechTextEn System Design*, *Release
-Gate*); that retention test will also be cited here, by version, when it exists.
+Version 0.1.0-beta.5 clears the tagger's per-thread working buffers (the decoder workspace and the glossary
+workspace) on every public entry point, on the normal and on the exceptional path (upstream issue
+<https://github.com/demaconsulting/PartOfSpeech/issues/29>, fixed by upstream pull request
+<https://github.com/demaconsulting/PartOfSpeech/pull/30>, requirement `PartOfSpeech-Lib-NoRetention`). The evidence
+is the upstream package's own regression tests, cited here by version because the workspaces are private
+and version 0.1.0-beta.5 offers no public API or documented test hook to inspect them (its hook,
+`TagDecoder.CurrentThreadWorkspace`, is internal): the decoder after a long and then a shorter request, with and
+without feature groups; the decoder after an exception half way through a request; word lookups and `IsFormOf`,
+including over-long compounds; the glossary matcher; and every public `Tagger` entry point, each asserting that
+the whole of each buffer is zero, and each failing when the clearing is disabled (upstream mutation check).
+
+This repository has no test of its own over that private state, and reflection or a memory scan is not used.
+That is the remaining gap, stated here for the repository owner's approval. Managed strings that the package
+creates itself (for example the normalized copy of a non-ASCII token) and the result objects it returns are
+not cleared, by upstream's own statement; SpeechTextEn keeps neither (its weak-reference test proves it keeps
+no reference to the text or the results). The test
+`SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater` fails if the pin is moved below
+0.1.0-beta.5, so the cited evidence cannot silently stop applying.
