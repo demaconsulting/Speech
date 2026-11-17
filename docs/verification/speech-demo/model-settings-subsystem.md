@@ -100,31 +100,24 @@ recognized parameter.
 
 **Expected**: The unrecognized parameter is skipped and the two recognized ones are presented in order.
 
-#### NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
+#### ModelSettingsSubsystem_SelectModel_IntegerAndContinuousParameters_IntegerIsWholeNumberOnly
 
-**Scenario**: A numeric presenter is built over a parameter declared whole-number.
+**Scenario**: A model declaring one whole-number parameter and one continuous parameter is selected in the
+settings panel, and fractional values (41.6 and 1.25) are written to the presented parameters.
 
-**Expected**: The presenter exposes `IsInteger` as true, which is the flag the view uses to show a
-whole-number control instead of the continuous slider.
+**Expected**: The integer parameter is flagged whole-number-only (the flag the view uses to show a
+whole-number control instead of the continuous slider) and holds 42; the continuous parameter holds 1.25; the
+panel's value bag carries both values.
 
-#### NumericParameterViewModel_Value_SetFractionalOnIntegerParameter_RoundsToNearestWholeNumber
+#### ModelSettingsSubsystem_SwitchModel_ContinuousOnlyModel_NoStaleWholeNumberConstraint
 
-**Scenario**: A fractional value is written to an integer presenter.
+**Scenario**: The panel switches from a model with an integer parameter to one with only a continuous
+parameter, and a fraction is written to it.
 
-**Expected**: The value is rounded to the nearest whole number, so no fractional value can be selected for
-such a parameter.
+**Expected**: The presented parameter is not whole-number-only, keeps the fraction, and the value bag carries it.
 
-#### NumericParameterViewModel_Value_SetFractionalOutsideRangeOnIntegerParameter_ClampsAndRounds
-
-**Scenario**: A fractional value outside the declared range is written to an integer presenter.
-
-**Expected**: The value is clamped to the bounds and is a whole number.
-
-#### NumericParameterViewModel_Value_SetFractionalOnContinuousParameter_KeepsFraction
-
-**Scenario**: A fractional value is written to a continuous presenter.
-
-**Expected**: The fraction is kept, so the continuous slider remains appropriate for it.
+The presenter-level tests (`NumericParameterViewModel_*` in `ParameterViewModelsTests` and
+`ModelSettingsViewModelTests`) remain the unit evidence under the parameter-presenter unit requirements.
 
 ### Accepted Gaps
 

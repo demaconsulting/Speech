@@ -1893,6 +1893,7 @@ reviews:
       - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"                # subsystem requirements
       - "docs/design/speech-demo/model-settings-subsystem.md"                     # subsystem design
       - "docs/verification/speech-demo/model-settings-subsystem.md"               # subsystem verification
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsSubsystemTests.cs"
 
   # SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel Review (one per unit)
   - id: SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel

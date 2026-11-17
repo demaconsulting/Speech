@@ -16,11 +16,26 @@ The verification is split across two test classes in
 
 - `SherpaOnnxRecognitionEngineTests` verifies the observable outcome of the post-endpoint warm-up
   handling added to fix the Nemotron word-loss defect (see *SpeechSherpa RecognitionSubsystem
-  Design*) through the public `IRecognitionBackend` surface only: real speech with extended pauses
-  loses and duplicates no words, silence-only input reports no text, quiet noise before speech
-  keeps the opening words, no further results are reported once nothing new was fed, and a model
-  with no warm-up interval reports a stable result sequence. The buffering, replay, and grace-period
-  mechanics are design detail and are deliberately not inspected
+  Design*) through the public `IRecognitionBackend` surface only: speech that resumes right after an
+  endpoint keeps every word exactly once (verified to fail with the warm-up window forced to 0 and to
+  pass with the declared 800 ms), silence-only input reports no text, quiet noise or silence before
+  speech adds no stray words and keeps the opening words, no further results are reported once nothing
+  new was fed, and a model with no warm-up interval reports a stable result sequence. The buffering,
+  replay, and grace-period mechanics are design detail and are deliberately not inspected
+
+  *Verification limits (honest scope)*: the real-model fixture reproduces the post-endpoint word loss
+  deterministically, so that outcome is evidenced by a test that fails when the behavior is broken. It
+  does **not** discriminate the engine's internal safeguards: temporarily removing the replay-eligibility
+  gate (replay on every endpoint) or the replay-only-hypothesis guard left every test in this class
+  passing, because the available fixtures never make a replay produce reportable text. Those safeguards
+  are therefore evidenced only as far as the stated outcomes (no phantom text, no stray or duplicated
+  words) hold on this recording, not by a mutation-sensitive test; reproducing them needs a recording in
+  which the endpoint detector fires mid-speech, which is not committed to this repository.
+
+  *Known limitation (not covered, not fixed here)*: with 2.3 to 2.7 seconds of leading silence the
+  endpoint detector fires as the speech begins and the opening word ("Sunset") is lost or truncated
+  ("Set") even with the warm-up handling enabled, because no recognized text exists yet and replay is
+  deliberately not eligible; the tests pin the tail of the transcript rather than this limitation
 - `SherpaOnnxRecognitionEngineAccuracyTests` verifies real transcribed text: Word Error Rate
   against a real recording's ground truth, the session-end `Reset()` fix that discards buffered,
   not-yet-decoded audio, and `TryFlush()`'s recovery of that same buffered audio as a delivered
@@ -159,11 +174,12 @@ nothing crashes.
 #### Acceptance Criteria
 
 The unit is considered verified when, for the post-endpoint warm-up handling: real speech that
-resumes immediately after endpoints created by extended pauses is transcribed by the Nemotron
-model within the documented Word Error Rate tolerance, so no words are lost and none are
-duplicated; asking for results when no new audio was fed after the final endpoint reports no
+resumes immediately after an endpoint keeps every word exactly once for the Nemotron model (the
+words spanning the endpoint appear in order and are not duplicated); asking for results when no new
+audio was fed after the final endpoint reports no
 further text from either `TryDecode` or `TryFlush`; silence-only input reports no text; quiet
-noise before speech does not cost the speech its opening words; and a model that declares no
+noise or leading silence before speech adds no stray or duplicated words and quiet noise does not cost
+the speech its opening words; and a model that declares no
 warm-up interval reports the same final-result sequence on repeated runs. For real-speech
 transcription accuracy: the real, installed Zipformer and Nemotron models each transcribe the real
 "Crossing the Bar" recording with a Word Error Rate, against its ground-truth text, that does not
@@ -174,16 +190,23 @@ result's text when flushed before that reset, rather than only proving it is not
 
 #### Test Scenarios
 
-##### Speech resumed after extended pauses loses and duplicates no words
+##### Speech resuming right after an endpoint keeps every word exactly once
 
-**Scenario**: The real recording, with each natural pause extended by 1.5 seconds of digital silence so
-the endpoint detector fires and speech resumes immediately afterward, is streamed through the real
-Nemotron engine, which declares a post-reset warm-up interval.
+**Scenario**: Two real phrases from the recording ("Sunset and evening star, and one clear call for me" and
+"And may there be no moaning of the bar") are separated by 1.2 s, and by 1.35 s, of digital silence - just
+beyond the endpoint detector's trailing-silence rule - so the second phrase begins right after the endpoint
+resets the recognizer. The audio is streamed through the real Nemotron engine, which declares a post-reset
+warm-up interval.
 
-**Expected**: The transcript's Word Error Rate against the recording's text stays within tolerance;
-lost words (deletions) and duplicated words (insertions) would both raise it.
+**Expected**: The transcript contains "for me and may there be no moaning" in order, with "and may", "call" and
+"moaning" each present exactly once.
 
-**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords`
+**Discrimination check**: With the warm-up window forced to 0 this test fails (the opening words "And may"
+are lost: the transcript reads "...call for me There be no moaning..." or "...May there be..."); with the
+declared 800 ms window it passes. A probe sweep of gaps from 1.1 s to 1.45 s showed the loss at every gap in that
+range without warm-up handling and none with it.
+
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronSpeechResumingRightAfterEndpoint_KeepsEveryWordExactlyOnce`
 
 ##### Quiet noise before speech keeps the opening words
 
@@ -193,6 +216,16 @@ lost words (deletions) and duplicated words (insertions) would both raise it.
 transcript.
 
 **Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronQuietNoiseBeforeSpeech_KeepsOpeningWords`
+
+##### Leading silence before speech adds no stray or duplicated words
+
+**Scenario**: 2.5 s and 4.0 s of digital silence precede the first phrase of the recording; at 2.5 s the endpoint
+detector fires on the leading silence just as the speech begins.
+
+**Expected**: The transcript ends with "evening star and one clear call for me" and holds between 8 and 10 words,
+with "evening" present once.
+
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronLeadingSilenceBeforeSpeech_AddsNoStrayOrDuplicatedWords`
 
 ##### Silence-only input reports no text
 

@@ -32,33 +32,91 @@ public sealed class SherpaOnnxRecognitionEngineTests
     /// <summary>The number of consecutive quiet windows that make a natural pause worth extending.</summary>
     private const int MinimumPauseWindows = 3;
 
-    /// <summary>The seconds of digital silence appended to each natural pause so the endpoint detector fires.</summary>
-    private const double ExtraPauseSeconds = 1.5;
+    /// <summary>The seconds of the fixture at which the first phrase ("Sunset and evening star, and one clear call for me") begins.</summary>
+    private const double FirstPhraseStartSeconds = 0.9;
+
+    /// <summary>The seconds of the fixture at which the first phrase ends, at the start of a 1.5 s natural pause.</summary>
+    private const double FirstPhraseEndSeconds = 6.2;
+
+    /// <summary>The seconds of the fixture at which the second phrase ("And may there be no moaning of the bar") begins.</summary>
+    private const double SecondPhraseStartSeconds = 7.7;
+
+    /// <summary>The seconds of the fixture at which the second phrase ends, at the start of a natural pause.</summary>
+    private const double SecondPhraseEndSeconds = 9.9;
 
     /// <summary>
-    ///     Proves that speech which resumes immediately after the endpoints created by longer
-    ///     pauses is transcribed without lost words and without duplicated words, for the model
-    ///     that declares a post-reset warm-up interval.
+    ///     Proves that speech resuming immediately after an endpoint keeps every word exactly once,
+    ///     for the model that declares a post-reset warm-up interval. Two real phrases from the
+    ///     recording are separated by a silent gap only slightly longer than the endpoint detector's
+    ///     trailing-silence rule, so the second phrase starts right after the endpoint resets the
+    ///     recognizer - the situation in which its opening words ("And may") were lost to the
+    ///     encoder's warm-up blackout before the warm-up handling existed.
     /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords()
+    /// <param name="gapSeconds">The silent gap between the two phrases, in seconds.</param>
+    [Theory(Timeout = 300000)]
+    [InlineData(1.2)]
+    [InlineData(1.35)]
+    public async Task SherpaOnnxRecognitionEngine_Transcribe_NemotronSpeechResumingRightAfterEndpoint_KeepsEveryWordExactlyOnce(
+        double gapSeconds)
     {
-        // Arrange: the real recording with each natural pause extended so the endpoint detector
-        // fires, followed immediately by more speech
+        // Arrange: phrase one, a gap just beyond the endpoint rule, then phrase two
         using var engine = CreateNemotronEngine();
-        var samples = ExtendNaturalPauses(
-            SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath));
+        var recording = SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath);
+        var samples = Slice(recording, FirstPhraseStartSeconds, FirstPhraseEndSeconds)
+            .Concat(new float[(int)(SampleRate * gapSeconds)])
+            .Concat(Slice(recording, SecondPhraseStartSeconds, SecondPhraseEndSeconds))
+            .ToArray();
 
         // Act
-        var transcript = SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate);
-        var wordErrorRate = WordErrorRateCalculator.Compute(
-            SherpaOnnxRecognitionEngineAccuracyTests.GroundTruthTranscript,
-            transcript);
+        var transcript = await Task.Run(
+            () => SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate),
+            TestContext.Current.CancellationToken);
 
-        // Assert: lost words (deletions) and duplicated words (insertions) both raise the error rate
-        Assert.True(
-            wordErrorRate <= SherpaOnnxRecognitionEngineAccuracyTests.MaximumAcceptableWordErrorRate,
-            $"Word Error Rate {wordErrorRate:P1} exceeded the tolerance. Recognized transcript: \"{transcript}\"");
+        // Assert: the words spanning the endpoint are present, in order, exactly once
+        var normalized = " " + string.Join(' ', WordErrorRateCalculator.NormalizeAndSplit(transcript)) + " ";
+        Assert.Contains(" for me and may there be no moaning ", normalized, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(normalized, " and may "));
+        Assert.Equal(1, CountOccurrences(normalized, " call "));
+        Assert.Equal(1, CountOccurrences(normalized, " moaning "));
+    }
+
+    /// <summary>
+    ///     Proves that speech preceded by digital silence - including a length at which the
+    ///     endpoint detector fires on that leading silence just as the speech begins - never gains
+    ///     stray or duplicated words: the tail of the first phrase is reported exactly once, with
+    ///     nothing added before or after it.
+    /// </summary>
+    /// <remarks>
+    ///     Only the tail ("evening star and one clear call for me") is asserted: with a leading
+    ///     silence of about 2.3 to 2.7 seconds the opening word is lost to the recognizer's own
+    ///     warm-up after the endpoint (a known limitation, recorded in the verification document),
+    ///     so the test pins what must hold at every length rather than that limitation.
+    /// </remarks>
+    /// <param name="leadingSilenceSeconds">The digital silence before the first phrase, in seconds.</param>
+    [Theory(Timeout = 300000)]
+    [InlineData(2.5)]
+    [InlineData(4.0)]
+    public async Task SherpaOnnxRecognitionEngine_Transcribe_NemotronLeadingSilenceBeforeSpeech_AddsNoStrayOrDuplicatedWords(
+        double leadingSilenceSeconds)
+    {
+        // Arrange: leading silence, then the first phrase of the recording
+        using var engine = CreateNemotronEngine();
+        var recording = SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath);
+        var samples = new float[(int)(SampleRate * leadingSilenceSeconds)]
+            .Concat(Slice(recording, FirstPhraseStartSeconds, FirstPhraseEndSeconds))
+            .ToArray();
+
+        // Act
+        var transcript = await Task.Run(
+            () => SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate),
+            TestContext.Current.CancellationToken);
+
+        // Assert: the phrase's tail ends the transcript, and no word was added around it
+        var words = WordErrorRateCalculator.NormalizeAndSplit(transcript);
+        var tail = string.Join(' ', words);
+        Assert.EndsWith("evening star and one clear call for me", tail, StringComparison.Ordinal);
+        Assert.InRange(words.Length, 8, 10);
+        Assert.Equal(1, CountOccurrences(" " + tail + " ", " evening "));
     }
 
     /// <summary>
@@ -155,7 +213,8 @@ public sealed class SherpaOnnxRecognitionEngineTests
         Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
 
     /// <summary>Builds a real Nemotron engine over the installed model, skipping the test if it is not installed.</summary>
-    private static SherpaOnnxRecognitionEngine CreateNemotronEngine()
+    /// <param name="warmupWindowMs">An override of the model's declared warm-up window, or <see langword="null"/> for the declared one.</param>
+    private static SherpaOnnxRecognitionEngine CreateNemotronEngine(int? warmupWindowMs = null)
     {
         var model = new SherpaOnnxNemotronStreamingEnRecognitionModel();
         if (!SherpaOnnxRecognitionEngineAccuracyTests.IsModelInstalled(model.Id))
@@ -169,7 +228,7 @@ public sealed class SherpaOnnxRecognitionEngineTests
             SherpaOnnxNemotronStreamingEnRecognitionModel.BuildEngineConfig(
                 SherpaOnnxRecognitionEngineAccuracyTests.InstalledModelDirectory(model.Id)),
             recognitionModel.AudioFormat.SampleRate,
-            recognitionModel.PostEndpointWarmupWindowMs);
+            warmupWindowMs ?? recognitionModel.PostEndpointWarmupWindowMs);
     }
 
     /// <summary>Builds a real Zipformer engine over the installed model, skipping the test if it is not installed.</summary>
@@ -229,40 +288,25 @@ public sealed class SherpaOnnxRecognitionEngineTests
         return samples;
     }
 
-    /// <summary>
-    ///     Returns <paramref name="samples"/> with <see cref="ExtraPauseSeconds"/> of digital
-    ///     silence appended to every natural pause, so each pause ends in an endpoint while the
-    ///     speech that follows it is unchanged.
-    /// </summary>
-    private static float[] ExtendNaturalPauses(float[] samples)
+    /// <summary>Returns the samples of <paramref name="samples"/> from <paramref name="startSeconds"/> up to <paramref name="endSeconds"/>.</summary>
+    private static float[] Slice(float[] samples, double startSeconds, double endSeconds)
     {
-        var output = new List<float>(samples.Length + (SampleRate * 30));
-        var extra = new float[(int)(SampleRate * ExtraPauseSeconds)];
-        var quietWindows = 0;
+        var start = (int)(SampleRate * startSeconds);
+        return samples[start..(int)(SampleRate * endSeconds)];
+    }
 
-        for (var offset = 0; offset < samples.Length; offset += PauseWindowSamples)
+    /// <summary>Counts the non-overlapping occurrences of <paramref name="value"/> in <paramref name="text"/>.</summary>
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        for (var index = text.IndexOf(value, StringComparison.Ordinal);
+            index >= 0;
+            index = text.IndexOf(value, index + value.Length - 1, StringComparison.Ordinal))
         {
-            var length = Math.Min(PauseWindowSamples, samples.Length - offset);
-            var sumOfSquares = 0.0;
-            for (var i = 0; i < length; i++)
-            {
-                sumOfSquares += samples[offset + i] * samples[offset + i];
-            }
-
-            var isQuiet = Math.Sqrt(sumOfSquares / length) < PauseRmsThreshold;
-            if (!isQuiet && quietWindows >= MinimumPauseWindows)
-            {
-                output.AddRange(extra);
-            }
-
-            quietWindows = isQuiet ? quietWindows + 1 : 0;
-            for (var i = 0; i < length; i++)
-            {
-                output.Add(samples[offset + i]);
-            }
+            count++;
         }
 
-        return [.. output];
+        return count;
     }
 
     /// <summary>

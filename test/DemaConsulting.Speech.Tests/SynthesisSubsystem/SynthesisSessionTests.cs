@@ -323,29 +323,41 @@ public class SynthesisSessionTests
     [Fact(Timeout = 60000)]
     public async Task SynthesisSession_SynthesizeAsync_BlockedBackendCall_DoesNotBlockCallerOrUnrelatedWork()
     {
-        // Arrange: a backend that signals it has started, then blocks until the test releases it
+        // Arrange: a backend that signals it has started, then blocks until the test releases it;
+        // its wait is bounded so a regression fails the test instead of hanging it
         using var generateStarted = new SemaphoreSlim(0, 1);
         using var generateRelease = new SemaphoreSlim(0, 1);
-        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        using var guard = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        guard.CancelAfter(TimeSpan.FromSeconds(20));
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, guard.Token);
         await using var session = CreateSession(backend, CreateAvailablePlaybackDevice());
+        try
+        {
+            // Act: start synthesis; the call must hand back its task without waiting for the backend
+            var synthesizeTask = session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+            await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
 
-        // Act: start synthesis; the call must hand back its task without waiting for the backend
-        var synthesizeTask = session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
-        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+            // Assert: the backend call is blocked, yet unrelated work still completes
+            Assert.False(synthesizeTask.IsCompleted);
+            var unrelated = await Task.Run(() => 42, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.Equal(42, unrelated);
+            Assert.False(synthesizeTask.IsCompleted);
 
-        // Assert: the backend call is blocked, yet unrelated work still completes
-        Assert.False(synthesizeTask.IsCompleted);
-        var unrelated = await Task.Run(() => 42, TestContext.Current.CancellationToken)
-            .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
-        Assert.Equal(42, unrelated);
-        Assert.False(synthesizeTask.IsCompleted);
+            // Act: release the backend call
+            generateRelease.Release();
 
-        // Act: release the backend call
-        generateRelease.Release();
-
-        // Assert: the operation completes
-        await synthesizeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
-        Assert.True(backend.GenerateReturned);
+            // Assert: the operation completes
+            await synthesizeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.True(backend.GenerateReturned);
+        }
+        finally
+        {
+            if (generateRelease.CurrentCount == 0)
+            {
+                generateRelease.Release();
+            }
+        }
     }
 
     /// <summary>

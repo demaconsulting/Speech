@@ -90,13 +90,13 @@ sections:
               selected, which makes the parameter's discrete nature visible in the UI itself. The
               view shows a whole-number control for such a parameter and a continuous slider
               otherwise, driven by the presenter's reported IsInteger flag; the observable
-              outcomes are that flag and the presenter's whole-number rounding within bounds,
-              verified through the presenter's public properties.
+              outcomes are that flag and the whole-number rounding within bounds, verified at
+              subsystem level by selecting a model in the settings panel and driving its
+              presenters through the panel's public view-model. The presenter-level evidence
+              lives under the unit requirements of the parameter presenters.
             tests:
-              - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
-              - NumericParameterViewModel_Value_SetFractionalOnIntegerParameter_RoundsToNearestWholeNumber
-              - NumericParameterViewModel_Value_SetFractionalOutsideRangeOnIntegerParameter_ClampsAndRounds
-              - NumericParameterViewModel_Value_SetFractionalOnContinuousParameter_KeepsFraction
+              - ModelSettingsSubsystem_SelectModel_IntegerAndContinuousParameters_IntegerIsWholeNumberOnly
+              - ModelSettingsSubsystem_SwitchModel_ContinuousOnlyModel_NoStaleWholeNumberConstraint
 
           - id: SpeechDemo-Settings-CapturedValuesRestored
             title: >-

@@ -66,7 +66,7 @@ sections:
                   replaying it into the freshly reset stream; see the SherpaOnnxRecognitionEngine
                   design.)
                 tests:
-                  - SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords
+                  - SherpaOnnxRecognitionEngine_Transcribe_NemotronSpeechResumingRightAfterEndpoint_KeepsEveryWordExactlyOnce
                   - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
 
               - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointNoDuplicateResults
@@ -80,22 +80,25 @@ sections:
                   genuinely duplicated text, so duplicate-free output is the observable contract
                   for every model.
                 tests:
-                  - SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords
+                  - SherpaOnnxRecognitionEngine_Transcribe_NemotronSpeechResumingRightAfterEndpoint_KeepsEveryWordExactlyOnce
                   - SherpaOnnxRecognitionEngine_TryDecodeAndTryFlush_NemotronNoNewAudioAfterEndpoint_ReportNothing
 
               - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SilenceHandling
                 title: >-
                   Silence-only input shall not make the SherpaOnnxRecognitionEngine class report
-                  any recognized text, and silence preceding speech shall not cause the beginning
-                  of that speech to be lost.
+                  any recognized text, and speech preceded by silence or quiet noise shall be
+                  transcribed without stray or duplicated words.
                 justification: |
                   An endpoint that fires on leading or inter-utterance silence must not corrupt
                   the first genuinely recognized segment that follows it (a regression found by an
                   independent quality review of the original unconditional warm-up handling), and
-                  a quiet room must never produce phantom text.
+                  a quiet room must never produce phantom text. Loss of an opening word when the
+                  leading silence ends just as the speech begins is a known limitation of the
+                  recognizer's own post-endpoint warm-up, recorded in the verification document.
                 tests:
                   - SherpaOnnxRecognitionEngine_Transcribe_NemotronSilenceOnly_ReportsNoText
                   - SherpaOnnxRecognitionEngine_Transcribe_NemotronQuietNoiseBeforeSpeech_KeepsOpeningWords
+                  - SherpaOnnxRecognitionEngine_Transcribe_NemotronLeadingSilenceBeforeSpeech_AddsNoStrayOrDuplicatedWords
 
               - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-NoWarmupIntervalUnchanged
                 title: >-

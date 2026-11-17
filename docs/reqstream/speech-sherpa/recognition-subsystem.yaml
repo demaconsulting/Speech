@@ -66,4 +66,4 @@ sections:
               - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SilenceHandling
               - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-NoWarmupIntervalUnchanged
             tests:
-              - SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords
+              - SherpaOnnxRecognitionEngine_Transcribe_NemotronSpeechResumingRightAfterEndpoint_KeepsEveryWordExactlyOnce
