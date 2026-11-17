@@ -14,8 +14,8 @@ test file (see the unit verification documents); the normalization pipeline of t
 merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detailed data, the selection
 flags, the cancellation inside normalization and the counts) and the annotation of overrides and spelled
 initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary by the `PronunciationOverrides`
-unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see _SpeechTextEn
-NormalizationSubsystem Verification_).
+unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see *SpeechTextEn
+NormalizationSubsystem Verification*).
 
 ### Test Environment
 
@@ -119,6 +119,6 @@ In the first test the token is canceled the moment the tagger is first requested
 a multi-sentence text; in the second it is canceled right after the only (last) sentence was tagged. In both
 the analysis throws `OperationCanceledException`, returns no result and the sink receives no event.
 
-See also _SpeechTextEn System Verification_ and the unit documents `english-text-analyzer.md`,
+See also *SpeechTextEn System Verification* and the unit documents `english-text-analyzer.md`,
 `english-text-analyzer-options.md`, `text-en-annotations.md`, `pronunciation-overrides.md`,
 `part-of-speech-adapter.md` and `analysis-diagnostics.md`.

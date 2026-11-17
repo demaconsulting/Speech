@@ -11,11 +11,10 @@ pronoun, and `IT` is the department, but `It` is the pronoun. Acronyms that are 
 Consulting, with the same comment, blank-line and header conventions as the abbreviation lexicon. Each data
 line has three columns:
 
-| Column | Meaning |
-| --- | --- |
-| `form` | The all-capital token exactly as written: one or more upper-case ASCII letters |
-| `spoken` | The letters spoken one by one, separated by single spaces (`F B I`); never empty |
-| `ambiguous` | `yes` when the form is also an ordinary English word in capitals (`US`, `IT`, `AM`): it is then left alone inside an all-capital sentence; otherwise `no` |
+- `form`: The all-capital token exactly as written: one or more upper-case ASCII letters
+- `spoken`: The letters spoken one by one, separated by single spaces (`F B I`); never empty
+- `ambiguous`: `yes` when the form is also an ordinary English word in capitals (`US`, `IT`, `AM`): it is then left
+  alone inside an all-capital sentence; otherwise `no`
 
 The listed forms are US, USA, UK, EU, UN, UAE, FBI, CIA, NSA, IRS, DOJ, TV, PC, CEO, CFO, CTO, HR, PR, ID, IT,
 AI, ML, API, URL, HTML, CSS, SQL, PDF, CPU, GPU, USB, LED, LCD, DVD, CD, GPS, ATM, SUV, DNA, RNA, HIV, MRI,
@@ -50,7 +49,7 @@ rule-spelled one at most five, and a group beside an ampersand at most four.
    resolver first, because it runs before this unit
 2. **Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`): groups of one to four capital ASCII letters joined by
    `&` (at least two groups), optionally followed by a possessive `'s` in any apostrophe style. The groups are
-   spelled and joined by ` and `: `AT&T` becomes `A T and T`, and `AT&T's` becomes `A T and T's`
+   spelled and joined by `" and "`: `AT&T` becomes `A T and T`, and `AT&T's` becomes `A T and T's`
 3. **Listed forms**: an upper-case token of two to six capital ASCII letters that is in the lexicon is spoken
    as listed, unless it is marked ambiguous and the sentence is all capitals
 4. **Rule-spelled forms**: an unlisted token of two to five capital ASCII letters is spelled letter by letter

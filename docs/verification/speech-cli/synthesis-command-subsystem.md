@@ -20,7 +20,7 @@ non-zero-exit error rather than a stack trace.
 Automated tests do not exercise a real, downloaded synthesis model's `--output-audio` WAV-writing
 path end to end: CI has no cached synthesis model, and downloading one needs network access and a
 multi-hundred-megabyte transfer that is unsuitable for every test run. That path is verified
-manually (see _Manual-Only Verification_ below), following the repository's convention for genuinely
+manually (see *Manual-Only Verification* below), following the repository's convention for genuinely
 environment-dependent behavior.
 
 ### Test Environment

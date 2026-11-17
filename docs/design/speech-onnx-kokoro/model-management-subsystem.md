@@ -6,7 +6,7 @@
 
 The SpeechOnnxKokoro ModelManagementSubsystem supplies this package's one concrete,
 ONNX-Runtime-backed speech model as an implementation of the Speech library's `ISynthesisModel`
-extension point (see _Speech ModelManagementSubsystem Design_), together with the three supporting
+extension point (see *Speech ModelManagementSubsystem Design*), together with the three supporting
 units that give this model its own complete text-to-phoneme-to-token pipeline - a responsibility
 the sibling SpeechSherpa system does not need, because sherpa-onnx's native library bundles
 phonemization itself. It contains the following units:
@@ -33,11 +33,11 @@ The subsystem exposes `SpeechModelCatalogKokoroExtensions` and `OnnxKokoroEnglis
 as its public API (`KokoroTextNormalizer`, `KokoroLexiconPhonemizer` and `KokoroPhonemeVocabulary`
 are internal). It
 consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `ISynthesisModel`,
-`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the _Speech
-ModelManagementSubsystem Design_, `AudioFormat` from Speech's AudioSubsystem, and the sibling
-SpeechOnnx system's `OnnxExecutionProviderSelector` (see _SpeechOnnx OnnxRuntimeSubsystem
-Design_). `OnnxKokoroEnglishSynthesisModel`'s public `CreateBackend` implementation constructs
-this system's own `OnnxKokoroSynthesisEngine` (see _SpeechOnnxKokoro SynthesisSubsystem Design_),
+`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the *Speech
+ModelManagementSubsystem Design*, `AudioFormat` from Speech's AudioSubsystem, and the sibling
+SpeechOnnx system's `OnnxExecutionProviderSelector` (see *SpeechOnnx OnnxRuntimeSubsystem
+Design*). `OnnxKokoroEnglishSynthesisModel`'s public `CreateBackend` implementation constructs
+this system's own `OnnxKokoroSynthesisEngine` (see *SpeechOnnxKokoro SynthesisSubsystem Design*),
 returned to the Speech library only as its engine-neutral, equally public `ISynthesisBackend`
 seam.
 
@@ -53,8 +53,8 @@ catalog. The class lives in the `DemaConsulting.Speech.Onnx.Kokoro` namespace at
 root, rather than inside this subsystem's folder, because it is the package's public composition
 entry point rather than a model; it is traced to this subsystem because its only purpose is to
 register this subsystem's one model. Per this repository's established pattern (mirroring
-`SpeechModelCatalogSherpaExtensions`'s treatment in _SpeechSherpa ModelManagementSubsystem
-Design_), this extension-method file has no separate unit-level design/reqstream/verification/
+`SpeechModelCatalogSherpaExtensions`'s treatment in *SpeechSherpa ModelManagementSubsystem
+Design*), this extension-method file has no separate unit-level design/reqstream/verification/
 sysml2 file of its own; it is documented inline here, as a subsystem unit.
 
 `OnnxKokoroEnglishSynthesisModel` declares its identity (`Id = "kokoro-onnx-v1_0-en"`,

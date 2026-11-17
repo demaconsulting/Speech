@@ -22,8 +22,8 @@ a real model. Those remain manual/local verification activities because CI runne
 guarantee audio hardware. The Speech library itself ships no built-in model and references no
 native speech-inference runtime: real, production models are registered by a host through
 `SpeechModelCatalog.AddModels`, and the two recognition models and two synthesis models shipped
-today by the sibling SpeechSherpa package are verified there (see _SpeechSherpa System
-Verification_). Automated Speech system tests deliberately exercise a deterministic test model and
+today by the sibling SpeechSherpa package are verified there (see *SpeechSherpa System
+Verification*). Automated Speech system tests deliberately exercise a deterministic test model and
 a fake recognition or synthesis engine instead of a real model, so CI never depends on a real,
 multi-hundred-megabyte download or the native sherpa-onnx runtime.
 

@@ -9,12 +9,12 @@ following units, each documented in its own file:
 
 - **RecognizerSessionFactory** (with `IRecognizerSessionFactory`): the demo-owned
   recognizer-engine composition seam and its real implementation over the library's
-  `SpeechModelStore` and `SpeechRecognizerFactory` — see _RecognizerSessionFactory Design_
+  `SpeechModelStore` and `SpeechRecognizerFactory` — see *RecognizerSessionFactory Design*
   (`recognition-panel-subsystem/recognizer-session-factory.md`)
 - **RecognitionPanelViewModel**: the panel's presentation state — the installed recognition
   models, the async Start/Stop streaming lifecycle over an `ISpeechRecognizerEngine` and an
   `IRecognitionSession`, and the progressive partial-then-final transcript — see
-  _RecognitionPanelViewModel Design_ (`recognition-panel-subsystem/recognition-panel-view-model.md`)
+  *RecognitionPanelViewModel Design* (`recognition-panel-subsystem/recognition-panel-view-model.md`)
 - **CaptureDebugRecorder** / **WavFileWriter**: internal, opt-in diagnostic
   instrumentation (off by default) that records raw captured audio to a `.wav` file for offline
   investigation of a reported live-microphone bug; see "Capture Debug Recording" below
@@ -36,7 +36,7 @@ The subsystem exposes one presentation surface, `RecognitionPanelViewModel`, con
 `IRecognizerSessionFactory`, never through the library's recognition concretes directly. The
 recognition panel does not embed the `ModelSettingsSubsystem` panel: `IRecognitionSession`'s
 contract accepts no per-call parameter bag, so there is nothing for a settings panel to feed (see
-_SpeechDemo ModelSettingsSubsystem Design_). Only the engine is composed through the seam; a
+*SpeechDemo ModelSettingsSubsystem Design*). Only the engine is composed through the seam; a
 capture device is bound per run, through `ISpeechRecognizerEngine.CreateSessionAsync` directly
 against the returned engine.
 
@@ -78,22 +78,22 @@ logs the failure to the console and live recognition proceeds completely unaffec
 
 **Containment of diagnostic failures.** The recorder must never affect listening:
 
-- _Coordinated disposal and callback admission_: disposal is claimed atomically (an interlocked
+- *Coordinated disposal and callback admission*: disposal is claimed atomically (an interlocked
   flag), and the frame callback checks it and catches `InvalidOperationException` and
   `ObjectDisposedException` from the queue, so a frame that is already in flight when the recorder
   is disposed is silently discarded rather than throwing into the audio callback. Disposal
   unsubscribes from `FrameCaptured`, completes the queue, waits a bounded time for the writer
   thread, and finalizes under a writer lock shared with the writer thread so the file is finalized
   exactly once.
-- _Writer failure containment_: the writer loop catches `IOException`,
+- *Writer failure containment*: the writer loop catches `IOException`,
   `UnauthorizedAccessException`, `ObjectDisposedException`, `NotSupportedException`,
   `InvalidOperationException`, and `ArgumentException`, logs the failure to the console, and stops
   accepting further frames (the queue is completed so producers are discarded) instead of retrying
   against a failed disk; recognition continues unaffected.
-- _Finalization failure containment_: finalizing the WAV file (flush, header patch, close) can
+- *Finalization failure containment*: finalizing the WAV file (flush, header patch, close) can
   itself throw; that failure is caught and logged by both the writer thread and disposal, so it can
   neither escape the writer thread and terminate the process nor propagate out of `Dispose()`.
-- _Backpressure_: the bounded queue never blocks the producer; overflow frames are dropped and
+- *Backpressure*: the bounded queue never blocks the producer; overflow frames are dropped and
   counted rather than queued, so a stalled writer can neither delay capture nor grow memory.
-- _Start failure_: an inaccessible directory or invalid path is caught in `TryStart`, logged, and
+- *Start failure*: an inaccessible directory or invalid path is caught in `TryStart`, logged, and
   results in no recorder.

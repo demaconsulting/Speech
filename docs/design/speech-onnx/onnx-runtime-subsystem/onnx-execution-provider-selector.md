@@ -42,7 +42,7 @@ read-only `IReadOnlyList<string>`, empty (CPU-only by default).
   succeed for a well-formed model.
 
 **Error Handling**: Exception contract (identical to the system API table and data flow): only a
-provider's _unavailability_ is swallowed into the CPU fallback.
+provider's *unavailability* is swallowed into the CPU fallback.
 
 - A null or empty `modelPath` throws `ArgumentException` (`ArgumentNullException` for null,
   naming `modelPath`), validated via `ArgumentException.ThrowIfNullOrEmpty` before any provider is

@@ -8,7 +8,7 @@ unavailable session, since binding a device to an already unavailable engine is 
 useless) composition, not an error. The safe-dispose test deliberately disposes the shared instance
 twice, proving that a host wrapping its engine in a disposal scope cannot invalidate the fallback
 for anyone else. `SpeechSynthesizerUnavailableException` is verified in its own document
-(_SpeechSynthesizerUnavailableException_).
+(*SpeechSynthesizerUnavailableException*).
 
 #### Test Environment
 

@@ -4,19 +4,18 @@
 The library's diagnostics contract forbids synthesized text in any report, so this unit can tell a host how
 much work was done but never what was read.
 
-**Data Model**: `AnalysisDiagnostics` is a sealed class holding one nullable `ISpeechDiagnostics`.
-`AnalysisCounts` is an internal read-only record struct of nine counts: sentences (the reconciled sentence
-breaks plus one when the text has any token), tokens, annotations (of all kinds), unknown words (word tokens
-that are not punctuation, symbols or numerals and that the tagger's lexicon does not know; zero when the text
-was not tagged), normalizations (the number of replacements, `en.norm` and `en.spell` together; zero when
-normalization was not selected), ambiguous readings (abbreviation resolutions and numeric readings, such as a bare year or a
-month-first date, that fell back to a documented default or chose between competing cues; zero when
-normalization was not selected), numeric fallbacks (numeric-looking expressions left as written or read
-digit by digit because of a documented limit or an unsupported numeric shape; zero when normalization was
-not selected), overrides applied (user pronunciation overrides that took effect on a word) and overrides
-ignored (overrides that matched a word that an earlier multi-token match had already consumed); the last two
-are appended with a default of zero and are zero without a dictionary. The category is the constant
-`TextEn.Analysis`.
+**Data Model**: `AnalysisDiagnostics` is a sealed class holding one nullable `ISpeechDiagnostics`. `AnalysisCounts` is
+an internal read-only record struct of nine counts: sentences (the reconciled sentence breaks plus one when the text has
+any token), tokens, annotations (of all kinds), unknown words (word tokens that are not punctuation, symbols or numerals
+and that the tagger's lexicon does not know; zero when the text was not tagged), normalizations (the number of
+replacements, `en.norm` and `en.spell` together; zero when normalization was not selected), ambiguous readings
+(abbreviation resolutions and numeric readings, such as a bare year or a month-first date, that fell back to a
+documented default or chose between competing cues; zero when normalization was not selected), numeric fallbacks
+(numeric-looking expressions left as written or read digit by digit because of a documented limit or an unsupported
+numeric shape; zero when normalization was not selected), overrides applied (user pronunciation overrides that took
+effect on a word) and overrides ignored (overrides that matched a word that an earlier multi-token match had already
+consumed); the last two are appended with a default of zero and are zero without a dictionary. The category is the
+constant `TextEn.Analysis`.
 
 **Key Methods**:
 

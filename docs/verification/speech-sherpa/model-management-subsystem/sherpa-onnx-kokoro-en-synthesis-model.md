@@ -97,8 +97,8 @@ This evidence was captured once, manually, during this model's development, and 
 because the scratch spike artifacts themselves were deleted afterward (per this repository's
 convention of leaving no scratch artifacts in the working tree).
 
-- **Archive downloaded**: `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2`,
-  103,248,205 bytes
+- **Archive downloaded**:
+  `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2`, 103,248,205 bytes
 - **SHA-256** (computed directly against the freshly downloaded bytes):
   `c9f0dd393615805b0bab050c340834d5e684e732aec91c0e860cd30e982c08bd`
 - **License**: Apache License 2.0, read directly from the archive's own extracted `LICENSE` file

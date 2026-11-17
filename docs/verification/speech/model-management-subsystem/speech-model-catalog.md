@@ -43,7 +43,7 @@ zip-archive model is installed through its own install hook.
 **Test**: `SpeechModelCatalog_AddModels_Called_AppearsInEnumerate`
 
 Registration of the four real, production sherpa-onnx models through `AddSherpaModels()` is
-verified separately by SpeechSherpa; see _SpeechSherpa ModelManagementSubsystem Verification_.
+verified separately by SpeechSherpa; see *SpeechSherpa ModelManagementSubsystem Verification*.
 
 ##### The Store property returns the same store instance the catalog composes internally
 

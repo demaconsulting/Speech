@@ -46,52 +46,43 @@ underlying exception, populated for every non-`Installed` outcome.
   `HttpModelDownloadClient` (verified end to end against a loopback server, where the owned client
   sends the mirror's `Authorization` header to the mirror URI). An auth-free mirror may be combined
   with a caller-supplied client.
-- **ResolveEffectiveUri(originalUri, mirror, modelId, relativeInstallPath)** *(internal, directly unit-testable)*: Computes
-  the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file.
-  With no mirror configured, returns `originalUri` completely unchanged - byte-for-byte identical to
-  this type's behavior before the mirror feature existed. With a mirror configured, returns
-  `{mirror.BaseUri.AbsoluteUri}/{modelId}/{relativeInstallPath}`, combined via `Uri`-segment
-  construction that normalizes exactly one separating slash (exactly one trailing slash of
-  `mirror.BaseUri` is trimmed, never more), and percent-escapes `modelId` and each
-  `RelativeInstallPath` segment individually (so a subdirectory such as `tokens/vocab.txt`
-  still resolves as two escaped segments, not one single escaped string containing a literal
-  slash).
-- **DownloadAsync(modelId, descriptor, progress?, cancellationToken)**: Acquires this model id's
-  own lock (queueing only behind another in-flight download of the *same* model id - a download
-  of a different model id proceeds immediately in parallel). Immediately after acquiring that
-  lock - and before touching the network or the staging directory at all - checks
-  `SpeechModelStore.IsInstalled(modelId)`: if the model is already installed, opportunistically
-  calls `SpeechModelStore.CleanUpLeftoversAsync(modelId, cancellationToken)` (a cheap, best-effort directory
-  enumeration/delete with no network or hashing involved, so it does not compromise the no-op
-  contract below; the sweep observes the caller's token before it starts), reports an `Info`
-  diagnostic ("Model '{id}' is already installed; DownloadAsync
-  is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)`
-  immediately, with no fetch, verification, or network work performed at all - the only
-  staging-directory activity is the cheap opportunistic leftover sweep. This fast-path check
-  is deliberately placed
-  *inside* the per-model-id lock (never before acquiring it) so it stays race-safe against a
-  concurrent first-time install of the same model id: two callers racing to install the same
-  not-yet-installed id still serialize on the lock as before, and only a caller that genuinely
-  observes the model already installed (whether it always was, or became so while queued behind
-  another caller's install) takes the fast path - it can never observe a half-installed state.
-  This makes `DownloadAsync` for an already-installed model id a true no-op, safe for a host to
-  call unconditionally on every launch; once a model is installed there is no way through this
-  public API to force a re-verification/repair of it (a host that wants to force a fresh
-  install must first uninstall the model). When the model is not yet installed, proceeds to
-  sweep leftovers (`CleanUpLeftoversAsync`, which never throws for ordinary storage conditions) and then begin
-  staging via `SpeechModelStore.BeginStaging`. A local file-system failure creating the staging directory
-  (`IOException` or `UnauthorizedAccessException`) is reported as an `IoFailure` result with an `Error`
-  diagnostic, like every other disk failure. The downloader then resolves each file's staged path through
-  `SpeechModelDownloadFile.ResolveStagedPath` (the same helper an install hook uses, so both agree on the path
-  regardless of the separator the declared `RelativeInstallPath` used), fetches each declared file in order (rewriting each
-  file's progress reports with its true `FileIndex`/`FileCount` via an internal,
-  order-preserving `RelayProgress` adapter), verifies its SHA-256 checksum, and - only once
-  every file verifies - hands the staging
-  directory to `SpeechModelStore.CompleteInstall`. A checksum mismatch, transport failure, or
-  cancellation abandons the staging directory via `SpeechModelStore.AbandonStaging` and leaves any
-  prior successful install of the same model untouched. This overload never invokes any model's
-  `InstallAsync` hook (it has no `ISpeechModel` reference to call it on) - its signature and
-  behavior are completely unchanged by the addition of the overload below.
+- **ResolveEffectiveUri(originalUri, mirror, modelId, relativeInstallPath)** *(internal, directly unit-testable)*:
+  Computes the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file. With no mirror
+  configured, returns `originalUri` completely unchanged - byte-for-byte identical to this type's behavior before the
+  mirror feature existed. With a mirror configured, returns
+  `{mirror.BaseUri.AbsoluteUri}/{modelId}/{relativeInstallPath}`, combined via `Uri`-segment construction that
+  normalizes exactly one separating slash (exactly one trailing slash of `mirror.BaseUri` is trimmed, never more), and
+  percent-escapes `modelId` and each `RelativeInstallPath` segment individually (so a subdirectory such as
+  `tokens/vocab.txt` still resolves as two escaped segments, not one single escaped string containing a literal slash).
+- **DownloadAsync(modelId, descriptor, progress?, cancellationToken)**: Acquires this model id's own lock (queueing only
+  behind another in-flight download of the *same* model id - a download of a different model id proceeds immediately in
+  parallel). Immediately after acquiring that lock - and before touching the network or the staging directory at all -
+  checks `SpeechModelStore.IsInstalled(modelId)`: if the model is already installed, opportunistically calls
+  `SpeechModelStore.CleanUpLeftoversAsync(modelId, cancellationToken)` (a cheap, best-effort directory
+  enumeration/delete with no network or hashing involved, so it does not compromise the no-op contract below; the sweep
+  observes the caller's token before it starts), reports an `Info` diagnostic ("Model '{id}' is already installed;
+  DownloadAsync is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)` immediately,
+  with no fetch, verification, or network work performed at all - the only staging-directory activity is the cheap
+  opportunistic leftover sweep. This fast-path check is deliberately placed *inside* the per-model-id lock (never before
+  acquiring it) so it stays race-safe against a concurrent first-time install of the same model id: two callers racing
+  to install the same not-yet-installed id still serialize on the lock as before, and only a caller that genuinely
+  observes the model already installed (whether it always was, or became so while queued behind another caller's
+  install) takes the fast path - it can never observe a half-installed state. This makes `DownloadAsync` for an
+  already-installed model id a true no-op, safe for a host to call unconditionally on every launch; once a model is
+  installed there is no way through this public API to force a re-verification/repair of it (a host that wants to force
+  a fresh install must first uninstall the model). When the model is not yet installed, proceeds to sweep leftovers
+  (`CleanUpLeftoversAsync`, which never throws for ordinary storage conditions) and then begin staging via
+  `SpeechModelStore.BeginStaging`. A local file-system failure creating the staging directory (`IOException` or
+  `UnauthorizedAccessException`) is reported as an `IoFailure` result with an `Error` diagnostic, like every other disk
+  failure. The downloader then resolves each file's staged path through `SpeechModelDownloadFile.ResolveStagedPath` (the
+  same helper an install hook uses, so both agree on the path regardless of the separator the declared
+  `RelativeInstallPath` used), fetches each declared file in order (rewriting each file's progress reports with its true
+  `FileIndex`/`FileCount` via an internal, order-preserving `RelayProgress` adapter), verifies its SHA-256 checksum,
+  and - only once every file verifies - hands the staging directory to `SpeechModelStore.CompleteInstall`. A checksum
+  mismatch, transport failure, or cancellation abandons the staging directory via `SpeechModelStore.AbandonStaging` and
+  leaves any prior successful install of the same model untouched. This overload never invokes any model's
+  `InstallAsync` hook (it has no `ISpeechModel` reference to call it on) - its signature and behavior are completely
+  unchanged by the addition of the overload below.
 - **DownloadAsync(model, progress?, cancellationToken)**: An additive overload taking an
   `ISpeechModel` instead of a bare `modelId`/`descriptor` pair. Acquires the same per-model-id
   lock (keyed by `model.Id`) as the overload above, then runs the identical fetch/verify sequence

@@ -10,8 +10,8 @@ Because the shell touches neither the library nor Avalonia, every navigation beh
 verifiable with no audio hardware, no installed model, and no running UI toolkit.
 
 The composition root in the `App` unit is verified indirectly, by the system-level tests that
-construct the same object graph over the real library entry points (see _SpeechDemo App
-Verification_).
+construct the same object graph over the real library entry points (see *SpeechDemo App
+Verification*).
 
 ### Test Environment
 

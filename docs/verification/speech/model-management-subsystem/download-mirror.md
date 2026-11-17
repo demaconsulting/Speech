@@ -108,7 +108,7 @@ token is configured.
 #### Requirement Coverage
 
 | Requirement | Tests |
-| :---------- | :---- |
+| :--- | :--- |
 | `SchemeValidation` | Http/Https scheme accepted; relative base URI; non-http scheme |
 | `ValidConfigurationAccepted` | Base URI only; Credentials only; BearerToken only |
 | `MutualExclusivity` | Both Credentials and BearerToken |

@@ -10,10 +10,10 @@ The RecognitionCommandSubsystem implements the one speech-to-text subcommand dis
 - **RecognizeCommand**: implements
   `recognize --stt-model <id> (--input <wav-path> | --mic) [--capture-device <name>]
   [--silence-timeout <seconds>] [--start-timeout <seconds>] [--stt-param key=value ...]
-  [--interim | --final-only] [--output-text <text-path>]` - see _RecognizeCommand_
+  [--interim | --final-only] [--output-text <text-path>]` - see *RecognizeCommand*
 - **SilenceTimeoutRecognizerSession**: an idle-timeout decorator around a recognition session's
   result stream, used in microphone mode (and reused by `AskCommand`) - see
-  _SilenceTimeoutRecognizerSession_
+  *SilenceTimeoutRecognizerSession*
 
 ### Interfaces
 
@@ -79,12 +79,11 @@ value that equals a global flag is absorbed as that global option rather than pa
 
 ### Interactions with Other Units
 
-`RecognizeCommand` depends on the `ICliModelCatalog` seam (only `Enumerate` and
-`CreateRecognizerEngineAsync`), the library's public recognition types and `AudioFormat`,
-the conversation subsystem's `ICliCaptureDeviceSource` seam (the library's `AudioDeviceFactory`
-is reached only through that seam's production implementation), and `WavFileAudioCaptureDevice`. It reuses the DeviceCommandsSubsystem's
-`DevicesTestCommand.ResolveDeviceSelectionOrThrow` helper and the SynthesisCommandSubsystem's
-`ParameterBagParser` rather than duplicating either. `SilenceTimeoutRecognizerSession` depends only
-on the library's public `IRecognitionSession` and `SpeechRecognitionEvent` types and the BCL
-`TimeProvider`. `CommandDispatch` calls `RecognizeCommand`, and the ConversationCommandSubsystem's
-`AskCommand` reuses `SilenceTimeoutRecognizerSession`.
+`RecognizeCommand` depends on the `ICliModelCatalog` seam (only `Enumerate` and `CreateRecognizerEngineAsync`), the
+library's public recognition types and `AudioFormat`, the conversation subsystem's `ICliCaptureDeviceSource` seam (the
+library's `AudioDeviceFactory` is reached only through that seam's production implementation), and
+`WavFileAudioCaptureDevice`. It reuses the DeviceCommandsSubsystem's `DevicesTestCommand.ResolveDeviceSelectionOrThrow`
+helper and the SynthesisCommandSubsystem's `ParameterBagParser` rather than duplicating either.
+`SilenceTimeoutRecognizerSession` depends only on the library's public `IRecognitionSession` and
+`SpeechRecognitionEvent` types and the BCL `TimeProvider`. `CommandDispatch` calls `RecognizeCommand`, and the
+ConversationCommandSubsystem's `AskCommand` reuses `SilenceTimeoutRecognizerSession`.

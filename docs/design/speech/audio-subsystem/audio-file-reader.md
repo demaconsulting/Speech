@@ -10,22 +10,19 @@ only, so hosts and models can accept either format without a native decoder depe
 
 **Key Methods**:
 
-- **Read(path | stream, options)**: first bounds the input by `MaxEncodedBytes` (never above the maximum
-  array length, the most that can be held in memory): a file is rejected from the remaining length of the `FileStream` it
-  opens (read-only, `FileShare.Read`), a seekable stream from its remaining length (measured from
-  its current position, never negative), and a non-seekable stream is copied in chunks that stop as
-  soon as the limit is exceeded. `MaxEncodedBytes` is independent of `MaxSamples` (a default of 1.25 GiB
-  covers an uncompressed 32-bit file of `DefaultMaxSamples` samples), and no tighter bound is derived from
-  `MaxSamples`, because a
-  valid FLAC stream (Rice-coded residuals) has no upper bound on encoded bytes per decoded sample.
-  The decoders instead enforce the exact `MaxSamples` limit while decoding: `WavDecoder` before
-  allocating its output, and `FlacDecoder` on the declared total and then as each frame's samples
-  are appended, growing its output buffer in steps never beyond the cap. A seekable stream positioned at
-  or past its end yields no bytes and is rejected by the container sniffing as neither WAV nor FLAC.
-  Then reads all bytes, detects the container from its magic
-  (`RIFF`/`WAVE`, or `fLaC` optionally behind an ID3v2 tag), and delegates to `WavDecoder` or
-  `FlacDecoder`. The decoders enforce `MaxSamples` on the decoded sample count, and
-  `VerifyChecksums` is passed to the FLAC decoder (it has no effect on WAV)
+- **Read(path | stream, options)**: first bounds the input by `MaxEncodedBytes` (never above the maximum array length,
+  the most that can be held in memory): a file is rejected from the remaining length of the `FileStream` it opens
+  (read-only, `FileShare.Read`), a seekable stream from its remaining length (measured from its current position, never
+  negative), and a non-seekable stream is copied in chunks that stop as soon as the limit is exceeded. `MaxEncodedBytes`
+  is independent of `MaxSamples` (a default of 1.25 GiB covers an uncompressed 32-bit file of `DefaultMaxSamples`
+  samples), and no tighter bound is derived from `MaxSamples`, because a valid FLAC stream (Rice-coded residuals) has no
+  upper bound on encoded bytes per decoded sample. The decoders instead enforce the exact `MaxSamples` limit while
+  decoding: `WavDecoder` before allocating its output, and `FlacDecoder` on the declared total and then as each frame's
+  samples are appended, growing its output buffer in steps never beyond the cap. A seekable stream positioned at or past
+  its end yields no bytes and is rejected by the container sniffing as neither WAV nor FLAC. Then reads all bytes,
+  detects the container from its magic (`RIFF`/`WAVE`, or `fLaC` optionally behind an ID3v2 tag), and delegates to
+  `WavDecoder` or `FlacDecoder`. The decoders enforce `MaxSamples` on the decoded sample count, and `VerifyChecksums` is
+  passed to the FLAC decoder (it has no effect on WAV)
 - **ReadMono(path | stream, options)**: `Read` followed by `AudioClip.ToMono` (which uses
   `AudioResampler.DownMix`), returning the mono samples with the file's native sample rate. It
   repeats every error of `Read`, unchanged.

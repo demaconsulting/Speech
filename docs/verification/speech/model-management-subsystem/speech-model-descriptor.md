@@ -12,7 +12,8 @@ is rejected, and that two descriptors for the same model in different states are
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
-- **Test doubles**: NSubstitute substitutes of `ISpeechModel`, and the hand-written fakes in `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/`
+- **Test doubles**: NSubstitute substitutes of `ISpeechModel`, and the hand-written fakes in
+  `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/`
 
 #### Acceptance Criteria
 

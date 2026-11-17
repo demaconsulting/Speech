@@ -30,10 +30,10 @@ The library consists of two subsystems:
 - **ModelManagementSubsystem**: the `AddKokoroModels()` catalog extension method, the
   `OnnxKokoroEnglishSynthesisModel` concrete `ISynthesisModel` implementation, the embedded-lexicon
   `KokoroLexiconPhonemizer`, and the embedded-vocabulary `KokoroPhonemeVocabulary` - see
-  _SpeechOnnxKokoro ModelManagementSubsystem Design_
+  *SpeechOnnxKokoro ModelManagementSubsystem Design*
 - **SynthesisSubsystem**: `OnnxKokoroSynthesisEngine`, the real implementation of Speech's public
-  `ISynthesisBackend` seam over ONNX Runtime's managed inference API - see _SpeechOnnxKokoro
-  SynthesisSubsystem Design_
+  `ISynthesisBackend` seam over ONNX Runtime's managed inference API - see *SpeechOnnxKokoro
+  SynthesisSubsystem Design*
 
 ## External Interfaces
 
@@ -42,8 +42,8 @@ class - and implements Speech's public `ISynthesisModel` model seam and its equa
 `ISynthesisBackend` backend seam. Both seams are genuinely public, by design, so a third-party
 package can implement either level without any special assembly access; this assembly is not
 granted `InternalsVisibleTo` by the Speech library and behaves as an ordinary external consumer of
-Speech's public API, exactly as a genuine third-party model package would (see _Speech
-ModelManagementSubsystem Design_).
+Speech's public API, exactly as a genuine third-party model package would (see *Speech
+ModelManagementSubsystem Design*).
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
@@ -67,7 +67,7 @@ library - and the following NuGet dependency:
   passes the matching provider name through `AddKokoroModels`'s
   `preferredExecutionProviderNames` parameter
 
-See _OTS Integration Design_, _Microsoft.ML.OnnxRuntime Design_, and _SpeechOnnx Design_ for
+See *OTS Integration Design*, *Microsoft.ML.OnnxRuntime Design*, and *SpeechOnnx Design* for
 details.
 
 ## Risk Control Measures
@@ -161,11 +161,11 @@ safety role.
   than claiming more
 - **Honest, documented phonemization limitations**: an out-of-vocabulary word is silently dropped
   rather than guessed at, and homograph pronunciation is resolved with no sentence context - both
-  deliberate, documented simplifications rather than hidden defects (see _SpeechOnnxKokoro
-  ModelManagementSubsystem Design_)
+  deliberate, documented simplifications rather than hidden defects (see *SpeechOnnxKokoro
+  ModelManagementSubsystem Design*)
 - **Compliance**: all functionality must be traceable to requirements
 - **Quality**: zero warnings, complete documentation; automated unit test coverage does not yet
-  exist for this package - see _SpeechOnnxKokoro System Verification_ for the honestly-documented
+  exist for this package - see *SpeechOnnxKokoro System Verification* for the honestly-documented
   gap
 
 ### Platform Support

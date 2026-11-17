@@ -63,7 +63,8 @@ after the refresh starts normally.
 
 ##### Construction: Unsupported Preferred Sample Rate Falls Back to Device Default
 
-**Test**: `PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
+**Test**:
+`PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
 
 ##### Construction: Supported Preferred Sample Rate Is Used
 

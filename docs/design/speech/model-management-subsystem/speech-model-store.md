@@ -35,12 +35,12 @@ to `current.replaced-{operationId}` and best-effort deleted after the replacemen
   accompanies it; a missing or unreadable manifest is treated as "not installed", never as an
   error. It uses the internal `TryReadManifest(modelId)`, which returns the parsed manifest or `null`
   when the file is missing, unreadable, malformed JSON, or field-less.
-- **BeginStaging(modelId)** _(internal)_: Creates a fresh, empty `.tmp/{operationId}/` staging
+- **BeginStaging(modelId)** *(internal)*: Creates a fresh, empty `.tmp/{operationId}/` staging
   directory, never touching `current/`. A concurrent install's empty-`.tmp` cleanup can delete the
   parent between its creation and the child's, so the creation is retried a bounded number of times
   (5 attempts with a short back-off) on an I/O or access failure before the failure propagates.
   Called only by `SpeechModelDownloader`.
-- **CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes)** _(internal)_:
+- **CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes)** *(internal)*:
   Promotes a verified staging directory into place as the new `current/` via directory
   renames (a two-step replace with rollback: any existing `current/` is renamed aside first, then the staging
   directory is renamed into `current/`), then writes the manifest. On a repair the
@@ -56,7 +56,7 @@ to `current.replaced-{operationId}` and best-effort deleted after the replacemen
   After the swap it best-effort removes the now-empty `.tmp` root (a non-recursive delete, so another
   operation's staging directory keeps it alive and a failure is ignored). The manifest is written with a plain,
   non-atomic file write; that is safe because a partially written manifest is malformed and so reads as not installed.
-- **AbandonStaging(stagingDirectory)** _(internal, static)_: Deletes a failed/canceled operation's
+- **AbandonStaging(stagingDirectory)** *(internal, static)*: Deletes a failed/canceled operation's
   staging directory without touching `current/`.
 - **Uninstall(modelId)**: Removes the manifest first and then `current/` for an installed model, so a failed
   or partial delete never leaves a model that reads as installed; a no-op for a model that was never installed.

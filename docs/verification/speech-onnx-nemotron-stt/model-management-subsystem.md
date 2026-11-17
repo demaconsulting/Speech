@@ -15,10 +15,10 @@ The SpeechOnnxNemotronStt ModelManagementSubsystem is verified through determini
   `AddNemotronSttModels_WithProviders_Registers`). This subsystem folds the extension method in as
   its own review unit (there is no separate unit document), matching the sibling Kokoro system
 - **`OnnxNemotronMultilingualRecognitionModel`**: its identity, license, 11-file download
-  descriptor, language `ChoiceParameter`, and `CreateBackend` validation - see _SpeechOnnxNemotronStt
-  OnnxNemotronMultilingualRecognitionModel Verification_
+  descriptor, language `ChoiceParameter`, and `CreateBackend` validation - see *SpeechOnnxNemotronStt
+  OnnxNemotronMultilingualRecognitionModel Verification*
 - **`NemotronVocabulary`**: its loading, language-id derivation, blank id, and detokenization -
-  see _SpeechOnnxNemotronStt NemotronVocabulary Verification_
+  see *SpeechOnnxNemotronStt NemotronVocabulary Verification*
 
 ### Test Environment
 
@@ -41,4 +41,4 @@ detokenizes text as documented.
 
 See each unit's own verification document for its detailed test scenarios:
 `onnx-nemotron-multilingual-recognition-model.md` and `nemotron-vocabulary.md`. The extension
-method's scenarios are recorded above and in _SpeechOnnxNemotronStt System Verification_.
+method's scenarios are recorded above and in *SpeechOnnxNemotronStt System Verification*.

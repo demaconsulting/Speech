@@ -55,8 +55,8 @@ text produces correct audible speech through a real model on real speakers requi
 production model (which this library deliberately does not ship by default) and audio hardware,
 so it remains a manual/local verification activity, mirroring the RecognitionSubsystem's
 identical boundary. The real, native-backed backends ship in sibling systems (for example the
-sherpa-onnx backend in the SpeechSherpa system); see _SpeechSherpa SynthesisSubsystem
-Verification_.
+sherpa-onnx backend in the SpeechSherpa system); see *SpeechSherpa SynthesisSubsystem
+Verification*.
 
 ### Test Environment
 
@@ -106,7 +106,7 @@ A SynthesisSubsystem test run passes when:
   unavailable engine without throwing
 - A supplied `parameterValues` key naming a parameter not declared by the requested model is
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
-  supplied value for a parameter the model _does_ declare that fails that parameter's own
+  supplied value for a parameter the model *does* declare that fails that parameter's own
   validation throws `ArgumentException` synchronously from `LoadAsync()`, before any
   installed/role/backend-load check runs
 - `ISpeechSynthesizerEngine.CreateSessionAsync` succeeds when no lease is held and fails fast with
@@ -373,7 +373,7 @@ device parameter at all.
 Verifies that an optional `parameterValues` bag supplied by the caller is forwarded unchanged to
 the constructed engine; that a supplied `parameterValues` key naming a parameter the model does
 not declare still composes a real engine and reports only an `Info` diagnostic, never throwing
-(preserving cross-model compatibility); and that a supplied value for a parameter the model _does_
+(preserving cross-model compatibility); and that a supplied value for a parameter the model *does*
 declare, but that is invalid for it, throws `ArgumentException` synchronously from `LoadAsync()` -
 before any installed/role/backend-load check runs - naming the parameter id, the model id, and the
 specific reason the value is invalid.
@@ -761,12 +761,12 @@ backend receives the text.
 `SynthesisSession_SynthesizeAsync_ProfileSuppliedAnnotations_ReachAnnotatedBackendWithoutAnalyzer`,
 `SynthesisSession_SynthesizeAsync_LegacyBackendWithAnalyzer_ReceivesPlainTextIdenticalToUnannotatedRun`
 
-Verifies that an annotation-accepting backend receives `GenerateAnnotated` with the segment's text
-and annotations only for segments that have annotations, and plain `Generate` for those that do not;
-that a symbol-only text an analyzer normalized (`&`) reaches the annotated backend as one segment
-with its annotation, and `©; Brand` keeps the annotation on its first chunk; that annotations a capability profile attaches to its own segments reach the backend with no
-analyzer involved; and that a legacy backend receives text identical to the annotated backend's
-segment texts and to a run with no analyzer.
+Verifies that an annotation-accepting backend receives `GenerateAnnotated` with the segment's text and annotations only
+for segments that have annotations, and plain `Generate` for those that do not; that a symbol-only text an analyzer
+normalized (`&`) reaches the annotated backend as one segment with its annotation, and `©; Brand` keeps the annotation
+on its first chunk; that annotations a capability profile attaches to its own segments reach the backend with no
+analyzer involved; and that a legacy backend receives text identical to the annotated backend's segment texts and to a
+run with no analyzer.
 
 #### Session: No Analyzer Leaves Behavior Unchanged
 

@@ -60,11 +60,10 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 **Expected**: each yields the same phonemes as its corrected or expanded form (`"the receive
 don't"`, `"F B I"`) with no unknown words.
 
-**Tests**: `Phonemize_Misspellings_AreCorrectedAndNotReported`,
-`Phonemize_Acronym_IsSpokenAsLetterNames`,
-`Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`, `Normalize_SpokenForm_MatchesEquivalentText`
-(numbers, currency, times, years, ordinals, abbreviations, markdown, diacritics),
-`IntegerToWords_Value_ReturnsWords`, `Normalize_HugeNumber_DoesNotThrow`, `Normalize_NullText_ThrowsArgumentNullException`
+**Tests**: `Phonemize_Misspellings_AreCorrectedAndNotReported`, `Phonemize_Acronym_IsSpokenAsLetterNames`,
+`Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`, `Normalize_SpokenForm_MatchesEquivalentText` (numbers, currency,
+times, years, ordinals, abbreviations, markdown, diacritics), `IntegerToWords_Value_ReturnsWords`,
+`Normalize_HugeNumber_DoesNotThrow`, `Normalize_NullText_ThrowsArgumentNullException`
 
 ##### Common contractions are recognized
 

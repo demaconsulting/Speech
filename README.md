@@ -24,7 +24,8 @@ and synthesize speech.
 - 🧩 Mockable, cross-platform audio interfaces
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
-- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates, times, units, and host pronunciation overrides (preview)
+- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates,
+  times, units, and host pronunciation overrides (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
@@ -47,29 +48,26 @@ dotnet add package DemaConsulting.Speech
 dotnet add package DemaConsulting.Speech.Sherpa
 ```
 
-`DemaConsulting.Speech` is the engine-neutral core: it ships zero built-in models and has no
-dependency on any speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate,
-sibling package supplying the four sherpa-onnx-backed models used by this README's examples
-(and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies they require); calling
-`.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
-`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
-`.AddKokoroModels()`, and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime
-streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. The optional
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning
-TTS model via `.AddChatterboxTurboModels(options)`. A host that only needs the
-catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
-implementation - can depend on the core package alone. A synthesis model can optionally supply an
-`ITextAnalyzer` whose language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the
-usage guide. The preview `DemaConsulting.Speech.Text.En` package (pre-release, depends on the
-`DemaConsulting.PartOfSpeech` tagger; **not yet published to NuGet**, because that tagger currently retains
-analyzed text, which violates the core `ITextAnalyzer` contract - see
-[PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an analyzer for English:
-`new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how abbreviations, symbols,
-apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned replacement spans over
-the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken by letter name;
-the text is never rewritten), supplies sentence boundaries, and lets a host override how individual words are
-spoken or pronounced with a dictionary of pronunciation overrides (`EnglishTextAnalyzerOptions.Overrides`, built
-in code or loaded from a tab-separated file; see the usage guide).
+`DemaConsulting.Speech` is the engine-neutral core: it ships zero built-in models and has no dependency on any
+speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate, sibling package supplying the four
+sherpa-onnx-backed models used by this README's examples (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies
+they require); calling `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
+`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via `.AddKokoroModels()`,
+and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5
+ASR recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package
+adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that
+only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
+implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
+language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
+`DemaConsulting.Speech.Text.En` package (pre-release, depends on the `DemaConsulting.PartOfSpeech` tagger; **not yet
+published to NuGet**, because that tagger currently retains analyzed text, which violates the core `ITextAnalyzer`
+contract - see [PartOfSpeech issue #29](https://github.com/demaconsulting/PartOfSpeech/issues/29)) supplies such an
+analyzer for English: `new EnglishTextAnalyzer()` annotates each word with its part of speech, describes how
+abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates, times and units are spoken as aligned
+replacement spans over the original text (`en.norm` annotations, and `en.spell` annotations for letters that are spoken
+by letter name; the text is never rewritten), supplies sentence boundaries, and lets a host override how individual
+words are spoken or pronounced with a dictionary of pronunciation overrides (`EnglishTextAnalyzerOptions.Overrides`,
+built in code or loaded from a tab-separated file; see the usage guide).
 
 ### PortAudio runtime support
 
@@ -517,11 +515,11 @@ The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU
 (a BSD-style license) and from misaki (Apache-2.0), and ships their license texts and attribution in
 its `THIRD-PARTY-NOTICES.md` file at the package root.
 
-The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its `PACKAGE-LICENSE.md`
-declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote
-from scratch under the MIT License; it embeds no third-party data. It depends on the separate `DemaConsulting.PartOfSpeech`
-package, which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0,
-derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
+The preview `DemaConsulting.Speech.Text.En` package (not yet published to NuGet) is licensed under the MIT License (its
+`PACKAGE-LICENSE.md` declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA
+Consulting wrote from scratch under the MIT License; it embeds no third-party data. It depends on the separate
+`DemaConsulting.PartOfSpeech` package, which carries its own license files and embeds data adapted from Open English
+WordNet (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
 `THIRD-PARTY-NOTICES.md` file, a dependency notice, reproduces that attribution for your convenience.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.

@@ -31,8 +31,8 @@ propagates out of the model's `CreateBackend` and the core library's
 unavailable fallback. `Generate` throws `ArgumentNullException` for null text, and operational
 members throw `ObjectDisposedException` after disposal.
 
-**Dependencies**: The sherpa-onnx managed API (see _SherpaOnnx Design_); the core library's
-`ISynthesisBackend` and `BackendAudio` from the _Speech SynthesisSubsystem Design_.
+**Dependencies**: The sherpa-onnx managed API (see *SherpaOnnx Design*); the core library's
+`ISynthesisBackend` and `BackendAudio` from the *Speech SynthesisSubsystem Design*.
 
 **Callers**: `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and
 `SherpaOnnxKokoroEnglishSynthesisModel` construct the engine from their `CreateBackend`

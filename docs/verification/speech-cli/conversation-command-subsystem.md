@@ -17,8 +17,8 @@ and `AudioDeviceFactoryCaptureDeviceSource`.
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Isolation**: Every test builds its own fakes; no shared state exists between tests
-- **Test doubles**: The in-memory catalog, engine, session, and device-source doubles described in _AskCommand
-  Verification_
+- **Test doubles**: The in-memory catalog, engine, session, and device-source doubles described in *AskCommand
+  Verification*
 
 ### Acceptance Criteria
 

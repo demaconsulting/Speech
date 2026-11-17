@@ -22,12 +22,11 @@ The subsystem also consumes two members of the `ICliModelCatalog` seam owned by
 
 ### Interfaces
 
-**Exposed**: `SpeakCommand.RunAsync(Context)` (the `CommandDispatch` entry point, which awaits the
-asynchronous work), the C# `internal` members `ParameterBagParser.Resolve` and
-`ParameterBagParser.ParseToken` (consumed by
-the recognition and conversation command subsystems within the same assembly), and the CLI-owned `ICliPlaybackDeviceSource`
-seam. Operator mistakes are reported as `ArgumentException` or `InvalidOperationException`, which
-`Program` turns into a one-line error and a non-zero exit code.
+**Exposed**: `SpeakCommand.RunAsync(Context)` (the `CommandDispatch` entry point, which awaits the asynchronous work),
+the C# `internal` members `ParameterBagParser.Resolve` and `ParameterBagParser.ParseToken` (consumed by the recognition
+and conversation command subsystems within the same assembly), and the CLI-owned `ICliPlaybackDeviceSource` seam.
+Operator mistakes are reported as `ArgumentException` or `InvalidOperationException`, which `Program` turns into a
+one-line error and a non-zero exit code.
 
 **Consumed**: `ICliModelCatalog` (`Enumerate`, `GetPreferredAudioFormat`,
 `CreateSynthesizerEngineAsync`), the library's `ISpeechSynthesizerEngine`/`ISynthesisSession`,

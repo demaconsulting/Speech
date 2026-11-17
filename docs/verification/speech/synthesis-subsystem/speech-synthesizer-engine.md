@@ -8,7 +8,7 @@ so no downloaded model and no platform-specific native speech-inference binary i
 exclusivity lease is verified by driving two sequential `CreateSessionAsync` calls - the second
 before the first session is disposed, then again after - and asserting
 `SynthesisEngineBusyException` in the first case and success in the second (the exception type
-itself is described in its own document, _SynthesisEngineBusyException_). Disposal ordering
+itself is described in its own document, *SynthesisEngineBusyException*). Disposal ordering
 (active leased session disposed before the owned backend) is verified by asserting the fake
 backend's dispose call is observed only after the session's own teardown has run.
 

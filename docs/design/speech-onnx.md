@@ -29,7 +29,7 @@ The library consists of one subsystem:
 - **OnnxRuntimeSubsystem**: `OnnxExecutionProviderSelector`, a static helper that builds an ONNX
   Runtime `InferenceSession`, trying each of a caller-supplied ordered list of accelerated
   execution provider names before falling back to the always-available CPU provider - see
-  _SpeechOnnx OnnxRuntimeSubsystem Design_
+  *SpeechOnnx OnnxRuntimeSubsystem Design*
 
 **Scope note**: a local, empty `SynthesisSubsystem` folder with no source files may exist in the
 project directory (git does not track empty folders).
@@ -50,7 +50,7 @@ and its `DefaultProviderNames`/`Create` members.
 **Create exception contract**: `Create` throws `ArgumentException` (`ArgumentNullException` for
 null) for a null or empty `modelPath`; `OnnxRuntimeException` for a missing, unreadable, or
 malformed model; and propagates any unexpected exception from `validateSession`. Only a
-provider's _unavailability_ is swallowed into the CPU fallback.
+provider's *unavailability* is swallowed into the CPU fallback.
 
 ## Dependencies
 
@@ -67,7 +67,7 @@ SpeechOnnx has one NuGet dependency:
   IReadOnlyDictionary<string,string>?)` overload - this mirrors the sibling SpeechSherpa system's
   "consuming application brings its own native runtime package" convention.
 
-See _OTS Integration Design_ and _Microsoft.ML.OnnxRuntime Design_ for details.
+See *OTS Integration Design* and *Microsoft.ML.OnnxRuntime Design* for details.
 
 ## Risk Control Measures
 
@@ -123,7 +123,7 @@ clinical or safety role.
   `InferenceSession` it returns on success, which remains the caller's responsibility. Each
   candidate's `InferenceSession` is likewise disposed on every non-winning path, including an
   unexpected exception type from a caller-supplied probe
-- **Create exception contract**: only a provider's _unavailability_ is swallowed into the CPU
+- **Create exception contract**: only a provider's *unavailability* is swallowed into the CPU
   fallback. The CPU fallback candidate is always attempted last and always succeeds for a
   well-formed model, so this unit's own logic never turns a missing or construction-only-functional
   accelerated runtime into an exception; a caller-supplied `validateSession` probe is what catches

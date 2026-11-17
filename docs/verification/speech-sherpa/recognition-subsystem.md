@@ -10,7 +10,7 @@ warm-up-replay bookkeeping) and `SherpaOnnxRecognitionEngineAccuracyTests` (real
 Rate, session-end `Reset()`, and `TryFlush()` recovery). Mocking native inference would provide no
 useful proof for a unit whose entire purpose is turning real audio into real text through the
 native runtime, so no fake backend is used here; all policy above the seam is verified in the
-Speech library against a fake backend (see _Speech RecognitionSubsystem Verification_).
+Speech library against a fake backend (see *Speech RecognitionSubsystem Verification*).
 
 These tests self-skip (rather than fail) when their target model is not installed in the running
 environment, so their evidence is only produced on a machine where the models are present.

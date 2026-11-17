@@ -5,7 +5,7 @@
 `ICliCaptureDeviceSource` has no executable behavior of its own, so the contract is verified through its
 implementations. The production `AudioDeviceFactoryCaptureDeviceSource` proves the enumeration and the
 unavailable-device parts of the contract over an injected fake probe; its tests are listed under
-_AudioDeviceFactoryCaptureDeviceSource Verification_. The in-memory `FakeCaptureDeviceSource`, which implements the
+*AudioDeviceFactoryCaptureDeviceSource Verification*. The in-memory `FakeCaptureDeviceSource`, which implements the
 same interface for `AskCommand`'s and `RecognizeCommand`'s tests, proves the known-name resolution part (which needs
 real hardware through the factory) and that commands can run a complete turn against a substituted seam.
 

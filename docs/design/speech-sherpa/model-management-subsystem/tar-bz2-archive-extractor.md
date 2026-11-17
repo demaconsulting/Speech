@@ -23,7 +23,7 @@ since the whole staging directory (archive included) is discarded by
 failure. Propagates `OperationCanceledException` when `cancellationToken` is canceled mid-extraction.
 
 **Dependencies**: `SharpCompress.Readers.ReaderFactory`/`IReaderExtensions` (see
-_SharpCompress Design_), `System.IO.File`.
+*SharpCompress Design*), `System.IO.File`.
 
 **Callers**: `SherpaOnnxZipformerEnRecognitionModel.InstallAsync`,
 `SherpaOnnxNemotronStreamingEnRecognitionModel.InstallAsync`.

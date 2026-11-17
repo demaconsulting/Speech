@@ -65,25 +65,21 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirrorAsync` (see its own
   design doc) is this demo's sole production caller and enforces that by refusing to call
   through - reporting an explained panel error instead - while any row is downloading.
-- **Reference voice packs**: Supported when the service was constructed with the composition
-  constructor (`ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?,
-  Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>)`), where the composition pairs the
-  catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, because an upgrade
-  may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
-  recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
-  library, and raises `ReferenceVoicesChanged`. When an install throws or is canceled, the rebuild still
-  runs but a failure of the rebuild itself is discarded so the install's own exception is the one that
-  propagates; after a successful install a rebuild failure propagates. A failing factory leaves the
-  previous pair published and undisposed, because the new pair is built before anything is replaced.
-  `UninstallReferenceVoicePackAsync` first awaits the
-  library's asynchronous uninstall, which serializes with an in-flight install of that pack
-  (waiting for it, honoring cancellation); if the uninstall throws or is canceled the exception
-  propagates unchanged and the recompose step and notification are skipped, because nothing
-  changed. Services built with the
-  single-catalog or catalog-factory constructors have no library:
-  `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
-  `ReferenceVoicePackHasEmotionsAsync`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
-  helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
+- **Reference voice packs**: Supported when the service was constructed with the composition constructor
+  (`ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?, Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>)`),
+  where the composition pairs the catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome,
+  because an upgrade may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
+  recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and library, and
+  raises `ReferenceVoicesChanged`. When an install throws or is canceled, the rebuild still runs but a failure of the
+  rebuild itself is discarded so the install's own exception is the one that propagates; after a successful install a
+  rebuild failure propagates. A failing factory leaves the previous pair published and undisposed, because the new pair
+  is built before anything is replaced. `UninstallReferenceVoicePackAsync` first awaits the library's asynchronous
+  uninstall, which serializes with an in-flight install of that pack (waiting for it, honoring cancellation); if the
+  uninstall throws or is canceled the exception propagates unchanged and the recompose step and notification are
+  skipped, because nothing changed. Services built with the single-catalog or catalog-factory constructors have no
+  library: `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
+  `ReferenceVoicePackHasEmotionsAsync`, install and uninstall all reject the call through the private
+  `RequireVoiceLibrary` helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
 
 **Error Handling**: `Enumerate()` never invents placeholder models when the library's registry is
 empty - presenting an honest empty catalog is a presentation concern, not a reason to fabricate

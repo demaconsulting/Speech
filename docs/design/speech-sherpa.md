@@ -20,14 +20,14 @@ The library consists of three subsystems, each named after the Speech subsystem 
 - **ModelManagementSubsystem**: the `AddSherpaModels()` catalog extension method, the four
   concrete sherpa-onnx models (two recognition models and two synthesis models) implementing
   Speech's `IRecognitionModel`/`ISynthesisModel` contract, and the shared `.tar.bz2`
-  archive-extraction and uppercase-transcript-restoration helpers they use — see _SpeechSherpa
-  ModelManagementSubsystem Design_
+  archive-extraction and uppercase-transcript-restoration helpers they use — see *SpeechSherpa
+  ModelManagementSubsystem Design*
 - **RecognitionSubsystem**: `SherpaOnnxRecognitionEngine`, the real implementation of Speech's
-  public `IRecognitionBackend` seam over sherpa-onnx's streaming recognizer — see _SpeechSherpa
-  RecognitionSubsystem Design_
+  public `IRecognitionBackend` seam over sherpa-onnx's streaming recognizer — see *SpeechSherpa
+  RecognitionSubsystem Design*
 - **SynthesisSubsystem**: `SherpaOnnxSynthesisEngine`, the real implementation of Speech's
   public `ISynthesisBackend` seam over sherpa-onnx's offline text-to-speech API — see
-  _SpeechSherpa SynthesisSubsystem Design_
+  *SpeechSherpa SynthesisSubsystem Design*
 
 Every unit in this system previously lived inside the Speech library itself. They were moved
 here, unchanged in behavior, so the Speech library carries no speech-inference engine dependency
@@ -41,8 +41,8 @@ its equally public `IRecognitionBackend`/`ISynthesisBackend` backend seams. Both
 and the backend seams they return are genuinely public, by design, so a third-party package can
 implement either level without any special assembly access; this assembly itself is not granted
 `InternalsVisibleTo` by the Speech library - it behaves as an ordinary external consumer of
-Speech's public API, exactly as a genuine third-party model package would (see _Speech
-ModelManagementSubsystem Design_). The Speech library still grants `InternalsVisibleTo` to its own
+Speech's public API, exactly as a genuine third-party model package would (see *Speech
+ModelManagementSubsystem Design*). The Speech library still grants `InternalsVisibleTo` to its own
 test assemblies and to `DemaConsulting.Speech.Sherpa.Tests`, unrelated to this package's own
 production code.
 
@@ -74,7 +74,7 @@ dependencies:
   `TarBz2ArchiveExtractor` uses to unpack every model's declared archive payload after checksum
   verification, since the BCL has no BZip2 decoder
 
-See _OTS Integration Design_, _SherpaOnnx Design_, and _SharpCompress Design_ for details.
+See *OTS Integration Design*, *SherpaOnnx Design*, and *SharpCompress Design* for details.
 
 ## Risk Control Measures
 

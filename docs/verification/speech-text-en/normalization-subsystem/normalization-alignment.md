@@ -4,11 +4,11 @@
 
 `NormalizationAlignment` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/NormalizationAlignmentTests.cs`. The unit has no
-collaborator except the Speech library's placeholder constant, so no test double is needed: every test builds
-a small text, adds spans, pronunciation marks, break edits and clitic marks to an `AlignedTextBuilder` directly, and checks what is
-accepted, what is rejected and what the immutable `AlignedText` reports. The tokenizer is not involved. The
-independent properties of the alignment contract on real, random text are verified one level up, by the
-subsystem property tests (see _NormalizationSubsystem Verification_).
+collaborator except the Speech library's placeholder constant, so no test double is needed: every test builds a small
+text, adds spans, pronunciation marks, break edits and clitic marks to an `AlignedTextBuilder` directly, and checks what
+is accepted, what is rejected and what the immutable `AlignedText` reports. The tokenizer is not involved. The
+independent properties of the alignment contract on real, random text are verified one level up, by the subsystem
+property tests (see *NormalizationSubsystem Verification*).
 
 #### Test Environment
 

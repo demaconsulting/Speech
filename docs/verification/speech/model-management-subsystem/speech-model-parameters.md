@@ -58,7 +58,7 @@ by later mutation of the list it was constructed from.
 #### Requirement Coverage
 
 | Requirement | Tests |
-| :---------- | :---- |
+| :--- | :--- |
 | `Speech-Models-SpeechModelParameters-NumericValidation` | minimum greater than maximum; non-positive step |
 | `Speech-Models-SpeechModelParameters-NumericDefaultValidation` | default outside range; default at boundary |
 | `...Parameters-NumericFiniteValidation` | non-finite minimum; non-finite maximum, step or default |
@@ -287,7 +287,8 @@ by later mutation of the list it was constructed from.
 
 ##### ValidateAndReport throws for the invalid recognized value even when an unrecognized id is also supplied
 
-**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue`
+**Test**:
+`SpeechModelParameterDiagnostics_ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue`
 
 ##### ValidateAndReport throws ArgumentException for a null numeric value
 

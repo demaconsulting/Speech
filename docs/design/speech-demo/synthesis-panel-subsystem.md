@@ -9,11 +9,11 @@ units, each documented in its own file:
 
 - **SynthesizerSessionFactory** (`ISynthesizerSessionFactory` / `SynthesizerSessionFactory`): the
   demo-owned synthesizer-engine composition seam and its real implementation over the library's
-  `SpeechModelStore` and `SpeechSynthesizerFactory` — see _SynthesizerSessionFactory Design_
+  `SpeechModelStore` and `SpeechSynthesizerFactory` — see *SynthesizerSessionFactory Design*
 - **SynthesisPanelViewModel**: the panel's presentation state — the installed synthesis models,
   the embedded `ModelSettingsViewModel`, the text input, the audio-tag hints, and the async
   Play/Stop lifecycle over a cached `ISpeechSynthesizerEngine` and `ISynthesisSession` reused
-  across many Play calls — see _SynthesisPanelViewModel Design_
+  across many Play calls — see *SynthesisPanelViewModel Design*
 
 ### Interfaces
 

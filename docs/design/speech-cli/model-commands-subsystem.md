@@ -99,7 +99,7 @@ the optional resolved parameter values and the token to the library's
 device bound yet; the caller (`SpeakCommand`, `RecognizeCommand` or `AskCommand`) binds the resolved device
 afterwards through `engine.CreateSessionAsync(device, cancellationToken)`. The catalog only refuses a
 wrong-role model; the operator-facing message that suggests `list-models --role tts|stt` belongs to the
-commands. See _SpeechCli SynthesisCommandSubsystem Design_ and _SpeechCli RecognitionCommandSubsystem Design_
+commands. See *SpeechCli SynthesisCommandSubsystem Design* and *SpeechCli RecognitionCommandSubsystem Design*
 for how each command consumes these members.
 
 ### Interactions with Other Units

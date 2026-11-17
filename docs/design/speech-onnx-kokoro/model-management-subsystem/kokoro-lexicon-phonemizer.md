@@ -79,7 +79,7 @@ phoneme string this class ever emits was produced by the same tool Kokoro's own 
 by this library's own guesswork. The CMUdict license requires its copyright notice and conditions
 to be reproduced in binary distributions, and the misaki repository is distributed under
 Apache-2.0 (misaki does not document the upstream provenance of its dictionaries, which the
-notices state rather than claim more), so the package ships both notices (see _SpeechOnnxKokoro System Design_).
+notices state rather than claim more), so the package ships both notices (see *SpeechOnnxKokoro System Design*).
 Kokoro's phoneme encoding packs several common diphthongs and affricates into single, non-obvious
 Unicode characters (for example `I` represents the diphthong `/aɪ/` as in "life", and `O`
 represents `/oʊ/` as in "know") - confirmed empirically rather than assumed.

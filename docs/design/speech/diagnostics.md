@@ -30,4 +30,4 @@ needing a default `ISpeechDiagnostics` can obtain one without allocating and wit
 failing to do so, per this library's "nothing throws at composition" decision. There is no
 collaboration between the two units beyond `NullSpeechDiagnostics` implementing
 `ISpeechDiagnostics`. Each unit is documented in its own file under `diagnostics/`:
-_ISpeechDiagnostics_ and _NullSpeechDiagnostics_.
+*ISpeechDiagnostics* and *NullSpeechDiagnostics*.

@@ -20,6 +20,6 @@ the real implementation filters devices to the preferred host API.
 
 See the AudioSubsystem-level scenarios "Preferred Host API: Playback Enumeration Filters Devices"
 and "Mockable Contracts: Device and Probe Substitution", plus the
-_UnavailableAudioPlaybackDeviceProbe_ unit verification document
+*UnavailableAudioPlaybackDeviceProbe* unit verification document
 (`docs/verification/speech/audio-subsystem/unavailable-audio-playback-device-probe.md`) for the
 honest-empty enumeration behavior.

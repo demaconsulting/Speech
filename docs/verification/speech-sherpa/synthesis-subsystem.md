@@ -12,9 +12,9 @@ VITS/Piper synthesis model through `SherpaOnnxSynthesisEngineTests`, mirroring
 `SherpaOnnxRecognitionEngineTests`; tests self-skip, rather than fail, when that model is not
 installed in the running environment. All synthesis policy above the seam - Layer 2 rendering,
 chunking, the session state machine, cancellation, and fault containment - remains fully verified
-in the Speech library against a fake backend (see _Speech SynthesisSubsystem Verification_), and
-each synthesis model's engine configuration is verified in _SpeechSherpa ModelManagementSubsystem
-Verification_. Real synthesis through this unit is additionally evidenced by one-time manual
+in the Speech library against a fake backend (see *Speech SynthesisSubsystem Verification*), and
+each synthesis model's engine configuration is verified in *SpeechSherpa ModelManagementSubsystem
+Verification*. Real synthesis through this unit is additionally evidenced by one-time manual
 spikes recorded in the synthesis models' own verification documents.
 
 ### Test Environment

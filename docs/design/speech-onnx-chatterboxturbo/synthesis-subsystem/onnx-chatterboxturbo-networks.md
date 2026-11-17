@@ -25,22 +25,22 @@ is safe (it only releases its own cache tensors).
 **Key Methods**:
 
 - **Constructor(speechEncoderPath, embedTokensPath, languageModelPath, conditionalDecoderPath,
-  intraOpThreads)**: _Parameters_: four graph file paths and a positive thread count. _Post-condition_:
+  intraOpThreads)**: *Parameters*: four graph file paths and a positive thread count. *Post-condition*:
   the instance owns four loaded sessions. Validates that `intraOpThreads` is positive (there is no default; the caller
   chooses it), then creates the four sessions with the CPU provider, the given intra-op thread count,
   one inter-op thread and sequential execution; if any step fails, already-created sessions and the
   shared run options are disposed before rethrowing
-- **Encode(referenceAudio)**: _Parameters_: `referenceAudio`, the mono 24 kHz reference samples
-  (`ReadOnlySpan<float>` or array, non-null). _Returns_: a `ChatterboxTurboConditioning` holding
+- **Encode(referenceAudio)**: *Parameters*: `referenceAudio`, the mono 24 kHz reference samples
+  (`ReadOnlySpan<float>` or array, non-null). *Returns*: a `ChatterboxTurboConditioning` holding
   copies of the encoder's conditioning embeddings, prompt tokens, speaker embeddings and speaker
-  features plus their counts. _Pre-condition_: the networks are not disposed. _Post-condition_: the
+  features plus their counts. *Pre-condition*: the networks are not disposed. *Post-condition*: the
   encoder session ran once and the result shares no memory with ONNX Runtime. Outputs are bound by name
   or, when names are absent but exactly four outputs exist, by position
-- **Embed(tokenIds)**: _Parameters_: `tokenIds`, a non-null array of `long` token ids. _Returns_: the
+- **Embed(tokenIds)**: *Parameters*: `tokenIds`, a non-null array of `long` token ids. *Returns*: the
   embeddings as floats, `tokenIds.Length` x `EmbeddingSize` values; zero token ids return an empty array
-  without running the graph. _Pre-condition_: not disposed
-- **BeginGeneration()**: _Returns_: a new `IChatterboxTurboLanguageModelState` that owns one generation's
-  empty cache. _Pre-condition_: not disposed. _Post-condition_: the caller owns the state and must
+  without running the graph. *Pre-condition*: not disposed
+- **BeginGeneration()**: *Returns*: a new `IChatterboxTurboLanguageModelState` that owns one generation's
+  empty cache. *Pre-condition*: not disposed. *Post-condition*: the caller owns the state and must
   dispose it
 - **IChatterboxTurboLanguageModelState.Step(inputEmbeddings, sequenceLength, attentionLength,
   firstPosition)**: runs one language-model step with zero-length cache tensors on the first step and the
@@ -51,10 +51,10 @@ is safe (it only releases its own cache tensors).
   rejected), `firstPosition` must not be negative and `attentionLength` must be at least `sequenceLength`
   (an `ArgumentOutOfRangeException` before any native call otherwise). A step on a state that was itself
   disposed, or whose owning networks were disposed, throws `ObjectDisposedException` before any native call
-- **Decode(speechTokens, conditioning)**: _Parameters_: `speechTokens`, a non-empty, non-null array of
+- **Decode(speechTokens, conditioning)**: *Parameters*: `speechTokens`, a non-empty, non-null array of
   generated speech token ids; `conditioning`, the non-null conditioning of the voice being spoken.
-  _Returns_: the waveform samples (24 kHz mono floats) for those tokens, produced with the conditioning's
-  speaker embeddings and speaker features. _Pre-condition_: not disposed. An empty token array throws
+  *Returns*: the waveform samples (24 kHz mono floats) for those tokens, produced with the conditioning's
+  speaker embeddings and speaker features. *Pre-condition*: not disposed. An empty token array throws
   `ArgumentException` before any native call
 - **ReadFloats(value)**: copies a float32 or float16 tensor into a float array
 - **Dispose()**: disposes all sessions and the run options through `DisposeAll`, which disposes every

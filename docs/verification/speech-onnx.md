@@ -26,8 +26,8 @@ responsibility of each consuming model package (for example the sibling
 runtime.
 
 System and unit tests reside in the `test/DemaConsulting.Speech.Onnx.Tests` project. See
-_SpeechOnnx OnnxRuntimeSubsystem Verification_ for the subsystem-level detail and _SpeechOnnx
-OnnxExecutionProviderSelector Verification_ for the unit-level detail.
+*SpeechOnnx OnnxRuntimeSubsystem Verification* for the subsystem-level detail and *SpeechOnnx
+OnnxExecutionProviderSelector Verification* for the unit-level detail.
 
 ## Test Environment
 
@@ -132,8 +132,8 @@ no candidate was attempted.
 ## Acceptance Criteria
 
 A SpeechOnnx system-level test run passes when all scenarios above pass without unexpected
-exceptions, every subsystem-level suite passes (see _SpeechOnnx OnnxRuntimeSubsystem
-Verification_ and _SpeechOnnx OnnxExecutionProviderSelector Verification_ for the full set,
+exceptions, every subsystem-level suite passes (see *SpeechOnnx OnnxRuntimeSubsystem
+Verification* and *SpeechOnnx OnnxExecutionProviderSelector Verification* for the full set,
 including the `SessionOptions`-disposal and argument-validation scenarios), and the automated
 verification boundary remains honest: provider-candidate construction, probing, disposal, and
 CPU fallback against the base CPU execution provider are claimed as automated coverage, while

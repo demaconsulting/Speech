@@ -84,32 +84,30 @@ independently in the same call, proving the two mechanisms coexist without eithe
 other.
 
 Text analysis is verified through the real session with a scripted `FakeTextAnalyzer` (a
-`Func<string, TextAnalysisResult>` that records every analyzed text and the call count and can be
-made to throw or to cancel) supplied through `FakeSynthesisModel`'s optional analyzer parameter,
-and a `FakeAnnotatedSynthesisEngine` that records plain `Generate` calls and `GenerateAnnotated`
-calls (with their annotations) separately. A test asserts the analyzer's call count is one and the
-analyzed text is the normalized text with a placeholder for each tag; the annotated backend's
-recorded annotations are checked by asserting that `text.Substring(Start, Length)` equals the
-annotated word in each received chunk. A slow analyzer is a `FakeTextAnalyzer` whose function records
-its managed thread id, signals an entered event and then blocks on a release event (bounded by a
-10 second safety timeout, no sleeps for correctness): the test captures its own thread id, starts
-the operation without awaiting it, and asserts the call returned while the analyzer was still
-blocked, on a different thread, before releasing it and awaiting completion. Fault containment is checked with a diagnostics sink that
-must have received exactly one warning containing the exception type name and neither the
-exception message nor any synthesized text. Existing tests that substitute `ISynthesisModel` with
-NSubstitute keep passing unmodified because the auto-substituted analyzer returns `null`, which the
-session treats as no analysis.
+`Func<string, TextAnalysisResult>` that records every analyzed text and the call count and can be made to throw or to
+cancel) supplied through `FakeSynthesisModel`'s optional analyzer parameter, and a `FakeAnnotatedSynthesisEngine` that
+records plain `Generate` calls and `GenerateAnnotated` calls (with their annotations) separately. A test asserts the
+analyzer's call count is one and the analyzed text is the normalized text with a placeholder for each tag; the annotated
+backend's recorded annotations are checked by asserting that `text.Substring(Start, Length)` equals the annotated word
+in each received chunk. A slow analyzer is a `FakeTextAnalyzer` whose function records its managed thread id, signals an
+entered event and then blocks on a release event (bounded by a 10 second safety timeout, no sleeps for correctness): the
+test captures its own thread id, starts the operation without awaiting it, and asserts the call returned while the
+analyzer was still blocked, on a different thread, before releasing it and awaiting completion. Fault containment is
+checked with a diagnostics sink that must have received exactly one warning containing the exception type name and
+neither the exception message nor any synthesized text. Existing tests that substitute `ISynthesisModel` with
+NSubstitute keep passing unmodified because the auto-substituted analyzer returns `null`, which the session treats as no
+analysis.
 
 `DedicatedWorker`, `DefaultModelCapabilityProfile`, `SentenceChunker`, `PlaybackAudioResampler`
 and the synthesis-backend seam are verified directly in their own unit verification documents
-(_dedicated-worker.md_, _layer2-rendering.md_, _sentence-chunker.md_,
-_playback-audio-resampler.md_, _synthesis-backend.md_); this document covers the session's use of
+(*dedicated-worker.md*, *layer2-rendering.md*, *sentence-chunker.md*,
+*playback-audio-resampler.md*, *synthesis-backend.md*); this document covers the session's use of
 them, including the semaphore-held cancellation tests through `DedicatedWorker` described above.
 
 The real, native-backed `ISynthesisBackend` implementation, `SherpaOnnxSynthesisEngine`, is not
 part of the Speech library: it ships in the sibling SpeechSherpa library, and its verification
-status - including its current lack of any automated unit test - is recorded in _SpeechSherpa
-SynthesisSubsystem Verification_. The seam is what keeps that native surface out of this library
+status - including its current lack of any automated unit test - is recorded in *SpeechSherpa
+SynthesisSubsystem Verification*. The seam is what keeps that native surface out of this library
 entirely - it contains only the interop calls, with all policy above it fully covered here.
 
 #### Test Environment
@@ -127,50 +125,40 @@ entirely - it contains only the interop calls, with all policy above it fully co
 
 #### Acceptance Criteria
 
-The units are considered verified when text is rendered and synthesized into ordered
-audio segments; a pause tag yields silence without a backend call; `SpeakAsync` plays segments in
-order with correct pre/post silence; `SpeakAsync` genuinely waits for the playback device to
-report a drained queue before stopping it; `StopAsync` cancels an in-flight operation
-deterministically, only after the in-flight `Generate` call has genuinely returned, and is a safe
-no-op when idle; a second `SpeakAsync`/`SynthesizeAsync` call while one is already in flight
-throws `InvalidOperationException`; a session is reusable across repeated calls without
-reconstruction; the `StateChanged` event raises the documented transition sequence for both a
-successful and a faulting operation, with a subscriber's handler exception isolated; a faulted
-session throws `SynthesisSessionFaultedException` on every subsequent call;
-`SynthesizeAsync` returns the full-fidelity segment list including silence, completing only once
-every segment is synthesized, with at most one backend call in flight at a time; a backend fault
-fails the caller's task honestly, an unavailable playback device does likewise, and neither
-hangs; an unrequested backend `OperationCanceledException` faults the session rather than stopping
-it; a playback write
-failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
-id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
-independent per-segment Natural Language Audio Tag speed override in the same call; the model's text
-analyzer is called exactly once per request (for both `SynthesizeAsync` and `SpeakAsync`) with the
-whole normalized text in which each recognized tag is one placeholder, and its annotations reach an
-annotation-accepting backend with offsets relative to each segment's text across stripped tags,
-native tags, and chunk boundaries, while an annotation spanning a tag is dropped; analyzer
-sentence breaks drive chunking; a segment with annotations is dispatched through
-`GenerateAnnotated` only for a backend that accepts them, and a segment without annotations or a
-legacy backend always uses `Generate` with text identical to a run without analysis; no analyzer, a
-`null` result, and an empty result all behave exactly as before; an analyzer that throws is
-contained and reported through a single warning naming only the exception type, never the message
-or the text; an analyzer cancellation, before or during a slow analysis, propagates as
-`OperationCanceledException` without calling the backend (an already-canceled operation never
-invokes the analyzer); the analyzer runs off the thread that called `SpeakAsync` or
-`SynthesizeAsync`, so a slow analyzer does not delay the return of that call; an analyzer break
-between two consecutive tags splits the text there; a chunk consisting of a supplementary-plane
-letter keeps its text and annotation when the analyzer breaks after it; volume
-overrides scale and clamp amplitude; a canceled operation whose native call cannot be interrupted
-is abandoned so the caller's task returns promptly (a slow device `Start` does not block the
-caller), and the session then transitions to `Faulted`
-with the abandonment reported through diagnostics; a canceled `StopAsync` caller token throws
-without aborting the teardown, and a stopped operation unwinds to `Stopped`; `StopAsync` and `DisposeAsync` do not complete
-and the backend lease is not released until the in-flight native call has returned, and the lease
-is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop`
-that is deferred while a native call is in flight happens only after that call returns; and a
-disposed session rejects further calls with `ObjectDisposedException`. The
-`DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and `PlaybackAudioResampler` acceptance
-criteria are in their own unit verification documents.
+The units are considered verified when text is rendered and synthesized into ordered audio segments; a pause tag yields
+silence without a backend call; `SpeakAsync` plays segments in order with correct pre/post silence; `SpeakAsync`
+genuinely waits for the playback device to report a drained queue before stopping it; `StopAsync` cancels an in-flight
+operation deterministically, only after the in-flight `Generate` call has genuinely returned, and is a safe no-op when
+idle; a second `SpeakAsync`/`SynthesizeAsync` call while one is already in flight throws `InvalidOperationException`; a
+session is reusable across repeated calls without reconstruction; the `StateChanged` event raises the documented
+transition sequence for both a successful and a faulting operation, with a subscriber's handler exception isolated; a
+faulted session throws `SynthesisSessionFaultedException` on every subsequent call; `SynthesizeAsync` returns the
+full-fidelity segment list including silence, completing only once every segment is synthesized, with at most one
+backend call in flight at a time; a backend fault fails the caller's task honestly, an unavailable playback device does
+likewise, and neither hangs; an unrequested backend `OperationCanceledException` faults the session rather than stopping
+it; a playback write failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
+id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an independent per-segment Natural
+Language Audio Tag speed override in the same call; the model's text analyzer is called exactly once per request (for
+both `SynthesizeAsync` and `SpeakAsync`) with the whole normalized text in which each recognized tag is one placeholder,
+and its annotations reach an annotation-accepting backend with offsets relative to each segment's text across stripped
+tags, native tags, and chunk boundaries, while an annotation spanning a tag is dropped; analyzer sentence breaks drive
+chunking; a segment with annotations is dispatched through `GenerateAnnotated` only for a backend that accepts them, and
+a segment without annotations or a legacy backend always uses `Generate` with text identical to a run without analysis;
+no analyzer, a `null` result, and an empty result all behave exactly as before; an analyzer that throws is contained and
+reported through a single warning naming only the exception type, never the message or the text; an analyzer
+cancellation, before or during a slow analysis, propagates as `OperationCanceledException` without calling the backend
+(an already-canceled operation never invokes the analyzer); the analyzer runs off the thread that called `SpeakAsync` or
+`SynthesizeAsync`, so a slow analyzer does not delay the return of that call; an analyzer break between two consecutive
+tags splits the text there; a chunk consisting of a supplementary-plane letter keeps its text and annotation when the
+analyzer breaks after it; volume overrides scale and clamp amplitude; a canceled operation whose native call cannot be
+interrupted is abandoned so the caller's task returns promptly (a slow device `Start` does not block the caller), and
+the session then transitions to `Faulted` with the abandonment reported through diagnostics; a canceled `StopAsync`
+caller token throws without aborting the teardown, and a stopped operation unwinds to `Stopped`; `StopAsync` and
+`DisposeAsync` do not complete and the backend lease is not released until the in-flight native call has returned, and
+the lease is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop` that is
+deferred while a native call is in flight happens only after that call returns; and a disposed session rejects further
+calls with `ObjectDisposedException`. The `DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and
+`PlaybackAudioResampler` acceptance criteria are in their own unit verification documents.
 
 #### Test Scenarios
 

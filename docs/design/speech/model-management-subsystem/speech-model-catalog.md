@@ -7,8 +7,8 @@ storage/download machinery with the model contract.
 **Data Model**: Per instance: a mutable known-model list (`List<ISpeechModel>`), which starts
 empty for the public constructor - the library itself ships zero built-in models - and is
 populated by the host through `AddModels(...)` or an extension method layered on it (for example
-the sibling `SpeechSherpa` system's `AddSherpaModels()`, see _SpeechSherpa
-ModelManagementSubsystem Design_); a `SpeechModelStore`, a
+the sibling `SpeechSherpa` system's `AddSherpaModels()`, see *SpeechSherpa
+ModelManagementSubsystem Design*); a `SpeechModelStore`, a
 `SpeechModelDownloader`, and two in-memory `ConcurrentDictionary<string, byte>` sets tracking
 model ids currently downloading and model ids whose most recent attempt failed. **Store**
 (public, get-only) - the `SpeechModelStore` this catalog composes internally, exposed so a host
@@ -19,7 +19,7 @@ download, without constructing a second store.
 
 - **SpeechModelCatalog(options?, diagnostics?)**: Public constructor starting from an empty
   known-model list, a real `SpeechModelStore`, and a real `HttpModelDownloadClient`. Never throws.
-- **SpeechModelCatalog(knownModels, store, client?, diagnostics?)** _(internal)_: Test-only
+- **SpeechModelCatalog(knownModels, store, client?, diagnostics?)** *(internal)*: Test-only
   constructor seeding the known-model list and injecting the store and download client for
   deterministic testing without a real network.
 - **AddModels(params ISpeechModel[] models)**: Appends the given models to this catalog's

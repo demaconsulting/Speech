@@ -5,7 +5,7 @@
 ### Overview
 
 The SpeechSherpa SynthesisSubsystem supplies the real, sherpa-onnx-backed implementation of the
-core `Speech` library's public `ISynthesisBackend` seam (see _Speech SynthesisSubsystem Design_).
+core `Speech` library's public `ISynthesisBackend` seam (see *Speech SynthesisSubsystem Design*).
 It previously lived inside the core library's own SynthesisSubsystem; it moved here, unchanged in
 behavior, together with the models that construct it, so the core library carries no sherpa-onnx
 dependency at all. The core library's session, engine, Natural Language Audio Tag rendering,
@@ -21,10 +21,10 @@ The subsystem exposes no public API: `SherpaOnnxSynthesisEngine` is an `internal
 implements the core library's public `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`) and
 produces the core library's equally public `BackendAudio` values - `ISynthesisBackend` is public
 specifically so any package, not only this one, can supply its own implementation. It consumes
-the sherpa-onnx managed API (`OfflineTts`, `OfflineTtsConfig`; see _SherpaOnnx Design_). It is
+the sherpa-onnx managed API (`OfflineTts`, `OfflineTtsConfig`; see *SherpaOnnx Design*). It is
 constructed only by this system's synthesis
-models' `ISynthesisModel.CreateBackend` implementations (see _SpeechSherpa
-ModelManagementSubsystem Design_).
+models' `ISynthesisModel.CreateBackend` implementations (see *SpeechSherpa
+ModelManagementSubsystem Design*).
 
 ### Design
 

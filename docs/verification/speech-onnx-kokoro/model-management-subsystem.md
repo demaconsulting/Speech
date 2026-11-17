@@ -21,13 +21,13 @@ The SpeechOnnxKokoro ModelManagementSubsystem is verified through deterministic 
   (including every declared voice plus unknown-value/missing-key/null-bag fallback), and an
   end-to-end `CreateBackend` + `Generate` test against a fake ONNX fixture and 29 synthetic
   per-voice style-vector files proving the correct voice's style vector is forwarded verbatim -
-  see _SpeechOnnxKokoro OnnxKokoroEnglishSynthesisModel Verification_
+  see *SpeechOnnxKokoro OnnxKokoroEnglishSynthesisModel Verification*
 - **`KokoroLexiconPhonemizer`**: its lexicon lookup, whitespace collapsing, vocabulary-punctuation
   passthrough, out-of-vocabulary-word dropping/reporting, and argument validation - see
-  _SpeechOnnxKokoro KokoroLexiconPhonemizer Verification_
+  *SpeechOnnxKokoro KokoroLexiconPhonemizer Verification*
 - **`KokoroPhonemeVocabulary`**: its character-to-token-id lookup, unknown-character dropping,
-  truncation to `MaxPhonemeTokens`, and argument validation - see _SpeechOnnxKokoro
-  KokoroPhonemeVocabulary Verification_
+  truncation to `MaxPhonemeTokens`, and argument validation - see *SpeechOnnxKokoro
+  KokoroPhonemeVocabulary Verification*
 
 ### Test Environment
 
@@ -66,4 +66,4 @@ See each unit's own verification document for its detailed test scenarios:
 
 The `SpeechModelCatalogKokoroExtensions` unit's test scenarios are recorded above, directly
 against `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs`;
-see also _SpeechOnnxKokoro System Verification_.
+see also *SpeechOnnxKokoro System Verification*.

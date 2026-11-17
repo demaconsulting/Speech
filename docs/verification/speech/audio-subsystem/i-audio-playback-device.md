@@ -63,6 +63,6 @@ on the real device and is `0` when unavailable.
 See also the AudioSubsystem-level scenarios "Playback Device: Selection, Availability, and Queued
 Playback", "Playback Device: Reported Playback Format", "Playback Device: Pending Sample Drain
 Tracking", and "Mockable Contracts: Device and Probe Substitution", plus the
-_UnavailableAudioPlaybackDevice_ unit verification document
+*UnavailableAudioPlaybackDevice* unit verification document
 (`docs/verification/speech/audio-subsystem/unavailable-audio-playback-device.md`) for the
 honest-unavailable behavior.

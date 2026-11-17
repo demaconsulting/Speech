@@ -24,37 +24,35 @@ text that results, obtained by applying the spans to the source.
 
 #### Acceptance Criteria
 
-Standalone operators are spoken only when whitespace or a text edge sets them apart on both sides; marks are
-spoken whether they stand alone or touch a word, with a separating space where a letter touches; a slash is
-spoken only between two plain words of at least two letters; invisible characters are dropped with one empty
-span per run while the emoji joiners are kept, and a token that contains one gets no other rule; typographic
-apostrophes become plain ones inside clitics and elisions but quote marks and a trailing apostrophe stay; the
-clitic roles follow the documented classification and are recorded only on request; a suffix abbreviation
-keeps its period at a sentence end and consumes it mid-sentence in both token shapes; a prefix title consumes
-its period and removes the tokenizer break after it; a suffix forces a break only before a capitalized next
-word; the word reading of `No.` adds a break but no span; each ambiguous resolution is counted once; the
-shouting guard applies per sentence; a dotted initialism needs its period token; a pre-canceled token and a
-cancellation observed mid-pass throw `OperationCanceledException`; the observer sees every processed token in
-order; invalid arguments are rejected; an empty text normalizes to nothing; and repeated normalization is
-deterministic while a custom lexicon changes the outcome. The numeric rule runs after the invisible-character
-and clitic rules and before the abbreviation rule (so `5 ft.` is a unit and `Jan. 5` leaves the number to the
-numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
-adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period
-(consumed mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no
-token that contains an invisible character as a number, observes cancellation in the middle of a numeric
-pass, and allocates nothing per token for lower-case text without digits. A user directive on a token wins over every
-built-in rule for the spoken form of that token, while the sentence-break edits of the abbreviation and acronym rules
-are still made (see _Directive sentence breaks_): a skip directive emits nothing, a replace directive emits one span of the override
-kind padded by at most one space, a spell directive spells ASCII letters (and leaves anything else as written, counted
-as ignored), and a pronounce directive adds a pronunciation mark without a span or a change of the spoken text. A
-directive on a token that an earlier multi-token match consumed is ignored, counted and leaves the match unchanged;
-every directive is counted exactly once as applied or ignored; directives that are out of order, repeated, negative
-or beyond the tokens are rejected without arithmetic on the index; the cancellation cadence counts every visited
-token with directives present; and thousands of directives over a large text complete within the time budget. The
-shape of a replacement decides whether it is spelled (letter-name replacements are, word, symbol and number
-replacements are not), an ampersand initialism is decomposed into spelled letter spans and an `and` span with
-unchanged spoken text and the possessive tail outside every span, and adjacent replacements are separated by
-exactly one space.
+Standalone operators are spoken only when whitespace or a text edge sets them apart on both sides; marks are spoken
+whether they stand alone or touch a word, with a separating space where a letter touches; a slash is spoken only between
+two plain words of at least two letters; invisible characters are dropped with one empty span per run while the emoji
+joiners are kept, and a token that contains one gets no other rule; typographic apostrophes become plain ones inside
+clitics and elisions but quote marks and a trailing apostrophe stay; the clitic roles follow the documented
+classification and are recorded only on request; a suffix abbreviation keeps its period at a sentence end and consumes
+it mid-sentence in both token shapes; a prefix title consumes its period and removes the tokenizer break after it; a
+suffix forces a break only before a capitalized next word; the word reading of `No.` adds a break but no span; each
+ambiguous resolution is counted once; the shouting guard applies per sentence; a dotted initialism needs its period
+token; a pre-canceled token and a cancellation observed mid-pass throw `OperationCanceledException`; the observer sees
+every processed token in order; invalid arguments are rejected; an empty text normalizes to nothing; and repeated
+normalization is deterministic while a custom lexicon changes the outcome. The numeric rule runs after the
+invisible-character and clitic rules and before the abbreviation rule (so `5 ft.` is a unit and `Jan. 5` leaves the
+number to the numeric rule), emits the spans of a match in order and does not visit a consumed token again, separates
+adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period (consumed
+mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no token that contains an
+invisible character as a number, observes cancellation in the middle of a numeric pass, and allocates nothing per token
+for lower-case text without digits. A user directive on a token wins over every built-in rule for the spoken form of
+that token, while the sentence-break edits of the abbreviation and acronym rules are still made (see *Directive sentence
+breaks*): a skip directive emits nothing, a replace directive emits one span of the override kind padded by at most one
+space, a spell directive spells ASCII letters (and leaves anything else as written, counted as ignored), and a pronounce
+directive adds a pronunciation mark without a span or a change of the spoken text. A directive on a token that an
+earlier multi-token match consumed is ignored, counted and leaves the match unchanged; every directive is counted
+exactly once as applied or ignored; directives that are out of order, repeated, negative or beyond the tokens are
+rejected without arithmetic on the index; the cancellation cadence counts every visited token with directives present;
+and thousands of directives over a large text complete within the time budget. The shape of a replacement decides
+whether it is spelled (letter-name replacements are, word, symbol and number replacements are not), an ampersand
+initialism is decomposed into spelled letter spans and an `and` span with unchanged spoken text and the possessive tail
+outside every span, and adjacent replacements are separated by exactly one space.
 
 #### Test Scenarios
 
@@ -66,13 +64,13 @@ operators and the cases `&` alone, `a&b`, `a=b`, `(+)` and `a +b`),
 `TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets`,
 `TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords` (a theory)
 
-Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks` and
-`A™B` becomes `A trademark B`; adjacent marks are separate words (`A™®B` becomes `A trademark registered B`,
-`§§ 5` becomes `section section five`, `© 2025` becomes `copyright twenty twenty five` (the digits are read by the
-numeric rule), `x™©2025` becomes `x trademark copyright 2025` (the number is part of the token and is left
-alone), the two replacements of
-`A™®B` being `trademark` and ` registered ` at offsets 1 and 2 with no double space; `he/she` becomes `he slash she` while `km/h`, `a/b`, `24/7`, `a/b/cc` and
-`he/sh3` stay, and `and/or` and `w/o` are the lexicon forms `and or` and `without`.
+Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks` and `A™B`
+becomes `A trademark B`; adjacent marks are separate words (`A™®B` becomes `A trademark registered B`, `§§ 5` becomes
+`section section five`, `© 2025` becomes `copyright twenty twenty five` (the digits are read by the numeric rule),
+`x™©2025` becomes `x trademark copyright 2025` (the number is part of the token and is left alone), the two replacements
+of `A™®B` being `" trademark"` and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes
+`he slash she` while `km/h`, `a/b`, `24/7`, `a/b/cc` and `he/sh3` stay, and `and/or` and `w/o` are the lexicon forms
+`and or` and `without`.
 
 ##### Invisible characters
 
@@ -108,13 +106,13 @@ is recorded but the apostrophes are still canonicalized.
 `TextNormalizer_Normalize_AmbiguousResolutions_AreCountedOnce`
 
 The spans name the exact source characters: `St` (period kept) at a sentence end and `St.` mid-sentence, `Ave.`
-(consumed) and `Blvd` (kept) for the word-plus-period token shape. For `Sen. Smith spoke.` the tokenizer
-break is the suppressed break and nothing is left after reconciliation. `Maple Dr. He likes it.` forces the
-break before `He` while `Maple Dr. is nice.` and `Maple Dr. 5 times.` force none. `No. I don't know.` has no
-span and one forced break. In `John Smith Jr. Ph.D. spoke.` the span of `Jr.` includes its period and no
-break is forced; in `Ann Lee Ph.D. M.D. spoke.` the tokenizer's break before `M.D.` is the suppressed break and
-nothing is left after reconciliation; in `I met John Smith Jr. He left.` the only break is before `He`. The ambiguity count is 0 for clear readings and 1 per inconclusive `They St.`
-(2 for two of them).
+(consumed) and `Blvd` (kept) for the word-plus-period token shape. For `Sen. Smith spoke.` the tokenizer break is the
+suppressed break and nothing is left after reconciliation. `Maple Dr. He likes it.` forces the break before `He` while
+`Maple Dr. is nice.` and `Maple Dr. 5 times.` force none. `No. I don't know.` has no span and one forced break. In
+`John Smith Jr. Ph.D. spoke.` the span of `Jr.` includes its period and no break is forced; in
+`Ann Lee Ph.D. M.D. spoke.` the tokenizer's break before `M.D.` is the suppressed break and nothing is left after
+reconciliation; in `I met John Smith Jr. He left.` the only break is before `He`. The ambiguity count is 0 for clear
+readings and 1 per inconclusive `They St.` (2 for two of them).
 
 ##### Initialisms
 
@@ -138,8 +136,8 @@ unit with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then
 only and a forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the
 period rules, and `5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD` and the
 observer, hand-wired to the normalizer, never sees the index of `million` as a started token, but counts it as
-visited. `50%` produces `fifty` and `percent` with one space between the two replacements and no moved
-offset, and `5–10` produces `five`, ` to ` and `ten`; a numeric token with a zero-width space inside produces
+visited. `50%` produces `fifty` and `" percent"` with one space between the two replacements and no moved
+offset, and `5–10` produces `five`, `" to "` and `ten`; a numeric token with a zero-width space inside produces
 only the dropped span.
 
 ##### Numeric cancellation and allocation
@@ -255,7 +253,7 @@ time budget.
 
 In a sentence with `FBI`, `U.S.`, `Dr.`, `&`, `J.`, `5 p.m.`, `$5`, `50%` and `3 kg`, exactly `FBI`, `U.S.`, `J.`
 and `p.m.` are spelled, every spelled value is a letter sequence and no other span is. `AT&T's` yields the spelled
-span `A T`, the symbol span ` and ` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
+span `A T`, the symbol span `" and "` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
 possessive gives the same spoken text plus an apostrophe span; `Q&A and R&D` gives six spans, four of them spelled,
 and `Q and A and R and D`. With a trademark mark directly before `AT&T` the result is `trademark A T and T` with no
 double space.

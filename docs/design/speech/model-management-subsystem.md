@@ -28,7 +28,7 @@ package can implement `IRecognitionModel`/`ISynthesisModel` to add a new recogni
 backend without needing `InternalsVisibleTo` access. The concrete sherpa-onnx-backed models
 shipped in this repository - two recognition models and two synthesis models - together with
 their shared `.tar.bz2` archive-extraction and transcript-restoration helpers, live in the
-sibling `SpeechSherpa` system; see _SpeechSherpa ModelManagementSubsystem Design_.
+sibling `SpeechSherpa` system; see *SpeechSherpa ModelManagementSubsystem Design*.
 
 It contains the following units:
 
@@ -142,7 +142,7 @@ outcome is further classified by a dedicated
 TLS/certificate failure, a DNS/connection failure, or `HttpClient`'s own internal timeout - as
 distinct from the caller's own cancellation, which always propagates unchanged as
 `OperationCanceledException`), `IoFailure` (a local disk/permission failure), or the final
-generic `Failed` fallback - so a host can react to _why_ a download failed, not just that it did.
+generic `Failed` fallback - so a host can react to *why* a download failed, not just that it did.
 
 `IModelDownloadClient` follows the library's seam pattern (as `IPortAudioApi`/`IPortAudioStream` do): a
 small library-owned interface with one real implementation (`HttpModelDownloadClient`, backed by

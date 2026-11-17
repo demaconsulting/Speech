@@ -34,11 +34,6 @@ jobs:
         run: >
           dotnet tool restore
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -443,18 +438,10 @@ jobs:
       # This section installs all required dependencies and tools for document generation.
       # Downstream projects: Add any additional dependency installations here.
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 'lts/*'
-
       - name: Setup dotnet
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.x
-
-      - name: Install npm dependencies
-        run: npm install
 
       - name: Restore Tools
         run: dotnet tool restore
@@ -470,8 +457,8 @@ jobs:
           echo "Capturing tool versions..."
           dotnet versionmark --capture --job-id "build-docs" \
             --output "artifacts/versionmark-build-docs.json" -- \
-            dotnet git node npm pandoc weasyprint sarifmark sonarmark reqstream \
-            buildmark versionmark reviewmark fileassert sysml2tools canvasnet textlint
+            dotnet git pandoc weasyprint sarifmark sonarmark reqstream \
+            buildmark versionmark reviewmark fileassert sysml2tools canvasnet textlint lintmark
           echo "✓ Tool versions captured"
 
       # === PREPARE DOCUMENT OUTPUT ===

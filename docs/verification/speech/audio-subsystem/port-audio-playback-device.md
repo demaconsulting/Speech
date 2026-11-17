@@ -195,7 +195,8 @@ The device's default rate and full channel capacity are requested.
 
 ##### Construction: Unsupported Preferred Sample Rate Falls Back to Device Default
 
-**Test**: `PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
+**Test**:
+`PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
 
 The device's default rate is used and an Info diagnostic is reported.
 
@@ -227,7 +228,8 @@ succeeds.
 
 ##### Start: Dispose Throws During Start-Failure Cleanup, Still Unregisters and Throws Original Failure
 
-**Test**: `PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure`
+**Test**:
+`PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure`
 
 The original start failure is thrown, the dispose fault is reported, and the registration is
 released.

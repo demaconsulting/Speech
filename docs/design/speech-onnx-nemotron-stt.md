@@ -33,11 +33,11 @@ The library consists of two subsystems:
 
 - **ModelManagementSubsystem**: the `AddNemotronSttModels()` catalog extension method, the
   `OnnxNemotronMultilingualRecognitionModel` concrete `IRecognitionModel` implementation, and the
-  `NemotronVocabulary` loader - see _SpeechOnnxNemotronStt ModelManagementSubsystem Design_
+  `NemotronVocabulary` loader - see *SpeechOnnxNemotronStt ModelManagementSubsystem Design*
 - **RecognitionSubsystem**: `OnnxNemotronRecognitionEngine`, the real implementation of Speech's
   public `IRecognitionBackend` seam, and the `NemotronFeatureExtractor`,
   `NemotronRnntGreedyDecoder`, and `SilenceRunLimiter` units (with `DitherNoise`) it composes -
-  see _SpeechOnnxNemotronStt RecognitionSubsystem Design_
+  see *SpeechOnnxNemotronStt RecognitionSubsystem Design*
 
 ### Design Decisions
 
@@ -65,7 +65,7 @@ class - and implements Speech's public `IRecognitionModel` model seam and its eq
 `IRecognitionBackend` backend seam. Both seams are genuinely public, by design, so a third-party
 package can implement either level without any special assembly access; this assembly is not
 granted `InternalsVisibleTo` by the Speech library and behaves as an ordinary external consumer of
-Speech's public API (see _Speech ModelManagementSubsystem Design_).
+Speech's public API (see *Speech ModelManagementSubsystem Design*).
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
@@ -89,7 +89,7 @@ library - and the following NuGet dependency:
   runtime package itself and passes the matching provider name through `AddNemotronSttModels`'s
   `preferredExecutionProviderNames` parameter
 
-See _OTS Integration Design_, _Microsoft.ML.OnnxRuntime Design_, and _SpeechOnnx Design_ for
+See *OTS Integration Design*, *Microsoft.ML.OnnxRuntime Design*, and *SpeechOnnx Design* for
 details.
 
 ## Risk Control Measures

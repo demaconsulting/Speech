@@ -17,19 +17,18 @@ parameter overrides.
 
 #### Acceptance Criteria
 
-The unit is considered verified when a pause tag always yields a silence segment (long strictly
-longer than short) for every support level; a native model receives the canonical bracket text; a
-parameter-mapped model gets a speed/volume override for a mapped tag and a silent strip for an
-unmapped one; a `None` model has every non-pause tag stripped; plain text is chunked into one
-segment per chunk; a chunk ending in an ellipsis gets a longer post-silence than an ordinary
-sentence end; a parameter-mapped tag mid-narration overrides only the text after it; a plan or segment
-rejects null content and negative silence; and a null span list or model is rejected. Annotation
-and break handling is verified when span annotations are delivered on the segment containing them
-with offsets relative to that segment's text across stripped, passed-through, pause, and
-parameter-mapped tags; a segment rejects a null, null-element, or out-of-range annotation list and
-cannot be shortened beneath an annotation; span sentence breaks drive chunking, including at a tag
-seam and between consecutive tags (carried by the tag span in every tag-support mode); a span list with no annotations renders to exactly the pre-annotation segments; and the public
-`Instance`, `RenderText`, and pause constants are usable and carry their documented values.
+The unit is considered verified when a pause tag always yields a silence segment (long strictly longer than short) for
+every support level; a native model receives the canonical bracket text; a parameter-mapped model gets a speed/volume
+override for a mapped tag and a silent strip for an unmapped one; a `None` model has every non-pause tag stripped; plain
+text is chunked into one segment per chunk; a chunk ending in an ellipsis gets a longer post-silence than an ordinary
+sentence end; a parameter-mapped tag mid-narration overrides only the text after it; a plan or segment rejects null
+content and negative silence; and a null span list or model is rejected. Annotation and break handling is verified when
+span annotations are delivered on the segment containing them with offsets relative to that segment's text across
+stripped, passed-through, pause, and parameter-mapped tags; a segment rejects a null, null-element, or out-of-range
+annotation list and cannot be shortened beneath an annotation; span sentence breaks drive chunking, including at a tag
+seam and between consecutive tags (carried by the tag span in every tag-support mode); a span list with no annotations
+renders to exactly the pre-annotation segments; and the public `Instance`, `RenderText`, and pause constants are usable
+and carry their documented values.
 
 #### Test Scenarios
 

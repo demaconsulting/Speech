@@ -334,7 +334,7 @@ reported installed.
 
 #### Accepted Gaps
 
-The behavior listed as a _Known limitation_ in the unit design - Stop requested before any session
+The behavior listed as a *Known limitation* in the unit design - Stop requested before any session
 exists, which only cancels the command's token - is intentionally not covered by a dedicated
 test, because its effect depends on whether the seam honors the token. Setup faults, setup
 cancellation, unexpected speak faults and stale session events are now handled and tested above.

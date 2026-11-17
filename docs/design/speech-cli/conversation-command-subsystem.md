@@ -9,11 +9,11 @@ The ConversationCommandSubsystem implements the one voice-conversation subcomman
 each documented in its own file:
 
 - **AskCommand**: parses `ask`'s flags, resolves the text source and both models, speaks the prompt, listens for the
-  reply, and delivers the recognized text - see _AskCommand Design_
+  reply, and delivers the recognized text - see *AskCommand Design*
 - **ICliCaptureDeviceSource**: a CLI-owned seam over capture-device resolution, mirroring the playback-side
-  `ICliPlaybackDeviceSource` of the SynthesisCommandSubsystem - see _ICliCaptureDeviceSource Design_
+  `ICliPlaybackDeviceSource` of the SynthesisCommandSubsystem - see *ICliCaptureDeviceSource Design*
 - **AudioDeviceFactoryCaptureDeviceSource**: the production implementation of that seam, forwarding every call to
-  the real `AudioDeviceFactory` - see _AudioDeviceFactoryCaptureDeviceSource Design_
+  the real `AudioDeviceFactory` - see *AudioDeviceFactoryCaptureDeviceSource Design*
 
 The subsystem combines the synthesis and recognition capabilities of two sibling subsystems into one turn, built
 entirely on the asynchronous engine and session API. It owns no catalog member of its own: `ask` calls the

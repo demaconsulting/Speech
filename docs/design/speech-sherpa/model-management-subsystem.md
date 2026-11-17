@@ -6,8 +6,8 @@
 
 The SpeechSherpa ModelManagementSubsystem supplies the concrete, sherpa-onnx-backed speech models
 this repository ships, as implementations of the core `Speech` library's
-`IRecognitionModel`/`ISynthesisModel` extension point (see _Speech ModelManagementSubsystem
-Design_). These units previously lived inside the core library's own ModelManagementSubsystem;
+`IRecognitionModel`/`ISynthesisModel` extension point (see *Speech ModelManagementSubsystem
+Design*). These units previously lived inside the core library's own ModelManagementSubsystem;
 they moved here, unchanged in behavior, so the core library carries no sherpa-onnx or
 SharpCompress dependency. Each model declares its own identity, license, download descriptor,
 install hook, and audio format, and owns its own sherpa-onnx engine configuration privately,
@@ -49,11 +49,11 @@ The subsystem exposes `SpeechModelCatalogSherpaExtensions`,
 `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and `SherpaOnnxKokoroEnglishSynthesisModel` as its
 public API (`TarBz2ArchiveExtractor` and `UppercaseTranscriptRestorer` are internal). It consumes
 the core library's `SpeechModelCatalog`, `ISpeechModel`, `IRecognitionModel`, `ISynthesisModel`,
-`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the _Speech
-ModelManagementSubsystem Design_, and `AudioFormat` from the core AudioSubsystem. Each model's
+`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the *Speech
+ModelManagementSubsystem Design*, and `AudioFormat` from the core AudioSubsystem. Each model's
 public `CreateBackend` implementation constructs this system's own `SherpaOnnxRecognitionEngine`
-(see _SpeechSherpa RecognitionSubsystem Design_) or `SherpaOnnxSynthesisEngine` (see _SpeechSherpa
-SynthesisSubsystem Design_), returned to the core library only as its engine-neutral, equally
+(see *SpeechSherpa RecognitionSubsystem Design*) or `SherpaOnnxSynthesisEngine` (see *SpeechSherpa
+SynthesisSubsystem Design*), returned to the core library only as its engine-neutral, equally
 public `IRecognitionBackend`/`ISynthesisBackend` seam. `IRecognitionModel`/`ISynthesisModel` and
 the `IRecognitionBackend`/`ISynthesisBackend` seams their `CreateBackend` members return are all
 fully public contracts - genuine third-party extensibility is a confirmed design goal - so this
@@ -105,7 +105,7 @@ descriptor; it never bundles or redistributes NVIDIA's model weights, which a co
 themselves via `InstallAsync`, on their own explicit action, exactly like every other model.
 
 `TarBz2ArchiveExtractor` is an internal static helper, built on the `SharpCompress` OTS
-dependency (see _SharpCompress Design_), that both new recognition models'
+dependency (see *SharpCompress Design*), that both new recognition models'
 `InstallAsync` call to extract a downloaded `.tar.bz2` archive into a target directory,
 skipping directory entries and deleting the archive only after every entry extracts
 successfully.

@@ -74,17 +74,17 @@ time; invalid arguments to the lookup throw; and every row of the golden file no
 `PronunciationOverrides_Create_SpellOutNonAsciiOrTooLong_Throws`,
 `PronunciationOverrides_Create_NullEntriesOrElement_Throws`
 
-The invalid-word theory places the bad entry second, after a valid one, and requires an `ArgumentException` that
-names `Entry 1:` and does not contain the word; its rows cover empty and blank words, a leading or trailing
-apostrophe, hyphen or period, digits at the start, clause punctuation, control, format, private-use and unassigned
-characters, lone surrogates, an emoji, a dotted initialism ending in a period (`U.S.A.`), a combining mark in first position
-and mixed apostrophe styles. The length test accepts a word of exactly 64 code units and rejects one more. The
-valid-word theory accepts letters of several scripts, supplementary-plane letters, marks inside a word, a trailing
-digit and the characters `' ’ - . & / _`. The undefined-action theory rejects the values 0, 5, 9 and -1 (the value
-for a later reading action is reserved). The mismatch test rejects a payload on a skip or spell entry and no payload
-on a say or pronunciation entry, using a sentinel payload that must not appear in the message. The spell-out theory
-rejects non-ASCII, digit, hyphen, apostrophe and over-long words and accepts exactly 32 letters. The null test
-covers a null list, a null element, null arguments of every factory and a null word in the entry constructor.
+The invalid-word theory places the bad entry second, after a valid one, and requires an `ArgumentException` that names
+`Entry 1:` and does not contain the word; its rows cover empty and blank words, a leading or trailing apostrophe, hyphen
+or period, digits at the start, clause punctuation, control, format, private-use and unassigned characters, lone
+surrogates, an emoji, a dotted initialism ending in a period (`U.S.A.`), a combining mark in first position and mixed
+apostrophe styles. The length test accepts a word of exactly 64 code units and rejects one more. The valid-word theory
+accepts letters of several scripts, supplementary-plane letters, marks inside a word, a trailing digit and the
+characters `' ’ - . & / _`. The undefined-action theory rejects the values 0, 5, 9 and -1 (the value for a later reading
+action is reserved). The mismatch test rejects a payload on a skip or spell entry and no payload on a say or
+pronunciation entry, using a sentinel payload that must not appear in the message. The spell-out theory rejects
+non-ASCII, digit, hyphen, apostrophe and over-long words and accepts exactly 32 letters. The null test covers a null
+list, a null element, null arguments of every factory and a null word in the entry constructor.
 
 ##### Payload grammar
 
@@ -190,16 +190,16 @@ dictionary, all return directives equal to a single-threaded lookup.
 `NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults` (in
 `NormalizationSubsystemTests.cs`; see the NormalizationSubsystem verification)
 
-With a sensitive entry `Polish` and an insensitive entry `polish`, the exact spelling gets the sensitive directive
-and every other spelling gets the insensitive one. The ordinal ignore-case theory states each expectation twice:
-as the dictionary's result and as the runtime's own comparison, covering the dotted and dotless I, the Kelvin
-sign, the sharp s and a precomposed against a decomposed accent. The culture theory (Turkish, Azeri, US English,
-German and the invariant culture) requires identical matches for `ISTANBUL`, `Istanbul`, `istanbul`, `TITLE` and
-a second Turkish name with a dotted capital I, and none for the dotted or dotless forms that do not fold. The supplementary-letter test uses Deseret
-capital and small letters: the exact case always matches, a different case matches exactly when the runtime's
-ordinal ignore-case says so for the runtime executing the test (the per-runtime evidence) and never for a sensitive
-entry, and half a pair or a lone surrogate never matches and never throws. The normalization test shows that the
-precomposed and the decomposed spelling of a key are different.
+With a sensitive entry `Polish` and an insensitive entry `polish`, the exact spelling gets the sensitive directive and
+every other spelling gets the insensitive one. The ordinal ignore-case theory states each expectation twice: as the
+dictionary's result and as the runtime's own comparison, covering the dotted and dotless I, the Kelvin sign, the sharp s
+and a precomposed against a decomposed accent. The culture theory (Turkish, Azeri, US English, German and the invariant
+culture) requires identical matches for `ISTANBUL`, `Istanbul`, `istanbul`, `TITLE` and a second Turkish name with a
+dotted capital I, and none for the dotted or dotless forms that do not fold. The supplementary-letter test uses Deseret
+capital and small letters: the exact case always matches, a different case matches exactly when the runtime's ordinal
+ignore-case says so for the runtime executing the test (the per-runtime evidence) and never for a sensitive entry, and
+half a pair or a lone surrogate never matches and never throws. The normalization test shows that the precomposed and
+the decomposed spelling of a key are different.
 
 ##### Whole-word matching
 

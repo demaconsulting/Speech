@@ -9,13 +9,13 @@ real, already-installed streaming Zipformer and Nemotron models and the real nat
 runtime rather than through a fake: mocking native inference would prove nothing about whether
 real audio decodes into real text, which is this unit's entire purpose. All policy above the seam
 (threading, lifecycle, result delivery, fault containment) is verified in the Speech library
-against a fake backend; see _Speech RecognitionSubsystem Verification_.
+against a fake backend; see *Speech RecognitionSubsystem Verification*.
 
 The verification is split across two test classes in
 `test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/`:
 
 - `SherpaOnnxRecognitionEngineTests` verifies the post-endpoint warm-up-replay bookkeeping added
-  to fix the Nemotron word-loss defect (see _SpeechSherpa RecognitionSubsystem Design_), whose
+  to fix the Nemotron word-loss defect (see *SpeechSherpa RecognitionSubsystem Design*), whose
   rolling-buffer/replay/grace-period state machine is inspected through reflection on the engine's
   private bookkeeping fields while silence and a synthesized sine-wave tone are fed through the
   real engine
@@ -214,11 +214,13 @@ long pause in a finite file is not lost.
 
 ##### TryFlush after a replay with no new audio reports nothing
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing`
+**Test**:
+`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing`
 
 ##### TryDecode after a replay with no new audio reports nothing
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing`
+**Test**:
+`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing`
 
 ##### The grace period suppresses an immediate re-trigger
 
@@ -230,7 +232,8 @@ long pause in a finite file is not lost.
 
 ##### Replay eligibility is gated on genuine recognized text since the last reset
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset`
+**Test**:
+`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset`
 
 ##### The real Zipformer model transcribes a real recording within the WER tolerance
 

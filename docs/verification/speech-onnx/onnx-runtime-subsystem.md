@@ -9,8 +9,8 @@ can be genuinely exercised in this test project, since this package references o
 CPU-only `Microsoft.ML.OnnxRuntime` package; the tests use the always-available
 `"CPUExecutionProvider"` string as a stand-in candidate, and a syntactically-invalid provider name
 to reach the "construction itself fails" path, to reach the same construct/probe/dispose/fall-back
-code paths a real accelerated candidate would exercise. See _SpeechOnnx
-OnnxExecutionProviderSelector Verification_ for the full detail, including how the otherwise
+code paths a real accelerated candidate would exercise. See *SpeechOnnx
+OnnxExecutionProviderSelector Verification* for the full detail, including how the otherwise
 unobservable "every candidate's `SessionOptions` is disposed" claim is proven via the internal
 `OnnxExecutionProviderSelector.OnCandidateOptionsCreated` test-only hook.
 
@@ -25,8 +25,8 @@ unobservable "every candidate's `SessionOptions` is disposed" claim is proven vi
 
 ### Unit-Level Test Scenarios
 
-See the unit's own verification document: _SpeechOnnx OnnxExecutionProviderSelector
-Verification_ (`onnx-execution-provider-selector.md`).
+See the unit's own verification document: *SpeechOnnx OnnxExecutionProviderSelector
+Verification* (`onnx-execution-provider-selector.md`).
 
 ### Acceptance Criteria
 

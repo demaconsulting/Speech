@@ -7,24 +7,24 @@ The SpeechOnnxNemotronStt RecognitionSubsystem is verified through deterministic
 the ONNX-backed encoder and prediction networks, so no test depends on model files:
 
 - **`SilenceRunLimiter`**: truncation, speech preservation, adaptive threshold, and streaming
-  equivalence - see _SpeechOnnxNemotronStt SilenceRunLimiter Verification_
-- **`DitherNoise`**: deterministic, resettable, amplitude-matched noise - see _DitherNoise
-  Verification_
+  equivalence - see *SpeechOnnxNemotronStt SilenceRunLimiter Verification*
+- **`DitherNoise`**: deterministic, resettable, amplitude-matched noise - see *DitherNoise
+  Verification*
 - **`NemotronFeatureExtractor`**: golden log-mel values, chunked equals one-shot, flush behavior -
-  see _SpeechOnnxNemotronStt NemotronFeatureExtractor Verification_
+  see *SpeechOnnxNemotronStt NemotronFeatureExtractor Verification*
 - **`NemotronEncoder`**: ONNX encoder wiring and cache feedback over a synthetic model - see
-  _SpeechOnnxNemotronStt NemotronEncoder Verification_
-- **`NemotronRnntGreedyDecoder`**: greedy search over a scripted network - see _SpeechOnnxNemotronStt
-  NemotronRnntGreedyDecoder Verification_
+  *SpeechOnnxNemotronStt NemotronEncoder Verification*
+- **`NemotronRnntGreedyDecoder`**: greedy search over a scripted network - see *SpeechOnnxNemotronStt
+  NemotronRnntGreedyDecoder Verification*
 - **`NemotronRnntNetwork`**: ONNX prediction and joint wiring and the blank penalty over synthetic
-  models - see _SpeechOnnxNemotronStt NemotronRnntNetwork Verification_
+  models - see *SpeechOnnxNemotronStt NemotronRnntNetwork Verification*
 - **`OnnxNemotronRecognitionEngine`**: chunking, provisional and final results, endpointing,
-  reset, and disposal - see _SpeechOnnxNemotronStt OnnxNemotronRecognitionEngine Verification_
+  reset, and disposal - see *SpeechOnnxNemotronStt OnnxNemotronRecognitionEngine Verification*
 
 The ONNX Runtime-backed `NemotronEncoder` and `NemotronRnntNetwork` are exercised in CI against
 tiny synthetic ONNX models that honor the real tensor contracts, and end to end by the
-self-skipping real-model test and the manual real-model run described in _SpeechOnnxNemotronStt
-System Verification_.
+self-skipping real-model test and the manual real-model run described in *SpeechOnnxNemotronStt
+System Verification*.
 
 ### Test Environment
 

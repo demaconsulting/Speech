@@ -39,7 +39,8 @@ already-validated descriptor.
 
 ##### Constructor: Duplicate Install Paths With Differing Separators Throws ArgumentException
 
-**Test**: `SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPathsWithDifferingSeparators_ThrowsArgumentException`
+**Test**:
+`SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPathsWithDifferingSeparators_ThrowsArgumentException`
 
 ##### Constructor: Null Element In File List Throws ArgumentException
 

@@ -30,7 +30,7 @@ name the specific `SpeechCli_*` tests they rely on. Each runs against an isolate
 `--models-dir`, so no test touches the real per-user model store.
 
 Automated tests do **not** perform a real model download; that remains a manual verification
-activity (see _Manual / Build-Time Verification_ below and in the system-level verification
+activity (see *Manual / Build-Time Verification* below and in the system-level verification
 document).
 
 ### Test Environment

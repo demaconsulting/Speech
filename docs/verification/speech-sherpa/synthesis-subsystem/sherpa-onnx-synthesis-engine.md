@@ -34,9 +34,9 @@ declared sample rate, `Generate` throws `ArgumentNullException` for null text an
 evidence beyond `SherpaOnnxSynthesisEngineTests`:
 
 - All synthesis policy above the seam is verified in the Speech library against a fake backend
-  (see _Speech SynthesisSubsystem Verification_)
+  (see *Speech SynthesisSubsystem Verification*)
 - Each synthesis model's `OfflineTtsConfig` construction is verified by its `BuildEngineConfig`
-  tests (see _SpeechSherpa ModelManagementSubsystem Verification_)
+  tests (see *SpeechSherpa ModelManagementSubsystem Verification*)
 - Real, non-silent audio through this unit was additionally proven by one-time manual spikes
   recorded in the `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and `SherpaOnnxKokoroEnglishSynthesisModel`
   verification documents

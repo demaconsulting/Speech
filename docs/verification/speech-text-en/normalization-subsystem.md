@@ -16,7 +16,7 @@ production, the subsystem and unit tests use the helper `Fakes/NormalizationHarn
 token array, marking the first token of each tokenizer sentence. This is a deliberate choice: the rules are
 written against the tokenizer's real conventions (which of `Dr.`, `Ave.` and `Sen.` stay whole, where the
 tokenizer breaks after a title), and a hand-built token list would test only the author's belief about them.
-That the conventions hold is itself verified as an OTS item (see _PartOfSpeech Verification_). The harness
+That the conventions hold is itself verified as an OTS item (see *PartOfSpeech Verification*). The harness
 also supplies two things that must not share code with the production alignment model: an **independent
 annotation applier** that sorts the replacement annotations (`en.norm` and `en.spell`) by start, copies the gaps and
 inserts each value,
@@ -40,7 +40,7 @@ project.
 **Numeric golden file.** `TestData/number-cases.tsv` holds about 510 rows with the columns `id`, `input`,
 `spoken`, `sentences`, `ambiguous`, `fallbacks` and `note` (the same escapes; the harness accepts the older
 six-column files, taking zero fallbacks). It is authored from the documented reading policy (see
-_NumericExpressionRecognizer Design_), not generated from the implementation, and covers every row of the
+*NumericExpressionRecognizer Design*), not generated from the implementation, and covers every row of the
 policy tables (integers, signs, thousands separators and their invalid forms, decimals, ordinals and the
 wrong-suffix cases, hash numbers, years with and without cues, decades, currency, percent, units and their
 singular and plural and period forms, times and invalid times, numeric and month-name dates, month and weekday
@@ -57,7 +57,7 @@ number of numeric fallbacks that were counted.
 
 **Override sample dictionary and golden file.** `TestData/overrides-dictionary.tsv` is the sample pronunciation
 dictionary and `TestData/overrides-cases.tsv` holds the golden rows that run against it (they are owned by the
-`PronunciationOverrides` unit tests, see _PronunciationOverrides Verification_). The subsystem tests use the
+`PronunciationOverrides` unit tests, see *PronunciationOverrides Verification*). The subsystem tests use the
 dictionary for random text and reuse the rows for culture invariance. Only the behavior of the normalizer with
 directives is verified here; whether a backend can speak a phoneme string is not.
 
@@ -147,12 +147,12 @@ tag-placeholder cases that keep or ignore their break) and `sym-marks-*` rows fo
 
 **Test**: `NormalizationSubsystem_SentenceBreaks_Abbreviations_BreakOnlyWhereTheSentenceEnds` (a theory)
 
-Fifteen texts plus four credential texts, each with its expected sentences: `Dr. Smith lives here. He sleeps.`, a break added after
-`Main St.` and after `Maple Dr.`, no break inside `Visit St. Louis`, one sentence for `St. Patrick's St. is
-closed.`, a break after the word `No.`, after `Sr.` and after `etc.` and `p.m.` and `U.S.` at a sentence end,
-none for `etc. and more`, `U.S. Army` or `Sen. Smith`, and `(see Elm St.) Then go.`; one sentence for `John Smith
-Jr. Ph.D. spoke.` and `Ann Lee Ph.D. M.D. spoke.`, a break after the credential in `John Smith Jr. Ph.D. He
-spoke.`, and a break before the sentence starter in `I met John Smith Jr. He left.`.
+Fifteen texts plus four credential texts, each with its expected sentences: `Dr. Smith lives here. He sleeps.`, a break
+added after `Main St.` and after `Maple Dr.`, no break inside `Visit St. Louis`, one sentence for
+`St. Patrick's St. is closed.`, a break after the word `No.`, after `Sr.` and after `etc.` and `p.m.` and `U.S.` at a
+sentence end, none for `etc. and more`, `U.S. Army` or `Sen. Smith`, and `(see Elm St.) Then go.`; one sentence for
+`John Smith Jr. Ph.D. spoke.` and `Ann Lee Ph.D. M.D. spoke.`, a break after the credential in
+`John Smith Jr. Ph.D. He spoke.`, and a break before the sentence starter in `I met John Smith Jr. He left.`.
 
 #### Alignment contract on hostile text
 
@@ -161,8 +161,8 @@ spoke.`, and a break before the sentence starter in `I met John Smith Jr. He lef
 Five hundred random texts are built from a hostile alphabet (words, titles, symbols, clitics, initialisms,
 invisible characters, every kind of whitespace, placeholders, emoji, lone surrogates, combining marks, NUL).
 For each, every span, the segment partition, the independent applier, the break edits and the reconciled
-breaks are checked against invariants A1 to A8 and A10 of the _Alignment Contract_ (see _SpeechTextEn System
-Design_). Invariant A6 is checked including the adjacency rule: a leading space is expected exactly where a
+breaks are checked against invariants A1 to A8 and A10 of the *Alignment Contract* (see *SpeechTextEn System
+Design*). Invariant A6 is checked including the adjacency rule: a leading space is expected exactly where a
 letter or digit of the source touches the span or the directly preceding span ends with a letter, a trailing space is
 expected exactly where a letter or digit touches the span and no directly following span already carries the
 separating space on its own left side (the case of a glued meridiem: `five` then `P M`), and no
@@ -235,16 +235,15 @@ blank line.
 `NormalizationSubsystem_NumericSpans_RealChunker_KeepsEveryAnnotationInExactlyOneChunk`,
 `NormalizationSubsystem_Normalize_NumericSurrogatesAndCombiningMarks_AreNeverCutOrRecognized`
 
-The first builds seeded random texts from a numeric alphabet (digits, the separators `, . : / - – + − % $ € £ ¥
-° #`, `1st`, `USD`, `kg`, `pm`, month and weekday names with and without periods, `million`, `½`, `1,234`,
-`$5.50`, `12/25/2024`, digit runs of 16, 64, 65, 128 and 129 characters, tag placeholders, surrogates,
-combining marks, invisible characters and whitespace variants including the no-break space) and checks
-invariants A1 to A8b and A10 of the _Alignment Contract_, outside-span text unchanged, determinism, and the
-analyzer-level order of the annotations (`en.upos` before `en.norm` or `en.spell` at an equal start). The second feeds the
-analyzer's annotations to the real Speech `SentenceChunker` for several budgets (200, 120, 60 and 25
-characters) and asserts that each `en.norm` annotation lands in exactly one chunk on the same covered
-characters. The third puts supplementary-plane digits and letters, lone surrogates and combining marks next to
-numbers and asserts that no span cuts a pair and the number is not read.
+The first builds seeded random texts from a numeric alphabet (digits, the separators `, . : / - – + − % $ € £ ¥ ° #`,
+`1st`, `USD`, `kg`, `pm`, month and weekday names with and without periods, `million`, `½`, `1,234`, `$5.50`,
+`12/25/2024`, digit runs of 16, 64, 65, 128 and 129 characters, tag placeholders, surrogates, combining marks, invisible
+characters and whitespace variants including the no-break space) and checks invariants A1 to A8b and A10 of the
+*Alignment Contract*, outside-span text unchanged, determinism, and the analyzer-level order of the annotations
+(`en.upos` before `en.norm` or `en.spell` at an equal start). The second feeds the analyzer's annotations to the real
+Speech `SentenceChunker` for several budgets (200, 120, 60 and 25 characters) and asserts that each `en.norm` annotation
+lands in exactly one chunk on the same covered characters. The third puts supplementary-plane digits and letters, lone
+surrogates and combining marks next to numbers and asserts that no span cuts a pair and the number is not read.
 
 #### Culture invariance and numeric concurrency
 
@@ -274,7 +273,7 @@ Six hundred seeded random texts are built from overridable words (case variants,
 dotted and ampersand initialisms, numbers, units, currency amounts), punctuation, tag placeholders, a long word,
 surrogates, combining marks, no-break spaces and a NUL character. Each is tokenized by the real tokenizer, resolved
 against the sample dictionary and normalized with the directives. The test checks the invariants of the
-_Alignment Contract_ that concern overrides (the unified ascending order of spans and marks, the spelled-letter
+*Alignment Contract* that concern overrides (the unified ascending order of spans and marks, the spelled-letter
 grammar, chunk safety of every span and mark, a mark on exactly one token, and the equality of the production
 application with an independent consumer that merges `en.norm` and `en.spell` annotations) and that every
 directive is counted exactly once, as applied or ignored.

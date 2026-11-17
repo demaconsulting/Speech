@@ -13,19 +13,19 @@ roles. This is the integration point that ties the SpeechSherpa library to the S
 
 Below the system level, each model's identity, download descriptor, engine configuration, and
 installation behavior is verified deterministically against small synthetic `.tar.bz2` fixtures,
-with no network access and no native runtime (see _SpeechSherpa ModelManagementSubsystem
-Verification_). The real, native-backed recognition backend is verified directly against real,
+with no network access and no native runtime (see *SpeechSherpa ModelManagementSubsystem
+Verification*). The real, native-backed recognition backend is verified directly against real,
 installed models and the real native sherpa-onnx runtime, because mocking native inference would
-prove nothing about whether real audio decodes into real text (see _SpeechSherpa
-RecognitionSubsystem Verification_).
+prove nothing about whether real audio decodes into real text (see *SpeechSherpa
+RecognitionSubsystem Verification*).
 
 Automated coverage **does not** extend to a real, multi-hundred-megabyte model download, to
 synthesizing real, intelligible speech, or to playing or capturing audio through real hardware.
 The real-native recognition tests self-skip when their target model is not installed in the
 running environment. The real, native-backed synthesis backend, `SherpaOnnxSynthesisEngine`, is
 exercised directly against the real native sherpa-onnx runtime and a real, installed VITS/Piper
-synthesis model, self-skipping the same way when that model is not installed (see _SpeechSherpa
-SynthesisSubsystem Verification_).
+synthesis model, self-skipping the same way when that model is not installed (see *SpeechSherpa
+SynthesisSubsystem Verification*).
 
 System and unit tests reside in the `DemaConsulting.Speech.Sherpa.Tests` project.
 

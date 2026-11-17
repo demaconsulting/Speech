@@ -37,7 +37,7 @@ The table holds thirteen entries, in this order: `list-models`, `model-info`, `d
 decides how to report it. `Context` turns a `null` result for the first non-global argument into an
 `ArgumentException`, so an unknown subcommand is rejected before any handler runs. The table is
 static and immutable after type initialization; `Validation` checks that it is well formed (see
-_Validation_).
+*Validation*).
 
 **Dependencies**: The command implementations of the five command subsystems (as handler targets)
 and `Context` (the handler parameter type).

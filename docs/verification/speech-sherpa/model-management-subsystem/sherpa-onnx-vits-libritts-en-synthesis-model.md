@@ -113,7 +113,8 @@ This evidence was captured once, manually, during this model's development, and 
 because the scratch spike artifacts themselves were deleted afterward (per this repository's
 convention of leaving no scratch artifacts in the working tree).
 
-- **Archive downloaded**: `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2`,
+- **Archive downloaded**:
+  `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2`,
   82,038,311 bytes
 - **SHA-256** (computed directly against the freshly downloaded bytes):
   `10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`

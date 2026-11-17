@@ -5,7 +5,7 @@
 ### Overview
 
 The SpeechOnnxKokoro SynthesisSubsystem supplies the real, raw-ONNX-backed implementation of the
-core `Speech` library's public `ISynthesisBackend` seam (see _Speech SynthesisSubsystem Design_)
+core `Speech` library's public `ISynthesisBackend` seam (see *Speech SynthesisSubsystem Design*)
 for Kokoro v1.0. Unlike the sibling `DemaConsulting.Speech.Sherpa` package, which drives a
 bundled native inference engine (sherpa-onnx) that performs its own phonemization internally, this
 subsystem runs Kokoro's bare ONNX graph directly through ONNX Runtime and owns phonemization
@@ -24,9 +24,9 @@ produces the core library's equally public `BackendAudio` values - `ISynthesisBa
 specifically so any package, not only this one, can supply its own implementation. It consumes
 the `Microsoft.ML.OnnxRuntime` managed API (`InferenceSession`, `DenseTensor<T>`,
 `NamedOnnxValue`) and the sibling `DemaConsulting.Speech.Onnx` system's
-`OnnxExecutionProviderSelector` (see _SpeechOnnx Design_) indirectly, through the model that
+`OnnxExecutionProviderSelector` (see *SpeechOnnx Design*) indirectly, through the model that
 constructs it. It is constructed only by `OnnxKokoroEnglishSynthesisModel.CreateBackend` (see
-_SpeechOnnxKokoro ModelManagementSubsystem Design_).
+*SpeechOnnxKokoro ModelManagementSubsystem Design*).
 
 ### Design
 
