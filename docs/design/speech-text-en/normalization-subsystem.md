@@ -79,7 +79,7 @@ Every span goes through `AlignedTextBuilder.Add`, which enforces the alignment c
 Contract* in *SpeechTextEn System Design* and *NormalizationAlignment Design*), so a defective rule fails
 loudly with an `ArgumentException` instead of producing an annotation that a backend would misapply. The
 normalizer adds the A6 separating spaces itself when it emits a span, including the separator between two
-adjacent word-producing replacements (`50%` gives `fifty` and `percent`, `5–10` gives `five`, `to` and
+adjacent word-producing replacements (`50%` gives `fifty` and `" percent"`, `5–10` gives `five`, `" to "` and
 `ten`). When it emits a span it also decides, once, by the shape of the spoken text, whether the replacement is
 **spelled** (single capital letters separated by single spaces: `F B I`), so the analyzer annotates it
 `en.spell` rather than `en.norm`; a pronunciation directive adds a mark that replaces nothing.

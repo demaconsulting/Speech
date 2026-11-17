@@ -219,9 +219,9 @@ the phonemes to speak for it. The two replacement kinds together are the *replac
   wholly inside one chunk of the Speech library
 - **A6**: Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and
   its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement
-  carries one separating space on that side (`he/she` becomes the replacement `slash` for the `/`; `A™®B` gives
-  `trademark` and `registered`). Dropped and apostrophe replacements are never padded, and two adjacent replacements are
-  separated by exactly one space (the later one pads its own left side, so no offset moves)
+  carries one separating space on that side (`he/she` becomes the replacement `" slash "` for the `/`; `A™®B` gives
+  `" trademark"` and `" registered "`). Dropped and apostrophe replacements are never padded, and two adjacent
+  replacements are separated by exactly one space (the later one pads its own left side, so no offset moves)
 - **A7**: No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty
   replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the
   only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The

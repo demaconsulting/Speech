@@ -68,9 +68,9 @@ Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` b
 becomes `A trademark B`; adjacent marks are separate words (`A™®B` becomes `A trademark registered B`, `§§ 5` becomes
 `section section five`, `© 2025` becomes `copyright twenty twenty five` (the digits are read by the numeric rule),
 `x™©2025` becomes `x trademark copyright 2025` (the number is part of the token and is left alone), the two replacements
-of `A™®B` being `trademark` and `registered` at offsets 1 and 2 with no double space; `he/she` becomes `he slash she`
-while `km/h`, `a/b`, `24/7`, `a/b/cc` and `he/sh3` stay, and `and/or` and `w/o` are the lexicon forms `and or` and
-`without`.
+of `A™®B` being `" trademark"` and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes
+`he slash she` while `km/h`, `a/b`, `24/7`, `a/b/cc` and `he/sh3` stay, and `and/or` and `w/o` are the lexicon forms
+`and or` and `without`.
 
 ##### Invisible characters
 
@@ -136,8 +136,8 @@ unit with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then
 only and a forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the
 period rules, and `5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD` and the
 observer, hand-wired to the normalizer, never sees the index of `million` as a started token, but counts it as
-visited. `50%` produces `fifty` and `percent` with one space between the two replacements and no moved
-offset, and `5–10` produces `five`, `to` and `ten`; a numeric token with a zero-width space inside produces
+visited. `50%` produces `fifty` and `" percent"` with one space between the two replacements and no moved
+offset, and `5–10` produces `five`, `" to "` and `ten`; a numeric token with a zero-width space inside produces
 only the dropped span.
 
 ##### Numeric cancellation and allocation
@@ -253,7 +253,7 @@ time budget.
 
 In a sentence with `FBI`, `U.S.`, `Dr.`, `&`, `J.`, `5 p.m.`, `$5`, `50%` and `3 kg`, exactly `FBI`, `U.S.`, `J.`
 and `p.m.` are spelled, every spelled value is a letter sequence and no other span is. `AT&T's` yields the spelled
-span `A T`, the symbol span `and` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
+span `A T`, the symbol span `" and "` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
 possessive gives the same spoken text plus an apostrophe span; `Q&A and R&D` gives six spans, four of them spelled,
 and `Q and A and R and D`. With a trademark mark directly before `AT&T` the result is `trademark A T and T` with no
 double space.

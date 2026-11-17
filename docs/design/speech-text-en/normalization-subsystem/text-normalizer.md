@@ -123,7 +123,7 @@ replacement, including a `Say` payload such as `I`, is `en.norm` and spoken as w
 
 **Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`, with an optional possessive tail `'s`) cannot be one spelled
 span because the ampersand is the word `and`. `EmitAmpersandInitialism` emits one `Initialism` span per group of
-capital letters (spelled, letters only: `A T`) and one `and` `Symbol` span per ampersand; a possessive tail is
+capital letters (spelled, letters only: `A T`) and one `" and "` `Symbol` span per ampersand; a possessive tail is
 left outside the spans, glued to the last group (the last group is not padded on its right), and a typographic
 apostrophe in the tail gets the usual `Apostrophe` span. The spoken text, obtained by applying the spans, is
 identical to what the single span used to give: `A T and T's`, `R and D`, `Q and A`, and `AT&T’s` gives `A T and
@@ -139,7 +139,7 @@ numeric token that contains one (`5` + U+200B + `0`) is never read as a number. 
    (the tokenizer cuts `Jan.` from `5`, and sometimes a `$` from its number), and suppresses a tokenizer
    break that would lie strictly inside a span (A8b);
 3. emits each span through `Emit`, so the A6 padding and "exactly one separator between adjacent
-   replacements" apply (`50%` gives `fifty` and `percent`; `5–10` gives `five`, `to` and `ten`);
+   replacements" apply (`50%` gives `fifty` and `" percent"`; `5–10` gives `five`, `" to "` and `ten`);
 4. for a unit that may carry an abbreviation period (`ft`, `lb`, `lbs`, `oz`, `yd`, `mi`, `hr`, `hrs`, `min`
    and `Ft`), applies the period and sentence rules below to the unit token as class `Suffix`: the period
    (inside the token, or a separate adjacent token) is consumed in the middle of a sentence and kept at the
@@ -212,11 +212,11 @@ lies on both sides, so `<b>`, `(+)` and `a=b` stay identity.
 touch a word): `©` copyright, `®` registered, `™` trademark, `§` section, `¶` paragraph. Where a letter or
 digit touches a mark, A6 adds the separating space (`Brand™` becomes `Brand trademark`). Two adjacent marks
 are separate words with exactly one space between them (`A™®B` becomes `A trademark registered B`, with the
-replacements `trademark` and `registered` on the two source characters).
+replacements `" trademark"` and `" registered "` on the two source characters).
 
 **Inside a word** (class `Symbol`, the span is the single character): an `&` between two letters is spoken
-`and` (`Johnson&Johnson`), and the only `/` of a token that is two or more ASCII letters, a slash and two or
-more ASCII letters is spoken `slash` (`he/she`). `km/h`, `a/b`, `24/7`, `://` and `www.` forms are left
+`" and "` (`Johnson&Johnson`), and the only `/` of a token that is two or more ASCII letters, a slash and two or
+more ASCII letters is spoken `" slash "` (`he/she`). `km/h`, `a/b`, `24/7`, `://` and `www.` forms are left
 alone. The padding spaces are part of the replacement (A6).
 
 **Dropped characters** (kind `Dropped`, empty replacement): U+00AD (soft hyphen), U+200B (zero-width space),

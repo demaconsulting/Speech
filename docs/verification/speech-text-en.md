@@ -281,15 +281,15 @@ whose value reads back through `TryReadSpellOut` as capital letters, that no `en
 letter sequence (so a backend never mistakes a lone `A` or `I` for a word), and that applying the annotations speaks
 `A Smith met the F B I at five P M in the U S with J Doe, P H D.`. It also verifies that `AT&T's R&D and Q&A.` is
 decomposed into letter-group spans of kind `en.spell` (`AT`, `T`, `R`, `D`, `Q`, `A`) and `&` spans of kind `en.norm`
-with the value `and`, speaking `A T and T's R and D and Q and A.`, with the possessive tail outside every span. For the
-meridiem, `at 5pm today`, `at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each annotated
-as exactly two non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`, `twelve`;
-the glued ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the single
-separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with `isSpelled`
-false for the first and true for the second, and the applied text has exactly one space between the words. Finally a
-`Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which `TryReadReplacement` reports
-as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out promise and a backend must not
-infer spelling from its value.
+with the value `" and "`, speaking `A T and T's R and D and Q and A.`, with the possessive tail outside every span. For
+the meridiem, `at 5pm today`, `at 5PM today`, `at 5:30pm today`, `at 12:00am today` and `at 5 p.m. today` are each
+annotated as exactly two non-overlapping spans in order, the number or time words as `en.norm` (`five`, `five thirty`,
+`twelve`; the glued ones abut the meridiem span exactly) and the meridiem letters as `en.spell` (`P M` or `A M` with the
+single separating space when glued, `P M` for the separate token), both readable through `TryReadReplacement` with
+`isSpelled` false for the first and true for the second, and the applied text has exactly one space between the words.
+Finally a `Say("foo", "I")` override (the control) is annotated `en.norm` with the value `I`, which `TryReadReplacement`
+reports as not spelled and `TryReadSpellOut` refuses, proving `en.norm` carries no spell-out promise and a backend must
+not infer spelling from its value.
 
 ### Pronunciation Overrides
 
