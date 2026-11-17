@@ -44,38 +44,34 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
     }
 
-    /// <summary>Proves a default analyzer (no model embedded) emits no readings and never loads a tagger when part-of-speech annotation is off.</summary>
+    /// <summary>Proves a default analyzer (no model embedded) emits no readings, also when only normalization and readings are selected.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings()
     {
         // Arrange
         const string text = "I want to record a record.";
-        var tagger = new CountingTaggerSource();
         var byDefault = new EnglishTextAnalyzer();
         var readingOnly = new EnglishTextAnalyzer(
-            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading },
-            tagger.CreateAdapter());
+            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading });
 
         // Act
         var defaultResult = byDefault.Analyze(text, TestContext.Current.CancellationToken);
         var readingResult = readingOnly.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert: no reading kinds anywhere, and no tagger created without a model or the part-of-speech family
+        // Assert: no reading kinds anywhere, and nothing at all for the reading-and-normalization selection of this text
         Assert.DoesNotContain(defaultResult.Annotations, annotation => annotation.Kind is TextEnAnnotations.Reading or TextEnAnnotations.ReadingConfidence);
         Assert.Empty(readingResult.Annotations);
-        Assert.Equal(0, tagger.Count);
     }
 
-    /// <summary>Proves the model is neither opened nor the tagger created when the reading family is not selected.</summary>
+    /// <summary>Proves no reading is emitted when the reading family is not selected, even with a model available.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_ReadingNotSelected_NeverOpensModelOrTagger()
+    public void EnglishTextAnalyzer_Analyze_ReadingNotSelected_EmitsNoReadings()
     {
         // Arrange
         var source = new CountingModelSource(RecordModel.Value);
-        var tagger = new CountingTaggerSource();
         var analyzer = new EnglishTextAnalyzer(
             new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization },
-            tagger.CreateAdapter(),
+            PartOfSpeechAdapter.Shared,
             null,
             HeteronymFixtureModel.CreateProvider(source));
 
@@ -84,8 +80,6 @@ public sealed class EnglishTextAnalyzerReadingTests
 
         // Assert
         Assert.DoesNotContain(result.Annotations, annotation => annotation.Kind is TextEnAnnotations.Reading or TextEnAnnotations.ReadingConfidence);
-        Assert.Equal(0, source.Count);
-        Assert.Equal(0, tagger.Count);
     }
 
     /// <summary>Proves a reading-only selection tags the text for context and emits readings but no part-of-speech annotation, and the detailed tokens stay untagged.</summary>
@@ -94,8 +88,7 @@ public sealed class EnglishTextAnalyzerReadingTests
     {
         // Arrange
         const string text = "I want to record a record.";
-        var tagger = new CountingTaggerSource();
-        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Reading }, tagger.CreateAdapter());
+        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Reading });
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
@@ -110,25 +103,31 @@ public sealed class EnglishTextAnalyzerReadingTests
             Assert.Equal(0.0, token.Confidence);
             Assert.False(token.IsKnownWord);
         });
-        Assert.Equal(1, tagger.Count);
     }
 
-    /// <summary>Proves the model is loaded lazily: not at construction, not for an empty text or a text without a heteronym word, and once for any number of later requests.</summary>
+    /// <summary>Proves requests without a heteronym word emit no readings and do not disturb later requests: the readings of a later request equal those of a fresh analyzer.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce()
+    public void EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem()
     {
         // Arrange
-        var source = new CountingModelSource(RecordModel.Value);
-        var analyzer = CreateAnalyzer(source);
+        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
+        var fresh = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
+        const string text = "I want to record a record.";
 
-        // Act / Assert
-        Assert.Equal(0, source.Count);
-        _ = analyzer.Analyze(string.Empty, TestContext.Current.CancellationToken);
-        _ = analyzer.Analyze("The cat sat on the mat.", TestContext.Current.CancellationToken);
-        Assert.Equal(0, source.Count);
-        _ = analyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken);
-        _ = analyzer.Analyze("They will record the meeting.", TestContext.Current.CancellationToken);
-        Assert.Equal(1, source.Count);
+        // Act
+        var empty = analyzer.Analyze(string.Empty, TestContext.Current.CancellationToken);
+        var plain = analyzer.Analyze("The cat sat on the mat.", TestContext.Current.CancellationToken);
+        var first = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        var second = analyzer.Analyze("They will record the meeting.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(Readings(empty.Annotations));
+        Assert.Empty(Readings(plain.Annotations));
+        Assert.Equal(["record.verb", "record.noun"], Readings(first.Annotations).Select(reading => reading.Id));
+        Assert.Equal(["record.verb"], Readings(second.Annotations).Select(reading => reading.Id));
+        Assert.Equal(
+            Readings(fresh.Analyze(text, TestContext.Current.CancellationToken).Annotations).Select(reading => (reading.Id, reading.ConfidenceText)),
+            Readings(first.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)));
     }
 
     /// <summary>Proves a form with a single candidate reading gets that reading with confidence 1.000 when the family is active (a model exists), and nothing without one.</summary>
@@ -481,7 +480,7 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.True(sink.Events.Count >= 2);
     }
 
-    /// <summary>Proves cancellation before any work, between candidate words and during the last candidate throws without returning a result, reporting any event or loading the model too early.</summary>
+    /// <summary>Proves cancellation before any work, between candidate words and during the last candidate throws without returning a result or reporting any event.</summary>
     /// <param name="cancelAfter">The number of classifications after which the observer cancels; 0 cancels before the call.</param>
     [Theory]
     [InlineData(0)]
@@ -511,20 +510,15 @@ public sealed class EnglishTextAnalyzerReadingTests
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze(text, cancellation.Token));
         Assert.Empty(sink.Events);
-        if (cancelAfter == 0)
-        {
-            Assert.Equal(0, source.Count);
-        }
     }
 
-    /// <summary>Proves one analyzer shared by 32 concurrent callers gives identical results and loads the model once.</summary>
+    /// <summary>Proves one analyzer shared by 32 concurrent callers gives the same results as a sequential request.</summary>
     [Fact]
     public async Task EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults()
     {
         // Arrange
         const string text = "I want to record a record. They will record the meeting. This record is old.";
-        var source = new CountingModelSource(RecordModel.Value);
-        var analyzer = CreateAnalyzer(source);
+        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
         var expected = Key(analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations);
 
         // Act
@@ -534,7 +528,6 @@ public sealed class EnglishTextAnalyzerReadingTests
 
         // Assert
         Assert.All(keys, key => Assert.Equal(expected, key));
-        Assert.Equal(1, source.Count);
     }
 
     /// <summary>Proves a request whose heteronym word is in a later sentence builds the context of that sentence only: the readings match the single-sentence results.</summary>

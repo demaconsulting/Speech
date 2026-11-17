@@ -303,7 +303,7 @@ sections:
             children:
               - Speech-Audio-PortAudio-Seam
             tests:
-              - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+              - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage
               - PortAudioCaptureDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
 
           - id: Speech-Audio-CaptureFormatDisclosure

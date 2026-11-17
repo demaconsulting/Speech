@@ -4,8 +4,8 @@
 # These requirements describe the design-level behavior of the ReadingInventory unit (and the
 # internal ReadingIdSyntax grammar that is documented with it), decomposing the parent SpeechTextEn
 # HeteronymSubsystem requirements. The unit is the immutable inventory of the readings, forms and
-# candidate readings of the heteronyms the package knows, built once from the two tables embedded
-# in the assembly (data/text-en/readings.tsv and data/text-en/forms.tsv). Each requirement states
+# candidate readings of the heteronyms the package knows, supplied from the two tables shipped in
+# the assembly (data/text-en/readings.tsv and data/text-en/forms.tsv). Each requirement states
 # one observable behavior.
 #
 # Covered by
@@ -20,19 +20,22 @@ sections:
             requirements:
               - id: SpeechTextEn-Heteronym-ReadingInventory-EmbeddedTables
                 title: >-
-                  The ReadingInventory class shall build its default instance once, lazily, from
-                  the readings and forms tables embedded in the assembly under the resource names
-                  DemaConsulting.Speech.Text.En.Resources.readings.tsv and
-                  DemaConsulting.Speech.Text.En.Resources.forms.tsv, and shall report the pinned
-                  inventory version and the pinned numbers of readings and forms.
+                  The ReadingInventory class shall supply its default instance from the readings
+                  and forms tables shipped inside the assembly, with no file on disk or download,
+                  giving the candidate readings of the well-known heteronyms of the tables, and
+                  shall report the pinned inventory version and the pinned numbers of readings and
+                  forms.
                 justification: |
                   Hosts name readings in overrides and backends receive them in annotations, so the
                   vocabulary has to be exactly what the repository's tables define, available
                   without a file on disk, and identical for every user in the process. The pinned
-                  version and counts make an unreviewed change of the tables a test failure.
+                  version and counts are a deliberate, versioned data-integrity check that makes an
+                  unreviewed change of the tables a test failure. How the tables are embedded (once,
+                  lazily, under fixed resource names) is a design choice recorded in the reading
+                  inventory design.
                 tests:
                   - ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts
-                  - ReadingInventory_Default_EmbeddedTables_AreAssemblyResourcesWithFixedNames
+                  - ReadingInventory_Default_ShippedWithAssembly_ProvidesCandidateReadingsOfKnownHeteronyms
 
               - id: SpeechTextEn-Heteronym-ReadingInventory-IdGrammar
                 title: >-

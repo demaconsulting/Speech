@@ -18,8 +18,8 @@ sections:
               PortAudio managed wrapper itself.
             tags: [ots]
             tests:
-              - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
-              - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
+              - PortAudioApi_CaptureCallback_NativeInput_DeliversManagedSamples
+              - PortAudioApi_PlaybackCallback_ProvidedSamples_AreWrittenToNativeOutput
 
           - id: Speech-OTS-PortAudioSharp2-HostApiSelection
             title: >-

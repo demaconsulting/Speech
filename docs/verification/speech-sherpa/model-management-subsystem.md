@@ -52,8 +52,8 @@ with a well-formed SHA-256 checksum and `.tar.bz2` relative install path; every 
 `BuildEngineConfig` resolves its documented files against the archive's extracted top-level
 folder with its documented engine settings and throws `ArgumentException` for an empty installed
 directory; every model's `InstallAsync` extracts a synthetic archive's entries and removes the
-archive afterward; the Zipformer model delegates `NormalizeText` to `UppercaseTranscriptRestorer`
-and leaves `PostEndpointWarmupWindowMs` disabled while the Nemotron model reports `800`; the
+archive afterward; the Zipformer model's `NormalizeText` returns readable restored final and provisional
+transcripts and it leaves `PostEndpointWarmupWindowMs` disabled while the Nemotron model reports `800`; the
 synthesis models declare their preferred audio formats, default capability profiles, and resolve
 speaker ids with the documented fallbacks; `TarBz2ArchiveExtractor` extracts every entry and
 rejects empty arguments; and `UppercaseTranscriptRestorer` produces the documented final and

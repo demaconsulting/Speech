@@ -8,23 +8,20 @@ namespace DemaConsulting.Speech.Sherpa.Tests.RecognitionSubsystem;
 /// <summary>
 ///     Real-speech transcription accuracy tests for <see cref="SherpaOnnxRecognitionEngine"/>,
 ///     verifying that the real, installed recognition models transcribe genuine human speech
-///     correctly - not just buffer/bookkeeping behavior exercised with silence and a synthesized
-///     tone (see <see cref="SherpaOnnxRecognitionEngineTests"/>'s remarks).
+///     correctly, scored against a known-correct ground truth. The endpoint, warm-up, and
+///     silence scenarios built on the same recording live in
+///     <see cref="SherpaOnnxRecognitionEngineTests"/>.
 /// </summary>
 /// <remarks>
-///     Before this class existed, no automated test anywhere in this project asserted on actual
-///     transcribed text content against a known-correct ground truth: the existing engine-level
-///     tests deliberately only prove buffer/replay/grace bookkeeping using silence and a
-///     synthesized sine-wave tone, and every other recognition test replaces the real engine with
-///     a fake. That left a genuine coverage gap - nothing proved the real, shipped models
-///     actually transcribe real speech with acceptable accuracy. This class closes that gap using
+///     Every other recognition test replaces the real engine with a fake, which left a genuine
+///     coverage gap - nothing proved the real, shipped models actually transcribe real speech
+///     with acceptable accuracy. This class closes that gap using
 ///     a real, CC0-licensed spoken-word recitation of Tennyson's public-domain poem "Crossing the
 ///     Bar" (<c>TestData/crossing-the-bar-16k-mono.wav</c>; full attribution and license in
 ///     <c>TestData/NOTICE.md</c>), scored against the poem's own published text using Word Error
 ///     Rate (<see cref="WordErrorRateCalculator"/>).
 ///     <para>
-///     Following the exact pattern <see cref="SherpaOnnxRecognitionEngineTests"/> already
-///     established for native-runtime-dependent code: each test loads a real, already-installed
+///     As for all native-runtime-dependent code in this project: each test loads a real, already-installed
 ///     model and is skipped (not failed) when that model is not installed in this environment,
 ///     since downloading a multi-hundred-megabyte production model is outside the scope of a unit
 ///     test run.
@@ -47,7 +44,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     a genuine transcription regression, but low enough that a model producing a
     ///     substantially wrong transcript still fails this test.
     /// </summary>
-    private const double MaximumAcceptableWordErrorRate = 0.20;
+    internal const double MaximumAcceptableWordErrorRate = 0.20;
 
     /// <summary>
     ///     The ground-truth transcript of <c>TestData/crossing-the-bar-16k-mono.wav</c>: the full,
@@ -55,7 +52,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     recited in the recording. See <c>TestData/NOTICE.md</c> for the recording's license and
     ///     attribution.
     /// </summary>
-    private const string GroundTruthTranscript = """
+    internal const string GroundTruthTranscript = """
         Sunset and evening star,
         And one clear call for me!
         And may there be no moaning of the bar,
@@ -87,10 +84,9 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     /// <summary>
     ///     Resolves the real installed model directory for the given model, using the same
     ///     default store root <see cref="SpeechModelStore"/> uses,
-    ///     without depending on that class's non-test-only construction path - mirrors
-    ///     <see cref="SherpaOnnxRecognitionEngineTests"/>'s identically named helper.
+    ///     without depending on that class's non-test-only construction path.
     /// </summary>
-    private static string InstalledModelDirectory(string modelId) => Path.Join(
+    internal static string InstalledModelDirectory(string modelId) => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "DemaConsulting.Speech",
         "Models",
@@ -98,7 +94,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
         "current");
 
     /// <summary>Whether the given model is installed in this environment.</summary>
-    private static bool IsModelInstalled(string modelId)
+    internal static bool IsModelInstalled(string modelId)
     {
         var directory = InstalledModelDirectory(modelId);
         return Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any();
@@ -118,7 +114,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     <c>TestData/NOTICE.md</c>), so any mismatch indicates the fixture itself was corrupted
     ///     or replaced with an incompatible file, not a normal runtime condition to recover from.
     /// </exception>
-    private static float[] ReadMonoPcm16Wav(string path)
+    internal static float[] ReadMonoPcm16Wav(string path)
     {
         using var stream = File.OpenRead(path);
         using var reader = new BinaryReader(stream);
@@ -198,8 +194,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
 
     /// <summary>
     ///     Feeds every sample of <paramref name="samples"/> through <paramref name="engine"/> in
-    ///     fixed-size streaming chunks (mirroring the block sizes
-    ///     <see cref="SherpaOnnxRecognitionEngineTests"/> already feeds elsewhere), draining every
+    ///     fixed-size streaming chunks (0.1-second blocks), draining every
     ///     decode result after each chunk, and concatenates every finalized result's text (in
     ///     production order) into one full transcript.
     /// </summary>
@@ -215,7 +210,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     is fed once the real audio is exhausted so the last in-flight utterance's endpoint
     ///     fires and its final result is not silently lost.
     /// </remarks>
-    private static string Transcribe(IRecognitionBackend engine, float[] samples, int sampleRate)
+    internal static string Transcribe(IRecognitionBackend engine, float[] samples, int sampleRate)
     {
         var chunkSize = sampleRate / 10; // 0.1-second chunks, matching this project's existing test convention
         var transcript = new StringBuilder();
@@ -300,10 +295,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     /// <summary>
     ///     Proves the same real-speech accuracy property for the real, installed streaming
     ///     Nemotron model, giving this coverage gap a second real model's worth of evidence since
-    ///     both real models are shipped as production recognition options (see
-    ///     <see cref="SherpaOnnxRecognitionEngineTests"/>'s remarks on why the Nemotron model
-    ///     already receives dedicated real-model engine-level test coverage for its own defect
-    ///     history).
+    ///     both real models are shipped as production recognition options.
     /// </summary>
     [Fact]
     public void SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance()

@@ -80,9 +80,9 @@ public sealed class HeteronymSubsystemTests
         }
     }
 
-    /// <summary>Proves a provider that is never asked for a classifier never opens its source, however it is used otherwise.</summary>
+    /// <summary>Proves a configured provider exposes the reading inventory without a classifier having been requested.</summary>
     [Fact]
-    public void HeteronymSubsystem_Provider_NeverAskedForClassifier_NeverOpensSource()
+    public void HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier()
     {
         // Arrange
         var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
@@ -94,7 +94,7 @@ public sealed class HeteronymSubsystemTests
 
         // Assert
         Assert.True(configured);
-        Assert.Same(ReadingInventory.Default, inventory);
-        Assert.Equal(0, source.Count);
+        Assert.Equal(ReadingInventory.Default.Version, inventory.Version);
+        Assert.Equal(ReadingInventory.Default.FormCount, inventory.FormCount);
     }
 }

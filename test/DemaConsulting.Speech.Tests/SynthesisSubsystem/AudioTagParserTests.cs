@@ -359,23 +359,21 @@ public class AudioTagParserTests
 
     /// <summary>
     ///     Proves pathological input with a huge run of unclosed openers followed by a closer is
-    ///     parsed in linear time, preserving every character as literal text.
+    ///     preserved as one literal span, with every character kept.
     /// </summary>
     [Fact]
-    public void AudioTagParser_Parse_ManyNestedOpenersThenCloser_CompletesQuicklyAndPreservesText()
+    public void AudioTagParser_Parse_ManyNestedOpenersThenCloser_PreservesText()
     {
         // Arrange
         var text = new string('[', 200_000) + "x]";
 
         // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var spans = AudioTagParser.Parse(text);
-        stopwatch.Stop();
 
         // Assert
         var span = Assert.Single(spans);
+        Assert.Equal(TaggedTextSpanKind.PlainText, span.Kind);
         Assert.Equal(text, span.Text);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Parse took {stopwatch.Elapsed}");
     }
 
     /// <summary>

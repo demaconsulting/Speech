@@ -46,8 +46,8 @@ sections:
               The TrainingDataSubsystem shall accept only data files that are UTF-8 text without a
               byte order mark, with line feed line ends, a final newline, no empty line, a constant
               number of tab-separated columns, text in Unicode normalization form C and no quoting,
-              shall load them into typed rows that remember where they came from, and shall know the
-              closed vocabulary of data sources.
+              shall preserve the source location of every datum in the findings it reports, and
+              shall know the closed vocabulary of data sources.
             justification: |
               The sentence offsets and the manifest hashes only mean the same on every platform
               when the bytes are canonical, and natural sentences that contain quotation marks must

@@ -4,14 +4,16 @@ using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 namespace DemaConsulting.Speech.Text.En.Tests.Fakes;
 
 /// <summary>
-///     Hands out <see cref="PartOfSpeechAdapter"/>s whose tagger factory counts how many times
-///     the tagger is requested (and still returns the real shared tagger), so tests can prove the
-///     tagger is created lazily and at most once per adapter without disturbing the process-wide
-///     <c>Tagger.Default</c> that other tests share.
+///     Hands out <see cref="PartOfSpeechAdapter"/>s whose tagger factory still returns the real
+///     shared tagger without disturbing the process-wide <c>Tagger.Default</c> that other tests
+///     share, and lets a test run an action (for example a cancellation) the moment the tagger is
+///     requested or make the first requests fail, so it can reach those points of a request
+///     deterministically. (The class name is historical: it once counted the requests, which no
+///     test asserts any more.)
 /// </summary>
 internal sealed class CountingTaggerSource
 {
-    /// <summary>The number of times the factory has been invoked.</summary>
+    /// <summary>The number of times the factory has been invoked (it decides which invocations fail).</summary>
     private int _count;
 
     /// <summary>An optional action run each time the factory is invoked.</summary>
@@ -34,10 +36,7 @@ internal sealed class CountingTaggerSource
         _failures = failures;
     }
 
-    /// <summary>Gets how many times the tagger factory has been invoked.</summary>
-    public int Count => Volatile.Read(ref _count);
-
-    /// <summary>Gets a factory that counts its invocations and returns the shared tagger.</summary>
+    /// <summary>Gets a factory that runs the configured action and failures, and otherwise returns the shared tagger.</summary>
     public Func<Tagger> Factory => () =>
     {
         var invocation = Interlocked.Increment(ref _count);
@@ -54,6 +53,6 @@ internal sealed class CountingTaggerSource
     ///     Creates an adapter over this source's counting factory.
     /// </summary>
     /// <param name="sentenceTagged">An optional observer called after each sentence is tagged.</param>
-    /// <returns>A new adapter whose tagger requests are counted.</returns>
+    /// <returns>A new adapter whose tagger requests go through the factory.</returns>
     public PartOfSpeechAdapter CreateAdapter(Action<int>? sentenceTagged = null) => new(Factory, sentenceTagged);
 }

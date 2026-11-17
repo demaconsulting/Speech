@@ -963,19 +963,29 @@ an `en.norm` value).
 ### Retention Verification
 
 The core `ITextAnalyzer` contract (see *Speech SynthesisSubsystem TextAnalysis Design*) requires an
-analyzer to "not retain `text`". Two parts of the system carry that property, and each is verified
-differently:
+analyzer to "not retain `text`". Three parts carry that property, and each is verified differently:
 
-- **This library's own state**: no field holds an analyzed text or a result after a call returns; a
-  weak-reference test proves that (see *EnglishTextAnalyzer Verification*).
+- **What a host can observe** (requirement `SpeechTextEn-Isolation-RequestNoninterference`): the result and
+  the diagnostics of a request depend only on that request, equal what a fresh analyzer gives, and never
+  carry text of another request, also under concurrent use. Tests assert exactly that (see *SpeechTextEn
+  Verification*); no test uses garbage-collector timing, weak references or reflection, because those
+  measure object lifetime and not an output contract.
+- **This library's own state**: by design no field holds an analyzed text or a result after a call returns
+  (per-request objects only, a shared diagnostics reporter that formats counts, no caches keyed by text).
+  This is a design obligation checked by review of the unit designs, not by an automated test.
 - **The tagging package's working buffers**: `DemaConsulting.PartOfSpeech` versions up to 0.1.0-beta.4
   kept the characters of the tokens they tagged in thread-static working buffers that were never cleared
   (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>). Version 0.1.0-beta.5
   clears the decoder and glossary workspaces in a `finally` block on every public entry point, on the
   normal and on the exceptional path (upstream pull request
   <https://github.com/demaconsulting/PartOfSpeech/pull/30>). `DemaConsulting.Speech.Text.En.csproj` pins
-  that version exactly, and the test `SpeechTextEn_ProjectFile_Dependencies_PinTaggerAtRetentionFixOrLater`
-  fails if the pin is ever moved to an earlier version.
+  that version exactly.
+
+**Dependency policy**: the pin of `DemaConsulting.PartOfSpeech` is never moved below 0.1.0-beta.5, the first
+version that clears its working buffers; a later prerelease (for example 0.1.0-rc.1) or a stable release is
+acceptable under Semantic Versioning 2.0.0 precedence. The requirement `SpeechTextEn-Packaging-PinnedDependency`
+verifies only that the evaluated package references pin one exact version; the minimum version is a
+dependency policy kept by review of the cited upstream evidence, not by a test that compares version numbers.
 
 The workspaces are private to the dependency: version 0.1.0-beta.5 offers no public API or documented
 test hook that inspects them (its test hook, `TagDecoder.CurrentThreadWorkspace`, is internal). A test
@@ -1005,7 +1015,14 @@ shared release workflow packs every packable project with one version, which may
 allow a stable package to depend on a prerelease package (NU5104), so without this guard a stable release would
 fail or publish an invalid package. The guard is temporary: it, and the requirement
 `SpeechTextEn-Packaging-PrereleaseOnly`, are removed once `DemaConsulting.PartOfSpeech` publishes a stable
-version and the pin moves to it (a test fails if the guard remains with a stable pin). The license-file
+version and the pin moves to it (a test fails if the guard remains with a stable pin). Two tests verify the
+release behavior through the dotnet command line tool, by evaluating the project (`dotnet msbuild <project>
+-getProperty:IsPackable --property:PackageVersion=<version>` and `-getItem:PackageReference
+-getItem:ProjectReference`, with no build), not by reading the project file text: how the guard is spelled in the
+project (conditions on properties, a split of the build metadata) is an implementation detail that a refactoring
+may change, and only the evaluated packing outcome and the evaluated dependency graph are required. The build
+script's pack verification (it evaluates `IsPackable` with the same command and checks that a `.nupkg` is produced
+with `PackageVersion=0.0.1-test`) complements them with the artifact check. The license-file
 requirement is verified on the built package by the `TextEn_PackageLicenseFiles_Content` FileAssert test (the
 license file and the notices at the package root and the `.nuspec` license reference; for a stable version no
 package is built and the test accepts the absence of one), together with the project-file and content tests that

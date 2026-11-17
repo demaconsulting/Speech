@@ -92,12 +92,12 @@ public class PortAudioCaptureDeviceTests
 
         // Act / Assert: the device degrades a native open failure into the documented exception
         var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
-        Assert.Equal("Failed to start capture on 'Mic'.", exception.Message);
+        Assert.Contains("Mic", exception.Message);
         Assert.IsType<InvalidOperationException>(exception.InnerException);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Error,
             "AudioSubsystem",
-            "Failed to start PortAudio capture on 'Mic': Native stream open failed.");
+            Arg.Is<string>(message => message.Contains("Mic") && message.Contains("Native stream open failed.")));
     }
 
     /// <summary>

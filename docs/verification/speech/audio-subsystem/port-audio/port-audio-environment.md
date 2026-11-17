@@ -3,7 +3,7 @@
 ##### Verification Approach
 
 Verified through direct unit tests in `PortAudioEnvironmentTests.cs` using fake `IPortAudioApi`
-implementations and through singleton access tests for the shared production environment.
+implementations.
 
 ##### Test Environment
 
@@ -34,17 +34,13 @@ an unbalanced `Initialize()`/`Terminate()` pair.
 
 **Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo`
 
-##### Resolution: Initialization Failure is Cached
+##### Resolution: Initialization Failure is Non-Throwing
 
-**Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure`
+**Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage`
 
 ##### Resolution: Missing Host API Returns False
 
 **Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse`
-
-##### Shared Environment: Read Twice Returns Same Instance
-
-**Test**: `PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance`
 
 ##### Refresh: Reinitializes and Reflects New Outcome When No Stream Is Active
 
@@ -89,7 +85,3 @@ an unbalanced `Initialize()`/`Terminate()` pair.
 ##### Refresh: A Throwing Terminate Propagates And Leaves Cached State Untouched
 
 **Test**: `PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched`
-
-##### PortAudioApi: Instance Read Twice Returns The Same Instance
-
-**Test**: `PortAudioApi_Instance_ReadTwice_ReturnsSameInstance`

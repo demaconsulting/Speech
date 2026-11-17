@@ -71,32 +71,33 @@ sections:
                   The AbbreviationResolver class shall accept the guards next-date (the next token
                   starts with an ASCII digit or is a month name or abbreviation) and prev-number (the
                   previous token starts with an ASCII digit), shall test the ASCII digits only for
-                  these two guards, and shall use the numeric recognizer's own definition of a
-                  month.
+                  these two guards, and shall recognize the documented English month names and
+                  abbreviations as a month.
                 justification: |
                   "Jan. 5" and "Sat. 5 Jan. 2024" are dates in which the period does not end a
                   sentence, whereas "Mar." with no number before it is the verb. The guards select
-                  the reading from the date context, a date is written with the ASCII digits, and
-                  one definition of a month keeps the lexicon and the numeric rule in agreement.
+                  the reading from the date context, and a date is written with the ASCII digits.
+                  That the month vocabulary is the one the numeric recognizer uses is a design
+                  choice (one shared definition keeps the lexicon and the numeric rule in
+                  agreement) recorded in the abbreviation resolver design.
                 tests:
                   - AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings
 
               - id: SpeechTextEn-Normalization-AbbreviationResolver-MonthAndWeekdayRows
                 title: >-
-                  The AbbreviationResolver class shall contain the month and weekday abbreviations
-                  with a period (a prefix reading before a date and a suffix reading elsewhere, the
-                  suffix reading of Mar. and Sun. only after a number) and the month abbreviations
-                  without a period before a digit, shall contain no row for May or for a weekday
-                  written without a period, and shall agree with the month and weekday vocabulary of the numeric
-                  recognizer.
+                  The AbbreviationResolver class shall resolve each month and weekday abbreviation
+                  with a period to its full name, as a prefix reading before a date and as a suffix
+                  reading elsewhere (the suffix reading of Mar. and Sun. only after a number), shall
+                  resolve each month abbreviation written without a period before a digit to its
+                  full name, and shall leave May and a weekday written without a period as written.
                 justification: |
                   The tokenizer breaks sentences after "Jan." and "Sat." even in the middle of a
                   date, so the abbreviation's reading has to remove that break, and a bare "Mar." or
                   "Sun." (the verb, the star) must stay as written. The word May and the weekday
-                  names are ordinary words that need no rows, and a test keeps the two vocabularies
-                  from drifting apart.
+                  names are ordinary words that need no reading. The test checks an independently
+                  written table of abbreviations and full names, in date and non-date contexts.
                 tests:
-                  - AbbreviationResolver_Table_MonthAndWeekdayRows_AgreeWithRecognizerVocabulary
+                  - AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts
                   - AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms
 
               - id: SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
@@ -128,12 +129,16 @@ sections:
                   - AbbreviationResolver_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine
                   - AbbreviationResolver_FromTsv_NullReader_ThrowsArgumentNullException
 
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-ThreadSafeLoad
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-ConcurrentLookup
                 title: >-
-                  The AbbreviationResolver class shall load the embedded lexicon lazily and at most
-                  once, so that concurrent first uses share one instance.
+                  The AbbreviationResolver class shall return the documented resolution of an
+                  abbreviation to every concurrent lookup, including the first lookups that race
+                  to use the embedded lexicon, without failure.
                 justification: |
-                  Constructing an analyzer must not read the lexicon, and several requests may be
-                  the first to need it at the same time.
+                  Constructing an analyzer must not depend on the lexicon being loaded yet, and
+                  several requests may be the first to need it at the same time, so every one of
+                  them must get the same, documented answer. That the embedded lexicon is loaded
+                  lazily and at most once is a design choice recorded in the abbreviation resolver
+                  design.
                 tests:
-                  - AbbreviationResolver_Default_ConcurrentFirstUse_ReturnsOneInstance
+                  - AbbreviationResolver_TryResolve_ConcurrentFirstLookups_ReturnDocumentedResolutions

@@ -80,11 +80,14 @@ sections:
                   The AcronymRecognizer class shall build a recognizer from a lexicon in the
                   documented tab-separated format and use exactly that lexicon, shall throw
                   InvalidDataException that names the line number for a malformed row, shall throw
-                  ArgumentNullException for a null reader, and shall load the embedded lexicon
-                  lazily so that concurrent first uses share one instance.
+                  ArgumentNullException for a null reader, and shall give the documented
+                  recognitions of the embedded lexicon to concurrent first uses.
                 justification: |
                   A defective lexicon is a build defect and must fail at once and point at the row;
-                  constructing an analyzer must not read the lexicon.
+                  several requests may be the first to use the embedded lexicon at the same time,
+                  and each must get the documented answer. That the embedded lexicon is loaded
+                  lazily, once, as one shared instance is a design choice recorded in the acronym
+                  recognizer design.
                 tests:
                   - AcronymRecognizer_FromTsv_CustomLexicon_IsUsed
                   - AcronymRecognizer_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine

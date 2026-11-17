@@ -23,7 +23,7 @@ sections:
                 children:
                   - Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                   - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
-                  - Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-UnavailableOutcome
                   - Speech-Audio-PortAudio-PortAudioEnvironment-Refresh
                   - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
                   - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
@@ -33,7 +33,7 @@ sections:
                   - Speech-OTS-PortAudioSharp2-ManagedBinding
                   - Speech-OTS-PortAudioSharp2-StreamInterop
                 tests:
-                  - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+                  - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage
                   - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
                   - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
 

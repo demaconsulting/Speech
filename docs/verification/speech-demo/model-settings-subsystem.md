@@ -100,22 +100,39 @@ recognized parameter.
 
 **Expected**: The unrecognized parameter is skipped and the two recognized ones are presented in order.
 
-#### ModelSettingsView_NumericTemplate_IntegerParameter_ShowsWholeNumberControlInsteadOfSlider
+#### NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
 
-**Scenario**: The view markup's numeric parameter template is read (the demo has no headless UI host,
-so the markup is checked structurally rather than rendered).
+**Scenario**: A numeric presenter is built over a parameter declared whole-number.
 
-**Expected**: The template holds one slider visible only when the parameter is not declared
-whole-number and one up-down control visible only when it is, with the up-down formatted in whole
-numbers and bound to the presenter's value and bounds. Together with the presenter rounding every
-write to a whole number, no fractional value can be selected for such a parameter.
+**Expected**: The presenter exposes `IsInteger` as true, which is the flag the view uses to show a
+whole-number control instead of the continuous slider.
+
+#### NumericParameterViewModel_Value_SetFractionalOnIntegerParameter_RoundsToNearestWholeNumber
+
+**Scenario**: A fractional value is written to an integer presenter.
+
+**Expected**: The value is rounded to the nearest whole number, so no fractional value can be selected for
+such a parameter.
+
+#### NumericParameterViewModel_Value_SetFractionalOutsideRangeOnIntegerParameter_ClampsAndRounds
+
+**Scenario**: A fractional value outside the declared range is written to an integer presenter.
+
+**Expected**: The value is clamped to the bounds and is a whole number.
+
+#### NumericParameterViewModel_Value_SetFractionalOnContinuousParameter_KeepsFraction
+
+**Scenario**: A fractional value is written to a continuous presenter.
+
+**Expected**: The fraction is kept, so the continuous slider remains appropriate for it.
 
 ### Accepted Gaps
 
 #### Rendered Controls
 
-The structural test reads the view markup; it does not render the view, so Avalonia's own control
-behavior (for example how `NumericUpDown` handles typed input) is not exercised and is covered
-by the Avalonia OTS evidence instead. The choice and boolean templates are likewise verified only
+The demo has no headless UI host, so the view is not rendered and the choice between the slider and the
+whole-number control is verified through the presenter's `IsInteger` flag rather than through the view
+markup; Avalonia's own control behavior (for example how `NumericUpDown` handles typed input) is covered by
+the Avalonia OTS evidence instead. The choice and boolean templates are likewise verified only
 indirectly, through the presenter type checks in
 `ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters`.

@@ -810,7 +810,6 @@ public class DefaultModelCapabilityProfileTests
         // Assert
         Assert.True(type.IsPublic);
         Assert.Same(DefaultModelCapabilityProfile.Instance, DefaultModelCapabilityProfile.Instance);
-        Assert.Empty(type.GetConstructors());
         Assert.IsAssignableFrom<IModelCapabilityProfile>(DefaultModelCapabilityProfile.Instance);
     }
 

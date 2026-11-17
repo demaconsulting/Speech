@@ -106,13 +106,14 @@ part of speech and an `en.norm` or `en.spell` annotation as a replacement throug
 
 ##### Texts without words
 
-**Test**: `EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndLoadsNoTagger`
+**Test**: `EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndNoBreaks`
 
-Empty, whitespace-only and placeholder-only texts (a theory).
+Empty, whitespace-only and placeholder-only texts (a theory) return no annotations and an empty, non-null list of
+breaks. Whether the tagger is created for such a text is a design choice and is not asserted.
 
 ##### Cancellation
 
-**Tests**: `EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsWithoutLoadingTagger`,
+**Tests**: `EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsOperationCanceledException`,
 `EnglishTextAnalyzer_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException`,
 `EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing`,
 `EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing`,
@@ -123,10 +124,11 @@ Empty, whitespace-only and placeholder-only texts (a theory).
 The initialization test cancels the token the moment the tagger is first requested; the only-sentence and
 final-sentence tests cancel it from the adapter's internal after-sentence observer; the normalization test
 analyzes a text of 1000 tokens with normalization only and cancels the token from the normalizer's
-token-visited observer while token 300 is visited, which the normalizer's periodic check (every 256 tokens)
-observes. The override-lookup test analyzes a text of 600 tokens that cannot match, with normalization only and a
-one-entry dictionary, using a token that is already canceled, and requires the exception and no event. Each asserts an
-`OperationCanceledException` and that a recording sink received no event; the last test is the control that
+token-visited observer while token 300 is visited. The override-lookup test analyzes a text of 600 tokens that cannot
+match, with normalization only and a one-entry dictionary, using a token that is already canceled, and requires the
+exception and no event. Each asserts an `OperationCanceledException` and that a recording sink received no event; no
+test asserts how many tokens were visited before the exception or how often the token is polled (those are design
+choices). The last test is the control that
 an uncanceled request still reports exactly one event. The analyzer's own periodic and final checks
 (while the result is built and before reporting) are cheap backstops for cancellation arriving from another
 thread; they are verified by review, since a deterministic test would need a timing dependency.
@@ -141,21 +143,22 @@ thread; they are verified by review, since a deterministic test would need a tim
 **Tests**: `EnglishTextAnalyzer_AnalyzeDetailed_Sentence_ListsTokensWithTagConfidenceAndKnownWordFlag`,
 `EnglishTextAnalyzer_Analyze_ComparedWithAnalyzeDetailed_ReturnsSameAnnotationsAndBreaks`,
 `EnglishTextAnalyzer_Analyze_VariedTexts_MatchesAnalyzeDetailedAnnotationsAndBreaks`,
-`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger`
+`EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndUntaggedTokens`
 
 The varied-texts theory compares the two entry points over empty, placeholder-only, emoji, CRLF, several-sentence and
-abbreviation texts (`Dr.` and `p.m.` are normalized under the default options).
+abbreviation texts (`Dr.` and `p.m.` are normalized under the default options). With no annotations selected the
+analysis has no annotations, still returns the break before `She` and seven tokens, none of which is tagged.
 
 ##### Normalization annotations and reconciled breaks
 
 **Tests**: `EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization`,
-`EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations`,
+`EnglishTextAnalyzer_Analyze_NormalizationOnly_EmitsOnlyNormalizationsAndUntaggedTokens`,
 `EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization`,
 `EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt`
 
 For `Dr. Smith lives here.` the first two annotations both start at the token `Dr.`, the part of speech first,
 with the value `Doctor`, and the starts of all annotations never decrease. With normalization only, the
-analysis of `Dr. Smith & Mr. Jones live on Main St. It is nice.` creates no tagger, yields four annotations
+analysis of `Dr. Smith & Mr. Jones live on Main St. It is nice.` yields four annotations
 that are all `en.norm`, and leaves every token without a part of speech. With part of speech only, and with
 no annotations, `I live on Main St. It is nice.` keeps the tokenizer's single sentence and has no `en.norm`
 annotation, while the default analyzer breaks before `It`. For `Dr. {placeholder} Smith waved.` the single
@@ -272,22 +275,24 @@ only. A tag placeholder between the words leaves both readings at their exact so
 sentences the readings equal those of the two sentences analyzed separately, so the context of a word is its own
 sentence.
 
-##### Heteronym selection, effectiveness and laziness
+##### Heteronym selection and effectiveness
 
 **Tests**: `EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings`,
-`EnglishTextAnalyzer_Analyze_ReadingNotSelected_NeverOpensModelOrTagger`,
+`EnglishTextAnalyzer_Analyze_ReadingNotSelected_EmitsNoReadings`,
 `EnglishTextAnalyzer_Analyze_ReadingOnlySelection_EmitsReadingsWithoutPartOfSpeech`,
-`EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce`,
+`EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem`,
 `EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel`
 
 The default analyzer, which has no embedded model, emits no reading kind, and an analyzer that selects normalization and
-readings without a model yields no annotation at all and creates no tagger. With a fixture model and the selection
-`Normalization` only, neither the model source nor the tagger is touched. With the selection `Reading` only, the text is
-tagged once for context, readings are emitted, no `en.upos` annotation is emitted and the detailed tokens carry no part
-of speech, confidence or known-word flag. The model source is not opened by construction, by an empty text or by a text
-without a heteronym word, and is opened exactly once across later requests. A form with exactly one candidate (the test
-takes the first in the inventory) gets that reading with confidence `1.000` and one `single-candidate` in the heteronym
-event when a model exists, and nothing without one.
+readings without a model yields no annotation at all. With a fixture model and the selection `Normalization` only, no
+reading is emitted. With the selection `Reading` only, the text is tagged for context, readings are emitted, no
+`en.upos` annotation is emitted and the detailed tokens carry no part of speech, confidence or known-word flag. An empty
+text and a text without a heteronym word get no reading, and a later request with heteronym words gets the readings and
+confidences that a fresh analyzer with the same model gives (`record.verb` then `record.noun` for
+`I want to record a record.`, and `record.verb` for `They will record the meeting.`); when the model is opened, and that
+it is opened once, are design choices and are not asserted. A form with exactly one candidate (the test takes the first
+in the inventory) gets that reading with confidence `1.000` and one `single-candidate` in the heteronym event when a
+model exists, and nothing without one.
 
 ##### Heteronym coexistence with replacements, pronunciations and overrides
 
@@ -343,23 +348,23 @@ throws changes nothing: both readings are still returned.
 `EnglishTextAnalyzer_Analyze_ConcurrentCallers_GetIdenticalResults`
 
 In a text with three candidate words, a token canceled before the call, or by the classifier observer after the first,
-second or third classification, makes the request throw `OperationCanceledException` and report no event (and, for the
-canceled-before case, never open the model). Thirty-two concurrent requests on one analyzer return identical
-annotations and open the model once.
+second or third classification, makes the request throw `OperationCanceledException` and report no event. Thirty-two
+concurrent requests on one analyzer return annotations identical to those of a sequential request.
 
-##### Concurrency and no retained references
+##### Concurrency and request independence
 
-**Tests**: `EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResultsAndLoadTaggerOnce`,
-`EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults`
+**Tests**: `EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResults`,
+`EnglishTextAnalyzer_Analyze_AfterAnotherRequest_ResultEqualsFreshAnalyzerAndDisclosesNothingOfIt`
 
-The reference test builds a unique, non-interned string, analyzes it with both entry points inside a helper
-that is marked not to inline, and returns only weak references to the string and to both results. It then
-forces blocking full collections (with finalizer waits) in a bounded loop of ten attempts, so neither JIT
-liveness in Debug versus Release nor collector timing differences between operating systems can keep an
-object alive or make the test flaky. The forced collection is the point of the test, so the analyzer rule
-against it is waived locally with that justification. What it proves is exactly this: the analyzer, as
-this library's own state, keeps no reference to the input string or to its results after the call returns.
-It does **not** prove that no copy of the words survives in the tagging package's private per-thread buffers
-(upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>), which are deliberately not inspected
-here; the pinned version (0.1.0-beta.5 or later) clears them, evidenced by the upstream package's own tests (see
-*PartOfSpeech Verification* and *SpeechTextEn System Design*, *Retention Verification*).
+The concurrency test releases twenty-four tasks of twenty requests each on one analyzer whose very first requests race,
+and every result equals that of a sequential request on a separate analyzer. The independence test analyzes
+`Quokka marmoset rested. Zebra galloped.` with both entry points, then `I read it again.`, and requires that the
+annotations, the sentence breaks and the detailed tokens of the second text equal those of a fresh analyzer, that no
+annotation value contains a word of the first text, and that the two events reported for the second text (one per entry
+point) contain none of those words either. What it proves is exactly this: a request's output depends only on that
+request and never carries text of another. It does **not** prove that the analyzer keeps no reference to the text in
+memory (a design obligation, no longer measured with weak references and forced collections because object lifetime
+is not an output contract), and it does not prove that no copy of the words survives in the tagging package's private
+per-thread buffers (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>), which are deliberately
+not inspected here; the pinned version (0.1.0-beta.5 or later) clears them, evidenced by the upstream package's own
+tests (see *PartOfSpeech Verification* and *SpeechTextEn System Design*, *Retention Verification*).

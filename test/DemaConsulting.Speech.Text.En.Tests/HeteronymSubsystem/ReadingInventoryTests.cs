@@ -21,7 +21,7 @@ public sealed class ReadingInventoryTests
     /// <summary>The forms of <see cref="ValidReadings"/>.</summary>
     private const string ValidForms = FormsHeader + "wind\twind.air\torigin\nwind\twind.coil\torigin\nwinds\twind.air\tinflection\n";
 
-    /// <summary>Proves the embedded tables load and match the pinned counts (a data change needs a deliberate version decision).</summary>
+    /// <summary>Proves the inventory shipped with the assembly loads and matches the pinned version and counts (a data change needs a deliberate version decision).</summary>
     [Fact]
     public void ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts()
     {
@@ -39,20 +39,24 @@ public sealed class ReadingInventoryTests
         }
 
         Assert.Equal(350, ambiguous);
-        Assert.Same(inventory, ReadingInventory.Default);
     }
 
-    /// <summary>Proves the tables are embedded under the fixed logical names, not copied.</summary>
+    /// <summary>Proves the inventory is available from the assembly alone, with the candidate readings of well-known heteronyms and its version.</summary>
     [Fact]
-    public void ReadingInventory_Default_EmbeddedTables_AreAssemblyResourcesWithFixedNames()
+    public void ReadingInventory_Default_ShippedWithAssembly_ProvidesCandidateReadingsOfKnownHeteronyms()
     {
-        // Arrange
-        var assembly = typeof(ReadingInventory).Assembly;
+        // Act
+        var inventory = ReadingInventory.Default;
+        var record = inventory.TryFindForm("record", out var recordForm);
+        var read = inventory.TryFindForm("READ", out var readForm);
 
-        // Act / Assert
-        Assert.NotNull(assembly.GetManifestResourceInfo("DemaConsulting.Speech.Text.En.Resources.readings.tsv"));
-        Assert.NotNull(assembly.GetManifestResourceInfo("DemaConsulting.Speech.Text.En.Resources.forms.tsv"));
-        Assert.Null(assembly.GetManifestResourceInfo("DemaConsulting.Speech.Text.En.Resources.heteronyms.bin"));
+        // Assert
+        Assert.True(record);
+        Assert.Equal(["record.noun", "record.verb"], inventory.GetCandidates(recordForm).ToArray().Select(inventory.ReadingIdAt));
+        Assert.True(read);
+        Assert.Equal(["read.past", "read.present"], inventory.GetCandidates(readForm).ToArray().Select(inventory.ReadingIdAt));
+        Assert.True(inventory.Contains("record.verb"));
+        Assert.Equal(ReadingInventory.CurrentVersion, inventory.Version);
     }
 
     /// <summary>Proves every reading id of the embedded inventory satisfies the id grammar, is contained and the list is sorted by ordinal comparison.</summary>

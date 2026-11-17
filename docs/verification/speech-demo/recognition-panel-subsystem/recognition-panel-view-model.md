@@ -21,19 +21,16 @@ message up to a bounded timeout.
 
 #### Acceptance Criteria
 
-The unit passes when: only installed recognition models are offered, the selection survives a
-refresh, an empty catalog is explained (and the explanation clears when a model appears); partial results replace the
-trailing transcript line
-while finals commit in order and a new run clears the previous transcript; Stop releases only the
-single-use session, is a safe no-op when idle, and two concurrent Stop calls both complete; a cached
-engine is reused across Start/Stop cycles and invalidated when the selected model changes while
-idle; a model change while listening is ignored (selection unchanged, session still running); only
-the session is invalidated when the capture device changes or a device refresh occurs; overlapping
-Stop and device-change requests are serialized, never stopping or releasing the session twice;
-every unavailable state is reported honestly with resources released;
-Dispose releases the session and engine and unsubscribes from `ModelInstalled`; a matching-role
-`ModelInstalled` event refreshes while others do not; and `CanChangeModel` is false only while
-listening.
+The unit passes when: only installed recognition models are offered, the selection survives a refresh, an empty catalog
+is explained (and the explanation clears when a model appears); partial results replace the trailing transcript line
+while finals commit in order and a new run clears the previous transcript; Stop releases only the single-use session, is
+a safe no-op when idle, and two concurrent Stop calls both complete; a cached each Start recognizes through the selected
+model, and a model change while idle releases the previous model's engine and applies to the next Start; a model change
+while listening is ignored (selection unchanged, session still running); a capture-device change or a device refresh
+releases the old session and applies to the next Start; overlapping Stop and device-change requests are serialized,
+never stopping or releasing the session twice; every unavailable state is reported honestly with resources released;
+Dispose releases the session and engine and unsubscribes from `ModelInstalled`; a matching-role `ModelInstalled` event
+refreshes while others do not; and `CanChangeModel` is false only while listening.
 
 #### Test Scenarios
 
@@ -145,9 +142,8 @@ line.
 
 **Scenario**: Stop is invoked while listening.
 
-**Expected**: The session's `StopAsync()` is invoked, but the cached engine itself is **not**
-disposed and remains cached so a subsequent Start reuses it instead of reloading its model;
-`State` returns to `Idle` and `StatusMessage` becomes `StoppedMessage`.
+**Expected**: The session's `StopAsync()` is invoked; `State` returns to `Idle` and `StatusMessage`
+becomes `StoppedMessage`.
 
 ##### RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
 
@@ -163,29 +159,30 @@ first before starting the second.
 **Expected**: Both complete without throwing, rather than racing to double-dispose the same
 session, and the panel settles at `Idle`.
 
-##### RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine
+##### RecognitionPanelViewModel_StartStopStart_SameSelection_EachStartRecognizesThroughSelectedModel
 
 **Scenario**: Start, Stop, then Start again, with the same model and capture device selected
 throughout.
 
-**Expected**: The session seam loads an engine exactly once (`LoadAsync` is invoked once); a
-fresh single-use session is created from the same cached engine for each of the two runs.
+**Expected**: Every engine load asked for the selected model; each of the two runs got its own
+session, started exactly once; the panel is listening again.
 
-##### RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
+##### RecognitionPanelViewModel_DeviceRefresh_NextStartCapturesFromFreshDevice
 
-**Scenario**: A session is cached (idle) from a prior Start/Stop cycle, then the shared
-`DeviceSelectionViewModel.RefreshAsync()` runs.
+**Scenario**: A session exists (idle) from a prior Start/Stop cycle, then the shared
+`DeviceSelectionViewModel.RefreshAsync()` runs and the user starts again.
 
-**Expected**: The cached session is disposed, but the engine is never reloaded; a subsequent
-Start creates a fresh session bound to the post-refresh device table from the same cached engine.
+**Expected**: The stale session is disposed, and the new session captures from a different capture
+device object than the first and is started.
 
-##### RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
+##### RecognitionPanelViewModel_SelectedModelChanged_NextStartRecognizesThroughNewModel
 
-**Scenario**: The selected recognition model is changed while idle, with an engine already
-cached (idle) for the previously selected model.
+**Scenario**: The selected recognition model is changed while idle after a prior Start/Stop cycle on
+the previously selected model, then the user starts again. Distinguishable fake engines stand for
+the two models.
 
-**Expected**: The engine cached for the previous model is disposed, so a subsequent Start loads
-one for the newly selected model instead of reusing a stale instance.
+**Expected**: The previous model's engine is disposed, and the new session comes from the newly
+selected model's engine and is started.
 
 ##### RecognitionPanelViewModel_SelectedModelChanged_WhileListening_IsIgnored
 
@@ -203,14 +200,14 @@ fake) while a capture-device change arrives; the stop is then released.
 **Expected**: The device change waits for the stop: at no time are two stops active at once, the
 session is never disposed while a stop is still running, and both requests complete.
 
-##### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
+##### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_NextStartCapturesFromNewDevice
 
 **Scenario**: The shared `DeviceSelectionViewModel`'s selected capture device is changed while
-idle, with a session already cached (idle) bound to the previously selected device.
+idle, with a session already existing (idle) bound to the previously selected device, then the user
+starts again.
 
-**Expected**: The session cached for the previous device is disposed, but the engine is never
-reloaded, so a subsequent Start builds a session bound to the newly selected device while reusing
-the already-loaded engine.
+**Expected**: The session bound to the previous device is disposed, and the next Start captures
+from a device created for the newly selected one and starts a new session.
 
 ##### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesSession
 
@@ -218,7 +215,7 @@ the already-loaded engine.
 session is actively listening - the capture-device picker, unlike the model picker, is never
 disabled while listening.
 
-**Expected**: The active session is stopped and disposed, but the engine persists; `State`
+**Expected**: The active session is stopped and disposed; `State`
 returns to `Idle` rather than remaining stuck at `Listening` bound to an abandoned device.
 
 ##### RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing

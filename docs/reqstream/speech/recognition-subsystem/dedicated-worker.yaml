@@ -11,16 +11,17 @@ sections:
         sections:
           - title: DedicatedWorker Requirements
             requirements:
-              - id: Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
+              - id: Speech-Recognition-DedicatedWorker-BlockedCallIsolation
                 title: >-
-                  A stuck recognizer call shall never starve the process's shared worker threads.
+                  A blocked recognizer call shall neither block the caller nor prevent unrelated host work from
+                  progressing.
                 justification: |
                   Every recognizer call (decode, reset, flush) is potentially blocking and
-                  non-cooperative; running it on the shared worker threads risks their limited
-                  budget being consumed by stuck calls, starving unrelated work across the whole
-                  process.
+                  non-cooperative; a stuck call must never freeze its caller or starve unrelated work
+                  elsewhere in the process. (The design runs these calls on dedicated long-running
+                  threads; see the DedicatedWorker design.)
                 tests:
-                  - DedicatedWorker_Run_UsesLongRunningTaskCreationOption
+                  - DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork
 
               - id: Speech-Recognition-DedicatedWorker-CooperativeCancellation
                 title: >-

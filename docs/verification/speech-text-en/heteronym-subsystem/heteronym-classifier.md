@@ -8,8 +8,8 @@ scoring tests use the real inventory, the real feature extractor and the real mo
 single weight on the bias feature of one reading (a bucket the test computes with the same salts the classifier uses)
 makes the expected score and the expected softmax confidence exact, so the formulas are checked against closed-form
 values, not against the implementation. The contexts are described with the real tokenizer and tagger through the
-fixture builder (see *HeteronymSubsystem Verification* for that test-only dependency). The provider tests use a counting
-model source that counts opens and can serve no model, a corrupt file or a failing stream, and the real fixture model
+fixture builder (see *HeteronymSubsystem Verification* for that test-only dependency). The provider tests use a
+model source fake that can serve no model, a corrupt file or a failing stream, and the real fixture model
 for the success path. No fake of the classifier or the model is needed.
 
 #### Test Environment
@@ -26,13 +26,16 @@ With no weights at all the winner is the first candidate in the row order of the
 candidates is exactly one half; the confidence equals the temperature-calibrated softmax of the top candidate for two
 and for three candidates (to twelve decimals), and a higher temperature lowers it without changing the winner; a reading
 that is not a candidate of the word never wins whatever its weights; a form with one candidate returns that reading with
-confidence 1 without scoring; the observer receives the running count of model-scored classifications only; a model for
+confidence 1; the observer receives the running count of model-scored classifications only (never for a single-candidate
+form); a model for
 a newer inventory is rejected while an older or equal one is accepted; null arguments and a target outside the sentence
 are rejected; concurrent callers obtain the single-threaded results; the embedded provider and the provider with no
-source are not configured and have no model; asking whether a provider is configured never opens its source; concurrent
-first requests load once and share one classifier; an absent model is reported as not shipped, a corrupt model or a
-failing or unreadable source as invalid, and a model of a newer inventory as incompatible, each as a status value and
-never an exception, and cached rather than retried.
+source are not configured and have no model; a provider over a source reports that it is configured; concurrent
+first requests all receive a classifier whose predictions equal those of a sequentially obtained one; an absent model
+is reported as not shipped, a corrupt model or a
+failing or unreadable source as invalid, and a model of a newer inventory as incompatible, each as a status value with
+no classifier and never an exception. Whether a source is opened lazily, once, and whether a failure is cached rather
+than retried are design choices (see the *HeteronymClassifier Design*) and are not asserted.
 
 #### Test Scenarios
 
@@ -59,11 +62,14 @@ temperature 0.5, each equal to twelve decimals.
 
 ##### Single candidate and observer
 
-**Tests**: `HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOneWithoutScoring`,
-`HeteronymClassifier_Classify_Observer_ReceivesRunningCount`
+**Tests**: `HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOne`,
+`HeteronymClassifier_Classify_Observer_ReceivesRunningCount`,
+`HeteronymClassifier_Classify_Observer_NotCalledForSingleCandidateForm`
 
-The first single-candidate form of the inventory returns its only reading with confidence exactly 1 and the observer is
-not called. Three classifications of an ambiguous form call the observer with 1, 2 and 3.
+The first single-candidate form of the inventory returns its only reading with confidence exactly 1. The observer (the
+test seam that lets a caller act at an exact classification, for example to cancel) is not called for such a form, and
+three classifications of an ambiguous form call it with 1, 2 and 3. That the single-candidate form is answered without
+scoring is a design choice and is not inferred from the observer.
 
 ##### Construction and arguments
 
@@ -84,30 +90,30 @@ single-candidate form alike (the theory runs both kinds).
 A classifier over the fixture model, four sentences with `record` and sixteen tasks of 200 rounds each classify the same
 contexts; every prediction equals the single-threaded prediction.
 
-##### Provider configuration and laziness
+##### Provider configuration and concurrent first requests
 
 **Tests**: `HeteronymModelProvider_EmbeddedAndNone_AreNotConfiguredAndHaveNoModel`,
-`HeteronymModelProvider_IsConfigured_NeverOpensTheSource`,
-`HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_LoadOnceAndShare`
+`HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured`,
+`HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions`
 
 The embedded provider and the provider with no source are not configured, return no classifier and report `NotShipped`,
-which is the state of this release. A provider over a source reports that it is configured without the source being
-opened. Thirty-two concurrent first requests open the source once, run the load observer once and all receive the same
-classifier, over the default inventory.
+which is the state of this release. A provider over a source reports that it is configured. Thirty-two concurrent first
+requests each receive a classifier with status `Loaded` that classifies both `record` words of
+`I want to record a record.` exactly as a classifier from a separate, sequentially used provider does, over the default
+inventory.
 
 ##### Provider statuses
 
-**Tests**: `HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShippedOnce`,
-`HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalidAndCachesIt`,
+**Tests**: `HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShipped`,
+`HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalid`,
 `HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible`,
 `HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible`,
 `HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid`,
 `HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid`,
 `HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid`
 
-A source with no model gives `NotShipped` twice with one open. A model with its last byte changed, a source that throws
-`IOException` and one that throws `UnauthorizedAccessException` all give `Invalid` without throwing, and the corrupt and
-the failing sources are opened once although the corrupt one is asked twice, so the failure is cached. A well-formed
-model written for a newer inventory gives `Incompatible` and no classifier, and so does a well-formed model whose
-header names another feature-set version (2 and 65,535). A feature-set version of zero, a changed checksum field and a
-changed magic byte give `Invalid`.
+A source with no model gives `NotShipped` and no classifier, however often it is asked. A model with its last byte
+changed, a source that throws `IOException` and one that throws `UnauthorizedAccessException` all give `Invalid` and no
+classifier without throwing. A well-formed model written for a newer inventory gives `Incompatible` and no classifier,
+and so does a well-formed model whose header names another feature-set version (2 and 65,535). A feature-set version of
+zero, a changed checksum field and a changed magic byte give `Invalid`.

@@ -1912,7 +1912,6 @@ reviews:
       - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml"
       - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewModelTests.cs"
-      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewTests.cs"
 
   # SpeechDemo-ModelSettingsSubsystem-ParameterViewModels Review (one per unit)
   - id: SpeechDemo-ModelSettingsSubsystem-ParameterViewModels
@@ -2692,6 +2691,7 @@ reviews:
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModel.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/DisposalTrackingInferenceSession.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer Review (one per unit)
   - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer
@@ -2873,6 +2873,7 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/DisposalTrackingInferenceSession.cs"
 
   # SpeechOnnxChatterboxTurbo-SynthesisSubsystem Review (one per subsystem)
   - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem

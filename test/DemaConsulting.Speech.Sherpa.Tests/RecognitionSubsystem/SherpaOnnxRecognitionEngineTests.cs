@@ -1,4 +1,3 @@
-using System.Reflection;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
@@ -6,95 +5,221 @@ using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.Sherpa.Tests.RecognitionSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="SherpaOnnxRecognitionEngine"/>'s post-endpoint warm-up-replay
-///     bookkeeping, added to fix a real, confirmed Nemotron word-loss defect (see
-///     <c>.agent-logs/planning-nemotron-endpoint-word-loss-warmup-replay-fix-9d4b71.md</c>).
+///     Behavioral tests for <see cref="SherpaOnnxRecognitionEngine"/>'s handling of endpoints,
+///     silence, and a model's post-reset warm-up interval, driven only through the public
+///     <see cref="IRecognitionBackend"/> surface with real speech.
 /// </summary>
 /// <remarks>
-///     <see cref="SherpaOnnxRecognitionEngine"/> wraps native, un-fakeable sherpa-onnx types
-///     (<c>OnlineRecognizer</c>/<c>OnlineStream</c>), so - per this project's testing standards
-///     for native-runtime-dependent code, and consistent with the pattern already used for other
-///     native-dependent integration tests in this project - these tests load the real, already
-///     installed streaming Zipformer model and drive the engine with real audio (silence and a
-///     synthesized tone) rather than mocking the native surface. Tests are skipped, not failed,
-///     when the model is not installed in this environment (for example a fresh CI checkout that
-///     has not downloaded any model), since downloading a ~70 MiB production model is outside the
-///     scope of a unit test run. Private bookkeeping fields (<c>_warmupBuffer</c>,
-///     <c>_graceSamplesRemaining</c>) are inspected via reflection because they are deliberately
-///     not part of any public/internal surface - the whole point of the feature is that it is
-///     invisible to every caller.
+///     <see cref="SherpaOnnxRecognitionEngine"/> wraps native, un-fakeable sherpa-onnx types, so
+///     these tests load the real, already installed streaming models and drive them with a real
+///     recording (see <see cref="SherpaOnnxRecognitionEngineAccuracyTests"/> for its provenance)
+///     plus synthesized silence and quiet noise. They assert only what a caller can observe:
+///     transcribed words, their completeness against the recording's known-correct text, and
+///     whether any result is reported. They are skipped, not failed, when the model is not
+///     installed in this environment.
 /// </remarks>
 public sealed class SherpaOnnxRecognitionEngineTests
 {
-    /// <summary>The real, already-installed streaming Zipformer model, reused as a cheap, real, available native model for these engine-level tests.</summary>
-    private static readonly SherpaOnnxZipformerEnRecognitionModel Model = new();
+    /// <summary>The sample rate of the recording and of every synthesized block, in Hz.</summary>
+    private const int SampleRate = 16000;
+
+    /// <summary>The length of one analysis window used to find the recording's natural pauses.</summary>
+    private const int PauseWindowSamples = SampleRate / 10;
+
+    /// <summary>The RMS level below which an analysis window counts as a pause.</summary>
+    private const double PauseRmsThreshold = 0.01;
+
+    /// <summary>The number of consecutive quiet windows that make a natural pause worth extending.</summary>
+    private const int MinimumPauseWindows = 3;
+
+    /// <summary>The seconds of digital silence appended to each natural pause so the endpoint detector fires.</summary>
+    private const double ExtraPauseSeconds = 1.5;
 
     /// <summary>
-    ///     Resolves the real installed model directory for the streaming Zipformer model using
-    ///     the same default store root <see cref="SpeechModelStore"/> uses, without depending on
-    ///     that class's non-test-only construction path.
+    ///     Proves that speech which resumes immediately after the endpoints created by longer
+    ///     pauses is transcribed without lost words and without duplicated words, for the model
+    ///     that declares a post-reset warm-up interval.
     /// </summary>
-    private static string InstalledModelDirectory => Path.Join(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DemaConsulting.Speech",
-        "Models",
-        SherpaOnnxZipformerEnRecognitionModel.ModelId,
-        "current");
-
-    /// <summary>Whether the real Zipformer model is installed in this environment.</summary>
-    private static bool IsModelInstalled => Directory.Exists(InstalledModelDirectory) &&
-        Directory.EnumerateFileSystemEntries(InstalledModelDirectory).Any();
-
-    /// <summary>
-    ///     Builds a real <see cref="SherpaOnnxRecognitionEngine"/> over the installed Zipformer
-    ///     model at the given warm-up window, skipping the calling test if the model is not
-    ///     installed in this environment.
-    /// </summary>
-    private static SherpaOnnxRecognitionEngine CreateEngine(int postEndpointWarmupWindowMs)
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords()
     {
-        if (!IsModelInstalled)
+        // Arrange: the real recording with each natural pause extended so the endpoint detector
+        // fires, followed immediately by more speech
+        using var engine = CreateNemotronEngine();
+        var samples = ExtendNaturalPauses(
+            SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath));
+
+        // Act
+        var transcript = SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate);
+        var wordErrorRate = WordErrorRateCalculator.Compute(
+            SherpaOnnxRecognitionEngineAccuracyTests.GroundTruthTranscript,
+            transcript);
+
+        // Assert: lost words (deletions) and duplicated words (insertions) both raise the error rate
+        Assert.True(
+            wordErrorRate <= SherpaOnnxRecognitionEngineAccuracyTests.MaximumAcceptableWordErrorRate,
+            $"Word Error Rate {wordErrorRate:P1} exceeded the tolerance. Recognized transcript: \"{transcript}\"");
+    }
+
+    /// <summary>
+    ///     Proves that quiet noise preceding the speech does not cause the beginning of the
+    ///     speech to be lost.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_Transcribe_NemotronQuietNoiseBeforeSpeech_KeepsOpeningWords()
+    {
+        // Arrange: several seconds of quiet room noise, then the opening of the real recording
+        using var engine = CreateNemotronEngine();
+        var opening = Excerpt(SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath), seconds: 8.0);
+        var samples = QuietNoise(seconds: 4.0).Concat(opening).ToArray();
+
+        // Act
+        var transcript = SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate);
+
+        // Assert: the opening words of the first line are present in order
+        var words = WordErrorRateCalculator.NormalizeAndSplit(transcript);
+        Assert.Contains("sunset", words.Take(3));
+        Assert.Contains("evening", words.Take(5));
+    }
+
+    /// <summary>
+    ///     Proves that silence-only input, including digital silence and quiet noise long enough
+    ///     to fire endpoints, never produces a recognition result carrying text.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_Transcribe_NemotronSilenceOnly_ReportsNoText()
+    {
+        // Arrange
+        using var engine = CreateNemotronEngine();
+        var samples = new float[(int)(SampleRate * 3.0)]
+            .Concat(QuietNoise(seconds: 3.0))
+            .Concat(new float[(int)(SampleRate * 3.0)])
+            .ToArray();
+
+        // Act: feed every block and collect every result, provisional or final
+        var texts = FeedAndCollectAllResults(engine, samples);
+
+        // Assert
+        Assert.DoesNotContain(texts, text => text.Length > 0);
+    }
+
+    /// <summary>
+    ///     Proves that once speech ending at a natural pause has been fully transcribed and its
+    ///     final endpoint has fired, asking the engine for further results with no new audio reports nothing, so no
+    ///     already-reported words are repeated.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_TryDecodeAndTryFlush_NemotronNoNewAudioAfterEndpoint_ReportNothing()
+    {
+        // Arrange: transcribe the opening phrases, ending at a natural pause, plus trailing silence
+        using var engine = CreateNemotronEngine();
+        var samples = Excerpt(SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath), seconds: 8.0);
+        var transcript = SherpaOnnxRecognitionEngineAccuracyTests.Transcribe(engine, samples, SampleRate);
+        Assert.NotEmpty(transcript);
+
+        // Act: ask for more results with no further audio
+        var decoded = engine.TryDecode(out var decodedResult);
+        var flushed = engine.TryFlush(out var flushedResult);
+
+        // Assert: nothing further is reported
+        Assert.False(decoded && decodedResult is { Text.Length: > 0 }, $"Unexpected decoded text: {decodedResult?.Text}");
+        Assert.False(flushed && flushedResult is { Text.Length: > 0 }, $"Unexpected flushed text: {flushedResult?.Text}");
+    }
+
+    /// <summary>
+    ///     Proves that, for a model that declares no post-reset warm-up interval, the engine
+    ///     reports the same sequence of final results on repeated runs over the same real speech,
+    ///     so endpoint sequencing is unaffected by the warm-up handling being available.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_Transcribe_ZipformerNoWarmupInterval_ReportsStableFinalResults()
+    {
+        // Arrange: two engines over the model that declares no warm-up interval
+        var model = new SherpaOnnxZipformerEnRecognitionModel();
+        Assert.Equal(0, ((IRecognitionModel)model).PostEndpointWarmupWindowMs);
+        using var first = CreateZipformerEngine();
+        using var second = CreateZipformerEngine();
+        var samples = Excerpt(SherpaOnnxRecognitionEngineAccuracyTests.ReadMonoPcm16Wav(RecordingPath), seconds: 15.0);
+
+        // Act
+        var firstFinals = FeedAndCollectFinalResults(first, samples);
+        var secondFinals = FeedAndCollectFinalResults(second, samples);
+
+        // Assert: identical, non-empty final-result sequences
+        Assert.NotEmpty(firstFinals);
+        Assert.Equal(firstFinals, secondFinals);
+    }
+
+    /// <summary>Gets the path of the real recording copied next to the test assembly.</summary>
+    private static string RecordingPath =>
+        Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+
+    /// <summary>Builds a real Nemotron engine over the installed model, skipping the test if it is not installed.</summary>
+    private static SherpaOnnxRecognitionEngine CreateNemotronEngine()
+    {
+        var model = new SherpaOnnxNemotronStreamingEnRecognitionModel();
+        if (!SherpaOnnxRecognitionEngineAccuracyTests.IsModelInstalled(model.Id))
+        {
+            Assert.Skip("The real streaming Nemotron model is not installed in this environment.");
+        }
+
+        var recognitionModel = (IRecognitionModel)model;
+        Assert.True(recognitionModel.PostEndpointWarmupWindowMs > 0);
+        return new SherpaOnnxRecognitionEngine(
+            SherpaOnnxNemotronStreamingEnRecognitionModel.BuildEngineConfig(
+                SherpaOnnxRecognitionEngineAccuracyTests.InstalledModelDirectory(model.Id)),
+            recognitionModel.AudioFormat.SampleRate,
+            recognitionModel.PostEndpointWarmupWindowMs);
+    }
+
+    /// <summary>Builds a real Zipformer engine over the installed model, skipping the test if it is not installed.</summary>
+    private static SherpaOnnxRecognitionEngine CreateZipformerEngine()
+    {
+        var model = new SherpaOnnxZipformerEnRecognitionModel();
+        if (!SherpaOnnxRecognitionEngineAccuracyTests.IsModelInstalled(model.Id))
         {
             Assert.Skip("The real streaming Zipformer model is not installed in this environment.");
         }
 
-        IRecognitionModel model = Model;
-        var config = SherpaOnnxZipformerEnRecognitionModel.BuildEngineConfig(InstalledModelDirectory);
+        var recognitionModel = (IRecognitionModel)model;
         return new SherpaOnnxRecognitionEngine(
-            config,
-            model.AudioFormat.SampleRate,
-            postEndpointWarmupWindowMs);
-    }
-
-    /// <summary>Reads a private instance field by name via reflection.</summary>
-    private static T GetPrivateField<T>(object instance, string fieldName)
-    {
-        var field = typeof(SherpaOnnxRecognitionEngine).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new MissingFieldException(nameof(SherpaOnnxRecognitionEngine), fieldName);
-        return (T)field.GetValue(instance)!;
+            SherpaOnnxZipformerEnRecognitionModel.BuildEngineConfig(
+                SherpaOnnxRecognitionEngineAccuracyTests.InstalledModelDirectory(model.Id)),
+            recognitionModel.AudioFormat.SampleRate,
+            recognitionModel.PostEndpointWarmupWindowMs);
     }
 
     /// <summary>
-    ///     Writes a private instance field by name via reflection, used to force
-    ///     <c>_hasRecognizedTextSinceReset</c> to a known value so the replay-eligibility gating
-    ///     logic itself can be exercised deterministically, independent of whether the real model
-    ///     happens to transcribe a synthesized tone as non-empty text (see the class remarks and
-    ///     <c>.agent-logs/planning-nemotron-endpoint-leading-silence-regression-fix-7a2f91.md</c>,
-    ///     Implementation Plan item (c)).
+    ///     Returns the opening of <paramref name="samples"/> up to the first natural pause that
+    ///     begins at least <paramref name="seconds"/> in, so the excerpt never ends mid-word.
     /// </summary>
-    private static void SetPrivateField<T>(object instance, string fieldName, T value)
+    private static float[] Excerpt(float[] samples, double seconds)
     {
-        var field = typeof(SherpaOnnxRecognitionEngine).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new MissingFieldException(nameof(SherpaOnnxRecognitionEngine), fieldName);
-        field.SetValue(instance, value);
+        var minimumOffset = (int)(SampleRate * seconds);
+        var quietWindows = 0;
+        for (var offset = 0; offset < samples.Length; offset += PauseWindowSamples)
+        {
+            var length = Math.Min(PauseWindowSamples, samples.Length - offset);
+            var sumOfSquares = 0.0;
+            for (var i = 0; i < length; i++)
+            {
+                sumOfSquares += samples[offset + i] * samples[offset + i];
+            }
+
+            quietWindows = Math.Sqrt(sumOfSquares / length) < PauseRmsThreshold ? quietWindows + 1 : 0;
+            if (offset >= minimumOffset && quietWindows >= MinimumPauseWindows)
+            {
+                return samples.Take(offset).ToArray();
+            }
+        }
+
+        return samples;
     }
 
-    /// <summary>
-    ///     Half a second of quiet room noise at 16 kHz (RMS above the engine's speech-energy gate),
-    ///     used to drive the endpoint detector while keeping the warm-up buffer eligible for replay.
-    /// </summary>
-    private static float[] SilenceBlock(double seconds = 0.5)
+    /// <summary>Generates deterministic quiet room noise whose energy is above digital silence.</summary>
+    private static float[] QuietNoise(double seconds)
     {
-        var samples = new float[(int)(16000 * seconds)];
+        var samples = new float[(int)(SampleRate * seconds)];
         var random = new Random(1234);
         for (var i = 0; i < samples.Length; i++)
         {
@@ -104,557 +229,83 @@ public sealed class SherpaOnnxRecognitionEngineTests
         return samples;
     }
 
-    /// <summary>Half a second of true digital silence at 16 kHz.</summary>
-    private static float[] DigitalSilenceBlock(double seconds = 0.5) => new float[(int)(16000 * seconds)];
-
     /// <summary>
-    ///     A short, non-silent synthetic tone at 16 kHz, standing in for "genuine speech" for the
-    ///     purpose of exercising the buffer/replay/grace bookkeeping paths - the real recognizer
-    ///     is not expected to transcribe it as any particular word.
+    ///     Returns <paramref name="samples"/> with <see cref="ExtraPauseSeconds"/> of digital
+    ///     silence appended to every natural pause, so each pause ends in an endpoint while the
+    ///     speech that follows it is unchanged.
     /// </summary>
-    private static float[] ToneBlock(double seconds = 0.3)
+    private static float[] ExtendNaturalPauses(float[] samples)
     {
-        var sampleCount = (int)(16000 * seconds);
-        var samples = new float[sampleCount];
-        for (var i = 0; i < sampleCount; i++)
+        var output = new List<float>(samples.Length + (SampleRate * 30));
+        var extra = new float[(int)(SampleRate * ExtraPauseSeconds)];
+        var quietWindows = 0;
+
+        for (var offset = 0; offset < samples.Length; offset += PauseWindowSamples)
         {
-            samples[i] = 0.2f * MathF.Sin(2 * MathF.PI * 220f * i / 16000f);
-        }
-
-        return samples;
-    }
-
-    /// <summary>
-    ///     Proves that a disabled (<c>0</c>) warm-up window allocates no rolling buffer at all -
-    ///     the exact no-op guarantee every model except Nemotron relies on.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_NoBufferAllocated()
-    {
-        // Arrange & Act
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 0);
-
-        // Assert: the sentinel buffer field is null, meaning every enabled-path check is skipped
-        var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
-        Assert.Null(buffer);
-    }
-
-    /// <summary>
-    ///     Proves that a disabled engine feeding samples through several endpoint cycles behaves
-    ///     exactly as before this feature existed: no exception, no buffer ever materializes, and
-    ///     normal decode/reset bookkeeping (<see cref="SherpaOnnxRecognitionEngine.TryDecode"/>,
-    ///     internal reset) continues to function.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_AcceptSamplesAndDecode_IsNoOpForWarmupMechanism()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 0);
-
-        // Act: feed tone then enough silence to plausibly trigger an endpoint, decoding throughout
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-        for (var i = 0; i < 6; i++)
-        {
-            engine.AcceptSamples(SilenceBlock());
-            engine.TryDecode(out _);
-        }
-
-        // Assert: the buffer field never materializes for a disabled engine
-        var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
-        Assert.Null(buffer);
-    }
-
-    /// <summary>
-    ///     Proves that an enabled engine allocates a rolling buffer sized to the configured
-    ///     window (800ms at 16 kHz = 12800 samples) and actually accumulates fed samples into it.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferSizedToWindowAndAccumulates()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-
-        // Act
-        engine.AcceptSamples(ToneBlock(0.1));
-
-        // Assert: capacity matches the configured window at the model's 16 kHz rate, and some
-        // samples have been buffered (bounded by capacity, per the rolling-window trim logic)
-        var capacity = GetPrivateField<int>(engine, "_warmupBufferCapacity");
-        Assert.Equal(12800, capacity);
-
-        var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
-        Assert.NotNull(buffer);
-        Assert.True(buffer.Count > 0);
-        Assert.True(buffer.Count <= capacity);
-    }
-
-    /// <summary>
-    ///     Proves the rolling buffer trims from the front once it exceeds capacity, so it never
-    ///     grows unbounded across a long utterance.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferNeverExceedsCapacity()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-
-        // Act: feed well over 800ms of audio in total
-        for (var i = 0; i < 20; i++)
-        {
-            engine.AcceptSamples(ToneBlock(0.1));
-        }
-
-        // Assert
-        var capacity = GetPrivateField<int>(engine, "_warmupBufferCapacity");
-        var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
-        Assert.NotNull(buffer);
-        Assert.Equal(capacity, buffer.Count);
-    }
-
-    /// <summary>
-    ///     Proves that an endpoint following true digital silence does not replay the (silent)
-    ///     warm-up buffer and does not arm the grace period, because replaying silence into the
-    ///     reset stream makes the model lose speech that follows a long pause.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        // Act: feed true digital silence long enough for an endpoint to fire and reset the stream
-        var resetObserved = false;
-        for (var i = 0; i < 60 && !resetObserved; i++)
-        {
-            engine.AcceptSamples(DigitalSilenceBlock());
-            engine.TryDecode(out _);
-            resetObserved = !GetPrivateField<bool>(engine, "_hasRecognizedTextSinceReset");
-        }
-
-        if (!resetObserved)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Assert
-        Assert.Equal(0, GetPrivateField<int>(engine, "_graceSamplesRemaining"));
-    }
-
-    /// <summary>
-    ///     Proves that once a real endpoint fires on an enabled engine, the buffered pre-endpoint
-    ///     audio is replayed and cleared (consumed), and the post-replay grace period is armed -
-    ///     the core state transition the whole mechanism depends on.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-
-        // A synthesized sine tone is not guaranteed to be transcribed as non-empty text by the
-        // real model, which would otherwise make this test's replay-arming assertion depend on
-        // that transcription and skip more often than the mechanism it verifies warrants (see
-        // .agent-logs/planning-nemotron-endpoint-leading-silence-regression-fix-7a2f91.md,
-        // Implementation Plan item (c)). Forcing the eligibility flag directly, mirroring the
-        // existing reflection pattern already used to read `_warmupBuffer`/`_graceSamplesRemaining`,
-        // exercises the real replay-and-grace mechanism deterministically while still requiring
-        // only the eligibility signal to be forced, not the endpoint detection or replay itself.
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        // Act: feed enough trailing silence for the real endpoint detector to fire an endpoint,
-        // draining decode after every block until either an endpoint is observed or a generous
-        // bound is reached (real endpoint timing depends on the native model's own rules).
-        var endpointObserved = false;
-        for (var i = 0; i < 60 && !endpointObserved; i++)
-        {
-            engine.AcceptSamples(SilenceBlock());
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            engine.TryDecode(out _);
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            // The grace counter is only ever armed (set to a positive value) by a replay
-            // following a real endpoint, so observing it become armed here is direct proof the
-            // replay-on-endpoint transition fired.
-            if (gracedBefore == 0 && gracedAfter > 0)
+            var length = Math.Min(PauseWindowSamples, samples.Length - offset);
+            var sumOfSquares = 0.0;
+            for (var i = 0; i < length; i++)
             {
-                endpointObserved = true;
+                sumOfSquares += samples[offset + i] * samples[offset + i];
+            }
+
+            var isQuiet = Math.Sqrt(sumOfSquares / length) < PauseRmsThreshold;
+            if (!isQuiet && quietWindows >= MinimumPauseWindows)
+            {
+                output.AddRange(extra);
+            }
+
+            quietWindows = isQuiet ? quietWindows + 1 : 0;
+            for (var i = 0; i < length; i++)
+            {
+                output.Add(samples[offset + i]);
             }
         }
 
-        if (!endpointObserved)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Assert: the buffer was consumed by the replay and the grace period is counting down
-        var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
-        Assert.NotNull(buffer);
-        Assert.Empty(buffer);
-        var graceRemaining = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-        Assert.True(graceRemaining > 0);
+        return [.. output];
     }
 
     /// <summary>
-    ///     Proves that no <see cref="SpeechRecognitionResult"/> is ever raised purely from the
-    ///     text produced by replayed buffer content - <see cref="SherpaOnnxRecognitionEngine.TryDecode"/>
-    ///     must never surface more than one final result across one real endpoint-and-replay
-    ///     cycle, whether from the suppressed replay itself or from a spurious re-trigger during
-    ///     the grace period.
+    ///     Feeds <paramref name="samples"/> in 0.1-second blocks, draining every result after
+    ///     each block, and returns the text of every provisional and final result in order.
     /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult()
+    private static List<string> FeedAndCollectAllResults(IRecognitionBackend engine, float[] samples)
     {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-
-        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
-        // eligibility directly so this test deterministically exercises the real replay/grace
-        // mechanism instead of depending on whether the tone happens to transcribe as text.
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        var finalResultCount = 0;
-        var sawGraceArm = false;
-
-        // Act: drive well past the point where an endpoint (and its replay) should have fired,
-        // then continue feeding silence through the grace period and beyond, counting every
-        // final result raised.
-        for (var i = 0; i < 120; i++)
+        var texts = new List<string>();
+        for (var offset = 0; offset < samples.Length; offset += PauseWindowSamples)
         {
-            engine.AcceptSamples(SilenceBlock());
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            var gotResult = engine.TryDecode(out var result);
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            if (gracedBefore == 0 && gracedAfter > 0)
+            var length = Math.Min(PauseWindowSamples, samples.Length - offset);
+            engine.AcceptSamples(samples.AsSpan(offset, length));
+            while (engine.TryDecode(out var result))
             {
-                sawGraceArm = true;
-            }
-
-            if (gotResult && result!.IsFinal)
-            {
-                finalResultCount++;
+                texts.Add(result!.Text);
             }
         }
 
-        if (!sawGraceArm)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Assert: at most one final result for the one real utterance fed (a synthesized tone is
-        // not guaranteed to produce non-empty recognized text, so zero is an acceptable outcome,
-        // but two or more would prove a spurious/duplicated final result was raised from the
-        // suppressed replay or a spurious re-trigger during the grace period).
-        Assert.True(
-            finalResultCount <= 1,
-            $"Expected at most one final result but observed {finalResultCount}.");
+        return texts;
     }
 
     /// <summary>
-    ///     Proves that <see cref="SherpaOnnxRecognitionEngine.TryFlush"/> never resurfaces a
-    ///     replay-only hypothesis: stopping immediately after a real endpoint-triggered replay,
-    ///     with no genuinely-new audio fed in between, must not report the replay's own
-    ///     deliberately-discarded text as a flushed final result.
+    ///     Feeds <paramref name="samples"/> followed by trailing silence and returns the text of
+    ///     every non-empty final result in order.
     /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing()
+    private static List<string> FeedAndCollectFinalResults(IRecognitionBackend engine, float[] samples)
     {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-
-        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
-        // eligibility directly so this test deterministically exercises the real replay
-        // mechanism instead of depending on whether the tone happens to transcribe as text.
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        // Act: feed enough trailing silence for the real endpoint detector to fire an endpoint
-        // and trigger a replay, without feeding any further audio afterward.
-        var endpointObserved = false;
-        for (var i = 0; i < 60 && !endpointObserved; i++)
+        var padded = samples.Concat(new float[SampleRate * 2]).ToArray();
+        var finals = new List<string>();
+        for (var offset = 0; offset < padded.Length; offset += PauseWindowSamples)
         {
-            engine.AcceptSamples(SilenceBlock());
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            engine.TryDecode(out _);
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            if (gracedBefore == 0 && gracedAfter > 0)
+            var length = Math.Min(PauseWindowSamples, padded.Length - offset);
+            engine.AcceptSamples(padded.AsSpan(offset, length));
+            while (engine.TryDecode(out var result))
             {
-                endpointObserved = true;
-            }
-        }
-
-        if (!endpointObserved)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Sanity check on the mechanism under test: the replay must have left its marker set.
-        Assert.True(GetPrivateField<bool>(engine, "_hasReplayOnlyHypothesis"));
-
-        // Act: flush with no genuinely-new audio fed since the replay.
-        var gotResult = engine.TryFlush(out var result);
-
-        // Assert: nothing is reported - the replay's own discarded hypothesis must not resurface.
-        Assert.False(gotResult);
-        Assert.Null(result);
-    }
-
-    /// <summary>
-    ///     Proves that <see cref="SherpaOnnxRecognitionEngine.TryDecode"/> never resurfaces a
-    ///     replay-only hypothesis either: a caller drains every result one captured block
-    ///     produced by calling this method repeatedly with no intervening
-    ///     <see cref="SherpaOnnxRecognitionEngine.AcceptSamples"/> call, so the call immediately
-    ///     following an endpoint-triggered replay must not report the replay's own
-    ///     deliberately-discarded text as a spurious result. With a synthesized tone the
-    ///     replayed audio's own hypothesis is empty regardless of this guard, so the behavioral
-    ///     assertion below does not by itself discriminate the fix; the reflection-based
-    ///     assertion on <c>_hasReplayOnlyHypothesis</c> is what proves the guard's precondition
-    ///     is genuinely reached.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-
-        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
-        // eligibility directly so this test deterministically exercises the real replay
-        // mechanism instead of depending on whether the tone happens to transcribe as text.
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        // Act: feed enough trailing silence for the real endpoint detector to fire an endpoint
-        // and trigger a replay, without feeding any further audio afterward.
-        var endpointObserved = false;
-        for (var i = 0; i < 60 && !endpointObserved; i++)
-        {
-            engine.AcceptSamples(SilenceBlock());
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            engine.TryDecode(out _);
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            if (gracedBefore == 0 && gracedAfter > 0)
-            {
-                endpointObserved = true;
-            }
-        }
-
-        if (!endpointObserved)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Sanity check on the mechanism under test: the replay must have left its marker set.
-        Assert.True(GetPrivateField<bool>(engine, "_hasReplayOnlyHypothesis"));
-
-        // Act: call TryDecode again, exactly as a drain loop would, with no genuinely-new audio
-        // fed since the replay.
-        var gotResult = engine.TryDecode(out var result);
-
-        // Assert: nothing is reported - the replay's own discarded hypothesis must not resurface.
-        Assert.False(gotResult);
-        Assert.Null(result);
-    }
-
-    /// <summary>
-    ///     Proves that the grace period suppresses a same-tick spurious re-trigger: immediately
-    ///     after a replay arms the grace counter, continuing to feed the same kind of near-silent
-    ///     audio must not immediately produce a second final result before genuinely new audio
-    ///     (at least the configured grace duration's worth) has been fed.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_GracePeriodSuppressesImmediateReTrigger()
-    {
-        // Arrange
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        engine.AcceptSamples(ToneBlock());
-        engine.TryDecode(out _);
-
-        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
-        // eligibility directly so this test deterministically exercises the real replay/grace
-        // mechanism instead of depending on whether the tone happens to transcribe as text.
-        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
-
-        var sawGraceArm = false;
-        var extraFinalWhileGraced = false;
-
-        // Act
-        for (var i = 0; i < 120; i++)
-        {
-            engine.AcceptSamples(SilenceBlock(0.1));
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            var gotResult = engine.TryDecode(out var result);
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            if (gracedBefore == 0 && gracedAfter > 0)
-            {
-                sawGraceArm = true;
-                continue;
-            }
-
-            // Any final result observed *while the grace counter is still counting down* would
-            // be exactly the spurious immediate re-trigger the grace period exists to prevent.
-            if (sawGraceArm && gracedAfter > 0 && gotResult && result!.IsFinal)
-            {
-                extraFinalWhileGraced = true;
-            }
-        }
-
-        if (!sawGraceArm)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        // Assert
-        Assert.False(extraFinalWhileGraced);
-    }
-
-    /// <summary>
-    ///     Proves the core fix for the leading/inter-utterance-silence corruption regression (see
-    ///     <c>.agent-logs/quality-nemotron-endpoint-warmup-replay-fix-7a2f91.md</c> and
-    ///     <c>.agent-logs/planning-nemotron-endpoint-leading-silence-regression-fix-7a2f91.md</c>):
-    ///     an endpoint that fires on pure/near-silence, with no genuine speech ever recognized
-    ///     since the last reset, must never replay the buffered audio into the freshly reset
-    ///     stream - the buffer must simply be dropped and the grace counter must never arm.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilenceOnlyEndpoint_NeverArmsReplay()
-    {
-        // Arrange: no tone/speech fed at all, only silence from the very start of the cycle.
-        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
-
-        var sawBufferPopulatedThenCleared = false;
-        var sawGraceArm = false;
-
-        // Act: feed enough pure silence for the real endpoint detector's Rule1 (which fires on
-        // trailing silence alone, with no prior speech required) to report an endpoint.
-        for (var i = 0; i < 60; i++)
-        {
-            engine.AcceptSamples(SilenceBlock());
-            var bufferBefore = GetPrivateField<List<float>?>(engine, "_warmupBuffer")?.Count ?? 0;
-            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-            var hadTextBefore = GetPrivateField<bool>(engine, "_hasRecognizedTextSinceReset");
-            engine.TryDecode(out _);
-            var bufferAfter = GetPrivateField<List<float>?>(engine, "_warmupBuffer")?.Count ?? 0;
-            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
-
-            // No genuine speech was ever fed, so the eligibility flag must never have been set.
-            Assert.False(hadTextBefore);
-
-            if (gracedBefore == 0 && gracedAfter > 0)
-            {
-                sawGraceArm = true;
-            }
-
-            // A buffer that was populated and then became empty on the very same call, with no
-            // grace period ever arming, is direct proof an endpoint fired and its buffer was
-            // dropped (not replayed): a genuine replay always arms the grace counter (see
-            // `EndpointReplaysAndArmsGracePeriod` above), so its absence here is conclusive.
-            if (bufferBefore > 0 && bufferAfter == 0 && gracedAfter == 0)
-            {
-                sawBufferPopulatedThenCleared = true;
-            }
-        }
-
-        if (!sawBufferPopulatedThenCleared)
-        {
-            Assert.Skip("The real endpoint detector did not fire on pure silence within this test's bounded budget.");
-        }
-
-        // Assert: the buffer was dropped without ever arming a replay-driven grace period.
-        Assert.False(sawGraceArm);
-        Assert.False(GetPrivateField<bool>(engine, "_hasRecognizedTextSinceReset"));
-    }
-
-    /// <summary>
-    ///     Directly unit-tests the replay-eligibility gate itself via reflection, independent of
-    ///     whether the real model happens to transcribe any particular fed audio as non-empty
-    ///     text: forcing <c>_hasRecognizedTextSinceReset</c> to <see langword="true"/> before an
-    ///     endpoint fires must result in a replay (buffer cleared, grace armed); leaving it
-    ///     <see langword="false"/> must result in the buffer being dropped without a replay
-    ///     (buffer cleared, grace never armed) - covering the exact fork
-    ///     <see cref="SherpaOnnxRecognitionEngine.TryDecode"/> takes at the moment an endpoint is
-    ///     observed.
-    /// </summary>
-    [Fact]
-    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset()
-    {
-        // Case 1: eligibility forced true - a genuine replay must occur.
-        using (var eligibleEngine = CreateEngine(postEndpointWarmupWindowMs: 800))
-        {
-            eligibleEngine.AcceptSamples(ToneBlock());
-            eligibleEngine.TryDecode(out _);
-            SetPrivateField(eligibleEngine, "_hasRecognizedTextSinceReset", true);
-
-            var sawGraceArm = false;
-            for (var i = 0; i < 60 && !sawGraceArm; i++)
-            {
-                eligibleEngine.AcceptSamples(SilenceBlock());
-                var gracedBefore = GetPrivateField<int>(eligibleEngine, "_graceSamplesRemaining");
-                eligibleEngine.TryDecode(out _);
-                var gracedAfter = GetPrivateField<int>(eligibleEngine, "_graceSamplesRemaining");
-                if (gracedBefore == 0 && gracedAfter > 0)
+                if (result is { IsFinal: true, Text.Length: > 0 })
                 {
-                    sawGraceArm = true;
+                    finals.Add(result.Text);
                 }
             }
-
-            if (!sawGraceArm)
-            {
-                Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-            }
-
-            Assert.Empty(GetPrivateField<List<float>?>(eligibleEngine, "_warmupBuffer")!);
         }
 
-        // Case 2: eligibility left false (default, no speech fed) - the buffer must be dropped,
-        // never replayed, and the grace counter must never arm.
-        using var ineligibleEngine = CreateEngine(postEndpointWarmupWindowMs: 800);
-        ineligibleEngine.AcceptSamples(ToneBlock(0.1));
-        Assert.False(GetPrivateField<bool>(ineligibleEngine, "_hasRecognizedTextSinceReset"));
-
-        // Explicitly force the flag false (defensive - it should already be false at this point)
-        // so this assertion is not accidentally dependent on the tone having failed to transcribe.
-        SetPrivateField(ineligibleEngine, "_hasRecognizedTextSinceReset", false);
-
-        var sawBufferPopulatedThenCleared = false;
-        var sawGraceArmIneligible = false;
-        for (var i = 0; i < 60; i++)
-        {
-            ineligibleEngine.AcceptSamples(SilenceBlock());
-            var bufferBefore = GetPrivateField<List<float>?>(ineligibleEngine, "_warmupBuffer")?.Count ?? 0;
-            var gracedBefore = GetPrivateField<int>(ineligibleEngine, "_graceSamplesRemaining");
-            ineligibleEngine.TryDecode(out _);
-            var bufferAfter = GetPrivateField<List<float>?>(ineligibleEngine, "_warmupBuffer")?.Count ?? 0;
-            var gracedAfter = GetPrivateField<int>(ineligibleEngine, "_graceSamplesRemaining");
-
-            if (gracedBefore == 0 && gracedAfter > 0)
-            {
-                sawGraceArmIneligible = true;
-            }
-
-            if (bufferBefore > 0 && bufferAfter == 0 && gracedAfter == 0)
-            {
-                sawBufferPopulatedThenCleared = true;
-            }
-        }
-
-        if (!sawBufferPopulatedThenCleared)
-        {
-            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
-        }
-
-        Assert.False(sawGraceArmIneligible);
+        return finals;
     }
 }

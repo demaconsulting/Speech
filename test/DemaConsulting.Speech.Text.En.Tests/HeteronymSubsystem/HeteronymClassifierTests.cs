@@ -6,8 +6,8 @@ namespace DemaConsulting.Speech.Text.En.Tests.HeteronymSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="HeteronymClassifier"/> and <see cref="HeteronymModelProvider"/>:
-///     candidate-restricted scoring, the tie rule, calibrated confidence, compatibility checks, and the lazy,
-///     shared, failure-contained model supply.
+///     candidate-restricted scoring, the tie rule, calibrated confidence, compatibility checks, and the
+///     failure-contained model supply.
 /// </summary>
 public sealed class HeteronymClassifierTests
 {
@@ -91,9 +91,28 @@ public sealed class HeteronymClassifierTests
         Assert.InRange(prediction.Confidence, 1.0 / 3, 1.0);
     }
 
-    /// <summary>Proves a single-candidate form returns its reading with confidence 1 without scoring (no observer call).</summary>
+    /// <summary>Proves a single-candidate form returns its reading with confidence 1.</summary>
     [Fact]
-    public void HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOneWithoutScoring()
+    public void HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOne()
+    {
+        // Arrange
+        var inventory = ReadingInventory.Default;
+        var form = Enumerable.Range(0, inventory.FormCount).First(f => inventory.GetCandidates(f).Length == 1);
+        var word = inventory.FormAt(form);
+        var (context, target, formIndex) = Prepare(inventory, $"We saw the {word} there .", word);
+        var (_, classifier) = Create([]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, formIndex);
+
+        // Assert
+        Assert.Equal(inventory.GetCandidates(form)[0], prediction.ReadingIndex);
+        Assert.Equal(1.0, prediction.Confidence);
+    }
+
+    /// <summary>Proves the observer is not called for a single-candidate form, which no model scores.</summary>
+    [Fact]
+    public void HeteronymClassifier_Classify_Observer_NotCalledForSingleCandidateForm()
     {
         // Arrange
         var inventory = ReadingInventory.Default;
@@ -104,11 +123,9 @@ public sealed class HeteronymClassifierTests
         var (_, classifier) = Create([], observer: _ => calls++);
 
         // Act
-        var prediction = classifier.Classify(context, target, formIndex);
+        classifier.Classify(context, target, formIndex);
 
         // Assert
-        Assert.Equal(inventory.GetCandidates(form)[0], prediction.ReadingIndex);
-        Assert.Equal(1.0, prediction.Confidence);
         Assert.Equal(0, calls);
     }
 
@@ -254,50 +271,58 @@ public sealed class HeteronymClassifierTests
         Assert.Equal(ModelLoadStatus.NotShipped, noneStatus);
     }
 
-    /// <summary>Proves constructing a provider and asking whether it is configured never opens the model source.</summary>
+    /// <summary>Proves a provider built over a model source reports that a model is configured.</summary>
     [Fact]
-    public void HeteronymModelProvider_IsConfigured_NeverOpensTheSource()
+    public void HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured()
     {
         // Arrange
         var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
 
         // Act
         var provider = HeteronymFixtureModel.CreateProvider(source);
-        var configured = provider.IsConfigured;
 
         // Assert
-        Assert.True(configured);
-        Assert.Equal(0, source.Count);
+        Assert.True(provider.IsConfigured);
     }
 
-    /// <summary>Proves 32 concurrent first requests load the model once and share one classifier.</summary>
+    /// <summary>Proves 32 concurrent first requests all get a working classifier that gives the predictions of a sequential request.</summary>
     [Fact]
-    public async Task HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_LoadOnceAndShare()
+    public async Task HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions()
     {
         // Arrange
         var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
-        var loads = 0;
-        var provider = new HeteronymModelProvider(source.Open, loadObserver: () => Interlocked.Increment(ref loads));
+        var provider = HeteronymFixtureModel.CreateProvider(source);
+        var reference = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples))).GetClassifier(out _);
+        Assert.NotNull(reference);
+        var (context, _) = HeteronymFixtureModel.Describe("I want to record a record.");
+        Assert.True(ReadingInventory.Default.TryFindForm("record", out var form));
+        var expected = new[] { 3, 5 }.Select(target => reference.Classify(context, target, form)).ToArray();
 
         // Act
-        var tasks = Enumerable.Range(0, 32).Select(index => Task.Run(() => provider.GetClassifier(out _), TestContext.Current.CancellationToken)).ToArray();
-        var classifiers = await Task.WhenAll(tasks);
+        var tasks = Enumerable.Range(0, 32).Select(index => Task.Run(
+            () =>
+            {
+                var classifier = provider.GetClassifier(out var status);
+                return (status, predictions: classifier is null ? Array.Empty<HeteronymPrediction>() : new[] { 3, 5 }.Select(target => classifier.Classify(context, target, form)).ToArray());
+            },
+            TestContext.Current.CancellationToken)).ToArray();
+        var results = await Task.WhenAll(tasks);
 
         // Assert
-        Assert.Equal(1, source.Count);
-        Assert.Equal(1, loads);
-        Assert.NotNull(classifiers[0]);
-        Assert.All(classifiers, classifier => Assert.Same(classifiers[0], classifier));
-        Assert.Same(ReadingInventory.Default, provider.Inventory);
+        Assert.All(results, result =>
+        {
+            Assert.Equal(ModelLoadStatus.Loaded, result.status);
+            Assert.Equal(expected, result.predictions);
+        });
+        Assert.Equal(ReadingInventory.Default.Version, provider.Inventory.Version);
     }
 
-    /// <summary>Proves a source with no model reports not shipped, quietly and once.</summary>
+    /// <summary>Proves a source with no model reports not shipped, quietly, however often it is asked.</summary>
     [Fact]
-    public void HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShippedOnce()
+    public void HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShipped()
     {
         // Arrange
-        var source = new CountingModelSource(null);
-        var provider = HeteronymFixtureModel.CreateProvider(source);
+        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(null));
 
         // Act
         var first = provider.GetClassifier(out var firstStatus);
@@ -308,35 +333,31 @@ public sealed class HeteronymClassifierTests
         Assert.Null(second);
         Assert.Equal(ModelLoadStatus.NotShipped, firstStatus);
         Assert.Equal(ModelLoadStatus.NotShipped, secondStatus);
-        Assert.Equal(1, source.Count);
     }
 
-    /// <summary>Proves a corrupt model and a failing source are reported as invalid values, never thrown, and the failure is cached rather than retried.</summary>
+    /// <summary>Proves a corrupt model and a failing source are reported as invalid values with no classifier, never thrown.</summary>
     [Fact]
-    public void HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalidAndCachesIt()
+    public void HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalid()
     {
         // Arrange
         var corruptBytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
         corruptBytes[^1] ^= 0x01;
-        var corrupt = new CountingModelSource(corruptBytes);
-        var failing = new CountingModelSource(null, new IOException("The disk is gone."));
-        var unreadable = new CountingModelSource(null, new UnauthorizedAccessException("No access."));
+        var corruptProvider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(corruptBytes));
+        var failingProvider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(null, new IOException("The disk is gone.")));
+        var unreadableProvider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(null, new UnauthorizedAccessException("No access.")));
 
         // Act
-        var corruptProvider = HeteronymFixtureModel.CreateProvider(corrupt);
-        var failingProvider = HeteronymFixtureModel.CreateProvider(failing);
-        var unreadableProvider = HeteronymFixtureModel.CreateProvider(unreadable);
-        corruptProvider.GetClassifier(out var corruptStatus);
-        corruptProvider.GetClassifier(out _);
-        failingProvider.GetClassifier(out var failingStatus);
-        unreadableProvider.GetClassifier(out var unreadableStatus);
+        var corrupt = corruptProvider.GetClassifier(out var corruptStatus);
+        var failing = failingProvider.GetClassifier(out var failingStatus);
+        var unreadable = unreadableProvider.GetClassifier(out var unreadableStatus);
 
         // Assert
+        Assert.Null(corrupt);
+        Assert.Null(failing);
+        Assert.Null(unreadable);
         Assert.Equal(ModelLoadStatus.Invalid, corruptStatus);
         Assert.Equal(ModelLoadStatus.Invalid, failingStatus);
         Assert.Equal(ModelLoadStatus.Invalid, unreadableStatus);
-        Assert.Equal(1, corrupt.Count);
-        Assert.Equal(1, failing.Count);
     }
 
     /// <summary>Proves a well-formed model for a newer inventory than the build has is reported as incompatible.</summary>

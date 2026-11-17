@@ -61,9 +61,9 @@ sections:
               genuinely spoken audio; the engine must recover that audio for models that opt in
               without affecting models that do not.
             children:
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplay
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplayNotReported
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupSilenceNoReplay
-              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupDisabledNoOp
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointSpeechPreserved
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointNoDuplicateResults
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SilenceHandling
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-NoWarmupIntervalUnchanged
             tests:
-              - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod
+              - SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords

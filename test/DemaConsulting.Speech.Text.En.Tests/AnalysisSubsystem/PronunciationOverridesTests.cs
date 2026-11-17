@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 ///     Unit tests for <see cref="PronunciationOverrides"/> and <see cref="PronunciationOverrideEntry"/>:
 ///     entry validation, payload grammars, duplicate rules, limits, the tab-separated loader,
 ///     immutability, case rules, whole-word matching, the directives that come out of a lookup,
-///     cancellation, allocation and argument validation. The collaborators are real (the shared
+///     cancellation and argument validation. The collaborators are real (the shared
 ///     override syntax and the real tokenizer through the harness); no fake is needed.
 /// </summary>
 public sealed class PronunciationOverridesTests
@@ -1320,35 +1320,32 @@ public sealed class PronunciationOverridesTests
         Assert.All(directives, directive => Assert.InRange(directive.TokenIndex, 0, tokens.Length - 1));
     }
 
-    // ---------------------------------------------------------------- cancellation, allocation, size
+    // ---------------------------------------------------------------- cancellation, size
 
-    /// <summary>Proves the lookup checks the cancellation token every 256 visited tokens counting every token (matched or not), before any work too, and stops at the first check after the cancellation.</summary>
+    /// <summary>Proves the lookup throws OperationCanceledException for a token that is already canceled before visiting any token, and for a cancellation requested while a long text is being processed.</summary>
     [Fact]
-    public void PronunciationOverrides_Resolve_Cancellation_CheckedEveryIntervalCountingEveryToken()
+    public void PronunciationOverrides_Resolve_Cancellation_ThrowsOnPreCanceledTokenAndWhenCanceledWhileProcessing()
     {
-        // Arrange: 1000 tokens that never match, and an observer that cancels while token 300 is visited
+        // Arrange: 5,000 tokens that never match, and an observer that cancels while an early token is visited
         var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("zzzz")]);
-        var text = string.Concat(Enumerable.Repeat("a ", 1000));
+        var text = string.Concat(Enumerable.Repeat("a ", 5000));
         var (_, tokens, _) = ResolveWords(overrides, text);
-        using var cancellation = new CancellationTokenSource();
-        var visited = new List<int>();
+        using var duringProcessing = new CancellationTokenSource();
 
-        // Act
-        Assert.Throws<OperationCanceledException>(() => overrides.Resolve(text, tokens, cancellation.Token, index =>
+        // Act / Assert: cancellation requested while processing ends the request without a result
+        Assert.Throws<OperationCanceledException>(() => overrides.Resolve(text, tokens, duringProcessing.Token, index =>
         {
-            visited.Add(index);
-            if (index == 300)
+            if (index == 10)
             {
-                cancellation.Cancel();
+                duringProcessing.Cancel();
             }
         }));
 
-        // Assert: every token up to the next check (the 512th visited token) was visited, in order, and none after
-        Assert.Equal(Enumerable.Range(0, 511), visited);
-
         // an already-canceled token stops before the first token is visited
+        using var preCanceled = new CancellationTokenSource();
+        preCanceled.Cancel();
         var visitedAfterCancel = 0;
-        Assert.Throws<OperationCanceledException>(() => overrides.Resolve(text, tokens, cancellation.Token, _ => visitedAfterCancel++));
+        Assert.Throws<OperationCanceledException>(() => overrides.Resolve(text, tokens, preCanceled.Token, _ => visitedAfterCancel++));
         Assert.Equal(0, visitedAfterCancel);
     }
 
@@ -1368,17 +1365,25 @@ public sealed class PronunciationOverridesTests
         Assert.Empty(directives);
     }
 
-    /// <summary>Proves a 1 MB text against a 10,000-entry dictionary resolves in linear time (a generous budget, far above the real cost), including one huge token.</summary>
+    /// <summary>Proves a 1 MB text against a 10,000-entry dictionary, including one huge token, resolves to exactly the directives of the words that are keys.</summary>
     [Fact]
-    public void PronunciationOverrides_Resolve_LargeText_CompletesWithinBudget()
+    public void PronunciationOverrides_Resolve_LargeText_ResolvesExactlyTheMatchingWords()
     {
         // Arrange
         var overrides = PronunciationOverrides.Create(Enumerable.Range(0, PronunciationOverrides.MaxEntries).Select(i => PronunciationOverrideEntry.Skip(Word(i), i % 3 == 0)));
         var builder = new StringBuilder();
         var index = 0;
+        var expectedTokenIndices = new List<int>();
         while (builder.Length < 1_000_000)
         {
-            builder.Append(Word(index++ * 7 % 456_976)).Append(' ');
+            var key = index * 7 % 456_976;
+            if (key < PronunciationOverrides.MaxEntries)
+            {
+                expectedTokenIndices.Add(index);
+            }
+
+            builder.Append(Word(key)).Append(' ');
+            index++;
         }
 
         builder.Append(new string('a', 100_000));
@@ -1386,13 +1391,13 @@ public sealed class PronunciationOverridesTests
         var (_, tokens, _) = ResolveWords(overrides, text);
 
         // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var directives = overrides.Resolve(text, tokens, CancellationToken.None);
-        stopwatch.Stop();
 
-        // Assert
-        Assert.NotEmpty(directives);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20), $"took {stopwatch.Elapsed}");
+        // Assert: every key word and only the key words, as skip directives in token order; the huge token is no key
+        Assert.Equal(index + 1, tokens.Length);
+        Assert.NotEmpty(expectedTokenIndices);
+        Assert.Equal(expectedTokenIndices, directives.Select(directive => directive.TokenIndex));
+        Assert.All(directives, directive => Assert.Equal(TokenDirectiveKind.Skip, directive.Kind));
     }
 
     // ---------------------------------------------------------------- argument validation

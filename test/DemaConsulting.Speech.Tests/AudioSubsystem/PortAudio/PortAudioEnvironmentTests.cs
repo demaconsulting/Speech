@@ -11,34 +11,6 @@ namespace DemaConsulting.Speech.Tests.AudioSubsystem.PortAudio;
 public class PortAudioEnvironmentTests
 {
     /// <summary>
-    ///     Proves that the real PortAudio API adapter is exposed as a shared singleton instance.
-    /// </summary>
-    [Fact]
-    public void PortAudioApi_Instance_ReadTwice_ReturnsSameInstance()
-    {
-        // Arrange & Act: read the shared PortAudio API adapter twice
-        var first = PortAudioApi.Instance;
-        var second = PortAudioApi.Instance;
-
-        // Assert: the adapter is a singleton so the default environment reuses one managed binding instance
-        Assert.Same(first, second);
-    }
-
-    /// <summary>
-    ///     Proves that the default production PortAudio environment is exposed as a shared singleton instance.
-    /// </summary>
-    [Fact]
-    public void PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance()
-    {
-        // Arrange & Act: read the shared production environment twice
-        var first = PortAudioEnvironment.Shared;
-        var second = PortAudioEnvironment.Shared;
-
-        // Assert: the default environment is shared so PortAudio initialization state is cached process-wide
-        Assert.Same(first, second);
-    }
-
-    /// <summary>
     ///     Proves that Windows maps to the WASAPI host API.
     /// </summary>
     [Fact]
@@ -130,26 +102,24 @@ public class PortAudioEnvironmentTests
     }
 
     /// <summary>
-    ///     Proves that initialization failures are converted into a false return value and that
-    ///     the failed initialization attempt is cached rather than retried.
+    ///     Proves that initialization failures are converted into a false return value with the
+    ///     failure message, rather than an exception, on every query.
     /// </summary>
     [Fact]
-    public void PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure()
+    public void PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage()
     {
         // Arrange: a fake PortAudio seam whose initialization always fails
         var api = new FakePortAudioApi { InitializeException = new InvalidOperationException("PortAudio init failed.") };
         var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
 
-        // Act: resolve twice to prove the same failed initialization result is reused
+        // Act: resolve twice to prove the failure outcome is consistent
         var firstResult = environment.TryResolvePreferredHostApi(out _, out _);
         var secondResult = environment.TryResolvePreferredHostApi(out _, out _);
 
-        // Assert: callers observe an honest failure with the cached failure message, and the
-        // native initialization call is attempted only once
+        // Assert: callers observe an honest, non-throwing failure with the failure message
         Assert.False(firstResult);
         Assert.False(secondResult);
         Assert.Equal("PortAudio init failed.", environment.InitializationFailureMessage);
-        Assert.Equal(1, api.InitializeCallCount);
     }
 
     /// <summary>

@@ -26,17 +26,19 @@ sections:
                       - macos@PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
                       - PortAudioEnvironment_ResolvePreferredHostApiType_UnsupportedPlatform_ReturnsNull
 
-                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-UnavailableOutcome
                     title: >-
-                      The PortAudioEnvironment class shall cache one PortAudio initialization
-                      attempt and convert initialization failure into a non-throwing state.
+                      The PortAudioEnvironment class shall convert a PortAudio initialization failure
+                      into a non-throwing unavailable outcome carrying the failure message, and after
+                      a requested refresh its queries shall reflect the new initialization outcome.
                     justification: |
                       PortAudio initialization status influences composition-time fallback
-                      decisions and must not cause repeated native initialization attempts.
+                      decisions, so an unavailable audio runtime must be reported as a state
+                      rather than thrown, and a refresh must let the host recover once the cause is
+                      fixed. (The design caches one initialization attempt; see the PortAudio design.)
                     tests:
-                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
-                      - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
-                      - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseWithFailureMessage
+                      - PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult
 
                   - id: Speech-Audio-PortAudio-PortAudioEnvironment-ResolvesPreferredHostApi
                     title: >-

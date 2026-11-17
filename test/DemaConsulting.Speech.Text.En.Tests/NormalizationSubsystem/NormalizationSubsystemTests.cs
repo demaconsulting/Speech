@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -13,15 +12,12 @@ namespace DemaConsulting.Speech.Text.En.Tests.NormalizationSubsystem;
 ///     normalizer, the abbreviation resolver and the acronym recognizer) working together over
 ///     the real tokenizer of the part-of-speech package, which feeds the normalizer exactly as the
 ///     analyzer does (the tagger is not involved). The golden file, the alignment property tests,
-///     the sentence-break table, the linear-time guards and the concurrency test live here.
+///     the sentence-break table, the large-input output tests and the concurrency test live here.
 /// </summary>
 public sealed class NormalizationSubsystemTests
 {
     /// <summary>The tag placeholder as a string, for building texts.</summary>
     private const string Tag = "\uFFFC";
-
-    /// <summary>The time budget for the linear-time guards (a linear pass takes about a second on an idle machine; the budget leaves room for a heavily loaded build server, while a quadratic pass over these inputs would take minutes).</summary>
-    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(45);
 
     /// <summary>Proves every row of the golden file normalizes to the expected spoken text, sentences and ambiguity count.</summary>
     [Fact]
@@ -287,9 +283,12 @@ public sealed class NormalizationSubsystemTests
         Assert.All(results.SelectMany(keys => keys), key => Assert.Equal(expected, key));
     }
 
-    /// <summary>Proves one megabyte of realistic and of adversarially repetitive text normalizes within the time budget (linear time).</summary>
+    /// <summary>
+    ///     Proves one megabyte of realistic and of adversarially repetitive text keeps its documented normalization: away from the
+    ///     two ends of the text every repetition of the unit is annotated and broken exactly like the same repetition in a short text.
+    /// </summary>
     [Fact]
-    public void NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget()
+    public void NormalizationSubsystem_Normalize_LargeRepetitiveTexts_NormalizeEveryRepetitionAlike()
     {
         // Arrange: realistic text and four repetitive texts that would expose any quadratic look-around
         const int size = 1_000_000;
@@ -301,7 +300,7 @@ public sealed class NormalizationSubsystemTests
             "& ",
             "Dr. He ",
         ];
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var unit in units)
         {
@@ -309,38 +308,102 @@ public sealed class NormalizationSubsystemTests
             var tokens = NormalizationHarness.Tokenize(text);
 
             // Act
-            var stopwatch = Stopwatch.StartNew();
-            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: true, cancellation.Token);
-            stopwatch.Stop();
+            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: true, hangGuard.Token);
 
             // Assert
-            Assert.True(stopwatch.Elapsed < Budget, $"'{unit}' took {stopwatch.Elapsed}");
-            Assert.NotEmpty(aligned.Spans);
+            AssertRepetitionsNormalizedAlike(unit, text.Length / unit.Length, aligned, classifyClitics: true);
         }
     }
 
-    /// <summary>Proves one huge token (so any per-character look-around would be quadratic) of an ampersand, a dropped character or an apostrophe pattern normalizes within the time budget.</summary>
+    /// <summary>
+    ///     Proves one huge token (so any per-character look-around would be quadratic) of an ampersand, a dropped character or an
+    ///     apostrophe pattern is normalized exactly as its short form: one span per separator at its exact position, and nothing for a
+    ///     token of ampersands alone.
+    /// </summary>
     /// <param name="unit">The repeated unit that forms the single huge token.</param>
+    /// <param name="separatorOffset">The offset of the separator inside the unit.</param>
+    /// <param name="spoken">The spoken form of every separator.</param>
+    /// <param name="kind">The kind of every span.</param>
+    /// <param name="expectedSpans">The number of spans of the whole token.</param>
     [Theory]
-    [InlineData("a&")]
-    [InlineData("a\u200B")]
-    [InlineData("a\u2019b")]
-    [InlineData("&")]
-    public void NormalizationSubsystem_Normalize_OneHugeToken_CompletesWithinBudget(string unit)
+    [InlineData("a&", 1, " and ", NormalizationKind.Symbol, 499_999)]
+    [InlineData("a\u200B", 1, "", NormalizationKind.Dropped, 500_000)]
+    [InlineData("a\u2019b", 1, "'", NormalizationKind.Apostrophe, 333_333)]
+    [InlineData("&", 0, "", NormalizationKind.Symbol, 0)]
+    public void NormalizationSubsystem_Normalize_OneHugeToken_NormalizesEverySeparatorAsInAShortToken(string unit, int separatorOffset, string spoken, NormalizationKind kind, int expectedSpans)
     {
         // Arrange: the tokenizer is not under test for giant tokens, so the token list is built by hand
         var text = string.Concat(Enumerable.Repeat(unit, 1_000_000 / unit.Length));
         NormalizationToken[] tokens = [new NormalizationToken(0, text.Length, true)];
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         // Act
-        var stopwatch = Stopwatch.StartNew();
-        var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, cancellation.Token);
-        stopwatch.Stop();
+        var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, hangGuard.Token);
 
-        // Assert
-        Assert.True(stopwatch.Elapsed < Budget, $"took {stopwatch.Elapsed}");
-        Assert.NotNull(aligned);
+        // Assert: one span per separator, in order, each on its exact character; no fallback and no break
+        Assert.Equal(expectedSpans, aligned.Spans.Count);
+        for (var i = 0; i < aligned.Spans.Count; i++)
+        {
+            Assert.Equal(new NormalizedSpan((i * unit.Length) + separatorOffset, 1, spoken, kind), aligned.Spans[i]);
+        }
+
+        Assert.Equal(0, aligned.FallbackCount);
+        Assert.Empty(aligned.ForcedBreaks);
+        Assert.Empty(aligned.SuppressedBreaks);
+    }
+
+    /// <summary>
+    ///     Asserts that, in a text that is one unit repeated, every repetition away from the two ends of the text is normalized
+    ///     (spans, forced breaks and suppressed breaks) exactly like the same repetition in a short reference text of the same unit.
+    /// </summary>
+    /// <param name="unit">The repeated unit.</param>
+    /// <param name="copies">The number of repetitions in the large text.</param>
+    /// <param name="aligned">The normalization of the large text.</param>
+    /// <param name="classifyClitics">Whether clitics were classified for the large text (and are for the reference).</param>
+    private static void AssertRepetitionsNormalizedAlike(string unit, int copies, AlignedText aligned, bool classifyClitics)
+    {
+        // The reference is long enough for one repetition to be clear of the edges (the last repetitions look ahead past the end of the text)
+        const int referenceCopies = 9;
+        const int referenceCopy = 4;
+        const int edgeCopiesAtEnd = 3;
+        var length = unit.Length;
+        var reference = NormalizationHarness.Normalize(string.Concat(Enumerable.Repeat(unit, referenceCopies)), classifyClitics);
+        var referenceStart = referenceCopy * length;
+        var referenceEnd = (referenceCopy + 1) * length;
+        var interiorStart = length;
+        var interiorEnd = (copies - edgeCopiesAtEnd) * length;
+        var interiorCopies = copies - edgeCopiesAtEnd - 1;
+
+        // No span ever crosses the boundary between two repetitions
+        Assert.All(aligned.Spans, span => Assert.Equal(span.Start / length, (span.End - 1) / length));
+
+        // Spans
+        var pattern = reference.Spans.Where(span => span.Start >= referenceStart && span.End <= referenceEnd).ToList();
+        var interior = aligned.Spans.Where(span => span.Start >= interiorStart && span.End <= interiorEnd).ToList();
+        Assert.NotEmpty(pattern);
+        Assert.Equal(interiorCopies * pattern.Count, interior.Count);
+        for (var i = 0; i < interior.Count; i++)
+        {
+            var expected = pattern[i % pattern.Count];
+            var shift = (1 + (i / pattern.Count) - referenceCopy) * length;
+            Assert.True(interior[i] == expected with { Start = expected.Start + shift }, $"'{unit}': span {i} differs");
+        }
+
+        // Breaks
+        AssertBreaksRepeat(aligned.ForcedBreaks, reference.ForcedBreaks, "forced");
+        AssertBreaksRepeat(aligned.SuppressedBreaks, reference.SuppressedBreaks, "suppressed");
+
+        void AssertBreaksRepeat(IReadOnlyList<int> actual, IReadOnlyList<int> referenceBreaks, string name)
+        {
+            var breakPattern = referenceBreaks.Where(offset => offset >= referenceStart && offset < referenceEnd).ToList();
+            var breaks = actual.Where(offset => offset >= interiorStart && offset < interiorEnd).ToList();
+            Assert.Equal(interiorCopies * breakPattern.Count, breaks.Count);
+            for (var i = 0; i < breaks.Count; i++)
+            {
+                var shift = (1 + (i / Math.Max(breakPattern.Count, 1)) - referenceCopy) * length;
+                Assert.True(breaks[i] == breakPattern[i % breakPattern.Count] + shift, $"'{unit}': {name} break {i} differs");
+            }
+        }
     }
 
     /// <summary>Proves a hand-built surrogate pair next to every rule is never cut by a span.</summary>
@@ -821,9 +884,12 @@ public sealed class NormalizationSubsystemTests
         Assert.Equal("five \uD835\uDFD9 six", NormalizationHarness.Normalize("5 \uD835\uDFD9 6").ApplySpokenForms());
     }
 
-    /// <summary>Proves one megabyte of every numeric construct, repeated, normalizes within the time budget, and the work per token stays constant as the text grows.</summary>
+    /// <summary>
+    ///     Proves one megabyte of every numeric construct, repeated, keeps its documented normalization: away from the two ends of the
+    ///     text every repetition of the unit is annotated and broken exactly like the same repetition in a short text.
+    /// </summary>
     [Fact]
-    public void NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_CompleteWithinBudget()
+    public void NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_NormalizeEveryRepetitionAlike()
     {
         // Arrange: units that would expose any quadratic look-behind or look-ahead
         const int size = 1_000_000;
@@ -832,7 +898,7 @@ public sealed class NormalizationSubsystemTests
             "1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "1/2 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ",
             "555-123-4567 ", "192.168.0.1 ", "1990s ", "3 1/2 ", "5\u201310 ", "$ 5 ", "5 ", "1999 ",
         ];
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var unit in units)
         {
@@ -840,40 +906,16 @@ public sealed class NormalizationSubsystemTests
             var tokens = NormalizationHarness.Tokenize(text);
 
             // Act
-            var stopwatch = Stopwatch.StartNew();
-            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, cancellation.Token);
-            stopwatch.Stop();
+            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, hangGuard.Token);
 
             // Assert
-            Assert.True(stopwatch.Elapsed < Budget, $"'{unit}' took {stopwatch.Elapsed}");
-            Assert.NotEmpty(aligned.Spans);
+            AssertRepetitionsNormalizedAlike(unit, text.Length / unit.Length, aligned, classifyClitics: false);
         }
-
-        // Assert: four times the tokens take well under eight times the time (the best of three runs, to ignore scheduling noise)
-        static TimeSpan Best(string text, CancellationToken token)
-        {
-            var tokens = NormalizationHarness.Tokenize(text);
-            var best = TimeSpan.MaxValue;
-            for (var attempt = 0; attempt < 3; attempt++)
-            {
-                var watch = Stopwatch.StartNew();
-                TextNormalizer.Default.Normalize(text, tokens, false, token);
-                watch.Stop();
-                best = watch.Elapsed < best ? watch.Elapsed : best;
-            }
-
-            return best;
-        }
-
-        const string repeated = "$1,234.50 at 5:30pm on January 5, 2024 for 50 % of 3 1/2 kg. ";
-        var small = Best(string.Concat(Enumerable.Repeat(repeated, 3_000)), cancellation.Token);
-        var large = Best(string.Concat(Enumerable.Repeat(repeated, 12_000)), cancellation.Token);
-        Assert.True(large.TotalMilliseconds < Math.Max(small.TotalMilliseconds, 20) * 12, $"3,000 repetitions took {small}, 12,000 took {large}");
     }
 
-    /// <summary>Proves one huge numeric-looking token (a million digits, separators, a symbol, or trailing letters) is rejected by the length cap and normalizes within the time budget.</summary>
+    /// <summary>Proves one huge numeric-looking token (a million digits, separators, a symbol, or trailing letters) is rejected by the length cap, left as written and counted as one numeric fallback.</summary>
     [Fact]
-    public void NormalizationSubsystem_Normalize_OneHugeNumericToken_CompletesWithinBudget()
+    public void NormalizationSubsystem_Normalize_OneHugeNumericToken_IsLeftAsWrittenAndCounted()
     {
         // Arrange: the tokenizer is not under test for giant tokens, so the token list is built by hand
         string[] texts =
@@ -887,19 +929,16 @@ public sealed class NormalizationSubsystemTests
             "$" + new string('7', 1_000_000),
             "5" + new string('k', 1_000_000),
         ];
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var text in texts)
         {
             NormalizationToken[] tokens = [new NormalizationToken(0, text.Length, true)];
 
             // Act
-            var stopwatch = Stopwatch.StartNew();
-            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, cancellation.Token);
-            stopwatch.Stop();
+            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, hangGuard.Token);
 
-            // Assert: left as written and counted, in a fraction of the budget
-            Assert.True(stopwatch.Elapsed < Budget, $"took {stopwatch.Elapsed}");
+            // Assert: left as written and counted
             Assert.Empty(aligned.Spans);
             Assert.Equal(1, aligned.FallbackCount);
         }

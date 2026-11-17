@@ -27,8 +27,8 @@ Roman-numeral-shaped ones (for example `MMMM`), a single letter, over-long token
 or ampersand shapes are not initialisms; dotted letter forms are spoken upper-cased and spaced and report
 whether the token carries the final period; ampersand forms are spoken group by group with `and` and keep a
 possessive tail; the loader builds a custom lexicon that the recognizer then uses exactly; malformed rows
-are rejected with an error naming the one-based line number; a null reader throws; and racing first use
-yields one instance.
+are rejected with an error naming the one-based line number; a null reader throws; and racing first uses
+of the default lexicon all give the documented recognitions.
 
 #### Test Scenarios
 
@@ -63,7 +63,7 @@ ampersand shapes (`&`, `A&`, `&A`, `A&&B`, `a&b`, `ABCDE&F`, `Johnson&Johnson`, 
 `J.R.R.`, `U.S` and `a.m`), `AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd` (a theory over
 `AT&T`, `R&D`, `Q&A`, `AT&T's`, the same with a typographic apostrophe and `A&B&C`)
 
-##### Loader and thread-safe first load
+##### Loader and concurrent first use
 
 **Tests**: `AcronymRecognizer_FromTsv_CustomLexicon_IsUsed`,
 `AcronymRecognizer_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine` (a theory over seven
@@ -73,4 +73,5 @@ A custom table with comments, a blank line and CRLF endings lists `NASA` (recogn
 ambiguous `XY` (left alone when the sentence is shouted). The malformed tables have a wrong column count, a
 lower-case form, an empty form, an empty spoken text, a spoken text with surrounding whitespace, an unknown
 ambiguity value and a duplicate form (reported on line 3, the others on line 2). A null reader throws, and
-thirty-two tasks reading the lazy default all receive the same instance.
+thirty-two tasks using the default lexicon for the first time at once all recognize `US` as `U S` and `us` as no
+initialism; whether the default is one shared, lazily created instance is a design choice and is not asserted.

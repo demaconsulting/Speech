@@ -4,7 +4,7 @@
 
 `SherpaOnnxRecognitionEngine` is the SpeechSherpa library's real, native-backed implementation of
 the Speech library's public `IRecognitionBackend` seam. It contains only the sherpa-onnx interop
-calls plus the post-endpoint warm-up-replay bookkeeping, so it is verified directly against the
+calls plus the post-endpoint warm-up handling, so it is verified directly against the
 real, already-installed streaming Zipformer and Nemotron models and the real native sherpa-onnx
 runtime rather than through a fake: mocking native inference would prove nothing about whether
 real audio decodes into real text, which is this unit's entire purpose. All policy above the seam
@@ -14,21 +14,20 @@ against a fake backend; see *Speech RecognitionSubsystem Verification*.
 The verification is split across two test classes in
 `test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/`:
 
-- `SherpaOnnxRecognitionEngineTests` verifies the post-endpoint warm-up-replay bookkeeping added
-  to fix the Nemotron word-loss defect (see *SpeechSherpa RecognitionSubsystem Design*), whose
-  rolling-buffer/replay/grace-period state machine is inspected through reflection on the engine's
-  private bookkeeping fields while silence and a synthesized sine-wave tone are fed through the
-  real engine
+- `SherpaOnnxRecognitionEngineTests` verifies the observable outcome of the post-endpoint warm-up
+  handling added to fix the Nemotron word-loss defect (see *SpeechSherpa RecognitionSubsystem
+  Design*) through the public `IRecognitionBackend` surface only: real speech with extended pauses
+  loses and duplicates no words, silence-only input reports no text, quiet noise before speech
+  keeps the opening words, no further results are reported once nothing new was fed, and a model
+  with no warm-up interval reports a stable result sequence. The buffering, replay, and grace-period
+  mechanics are design detail and are deliberately not inspected
 - `SherpaOnnxRecognitionEngineAccuracyTests` verifies real transcribed text: Word Error Rate
   against a real recording's ground truth, the session-end `Reset()` fix that discards buffered,
   not-yet-decoded audio, and `TryFlush()`'s recovery of that same buffered audio as a delivered
   final result
 
-Those tests skip (rather than fail) when the model is not installed in the running environment,
-and skip an individual real-endpoint assertion if the native endpoint detector does not fire
-within the test's bounded silence budget, since real endpoint timing depends on the native
-model's own rules rather than on this project's code. The engine's core decode/reset loop against
-arbitrary models beyond these two remains manual/local verification.
+Those tests skip (rather than fail) when the model is not installed in the running environment. The engine's core
+decode/reset loop against arbitrary models beyond these two remains manual/local verification.
 
 #### Real-Recording Re-Verification Evidence (Nemotron Word-Loss Fix)
 
@@ -91,9 +90,8 @@ confirming zero regression to the untouched model (`PostEndpointWarmupWindowMs =
 #### Real-Speech Transcription Accuracy Verification Evidence
 
 `SherpaOnnxRecognitionEngineAccuracyTests` closes a previously unaddressed coverage gap:
-`SherpaOnnxRecognitionEngineTests` deliberately only proves buffer/replay/grace bookkeeping using
-silence and a synthesized sine-wave tone, so no automated test anywhere in this project asserted
-on real transcribed text content against a known-correct ground truth before this class existed.
+Before this class existed, no automated test anywhere in this project asserted on real
+transcribed text content against a known-correct ground truth.
 It drives the same real, unmodified engine used in the re-verification above with a real, CC0-licensed spoken-word
 recitation of Alfred, Lord Tennyson's public-domain poem "Crossing the Bar"
 (`test/DemaConsulting.Speech.Sherpa.Tests/TestData/crossing-the-bar-16k-mono.wav`; full attribution and
@@ -108,8 +106,7 @@ recognizer heard the right words - are never counted as errors. A 20% WER tolera
 string match, is required because a real model's raw output legitimately differs from the ground
 truth in ways that are not transcription failures - most notably Tennyson's archaic spelling
 "crost" (for "crossed"), which a modern model's vocabulary may render as either spelling. Each
-test skips (rather than fails) when its target model is not installed in the running environment,
-mirroring `SherpaOnnxRecognitionEngineTests`.
+test skips (rather than fails) when its target model is not installed in the running environment.
 
 Both the real, installed streaming Zipformer and streaming Nemotron models were run end to end
 against this fixture in this project's development sandbox:
@@ -161,15 +158,13 @@ nothing crashes.
 
 #### Acceptance Criteria
 
-The unit is considered verified when, for the post-endpoint warm-up-replay feature: a disabled
-(`0`) window allocates no buffer and changes no observable behavior; an enabled window allocates a
-buffer sized to the configured duration that accumulates and trims fed samples; a real endpoint
-that occurs after genuine recognized text has been produced since the last reset consumes the
-buffer via a replay that never raises more than one final `SpeechRecognitionResult` per
-utterance; a replay with no new audio afterward reports nothing further from either `TryDecode`
-or `TryFlush`; a real endpoint that fires on pure/near-silence before any genuine text has been
-recognized since the last reset never replays - the buffer is dropped and the grace period never
-arms; and the post-replay grace period suppresses a same-tick spurious re-trigger. For real-speech
+The unit is considered verified when, for the post-endpoint warm-up handling: real speech that
+resumes immediately after endpoints created by extended pauses is transcribed by the Nemotron
+model within the documented Word Error Rate tolerance, so no words are lost and none are
+duplicated; asking for results when no new audio was fed after the final endpoint reports no
+further text from either `TryDecode` or `TryFlush`; silence-only input reports no text; quiet
+noise before speech does not cost the speech its opening words; and a model that declares no
+warm-up interval reports the same final-result sequence on repeated runs. For real-speech
 transcription accuracy: the real, installed Zipformer and Nemotron models each transcribe the real
 "Crossing the Bar" recording with a Word Error Rate, against its ground-truth text, that does not
 exceed the documented 20% tolerance. For the session-end `Reset()` fix: audio accepted but not yet
@@ -179,61 +174,52 @@ result's text when flushed before that reset, rather than only proving it is not
 
 #### Test Scenarios
 
-##### A disabled warm-up window allocates no buffer
+##### Speech resumed after extended pauses loses and duplicates no words
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_NoBufferAllocated`
+**Scenario**: The real recording, with each natural pause extended by 1.5 seconds of digital silence so
+the endpoint detector fires and speech resumes immediately afterward, is streamed through the real
+Nemotron engine, which declares a post-reset warm-up interval.
 
-##### A disabled warm-up window leaves accept and decode a no-op for the warm-up mechanism
+**Expected**: The transcript's Word Error Rate against the recording's text stays within tolerance;
+lost words (deletions) and duplicated words (insertions) would both raise it.
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_AcceptSamplesAndDecode_IsNoOpForWarmupMechanism`
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronPausesBetweenPhrases_LosesAndDuplicatesNoWords`
 
-##### An enabled warm-up window sizes its buffer to the window and accumulates samples
+##### Quiet noise before speech keeps the opening words
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferSizedToWindowAndAccumulates`
+**Scenario**: Four seconds of quiet room noise precede the opening of the recording.
 
-##### The warm-up buffer never exceeds its capacity
+**Expected**: The first words of the recording ("sunset", "evening") appear in order at the start of the
+transcript.
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferNeverExceedsCapacity`
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronQuietNoiseBeforeSpeech_KeepsOpeningWords`
 
-##### A real endpoint replays the buffer and arms the grace period
+##### Silence-only input reports no text
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod`
+**Scenario**: Digital silence, quiet noise, and digital silence are streamed through the real Nemotron
+engine, draining every provisional and final result.
 
-##### An endpoint after true silence does not replay the silent buffer
+**Expected**: No result carries any text.
 
-**Scenario**: A tone is fed, then true digital silence until the endpoint detector resets the stream.
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_NemotronSilenceOnly_ReportsNoText`
 
-**Expected**: No replay occurs and the post-replay grace period is not armed, so speech that follows a
-long pause in a finite file is not lost.
+##### No further results are reported once nothing new was fed
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed`
+**Scenario**: The opening of the recording, ending at a natural pause, is transcribed with trailing
+silence; `TryDecode` and `TryFlush` are then called with no new audio.
 
-##### The replay never produces an extra result
+**Expected**: Neither reports any text.
 
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult`
+**Test**: `SherpaOnnxRecognitionEngine_TryDecodeAndTryFlush_NemotronNoNewAudioAfterEndpoint_ReportNothing`
 
-##### TryFlush after a replay with no new audio reports nothing
+##### A model with no warm-up interval reports a stable result sequence
 
-**Test**:
-`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing`
+**Scenario**: Two real Zipformer engines, whose model declares no warm-up interval, transcribe the same
+opening of the recording.
 
-##### TryDecode after a replay with no new audio reports nothing
+**Expected**: Both report the same non-empty sequence of final results.
 
-**Test**:
-`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing`
-
-##### The grace period suppresses an immediate re-trigger
-
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_GracePeriodSuppressesImmediateReTrigger`
-
-##### A silence-only endpoint never arms the replay
-
-**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilenceOnlyEndpoint_NeverArmsReplay`
-
-##### Replay eligibility is gated on genuine recognized text since the last reset
-
-**Test**:
-`SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset`
+**Test**: `SherpaOnnxRecognitionEngine_Transcribe_ZipformerNoWarmupInterval_ReportsStableFinalResults`
 
 ##### The real Zipformer model transcribes a real recording within the WER tolerance
 

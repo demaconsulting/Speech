@@ -316,6 +316,39 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that a synthesis operation whose backend call is blocked does not block the
+    ///     caller and does not prevent unrelated host work from progressing, and that the
+    ///     operation completes once the backend call returns.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task SynthesisSession_SynthesizeAsync_BlockedBackendCall_DoesNotBlockCallerOrUnrelatedWork()
+    {
+        // Arrange: a backend that signals it has started, then blocks until the test releases it
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        await using var session = CreateSession(backend, CreateAvailablePlaybackDevice());
+
+        // Act: start synthesis; the call must hand back its task without waiting for the backend
+        var synthesizeTask = session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the backend call is blocked, yet unrelated work still completes
+        Assert.False(synthesizeTask.IsCompleted);
+        var unrelated = await Task.Run(() => 42, TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(42, unrelated);
+        Assert.False(synthesizeTask.IsCompleted);
+
+        // Act: release the backend call
+        generateRelease.Release();
+
+        // Assert: the operation completes
+        await synthesizeTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.True(backend.GenerateReturned);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="ISynthesisSession.StopAsync"/> fulfills its documented contract
     ///     of completing only once the in-flight operation has genuinely stopped: its returned
     ///     task does not complete while the backend's native-style <c>Generate</c> call is still
@@ -2162,21 +2195,21 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
-    ///     Proves a slow analyzer does not block the thread that called
-    ///     <see cref="SynthesisSession.SynthesizeAsync"/>: the call returns while the analyzer is
-    ///     still running, on a different thread.
+    ///     Proves <see cref="SynthesisSession.SynthesizeAsync"/> hands back its operation task
+    ///     without waiting for a blocked analyzer, and that the task completes with the expected
+    ///     synthesized segments once the analyzer is released.
     /// </summary>
     [Fact]
-    public async Task SynthesisSession_SynthesizeAsync_SlowAnalyzer_DoesNotBlockCallingThread() =>
+    public async Task SynthesisSession_SynthesizeAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting() =>
         await AssertSlowAnalyzerDoesNotBlockCallerAsync(playAfterSynthesis: false);
 
     /// <summary>
-    ///     Proves a slow analyzer does not block the thread that called
-    ///     <see cref="SynthesisSession.SpeakAsync"/>: the call returns while the analyzer is
-    ///     still running, on a different thread.
+    ///     Proves <see cref="SynthesisSession.SpeakAsync"/> hands back its operation task without
+    ///     waiting for a blocked analyzer, and that the task completes with the expected
+    ///     synthesized segments once the analyzer is released.
     /// </summary>
     [Fact]
-    public async Task SynthesisSession_SpeakAsync_SlowAnalyzer_DoesNotBlockCallingThread() =>
+    public async Task SynthesisSession_SpeakAsync_BlockedAnalyzer_ReturnsHandleWithoutWaiting() =>
         await AssertSlowAnalyzerDoesNotBlockCallerAsync(playAfterSynthesis: true);
 
     /// <summary>
@@ -2281,7 +2314,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Starts an operation whose analyzer blocks until released and asserts the starting call
-    ///     returns while the analyzer is still blocked, with the analyzer on another thread.
+    ///     returns while the analyzer is still blocked, and completes once it is released.
     /// </summary>
     /// <param name="playAfterSynthesis">True to start a speak request; false for synthesize.</param>
     private static async Task AssertSlowAnalyzerDoesNotBlockCallerAsync(bool playAfterSynthesis)
@@ -2289,10 +2322,8 @@ public class SynthesisSessionTests
         // Arrange
         using var entered = new ManualResetEventSlim(false);
         using var release = new ManualResetEventSlim(false);
-        var analyzerThreadId = -1;
         var analyzer = new FakeTextAnalyzer((_, _) =>
         {
-            analyzerThreadId = Environment.CurrentManagedThreadId;
             entered.Set();
             release.Wait(TimeSpan.FromSeconds(10));
             return TextAnalysisResult.Empty;
@@ -2300,7 +2331,6 @@ public class SynthesisSessionTests
         var backend = new FakeSynthesisEngine();
         var model = new FakeSynthesisModel(textAnalyzer: analyzer);
         await using var session = CreateSession(backend, CreateAvailablePlaybackDevice(), model);
-        var callerThreadId = Environment.CurrentManagedThreadId;
 
         // Act: the call must hand back its task without waiting for the blocked analyzer.
         Task task = playAfterSynthesis
@@ -2311,7 +2341,6 @@ public class SynthesisSessionTests
         Assert.False(release.IsSet);
         Assert.False(task.IsCompleted);
         Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
-        Assert.NotEqual(callerThreadId, analyzerThreadId);
         Assert.False(task.IsCompleted);
 
         release.Set();

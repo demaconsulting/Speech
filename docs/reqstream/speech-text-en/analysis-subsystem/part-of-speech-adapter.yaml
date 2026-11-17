@@ -42,54 +42,59 @@ sections:
                 tests:
                   - PartOfSpeechAdapter_Analyze_TagTrue_ReportsTagConfidenceAndKnownWord
 
-              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-LazySingleTagger
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-ConcurrentUseAndRecovery
                 title: >-
-                  The PartOfSpeechAdapter class shall obtain its tagger only when text with tokens
-                  is first tagged, at most once successfully even when many threads start at the
-                  same moment, shall not remember a failed attempt (the next request that needs
-                  the tagger shall try again), and the shared adapter shall be one process-wide
-                  instance.
+                  The PartOfSpeechAdapter class shall give the same tagged tokens to every call on
+                  one adapter, including calls that start at the same moment on a fresh adapter,
+                  shall report a tagger factory that fails or returns no tagger as an exception of
+                  that call only (a later call that finds a working tagger shall succeed), and
+                  shall report an unusable tagger as InvalidOperationException rather than as a
+                  null reference.
                 justification: |
-                  The tagger is large to load and is shared by every analyzer; loading it per
-                  analyzer, per request, or under a race would waste time and memory. A failure
-                  to load it (for example a transient out-of-memory condition) must not disable
-                  English analysis for the rest of the process, so a failed creation is not cached.
+                  The tagger is large to load and is shared by every analyzer, so many threads may
+                  be its first users. A failure to load it (for example a transient out-of-memory
+                  condition) must not disable English analysis for the rest of the process. How the
+                  tagger is obtained (lazily, once, shared by one process-wide adapter, with a
+                  failed creation not cached) is a design strategy recorded in the part-of-speech
+                  adapter design; the observable contract is correct results under concurrency and
+                  recovery after a failure.
                 children:
                   - Speech-OTS-PartOfSpeech-DefaultTagger
                   - Speech-OTS-PartOfSpeech-ThreadSafety
                 tests:
-                  - PartOfSpeechAdapter_Analyze_RepeatedCalls_CreateTaggerLazilyAndOnce
-                  - PartOfSpeechAdapter_Analyze_ConcurrentFirstUses_CreateTaggerOnce
-                  - PartOfSpeechAdapter_Analyze_FactoryFailsOnce_NextCallRetriesAndSucceeds
-                  - PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_CreateTaggerOnceSuccessfully
+                  - PartOfSpeechAdapter_Analyze_RepeatedCalls_ReturnSameTaggedTokens
+                  - PartOfSpeechAdapter_Analyze_ConcurrentFirstUses_ReturnIdenticalResults
+                  - PartOfSpeechAdapter_Analyze_FactoryFailsOnce_NextCallSucceeds
+                  - PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_OnlyTheFailingCallSeesIt
                   - PartOfSpeechAdapter_Analyze_FactoryReturnsNull_ThrowsInvalidOperationException
-                  - PartOfSpeechAdapter_Shared_ReturnsSameInstance
 
-              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-SplitWithoutTagger
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-UntaggedSplit
                 title: >-
-                  The PartOfSpeechAdapter class shall split a text into sentences and tokens
-                  without creating the tagger when tagging is not requested, and shall not create
-                  the tagger for a text that has no tokens.
+                  The PartOfSpeechAdapter class shall split a text into sentences and tokens, with
+                  no tag on any token, when tagging is not requested, and shall return no sentences
+                  for a text that has no tokens whether or not tagging is requested.
                 justification: |
-                  Sentence boundaries do not need the tagger, so a host that wants only boundaries,
-                  or an empty request, must not pay for loading it.
+                  Sentence boundaries do not need the tagger, so a host that wants only boundaries
+                  gets untagged tokens, and an empty request gets an empty result.
                 tests:
-                  - PartOfSpeechAdapter_Analyze_TagFalse_ReportsUntaggedTokensAndCreatesNoTagger
-                  - PartOfSpeechAdapter_Analyze_TextWithoutTokens_ReturnsNoSentencesAndCreatesNoTagger
+                  - PartOfSpeechAdapter_Analyze_TagFalse_ReportsUntaggedTokens
+                  - PartOfSpeechAdapter_Analyze_TextWithoutTokens_ReturnsNoSentences
 
               - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-Cancellation
                 title: >-
                   The PartOfSpeechAdapter class shall throw OperationCanceledException for an
-                  already-canceled token before splitting the text or creating the tagger, and
-                  shall check the token before each sentence, after the tagger is obtained, after
-                  each sentence (including the only or last one) is tagged, and periodically
-                  while tokens are copied into the result.
+                  already-canceled token, and when cancellation is requested while the tagger is
+                  obtained or while a sentence (including the only or last one) is tagged, instead
+                  of returning a result.
                 justification: |
                   Cancellation has to be honored wherever it arrives, not only between sentences,
-                  so a long text stops promptly and a canceled request never returns a result.
+                  so a long text stops promptly and a canceled request never returns a result. The
+                  polling points (before each sentence, after the tagger is obtained, after each
+                  sentence, periodically while tokens are copied) are recorded in the part-of-speech
+                  adapter design.
                 tests:
-                  - PartOfSpeechAdapter_Analyze_CanceledToken_ThrowsWithoutCreatingTagger
-                  - PartOfSpeechAdapter_Analyze_CanceledDuringTaggerInitialization_ThrowsBeforeTaggingAnySentence
+                  - PartOfSpeechAdapter_Analyze_CanceledToken_ThrowsOperationCanceledException
+                  - PartOfSpeechAdapter_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException
                   - PartOfSpeechAdapter_Analyze_CanceledAfterOnlySentenceTagged_Throws
                   - PartOfSpeechAdapter_Analyze_CanceledAfterFinalSentenceTagged_Throws
 

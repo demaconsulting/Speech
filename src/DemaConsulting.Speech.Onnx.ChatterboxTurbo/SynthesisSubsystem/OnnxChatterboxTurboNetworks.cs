@@ -142,9 +142,11 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     }
 
     /// <summary>
-    ///     Test-only hook invoked with each session as it is created, so tests can verify it is disposed on failure.
+    ///     Test-only seam that, when set, creates each ONNX session instead of the default
+    ///     <see cref="InferenceSession"/> constructor, so tests can substitute a derived session that records its
+    ///     own disposal through the public <c>Dispose(bool)</c> override point. Production code never sets it.
     /// </summary>
-    internal static Action<InferenceSession>? OnSessionCreated { get; set; }
+    internal static Func<string, SessionOptions, InferenceSession>? SessionFactory { get; set; }
 
     /// <summary>Gets the intra-op thread count applied to every session.</summary>
     internal int IntraOpThreads { get; }
@@ -338,9 +340,8 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
             InterOpNumThreads = 1,
             ExecutionMode = ExecutionMode.ORT_SEQUENTIAL,
         };
-        var session = new InferenceSession(path, options);
+        var session = SessionFactory is { } factory ? factory(path, options) : new InferenceSession(path, options);
         created.Add(session);
-        OnSessionCreated?.Invoke(session);
         return session;
     }
 

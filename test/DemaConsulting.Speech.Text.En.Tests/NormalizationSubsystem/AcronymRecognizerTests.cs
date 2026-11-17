@@ -4,7 +4,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.NormalizationSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="AcronymRecognizer"/>: case sensitivity, the shouting guard, the
-///     vowel-less rule, dotted and ampersand forms, the strict loader and the lazy default.
+///     vowel-less rule, dotted and ampersand forms, the strict loader and the default lexicon.
 /// </summary>
 public sealed class AcronymRecognizerTests
 {
@@ -207,15 +207,22 @@ public sealed class AcronymRecognizerTests
         Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a null reader is rejected and the lazy default is one shared instance under concurrent first use.</summary>
+    /// <summary>Proves a null reader is rejected and the default lexicon gives the documented recognitions when many threads use it for the first time at once.</summary>
     [Fact]
     public async Task AcronymRecognizer_FromTsvAndDefault_NullReaderAndConcurrentFirstUse_BehaveAsDocumented()
     {
         // Act
-        var instances = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => AcronymRecognizer.Default, TestContext.Current.CancellationToken)));
+        var results = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(
+            () =>
+            {
+                var us = Recognize("US");
+                var lower = Recognize("us");
+                return (us.Found, us.Match.Spoken, lower.Found);
+            },
+            TestContext.Current.CancellationToken)));
 
         // Assert
         Assert.Throws<ArgumentNullException>(() => AcronymRecognizer.FromTsv(null!));
-        Assert.All(instances, instance => Assert.Same(instances[0], instance));
+        Assert.All(results, result => Assert.Equal((true, "U S", false), result));
     }
 }

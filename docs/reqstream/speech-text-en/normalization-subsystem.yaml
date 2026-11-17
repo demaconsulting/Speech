@@ -109,7 +109,7 @@ sections:
               - SpeechTextEn-Normalization-AbbreviationResolver-MonthAndWeekdayRows
               - SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
               - SpeechTextEn-Normalization-AbbreviationResolver-LoaderValidation
-              - SpeechTextEn-Normalization-AbbreviationResolver-ThreadSafeLoad
+              - SpeechTextEn-Normalization-AbbreviationResolver-ConcurrentLookup
               - SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
               - SpeechTextEn-Normalization-NormalizationAlignment-RecordKeeping
             tests:
@@ -210,28 +210,32 @@ sections:
               - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
               - NormalizationSubsystem_GoldenFile_Coverage_ContainsEveryLexiconForm
 
-          - id: SpeechTextEn-Normalization-LinearTimeAndCancellation
+          - id: SpeechTextEn-Normalization-LongInputAndCancellation
             title: >-
-              The NormalizationSubsystem shall normalize a text in time linear in its length,
-              including one very long token, digit-heavy text and adversarial repetitions of every
-              numeric form, shall observe cancellation at the start and periodically while it
-              works, and shall keep no per-request state, so that repeated and concurrent requests
-              give identical results.
+              The NormalizationSubsystem shall normalize long and adversarial input (one very long
+              token, digit-heavy text and repetitions of every numeric form) to the same spans,
+              spoken forms, sentence breaks and fallback counts that the same constructs give in a
+              short text, shall observe a cancellation requested while it works by throwing
+              OperationCanceledException instead of returning a result, and shall give repeated and
+              concurrent requests identical results without one request affecting another.
             justification: |
-              The subsystem runs on every synthesis request on thread-pool threads. A rule that
-              looked back over a whole token for every character would make a pasted megabyte
-              stall speech, a number scanner with backtracking would make a long digit run
-              exponential, a stop or dispose waits for the analyzer to return, and one shared
-              instance serves many requests at the same time.
+              The subsystem runs on every synthesis request on thread-pool threads. A pasted
+              megabyte, or one enormous digit run, must be handled exactly like any other text,
+              a stop or dispose waits for the analyzer to return, and one shared instance serves
+              many requests at the same time. That the scan is linear (no look-back over a whole
+              token for every character, no backtracking number scanner), that cancellation is
+              polled periodically and that the normalizer keeps no per-request state are design
+              choices recorded in the normalization subsystem design; the tests assert the outputs
+              and not the time, the polling cadence or the state.
             children:
               - SpeechTextEn-Normalization-TextNormalizer-Cancellation
               - SpeechTextEn-Normalization-TextNormalizer-Concurrency
               - SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
               - SpeechTextEn-Normalization-NumericExpressionRecognizer-Concurrency
             tests:
-              - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget
-              - NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_CompleteWithinBudget
-              - NormalizationSubsystem_Normalize_OneHugeToken_CompletesWithinBudget
+              - NormalizationSubsystem_Normalize_LargeRepetitiveTexts_NormalizeEveryRepetitionAlike
+              - NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_NormalizeEveryRepetitionAlike
+              - NormalizationSubsystem_Normalize_OneHugeToken_NormalizesEverySeparatorAsInAShortToken
               - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
               - NormalizationSubsystem_Normalize_ConcurrentNumericRequests_ReturnIdenticalResults
               - EnglishTextAnalyzer_Analyze_CanceledDuringNormalization_ThrowsAndReportsNothing
@@ -430,7 +434,7 @@ sections:
               - SpeechTextEn-Normalization-NormalizationAlignment-FallbackCount
             tests:
               - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
-              - NormalizationSubsystem_Normalize_OneHugeNumericToken_CompletesWithinBudget
+              - NormalizationSubsystem_Normalize_OneHugeNumericToken_IsLeftAsWrittenAndCounted
 
           - id: SpeechTextEn-Normalization-DecomposedAnnotations
             title: >-
@@ -486,8 +490,7 @@ sections:
               The override table lives in the analysis, but whether an override can be applied to a
               token depends on what the built-in rules did with the tokens before it, which only
               the normalization pass knows; handing it token-indexed directives keeps the
-              subsystem independent of the dictionary, the matching rules and the analyzer, and one
-              pass with a cursor keeps the time linear. A number with its unit is one construct,
+              subsystem independent of the dictionary, the matching rules and the analyzer. A number with its unit is one construct,
               so the unit word cannot be overridden on its own, and the count says so.
             children:
               - SpeechTextEn-Normalization-TextNormalizer-Directives

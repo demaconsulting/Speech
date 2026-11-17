@@ -26,19 +26,19 @@ with supported audio hardware.
 
 ### Test Scenarios
 
-#### PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
+#### PortAudioApi_CaptureCallback_NativeInput_DeliversManagedSamples
 
-**Scenario**: The managed PortAudio adapter singleton is read twice.
+**Scenario**: A native capture callback delivers an input block through the PortAudioSharp2 binding
+types.
 
-**Expected**: Both reads return the same object, proving the repository can load and reuse the
-managed adapter instance.
+**Expected**: The adapter converts the native block into the managed samples its handler receives,
+proving the repository can consume the managed binding.
 
-#### PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
+#### PortAudioApi_PlaybackCallback_ProvidedSamples_AreWrittenToNativeOutput
 
-**Scenario**: The shared production PortAudio environment is read twice.
+**Scenario**: A native playback callback requests output through the PortAudioSharp2 binding types.
 
-**Expected**: Both reads return the same object, proving the repository can load and reuse the
-managed PortAudio environment.
+**Expected**: The adapter writes the provided managed samples to the native output block.
 
 #### AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes
 

@@ -4,7 +4,7 @@
 
 `ReadingInventory` and the reading id grammar (`ReadingIdSyntax`) are verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/ReadingInventoryTests.cs`. The embedded inventory is real:
-the tests read it through `ReadingInventory.Default` and the assembly's manifest resources, and check the facts a data
+the tests read it through `ReadingInventory.Default`, and check the facts a data
 change must not alter silently (the revision and the counts). The parser is verified through the internal `Parse`
 factory with hand-written tables that each hold one defect, so every rejection is attributed to one rule. No fake is
 needed.
@@ -18,32 +18,35 @@ needed.
 
 #### Acceptance Criteria
 
-The embedded tables load to the pinned revision and counts and are assembly resources under the fixed logical names (and
-no model resource exists); every reading id of the embedded inventory satisfies the grammar and the sorted list is
-ordinal and unique; the candidates of a form are in the order of the table rows and the lookup folds ASCII case only
-(unknown words, the empty text, compounds, spaces, a period, non-ASCII letters and the Kelvin sign have no candidates)
-under any culture; a null argument to a public lookup throws `ArgumentNullException`; `Contains` compares ordinally; the
-whole-token lookup agrees with the public lookup through the internal accessors; the public collections are
-read-only; hand-built valid tables parse (with the supplied revision) and a deprecated reading is inactive; every defect
-of either table (a byte-order mark, a carriage return, a wrong header, an empty table, a wrong column count, an
-ill-formed or duplicate id, an empty lemma, an unknown status, an unknown reading, a bad form, an empty kind, a
-duplicate pair) is rejected with an `InvalidDataException` that names the table, the line and a fixed reason and never
-contains the data; 16 candidates are accepted and 17 rejected; an over-long line and too many rows are rejected; and the
-id grammar accepts exactly two or three well-formed segments up to 64 characters.
+The embedded tables load to the pinned revision and counts, and the inventory shipped with the assembly provides the
+candidate readings of well-known heteronyms (no assertion is made about resource names or object identity); every
+reading id of the embedded inventory satisfies the grammar and the sorted list is ordinal and unique; the candidates of
+a form are in the order of the table rows and the lookup folds ASCII case only (unknown words, the empty text,
+compounds, spaces, a period, non-ASCII letters and the Kelvin sign have no candidates) under any culture; a null
+argument to a public lookup throws `ArgumentNullException`; `Contains` compares ordinally; the whole-token lookup agrees
+with the public lookup through the internal accessors; the public collections are read-only; hand-built valid tables
+parse (with the supplied revision) and a deprecated reading is inactive; every defect of either table (a byte-order
+mark, a carriage return, a wrong header, an empty table, a wrong column count, an ill-formed or duplicate id, an empty
+lemma, an unknown status, an unknown reading, a bad form, an empty kind, a duplicate pair) is rejected with an
+`InvalidDataException` that names the table, the line and a fixed reason and never contains the data; 16 candidates are
+accepted and 17 rejected; an over-long line and too many rows are rejected; and the id grammar accepts exactly two or
+three well-formed segments up to 64 characters.
 
 #### Test Scenarios
 
 ##### Embedded tables
 
 **Tests**: `ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts`,
-`ReadingInventory_Default_EmbeddedTables_AreAssemblyResourcesWithFixedNames`,
+`ReadingInventory_Default_ShippedWithAssembly_ProvidesCandidateReadingsOfKnownHeteronyms`,
 `ReadingInventory_ReadingIds_AllSatisfyGrammarAndAreOrdinalSorted`
 
-The default inventory has revision 2, 395 readings, 501 distinct forms of which 350 have more than one candidate, and is
-the same instance on every access, so a change of the data cannot pass without a deliberate decision about the
-revision. The manifest holds the resources `DemaConsulting.Speech.Text.En.Resources.readings.tsv` and
-`DemaConsulting.Speech.Text.En.Resources.forms.tsv` and no `heteronyms.bin`. Every id satisfies the grammar and is
-contained, the list equals its ordinal sort and has no duplicate.
+The default inventory has revision 2, 395 readings, 501 distinct forms of which 350 have more than one candidate, so a
+change of the data cannot pass without a deliberate decision about the revision (a versioned data-integrity check, not
+a claim about implementation objects). From the assembly alone, with no file or download, `record` has the candidates
+`record.noun` and `record.verb` and `READ` (an ASCII case variant) has `read.past` and `read.present`, `record.verb` is
+contained and the version is the current one. That the tables are linked from the data folder under fixed resource
+names, and that the default is built once, are design choices recorded in the *ReadingInventory Design*. Every id
+satisfies the grammar and is contained, the list equals its ordinal sort and has no duplicate.
 
 ##### Candidate lookup
 

@@ -55,9 +55,9 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   assembly (the single resource whose name ends with the tokenizer suffix; a missing or ambiguous resource
   fails with the `InvalidOperationException` of `Single`) and build the `ByteLevelBpeTokenizer` from it
   with `FromGzipStream`.
-- **OnSessionCreated** (internal static): a test hook, forwarding to the networks unit's hook, that is
-  called for every ONNX session created. Tests use it to count sessions, to prove none is created for a
-  missing file, to prove sessions are disposed on failure, and to read which graph files a variant loads.
+- **SessionFactory** (internal static): a test seam, forwarding to the networks unit's seam, that when set
+  creates every ONNX session in place of the default constructor. Tests use it to substitute a derived
+  session that records its own disposal, to prove no session is left open when backend creation fails.
 - **CreateBackend(installDirectory)**: in order, validates the directory argument (null throws
   `ArgumentNullException`, empty throws `ArgumentException`), requires at least one voice
   (`InvalidOperationException`), checks every model file exists (`FileNotFoundException`, before any session is

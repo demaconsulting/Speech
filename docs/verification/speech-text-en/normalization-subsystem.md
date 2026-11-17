@@ -69,8 +69,9 @@ vocabulary used by the property tests. It is shared by the verbalizer unit tests
 **Property tests.** The alignment invariants are checked on random hostile text with a fixed seed, so a
 failure is reproducible, and again on random numeric text (the digits, separators, symbols, units, month names,
 long digit runs, tag placeholders, surrogates, combining marks and whitespace variants of the numeric rules).
-Time and cancellation are checked with generous budgets that a linear algorithm
-meets and a quadratic one does not.
+Time is deliberately not asserted: large and adversarial inputs are checked by their exact output, and cancellation by
+the exception it raises, never by an elapsed time, a polling cadence or a visit count (those are design choices
+recorded in the normalization subsystem design).
 
 ### Test Environment
 
@@ -83,7 +84,7 @@ meets and a quadratic one does not.
 - **Dependencies**: the real tokenizer of `DemaConsulting.PartOfSpeech` through the test helper
   `Fakes/NormalizationHarness.cs`; no network, no tagger, no audio hardware
 - **Isolation**: every test builds its own inputs and results; the shared default lexicons are immutable;
-  the time-budget tests use a 10-second budget and a 30-second cancellation safety limit
+  the large-input tests carry a ten-minute cancellation that only ends a test which would never finish
 
 ### Acceptance Criteria
 
@@ -96,24 +97,25 @@ in-bounds, non-empty spans with whitespace-free edges, no placeholder, no cut su
 content, empty values only for dropped invisible characters, separating spaces exactly where a letter or
 digit touches, segments that tile the text, text outside the spans unchanged, an independent applier that
 agrees with `AlignedText`, and valid break edits); concurrent and repeated normalization of one text gives
-identical results; one megabyte of realistic and of adversarially repetitive text, and one-megabyte single
-tokens of `&`, of a dropped character and of a typographic apostrophe, normalize within the time budget; no
+identical results; one megabyte of realistic and of adversarially repetitive text normalizes, away from its two ends,
+exactly as the same repetitions do in a short text, and one-megabyte single
+tokens of `&`, of a dropped character and of a typographic apostrophe give one span per separator on its exact
+character; no
 span ever cuts a surrogate pair or a combining sequence; and a text with nothing to normalize yields no span
 and no break edit.
 
-The numeric behavior passes when: every row of the numeric golden file produces the expected spoken text,
-sentences, ambiguity count and fallback count (a failure names the row id); the spoken value of every numeric
-span contains only letters, spaces and the apostrophe of `o'clock`, never a digit, from the closed vocabulary
-and within 1,024 characters; every year from 1000 to 2099, every `h:mm` time and every cardinal and ordinal
-from 0 to 9999 (plus 10,000 seeded random values up to 15 digits) agree with the independent reference; for
-random numeric hostile texts every alignment invariant holds including the amended chunk-safety rule (no
-whitespace, no semicolon, a comma or colon only between two digits, only the four span shapes) and that no
-reconciled break lies inside a span, and the real chunker keeps every annotation in exactly one chunk, for several
-chunk budgets; the results are identical under foreign cultures and under concurrent requests; one megabyte of
-every repetitive numeric unit and single huge numeric tokens normalize within the time budget; surrogate pairs,
-supplementary-plane digits and combining marks next to numbers are never cut or read; and the existing
-abbreviation golden rows whose digits are now spoken (`Number five`, `Figure three`, `five P M`) carry the
-new expectations.
+The numeric behavior passes when: every row of the numeric golden file produces the expected spoken text, sentences,
+ambiguity count and fallback count (a failure names the row id); the spoken value of every numeric span contains only
+letters, spaces and the apostrophe of `o'clock`, never a digit, from the closed vocabulary and within 1,024 characters;
+every year from 1000 to 2099, every `h:mm` time and every cardinal and ordinal from 0 to 9999 (plus 10,000 seeded random
+values up to 15 digits) agree with the independent reference; for random numeric hostile texts every alignment invariant
+holds including the amended chunk-safety rule (no whitespace, no semicolon, a comma or colon only between two digits,
+only the four span shapes) and that no reconciled break lies inside a span, and the real chunker keeps every annotation
+in exactly one chunk, for several chunk budgets; the results are identical under foreign cultures and under concurrent
+requests; one megabyte of every repetitive numeric unit normalizes, away from its two ends, exactly as the same
+repetitions do in a short text, and single huge numeric tokens are left as written and counted; surrogate pairs,
+supplementary-plane digits and combining marks next to numbers are never cut or read; and the existing abbreviation
+golden rows whose digits are now spoken (`Number five`, `Figure three`, `five P M`) carry the new expectations.
 
 The override behavior passes when: for 600 random hostile texts resolved against the sample dictionary every
 directive is counted exactly once as applied or ignored, replacements and pronunciation marks form one ascending,
@@ -175,16 +177,21 @@ seam between two adjacent spans ever carries both a trailing and a leading space
 Thirty-two tasks race on the lazily created default lexicons and each normalizes one text twenty times; every
 result key (spans, forced and suppressed breaks, clitic marks, ambiguity count) equals the single-threaded one.
 
-#### Linear time
+#### Large and adversarial input
 
-**Tests**: `NormalizationSubsystem_Normalize_LargeRepetitiveTexts_CompleteWithinBudget`,
-`NormalizationSubsystem_Normalize_OneHugeToken_CompletesWithinBudget` (a theory over `a&`, `a` with a
+**Tests**: `NormalizationSubsystem_Normalize_LargeRepetitiveTexts_NormalizeEveryRepetitionAlike`,
+`NormalizationSubsystem_Normalize_OneHugeToken_NormalizesEverySeparatorAsInAShortToken` (a theory over `a&`, `a` with a
 zero-width space, `a’b` and `&`)
 
 The first normalizes one megabyte of realistic text and of repeated `St.`, `A.`, `&` and `Dr. He` (each followed by
-a space) and
-asserts each pass takes under ten seconds and finds spans; the second builds one token of a million
-characters by hand (the tokenizer is not under test for giant tokens) and asserts the same bound.
+a space) and asserts exact output. For each unit a nine-repetition reference text is normalized, and the spans, forced
+breaks and suppressed breaks of its fifth repetition are the pattern that every repetition of the large text, from the
+second to the fourth from last (the last repetitions look past the end of the text), must repeat exactly, shifted by
+its position, with the same number of spans and breaks; no span may cross the boundary between two repetitions. The
+second builds one token of a million characters by hand (the tokenizer is not under test for giant tokens) and asserts
+one span per separator on its exact character (an `and` symbol span for each ampersand between letters, an empty
+dropped span for each zero-width space, an apostrophe span for each typographic apostrophe, none at all for a token of
+ampersands alone), no numeric fallback and no break edit. No elapsed time is asserted.
 
 #### Surrogate pairs, combining marks and plain text
 
@@ -254,16 +261,18 @@ The golden numeric subset is normalized under `tr-TR`, `ar-SA`, `de-DE`, `th-TH`
 and current UI culture (restored in a `finally` block) and must equal the invariant-culture result;
 thirty-two tasks normalize a numeric text twenty times each and every result equals the single-threaded one.
 
-#### Numeric linear time
+#### Numeric large and adversarial input
 
-**Tests**: `NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_CompleteWithinBudget`,
-`NormalizationSubsystem_Normalize_OneHugeNumericToken_CompletesWithinBudget`
+**Tests**: `NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_NormalizeEveryRepetitionAlike`,
+`NormalizationSubsystem_Normalize_OneHugeNumericToken_IsLeftAsWrittenAndCounted`
 
 One megabyte of each repetitive numeric unit (`1,234.50`, `$5.50`, `5:30pm`, `January 5, 2024`, `1/2`,
-`12/25/2024`, `5 kg`, `50 %`, `Jan. 5`, `5 ft.`) and single huge tokens (a million digits, `1,` repeated,
-`1.` repeated, `1-` repeated, `1/` repeated, `1:` repeated, `$` and a million digits, `5` and a million `k`)
-normalize under the time budget, and the time for four times as many tokens grows by less than a generous
-factor, so a quadratic or backtracking regression fails.
+`12/25/2024`, `5 kg`, `50 %`, `Jan. 5`, `5 ft.`, `5 million USD`, `555-123-4567`, `192.168.0.1`, `1990s`, `3 1/2`,
+`5–10`, `$ 5`, `5`, `1999`) is normalized and compared, repetition by repetition, with the same repetitions of a short
+reference text exactly as in *Large and adversarial input*. Single huge tokens (a million digits, `1,` repeated,
+`1.` repeated, `1-` repeated, `1/` repeated, `1:` repeated, `$` and a million digits, `5` and a million `k`) produce no
+span and exactly one numeric fallback, so they are left as written and counted. No elapsed time or growth ratio is
+asserted.
 
 #### Alignment contract with overrides
 

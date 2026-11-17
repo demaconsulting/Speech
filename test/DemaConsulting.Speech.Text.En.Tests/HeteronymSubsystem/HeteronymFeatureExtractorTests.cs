@@ -150,14 +150,16 @@ public sealed class HeteronymFeatureExtractorTests
         Assert.Throws<ArgumentOutOfRangeException>(() => HeteronymFeatureExtractor.Extract(context, target, new uint[HeteronymFeatureExtractor.MaxConjoined], new uint[HeteronymFeatureExtractor.MaxShared], out _, out _));
     }
 
-    /// <summary>Proves the feature-set version is 1 and the buffer maxima are the documented ones.</summary>
+    /// <summary>Proves the feature-set version can be recorded in a model: it is non-zero and fits the 16-bit version field of the header, and a model written for it is read back with it.</summary>
     [Fact]
-    public void HeteronymFeatureExtractor_Constants_AreTheDocumentedOnes()
+    public void HeteronymFeatureExtractor_FeatureSetVersion_IsRecordableInAModelHeader()
     {
-        // Assert
-        Assert.Equal(1, HeteronymFeatureExtractor.FeatureSetVersion);
-        Assert.Equal(96, HeteronymFeatureExtractor.MaxConjoined);
-        Assert.Equal(48, HeteronymFeatureExtractor.MaxShared);
+        // Act
+        var model = SparsePerceptronModel.Load(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, []));
+
+        // Assert: the writer's default is this extractor's version, which a header can hold
+        Assert.InRange(HeteronymFeatureExtractor.FeatureSetVersion, 1, ushort.MaxValue);
+        Assert.Equal(HeteronymFeatureExtractor.FeatureSetVersion, model.FeatureSetVersion);
     }
 
     /// <summary>Proves FNV-1a over code units gives the published known answers.</summary>

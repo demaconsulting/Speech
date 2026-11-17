@@ -4,8 +4,8 @@
 # These requirements describe the design-level behavior of the HeteronymFeatureExtractor unit (and
 # the internal HeteronymContext, ContextToken and FeatureHashing members that are documented with
 # it), decomposing the parent SpeechTextEn HeteronymSubsystem requirements. The unit turns the
-# tokens of one sentence around a target word into hashed feature buckets, deterministically and
-# without allocating, in exactly the way the trainer must reproduce. Each requirement states one
+# tokens of one sentence around a target word into hashed feature buckets, deterministically, in
+# exactly the way the trainer must reproduce. Each requirement states one
 # observable behavior.
 #
 # Covered by
@@ -23,16 +23,17 @@ sections:
                 title: >-
                   The HeteronymFeatureExtractor unit shall compute, for the same sentence and
                   target, the same conjoined and shared feature buckets in every process, on every
-                  operating system and under every current culture, using only its own hash
-                  functions (FNV-1a with ASCII-only folding and a fixed mixing function), and shall
-                  reproduce the golden vectors of the repository, which cover each documented
-                  feature case.
+                  operating system and under every current culture, and shall reproduce the
+                  golden vectors of the repository, which cover each
+                  documented feature case.
                 justification: |
                   The model weights are indexed by these buckets. The hash of a string in the
                   runtime differs per process, and a culture-sensitive lowercase changes the letter
                   I in Turkish, so either would make a runtime decide differently from the trainer
-                  without any visible error. Fixed algorithms, reference values and a golden file
-                  turn any such drift into a failing test.
+                  without any visible error. A specified encoding (the hash functions are recorded
+                  in the heteronym feature extractor design: FNV-1a with ASCII-only folding and a
+                  fixed mixing function), published known-answer values and a golden file
+                  of vectors turn any such drift into a failing test.
                 tests:
                   - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
                   - HeteronymFeatureExtractor_Extract_GoldenVectors_CoverTheDocumentedCases
@@ -43,15 +44,19 @@ sections:
 
               - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-FeatureSetVersion
                 title: >-
-                  The HeteronymFeatureExtractor unit shall declare the version of its feature set
-                  and the limits of its output (the number of conjoined and of shared features) as
-                  constants whose documented values the tests pin.
+                  The HeteronymFeatureExtractor unit shall identify its feature set by a version
+                  that a model records, which is non-zero and fits the version field of the model
+                  header, and shall never write more conjoined or shared features than the output
+                  bounds it advertises for callers to size their buffers.
                 justification: |
                   A model records the feature set it was trained with and the runtime refuses any
-                  other, so a change of the features has to change the version deliberately, and
-                  the output buffers of the callers are sized from the limits.
+                  other (see the classifier and the model provider requirements), so a change of
+                  the features has to change the version deliberately, and the output buffers of
+                  the callers are sized from the advertised bounds, which a maximal context must
+                  not exceed.
                 tests:
-                  - HeteronymFeatureExtractor_Constants_AreTheDocumentedOnes
+                  - HeteronymFeatureExtractor_FeatureSetVersion_IsRecordableInAModelHeader
+                  - HeteronymFeatureExtractor_Extract_MaximalContext_StaysWithinBuffers
 
               - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-SentenceLocalContext
                 title: >-
@@ -84,17 +89,20 @@ sections:
 
               - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenNormalization
                 title: >-
-                  The HeteronymContext unit shall describe a token for the features by its hash of
-                  the ASCII-folded text with the typographic apostrophes read as the plain one and
-                  a digit-only token read as one number form (a Turkish dotted I is not folded), by
-                  its closed word class taken from the documented word lists, by the code of its
+                  The HeteronymContext unit shall describe a token for the features independently
+                  of the culture and of how the text is spelled, so that the typographic apostrophes
+                  read as the plain one, a digit-only token reads as one number form and a Turkish
+                  dotted I is not folded to an ASCII letter, and shall describe a token by its
+                  closed word class taken from the documented word lists, by the code of its
                   Universal Dependencies tag, and by the bucket of its tag confidence.
                 justification: |
                   These are the facts the model learns from. Each has to be defined by a rule that
                   holds on every machine: the folding is ASCII only, the typographic and plain
                   apostrophes must not split one word into two forms, every number is one form so
                   that no number needs to be seen in training, and the confidence is grouped into
-                  the buckets the trainer uses.
+                  the buckets the trainer uses. How the token text is encoded (the hash of the
+                  ASCII-folded text and the form of the number token) is specified in the heteronym
+                  feature extractor design.
                 tests:
                   - HeteronymContext_Create_TurkishDottedI_IsNotFoldedToAscii
                   - HeteronymContext_Create_CurlyApostrophes_NormalizeToPlain

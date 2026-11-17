@@ -159,10 +159,11 @@ speech each produce a final result, and silence alone never does.
 
 ### Integration: each session starts clean
 
-**Test**: `Reset_ClearsState`
+**Test**: `Reset_AfterAudio_NextStreamMatchesFreshEngine`
 
-Covers `SpeechOnnxNemotronStt-Recognition-SessionIsolation`. Verifies reset discards pending
-results and restores encoder and decoder state.
+Covers `SpeechOnnxNemotronStt-Recognition-SessionIsolation`. Verifies that after a reset the engine
+processes a new stream exactly as a fresh engine would: it reports the same results, encodes the same
+amount of audio, and carries nothing over from the earlier stream.
 
 ### Integration: native model resources are released on disposal
 

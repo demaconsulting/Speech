@@ -62,7 +62,7 @@ sections:
                   A host that needs only sentence boundaries should not pay for tagging, and the
                   boundaries must not depend on the annotation selection.
                 tests:
-                  - EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndLoadsNoTagger
+                  - EnglishTextAnalyzer_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsAndUntaggedTokens
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-SentenceBreaks
                 title: >-
@@ -100,18 +100,18 @@ sections:
                 title: >-
                   The EnglishTextAnalyzer class shall return no annotations and an empty, non-null
                   list of sentence breaks for a text without word tokens (empty, whitespace only,
-                  or only tag placeholders), without loading the tagger.
+                  or only tag placeholders).
                 justification: |
                   A request may consist of nothing but tags or spaces; it must produce a valid
-                  empty analysis cheaply.
+                  empty analysis.
                 tests:
-                  - EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndLoadsNoTagger
+                  - EnglishTextAnalyzer_Analyze_TextWithoutWords_ReturnsNoAnnotationsAndNoBreaks
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-Cancellation
                 title: >-
                   The EnglishTextAnalyzer class shall throw OperationCanceledException, and shall
                   neither return a result nor report diagnostics, when the cancellation token is
-                  already canceled (before doing any work) and when it is canceled at any later
+                  already canceled and when it is canceled at any later
                   point: during tagger initialization, while a sentence (including the only or the
                   last one) is being tagged, while the pronunciation overrides are looked up,
                   while the text is being normalized, or while the result is being built.
@@ -121,7 +121,7 @@ sections:
                   a canceled request that returned normally would materialize everything and
                   report an event for work the caller abandoned.
                 tests:
-                  - EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsWithoutLoadingTagger
+                  - EnglishTextAnalyzer_Analyze_AlreadyCanceledToken_ThrowsOperationCanceledException
                   - EnglishTextAnalyzer_Analyze_CanceledDuringTaggerInitialization_ThrowsOperationCanceledException
                   - EnglishTextAnalyzer_Analyze_CanceledDuringOnlySentence_ThrowsAndReportsNothing
                   - EnglishTextAnalyzer_Analyze_CanceledDuringFinalSentence_ThrowsAndReportsNothing
@@ -139,20 +139,22 @@ sections:
                   - EnglishTextAnalyzer_Analyze_NullText_ThrowsArgumentNullException
                   - EnglishTextAnalyzer_Constructor_NullOptions_ThrowsArgumentNullException
 
-              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndNoRetainedReferences
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndRequestIndependence
                 title: >-
                   The EnglishTextAnalyzer class shall give identical results to any number of
-                  concurrent requests on one instance, and shall keep no reference to an analyzed
-                  text or to a result in its own state after the request returns.
+                  concurrent requests on one instance, and shall give a request the same result
+                  and diagnostics whatever requests it served before, none of which discloses text
+                  of another request.
                 justification: |
                   One model instance may back several engines, so its analyzer is called
                   concurrently; the library requires that an analyzer not retain the request text,
-                  which is the user's speech content. This requirement covers the analyzer's own
-                  state only; the tagging package's working buffers are covered by
-                  SpeechTextEn-Retention-TaggerWorkspaces.
+                  which is the user's speech content. What can be observed of that is that a result
+                  never depends on, or carries, another request's text. The analyzer's own state and
+                  the tagging package's working buffers are covered by the design (see the system
+                  design and SpeechTextEn-Isolation-RequestNoninterference).
                 tests:
-                  - EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResultsAndLoadTaggerOnce
-                  - EnglishTextAnalyzer_Analyze_AfterReturn_KeepsNoReferenceToTextOrResults
+                  - EnglishTextAnalyzer_Analyze_ConcurrentRequestsOnOneAnalyzer_ReturnIdenticalResults
+                  - EnglishTextAnalyzer_Analyze_AfterAnotherRequest_ResultEqualsFreshAnalyzerAndDisclosesNothingOfIt
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
                 title: >-
@@ -174,15 +176,15 @@ sections:
                   annotate each normalization on its span with an annotation of the normalization
                   kind whose value is the spoken form (an empty value for a dropped character),
                   shall merge these with the part-of-speech annotations in text order with the part
-                  of speech first at an equal start, shall run the normalization without loading
-                  the tagger, and shall never change the analyzed text.
+                  of speech first at an equal start, shall emit them also when part-of-speech
+                  annotation is not selected, and shall never change the analyzed text.
                 justification: |
                   Backends read the spoken form from the annotation on the span, in the order the
-                  Speech library delivers them, and a host that selects only normalization must
-                  not pay for the tagger.
+                  Speech library delivers them, and a host that selects only normalization gets
+                  normalizations alone, without part-of-speech annotations.
                 tests:
                   - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
-                  - EnglishTextAnalyzer_Analyze_NormalizationOnly_LoadsNoTaggerAndEmitsOnlyNormalizations
+                  - EnglishTextAnalyzer_Analyze_NormalizationOnly_EmitsOnlyNormalizationsAndUntaggedTokens
                   - EnglishTextAnalyzer_Analyze_PlaceholderAfterAbbreviation_IsNeverCoveredAndContextCrossesIt
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
@@ -327,7 +329,7 @@ sections:
                 title: >-
                   The EnglishTextAnalyzer class shall emit, for a token that has a reading
                   override, that reading id with a confidence of 1.000 on the token's span without
-                  loading or needing any model and without consulting the classifier, shall count
+                  needing any model and without letting the classifier overrule it, shall count
                   it as applied and as set by override, and shall emit nothing for it when the
                   reading family is not selected.
                 justification: |
@@ -355,38 +357,41 @@ sections:
                   The EnglishTextAnalyzer class shall tag the text for the context of a reading
                   when readings are active even if the part-of-speech family is not selected,
                   without emitting a part-of-speech annotation or a tag in the detailed tokens in
-                  that case, and shall neither open a model nor create the tagger when the reading
-                  family is not selected.
+                  that case, and shall emit no reading when the reading family is not selected,
+                  even when a model is available.
                 justification: |
                   The classifier uses the part of speech as context, but a host that selects only
                   readings did not ask for tags in the output, and a host that does not select
-                  readings must not pay for the model or the tagger.
+                  readings asked for no readings, whatever model is available.
                 tests:
                   - EnglishTextAnalyzer_Analyze_ReadingOnlySelection_EmitsReadingsWithoutPartOfSpeech
-                  - EnglishTextAnalyzer_Analyze_ReadingNotSelected_NeverOpensModelOrTagger
+                  - EnglishTextAnalyzer_Analyze_ReadingNotSelected_EmitsNoReadings
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
                 title: >-
                   The EnglishTextAnalyzer class shall, when no heteronym model is available (the
                   case of an analyzer built with the options only, since this release embeds none),
-                  emit no reading or confidence annotation and create no tagger on account of
-                  readings, so that its output is unchanged from a release without readings.
+                  emit no reading or confidence annotation, so that its output is unchanged from a
+                  release without readings.
                 justification: |
-                  A host that upgrades to this release must see no change in output or cost until a
-                  model is supplied; the reading feature is inert without one.
+                  A host that upgrades to this release must see no change in output until a model
+                  is supplied; the reading feature is inert without one.
                 tests:
                   - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
 
-              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingLazyModel
+              - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingModelUse
                 title: >-
-                  The EnglishTextAnalyzer class shall not open the heteronym model at construction,
-                  for an empty text or for a text without a word of the inventory, and shall open
-                  it once for any number of later requests.
+                  The EnglishTextAnalyzer class shall emit no reading for an empty text or for a
+                  text without a word of the inventory, and shall emit for a later text that
+                  contains one the same readings and confidences that a fresh analyzer with the
+                  same model gives for it.
                 justification: |
-                  Loading the model is the expensive step; an analyzer that is never asked about a
-                  heteronym must never pay for it, and an analyzer that is must pay once.
+                  A request that has nothing to classify has nothing to say, and requests that have
+                  something must get the model's answer whatever was analyzed before. When the
+                  model is opened, and that it is opened once, are design choices (see the analysis
+                  subsystem design), not part of the observable contract.
                 tests:
-                  - EnglishTextAnalyzer_Analyze_ModelLoad_IsLazyAndOnce
+                  - EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
                 title: >-
@@ -406,9 +411,8 @@ sections:
                 title: >-
                   The EnglishTextAnalyzer class shall check the cancellation token before every
                   classification of a candidate word and throw OperationCanceledException, without
-                  returning a result, reporting an event or (for a token canceled beforehand)
-                  opening the model, when it is canceled before any work, between candidate words
-                  or while the last one is classified.
+                  returning a result or reporting an event, when it is canceled before any work,
+                  between candidate words or while the last one is classified.
                 justification: |
                   A text can hold many heteronym words and each classification costs real time, so a
                   stop or dispose must not wait for all of them; a canceled request that returned

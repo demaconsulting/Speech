@@ -254,10 +254,12 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNoLeak
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall dispose every session
-                  it already created when backend creation fails.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall release every ONNX
+                  session it already opened when backend creation fails.
                 justification: |
-                  Native sessions must never leak when construction fails.
+                  Native sessions must never leak when construction fails; a failed backend
+                  creation leaves no open session behind. (Release is observed through a derived
+                  test session that records its own disposal.)
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
 

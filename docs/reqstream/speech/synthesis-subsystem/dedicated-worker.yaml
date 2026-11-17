@@ -53,13 +53,14 @@ sections:
                 tests:
                   - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 
-              - id: Speech-Synthesis-DedicatedWorker-LongRunningExecution
+              - id: Speech-Synthesis-DedicatedWorker-BlockedCallIsolation
                 title: >-
-                  The DedicatedWorker class shall run its delegate without occupying a pooled
-                  thread-pool thread.
+                  A delegate blocked inside the DedicatedWorker class shall neither block the caller nor
+                  prevent unrelated host work from progressing.
                 justification: |
                   A native synthesis call can legitimately run for a long time (an entire
-                  utterance's inference); running it on a pooled thread risks starving the
-                  thread pool for every other unrelated piece of work sharing it.
+                  utterance's inference); that call must never freeze its caller or starve every other
+                  unrelated piece of work in the host. (The design runs the call on a dedicated
+                  long-running thread; see the DedicatedWorker design.)
                 tests:
-                  - DedicatedWorker_Run_UsesLongRunningTaskCreationOption
+                  - DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork

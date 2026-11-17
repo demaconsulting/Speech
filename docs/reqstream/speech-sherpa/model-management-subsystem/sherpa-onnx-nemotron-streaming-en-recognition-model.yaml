@@ -147,7 +147,7 @@ sections:
                   recognized segment after a leading-silence-only endpoint) was found and fixed by
                   gating replay eligibility in the shared engine on genuine recognized text having
                   occurred since the last reset - this value is unaffected by that fix. See also
-                  SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplay for the
+                  SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointSpeechPreserved for the
                   shared engine-level mechanism this value configures.
                 tests:
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_PostEndpointWarmupWindowMs_Is800

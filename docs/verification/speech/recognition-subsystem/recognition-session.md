@@ -31,7 +31,7 @@ real multi-second default.
 
 The real, native-backed `IRecognitionBackend` implementation, `SherpaOnnxRecognitionEngine`, is
 not part of the Speech library: it ships in the sibling SpeechSherpa library, where its
-post-endpoint warm-up-replay bookkeeping, real-speech transcription accuracy, session-end
+post-endpoint warm-up outcomes (no lost or duplicated words), real-speech transcription accuracy, session-end
 `Reset()` buffered-audio fix, and `TryFlush()` trailing-audio recovery are verified directly
 against real, installed models and the real native runtime (see *SpeechSherpa
 RecognitionSubsystem Verification*). The seam is what keeps that native surface out of this

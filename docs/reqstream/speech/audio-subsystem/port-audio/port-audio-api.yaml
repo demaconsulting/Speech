@@ -35,5 +35,3 @@ sections:
                       - PortAudioApi_PlaybackCallback_ProviderThrows_ReturnsAbort
                       - PortAudioApi_IsFormatSupported_NativeResult_MapsToSupport
                       - PortAudioApi_IsFormatSupported_NativeCallThrows_ReturnsFalse
-                      - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
-                      - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance

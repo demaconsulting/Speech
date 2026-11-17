@@ -24,8 +24,8 @@ sections:
             requirements:
               - id: SpeechTextEn-Normalization-TextNormalizer-Spans
                 title: >-
-                  The TextNormalizer class shall visit every token of the text once, in order,
-                  shall describe each replacement as a span on the exact characters of one token,
+                  The TextNormalizer class shall describe each replacement as a span on the exact
+                  characters of one token,
                   of one token with its adjacent period token, or of a numeric span the
                   recognizer produced (a token, a currency symbol with its number, an apostrophe
                   with its decade), shall keep the period of an
@@ -34,10 +34,10 @@ sections:
                   list.
                 justification: |
                   Spans limited to token extents are the rule that keeps each one free of
-                  whitespace and clause separators and so safe from chunking; visiting each token
-                  once is what makes the pass linear and observable.
+                  whitespace and clause separators and so safe from chunking. That the pass visits
+                  each token once, in order, is a design choice recorded in the text normalizer
+                  design.
                 tests:
-                  - TextNormalizer_Normalize_Observer_SeesEveryTokenInOrder
                   - TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence
                   - TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing
 
@@ -45,8 +45,8 @@ sections:
                 title: >-
                   The TextNormalizer class shall apply the numeric recognizer to each token after
                   the invisible-character and clitic rules and before the abbreviation rule, shall
-                  emit the spans of a match in order and skip the tokens the match consumed
-                  without visiting them again, shall forward the match's ambiguity and fallback
+                  emit the spans of a match in order and speak the tokens the match consumed only
+                  once, as part of that match, shall forward the match's ambiguity and fallback
                   counts, shall suppress a tokenizer sentence break that would lie strictly inside
                   a span, and shall not read a token that contains an invisible character as a
                   number.
@@ -55,11 +55,11 @@ sections:
                   unit and "Jan. 5" leaves the number to it, and the invisible-character rule must
                   run first so that a number with a hidden character in it is never half read. A
                   consumed follow-up token (the word "million", a percent sign) belongs to its
-                  number and must not be processed a second time. A break inside a date would cut
+                  number and must not be spoken a second time. A break inside a date would cut
                   a span.
                 tests:
                   - TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations
-                  - TextNormalizer_Normalize_ConsumedFollowUpToken_IsNotVisitedAgain
+                  - TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce
                   - TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity
 
               - id: SpeechTextEn-Normalization-TextNormalizer-NumericSeparation
@@ -91,13 +91,16 @@ sections:
 
               - id: SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
                 title: >-
-                  The TextNormalizer class shall observe cancellation during a pass over numeric
-                  text, counting a token that a numeric match consumed as visited.
+                  The TextNormalizer class shall observe a cancellation requested during a pass
+                  over numeric text, including text whose matches span several tokens, by throwing
+                  OperationCanceledException instead of returning a result.
                 justification: |
                   A long numeric text must stop promptly when the request is canceled, even though
-                  a match consumes several tokens at once.
+                  a match consumes several tokens at once. How the polling counts the consumed
+                  tokens is a design choice recorded in the text normalizer design.
                 tests:
                   - TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException
+                  - TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException
 
               - id: SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
                 title: >-
@@ -204,24 +207,28 @@ sections:
               - id: SpeechTextEn-Normalization-TextNormalizer-Cancellation
                 title: >-
                   The TextNormalizer class shall throw OperationCanceledException before any work
-                  for a token that is already canceled, and shall observe a cancellation requested
-                  during the pass at a periodic check of at most 256 visited tokens.
+                  for a token that is already canceled, and shall throw it instead of returning a
+                  result when cancellation is requested while a long text is being normalized.
                 justification: |
-                  A long text must stop promptly when the request is canceled; a periodic check
-                  keeps the cost of checking small.
+                  A long text must stop promptly when the request is canceled. The periodic check
+                  (every 256 visited tokens) that keeps the cost of checking small is a design
+                  choice recorded in the text normalizer design, not part of the contract.
                 tests:
                   - TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException
                   - TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException
-                  - TextNormalizer_Normalize_DirectivesWithCancellation_CountEveryVisitedToken
+                  - TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException
 
               - id: SpeechTextEn-Normalization-TextNormalizer-Concurrency
                 title: >-
-                  The TextNormalizer class shall keep no per-request state, so that repeated and
-                  concurrent normalization of a text gives the same result, and shall use only the
-                  lexicons it was constructed with.
+                  The TextNormalizer class shall give the same result for repeated and concurrent
+                  normalization of a text with the same configured lexicons as for a single
+                  request, without one request affecting another, and shall use only the lexicons
+                  it was constructed with.
                 justification: |
-                  One shared normalizer serves every request on thread-pool threads, so any state
-                  kept between calls would make results depend on timing.
+                  One shared normalizer serves every request on thread-pool threads, so results
+                  must not depend on timing or on other requests. That the normalizer keeps no
+                  per-request state is how this is achieved and is recorded in the text normalizer
+                  design.
                 tests:
                   - TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic
                   - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
@@ -246,19 +253,22 @@ sections:
                   token's ASCII letters in capitals separated by single spaces (and none for a token
                   that is not only ASCII letters, which is spoken as written and counted as
                   ignored), and a pronounce directive records one pronunciation mark on the token
-                  and no span; and shall stay linear in the number of directives.
+                  and no span; and shall apply every directive of a large text, with thousands of
+                  directives, exactly as it does for a short one.
                 justification: |
                   Each action of an override has exactly one effect on the result, so a backend
                   sees a normalization, a spelling, a pronunciation or nothing; a defective
                   directive (a spell-out of a token the dictionary builder would have refused)
                   must degrade to the written word rather than corrupt the alignment, and ten
-                  thousand directives in a large text must not slow the pass down.
+                  thousand directives in a large text must all be applied. That the directives
+                  are consumed in one forward pass is a design choice recorded in the text
+                  normalizer design.
                 tests:
                   - TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied
                   - TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding
                   - TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly
                   - TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan
-                  - TextNormalizer_Normalize_ManyDirectives_CompletesWithinBudget
+                  - TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective
 
               - id: SpeechTextEn-Normalization-TextNormalizer-DirectivePrecedence
                 title: >-
@@ -281,8 +291,8 @@ sections:
                   or ignored), the sentence-break edits (force and suppress) that the built-in
                   abbreviation and acronym period rules would have made for that token, without
                   emitting or counting their replacement, so that the reconciled sentence breaks are
-                  identical with and without the directive, and shall visit every token exactly
-                  once.
+                  identical with and without the directive, also when several directives apply in
+                  one text.
                 justification: |
                   A directive changes how a word is spoken, not where a sentence ends. A chunker
                   reads the breaks, so a changed break splits a sentence ("See Fig." and "5 for
@@ -293,7 +303,7 @@ sections:
                   - TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks
                   - TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak
                   - TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks
-                  - TextNormalizer_Normalize_DirectiveOnAbbreviation_VisitsEveryTokenOnce
+                  - TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks
                   - NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks
 
               - id: SpeechTextEn-Normalization-TextNormalizer-DirectiveConflicts

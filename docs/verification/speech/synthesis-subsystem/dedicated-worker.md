@@ -7,8 +7,8 @@ non-cooperative-abandonment test does not wait out the two-second default. A coo
 (one that honors its cancellation token) lets `Run` complete promptly on cancellation; a
 non-cooperative delegate (one that ignores it) is abandoned once the shortened timeout elapses,
 reporting a `Warning` through an NSubstitute diagnostics sink while still returning control to the
-caller as canceled. A third test inspects the running thread from inside the delegate to prove it
-runs on a `TaskCreationOptions.LongRunning` task. `Start`'s additional raw-completion task is
+caller as canceled. A third test blocks a delegate on a gate and proves the call still returns, unrelated work
+still progresses, and the task completes once the gate is released. `Start`'s additional raw-completion task is
 exercised indirectly through the `SynthesisSession` abandonment tests that await it.
 
 #### Test Environment
@@ -22,7 +22,8 @@ exercised indirectly through the `SynthesisSession` abandonment tests that await
 
 The unit is considered verified when `Run` completes promptly on cooperative cancellation,
 abandons a non-cooperative delegate after the timeout with a `Warning` diagnostic and a canceled
-result, and always executes its delegate on a long-running task.
+result, and a delegate blocked inside the worker neither blocks the caller nor prevents unrelated
+work from progressing.
 
 #### Test Scenarios
 
@@ -45,10 +46,11 @@ is reported.
 
 **Test**: `DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`
 
-##### Long-Running Execution
+##### Blocked Delegate Isolation
 
-**Stimulus**: A delegate that records the characteristics of its running thread.
+**Stimulus**: A delegate that blocks on a gate until the test releases it.
 
-**Expected**: The delegate ran on a dedicated long-running (non-pool) thread.
+**Expected**: The call returns an incomplete task while the delegate is blocked, unrelated work
+completes in the meantime, and the task completes with the delegate's result once released.
 
-**Test**: `DedicatedWorker_Run_UsesLongRunningTaskCreationOption`
+**Test**: `DedicatedWorker_Run_BlockedDelegate_DoesNotBlockCallerOrUnrelatedWork`
