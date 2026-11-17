@@ -41,14 +41,24 @@ fixed-text reason, never the offending text.
 
 **Entry rules** (the same for `Create` and `FromTsv`):
 
-| Field | Rule |
-| --- | --- |
-| Word | 1 to 64 UTF-16 code units of well-formed text; the first scalar is a letter and the last is a letter or a decimal digit; only letters, combining marks, decimal digits and the characters `'`, `’` (U+2019), `-`, `.`, `&`, `/` and `_`; the plain and the typographic apostrophe may not be mixed in one word. No whitespace, control, format, surrogate or private-use characters and no clause punctuation (`,` `;` `:`) are possible, so a key can never contain a character that the core chunker cuts at |
-| Word, normalization | Keys are compared as written: no Unicode normalization form is applied, so write keys in normalization form C. A key that ends in a combining mark (typical of text in form D) is rejected by the last-scalar rule |
-| Action | One of the four defined values |
-| Payload | `Skip` and `SpellOut`: none. `Say`: 1 to 256 UTF-16 code units of letters, combining marks, `'`, `-` and single spaces between words, at least one letter, no digit and no punctuation. `Pronunciation`: `ipa:` followed by 1 to 128 UTF-16 code units without whitespace, control, format, private-use or unassigned characters, or `arpabet:` followed by 1 to 32 phones separated by single spaces, each one to three capital ASCII letters and an optional stress digit 0 to 2; the whole value at most 256 code units |
-| Spell-out word | 1 to 32 ASCII letters only (letter names exist only for A to Z) |
-| Duplicates | The same canonical key (the typographic apostrophe folded to the plain one) with the same case flag, the keys compared with `OrdinalIgnoreCase` for an insensitive entry, is a duplicate and an error; one sensitive and one insensitive entry for the same word, and sensitive entries that differ only in case, are allowed |
+- **Word**: 1 to 64 UTF-16 code units of well-formed text; the first scalar is a letter and the last is a letter or a
+  decimal digit; only letters, combining marks, decimal digits and the characters `'`, `’` (U+2019), `-`, `.`, `&`, `/`
+  and `_`; the plain and the typographic apostrophe may not be mixed in one word. No whitespace, control, format,
+  surrogate or private-use characters and no clause punctuation (`,` `;` `:`) are possible, so a key can never contain a
+  character that the core chunker cuts at
+- **Word, normalization**: Keys are compared as written: no Unicode normalization form is applied, so write keys in
+  normalization form C. A key that ends in a combining mark (typical of text in form D) is rejected by the last-scalar
+  rule
+- **Action**: One of the four defined values
+- **Payload**: `Skip` and `SpellOut`: none. `Say`: 1 to 256 UTF-16 code units of letters, combining marks, `'`, `-` and
+  single spaces between words, at least one letter, no digit and no punctuation. `Pronunciation`: `ipa:` followed by 1
+  to 128 UTF-16 code units without whitespace, control, format, private-use or unassigned characters, or `arpabet:`
+  followed by 1 to 32 phones separated by single spaces, each one to three capital ASCII letters and an optional stress
+  digit 0 to 2; the whole value at most 256 code units
+- **Spell-out word**: 1 to 32 ASCII letters only (letter names exist only for A to Z)
+- **Duplicates**: The same canonical key (the typographic apostrophe folded to the plain one) with the same case flag,
+  the keys compared with `OrdinalIgnoreCase` for an insensitive entry, is a duplicate and an error; one sensitive and
+  one insensitive entry for the same word, and sensitive entries that differ only in case, are allowed
 
 **Key Methods**:
 

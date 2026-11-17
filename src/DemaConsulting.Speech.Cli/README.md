@@ -35,8 +35,8 @@ runtime, and local model store are all in a healthy state on the current machine
 | `devices test` | Play or record a short test tone/clip (`--device <name>`, `--direction input\|output`) |
 | `doctor` | Report overall environment health |
 | `speak --tts-model <id>` | Synthesize text to a device or WAV file - see [Flags](#speak-flags) below |
-| `recognize --stt-model <id>` | Recognize speech from a WAV file or the microphone - see [Flags](#recognize-flags) below |
-| `ask --tts-model <id> --stt-model <id>` | Speak a prompt, then listen for the reply - see [Flags](#ask-flags) below |
+| `recognize --stt-model <id>` | Recognize speech from a WAV file or the microphone - see [Flags](#recognize-flags) |
+| `ask --tts-model <id> --stt-model <id>` | Speak a prompt, then listen for the reply - see [Flags](#ask-flags) |
 
 ## Reference voices (Chatterbox Turbo)
 

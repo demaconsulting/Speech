@@ -397,12 +397,27 @@ gives the word `"I"`), so a backend never infers spelling from an `"en.norm"` va
 
 **The four actions.** Each entry has a word, a case flag, an action and, for two actions, a payload:
 
-| Action | Payload | What the matching word gets | Example |
-| --- | --- | --- | --- |
-| `Skip` (`skip`) | none | Spoken as written; no built-in rule runs for it and nothing is annotated | `NASA` stays `NASA` (and `NASA's launch` stays as written) |
-| `Say` (`say`) | plain words | One `"en.norm"` annotation whose value is the payload | `Use Nginx today.` is spoken `Use engine ex today.` |
-| `SpellOut` (`spell`) | none | One `"en.spell"` annotation: the word's letters in capitals | `A GIF file` is spoken `A G I F file` |
-| `Pronunciation` (`pron`) | `ipa:...` or `arpabet:...` | One `"en.pron"` annotation on the word; **the word is not replaced** | `Polish food` keeps its text, and a backend that supports the notation receives the phonemes |
+| Action | Payload |
+| --- | --- |
+| `Skip` (`skip`) | none |
+| `Say` (`say`) | plain words |
+| `SpellOut` (`spell`) | none |
+| `Pronunciation` (`pron`) | `ipa:...` or `arpabet:...` |
+
+**Action details:**
+
+- `Skip` (`skip`)
+  - What the matching word gets: Spoken as written; no built-in rule runs for it and nothing is annotated
+  - Example: `NASA` stays `NASA` (and `NASA's launch` stays as written)
+- `Say` (`say`)
+  - What the matching word gets: One `"en.norm"` annotation whose value is the payload
+  - Example: `Use Nginx today.` is spoken `Use engine ex today.`
+- `SpellOut` (`spell`)
+  - What the matching word gets: One `"en.spell"` annotation: the word's letters in capitals
+  - Example: `A GIF file` is spoken `A G I F file`
+- `Pronunciation` (`pron`)
+  - What the matching word gets: One `"en.pron"` annotation on the word; **the word is not replaced**
+  - Example: `Polish food` keeps its text, and a backend that supports the notation receives the phonemes
 
 A `Say` payload is plain words: letters, apostrophes, hyphens, and single spaces, with no digit and no
 punctuation, so it can never change how a backend splits clauses (write a number in words). A selection of a
@@ -414,7 +429,7 @@ heteronym reading (the noun or the verb of "record") is reserved for a later rel
 | --- | --- | --- |
 | 1 | An entry with a case-sensitive match (exact characters) | `Polish` beats `polish` for the word `Polish` |
 | 2 | An entry with a case-insensitive match | consulted only when no case-sensitive entry matches |
-| 3 | The built-in rules: abbreviations, acronyms and initialisms, symbols, numbers | an override wins over all of them for its word |
+| 3 | Built-in rules: abbreviations, acronyms, initialisms, symbols, numbers | an override beats them all for its word |
 | 4 | The part of speech | independent: an overridden word still gets its `"en.upos"` |
 
 The one exception is a word that an *earlier* match of a number or unit has already used (see *Overrides
@@ -571,15 +586,27 @@ A replacement and a pronunciation never overlap, because a word is either replac
 
 **Names and acronyms: recipes.**
 
-| Goal | Entry | Result |
-| --- | --- | --- |
-| Say a product name as words | `Nginx`, insensitive, `say`, `engine ex` | `Use Nginx today.` is spoken `Use engine ex today.` |
-| Say a name the way it sounds | `Kubernetes`, sensitive, `say`, `koo ber net eez` | `Kubernetes runs` is spoken `koo ber net eez runs`; `kubernetes runs` is not changed |
-| Spell an initialism that is not in the table | `GIF`, sensitive, `spell` | `A GIF file` is spoken `A G I F file` |
-| Speak a listed initialism as written | `FBI`, sensitive, `skip` | `The FBI and CIA` is spoken `The FBI and C I A` (`CIA` is still spelled) |
-| Keep the country `US` as written | `US`, sensitive, `skip` | `US troops asked us` is not changed |
-| Give a name its own phonemes | `Polish`, sensitive, `pron`, `ipa:ˈpoʊlɪʃ` and `polish`, insensitive, `pron`, `ipa:ˈpɑːlɪʃ` | `Polish polish` gets one `"en.pron"` annotation per word, each with its own phonemes |
-| Replace a whole hyphenated word | `Nginx-based`, insensitive, `say`, `engine ex based` | `Nginx-based apps` is spoken `engine ex based apps`; `Nginx-free apps` is not changed |
+- **Say a product name as words**
+  - Entry: `Nginx`, insensitive, `say`, `engine ex`
+  - Result: `Use Nginx today.` is spoken `Use engine ex today.`
+- **Say a name the way it sounds**
+  - Entry: `Kubernetes`, sensitive, `say`, `koo ber net eez`
+  - Result: `Kubernetes runs` is spoken `koo ber net eez runs`; `kubernetes runs` is not changed
+- **Spell an initialism that is not in the table**
+  - Entry: `GIF`, sensitive, `spell`
+  - Result: `A GIF file` is spoken `A G I F file`
+- **Speak a listed initialism as written**
+  - Entry: `FBI`, sensitive, `skip`
+  - Result: `The FBI and CIA` is spoken `The FBI and C I A` (`CIA` is still spelled)
+- Keep the country `US` as written
+  - Entry: `US`, sensitive, `skip`
+  - Result: `US troops asked us` is not changed
+- **Give a name its own phonemes**
+  - Entry: `Polish`, sensitive, `pron`, `ipa:ˈpoʊlɪʃ` and `polish`, insensitive, `pron`, `ipa:ˈpɑːlɪʃ`
+  - Result: `Polish polish` gets one `"en.pron"` annotation per word, each with its own phonemes
+- **Replace a whole hyphenated word**
+  - Entry: `Nginx-based`, insensitive, `say`, `engine ex based`
+  - Result: `Nginx-based apps` is spoken `engine ex based apps`; `Nginx-free apps` is not changed
 
 The same text with a key that cannot match is simply left alone: `Mr. Smith` is read by the abbreviation rules
 (`Mister Smith`) because a key cannot end with a period, and `Don't go` is not changed by a key for `Do`.

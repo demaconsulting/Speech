@@ -20,17 +20,32 @@ limits below and two internal value types:
 
 *Limits.* They bound the work per token and the size of any value, and are enforced before a reading is built.
 
-| Limit | Value | Behavior beyond it |
-| --- | --- | --- |
-| Token length scanned (`MaxTokenLength`) | 128 characters | A token longer than this that starts like a number (digit, sign and digit, `.` and digit, `#` and digit, a currency symbol and a digit) is left as written and counted as a numeric fallback, **without scanning it** |
-| Digit groups per number (`MaxGroups`) | 8 (digits separated by one punctuation character) | Left as written, fallback |
-| Cardinal | 15 digits (999 trillion) | 16 to 64 digits: read digit by digit and counted as a fallback; more than 64 digits: left as written, fallback |
-| Fraction digits of a decimal | 32 | More: left as written, fallback |
-| Ordinal | 15 digits | More: left as written, fallback |
-| Digit-by-digit total of a hyphen or dotted group number | 64 digits | More: left as written, fallback |
-| Neighbor token examined as a word (unit, month, cue word) | 16 characters | A longer neighbor is never a cue |
-| Look-behind and look-ahead | at most 3 tokens, each a constant-time test | - |
-| Spoken value | 1,024 characters | Asserted for the worst case; the writer throws rather than truncates |
+| Limit | Value |
+| --- | --- |
+| Token length scanned (`MaxTokenLength`) | 128 characters |
+| Digit groups per number (`MaxGroups`) | 8 (digits separated by one punctuation character) |
+| Cardinal | 15 digits (999 trillion) |
+| Fraction digits of a decimal | 32 |
+| Ordinal | 15 digits |
+| Digit-by-digit total of a hyphen or dotted group number | 64 digits |
+| Neighbor token examined as a word (unit, month, cue word) | 16 characters |
+| Look-behind and look-ahead | at most 3 tokens, each a constant-time test |
+| Spoken value | 1,024 characters |
+
+**Limit details** (Behavior beyond it):
+
+- Token length scanned (`MaxTokenLength`): A token longer than this that starts like a number (digit, sign and digit,
+  `.` and digit, `#` and digit, a currency symbol and a digit) is left as written and counted as a numeric fallback,
+  **without scanning it**
+- Digit groups per number (`MaxGroups`): Left as written, fallback
+- **Cardinal**: 16 to 64 digits: read digit by digit and counted as a fallback; more than 64 digits: left as written,
+  fallback
+- **Fraction digits of a decimal**: More: left as written, fallback
+- **Ordinal**: More: left as written, fallback
+- **Digit-by-digit total of a hyphen or dotted group number**: More: left as written, fallback
+- **Neighbor token examined as a word (unit, month, cue word)**: A longer neighbor is never a cue
+- **Look-behind and look-ahead**: -
+- **Spoken value**: Asserted for the worst case; the writer throws rather than truncates
 
 *Tokens and context.* The tokenizer is whitespace driven and not uniform: `$5.50` is two tokens (`$`, `5.50`),
 `¥500` and `-$5` one, `50%` two (`50`, `%`), `5pm` one, `5-10` one, `5–10` (en dash) three, `1990's` one and
@@ -90,13 +105,22 @@ The units `ft`, `Ft`, `yd`, `mi`, `lb`, `lbs`, `oz`, `hr`, `hrs` and `min` may c
 **Span shapes (normative).** Every span the unit produces has one of these shapes, none contains whitespace,
 and a `,` or `:` appears only between two ASCII digits:
 
-| Shape | Description | Examples |
-| --- | --- | --- |
-| S1 | One token | `42`, `$5` (when the tokenizer glues them), `5kg`, `1,234.50` |
-| S2 | One token and its adjacent period token | produced by `TextNormalizer` for a period-bearing unit (`lbs` and `.`), never by this unit alone |
-| S3 | A currency symbol token and its adjacent number token | `$` `5.50` |
-| S4 | An apostrophe token and its adjacent decade token | `'` `90s` |
-| S5 | Each of the two halves of one token split into adjacent, non-overlapping spans: the hour or time words and the meridiem letters of a glued meridiem | `5pm` gives `5` (`five`) and `pm` (`P M`); `5:30pm` gives `5:30` (`five thirty`) and `pm` (`P M`) |
+| Shape | Examples |
+| --- | --- |
+| S1 | `42`, `$5` (when the tokenizer glues them), `5kg`, `1,234.50` |
+| S2 | produced by `TextNormalizer` for a period-bearing unit (`lbs` and `.`), never by this unit alone |
+| S3 | `$` `5.50` |
+| S4 | `'` `90s` |
+| S5 | `5pm` gives `5` (`five`) and `pm` (`P M`); `5:30pm` gives `5:30` (`five thirty`) and `pm` (`P M`) |
+
+**Shape details** (Description):
+
+- **S1**: One token
+- **S2**: One token and its adjacent period token
+- **S3**: A currency symbol token and its adjacent number token
+- **S4**: An apostrophe token and its adjacent decade token
+- **S5**: Each of the two halves of one token split into adjacent, non-overlapping spans: the hour or time words and the
+  meridiem letters of a glued meridiem
 
 A construct of several tokens becomes several spans in source order, one per token or S3/S4 pair (a glued
 meridiem is the one case of a single token split into two spans, S5), never
@@ -110,8 +134,8 @@ and the comma untouched; `3 1/2` is `3` (`three`) and `1/2` (`and one half`); `5
 #### Reading policy
 
 The policy is normative: it is fixed, lexical (shapes, symbols, a few cue words; never the part of speech)
-and en-US. Every row of the tables below is a golden row of the subsystem tests, as are the deferrals. Spoken
-values follow the conventions of *SpeechTextEn System Design*, *Spoken-Text Conventions*.
+and en-US. Every row of the tables and every entry of the lists below is a golden row of the subsystem tests, as
+are the deferrals. Spoken values follow the conventions of *SpeechTextEn System Design*, *Spoken-Text Conventions*.
 
 **Numeric alphabet.** Only the ASCII digits `0-9` make a number. Full-width, Arabic-Indic, mathematical and
 superscript digits are never numbers (identity); `char.IsDigit` is never used by this unit or by
@@ -133,29 +157,56 @@ separators decide the shape, and the shape decides the reader, in this order:
 
 **Integers, decimals, ordinals, digit sequences.**
 
-| Input token(s) | Spoken | Notes |
-| --- | --- | --- |
-| `0`, `7`, `42`, `100`, `101`, `999` | `zero`, `seven`, `forty two`, `one hundred`, `one hundred one`, `nine hundred ninety nine` | `forty` is the standard spelling; no `and` |
-| `1,234`, `1,000,000`, `999,999,999,999,999` | `one thousand two hundred thirty four`, `one million`, `nine hundred ninety nine trillion ...` | thousands separators must be exactly one to three digits (no leading zero) then groups of three |
-| `-5`, `−7` (U+2212), `+3`, `-$5` | `minus five`, `minus seven`, `plus three` | a sign only when glued to the digits; with a time, date, range or dotted shape it is not read |
-| `007`, `00`, `0123` | `zero zero seven`, `zero zero`, `zero one two three` | a leading zero on more than one digit is an identifier, digit by digit, not a fallback (up to 64 digits) |
-| 10 to 15 digits without separators | cardinal | `1234567890` is `one billion ...`; no phone guess |
-| 16 to 64 digits | digit by digit | **fallback +1** |
-| more than 64 digits, a token over 128 characters, more than 8 groups | left as written | **fallback +1**, no span |
-| `1,23`, `1.234,5`, `12,34,567` | left as written | not en-US: **fallback +1** |
-| `3.5`, `0.5`, `.5`, `5.0`, `-3.5`, `1,234.5`, `1.234` | `three point five`, `zero point five`, `point five`, `five point zero`, `minus three point five`, `one thousand two hundred thirty four point five`, `one point two three four` | fraction digits one by one, zeros kept; a period is a decimal point, never thousands; more than 32 fraction digits: left as written, **fallback** |
-| `1st`, `2nd`, `3rd`, `4th`, `11th`, `12th`, `13th`, `21st`, `22nd`, `101st`, `100th`, `1,000th`, `1ST` | `first`, `second`, `third`, `fourth`, `eleventh`, `twelfth`, `thirteenth`, `twenty first`, `twenty second`, `one hundred first`, `one hundredth`, `one thousandth`, `first` | the suffix (any case) must be the right one for the number (`1th`, `2st`, `11st` stay identity); a leading zero (`01st`) is not an ordinal; more than 15 digits: left as written, **fallback** |
-| `#5`, `#1`, `#007` | `number five`, `number one`, `number zero zero seven` | a hash glued to the digits; `# 5` leaves the hash alone and reads `five` |
+- `0`, `7`, `42`, `100`, `101`, `999`
+  - Spoken: `zero`, `seven`, `forty two`, `one hundred`, `one hundred one`, `nine hundred ninety nine`
+  - Notes: `forty` is the standard spelling; no `and`
+- `1,234`, `1,000,000`, `999,999,999,999,999`
+  - Spoken: `one thousand two hundred thirty four`, `one million`, `nine hundred ninety nine trillion ...`
+  - Notes: thousands separators must be exactly one to three digits (no leading zero) then groups of three
+- `-5`, `−7` (U+2212), `+3`, `-$5`
+  - Spoken: `minus five`, `minus seven`, `plus three`
+  - Notes: a sign only when glued to the digits; with a time, date, range or dotted shape it is not read
+- `007`, `00`, `0123`
+  - Spoken: `zero zero seven`, `zero zero`, `zero one two three`
+  - Notes: a leading zero on more than one digit is an identifier, digit by digit, not a fallback (up to 64 digits)
+- **10 to 15 digits without separators**
+  - Spoken: cardinal
+  - Notes: `1234567890` is `one billion ...`; no phone guess
+- **16 to 64 digits**
+  - Spoken: digit by digit
+  - Notes: **fallback +1**
+- **more than 64 digits, a token over 128 characters, more than 8 groups**
+  - Spoken: left as written
+  - Notes: **fallback +1**, no span
+- `1,23`, `1.234,5`, `12,34,567`
+  - Spoken: left as written
+  - Notes: not en-US: **fallback +1**
+- `3.5`, `0.5`, `.5`, `5.0`, `-3.5`, `1,234.5`, `1.234`
+  - Spoken: `three point five`, `zero point five`, `point five`, `five point zero`, `minus three point five`,
+    `one thousand two hundred thirty four point five`, `one point two three four`
+  - Notes: fraction digits one by one, zeros kept; a period is a decimal point, never thousands; more than 32 fraction
+    digits: left as written, **fallback**
+- `1st`, `2nd`, `3rd`, `4th`, `11th`, `12th`, `13th`, `21st`, `22nd`, `101st`, `100th`, `1,000th`, `1ST`
+  - Spoken: `first`, `second`, `third`, `fourth`, `eleventh`, `twelfth`, `thirteenth`, `twenty first`, `twenty second`,
+    `one hundred first`, `one hundredth`, `one thousandth`, `first`
+  - Notes: the suffix (any case) must be the right one for the number (`1th`, `2st`, `11st` stay identity); a leading
+    zero (`01st`) is not an ordinal; more than 15 digits: left as written, **fallback**
+- `#5`, `#1`, `#007`
+  - Spoken: `number five`, `number one`, `number zero zero seven`
+  - Notes: a hash glued to the digits; `# 5` leaves the hash alone and reads `five`
 
-**Years and decades (policy Y1).** The policy applies to an unsigned, separator-free, decimal-free
-four-digit integer from 1000 to 2099; everything else is a cardinal (`2100` is `two thousand one hundred`).
+**Years and decades (policy Y1).** The policy applies to an unsigned, separator-free, decimal-free four-digit integer
+from 1000 to 2099; everything else is a cardinal (`2100` is `two thousand one hundred`). Each case gives its reading;
+the first matching case wins:
 
-| Case (first matching row wins) | Reading |
-| --- | --- |
-| The previous token is a year cue, or a month (or the period after a month **abbreviation**), or a date context (below), or the next token is an era | **Year**, not counted: `in 1066` is `in ten sixty six`; `1066 AD` is `ten sixty six AD`; `before 1900` is `before nineteen hundred` |
-| The previous token is a quantity cue, or the next token is a unit, a percent sign, a currency code or symbol, a magnitude word or a quantity noun | **Cardinal**: `about 1500 people`, `1500 people` and `1500 kg` read `one thousand five hundred ...`; `2024%` is `two thousand twenty four percent` |
-| No cue and 1100 to 2099 | **Year**, counted as an **ambiguous reading**: `1999` is `nineteen ninety nine` |
-| No cue and 1000 to 1099 | **Cardinal**, counted ambiguous: `1066` is `one thousand sixty six` |
+- The previous token is a year cue, or a month (or the period after a month **abbreviation**), or a date context
+  (below), or the next token is an era: **Year**, not counted: `in 1066` is `in ten sixty six`; `1066 AD` is
+  `ten sixty six AD`; `before 1900` is `before nineteen hundred`
+- **The previous token is a quantity cue, or the next token is a unit, a percent sign, a currency code or symbol, a
+  magnitude word or a quantity noun**: **Cardinal**: `about 1500 people`, `1500 people` and `1500 kg` read
+  `one thousand five hundred ...`; `2024%` is `two thousand twenty four percent`
+- **No cue and 1100 to 2099**: **Year**, counted as an **ambiguous reading**: `1999` is `nineteen ninety nine`
+- **No cue and 1000 to 1099**: **Cardinal**, counted ambiguous: `1066` is `one thousand sixty six`
 
 Year words: `1999` `nineteen ninety nine`; `1905` `nineteen oh five`; `1900` `nineteen hundred`; `1100`
 `eleven hundred`; `2010` `twenty ten`; `2024` `twenty twenty four`; `2099` `twenty ninety nine`. The years 1000 and 2000
@@ -182,20 +233,46 @@ Decades: `1990s` `nineteen nineties`; `90s` `nineties`; `1900s` `nineteen hundre
 
 **Currency** (symbols `$ € £ ¥`, codes `USD EUR GBP JPY`).
 
-| Input | Spoken | Notes |
-| --- | --- | --- |
-| `$5`, `$1`, `$0` | `five dollars`, `one dollar`, `zero dollars` | singular only for exactly 1 (`$1`, `$1.00`) |
-| `$5.50`, `$1.01`, `$0.99`, `$.99`, `$5.00`, `$0.01`, `$0.00` | `five dollars and fifty cents`, `one dollar and one cent`, `ninety nine cents`, `ninety nine cents`, `five dollars`, `one cent`, `zero dollars` | minor units only for a symbol-prefixed amount with **exactly two** fraction digits, no magnitude, and a currency that has them |
-| `$5.5`, `$5.123` | `five point five dollars`, `five point one two three dollars` | other fraction lengths are a decimal and the plural unit |
-| `$1,234.50`, `$1,234,567.89` | `one thousand two hundred thirty four dollars and fifty cents`, ... | |
-| `€5.50`, `€1`, `£3`, `£0.50`, `£1.01`, `¥500`, `¥5.5`, `¥5.25` | `five euros and fifty cents`, `one euro`, `three pounds`, `fifty pence`, `one pound and one penny`, `five hundred yen`, `five point five yen`, `five point two five yen` | `¥` never takes minor units; yen is its own plural |
-| `-$5`, `$-5`, `−$5`, `-$0.99` | `minus five dollars`, `minus ninety nine cents` | |
-| `$5 million`, `$2.5 billion`, `$3 thousand`, `$1 trillion` | `$5` `five` and `million` `million dollars`; `two point five` and `billion dollars`; ... | per token: the magnitude word (lowercase) after a symbol amount carries the unit; no minor units |
-| `$5M`, `$5.5M`, `$10k`, `$3B`, `$1.5m` (letter `K k M m B b` glued, after a symbol only) | `five million dollars`, `five point five million dollars`, `ten thousand dollars`, `three billion dollars`, `one point five million dollars` | bare `10k` and `1.5M` (no symbol) stay identity |
-| `5$`, `5€` (glued), `5 €` | `five dollars`, `five euros`, `five` and `euros` | |
-| `5 USD`, `1 USD`, `5.50 EUR`, `5 million USD`, `500 JPY`, `3 GBP`, `5USD` | `five` and `dollars`; `one` and `dollar`; `five point five zero` and `euros`; `five` and (`million`) and `dollars`; `five hundred` and `yen`; `three` and `pounds`; `five dollars` | a **suffix** code or symbol is a per-token follow-up of a plain number, so the amount is a plain decimal and **never produces minor units**: `5.50 EUR` is `five point five zero euros` (a symbol-prefixed amount such as `$5.50` does) |
-| `US$5`, `USD 5`, `$ 5` | identity (`$ 5` reads `$ five`) | prefix codes are deferred |
-| `$1,23` | identity | **fallback** |
+- `$5`, `$1`, `$0`
+  - Spoken: `five dollars`, `one dollar`, `zero dollars`
+  - Notes: singular only for exactly 1 (`$1`, `$1.00`)
+- `$5.50`, `$1.01`, `$0.99`, `$.99`, `$5.00`, `$0.01`, `$0.00`
+  - Spoken: `five dollars and fifty cents`, `one dollar and one cent`, `ninety nine cents`, `ninety nine cents`,
+    `five dollars`, `one cent`, `zero dollars`
+  - Notes: minor units only for a symbol-prefixed amount with **exactly two** fraction digits, no magnitude, and a
+    currency that has them
+- `$5.5`, `$5.123`
+  - Spoken: `five point five dollars`, `five point one two three dollars`
+  - Notes: other fraction lengths are a decimal and the plural unit
+- `$1,234.50`, `$1,234,567.89`
+  - Spoken: `one thousand two hundred thirty four dollars and fifty cents`, ...
+- `€5.50`, `€1`, `£3`, `£0.50`, `£1.01`, `¥500`, `¥5.5`, `¥5.25`
+  - Spoken: `five euros and fifty cents`, `one euro`, `three pounds`, `fifty pence`, `one pound and one penny`,
+    `five hundred yen`, `five point five yen`, `five point two five yen`
+  - Notes: `¥` never takes minor units; yen is its own plural
+- `-$5`, `$-5`, `−$5`, `-$0.99`
+  - Spoken: `minus five dollars`, `minus ninety nine cents`
+- `$5 million`, `$2.5 billion`, `$3 thousand`, `$1 trillion`
+  - Spoken: `$5` `five` and `million` `million dollars`; `two point five` and `billion dollars`; ...
+  - Notes: per token: the magnitude word (lowercase) after a symbol amount carries the unit; no minor units
+- `$5M`, `$5.5M`, `$10k`, `$3B`, `$1.5m` (letter `K k M m B b` glued, after a symbol only)
+  - Spoken: `five million dollars`, `five point five million dollars`, `ten thousand dollars`, `three billion dollars`,
+    `one point five million dollars`
+  - Notes: bare `10k` and `1.5M` (no symbol) stay identity
+- `5$`, `5€` (glued), `5 €`
+  - Spoken: `five dollars`, `five euros`, `five` and `euros`
+- `5 USD`, `1 USD`, `5.50 EUR`, `5 million USD`, `500 JPY`, `3 GBP`, `5USD`
+  - Spoken: `five` and `dollars`; `one` and `dollar`; `five point five zero` and `euros`; `five` and (`million`) and
+    `dollars`; `five hundred` and `yen`; `three` and `pounds`; `five dollars`
+  - Notes: a **suffix** code or symbol is a per-token follow-up of a plain number, so the amount is a plain decimal and
+    **never produces minor units**: `5.50 EUR` is `five point five zero euros` (a symbol-prefixed amount such as `$5.50`
+    does)
+- `US$5`, `USD 5`, `$ 5`
+  - Spoken: identity (`$ 5` reads `$ five`)
+  - Notes: prefix codes are deferred
+- `$1,23`
+  - Spoken: identity
+  - Notes: **fallback**
 
 **Percent and units.**
 
@@ -214,17 +291,18 @@ Decades: `1990s` `nineteen nineties`; `90s` `nineties`; `1900s` `nineteen hundre
   Worth` is `five feet. Worth` (the suffix rules keep the period and force a break before any capitalized
   word, even a name; `Ft.` as Fort needs no number before it)
 
-**Times.**
+**Times** (input, then spoken).
 
-| Input | Spoken |
-| --- | --- |
-| `5:30`, `12:30`, `23:59` | `five thirty`, `twelve thirty`, `twenty three fifty nine` |
-| `5:05`, `5:00`, `12:00` | `five oh five`, `five o'clock`, `twelve o'clock` |
-| `17:45`, `17:00` | `seventeen forty five`, `seventeen hundred` |
-| `07:05`, `07:00`, `0:30`, `00:00` | `oh seven oh five`, `oh seven hundred`, `zero thirty`, `zero hundred` |
-| `5:30pm`, `5:30PM`, `5pm`, `5PM`, `12:00am`, `5:00pm` (glued; hour 1 to 12) | two adjacent spans inside the token (S5): `five thirty` and `P M`; `five thirty` and `P M`; `five` and `P M`; `five` and `P M`; `twelve` and `A M`; `five` and `P M` |
-| `5 pm`, `5:30 pm`, `5:00 pm`, `5 am` (a lowercase `am` or `pm` token joined to an hour or `h:mm`) | `five` and `P M`; `five thirty` and `P M`; `five` and `P M`; `five` and `A M` |
-| `5:30 p.m.`, `5 PM`, `5 a.m.` | the number per token and the **existing** initialism rule (`P M`, `A M`) |
+- `5:30`, `12:30`, `23:59`: `five thirty`, `twelve thirty`, `twenty three fifty nine`
+- `5:05`, `5:00`, `12:00`: `five oh five`, `five o'clock`, `twelve o'clock`
+- `17:45`, `17:00`: `seventeen forty five`, `seventeen hundred`
+- `07:05`, `07:00`, `0:30`, `00:00`: `oh seven oh five`, `oh seven hundred`, `zero thirty`, `zero hundred`
+- `5:30pm`, `5:30PM`, `5pm`, `5PM`, `12:00am`, `5:00pm` (glued; hour 1 to 12): two adjacent spans inside the token (S5):
+  `five thirty` and `P M`; `five thirty` and `P M`; `five` and `P M`; `five` and `P M`; `twelve` and `A M`; `five` and
+  `P M`
+- `5 pm`, `5:30 pm`, `5:00 pm`, `5 am` (a lowercase `am` or `pm` token joined to an hour or `h:mm`): `five` and `P M`;
+  `five thirty` and `P M`; `five` and `P M`; `five` and `A M`
+- `5:30 p.m.`, `5 PM`, `5 a.m.`: the number per token and the **existing** initialism rule (`P M`, `A M`)
 
 Valid only for an hour 0 to 23 and minutes `00` to `59` written with two digits; a meridiem needs hour 1 to
 12 (`13:30pm`, `0pm`, `13pm` stay identity). `25:99`, `3:2`, `5:60`, `5:30:15` and `1:1:1` stay identity
@@ -232,22 +310,53 @@ Valid only for an hour 0 to 23 and minutes `00` to `59` written with two digits;
 
 **Dates.**
 
-| Input | Spoken | Count |
-| --- | --- | --- |
-| `12/25/2024`, `25/12/2024`, `2024-12-25`, `2024/12/25`, `12-25-2024`, `31/12/2024`, `6/15/1999` | `December twenty fifth twenty twenty four`, ..., `June fifteenth nineteen ninety nine` | none (a month above 12 or a day above 12 decides the order) |
-| `3/4/2024`, `1/2/24`, `03-04-2024`, `7/4/2076` | `March fourth twenty twenty four`, `January second twenty four`, `March fourth twenty twenty four`, `July fourth twenty seventy six` | **ambiguous +1** (both parts at most 12 and different; month first, the en-US order) |
-| `12/12/2024`, `1/1/2000` | `December twelfth twenty twenty four`, `January first two thousand` | none (same parts) |
-| `13/13/2024`, `0/5/2024`, `2/32/2024`, `1/1/00`, `5/5/5` | identity | not a date; no count |
-| `2/30/2024`, `2024-02-30` | `February thirtieth twenty twenty four` | none (day at most 31, no calendar check; documented) |
-| `1/1/05` | `January first oh five` | none |
-| `2024-13-01` | digit by digit | not a date, so the hyphen-group rule applies |
-| `12.25.2024` (dots) | `twelve point twenty five point two zero two four` | none (the dotted-group rule below, not a date) |
-| `January 5, 2024`, `January 5th, 2024`, `5th January 2024`, `5 January 2024`, `December 25`, `May 2024`, `in May 2024`, `May 5`, `Dec 25 2024` | `5` is `fifth`, `2024` is `twenty twenty four`, a day next to a month is an ordinal; the month name, the comma and the ordinal suffix words stay untouched | none (a date context supplies the year cue) |
-| `May 45`, `May 5 people`, `may 5` | `45` is a cardinal (above 31, not a day); `5` still a day; lowercase `may` is not a month | none |
-| `May. 5 people`, `We finished in May. 5 people stayed.`, `January. 5 people` | `5` is `five`: the period after `May` or a full month name ends the sentence, so there is no date context | none |
-| `January. 1999 people`, `May. 5, 2024` | `1999` is `one thousand nine hundred ninety nine` (the noun decides); in `May. 5, 2024` `5` is `five` and `2024` a year by the default | `May. 5, 2024` counts one ambiguous reading |
-| `Month: May` and a blank line, then `5 people`; `Dec 25` and a blank line, then `2024 people` | `5` is `five`; `25` is `twenty fifth` and `2024` is `two thousand twenty four` | a retained break stops the date; none |
-| `Jan. 5`, `Sept. 1999 people`, `Dec. 25, 2024` | `fifth`, `nineteen ninety nine`, `twenty fifth` and `twenty twenty four`: an abbreviation period keeps the date | none |
+- `12/25/2024`, `25/12/2024`, `2024-12-25`, `2024/12/25`, `12-25-2024`, `31/12/2024`, `6/15/1999`
+  - Spoken: `December twenty fifth twenty twenty four`, ..., `June fifteenth nineteen ninety nine`
+  - Count: none (a month above 12 or a day above 12 decides the order)
+- `3/4/2024`, `1/2/24`, `03-04-2024`, `7/4/2076`
+  - Spoken: `March fourth twenty twenty four`, `January second twenty four`, `March fourth twenty twenty four`,
+    `July fourth twenty seventy six`
+  - Count: **ambiguous +1** (both parts at most 12 and different; month first, the en-US order)
+- `12/12/2024`, `1/1/2000`
+  - Spoken: `December twelfth twenty twenty four`, `January first two thousand`
+  - Count: none (same parts)
+- `13/13/2024`, `0/5/2024`, `2/32/2024`, `1/1/00`, `5/5/5`
+  - Spoken: identity
+  - Count: not a date; no count
+- `2/30/2024`, `2024-02-30`
+  - Spoken: `February thirtieth twenty twenty four`
+  - Count: none (day at most 31, no calendar check; documented)
+- `1/1/05`
+  - Spoken: `January first oh five`
+  - Count: none
+- `2024-13-01`
+  - Spoken: digit by digit
+  - Count: not a date, so the hyphen-group rule applies
+- `12.25.2024` (dots)
+  - Spoken: `twelve point twenty five point two zero two four`
+  - Count: none (the dotted-group rule below, not a date)
+- `January 5, 2024`, `January 5th, 2024`, `5th January 2024`, `5 January 2024`, `December 25`, `May 2024`,
+  `in May 2024`, `May 5`, `Dec 25 2024`
+  - Spoken: `5` is `fifth`, `2024` is `twenty twenty four`, a day next to a month is an ordinal; the month name, the
+    comma and the ordinal suffix words stay untouched
+  - Count: none (a date context supplies the year cue)
+- `May 45`, `May 5 people`, `may 5`
+  - Spoken: `45` is a cardinal (above 31, not a day); `5` still a day; lowercase `may` is not a month
+  - Count: none
+- `May. 5 people`, `We finished in May. 5 people stayed.`, `January. 5 people`
+  - Spoken: `5` is `five`: the period after `May` or a full month name ends the sentence, so there is no date context
+  - Count: none
+- `January. 1999 people`, `May. 5, 2024`
+  - Spoken: `1999` is `one thousand nine hundred ninety nine` (the noun decides); in `May. 5, 2024` `5` is `five` and
+    `2024` a year by the default
+  - Count: `May. 5, 2024` counts one ambiguous reading
+- `Month: May` and a blank line, then `5 people`; `Dec 25` and a blank line, then `2024 people`
+  - Spoken: `5` is `five`; `25` is `twenty fifth` and `2024` is `two thousand twenty four`
+  - Count: a retained break stops the date; none
+- `Jan. 5`, `Sept. 1999 people`, `Dec. 25, 2024`
+  - Spoken: `fifth`, `nineteen ninety nine`, `twenty fifth` and `twenty twenty four`: an abbreviation period keeps the
+    date
+  - Count: none
 
 A numeric date has the shape digits, one separator, digits, the same separator, digits; the year is four digits
 (or two digits for a slash date), the month and day one or two digits. Month names are matched in Title Case
@@ -257,17 +366,48 @@ them), or directly before a month. Weekday names add no behavior.
 
 **Digit groups, ranges, phone numbers, fractions.**
 
-| Input | Spoken | Rule |
-| --- | --- | --- |
-| `5-10`, `100-200`, `5-3` | `five to ten`, `one hundred to two hundred`, `five to three` | two hyphen groups, no leading zero, each at most 9 digits, not a 3-and-4-digit pair (a local phone number); a score reads the same |
-| `1990-2000`, `2020-2024`, `2024-2020` | `nineteen ninety to two thousand`, `twenty twenty to twenty twenty four`, `two thousand twenty four to two thousand twenty` | both groups four-digit years 1000 to 2099 and the first not above the second read as years; otherwise as cardinals |
-| `5–10` (en dash between two adjacent number tokens) | `five to ten` | per token: the dash is `to`; each number follows its own policy (two years follow the year policy, so `1990–2000` counts one ambiguous reading); both neighbors must themselves be read as numbers (`5–10`, `1,234–5,678`, `5:30–6:30`, `5–10kg` read; `1–2D`, `1,23–5`, `5–25:99`, `5–10x` keep the dash and every token is read on its own: `one–2D`, `1,23–five`); a spaced dash `5 – 10` and a dash between letters are identity |
-| `555-1234`, `555-123-4567`, `1-800-555-1234`, `123-45-6789`, `01-02`, `1234567890-5`, `(555) 123-4567` | digits one by one (`five five five one two three four`); the area code in adjacent parentheses followed by `ddd-dddd` is also digit by digit | phone and identifier policy: any other hyphen shape of two or more groups; not a fallback (more than 64 digits in total is) |
-| `3.2.1`, `2.0.1`, `1.2.3.4`, `192.168.0.1`, `1.02.3`, `12.25.2024` | `three point two point one`; `one hundred ninety two point one hundred sixty eight point zero point one`; `one point zero two point three`; `twelve point twenty five point two zero two four` | three or more period-separated groups: a group of one to three digits without a leading zero (or exactly `0`) is a cardinal, **any other group is read digit by digit**; at most 64 digits in total; more than 8 groups is a fallback |
-| `1/2`, `2/3`, `3/4`, `7/16`, `9/10`, `63/64`, `1/100`, `37/100`, `3/32` | `one half`, `two thirds`, `three quarters`, `seven sixteenths`, `nine tenths`, `sixty three sixty fourths`, `one hundredth`, `thirty seven hundredths`, `three thirty seconds` | numerator at least 1 and below the denominator, no leading zeros, denominator 2 to 10, 16, 32, 64 or 100; **ambiguous +1** when the numerator is at most 12 and the denominator at most 31 (it could be a date: `7/16` and `9/10` count; `3/32`, `15/16` and `63/64` do not) |
-| `24/7`, `9/11`, `5/5`, `1/1`, `0/5`, `01/2`, `10.0.0.1/24` | identity | not a fraction or a date |
-| `3 1/2`, `5 1/2`, `3 ½` (a plain integer token, one space, a fraction token) | `three` and `and one half`; `five` and `and one half`; `three` and `and one half` | mixed number: per token; **never ambiguous** |
-| `½ ⅓ ⅔ ¼ ¾ ⅛ ⅜ ⅝ ⅞`, `5½` | `one half`, `one third`, `two thirds`, `one quarter`, `three quarters`, `one eighth`, `three eighths`, `five eighths`, `seven eighths`; `five and one half` | a vulgar fraction token, alone or glued to an integer |
+- `5-10`, `100-200`, `5-3`
+  - Spoken: `five to ten`, `one hundred to two hundred`, `five to three`
+  - Rule: two hyphen groups, no leading zero, each at most 9 digits, not a 3-and-4-digit pair (a local phone number); a
+    score reads the same
+- `1990-2000`, `2020-2024`, `2024-2020`
+  - Spoken: `nineteen ninety to two thousand`, `twenty twenty to twenty twenty four`,
+    `two thousand twenty four to two thousand twenty`
+  - Rule: both groups four-digit years 1000 to 2099 and the first not above the second read as years; otherwise as
+    cardinals
+- `5–10` (en dash between two adjacent number tokens)
+  - Spoken: `five to ten`
+  - Rule: per token: the dash is `to`; each number follows its own policy (two years follow the year policy, so
+    `1990–2000` counts one ambiguous reading); both neighbors must themselves be read as numbers (`5–10`, `1,234–5,678`,
+    `5:30–6:30`, `5–10kg` read; `1–2D`, `1,23–5`, `5–25:99`, `5–10x` keep the dash and every token is read on its own:
+    `one–2D`, `1,23–five`); a spaced dash `5 – 10` and a dash between letters are identity
+- `555-1234`, `555-123-4567`, `1-800-555-1234`, `123-45-6789`, `01-02`, `1234567890-5`, `(555) 123-4567`
+  - Spoken: digits one by one (`five five five one two three four`); the area code in adjacent parentheses followed by
+    `ddd-dddd` is also digit by digit
+  - Rule: phone and identifier policy: any other hyphen shape of two or more groups; not a fallback (more than 64 digits
+    in total is)
+- `3.2.1`, `2.0.1`, `1.2.3.4`, `192.168.0.1`, `1.02.3`, `12.25.2024`
+  - Spoken: `three point two point one`; `one hundred ninety two point one hundred sixty eight point zero point one`;
+    `one point zero two point three`; `twelve point twenty five point two zero two four`
+  - Rule: three or more period-separated groups: a group of one to three digits without a leading zero (or exactly `0`)
+    is a cardinal, **any other group is read digit by digit**; at most 64 digits in total; more than 8 groups is a
+    fallback
+- `1/2`, `2/3`, `3/4`, `7/16`, `9/10`, `63/64`, `1/100`, `37/100`, `3/32`
+  - Spoken: `one half`, `two thirds`, `three quarters`, `seven sixteenths`, `nine tenths`, `sixty three sixty fourths`,
+    `one hundredth`, `thirty seven hundredths`, `three thirty seconds`
+  - Rule: numerator at least 1 and below the denominator, no leading zeros, denominator 2 to 10, 16, 32, 64 or 100;
+    **ambiguous +1** when the numerator is at most 12 and the denominator at most 31 (it could be a date: `7/16` and
+    `9/10` count; `3/32`, `15/16` and `63/64` do not)
+- `24/7`, `9/11`, `5/5`, `1/1`, `0/5`, `01/2`, `10.0.0.1/24`
+  - Spoken: identity
+  - Rule: not a fraction or a date
+- `3 1/2`, `5 1/2`, `3 ½` (a plain integer token, one space, a fraction token)
+  - Spoken: `three` and `and one half`; `five` and `and one half`; `three` and `and one half`
+  - Rule: mixed number: per token; **never ambiguous**
+- `½ ⅓ ⅔ ¼ ¾ ⅛ ⅜ ⅝ ⅞`, `5½`
+  - Spoken: `one half`, `one third`, `two thirds`, `one quarter`, `three quarters`, `one eighth`, `three eighths`,
+    `five eighths`, `seven eighths`; `five and one half`
+  - Rule: a vulgar fraction token, alone or glued to an integer
 
 **Deferred (identity, asserted by golden rows so that a later increment flips them knowingly).** Roman
 numerals (`Henry VIII`, `World War II`, `Chapter IV`); hyphenated digit compounds (`5-year-old`, `3-D`,

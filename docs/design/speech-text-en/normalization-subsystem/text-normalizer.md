@@ -19,17 +19,41 @@ The word sets used by the clitic classification are code constants listed below.
 **Rule order.** For each token in order, the first rule that matches decides, and a multi-token span consumes
 its tokens (the next token processed is the one after it):
 
-| Rule | Condition | Result |
-| --- | --- | --- |
-| 0. User override | A directive from the host's pronunciation dictionary names this token | The directive wins over every rule below for the spoken form; the sentence-break edits of rules 3 and 4 are still made, see _User directives (rule 0)_ |
-| 1. Dropped | The token contains an invisible format character, or is a standalone bullet | One `Dropped` span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no other rule looks at that token |
-| 2. Clitic | The token is `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case) | A typographic apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is recorded |
-| 2a. Numeric expression | `NumericExpressionRecognizer.TryRecognize` accepts the token (a number, currency amount, percent, unit, time, date or digit group, alone or with its context tokens) or flags it as a numeric fallback | Up to two spans, emitted in order through `Emit`; the ambiguity and fallback counts are recorded; the tokens the expression consumed are skipped; a unit that may carry an abbreviation period uses the period and sentence rules (see _Numeric rule_) |
-| 3. Abbreviation | `AbbreviationResolver.TryResolve` accepts the token (alone, with its adjacent period token, or as an initial) | The period and sentence rules below decide the span, its period and the break edits |
-| 4. Acronym or initialism | `AcronymRecognizer.TryRecognize` accepts the token | A single `Initialism` span (spelled); a dotted form uses the period and sentence rules as class `Free`; an ampersand initialism is decomposed, see _Spelled replacements_ |
-| 5. Symbol or mark | A standalone operator or mark, or a mark, `&` or `/` inside a word (tables below) | `Symbol` spans |
-| 6. Elision apostrophe | A typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`, `'cause`, `'em` | `Apostrophe` spans |
-| 7. Identity | Anything else | Nothing is recorded: the deferred capabilities and every number the recognizer does not read pass through |
+- **0. User override**
+  - Condition: A directive from the host's pronunciation dictionary names this token
+  - Result: The directive wins over every rule below for the spoken form; the sentence-break edits of rules 3 and 4 are
+    still made, see *User directives (rule 0)*
+- **1. Dropped**
+  - Condition: The token contains an invisible format character, or is a standalone bullet
+  - Result: One `Dropped` span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no
+    other rule looks at that token
+- **2. Clitic**
+  - Condition: The token is `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case)
+  - Result: A typographic apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested,
+    the role is recorded
+- **2a. Numeric expression**
+  - Condition: `NumericExpressionRecognizer.TryRecognize` accepts the token (a number, currency amount, percent, unit,
+    time, date or digit group, alone or with its context tokens) or flags it as a numeric fallback
+  - Result: Up to two spans, emitted in order through `Emit`; the ambiguity and fallback counts are recorded; the tokens
+    the expression consumed are skipped; a unit that may carry an abbreviation period uses the period and sentence rules
+    (see *Numeric rule*)
+- **3. Abbreviation**
+  - Condition: `AbbreviationResolver.TryResolve` accepts the token (alone, with its adjacent period token, or as an
+    initial)
+  - Result: The period and sentence rules below decide the span, its period and the break edits
+- **4. Acronym or initialism**
+  - Condition: `AcronymRecognizer.TryRecognize` accepts the token
+  - Result: A single `Initialism` span (spelled); a dotted form uses the period and sentence rules as class `Free`; an
+    ampersand initialism is decomposed, see *Spelled replacements*
+- **5. Symbol or mark**
+  - Condition: A standalone operator or mark, or a mark, `&` or `/` inside a word (tables below)
+  - Result: `Symbol` spans
+- **6. Elision apostrophe**
+  - Condition: A typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`, `'cause`, `'em`
+  - Result: `Apostrophe` spans
+- **7. Identity**
+  - Condition: Anything else
+  - Result: Nothing is recorded: the deferred capabilities and every number the recognizer does not read pass through
 
 **User directives (rule 0).** `Normalize` takes a strictly ascending list of `TokenDirective(tokenIndex, kind,
 value)` values that the analyzer resolved from the host's dictionary (see *PronunciationOverrides Design*);
@@ -42,12 +66,21 @@ and 6 do not run, and rules 3 and 4 run only in decision-only mode (below), so a
 symbols, numeric heads, lexicon abbreviations, the acronym table and rule, and ampersand initialisms for the
 spoken form. The four kinds:
 
-| Kind | Effect | Counted |
-| --- | --- | --- |
-| `Skip` | Nothing is emitted; the token is spoken as written | applied |
-| `Replace` | One `Override` span over the token whose spoken text is the directive's value, through `Emit` (so the A6 separating space applies); never spelled | applied |
-| `Spell` | One `Override` span, spelled, whose spoken text is the token's ASCII letters upper-cased and separated by single spaces (`GIF` gives `G I F`) | applied; a token that is empty or not only ASCII letters is spoken as written and counted **ignored** (defensive: the dictionary cannot produce it) |
-| `Pronounce` | One `PronunciationMark` over the token with the directive's `scheme:phonemes` value; no span | applied |
+- `Skip`
+  - Effect: Nothing is emitted; the token is spoken as written
+  - Counted: applied
+- `Replace`
+  - Effect: One `Override` span over the token whose spoken text is the directive's value, through `Emit` (so the A6
+    separating space applies); never spelled
+  - Counted: applied
+- `Spell`
+  - Effect: One `Override` span, spelled, whose spoken text is the token's ASCII letters upper-cased and separated by
+    single spaces (`GIF` gives `G I F`)
+  - Counted: applied; a token that is empty or not only ASCII letters is spoken as written and counted **ignored**
+    (defensive: the dictionary cannot produce it)
+- `Pronounce`
+  - Effect: One `PronunciationMark` over the token with the directive's `scheme:phonemes` value; no span
+  - Counted: applied
 
 A `Replace` or `Pronounce` directive without a value is defective and handled like a defective `Spell`
 (spoken as written, ignored). After the last token the directives that remain (consumed by the last match) are
@@ -126,11 +159,17 @@ period token (or the token itself), `following` the first token after `last` tha
 `endsSentence` true when there is no `following` token or the tokenizer starts a sentence at `following` (or at a
 closing mark before it).
 
-| Resolved class | Break edit | The period |
-| --- | --- | --- |
-| `Prefix` (a title, `Saint`, `Doctor`, `Number`, an initial), or a `Suffix`, `Word` or `Free` form that **continues a name** (see below) | If `endsSentence` and the tokenizer has a break there: **suppress** it (a title never ends a sentence) | Consumed: the span includes it |
-| `Suffix` or `Word` | If not `endsSentence` and `following` starts with an upper-case letter: **force** a break at `following`, and `endsSentence` becomes true (a lower-case or digit next word leaves the sentence running) | Kept as the sentence terminator, outside the span, if `endsSentence`; otherwise consumed |
-| `Free` (`etc.`, `e.g.`, `U.S.`) | None (the tokenizer already decides) | Kept outside the span if `endsSentence`; otherwise consumed |
+- `Prefix` (a title, `Saint`, `Doctor`, `Number`, an initial), or a `Suffix`, `Word` or `Free` form that **continues a
+  name** (see below)
+  - Break edit: If `endsSentence` and the tokenizer has a break there: **suppress** it (a title never ends a sentence)
+  - The period: Consumed: the span includes it
+- `Suffix` or `Word`
+  - Break edit: If not `endsSentence` and `following` starts with an upper-case letter: **force** a break at
+    `following`, and `endsSentence` becomes true (a lower-case or digit next word leaves the sentence running)
+  - The period: Kept as the sentence terminator, outside the span, if `endsSentence`; otherwise consumed
+- `Free` (`etc.`, `e.g.`, `U.S.`)
+  - Break edit: None (the tokenizer already decides)
+  - The period: Kept outside the span if `endsSentence`; otherwise consumed
 
 For the `Word` reading (`No.` the word) no span is emitted: only the break edit is recorded. **Continuing a name.** A
 candidate whose class is not `Prefix` *continues a name* when `following` is the very next token after `last` (no
@@ -198,13 +237,18 @@ as well. Quote uses (`‘hello’`) and the plural-possessive tail (`dogs’`) s
 refines. The next word is the following token when it is a word that does not start a new tokenizer
 sentence, skipping at most one adverb of the stated list.
 
-| Clitic | Rule |
-| --- | --- |
-| `'d` | `Had` if the next word (after skipping one of never, always, just, already, also) is in {better, been, had, got, gone, done, seen, taken, made, come}; otherwise `Would` |
-| `'s` after `let` | `Us` |
-| `'s` after a contraction host | The hosts are it, he, she, that, there, here, what, who, where, when, how, why, which, everyone, everybody, someone, somebody, anyone, anybody, nobody, everything, something, anything and nothing (case-insensitive). The role is `Has` if the next word is in {been, got, gotten, had, done, gone, seen, made, taken, come, become}, otherwise `Is` |
-| `'s` after any other host (a noun or name) or after no adjacent host | A contraction (then `Has` or `Is` as above) if the next word (after skipping one of never, always, just, already, also, still, really, now) is in {a, an, the, not, no, been, got, gotten, going, gone, being, here, there, so, too, very, all, only, back, out, up, down, over, in, on, at}, or has at least five letters and ends in `ing`; otherwise `Possessive` |
-| A lone `'` after a word ending in `s` | Not a clitic token: not classified |
+- `'d`: `Had` if the next word (after skipping one of never, always, just, already, also) is in
+  {better, been, had, got, gone, done, seen, taken, made, come}; otherwise `Would`
+- `'s` after `let`: `Us`
+- `'s` after a contraction host: The hosts are it, he, she, that, there, here, what, who, where, when, how, why, which,
+  everyone, everybody, someone, somebody, anyone, anybody, nobody, everything, something, anything and nothing
+  (case-insensitive). The role is `Has` if the next word is in
+  {been, got, gotten, had, done, gone, seen, made, taken, come, become}, otherwise `Is`
+- `'s` after any other host (a noun or name) or after no adjacent host: A contraction (then `Has` or `Is` as above) if
+  the next word (after skipping one of never, always, just, already, also, still, really, now) is in
+  {a, an, the, not, no, been, got, gotten, going, gone, being, here, there, so, too, very, all, only, back, out, up, down, over, in, on, at},
+  or has at least five letters and ends in `ing`; otherwise `Possessive`
+- A lone `'` after a word ending in `s`: Not a clitic token: not classified
 
 The host of an `'s` is the previous token only when it touches the clitic and starts with a letter. A
 documented heuristic limit, kept in the golden tests: `the dog's training session` classifies `Is`, because

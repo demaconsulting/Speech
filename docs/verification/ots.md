@@ -27,25 +27,27 @@ is the OTS requirements' own tests and pipeline output.
 
 ## OTS Items
 
-| OTS Item | Verification Approach |
-| --- | --- |
-| PortAudioSharp2 | Deterministic integration tests for managed binding use; manual/local hardware I/O verification |
-| SherpaOnnx | Deterministic integration tests for managed configuration use; manual native-inference verification |
-| SharpCompress | Deterministic in-memory `.tar.bz2` fixture extraction tests |
-| System.Numerics.Tensors | Deterministic tests over the audio math that calls `TensorPrimitives` |
-| Microsoft.ML.OnnxRuntime | Deterministic tests over tiny in-memory graphs; manual real-model and GPU verification |
-| Avalonia | Deterministic application-host configuration tests; manual/local UI verification |
-| CommunityToolkit.Mvvm | Deterministic tests over the generated properties and commands |
-| DemaConsulting.TestResults | Deterministic tests over the TRX and JUnit XML files written by SpeechCli self-validation |
-| DemaConsulting.PartOfSpeech | Deterministic integration tests of the real tokenizer and shared tagger through the members SpeechTextEn uses, including an API-presence check |
-| BuildMark | Self-validation CLI suite plus pipeline evidence via build-notes document |
-| FileAssert | Self-validation CLI suite plus transitive evidence from document assertions |
-| Pandoc | Pipeline evidence: FileAssert assertions on each generated HTML document |
-| ReqStream | Self-validation CLI suite plus pipeline evidence via enforce traceability |
-| ReviewMark | Self-validation CLI suite plus pipeline evidence via review plan/report |
-| SarifMark | Self-validation CLI suite plus pipeline evidence via SARIF markdown report |
-| SonarMark | Self-validation CLI suite plus pipeline evidence via SonarCloud report |
-| SysML2Tools | Self-validation CLI suite plus pipeline evidence via lint and rendered SVGs |
-| VersionMark | Self-validation CLI suite plus pipeline evidence via version data |
-| WeasyPrint | Pipeline evidence: FileAssert assertions on each generated PDF document |
-| xUnit | Self-validation via discovery, execution, and TRX reporting of tests |
+The verification approach for each OTS item:
+
+- **PortAudioSharp2**: Deterministic integration tests for managed binding use; manual/local hardware I/O verification
+- **SherpaOnnx**: Deterministic integration tests for managed configuration use; manual native-inference verification
+- **SharpCompress**: Deterministic in-memory `.tar.bz2` fixture extraction tests
+- **System.Numerics.Tensors**: Deterministic tests over the audio math that calls `TensorPrimitives`
+- **Microsoft.ML.OnnxRuntime**: Deterministic tests over tiny in-memory graphs; manual real-model and GPU verification
+- **Avalonia**: Deterministic application-host configuration tests; manual/local UI verification
+- **CommunityToolkit.Mvvm**: Deterministic tests over the generated properties and commands
+- **DemaConsulting.TestResults**: Deterministic tests over the TRX and JUnit XML files written by SpeechCli
+  self-validation
+- **DemaConsulting.PartOfSpeech**: Deterministic integration tests of the real tokenizer and shared tagger through the
+  members SpeechTextEn uses, including an API-presence check
+- **BuildMark**: Self-validation CLI suite plus pipeline evidence via build-notes document
+- **FileAssert**: Self-validation CLI suite plus transitive evidence from document assertions
+- **Pandoc**: Pipeline evidence: FileAssert assertions on each generated HTML document
+- **ReqStream**: Self-validation CLI suite plus pipeline evidence via enforce traceability
+- **ReviewMark**: Self-validation CLI suite plus pipeline evidence via review plan/report
+- **SarifMark**: Self-validation CLI suite plus pipeline evidence via SARIF markdown report
+- **SonarMark**: Self-validation CLI suite plus pipeline evidence via SonarCloud report
+- **SysML2Tools**: Self-validation CLI suite plus pipeline evidence via lint and rendered SVGs
+- **VersionMark**: Self-validation CLI suite plus pipeline evidence via version data
+- **WeasyPrint**: Pipeline evidence: FileAssert assertions on each generated PDF document
+- **xUnit**: Self-validation via discovery, execution, and TRX reporting of tests

@@ -52,18 +52,54 @@ neither needs nested subsystems of its own.
 
 ## External Interfaces
 
-| Interface | Direction | Format | Constraints |
-| --- | --- | --- | --- |
-| `EnglishTextAnalyzer` (`ITextAnalyzer.Analyze`) | Inbound | Public method call | Thread-safe; honors cancellation; throws only for a null argument or cancellation |
-| `EnglishTextAnalyzer.AnalyzeDetailed` | Inbound | Public method call | Result carries words, normalizations and clitic roles; local use only |
-| `EnglishTextAnalyzerOptions` | Inbound | Public record | Validated on initialization; default selects part of speech and normalization; carries the optional `Overrides` dictionary, which requires normalization |
-| `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme` | Inbound | Public classes and enumerations; `Create(entries)` and `FromTsv(reader)` | Immutable and thread-safe; entries validated and bounded; errors give an index or line number and never content; see _Pronunciation Overrides_ |
-| `TextEnAnnotations` | Inbound | Public constants and readers | Closed kind vocabulary; ignore unknown kinds; `en.norm` and `en.spell` follow the _Alignment Contract_; `en.pron` follows _Pronunciation Overrides_ |
-| `NormalizationKind`, `CliticKind` | Inbound | Public enumerations | Closed vocabularies reported by `AnalyzeDetailed` only |
-| `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` | Outbound | Public Speech types | Consumed; offsets are UTF-16 indices into the exact input |
-| `ISpeechDiagnostics.Report` | Outbound | Method call | Counts only; a failing sink is contained |
-| `DemaConsulting.PartOfSpeech` tokenizer and tagger | Outbound | Method call | Internal to `PartOfSpeechAdapter` |
-| Embedded lexicons `abbreviations.tsv`, `acronyms.tsv` | Internal | Embedded resources, tab-separated text | Read once, lazily, by the NormalizationSubsystem; a malformed table is a defective build |
+| Interface | Direction |
+| --- | --- |
+| `EnglishTextAnalyzer` (`ITextAnalyzer.Analyze`) | Inbound |
+| `EnglishTextAnalyzer.AnalyzeDetailed` | Inbound |
+| `EnglishTextAnalyzerOptions` | Inbound |
+| `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme` | Inbound |
+| `TextEnAnnotations` | Inbound |
+| `NormalizationKind`, `CliticKind` | Inbound |
+| `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` | Outbound |
+| `ISpeechDiagnostics.Report` | Outbound |
+| `DemaConsulting.PartOfSpeech` tokenizer and tagger | Outbound |
+| Embedded lexicons `abbreviations.tsv`, `acronyms.tsv` | Internal |
+
+**Interface details:**
+
+- `EnglishTextAnalyzer` (`ITextAnalyzer.Analyze`)
+  - Format: Public method call
+  - Constraints: Thread-safe; honors cancellation; throws only for a null argument or cancellation
+- `EnglishTextAnalyzer.AnalyzeDetailed`
+  - Format: Public method call
+  - Constraints: Result carries words, normalizations and clitic roles; local use only
+- `EnglishTextAnalyzerOptions`
+  - Format: Public record
+  - Constraints: Validated on initialization; default selects part of speech and normalization; carries the optional
+    `Overrides` dictionary, which requires normalization
+- `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme`
+  - Format: Public classes and enumerations; `Create(entries)` and `FromTsv(reader)`
+  - Constraints: Immutable and thread-safe; entries validated and bounded; errors give an index or line number and never
+    content; see *Pronunciation Overrides*
+- `TextEnAnnotations`
+  - Format: Public constants and readers
+  - Constraints: Closed kind vocabulary; ignore unknown kinds; `en.norm` and `en.spell` follow the *Alignment Contract*;
+    `en.pron` follows *Pronunciation Overrides*
+- `NormalizationKind`, `CliticKind`
+  - Format: Public enumerations
+  - Constraints: Closed vocabularies reported by `AnalyzeDetailed` only
+- `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`
+  - Format: Public Speech types
+  - Constraints: Consumed; offsets are UTF-16 indices into the exact input
+- `ISpeechDiagnostics.Report`
+  - Format: Method call
+  - Constraints: Counts only; a failing sink is contained
+- `DemaConsulting.PartOfSpeech` tokenizer and tagger
+  - Format: Method call
+  - Constraints: Internal to `PartOfSpeechAdapter`
+- Embedded lexicons `abbreviations.tsv`, `acronyms.tsv`
+  - Format: Embedded resources, tab-separated text
+  - Constraints: Read once, lazily, by the NormalizationSubsystem; a malformed table is a defective build
 
 ## Dependencies
 
@@ -164,20 +200,52 @@ The analyzed text is never rewritten: an `en.norm` or `en.spell` annotation name
 the exact words or letters that replace it when the text is spoken, and an `en.pron` annotation names a word and
 the phonemes to speak for it. The two replacement kinds together are the *replacement family*.
 
-| # | Invariant |
-| --- | --- |
-| A1 | The spans of one analysis are ascending and disjoint (each starts at or after the end of the previous one) and lie within the text. **A1'**: the _replacement annotations_ of one analysis, every `en.norm` and every `en.spell` together, are one such sequence (they are ascending and pairwise disjoint as a single list) |
-| A2 | Every span is non-empty, starts and ends on a non-whitespace character, never contains a tag placeholder and never cuts a surrogate pair; its replacement is never null |
-| A3 | The spans and the untouched gaps between them tile the text exactly: no gap, no overlap, lengths summing to the text length; applying every span as its own source text returns the input unchanged |
-| A4 | Nothing outside a span is changed, re-cased or re-punctuated; unchanged text is never annotated |
-| A5 | A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one of five shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'` `90s`); **S5** one of the two halves of a token that is split into two adjacent spans: the number or time and the meridiem letters of a glued meridiem (`5pm` gives `5` and `pm`, `5:30pm` gives `5:30` and `pm`), the same way an ampersand initialism is split into letter groups. A construct of several tokens (`January 5, 2024`, `$5 million`, `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies wholly inside one chunk of the Speech library |
-| A6 | Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement carries one separating space on that side (`he/she` becomes the replacement ` slash ` for the `/`; `A™®B` gives `trademark` and ` registered `). Dropped and apostrophe replacements are never padded, and two adjacent replacements are separated by exactly one space (the later one pads its own left side, so no offset moves) |
-| A7 | No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The digits, separators and symbols of a recognized numeric expression are consumed into its spoken words (all of them are represented in the `Value`); numeric-looking text that is not recognized is never partially consumed |
-| A8 | Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null). **A8b**: no reconciled break lies strictly inside a span (a tokenizer break inside a numeric expression, for example after `Jan.` in `Jan. 5`, is suppressed) |
-| A9 | The analysis is deterministic and thread-safe: repeated and concurrent analysis of one text yields identical annotations and breaks; neither the analyzer nor the normalizer keeps per-request state |
-| A10 | An `en.norm` value is non-empty except for a `Dropped` span, contains no tag placeholder and has no leading or trailing space except the A6 padding (a leading space is also the A6 separator after a directly adjacent replacement that ends with a letter). The value of a numeric span (kinds `Number`, `Currency`, `DateTime` and `Unit`) contains no ASCII digit and only letters, spaces and the apostrophe of `o'clock`, and is at most 1,024 characters long |
-| A11 | A spelled span (an `en.spell` annotation) has a value that, minus at most one A6 padding space on either side, matches `[A-Z]( [A-Z])*`: single ASCII capital letters separated by single spaces. The letters are letter names, never words (`A` is the letter, not the article; `I` is the letter, not the pronoun). Like every span it has no whitespace, comma, semicolon or colon, so it is chunk-safe (A5') |
-| A12 | The `en.pron` annotations of one analysis are ascending, pairwise disjoint and disjoint from every replacement annotation (a word is either replaced or pronounced, never both); each covers exactly one token, with no whitespace, placeholder or cut surrogate pair; its value is `<scheme>:<phonemes>` with a scheme from the closed list `ipa` and `arpabet`; the word's text is not replaced. `en.upos` stays independent of all of this and may overlap any annotation |
+- **A1**: The spans of one analysis are ascending and disjoint (each starts at or after the end of the previous one) and
+  lie within the text. **A1'**: the *replacement annotations* of one analysis, every `en.norm` and every `en.spell`
+  together, are one such sequence (they are ascending and pairwise disjoint as a single list)
+- **A2**: Every span is non-empty, starts and ends on a non-whitespace character, never contains a tag placeholder and
+  never cuts a surrogate pair; its replacement is never null
+- **A3**: The spans and the untouched gaps between them tile the text exactly: no gap, no overlap, lengths summing to
+  the text length; applying every span as its own source text returns the input unchanged
+- **A4**: Nothing outside a span is changed, re-cased or re-punctuated; unchanged text is never annotated
+- **A5**: A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit
+  directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one
+  of five shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol
+  token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'`
+  `90s`); **S5** one of the two halves of a token that is split into two adjacent spans: the number or time and the
+  meridiem letters of a glued meridiem (`5pm` gives `5` and `pm`, `5:30pm` gives `5:30` and `pm`), the same way an
+  ampersand initialism is split into letter groups. A construct of several tokens (`January 5, 2024`, `$5 million`,
+  `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies
+  wholly inside one chunk of the Speech library
+- **A6**: Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and
+  its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement
+  carries one separating space on that side (`he/she` becomes the replacement `slash` for the `/`; `A™®B` gives
+  `trademark` and `registered`). Dropped and apostrophe replacements are never padded, and two adjacent replacements are
+  separated by exactly one space (the later one pads its own left side, so no offset moves)
+- **A7**: No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty
+  replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the
+  only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The
+  digits, separators and symbols of a recognized numeric expression are consumed into its spoken words (all of them are
+  represented in the `Value`); numeric-looking text that is not recognized is never partially consumed
+- **A8**: Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and
+  unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null).
+  **A8b**: no reconciled break lies strictly inside a span (a tokenizer break inside a numeric expression, for example
+  after `Jan.` in `Jan. 5`, is suppressed)
+- **A9**: The analysis is deterministic and thread-safe: repeated and concurrent analysis of one text yields identical
+  annotations and breaks; neither the analyzer nor the normalizer keeps per-request state
+- **A10**: An `en.norm` value is non-empty except for a `Dropped` span, contains no tag placeholder and has no leading
+  or trailing space except the A6 padding (a leading space is also the A6 separator after a directly adjacent
+  replacement that ends with a letter). The value of a numeric span (kinds `Number`, `Currency`, `DateTime` and `Unit`)
+  contains no ASCII digit and only letters, spaces and the apostrophe of `o'clock`, and is at most 1,024 characters long
+- **A11**: A spelled span (an `en.spell` annotation) has a value that, minus at most one A6 padding space on either
+  side, matches `[A-Z]( [A-Z])*`: single ASCII capital letters separated by single spaces. The letters are letter names,
+  never words (`A` is the letter, not the article; `I` is the letter, not the pronoun). Like every span it has no
+  whitespace, comma, semicolon or colon, so it is chunk-safe (A5')
+- **A12**: The `en.pron` annotations of one analysis are ascending, pairwise disjoint and disjoint from every
+  replacement annotation (a word is either replaced or pronounced, never both); each covers exactly one token, with no
+  whitespace, placeholder or cut surrogate pair; its value is `<scheme>:<phonemes>` with a scheme from the closed list
+  `ipa` and `arpabet`; the word's text is not replaced. `en.upos` stays independent of all of this and may overlap any
+  annotation
 
 **Enforcement.** The `AlignedTextBuilder` is the enforcement point: it rejects a replacement span that is not
 ascending and disjoint from every earlier span *and* pronunciation mark (A1', A12), a span marked spelled whose
@@ -267,20 +335,27 @@ spelled; use `SpellOut` for letters).
 The library reads the numeric expressions of en-US text. The policy is fixed and lexical (digits, separators,
 symbols, units, month names and a few cue words around the number; never the part of speech), and every
 choice between readings that the words around a number do not decide uses a documented default that is
-counted in the diagnostics:
+counted in the diagnostics (each family with examples, written, then spoken):
 
-| Family | Examples (written, then spoken) |
-| --- | --- |
-| Integers, negatives, thousands separators | `42` `forty two`; `1,234` `one thousand two hundred thirty four`; `-5` `minus five`; `+3` `plus three`; `007` `zero zero seven` |
-| Decimals | `3.5` `three point five`; `.5` `point five`; `1.234` `one point two three four` (never thousands) |
-| Ordinals | `1st` `first`; `22nd` `twenty second`; `1,000th` `one thousandth`; a suffix that does not match (`1th`) is left alone |
-| Years and decades | `in 1066` `in ten sixty six`; `2024` `twenty twenty four`; `1990s` `nineteen nineties`; `'90s` `nineties` |
-| Currency | `$5.50` `five dollars and fifty cents`; `£3` `three pounds`; `$5 million` `five` + `million dollars`; `5 USD` `five` + `dollars` |
-| Percent and units | `50%` `fifty percent`; `5 kg` `five kilograms`; `72°F` `seventy two degrees Fahrenheit`; `6 ft.` `six feet` |
-| Times | `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty` then the spelled `P M` |
-| Dates | `12/25/2024` `December twenty fifth twenty twenty four`; `January 5, 2024` `January fifth, twenty twenty four` |
-| Digit groups | `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2` `one half`; `3 1/2` `three and one half` |
-| Month and weekday abbreviations | `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps both sentence breaks |
+- **Integers, negatives, thousands separators**: `42` `forty two`; `1,234` `one thousand two hundred thirty four`; `-5`
+  `minus five`; `+3` `plus three`; `007` `zero zero seven`
+- **Decimals**: `3.5` `three point five`; `.5` `point five`; `1.234` `one point two three four` (never thousands)
+- **Ordinals**: `1st` `first`; `22nd` `twenty second`; `1,000th` `one thousandth`; a suffix that does not match (`1th`)
+  is left alone
+- **Years and decades**: `in 1066` `in ten sixty six`; `2024` `twenty twenty four`; `1990s` `nineteen nineties`; `'90s`
+  `nineties`
+- **Currency**: `$5.50` `five dollars and fifty cents`; `£3` `three pounds`; `$5 million` `five` + `million dollars`;
+  `5 USD` `five` + `dollars`
+- **Percent and units**: `50%` `fifty percent`; `5 kg` `five kilograms`; `72°F` `seventy two degrees Fahrenheit`;
+  `6 ft.` `six feet`
+- **Times**: `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty` then
+  the spelled `P M`
+- **Dates**: `12/25/2024` `December twenty fifth twenty twenty four`; `January 5, 2024`
+  `January fifth, twenty twenty four`
+- **Digit groups**: `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2`
+  `one half`; `3 1/2` `three and one half`
+- **Month and weekday abbreviations**: `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps
+  both sentence breaks
 
 The complete reading policy (every row, its notes and the limits) is in *NumericExpressionRecognizer Design*
 and *NumberVerbalizer Design*. The points a consumer most needs to know:
@@ -321,12 +396,30 @@ it as `EnglishTextAnalyzerOptions.Overrides`. Each entry has a **word** (the key
 **action** and, for two actions, a **payload**. The analyzed text is never rewritten; the action decides which
 annotation, if any, the matching word gets:
 
-| Action | TSV word | Payload | Result for the word | Example (key, then text and result) |
-| --- | --- | --- | --- | --- |
-| `Skip` | `skip` | none | Spoken as written: every built-in abbreviation, acronym, symbol and number rule is bypassed for the word, and no replacement annotation is produced (the abbreviation rules' sentence-break decision is still made) | `US` skip: `US troops asked us` stays as written, where the acronym table would have spelled `US` |
-| `Say` | `say` | plain words | One `en.norm` annotation (kind `Override`) whose value is the payload | `Nginx` say `engine ex`: `Use Nginx today.` is spoken `Use engine ex today.` |
-| `SpellOut` | `spell` | none | One `en.spell` annotation: the word's ASCII letters, in capitals, separated by single spaces | `GIF` spell: `A GIF file` is spoken `A G I F file` |
-| `Pronunciation` | `pron` | `ipa:...` or `arpabet:...` | One `en.pron` annotation on the word; the word is not replaced | `Polish` pron `ipa:ˈpoʊlɪʃ`: `Polish food` keeps its text and the backend receives the phonemes |
+| Action | TSV word | Payload |
+| --- | --- | --- |
+| `Skip` | `skip` | none |
+| `Say` | `say` | plain words |
+| `SpellOut` | `spell` | none |
+| `Pronunciation` | `pron` | `ipa:...` or `arpabet:...` |
+
+**Action details:**
+
+- `Skip`
+  - Result for the word: Spoken as written: every built-in abbreviation, acronym, symbol and number rule is bypassed for
+    the word, and no replacement annotation is produced (the abbreviation rules' sentence-break decision is still made)
+  - Example (key, then text and result): `US` skip: `US troops asked us` stays as written, where the acronym table would
+    have spelled `US`
+- `Say`
+  - Result for the word: One `en.norm` annotation (kind `Override`) whose value is the payload
+  - Example (key, then text and result): `Nginx` say `engine ex`: `Use Nginx today.` is spoken `Use engine ex today.`
+- `SpellOut`
+  - Result for the word: One `en.spell` annotation: the word's ASCII letters, in capitals, separated by single spaces
+  - Example (key, then text and result): `GIF` spell: `A GIF file` is spoken `A G I F file`
+- `Pronunciation`
+  - Result for the word: One `en.pron` annotation on the word; the word is not replaced
+  - Example (key, then text and result): `Polish` pron `ipa:ˈpoʊlɪʃ`: `Polish food` keeps its text and the backend
+    receives the phonemes
 
 `Reading` (selecting a heteronym reading such as the noun or the verb of `record`) is a reserved fifth action
 that is not part of this release: the `OverrideAction` value 5 is reserved and the TSV loader rejects the word
@@ -334,15 +427,18 @@ that is not part of this release: the `OverrideAction` value 5 is reserved and t
 
 ### Precedence
 
-Several sources can decide how a word is spoken. Each row beats every row below it:
+Several sources can decide how a word is spoken. Each rank beats every rank below it:
 
-| Rank | Source | Mechanism |
-| --- | --- | --- |
-| 1 | Override entry, case-sensitive (exact UTF-16 code units) | A directive for the token; the normalizer's rule 0 |
-| 2 | Override entry, case-insensitive (`OrdinalIgnoreCase`), consulted only when rank 1 has no entry for the token | Same mechanism |
-| 3 | The built-in normalization rules in their existing order: dropped characters, clitics, numeric expressions, lexicon abbreviations, the acronym table and rules (which now produce `en.spell`), symbols and marks, elision apostrophes | Unchanged rule order of the _TextNormalizer Design_ |
-| 4 | Part of speech | Independent: `en.upos` is still emitted for an overridden word and may overlap `en.pron` |
-| 5 | Heteronym classification (a later release) | See _Seam for heteronym readings_ below |
+1. Override entry, case-sensitive (exact UTF-16 code units). Mechanism: a directive for the token; the
+   normalizer's rule 0
+2. Override entry, case-insensitive (`OrdinalIgnoreCase`), consulted only when rank 1 has no entry for the
+   token. Mechanism: the same
+3. The built-in normalization rules in their existing order: dropped characters, clitics, numeric expressions,
+   lexicon abbreviations, the acronym table and rules (which now produce `en.spell`), symbols and marks, elision
+   apostrophes. Mechanism: unchanged rule order of the *TextNormalizer Design*
+4. Part of speech. Mechanism: independent: `en.upos` is still emitted for an overridden word and may overlap
+   `en.pron`
+5. Heteronym classification (a later release). Mechanism: see *Seam for heteronym readings* below
 
 One exception to rank 1 and 2 beating rank 3: a word that an **earlier** multi-token match has already
 consumed. A number with its unit (`5 kg`), a currency amount with its magnitude word (`$5 million`) and a time
@@ -387,17 +483,24 @@ touching a word.
 
 ### What an override sees
 
-| Situation | Behavior |
-| --- | --- |
-| The word is the head of a built-in construct (`US`, `FBI`, `Mr`, `SQL`, a word with a symbol) | The override wins; no built-in replacement or annotation is produced for the token, but the abbreviation rules' sentence-break edits still apply |
-| The word is consumed by an earlier match (`kg` after `5`, `million` after `$5`, `pm` after `5`) | The built-in reading wins; the override is ignored and counted |
-| The word has a trailing abbreviation period (`Dr.`, `U.S.`) | Not matchable; the built-in rules apply |
-| The word is followed by a split-off period token (`Ph.D` and `.`) | The key `Ph.D` matches; the period token is processed normally |
-| A clitic stem (`NASA` before `'s`) | The key `NASA` matches the stem; the clitic keeps its normal handling |
-| A contraction the tokenizer splits (`Do` and `n't`) | The stem never matches; the written form of the contraction never matches |
-| A hyphen compound | Matches only as a whole compound |
-| The overridden word also gets `en.upos` | Yes, the part of speech is independent |
-| Sentence breaks | Overrides never change sentence breaks: the reconciled breaks are identical with and without the dictionary. This includes an abbreviation whose period the tokenizer splits off (`Fig` and `.` in `See Fig. 5 for details.`, `Dr` and `.` after an em dash in `Hello—Dr. Smith`): the override replaces only the spoken form of the word, and the force or suppress decision that the abbreviation rule would have made is still applied, so the chunker never splits `See Fig.` from `5 for details.` |
+- The word is the head of a built-in construct (`US`, `FBI`, `Mr`, `SQL`, a word with a symbol): The override wins; no
+  built-in replacement or annotation is produced for the token, but the abbreviation rules' sentence-break edits still
+  apply
+- The word is consumed by an earlier match (`kg` after `5`, `million` after `$5`, `pm` after `5`): The built-in reading
+  wins; the override is ignored and counted
+- The word has a trailing abbreviation period (`Dr.`, `U.S.`): Not matchable; the built-in rules apply
+- The word is followed by a split-off period token (`Ph.D` and `.`): The key `Ph.D` matches; the period token is
+  processed normally
+- A clitic stem (`NASA` before `'s`): The key `NASA` matches the stem; the clitic keeps its normal handling
+- A contraction the tokenizer splits (`Do` and `n't`): The stem never matches; the written form of the contraction never
+  matches
+- **A hyphen compound**: Matches only as a whole compound
+- The overridden word also gets `en.upos`: Yes, the part of speech is independent
+- **Sentence breaks**: Overrides never change sentence breaks: the reconciled breaks are identical with and without the
+  dictionary. This includes an abbreviation whose period the tokenizer splits off (`Fig` and `.` in
+  `See Fig. 5 for details.`, `Dr` and `.` after an em dash in `Hello—Dr. Smith`): the override replaces only the spoken
+  form of the word, and the force or suppress decision that the abbreviation rule would have made is still applied, so
+  the chunker never splits `See Fig.` from `5 for details.`
 
 A spell-out directive for a token that is not made of ASCII letters cannot be produced by the dictionary (the
 key rule forbids it); if the normalizer ever receives such a directive it speaks the token as written and
@@ -471,16 +574,28 @@ The built-in policy is the case-sensitive initialism table, the dotted and amper
 *AcronymRecognizer Design*; its results are now annotated `en.spell`. A word that the built-in policy gets
 wrong is corrected with an override rather than by a public policy type, which keeps the API small. The recipes:
 
-| Goal | Entry (word, case, action, payload) | Result |
-| --- | --- | --- |
-| A product name said as words | `Nginx`, insensitive, `say`, `engine ex` | `Use Nginx today.` is spoken `Use engine ex today.` |
-| A name the tokenizer would read as an unknown word | `Kubernetes`, sensitive, `say`, `koo ber net eez` | `Kubernetes runs` is spoken `koo ber net eez runs` |
-| An unlisted initialism that must be spelled | `GIF`, sensitive, `spell` | `A GIF file` is spoken `A G I F file` (`en.spell` `G I F`) |
-| An acronym the table would spell but that is said as a word | `NASA`, sensitive, `skip` | stays as written |
-| An initialism the table would spell but that must stay as written | `FBI`, sensitive, `skip` | `The FBI and CIA` is spoken `The FBI and C I A` |
-| The country `US` versus the pronoun `us` | `US`, sensitive, `skip` | `US troops asked us` stays as written |
-| A name that differs from a common word only by case | `Polish` sensitive and `polish` insensitive, both `pron` | each gets its own phonemes; the sensitive entry wins for `Polish` |
-| A word with a brand-specific compound | `Nginx-based`, insensitive, `say`, `engine ex based` | the whole compound is replaced |
+| Goal | Entry (word, case, action, payload) |
+| --- | --- |
+| A product name said as words | `Nginx`, insensitive, `say`, `engine ex` |
+| A name the tokenizer would read as an unknown word | `Kubernetes`, sensitive, `say`, `koo ber net eez` |
+| An unlisted initialism that must be spelled | `GIF`, sensitive, `spell` |
+| An acronym the table would spell but that is said as a word | `NASA`, sensitive, `skip` |
+| An initialism the table would spell but that must stay as written | `FBI`, sensitive, `skip` |
+| The country `US` versus the pronoun `us` | `US`, sensitive, `skip` |
+| A name that differs from a common word only by case | `Polish` sensitive and `polish` insensitive, both `pron` |
+| A word with a brand-specific compound | `Nginx-based`, insensitive, `say`, `engine ex based` |
+
+**Goal details** (Result):
+
+- **A product name said as words**: `Use Nginx today.` is spoken `Use engine ex today.`
+- **A name the tokenizer would read as an unknown word**: `Kubernetes runs` is spoken `koo ber net eez runs`
+- **An unlisted initialism that must be spelled**: `A GIF file` is spoken `A G I F file` (`en.spell` `G I F`)
+- **An acronym the table would spell but that is said as a word**: stays as written
+- **An initialism the table would spell but that must stay as written**: `The FBI and CIA` is spoken `The FBI and C I A`
+- The country `US` versus the pronoun `us`: `US troops asked us` stays as written
+- **A name that differs from a common word only by case**: each gets its own phonemes; the sensitive entry wins for
+  `Polish`
+- **A word with a brand-specific compound**: the whole compound is replaced
 
 Case-sensitive entries are the safer default for names and acronyms, because `US` and `us` or `IT` and `it`
 differ only in case. Case-insensitive entries suit product names that are written in several cases.

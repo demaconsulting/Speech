@@ -191,26 +191,26 @@ bound playback device. Internal helpers (`SpeechParameterConventions`, `Annotati
 (Layer 2 rendering, *TextAnalysis*, *TextAnalysis*, and *DedicatedWorker* respectively); the public
 `SentenceChunk` result is documented with *SentenceChunker*.
 
-| Unit | Design document |
+| Unit | Design document (in `synthesis-subsystem/`) |
 | --- | --- |
-| `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
-| `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
-| `SentenceChunker` (with `SentenceChunk`) | `synthesis-subsystem/sentence-chunker.md` |
-| `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`, `TextAnalysisConventions` | `synthesis-subsystem/text-analysis.md` |
-| `ISynthesisBackend`, `IAnnotatedSynthesisBackend`, `ISynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
-| `DefaultSynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
-| `DedicatedWorker` | `synthesis-subsystem/dedicated-worker.md` |
-| `PlaybackAudioResampler` | `synthesis-subsystem/playback-audio-resampler.md` |
-| `SpeechSynthesizerEngine` | `synthesis-subsystem/speech-synthesizer-engine.md` |
-| `SynthesisSession` | `synthesis-subsystem/synthesis-session.md` |
-| `ISpeechSynthesizerEngine` | `synthesis-subsystem/i-speech-synthesizer-engine.md` |
-| `ISynthesisSession` | `synthesis-subsystem/i-synthesis-session.md` |
-| `SpeechSynthesizerFactory` | `synthesis-subsystem/speech-synthesizer-factory.md` |
-| `UnavailableSpeechSynthesizerEngine` | `synthesis-subsystem/unavailable-speech-synthesizer-engine.md` |
-| `UnavailableSynthesisSession` | `synthesis-subsystem/unavailable-synthesis-session.md` |
-| `SpeechSynthesizerUnavailableException` | `synthesis-subsystem/speech-synthesizer-unavailable-exception.md` |
-| `SynthesisEngineBusyException` | `synthesis-subsystem/synthesis-engine-busy-exception.md` |
-| `SynthesisSessionFaultedException` | `synthesis-subsystem/synthesis-session-faulted-exception.md` |
+| `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `audio-tag-parser.md` |
+| `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `layer2-rendering.md` |
+| `SentenceChunker` (with `SentenceChunk`) | `sentence-chunker.md` |
+| `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`, `TextAnalysisConventions` | `text-analysis.md` |
+| `ISynthesisBackend`, `IAnnotatedSynthesisBackend`, `ISynthesisBackendFactory` | `synthesis-backend.md` |
+| `DefaultSynthesisBackendFactory` | `synthesis-backend.md` |
+| `DedicatedWorker` | `dedicated-worker.md` |
+| `PlaybackAudioResampler` | `playback-audio-resampler.md` |
+| `SpeechSynthesizerEngine` | `speech-synthesizer-engine.md` |
+| `SynthesisSession` | `synthesis-session.md` |
+| `ISpeechSynthesizerEngine` | `i-speech-synthesizer-engine.md` |
+| `ISynthesisSession` | `i-synthesis-session.md` |
+| `SpeechSynthesizerFactory` | `speech-synthesizer-factory.md` |
+| `UnavailableSpeechSynthesizerEngine` | `unavailable-speech-synthesizer-engine.md` |
+| `UnavailableSynthesisSession` | `unavailable-synthesis-session.md` |
+| `SpeechSynthesizerUnavailableException` | `speech-synthesizer-unavailable-exception.md` |
+| `SynthesisEngineBusyException` | `synthesis-engine-busy-exception.md` |
+| `SynthesisSessionFaultedException` | `synthesis-session-faulted-exception.md` |
 
 #### Design Constraints
 

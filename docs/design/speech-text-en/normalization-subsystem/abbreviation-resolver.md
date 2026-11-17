@@ -11,14 +11,16 @@ nothing about spans, periods or sentence breaks, which belong to `TextNormalizer
 DEMA Consulting. Blank lines and lines that start with `#` are ignored; the first remaining line is the
 header; every other line is one reading of one written form, in six columns:
 
-| Column | Meaning |
-| --- | --- |
-| `form` | The token exactly as written, matched case-sensitively; a trailing `.` is part of the form |
-| `spoken` | The words spoken instead; for class `word`, the written word itself (it is never applied) |
-| `class` | `prefix` (precedes a name or number), `suffix` (follows a name or street), `free` (either way) or `word` (the ordinary word followed by a real period) |
-| `default` | `yes` on exactly one row per form: the reading used when the context is inconclusive |
-| `guard` | `-` for none, or conditions joined by `+`: `next-cap` (the next token starts with an upper-case letter), `next-digit` (the next token starts with a digit), `prev-not-number` (the previous token does not start with a digit), `next-date` (the next token starts with an ASCII digit or is a month name or abbreviation) and `prev-number` (the previous token starts with an ASCII digit) |
-| `note` | Free text |
+- `form`: The token exactly as written, matched case-sensitively; a trailing `.` is part of the form
+- `spoken`: The words spoken instead; for class `word`, the written word itself (it is never applied)
+- `class`: `prefix` (precedes a name or number), `suffix` (follows a name or street), `free` (either way) or `word` (the
+  ordinary word followed by a real period)
+- `default`: `yes` on exactly one row per form: the reading used when the context is inconclusive
+- `guard`: `-` for none, or conditions joined by `+`: `next-cap` (the next token starts with an upper-case letter),
+  `next-digit` (the next token starts with a digit), `prev-not-number` (the previous token does not start with a digit),
+  `next-date` (the next token starts with an ASCII digit or is a month name or abbreviation) and `prev-number` (the
+  previous token starts with an ASCII digit)
+- `note`: Free text
 
 Several rows with the same `form` are alternative readings. `Count` is the number of rows (alternatives
 count separately). The loaded rows are held in a dictionary from form to an array of rows; the length of the
@@ -26,23 +28,64 @@ longest form is kept so a longer token is rejected without a lookup.
 
 The lexicon covers these groups (US English spoken forms):
 
-| Group | Forms (spoken form) | Class and guard |
-| --- | --- | --- |
-| Titles and ranks | `Mr.` Mister, `Mrs.` Missus, `Ms.` Miz, `Messrs.` Messieurs, `Mmes.` Mesdames, `Prof.` Professor, `Rev.` Reverend, `Gen.` General, `Col.` Colonel, `Capt.` Captain, `Lt.` Lieutenant, `Sgt.` Sergeant, `Cpl.` Corporal, `Maj.` Major, `Cmdr.` Commander, `Adm.` Admiral, `Sen.` Senator, `Gov.` Governor, `Pres.` President, `Supt.` Superintendent, `Mt.` Mount | prefix, no guard |
-| Titles without a period | `Mr`, `Mrs`, `Ms`, `Messrs`, `Prof` (same spoken forms) | prefix, `next-cap` |
-| Guarded | `Ft.` Fort | prefix, `next-cap+prev-not-number` (so `5 ft.` is never read as Fort; the numeric rule reads it as the unit `feet`, and `5 Ft. Worth` is read as `five feet. Worth` because the number before it wins) |
-| References | `Fig.` Figure, `Vol.` Volume | prefix, `next-digit` (never ends a sentence) |
-| Name suffixes | `Jr.` Junior, `Esq.` Esquire | suffix |
-| Address suffixes | `Ave.` Avenue, `Blvd.` Boulevard, `Rd.` Road, `Ln.` Lane, `Ct.` Court, `Pl.` Place, `Sq.` Square, `Hwy.` Highway, `Pkwy.` Parkway, `Apt.` Apartment, `Ste.` Suite, `Bldg.` Building, `Dept.` Department | suffix |
-| Business suffixes | `Inc.` Incorporated, `Ltd.` Limited, `Corp.` Corporation, `Co.` Company, `Bros.` Brothers | suffix |
-| Ambiguous | `St.`: Saint (prefix) or Street (suffix, default); `Dr.`: Doctor (prefix, default) or Drive (suffix); `Sr.`: Sister (prefix) or Senior (suffix, default); `No.`: Number (prefix, `next-digit`) or `No` (word, default) | see the decision order below |
-| Months with a period | `Jan.` January, `Feb.` February, `Apr.` April, `Jun.` June, `Jul.` July, `Aug.` August, `Sep.` and `Sept.` September, `Oct.` October, `Nov.` November, `Dec.` December | two rows per form: prefix with `next-date`; suffix, no guard, the default |
-| `Mar.` | March (it collides with the verb `mar`) | prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Mar.` has no reading and stays as written |
-| Months without a period | `Jan`, `Feb`, `Mar`, `Apr`, `Jun`, `Jul`, `Aug`, `Sep`, `Sept`, `Oct`, `Nov`, `Dec` (`May` is a word and has no row) | one row each: prefix, `next-digit`, default (`Jan 5`, `Sept 11`) |
-| Weekdays with a period | `Mon.`, `Tue.`, `Tues.`, `Wed.`, `Thu.`, `Thur.`, `Thurs.`, `Fri.`, `Sat.` (Monday to Saturday) | two rows per form: prefix with `next-date`; suffix, no guard, the default |
-| `Sun.` | Sunday (it collides with the star and the newspaper) | prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Sun.` stays as written |
-| Latin and general | `vs.` versus, `etc.` et cetera, `e.g.` for example, `E.g.` For example, `i.e.` that is, `I.e.` That is, `a.k.a.` also known as, `viz.` namely, `approx.` approximately, `misc.` miscellaneous, `cf.` compare, `Ph.D.` P H D | free |
-| Slash forms | `w/` with, `w/o` without, `N/A` and `n/a` not applicable, `c/o` care of, `and/or` and or | free |
+- **Titles and ranks**
+  - Forms (spoken form): `Mr.` Mister, `Mrs.` Missus, `Ms.` Miz, `Messrs.` Messieurs, `Mmes.` Mesdames, `Prof.`
+    Professor, `Rev.` Reverend, `Gen.` General, `Col.` Colonel, `Capt.` Captain, `Lt.` Lieutenant, `Sgt.` Sergeant,
+    `Cpl.` Corporal, `Maj.` Major, `Cmdr.` Commander, `Adm.` Admiral, `Sen.` Senator, `Gov.` Governor, `Pres.`
+    President, `Supt.` Superintendent, `Mt.` Mount
+  - Class and guard: prefix, no guard
+- **Titles without a period**
+  - Forms (spoken form): `Mr`, `Mrs`, `Ms`, `Messrs`, `Prof` (same spoken forms)
+  - Class and guard: prefix, `next-cap`
+- **Guarded**
+  - Forms (spoken form): `Ft.` Fort
+  - Class and guard: prefix, `next-cap+prev-not-number` (so `5 ft.` is never read as Fort; the numeric rule reads it as
+    the unit `feet`, and `5 Ft. Worth` is read as `five feet. Worth` because the number before it wins)
+- **References**
+  - Forms (spoken form): `Fig.` Figure, `Vol.` Volume
+  - Class and guard: prefix, `next-digit` (never ends a sentence)
+- **Name suffixes**
+  - Forms (spoken form): `Jr.` Junior, `Esq.` Esquire
+  - Class and guard: suffix
+- **Address suffixes**
+  - Forms (spoken form): `Ave.` Avenue, `Blvd.` Boulevard, `Rd.` Road, `Ln.` Lane, `Ct.` Court, `Pl.` Place, `Sq.`
+    Square, `Hwy.` Highway, `Pkwy.` Parkway, `Apt.` Apartment, `Ste.` Suite, `Bldg.` Building, `Dept.` Department
+  - Class and guard: suffix
+- **Business suffixes**
+  - Forms (spoken form): `Inc.` Incorporated, `Ltd.` Limited, `Corp.` Corporation, `Co.` Company, `Bros.` Brothers
+  - Class and guard: suffix
+- **Ambiguous**
+  - Forms (spoken form): `St.`: Saint (prefix) or Street (suffix, default); `Dr.`: Doctor (prefix, default) or Drive
+    (suffix); `Sr.`: Sister (prefix) or Senior (suffix, default); `No.`: Number (prefix, `next-digit`) or `No` (word,
+    default)
+  - Class and guard: see the decision order below
+- **Months with a period**
+  - Forms (spoken form): `Jan.` January, `Feb.` February, `Apr.` April, `Jun.` June, `Jul.` July, `Aug.` August, `Sep.`
+    and `Sept.` September, `Oct.` October, `Nov.` November, `Dec.` December
+  - Class and guard: two rows per form: prefix with `next-date`; suffix, no guard, the default
+- `Mar.`
+  - Forms (spoken form): March (it collides with the verb `mar`)
+  - Class and guard: prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Mar.` has no reading
+    and stays as written
+- **Months without a period**
+  - Forms (spoken form): `Jan`, `Feb`, `Mar`, `Apr`, `Jun`, `Jul`, `Aug`, `Sep`, `Sept`, `Oct`, `Nov`, `Dec` (`May` is a
+    word and has no row)
+  - Class and guard: one row each: prefix, `next-digit`, default (`Jan 5`, `Sept 11`)
+- **Weekdays with a period**
+  - Forms (spoken form): `Mon.`, `Tue.`, `Tues.`, `Wed.`, `Thu.`, `Thur.`, `Thurs.`, `Fri.`, `Sat.` (Monday to Saturday)
+  - Class and guard: two rows per form: prefix with `next-date`; suffix, no guard, the default
+- `Sun.`
+  - Forms (spoken form): Sunday (it collides with the star and the newspaper)
+  - Class and guard: prefix with `next-date`; suffix with `prev-number` as the default, so a bare `Sun.` stays as
+    written
+- **Latin and general**
+  - Forms (spoken form): `vs.` versus, `etc.` et cetera, `e.g.` for example, `E.g.` For example, `i.e.` that is, `I.e.`
+    That is, `a.k.a.` also known as, `viz.` namely, `approx.` approximately, `misc.` miscellaneous, `cf.` compare,
+    `Ph.D.` P H D
+  - Class and guard: free
+- **Slash forms**
+  - Forms (spoken form): `w/` with, `w/o` without, `N/A` and `n/a` not applicable, `c/o` care of, `and/or` and or
+  - Class and guard: free
 
 `Fig.` and `Vol.` are class `prefix` rather than `free` because the tokenizer splits `Fig` from its period
 and breaks before the digit: a prefix period is consumed and that break suppressed, so `Fig. 3` is spoken
@@ -145,22 +188,41 @@ a closing quote or bracket (`) ] } " ' ” ’ »`). A tag placeholder is alread
 
 Worked examples (the golden file of the subsystem tests holds each of them):
 
-| Text | Cues | Reading |
-| --- | --- | --- |
-| `Dr. Smith lives here.` | no `P` (strong prefix), `N` Smith is a name | Doctor (step 2) |
-| `Maple Dr. He likes it.` | `P` Maple is a name and starts its sentence; `N` He is a sentence starter, so no `prefixCue` | Drive (step 4) |
-| `Main St. It is nice.` | same shape | Street (step 4) |
-| `Visit St. Louis.` | `P` Visit is a name but `N` Louis is a name and `P` is first in its sentence, so only `prefixCue` | Saint (step 3) |
-| `5th St. Louis is ahead.` | `P` starts with a digit | Street (step 1) |
-| `Go to 123 Elm Dr. Smith lives there.` | `P` Elm is a name and `P2` is a number | Drive (step 1) |
-| `The Dr. said hello.` | `P` The is a determiner; `N` is lower-case; no cue | Doctor (step 6, not counted) |
-| `St. Patrick's St. is closed.` | first `St.`: no `P`, `N` Patrick; second: possessive skipped, `P` Patrick is a name, `N` is lower-case | Saint, then Street |
-| `John Smith Sr. He left.` | `P` Smith is a name that is not first; `N` He is a sentence starter | Senior (step 4) |
-| `Sr. Maria prayed.` | no `P`; `N` Maria | Sister (step 2) |
-| `John Smith Sr. Ph.D. spoke.` / `Joe Smith Sr. Esq. arrived.` | `N` is a name continuation, so no `prefixCue`; `P` Smith is a name | Senior (step 4) |
-| `Go see Jones St. Smith` | both cues | Saint, counted (step 5) |
-| `They St. said so.` | `P` They is a sentence starter and not a determiner; no cue | Street by default, counted (step 7) |
-| `No. 5 is here.` / `No. I don't know.` | the `Number` reading needs a digit next | Number / the word `No` |
+| Text | Reading |
+| --- | --- |
+| `Dr. Smith lives here.` | Doctor (step 2) |
+| `Maple Dr. He likes it.` | Drive (step 4) |
+| `Main St. It is nice.` | Street (step 4) |
+| `Visit St. Louis.` | Saint (step 3) |
+| `5th St. Louis is ahead.` | Street (step 1) |
+| `Go to 123 Elm Dr. Smith lives there.` | Drive (step 1) |
+| `The Dr. said hello.` | Doctor (step 6, not counted) |
+| `St. Patrick's St. is closed.` | Saint, then Street |
+| `John Smith Sr. He left.` | Senior (step 4) |
+| `Sr. Maria prayed.` | Sister (step 2) |
+| `John Smith Sr. Ph.D. spoke.` / `Joe Smith Sr. Esq. arrived.` | Senior (step 4) |
+| `Go see Jones St. Smith` | Saint, counted (step 5) |
+| `They St. said so.` | Street by default, counted (step 7) |
+| `No. 5 is here.` / `No. I don't know.` | Number / the word `No` |
+
+**Text details** (Cues):
+
+- `Dr. Smith lives here.`: no `P` (strong prefix), `N` Smith is a name
+- `Maple Dr. He likes it.`: `P` Maple is a name and starts its sentence; `N` He is a sentence starter, so no `prefixCue`
+- `Main St. It is nice.`: same shape
+- `Visit St. Louis.`: `P` Visit is a name but `N` Louis is a name and `P` is first in its sentence, so only `prefixCue`
+- `5th St. Louis is ahead.`: `P` starts with a digit
+- `Go to 123 Elm Dr. Smith lives there.`: `P` Elm is a name and `P2` is a number
+- `The Dr. said hello.`: `P` The is a determiner; `N` is lower-case; no cue
+- `St. Patrick's St. is closed.`: first `St.`: no `P`, `N` Patrick; second: possessive skipped, `P` Patrick is a name,
+  `N` is lower-case
+- `John Smith Sr. He left.`: `P` Smith is a name that is not first; `N` He is a sentence starter
+- `Sr. Maria prayed.`: no `P`; `N` Maria
+- `John Smith Sr. Ph.D. spoke.` / `Joe Smith Sr. Esq. arrived.`: `N` is a name continuation, so no `prefixCue`; `P`
+  Smith is a name
+- `Go see Jones St. Smith`: both cues
+- `They St. said so.`: `P` They is a sentence starter and not a determiner; no cue
+- `No. 5 is here.` / `No. I don't know.`: the `Number` reading needs a digit next
 
 Two cases are wrong by default and documented as such in the golden file: `Wall St. Journal` and `Elm St.
 Louis is far` read `Saint` with an ambiguity count of zero, because the previous word starts its sentence and

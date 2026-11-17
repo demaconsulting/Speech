@@ -11,11 +11,10 @@ pronoun, and `IT` is the department, but `It` is the pronoun. Acronyms that are 
 Consulting, with the same comment, blank-line and header conventions as the abbreviation lexicon. Each data
 line has three columns:
 
-| Column | Meaning |
-| --- | --- |
-| `form` | The all-capital token exactly as written: one or more upper-case ASCII letters |
-| `spoken` | The letters spoken one by one, separated by single spaces (`F B I`); never empty |
-| `ambiguous` | `yes` when the form is also an ordinary English word in capitals (`US`, `IT`, `AM`): it is then left alone inside an all-capital sentence; otherwise `no` |
+- `form`: The all-capital token exactly as written: one or more upper-case ASCII letters
+- `spoken`: The letters spoken one by one, separated by single spaces (`F B I`); never empty
+- `ambiguous`: `yes` when the form is also an ordinary English word in capitals (`US`, `IT`, `AM`): it is then left
+  alone inside an all-capital sentence; otherwise `no`
 
 The listed forms are US, USA, UK, EU, UN, UAE, FBI, CIA, NSA, IRS, DOJ, TV, PC, CEO, CFO, CTO, HR, PR, ID, IT,
 AI, ML, API, URL, HTML, CSS, SQL, PDF, CPU, GPU, USB, LED, LCD, DVD, CD, GPS, ATM, SUV, DNA, RNA, HIV, MRI,

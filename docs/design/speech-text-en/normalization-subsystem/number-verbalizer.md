@@ -17,12 +17,20 @@ text is split into clauses.
 *The limits* are named constants. The recognizer enforces them before it calls, so a call outside them is a
 defect of the caller and throws.
 
-| Constant | Value | Meaning |
-| --- | --- | --- |
-| `MaxCardinalDigits` | 15 | The most significant digits a cardinal, ordinal or year-like reading accepts (999 trillion); leading zeros do not count |
-| `MaxSpelledDigits` | 64 | The most digits read one by one |
-| `MaxFractionDigits` | 32 | The most digits after a decimal point that are read |
-| `MaxSpokenLength` | 1,024 | The size in characters of the working buffer and so the upper bound of any spoken value |
+| Constant | Value |
+| --- | --- |
+| `MaxCardinalDigits` | 15 |
+| `MaxSpelledDigits` | 64 |
+| `MaxFractionDigits` | 32 |
+| `MaxSpokenLength` | 1,024 |
+
+**Constant details** (Meaning):
+
+- `MaxCardinalDigits`: The most significant digits a cardinal, ordinal or year-like reading accepts (999 trillion);
+  leading zeros do not count
+- `MaxSpelledDigits`: The most digits read one by one
+- `MaxFractionDigits`: The most digits after a decimal point that are read
+- `MaxSpokenLength`: The size in characters of the working buffer and so the upper bound of any spoken value
 
 *The vocabulary* is a closed set of read-only arrays: the words of 0 to 19 (`zero` to `nineteen`), the tens
 (`twenty` to `ninety`, including the standard spelling `forty`), the scale words (`thousand`, `million`, `billion`,
@@ -44,20 +52,60 @@ that impossible (the worst case, 64 digit words, is 64 words of at most five let
 **Reading rules.** All numbers are read in groups of three digits from the left (the first group holds the
 remainder), each non-zero group as hundreds and a below-100 part, followed by its scale word.
 
-| Reading | Rule | Examples |
-| --- | --- | --- |
-| Under 100 | 0 to 19 are one word; 20 and above are the tens word and, when not zero, the ones word, separated by a space | `forty two`, `nineteen`, `ninety nine` |
-| Under 1,000 | The hundreds digit, `hundred`, then the rest; no `and` | `one hundred one`, `nine hundred ninety nine` |
-| Cardinal | Groups of three with scale words; zero groups are skipped; leading zeros are ignored; all-zero input is `zero` | `one thousand two hundred thirty four`, `one million one`, `zero` |
-| Ordinal | The cardinal with its last word replaced by the ordinal word: `one` first, `two` second, `three` third, `five` fifth, `eight` eighth, `nine` ninth, `twelve` twelfth, a word ending in `y` becomes `-ieth`, any other word takes `th` | `twenty first`, `one hundredth`, `one thousandth`, `eleventh`, `zeroth` |
-| Integer as read in running text | A number of more than one digit with a leading zero is an identifier and is read digit by digit (`007` gives `zero zero seven`); any other is a cardinal | `zero zero seven`, `forty two` |
-| Digits | Each digit as its word, one by one | `one two three`, `zero zero` |
-| Decimal | The integer part (as above; omitted when empty, so `.5` gives `point five`), `point`, then the fraction digits one by one with zeros kept | `three point five`, `five point zero`, `point five`, `one point two three four` |
-| Year | A four-digit value from 1000 to 2099 is read as two pairs: the first two digits as a number under 100 (or `ten` to `twenty`), then the last two: `hundred` for `00`, `oh` and the digit for `01` to `09`, the number otherwise. The values both readings speak alike (1000, 2000, 2001 to 2009) are read as the cardinal, and `IsYearReadingDifferent` reports false for them. Any other four-digit value is the cardinal | `nineteen ninety nine`, `nineteen oh five`, `nineteen hundred`, `eleven hundred`, `ten sixty six`, `twenty ten`, `twenty twenty four`, `twenty ninety nine`, `two thousand`, `two thousand five` |
-| Decade | Two digits ending in zero (`90`, tens digit 1 to 9): the plural decade word. Four digits ending in zero (1000 to 2099): the year pair with `hundreds` for `00`, `thousands` for a multiple of 1000, otherwise the plural decade word | `nineties`, `nineteen nineties`, `nineteen hundreds`, `two thousands`, `twenty tens`, `eighteen hundreds` |
-| Fraction | The numerator as a cardinal, then the denominator word, plural when the numerator is not 1: `half`/`halves` for 2, `quarter`/`quarters` for 4, `hundredth`/`hundredths` for 100, otherwise the denominator's ordinal, with `s` appended for the plural. The numerator is at least 1, the denominator above the numerator and at most 100 | `one half`, `three quarters`, `two thirds`, `seven sixteenths`, `nine tenths`, `thirty seven hundredths`, `three thirty seconds` |
-| Clock time | The hour (0 to 23; one or two digits) then the minute (exactly two digits, 00 to 59). A written leading zero in the hour reads as `oh` and the digit (`07` gives `oh seven`, `00` gives `zero`). Minute `00` gives `o'clock` for an hour 1 to 12 written without a leading zero and `hundred` otherwise, or nothing when a meridiem follows (`omitZeroMinute`); minutes 01 to 09 read `oh` and the digit; others as a number | `five thirty`, `five oh five`, `five o'clock`, `seventeen forty five`, `seventeen hundred`, `oh seven oh five`, `oh seven hundred`, `zero thirty`, `zero hundred` |
-| Calendar date | The month name, the day (1 to 31) as an ordinal and the year: a four-digit year as the year reading, a two-digit year as a cardinal with `oh` and the digit for `01` to `09` | `December twenty fifth twenty twenty four`, `January second twenty four`, `January first oh five` |
+- **Under 100**
+  - Rule: 0 to 19 are one word; 20 and above are the tens word and, when not zero, the ones word, separated by a space
+  - Examples: `forty two`, `nineteen`, `ninety nine`
+- **Under 1,000**
+  - Rule: The hundreds digit, `hundred`, then the rest; no `and`
+  - Examples: `one hundred one`, `nine hundred ninety nine`
+- **Cardinal**
+  - Rule: Groups of three with scale words; zero groups are skipped; leading zeros are ignored; all-zero input is `zero`
+  - Examples: `one thousand two hundred thirty four`, `one million one`, `zero`
+- **Ordinal**
+  - Rule: The cardinal with its last word replaced by the ordinal word: `one` first, `two` second, `three` third, `five`
+    fifth, `eight` eighth, `nine` ninth, `twelve` twelfth, a word ending in `y` becomes `-ieth`, any other word takes
+    `th`
+  - Examples: `twenty first`, `one hundredth`, `one thousandth`, `eleventh`, `zeroth`
+- **Integer as read in running text**
+  - Rule: A number of more than one digit with a leading zero is an identifier and is read digit by digit (`007` gives
+    `zero zero seven`); any other is a cardinal
+  - Examples: `zero zero seven`, `forty two`
+- **Digits**
+  - Rule: Each digit as its word, one by one
+  - Examples: `one two three`, `zero zero`
+- **Decimal**
+  - Rule: The integer part (as above; omitted when empty, so `.5` gives `point five`), `point`, then the fraction digits
+    one by one with zeros kept
+  - Examples: `three point five`, `five point zero`, `point five`, `one point two three four`
+- **Year**
+  - Rule: A four-digit value from 1000 to 2099 is read as two pairs: the first two digits as a number under 100 (or
+    `ten` to `twenty`), then the last two: `hundred` for `00`, `oh` and the digit for `01` to `09`, the number
+    otherwise. The values both readings speak alike (1000, 2000, 2001 to 2009) are read as the cardinal, and
+    `IsYearReadingDifferent` reports false for them. Any other four-digit value is the cardinal
+  - Examples: `nineteen ninety nine`, `nineteen oh five`, `nineteen hundred`, `eleven hundred`, `ten sixty six`,
+    `twenty ten`, `twenty twenty four`, `twenty ninety nine`, `two thousand`, `two thousand five`
+- **Decade**
+  - Rule: Two digits ending in zero (`90`, tens digit 1 to 9): the plural decade word. Four digits ending in zero (1000
+    to 2099): the year pair with `hundreds` for `00`, `thousands` for a multiple of 1000, otherwise the plural decade
+    word
+  - Examples: `nineties`, `nineteen nineties`, `nineteen hundreds`, `two thousands`, `twenty tens`, `eighteen hundreds`
+- **Fraction**
+  - Rule: The numerator as a cardinal, then the denominator word, plural when the numerator is not 1: `half`/`halves`
+    for 2, `quarter`/`quarters` for 4, `hundredth`/`hundredths` for 100, otherwise the denominator's ordinal, with `s`
+    appended for the plural. The numerator is at least 1, the denominator above the numerator and at most 100
+  - Examples: `one half`, `three quarters`, `two thirds`, `seven sixteenths`, `nine tenths`, `thirty seven hundredths`,
+    `three thirty seconds`
+- **Clock time**
+  - Rule: The hour (0 to 23; one or two digits) then the minute (exactly two digits, 00 to 59). A written leading zero
+    in the hour reads as `oh` and the digit (`07` gives `oh seven`, `00` gives `zero`). Minute `00` gives `o'clock` for
+    an hour 1 to 12 written without a leading zero and `hundred` otherwise, or nothing when a meridiem follows
+    (`omitZeroMinute`); minutes 01 to 09 read `oh` and the digit; others as a number
+  - Examples: `five thirty`, `five oh five`, `five o'clock`, `seventeen forty five`, `seventeen hundred`,
+    `oh seven oh five`, `oh seven hundred`, `zero thirty`, `zero hundred`
+- **Calendar date**
+  - Rule: The month name, the day (1 to 31) as an ordinal and the year: a four-digit year as the year reading, a
+    two-digit year as a cardinal with `oh` and the digit for `01` to `09`
+  - Examples: `December twenty fifth twenty twenty four`, `January second twenty four`, `January first oh five`
 
 **Key Methods** (all `internal static`; each `string`-returning method is a thin wrapper that creates a
 writer over a stack buffer, calls the `Append...` method of the same name and returns the text):

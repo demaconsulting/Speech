@@ -10,18 +10,37 @@ this unit's file, `NormalizationAlignment.cs`, and are documented here.
 
 `NormalizationKind` (public) says what produced one `en.norm` replacement:
 
-| Member | Value | Produced by |
-| --- | --- | --- |
-| `Abbreviation` | 1 | A lexicon abbreviation (`Dr.`, `etc.`), a listed slash form (`w/o`, `N/A`) or a single-letter initial (`J.`) |
-| `Initialism` | 2 | An acronym or initialism spoken letter by letter: listed (`FBI`), dotted (`U.S.`), ampersand (`AT&T`) or recognized by rule |
-| `Symbol` | 3 | A non-numeric symbol or mark spoken as words (`&`, `@`, the copyright sign), including an `&` or `/` inside a word |
-| `Apostrophe` | 4 | A typographic apostrophe replaced by U+0027 inside a clitic or an elision |
-| `Dropped` | 5 | An invisible format character or a bullet spoken as nothing; the replacement is empty |
-| `Number` | 6 | A number spoken as words: a cardinal, ordinal, decimal, fraction, year, decade, percent sign, `#` number, range, or a group of digits read one by one; the spoken text has no digits |
-| `Currency` | 7 | A currency amount (`$5.50`), or the unit word of a currency code or of a magnitude after a symbol (`USD`, `million`) |
-| `DateTime` | 8 | A clock time, a meridiem, a numeric date, or a day or year next to a month name |
-| `Unit` | 9 | A unit of measure after a number (`kg`, `ft.`, `°F`), spoken in full, singular or plural by the number |
-| `Override` | 10 | A host pronunciation override replaced the word: a `Say` entry (words) or a `SpellOut` entry (letters); the replacement is exactly what the dictionary entry says |
+| Member | Value |
+| --- | --- |
+| `Abbreviation` | 1 |
+| `Initialism` | 2 |
+| `Symbol` | 3 |
+| `Apostrophe` | 4 |
+| `Dropped` | 5 |
+| `Number` | 6 |
+| `Currency` | 7 |
+| `DateTime` | 8 |
+| `Unit` | 9 |
+| `Override` | 10 |
+
+**Member details** (Produced by):
+
+- `Abbreviation`: A lexicon abbreviation (`Dr.`, `etc.`), a listed slash form (`w/o`, `N/A`) or a single-letter initial
+  (`J.`)
+- `Initialism`: An acronym or initialism spoken letter by letter: listed (`FBI`), dotted (`U.S.`), ampersand (`AT&T`) or
+  recognized by rule
+- `Symbol`: A non-numeric symbol or mark spoken as words (`&`, `@`, the copyright sign), including an `&` or `/` inside
+  a word
+- `Apostrophe`: A typographic apostrophe replaced by U+0027 inside a clitic or an elision
+- `Dropped`: An invisible format character or a bullet spoken as nothing; the replacement is empty
+- `Number`: A number spoken as words: a cardinal, ordinal, decimal, fraction, year, decade, percent sign, `#` number,
+  range, or a group of digits read one by one; the spoken text has no digits
+- `Currency`: A currency amount (`$5.50`), or the unit word of a currency code or of a magnitude after a symbol (`USD`,
+  `million`)
+- `DateTime`: A clock time, a meridiem, a numeric date, or a day or year next to a month name
+- `Unit`: A unit of measure after a number (`kg`, `ft.`, `°F`), spoken in full, singular or plural by the number
+- `Override`: A host pronunciation override replaced the word: a `Say` entry (words) or a `SpellOut` entry (letters);
+  the replacement is exactly what the dictionary entry says
 
 The four numeric members were added by the numeric normalization increment and `Override` by the pronunciation
 override increment; the earlier members keep their
@@ -66,20 +85,62 @@ optional trailing constructor parameters that default to 0 or none.
 **Alignment invariants and where each is enforced** (the normative statement is in *SpeechTextEn System
 Design*, *Alignment Contract*):
 
-| # | Invariant | Enforced by |
-| --- | --- | --- |
-| A1 | Spans ascending, disjoint, in bounds; **A1'** spans and pronunciation marks form one ascending, disjoint sequence | `AlignedTextBuilder.Add` and `AddPronunciation` throw `ArgumentException` for an empty, out-of-bounds, out-of-order or overlapping span or mark; both compare against one "end of the last covered text" value, so a span cannot overlap an earlier mark and a mark cannot overlap an earlier span (bounds are checked without computing `Start + Length`) |
-| A2 | Non-empty, non-whitespace edges, no placeholder, no cut surrogate pair, non-null replacement | `AlignedTextBuilder.Add`; `AddPronunciation` applies the same edge, placeholder and surrogate checks to a mark and also rejects an empty value or one that contains a placeholder |
-| A3 | Segments tile the text; identity segments equal the source | By construction in `Segments()`; applying every span as its own source text is the identity |
-| A4 | Nothing outside a span changes | By construction: only `Spans` carry replacements and no unit re-cases or re-punctuates text |
-| A5 | Chunk-safe spans (A5'): no whitespace, never `;`, `,` or `:` only between two ASCII digits; shapes S1 to S5 | `AlignedTextBuilder.Add` rejects whitespace edges and placeholders; the shape (one token, a token and its adjacent period token, a currency symbol and its adjacent number token, an apostrophe and its adjacent decade token, one of the two halves of a glued meridiem token, or one character inside a token) is the design of `TextNormalizer` and `NumericExpressionRecognizer`, verified by the subsystem property tests against the real chunker |
-| A6 | Separating space where a letter or digit touches a letter-edged replacement, or the previous span directly touches the replacement and its spoken text ends with a letter | `TextNormalizer` when it emits a span (using `AlignedTextBuilder.TouchesPreviousSpokenLetter` for adjacency); never for `Dropped` or `Apostrophe` |
-| A7 | No silent drop; the characters of a recognized numeric expression are consumed into its spoken words | By construction (text outside spans is copied verbatim; `Add` accepts an empty replacement only for `Dropped`); the dropped character set belongs to `TextNormalizer`, the consumed numeric characters to `NumericExpressionRecognizer` |
-| A8 | Break edits on token starts, ascending and unique; no break strictly inside a span (A8b) | `ForceBreak` and `SuppressBreak` reject an offset outside the text after its first character, on whitespace or on a placeholder; `Build` sorts and de-duplicates; `ReconcileBreaks` merges without duplicates; `TextNormalizer` suppresses a tokenizer break inside a numeric span |
-| A9 | Deterministic and thread-safe | `AlignedText` and the values are immutable; a builder is never shared; no unit keeps per-request state |
-| A10 | Empty replacement only for `Dropped`, no placeholder, no stray edge space; numeric kinds have no ASCII digit and only letters, spaces and an apostrophe | `AlignedTextBuilder.Add` (empty exactly when `Dropped`, no placeholder); the A6 padding by `TextNormalizer`; the numeric vocabulary by `NumberVerbalizer`, verified by the closed-vocabulary property test |
-| A11 | A spelled span's value is a letter sequence (`[A-Z]( [A-Z])*` with at most one padding space per side) | `AlignedTextBuilder.Add` throws `ArgumentException` for a span marked `Spelled` whose value is not a letter sequence (`SpelledGrammar`); a span not marked spelled may hold any text |
-| A12 | Pronunciation marks are ascending, disjoint from each other and from every span, each one token with no whitespace edge, placeholder or cut surrogate pair, with a non-empty value | `AlignedTextBuilder.AddPronunciation` (see A1' and A2) |
+- **A1**
+  - Invariant: Spans ascending, disjoint, in bounds; **A1'** spans and pronunciation marks form one ascending, disjoint
+    sequence
+  - Enforced by: `AlignedTextBuilder.Add` and `AddPronunciation` throw `ArgumentException` for an empty, out-of-bounds,
+    out-of-order or overlapping span or mark; both compare against one "end of the last covered text" value, so a span
+    cannot overlap an earlier mark and a mark cannot overlap an earlier span (bounds are checked without computing
+    `Start + Length`)
+- **A2**
+  - Invariant: Non-empty, non-whitespace edges, no placeholder, no cut surrogate pair, non-null replacement
+  - Enforced by: `AlignedTextBuilder.Add`; `AddPronunciation` applies the same edge, placeholder and surrogate checks to
+    a mark and also rejects an empty value or one that contains a placeholder
+- **A3**
+  - Invariant: Segments tile the text; identity segments equal the source
+  - Enforced by: By construction in `Segments()`; applying every span as its own source text is the identity
+- **A4**
+  - Invariant: Nothing outside a span changes
+  - Enforced by: By construction: only `Spans` carry replacements and no unit re-cases or re-punctuates text
+- **A5**
+  - Invariant: Chunk-safe spans (A5'): no whitespace, never `;`, `,` or `:` only between two ASCII digits; shapes S1 to
+    S5
+  - Enforced by: `AlignedTextBuilder.Add` rejects whitespace edges and placeholders; the shape (one token, a token and
+    its adjacent period token, a currency symbol and its adjacent number token, an apostrophe and its adjacent decade
+    token, one of the two halves of a glued meridiem token, or one character inside a token) is the design of
+    `TextNormalizer` and `NumericExpressionRecognizer`, verified by the subsystem property tests against the real
+    chunker
+- **A6**
+  - Invariant: Separating space where a letter or digit touches a letter-edged replacement, or the previous span
+    directly touches the replacement and its spoken text ends with a letter
+  - Enforced by: `TextNormalizer` when it emits a span (using `AlignedTextBuilder.TouchesPreviousSpokenLetter` for
+    adjacency); never for `Dropped` or `Apostrophe`
+- **A7**
+  - Invariant: No silent drop; the characters of a recognized numeric expression are consumed into its spoken words
+  - Enforced by: By construction (text outside spans is copied verbatim; `Add` accepts an empty replacement only for
+    `Dropped`); the dropped character set belongs to `TextNormalizer`, the consumed numeric characters to
+    `NumericExpressionRecognizer`
+- **A8**
+  - Invariant: Break edits on token starts, ascending and unique; no break strictly inside a span (A8b)
+  - Enforced by: `ForceBreak` and `SuppressBreak` reject an offset outside the text after its first character, on
+    whitespace or on a placeholder; `Build` sorts and de-duplicates; `ReconcileBreaks` merges without duplicates;
+    `TextNormalizer` suppresses a tokenizer break inside a numeric span
+- **A9**
+  - Invariant: Deterministic and thread-safe
+  - Enforced by: `AlignedText` and the values are immutable; a builder is never shared; no unit keeps per-request state
+- **A10**
+  - Invariant: Empty replacement only for `Dropped`, no placeholder, no stray edge space; numeric kinds have no ASCII
+    digit and only letters, spaces and an apostrophe
+  - Enforced by: `AlignedTextBuilder.Add` (empty exactly when `Dropped`, no placeholder); the A6 padding by
+    `TextNormalizer`; the numeric vocabulary by `NumberVerbalizer`, verified by the closed-vocabulary property test
+- **A11**
+  - Invariant: A spelled span's value is a letter sequence (`[A-Z]( [A-Z])*` with at most one padding space per side)
+  - Enforced by: `AlignedTextBuilder.Add` throws `ArgumentException` for a span marked `Spelled` whose value is not a
+    letter sequence (`SpelledGrammar`); a span not marked spelled may hold any text
+- **A12**
+  - Invariant: Pronunciation marks are ascending, disjoint from each other and from every span, each one token with no
+    whitespace edge, placeholder or cut surrogate pair, with a non-empty value
+  - Enforced by: `AlignedTextBuilder.AddPronunciation` (see A1' and A2)
 
 **Key Methods**:
 

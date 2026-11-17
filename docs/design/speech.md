@@ -161,47 +161,89 @@ The system exposes the following public API to external consumers:
   already held, and the exception/fault surfaced through a session's result stream when its
   dedicated worker faults
 
-| Interface | Direction | Format | Constraints |
-| --- | --- | --- | --- |
-| `ISpeechDiagnostics.Report(...)` | Inbound | Method call | Structural facts only |
-| `AudioDeviceFactory(...)` | Inbound | Constructor call | Never throws (composition) |
-| `AudioDeviceFactory.CreateCaptureDevice(...)` | Inbound/Outbound | Method call/return | Never throws (composition) |
-| `AudioDeviceFactory.CreatePlaybackDevice(...)` | Inbound/Outbound | Method call/return | Never throws (composition) |
-| `AudioDeviceFactory.RefreshDevices()` | Inbound | Method call | Throws `AudioDeviceInUseException` if active |
-| `IAudioCaptureDevice.Start()`/`.Stop()` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
-| `IAudioPlaybackDevice.Start()`/`.Stop()` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
-| `IAudioPlaybackDevice.Write(...)` | Inbound | Method call | Unavailable/first-use faults; lifecycle errors |
-| `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
-| `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
-| `AudioDeviceSelection.Resolve(...)` | Inbound/Outbound | Method call/return | Throws for a null list |
-| `AudioFileReader.Read(...)`/`.ReadMono(...)` | Inbound/Outbound | Call/return | WAV/FLAC by content; throws if bad |
-| `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice` | Inbound/Outbound | Device | File-backed; no hardware |
-| `ReferenceVoiceLibrary.EnumerateVoices(...)` | Outbound | Method call/return | User-folder and pack voices |
-| `ReferenceVoiceLibrary.InstallPackAsync(...)` | Inbound/Outbound | Call/return | Verified install; failure result |
-| `ReferenceVoiceLibrary.UninstallPackAsync(...)` | Inbound | Method call | Awaits the install lock, then removes |
-| `SpeechModelStore.IsInstalled(...)` | Outbound | Method call/return | Never throws |
-| `SpeechModelStore.CompleteInstall(...)` | Inbound | Method call | Atomic; never touches `current/` early |
-| `SpeechModelStore.Uninstall`/`UninstallAsync` | Inbound | Method call | Throws store exception if blocked |
-| `SpeechModelDownloader.DownloadAsync(...)` | Inbound/Outbound | Method call/return | One at a time; honest failures |
-| `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call | Throws on any non-success/transport failure |
-| `SpeechModelCatalog.AddModels(...)` | Inbound | Method call | Registers host-supplied models; the extension point |
-| `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |
-| `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return | Throws for unknown model id |
-| `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
-| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
-| `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call | Throws only unavailable/dispose/restart |
-| `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` | Single-consumer; flushes before stop |
-| `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
-| `IRecognitionBackend` (implemented by model extensions) | Outbound | Interface | Engine-neutral; managed fakes in CI |
-| `ISynthesisBackend.Generate(...)` (model extensions) | Outbound | Method call/return | Returns `BackendAudio` |
-| `IAnnotatedSynthesisBackend.GenerateAnnotated(...)` (model extensions) | Outbound | Method call/return | Optional; only for segments with annotations |
-| `ITextAnalyzer.Analyze(...)` (model extensions) | Outbound | Method call/return | Once per request; failures contained |
-| `IModelCapabilityProfile` (model extensions) | Outbound | Interface | Renders spans into a `SpeechPlan` |
-| `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
-| `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
-| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Throws only if leased |
-| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Throws on overlap/fault/dispose |
-| `ISynthesisSession.DisposeAsync()` | Inbound | Method call | Idempotent |
+| Interface | Direction | Format |
+| --- | --- | --- |
+| `ISpeechDiagnostics.Report(...)` | Inbound | Method call |
+| `AudioDeviceFactory(...)` | Inbound | Constructor call |
+| `AudioDeviceFactory.CreateCaptureDevice(...)` | Inbound/Outbound | Method call/return |
+| `AudioDeviceFactory.CreatePlaybackDevice(...)` | Inbound/Outbound | Method call/return |
+| `AudioDeviceFactory.RefreshDevices()` | Inbound | Method call |
+| `IAudioCaptureDevice.Start()`/`.Stop()` | Inbound | Method call |
+| `IAudioPlaybackDevice.Start()`/`.Stop()` | Inbound | Method call |
+| `IAudioPlaybackDevice.Write(...)` | Inbound | Method call |
+| `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return |
+| `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return |
+| `AudioDeviceSelection.Resolve(...)` | Inbound/Outbound | Method call/return |
+| `AudioFileReader.Read(...)`/`.ReadMono(...)` | Inbound/Outbound | Call/return |
+| `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice` | Inbound/Outbound | Device |
+| `ReferenceVoiceLibrary.EnumerateVoices(...)` | Outbound | Method call/return |
+| `ReferenceVoiceLibrary.InstallPackAsync(...)` | Inbound/Outbound | Call/return |
+| `ReferenceVoiceLibrary.UninstallPackAsync(...)` | Inbound | Method call |
+| `SpeechModelStore.IsInstalled(...)` | Outbound | Method call/return |
+| `SpeechModelStore.CompleteInstall(...)` | Inbound | Method call |
+| `SpeechModelStore.Uninstall`/`UninstallAsync` | Inbound | Method call |
+| `SpeechModelDownloader.DownloadAsync(...)` | Inbound/Outbound | Method call/return |
+| `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call |
+| `SpeechModelCatalog.AddModels(...)` | Inbound | Method call |
+| `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return |
+| `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call |
+| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call |
+| `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call |
+| `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` |
+| `IRecognitionSession.DisposeAsync()` | Inbound | Method call |
+| `IRecognitionBackend` (implemented by model extensions) | Outbound | Interface |
+| `ISynthesisBackend.Generate(...)` (model extensions) | Outbound | Method call/return |
+| `IAnnotatedSynthesisBackend.GenerateAnnotated(...)` (model extensions) | Outbound | Method call/return |
+| `ITextAnalyzer.Analyze(...)` (model extensions) | Outbound | Method call/return |
+| `IModelCapabilityProfile` (model extensions) | Outbound | Interface |
+| `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call |
+| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call |
+| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call |
+| `ISynthesisSession.DisposeAsync()` | Inbound | Method call |
+
+**Interface details** (Constraints):
+
+- `ISpeechDiagnostics.Report(...)`: Structural facts only
+- `AudioDeviceFactory(...)`: Never throws (composition)
+- `AudioDeviceFactory.CreateCaptureDevice(...)`: Never throws (composition)
+- `AudioDeviceFactory.CreatePlaybackDevice(...)`: Never throws (composition)
+- `AudioDeviceFactory.RefreshDevices()`: Throws `AudioDeviceInUseException` if active
+- `IAudioCaptureDevice.Start()`/`.Stop()`: Unavailable/first-use faults; lifecycle errors
+- `IAudioPlaybackDevice.Start()`/`.Stop()`: Unavailable/first-use faults; lifecycle errors
+- `IAudioPlaybackDevice.Write(...)`: Unavailable/first-use faults; lifecycle errors
+- `IAudioCaptureDeviceProbe.Enumerate()`: Never throws; preferred host API only
+- `IAudioPlaybackDeviceProbe.Enumerate()`: Never throws; preferred host API only
+- `AudioDeviceSelection.Resolve(...)`: Throws for a null list
+- `AudioFileReader.Read(...)`/`.ReadMono(...)`: WAV/FLAC by content; throws if bad
+- `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice`: File-backed; no hardware
+- `ReferenceVoiceLibrary.EnumerateVoices(...)`: User-folder and pack voices
+- `ReferenceVoiceLibrary.InstallPackAsync(...)`: Verified install; failure result
+- `ReferenceVoiceLibrary.UninstallPackAsync(...)`: Awaits the install lock, then removes
+- `SpeechModelStore.IsInstalled(...)`: Never throws
+- `SpeechModelStore.CompleteInstall(...)`: Atomic; never touches `current/` early
+- `SpeechModelStore.Uninstall`/`UninstallAsync`: Throws store exception if blocked
+- `SpeechModelDownloader.DownloadAsync(...)`: One at a time; honest failures
+- `IModelDownloadClient.DownloadAsync(...)`: Throws on any non-success/transport failure
+- `SpeechModelCatalog.AddModels(...)`: Registers host-supplied models; the extension point
+- `SpeechModelCatalog.Enumerate()`: Never throws
+- `SpeechModelCatalog.DownloadAsync(...)`: Throws for unknown model id
+- `SpeechRecognizerFactory.LoadAsync(...)`: Never throws for unavailable states
+- `ISpeechRecognizerEngine.CreateSessionAsync(...)`: Throws only if leased
+- `IRecognitionSession.StartAsync()`/`.StopAsync()`: Throws only unavailable/dispose/restart
+- `IRecognitionSession.GetResultsAsync(...)`: Single-consumer; flushes before stop
+- `IRecognitionSession.DisposeAsync()`: Idempotent; implies `StopAsync()`
+- `IRecognitionBackend` (implemented by model extensions): Engine-neutral; managed fakes in CI
+- `ISynthesisBackend.Generate(...)` (model extensions): Returns `BackendAudio`
+- `IAnnotatedSynthesisBackend.GenerateAnnotated(...)` (model extensions): Optional; only for segments with annotations
+- `ITextAnalyzer.Analyze(...)` (model extensions): Once per request; failures contained
+- `IModelCapabilityProfile` (model extensions): Renders spans into a `SpeechPlan`
+- `AudioTagParser.Parse(...)`: Never throws; folds unmatched brackets
+- `SpeechSynthesizerFactory.LoadAsync(...)`: Never throws for unavailable states
+- `ISpeechSynthesizerEngine.CreateSessionAsync(...)`: Throws only if leased
+- `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync`: Throws on overlap/fault/dispose
+- `ISynthesisSession.DisposeAsync()`: Idempotent
 
 `CreateSessionAsync` on an unavailable engine returns the unavailable session instead of throwing;
 only a second concurrent lease attempt throws `RecognitionEngineBusyException` or
