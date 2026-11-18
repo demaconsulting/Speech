@@ -11,7 +11,8 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 /// </summary>
 /// <param name="Pronunciation">The ARPAbet pronunciation.</param>
 /// <param name="Source">The source.</param>
-internal sealed record PronouncedWord(Pronunciation Pronunciation, PronunciationSource Source);
+/// <param name="CompoundBreak">The index of the first phone of the second part of a hyphenated compound pronounced part by part, or -1 for any other word.</param>
+internal sealed record PronouncedWord(Pronunciation Pronunciation, PronunciationSource Source, int CompoundBreak = -1);
 
 /// <summary>
 ///     Pronounces one word by the phonemizer's priority list: the reading the text analysis chose, then the
@@ -21,7 +22,7 @@ internal sealed record PronouncedWord(Pronunciation Pronunciation, Pronunciation
 ///     <para>
 ///     A host-supplied override is handled by the phonemizer before it asks this class, because an override
 ///     replaces the word entirely. A hyphenated compound is pronounced as the lexicon's joined spelling when it has
-///     one, otherwise part by part, the later parts taking secondary stress where the first part keeps the primary.
+///     one, otherwise part by part, each part keeping its own stress (every part of <c>well-known</c> has a primary stress).
 ///     A word with a diacritic is looked up without it (<c>café</c> as <c>cafe</c>). A word the lexicon and the
 ///     inflection rules do not know is tried as a productive prefix (<c>un</c>, <c>re</c>, <c>over</c> ...) plus a
 ///     known word (<c>unfollowed</c>) before it is handed to the letter-to-sound fallback.
@@ -35,6 +36,18 @@ internal sealed class WordPronouncer
 
     /// <summary>The names of the digits, spoken as lexicon words.</summary>
     private static readonly string[] DigitWords = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+
+    /// <summary>The small function words that are unstressed when they are a later part of a hyphenated compound (<c>mother-in-law</c>).</summary>
+    private static readonly HashSet<string> UnstressedCompoundParts = new(
+        ["of", "the", "a", "an", "in", "to", "for", "and", "or", "on", "at", "by", "as"],
+        StringComparer.Ordinal);
+
+    /// <summary>The reduced sound of <i>to</i> and <i>of</i> inside a compound (<c>day-to-day</c>, <c>state-of-the-art</c>): the vowel of <i>of</i> stays the full one, without a stress mark.</summary>
+    private static readonly Dictionary<string, Pronunciation> CompoundPartForms = new(StringComparer.Ordinal)
+    {
+        ["to"] = Pronunciation.Parse("T AH0"),
+        ["of"] = Pronunciation.Parse("AH2 V"),
+    };
 
     /// <summary>The productive prefixes and their sounds, longest first so that <c>counter</c> is tried before <c>co</c>-like shorter ones.</summary>
     private static readonly (string Prefix, Pronunciation Phones)[] Prefixes =
@@ -208,42 +221,60 @@ internal sealed class WordPronouncer
     /// <returns>The pronounced word.</returns>
     private PronouncedWord PronounceCompound(string word)
     {
-        // A compound the dictionary lists closed (icecream) is used as listed
+        var parts = word.Split('-', StringSplitOptions.RemoveEmptyEntries);
+
+        // A compound the dictionary lists closed is used as listed only when a part is not a word of its own (wi-fi:
+        // wifi); when every part is a word the parts are pronounced one by one, because the dictionary's closed
+        // spellings carry the stress of a single word (a dictionary entry such as the one for full-time) where the engines the voices were trained with give
+        // each part its own primary stress
         var joined = word.Replace("-", string.Empty, StringComparison.Ordinal);
         var listed = _lexicon.Lookup(joined);
-        if (listed.Count > 0)
+        if (listed.Count > 0 && !parts.All(_lexicon.Contains))
         {
             return new PronouncedWord(listed[0], PronunciationSource.Lexicon);
         }
 
-        // Otherwise part by part: the first part keeps its stress, later primary stresses become secondary
+        // Part by part, each with its own stress; the small function words inside a compound (mother-in-law,
+        // state-of-the-art) are unstressed
         var result = Pronunciation.Empty;
         var source = PronunciationSource.Lexicon;
-        var first = true;
-        foreach (var part in word.Split('-', StringSplitOptions.RemoveEmptyEntries))
+        var secondPartStart = -1;
+        for (var i = 0; i < parts.Length; i++)
         {
+            var part = parts[i];
             var pronounced = PronounceSimple(part, null);
             source = (PronunciationSource)Math.Max((int)source, (int)pronounced.Source);
-            result = result.Append(first ? pronounced.Pronunciation.Phones : DemoteStress(pronounced.Pronunciation).Phones);
-            first = false;
+            var phones = pronounced.Pronunciation.Phones;
+            if (i > 0 && UnstressedCompoundParts.Contains(part))
+            {
+                phones = CompoundPartForms.TryGetValue(part, out var form) ? form.Phones : WithoutStress(pronounced.Pronunciation).Phones;
+            }
+
+            // Remember where the second part starts: a renderer whose voice stresses only the first part can demote the rest
+            if (i == 1)
+            {
+                secondPartStart = result.Count;
+            }
+
+            result = result.Append(phones);
         }
 
-        return new PronouncedWord(result, source);
+        return new PronouncedWord(result, source, secondPartStart);
     }
 
     /// <summary>
-    ///     Lowers every primary stress of a pronunciation to secondary stress.
+    ///     Removes every stress from a pronunciation.
     /// </summary>
     /// <param name="pronunciation">The pronunciation.</param>
-    /// <returns>The pronunciation with no primary stress.</returns>
-    private static Pronunciation DemoteStress(Pronunciation pronunciation)
+    /// <returns>The pronunciation with all vowels unstressed.</returns>
+    private static Pronunciation WithoutStress(Pronunciation pronunciation)
     {
         var phones = pronunciation.Phones.ToArray();
         for (var i = 0; i < phones.Length; i++)
         {
-            if (phones[i].Stress == 1)
+            if (phones[i].IsVowel)
             {
-                phones[i] = phones[i].WithStress(2);
+                phones[i] = phones[i].WithStress(0);
             }
         }
 

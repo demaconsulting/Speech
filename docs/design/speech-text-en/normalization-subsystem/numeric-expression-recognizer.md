@@ -291,11 +291,17 @@ month abbreviation, with no retained sentence boundary between them) or directly
   `three eighths`, `five eighths`, `seven eighths`; `five and one half`
 
 **Left as written (identity, asserted by golden rows).** Roman numerals (`Henry VIII`, `World War II`);
-hyphenated digit compounds (`5-year-old`, `3-D`, `F-16`, `mid-1990s`); `US$5` and `USD 5`; `h:mm:ss` and ratios
+`mid-1990s` (a name before the number); `US$5` and `USD 5`; `h:mm:ss` and ratios
 (`3:2`); non-ASCII digits and digits with combining marks, emoji or surrogate pairs next to them; `1e5`,
-`0x1F`, `1_000`; bare `10k` and `1.5M`; `5'10"`; `Q3 2024` (only the year is read); decimal-comma locales;
-URLs, e-mail and markup; a token that contains an invisible character (the normalizer drops the invisible
-character and the number is not read).
+`0x1F`, `1_000`; bare `1.5M`; `5'10"`; decimal-comma locales;
+markup; a token that contains an invisible character (the normalizer drops the invisible
+character and the number is not read). A number with a capital letter glued to it (`10K`, `5G`, `3D`) is read as
+the number and the spelled letter, and `10k` as `ten K`; the number of a hyphenated compound is read and the rest
+left as written (`12-year-old` gives `twelve-year-old`, `2.5-inch`, `3-D` gives `three-D`; a four-digit integer in
+the year range is read like a year, `1500-word` as `fifteen hundred`); names joined to a number by a hyphen
+(`F-16`, `COVID-19`) and identifiers such as `Q3` and `A4` are read by rule 4b of the text normalizer, and URLs and
+e-mail addresses by its rule 1b. A glued capital letter is not a complete number, so a range endpoint such as the
+`2D` of `1–2D` is still not read as one and the en dash stays.
 
 **Counts.** A match is counted at most once as **ambiguous** (a bare year or 1000 to 1099 cardinal that the
 cues did not decide; a numeric date with both parts at most 12 and different; a fraction that could be a date)

@@ -1139,6 +1139,8 @@ public sealed class NormalizationSubsystemTests
             "mph", "\u00B0F", "72\u00B0F", "million", "billion", "thousand", "$5M", "5M", "January", "Jan.", "Jan", "May", "Mar.", "Sun.", "Mon.", "Dec", "2024", "1999", "1066", "#5", "#",
             "(", ")", ",", ".", ";", ":", "-", "/", "!", "?", "in", "about", "the", "No.", "Dr.", "St.", "&", "w/o", "AD", "BC", "1e5", "0x1F", "5\u00B2", "\uFF15", "\u200B",
             "\uD835\uDFD9", "\uD83D", "\uDE00", "\U0001F600", "e\u0301", Tag, Tag + Tag, "\u00A0", "\0", new string('1', 17), new string('1', 70), new string('1', 130), "1.2.3.4.5.6.7.8.9",
+            "https://www.example.com/a?b=c&d=1", "www.example.org/x-y_z", "john.smith@example.com", "a@b.co", "example.com/docs", "report.pdf", "A4", "B12", "H2O", "R2D2", "COVID-19", "Catch-22",
+            "12-year-old", "2.5-inch", "10K", "3D", "sq.",
         ];
         string[] gaps = ["", " ", " ", " ", "\u00A0", "\u202F", "  ", "\t", "\n", "\r\n"];
         var builder = new StringBuilder();

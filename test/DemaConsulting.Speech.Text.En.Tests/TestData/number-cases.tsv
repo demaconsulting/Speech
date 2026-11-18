@@ -388,13 +388,13 @@ range-en-dash	5\u201310	five to ten	5\u201310	0	0	en dash between numbers, per t
 range-en-dash-years	1990\u20132000	nineteen ninety to two thousand	1990\u20132000	1	0	en dash years; only 1990 has two readings, so one count
 range-en-dash-spaced	5 \u2013 10	five \u2013 ten	5 \u2013 10	0	0	a spaced dash stays
 range-en-dash-letters	a\u2013b	a\u2013b	a\u2013b	0	0	no numbers
-range-en-dash-bad-letter	1\u20132D	one\u20132D	1\u20132D	0	0	the right endpoint is not a number
+range-en-dash-bad-letter	1\u20132D	one\u2013two D	1\u20132D	0	0	the right endpoint is a number with a glued letter, not a complete number
 range-en-dash-bad-glued	5\u201310x	five\u201310x	5\u201310x	0	0	a glued letter is not a unit
-range-en-dash-bad-glued-2	5\u201310D	five\u201310D	5\u201310D	0	0	a glued capital letter
+range-en-dash-bad-glued-2	5\u201310D	five\u2013ten D	5\u201310D	0	0	a glued capital letter: the right endpoint is read but is not a complete number, so the dash stays
 range-en-dash-bad-time	5\u201325:99	five\u201325:99	5\u201325:99	0	0	invalid time, identity, not a fallback
 range-en-dash-bad-thousands	1,23\u20135	1,23\u2013five	1,23\u20135	0	1	a non-en-US left endpoint stays and is counted once
 range-en-dash-bad-both	1,23\u20135,67	1,23\u20135,67	1,23\u20135,67	0	2	both endpoints stay and are counted
-range-en-dash-bad-chain	1\u20132D\u20133	one\u20132D\u2013three	1\u20132D\u20133	0	0	a chain through an unread endpoint
+range-en-dash-bad-chain	1\u20132D\u20133	one\u2013two D\u2013three	1\u20132D\u20133	0	0	a chain through an endpoint that is not a complete number
 range-en-dash-thousands	1,234\u20135,678	one thousand two hundred thirty four to five thousand six hundred seventy eight	1,234\u20135,678	0	0	thousands endpoints are read
 range-en-dash-decimals	5.5\u20136.5	five point five to six point five	5.5\u20136.5	0	0	decimal endpoints are read
 range-en-dash-times	5:30\u20136:30	five thirty to six thirty	5:30\u20136:30	0	0	time endpoints are read
@@ -461,22 +461,22 @@ lim-zero-65	01234567890123456789012345678901234567890123456789012345678901234	01
 lim-fraction-33	0.123456789012345678901234567890123	0.123456789012345678901234567890123	0.123456789012345678901234567890123	0	1	more than 32 fraction digits
 lim-fraction-32	0.12345678901234567890123456789012	zero point one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two	0.12345678901234567890123456789012	0	0	32 fraction digits
 lim-ordinal-16	1234567890123456th	1234567890123456th	1234567890123456th	0	1	ordinal beyond 15 digits
-id-hyphen-compound	5-year-old	5-year-old	5-year-old	0	0	hyphenated compounds are deferred
-id-3d	3-D	3-D	3-D	0	0	deferred
-id-f16	F-16	F-16	F-16	0	0	deferred
-id-seven-eleven	7-Eleven	7-Eleven	7-Eleven	0	0	deferred
+id-hyphen-compound	5-year-old	five-year-old	5-year-old	0	0	the number of a hyphenated compound is read, the compound is left as written
+id-3d	3-D	three-D	3-D	0	0	a number and a hyphenated letter
+id-f16	F-16	F-sixteen	F-16	0	0	the number of a name joined to it by a hyphen is read
+id-seven-eleven	7-Eleven	seven-Eleven	7-Eleven	0	0	the number of a hyphenated name is read
 id-mid-1990s	mid-1990s	mid-1990s	mid-1990s	0	0	deferred
-id-20-something	20-something	20-something	20-something	0	0	deferred
+id-20-something	20-something	twenty-something	20-something	0	0	the number of a hyphenated compound is read
 id-roman-henry	Henry VIII ruled.	Henry VIII ruled.	Henry VIII ruled.	0	0	Roman numerals are deferred
 id-roman-war	World War II ended.	World War II ended.	World War II ended.	0	0	Roman numerals are deferred
 id-roman-chapter	Chapter IV begins.	Chapter IV begins.	Chapter IV begins.	0	0	Roman numerals are deferred
-id-q3	Q3 2024	Q3 twenty twenty four	Q3 2024	1	0	a quarter label is left alone; the year is read
+id-q3	Q3 2024	Q three twenty twenty four	Q3 2024	1	0	a quarter label is an identifier: the letter is spelled and the digit read; the year is read
 id-exp	1e5	1e5	1e5	0	0	exponent form is deferred
 id-hex	0x1F	0x1F	0x1F	0	0	hexadecimal is deferred
 id-underscore	1_000	1_000	1_000	0	0	deferred
-id-3d-lower	3D	3D	3D	0	0	letters after digits
-id-101a	101A	101A	101A	0	0	letters after digits
-id-bare-10k	10k	10k	10k	0	0	bare magnitude letters are deferred
+id-3d-lower	3D	three D	3D	0	0	a number with a capital letter glued to it: the letter is spelled
+id-101a	101A	one hundred one A	101A	0	0	a number with a capital letter glued to it: the letter is spelled
+id-bare-10k	10k	ten K	10k	0	0	a number with k glued to it is read as the number and the letter K
 id-bare-1-5M	1.5M	1.5M	1.5M	0	0	bare magnitude letters are deferred
 id-fullwidth	\uFF15	\uFF15	\uFF15	0	0	only ASCII digits are numbers
 id-arabic-indic	\u0663	\u0663	\u0663	0	0	only ASCII digits are numbers

@@ -155,15 +155,33 @@ public sealed class PhonemizerSubsystemTests
         // Act
         var result = Phonemizer.Phonemize("don't dog's dogs' well-known unfollowed 'tis");
 
-        // Assert: apostrophes and hyphens stay inside the word; the second part of a compound takes secondary stress
+        // Assert: apostrophes and hyphens stay inside the word; each part of a compound keeps its own stress
         Assert.Equal(["don't", "dog's", "dogs'", "well-known", "unfollowed", "'tis"], result.Items.Select(i => i.Text));
         Assert.Equal("D OW1 N T", result.Items[0].Arpabet);
         Assert.Equal("D AO1 G Z", result.Items[1].Arpabet);
         Assert.Equal("D AO1 G Z", result.Items[2].Arpabet);
-        Assert.Equal("W EH1 L N OW2 N", result.Items[3].Arpabet);
+        Assert.Equal("W EH1 L N OW1 N", result.Items[3].Arpabet);
         Assert.Equal("AH0 N F AA1 L OW0 D", result.Items[4].Arpabet);
         Assert.Equal(PronunciationSource.Morphology, result.Items[4].Source);
         Assert.Empty(result.OovWords);
+    }
+
+    /// <summary>Proves the stress policy of hyphenated compounds: every part keeps its stress, a small function word inside a compound is unstressed, and a closed dictionary spelling is used only when a part is not a word.</summary>
+    [Fact]
+    public void PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressEveryPartAndReduceFunctionWords()
+    {
+        // Act
+        var result = Phonemizer.Phonemize("a full-time job in a state-of-the-art day-to-day wi-fi");
+
+        // Assert: full-time has a closed dictionary entry with a secondary stress on time, but both parts are words, so each is stressed
+        Assert.Equal("F UH1 L T AY1 M", result.Items.Single(i => i.Text == "full-time").Arpabet);
+
+        // Assert: of keeps its full vowel without stress and to is reduced inside a compound
+        Assert.Equal("S T EY1 T AH2 V DH AH0 AA1 R T", result.Items.Single(i => i.Text == "state-of-the-art").Arpabet);
+        Assert.Equal("D EY1 T AH0 D EY1", result.Items.Single(i => i.Text == "day-to-day").Arpabet);
+
+        // Assert: wi and fi are not words of their own, so the dictionary's closed spelling wifi is used as listed
+        Assert.Equal("W AY1 F AY2", result.Items.Single(i => i.Text == "wi-fi").Arpabet);
     }
 
     /// <summary>Proves a bare digit string is spoken digit by digit, one item per digit.</summary>

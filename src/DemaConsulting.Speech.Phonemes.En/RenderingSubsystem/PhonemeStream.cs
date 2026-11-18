@@ -71,4 +71,13 @@ internal static class PhonemeStream
         var item = items[index];
         return item.Kind == PhonemizedItemKind.Word && item.Pronunciation.Count > 0 && item.Pronunciation[0].IsVowel;
     }
+
+    /// <summary>
+    ///     Gets the text of the word an item holds (some function words are rendered differently before a particular word).
+    /// </summary>
+    /// <param name="items">The items.</param>
+    /// <param name="index">The index of the item after the word in question.</param>
+    /// <returns>The text of the item at <paramref name="index"/> when it is a word; otherwise <see langword="null"/>.</returns>
+    public static string? NextWordText(IReadOnlyList<PhonemizedItem> items, int index) =>
+        index < items.Count && items[index].Kind == PhonemizedItemKind.Word ? items[index].Text : null;
 }

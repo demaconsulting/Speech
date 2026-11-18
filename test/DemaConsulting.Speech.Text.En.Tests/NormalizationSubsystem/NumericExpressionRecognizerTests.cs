@@ -356,7 +356,7 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("ten thousand dollars", SpokenAt("$10k", 0));
         Assert.Equal("five million euros", SpokenAt("\u20AC5M", 0));
         Assert.False(Try("$5X", 0, out _));
-        Assert.False(Try("10k", 0, out _));
+        Assert.Equal("ten|K", SpokenAt("10k", 0));
         Assert.Equal("two point five|billion dollars", SpokenAt("$2.5 billion", 0));
 
         // Assert: a code or symbol after a plain number is its own span, and a magnitude word between them is consumed without a span
@@ -727,7 +727,7 @@ public sealed class NumericExpressionRecognizerTests
 
         // Assert: the endpoints keep their own readings
         Assert.Equal("one", SpokenAt("1\u20132D", 0));
-        Assert.False(Try("1\u20132D", 2, out _));
+        Assert.Equal("two|D", SpokenAt("1\u20132D", 2));
         Assert.True(Try("1,23\u20135", 0, out var counted));
         Assert.Equal(0, counted.SpanCount);
         Assert.True(counted.Fallback);
@@ -788,10 +788,13 @@ public sealed class NumericExpressionRecognizerTests
         Assert.True(Try(string.Join('-', Enumerable.Repeat(new string('1', 9), 8)), 0, out var tooMany));
         Assert.True(tooMany.Fallback);
         Assert.Equal(0, tooMany.SpanCount);
-        foreach (var identity in new[] { "-5-10", "5-10x", "$5-10", "5-D", "5--10", "5-", "-" })
+        foreach (var identity in new[] { "-5-10", "5-10x", "$5-10", "5--10", "5-", "-" })
         {
             Assert.False(TryToken(identity, out _), identity);
         }
+
+        // Assert: a number joined to a hyphenated letter is read as the number; the hyphen and the letter stay as written
+        Assert.Equal("five", SpokenAt("5-D", 0));
 
         // Assert: the area code in parentheses is per token
         Assert.Equal("five five five", SpokenAt("(555) 123-4567", 1));
@@ -899,6 +902,7 @@ public sealed class NumericExpressionRecognizerTests
             "1st", "22nd", "1990s", "90s", "'", "\u2019", "90s'", "'90s", "\u2013", "%", "50%", "kg", "5kg", "ft.", "ft", "lbs", "lbs.", "mph", "\u00B0F", "72\u00B0F",
             "million", "billion", "thousand", "$5M", "5M", "January", "Jan.", "Jan", "May", "May.", "Dec", "2024", "1999", "1066", "#5", "#", "(", ")", ",", ".", ";", ":", "-", "/",
             "007", "1e5", "0x1F", "5\u00B2", "\uFF15", "\u200B", "\uD835\uDFD9", "\uD83D", "e\u0301", "AD", "in", "about", new string('1', 17), new string('1', 70), new string('1', 130), "1.2.3.4.5.6.7.8.9",
+            "10K", "10k", "3D", "12-year-old", "2.5-inch", "1500-word", "5-D", "5-", "5-1",
         ];
         string[] gaps = ["", " ", " ", "\u00A0", "\u202F", "  ", "\t", "\n"];
         var random = new Random(20260802);
@@ -955,17 +959,19 @@ public sealed class NumericExpressionRecognizerTests
                     }
 
                     // Assert: a span covers one token or two adjacent tokens (symbol or apostrophe and the token after it),
-                    // except the two halves of a glued meridiem, which split one token into the hour or time and the meridiem letters
+                    // except the sub-token spans: the two halves of a glued meridiem, the number of a hyphenated compound,
+                    // and the number and the spelled capital letter of a number with a letter glued to it
                     var coveredTokens = tokens.Count(token => token.Start >= span.Start && token.Start + token.Length <= span.Start + span.Length);
                     if (coveredTokens == 0)
                     {
-                        Assert.Equal(2, match.SpanCount);
                         Assert.Equal(1, match.TokensConsumed);
-                        Assert.Equal(NormalizationKind.DateTime, span.Kind);
                         var own = tokens[index];
-                        var isTimePart = s == 0 && span.Start == own.Start && match[1].Start == span.Start + span.Length;
-                        var isMeridiemPart = s == 1 && span.Start + span.Length == own.Start + own.Length && span.Spoken is "P M" or "A M";
-                        Assert.True(isTimePart || isMeridiemPart, $"{context}: sub-token span '{covered}'");
+                        var isTimePart = s == 0 && match.SpanCount == 2 && span.Kind == NormalizationKind.DateTime && span.Start == own.Start && match[1].Start == span.Start + span.Length;
+                        var isMeridiemPart = s == 1 && match.SpanCount == 2 && span.Kind == NormalizationKind.DateTime && span.Start + span.Length == own.Start + own.Length && span.Spoken is "P M" or "A M";
+                        var isHyphenNumber = match.SpanCount == 1 && span.Kind == NormalizationKind.Number && span.Start == own.Start && text[span.Start + span.Length] == '-';
+                        var isLetterNumber = s == 0 && match.SpanCount == 2 && span.Kind == NormalizationKind.Number && span.Start == own.Start && match[1].Start == span.Start + span.Length && match[1].Length == 1;
+                        var isGluedLetter = s == 1 && match.SpanCount == 2 && span.Kind == NormalizationKind.Initialism && span.Length == 1 && span.Start + span.Length == own.Start + own.Length && span.Spoken.Length == 1 && span.Spoken[0] is >= 'A' and <= 'Z';
+                        Assert.True(isTimePart || isMeridiemPart || isHyphenNumber || isLetterNumber || isGluedLetter, $"{context}: sub-token span '{covered}'");
                     }
                     else
                     {
@@ -977,10 +983,10 @@ public sealed class NumericExpressionRecognizerTests
                         Assert.True(covered[0] is '$' or '\u20AC' or '\u00A3' or '\u00A5' or '\'' or '\u2019' or '\u2018', $"{context}: two-token span '{covered}'");
                     }
 
-                    // Assert: closed spoken shape, no digit, bounded size, numeric kind
+                    // Assert: closed spoken shape, no digit, bounded size, numeric kind (or the spelled letter of a glued capital)
                     Assert.Matches(SpokenShape, span.Spoken);
                     Assert.True(span.Spoken.Length <= NumberVerbalizer.MaxSpokenLength, context);
-                    Assert.True(span.Kind is NormalizationKind.Number or NormalizationKind.Currency or NormalizationKind.DateTime or NormalizationKind.Unit, context);
+                    Assert.True(span.Kind is NormalizationKind.Number or NormalizationKind.Currency or NormalizationKind.DateTime or NormalizationKind.Unit or NormalizationKind.Initialism, context);
                 }
             }
         }
@@ -1074,7 +1080,7 @@ public sealed class NumericExpressionRecognizerTests
         // Assert: deferred, mixed and non-ASCII shapes
         foreach (var identity in new[]
         {
-            "1e5", "0x1F", "1_000", "3D", "3-D", "101A", "7-Eleven", "5-year-old", "mid-1990s", "10k", "1.5M", "5\u00B2", "\uFF15", "\u0663",
+            "1e5", "0x1F", "1_000", "101a", "mid-1990s", "1.5M", "5\u00B2", "\uFF15", "\u0663",
             "\uD835\uDFD9", "Q3", "F-16", "COVID-19", "VIII", "word", "the", "...", ",", ".", "-", "+", "#", "#x", "$", "5x", "5.", "5,", ".x",
         })
         {
@@ -1087,5 +1093,79 @@ public sealed class NumericExpressionRecognizerTests
         Assert.False(Try("a / b", 1, out _));
         Assert.False(Try("x = 5", 1, out _));
         Assert.Equal("five", SpokenAt("x = 5", 2));
+    }
+
+    /// <summary>Proves the number of a hyphenated compound is read and nothing else: the digits get a span, the hyphen and the word after them stay as written.</summary>
+    /// <param name="text">The token.</param>
+    /// <param name="spoken">The expected words of the digits.</param>
+    /// <param name="digits">The length of the digits (the span).</param>
+    [Theory]
+    [InlineData("12-year-old", "twelve", 2)]
+    [InlineData("5-year-old", "five", 1)]
+    [InlineData("24-hour", "twenty four", 2)]
+    [InlineData("2.5-inch", "two point five", 3)]
+    [InlineData("1,500-seat", "one thousand five hundred", 5)]
+    [InlineData("1500-word", "fifteen hundred", 4)]
+    [InlineData("2000-seat", "two thousand", 4)]
+    [InlineData("1000-year-old", "one thousand", 4)]
+    [InlineData("3-D", "three", 1)]
+    public void NumericExpressionRecognizer_HyphenatedCompound_ReadsOnlyTheNumber(string text, string spoken, int digits)
+    {
+        // Act
+        var recognized = TryToken(text, out var match);
+
+        // Assert
+        Assert.True(recognized);
+        Assert.Equal(1, match.SpanCount);
+        Assert.Equal(spoken, match[0].Spoken);
+        Assert.Equal(NormalizationKind.Number, match[0].Kind);
+        Assert.Equal(0, match[0].Start);
+        Assert.Equal(digits, match[0].Length);
+        Assert.Equal('-', text[match[0].Length]);
+        Assert.Equal(1, match.TokensConsumed);
+        Assert.False(match.Fallback);
+    }
+
+    /// <summary>Proves a number with one capital letter (or <c>k</c>) glued to it is read as the number and the spelled letter, in two adjacent spans of one token.</summary>
+    /// <param name="text">The token.</param>
+    /// <param name="number">The expected words of the number.</param>
+    /// <param name="letter">The expected spelled letter.</param>
+    [Theory]
+    [InlineData("10K", "ten", "K")]
+    [InlineData("10k", "ten", "K")]
+    [InlineData("5G", "five", "G")]
+    [InlineData("3D", "three", "D")]
+    [InlineData("12B", "twelve", "B")]
+    [InlineData("401K", "four hundred one", "K")]
+    public void NumericExpressionRecognizer_CapitalLetterGlued_ReadsTheNumberAndSpellsTheLetter(string text, string number, string letter)
+    {
+        // Act
+        var recognized = TryToken(text, out var match);
+
+        // Assert
+        Assert.True(recognized);
+        Assert.Equal(2, match.SpanCount);
+        Assert.Equal(number, match[0].Spoken);
+        Assert.Equal(NormalizationKind.Number, match[0].Kind);
+        Assert.Equal(0, match[0].Start);
+        Assert.Equal(text.Length - 1, match[0].Length);
+        Assert.Equal(letter, match[1].Spoken);
+        Assert.Equal(NormalizationKind.Initialism, match[1].Kind);
+        Assert.Equal(text.Length - 1, match[1].Start);
+        Assert.Equal(1, match[1].Length);
+    }
+
+    /// <summary>Proves the letter rule stays narrow: a lowercase letter other than k, a second letter, a fraction, thousands separators and a sign are left to the other rules.</summary>
+    [Fact]
+    public void NumericExpressionRecognizer_CapitalLetterGlued_LeavesOtherShapesAlone()
+    {
+        // Assert: not matched by the glued-letter rule
+        foreach (var identity in new[] { "10x", "5a", "10KB2", "1.5M", "1,000K", "-5K", "10Kx" })
+        {
+            Assert.False(TryToken(identity, out _), identity);
+        }
+
+        // Assert: the unit table still owns the units that are two letters
+        Assert.Equal("five megabytes", SpokenAt("5MB", 0));
     }
 }

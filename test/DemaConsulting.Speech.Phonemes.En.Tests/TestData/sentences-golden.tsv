@@ -63,14 +63,14 @@ s061	Everyone's coat is here.	Everyone's=EH1 V R IY0 W AH2 N Z | coat=K OW1 T | 
 s062	Rock 'n' roll never dies.	Rock=R AA1 K | 'n=AH0 N | ' | roll=R OW1 L | never=N EH1 V ER0 | dies=D AY1 Z | .
 s063	'Tis the season to be jolly.	'Tis=T IH1 Z | the=DH AH0 | season=S IY1 Z AH0 N | to=T UW1 | be=B IY1 | jolly=JH AA1 L IY0 | .
 s064	I told him 'no' twice.	I=AY1 | told=T OW1 L D | him=HH IH1 M | ' | no=N OW1 | ' | twice=T W AY1 S | .
-s065	She is a well-known author.	She=SH IY1 | is=IH1 Z | a=AH0 | well-known=W EH1 L N OW2 N | author=AO1 TH ER0 | .
-s066	A mother-in-law arrived early.	A=AH0 | mother-in-law=M AH1 DH ER0 IH0 N L AO2 | arrived=ER0 AY1 V D | early=ER1 L IY0 | .
-s067	He ate ice-cream in a state-of-the-art kitchen.	He=HH IY1 | ate=EY1 T | ice-cream=AY1 S K R IY2 M | in=IH0 N | a=AH0 | state-of-the-art=S T EY1 T AH2 V DH AH0 AA2 R T | kitchen=K IH1 CH AH0 N | .
-s068	The long-term plan is risky.	The=DH AH0 | long-term=L AO1 NG T ER2 M | plan=P L AE1 N | is=IH1 Z | risky=R IH1 S K IY0 | .
-s069	We bought a T-shirt and a pull-over.	We=W IY1 | bought=B AA1 T | a=AH0 | T-shirt=T IY1 SH ER2 T | and=AH0 N D | a=AH0 | pull-over=P UH1 L OW2 V ER0 | .
+s065	She is a well-known author.	She=SH IY1 | is=IH1 Z | a=AH0 | well-known=W EH1 L N OW1 N | author=AO1 TH ER0 | .
+s066	A mother-in-law arrived early.	A=AH0 | mother-in-law=M AH1 DH ER0 IH0 N L AO1 | arrived=ER0 AY1 V D | early=ER1 L IY0 | .
+s067	He ate ice-cream in a state-of-the-art kitchen.	He=HH IY1 | ate=EY1 T | ice-cream=AY1 S K R IY1 M | in=IH0 N | a=AH0 | state-of-the-art=S T EY1 T AH2 V DH AH0 AA1 R T | kitchen=K IH1 CH AH0 N | .
+s068	The long-term plan is risky.	The=DH AH0 | long-term=L AO1 NG T ER1 M | plan=P L AE1 N | is=IH1 Z | risky=R IH1 S K IY0 | .
+s069	We bought a T-shirt and a pull-over.	We=W IY1 | bought=B AA1 T | a=AH0 | T-shirt=T IY1 SH ER1 T | and=AH0 N D | a=AH0 | pull-over=P UH1 L OW1 V ER0 | .
 s070	It was a one-time offer.	It=IH1 T | was=W AA1 Z | a=AH0 | one-time=W AH1 N T AY1 M | offer=AO1 F ER0 | .
-s071	A twenty-five-year-old drove the car.	A=AH0 | twenty-five-year-old=T W EH1 N T IY0 F AY2 V Y IH2 R OW2 L D | drove=D R OW1 V | the=DH AH0 | car=K AA1 R | .
-s072	The e-mail was sent by my brother-in-law.	The=DH AH0 | e-mail=IY0 M EY1 L | was=W AA1 Z | sent=S EH1 N T | by=B AY1 | my=M AY1 | brother-in-law=B R AH1 DH ER0 IH0 N L AO2 | .
+s071	A twenty-five-year-old drove the car.	A=AH0 | twenty-five-year-old=T W EH1 N T IY0 F AY1 V Y IH1 R OW1 L D | drove=D R OW1 V | the=DH AH0 | car=K AA1 R | .
+s072	The e-mail was sent by my brother-in-law.	The=DH AH0 | e-mail=IY1 M EY1 L | was=W AA1 Z | sent=S EH1 N T | by=B AY1 | my=M AY1 | brother-in-law=B R AH1 DH ER0 IH0 N L AO1 | .
 s073	I will record a record of my voice.	I=AY1 | will=W IH1 L | record=R AH0 K AO1 R D | a=AH0 | record=R EH1 K ER0 D | of=AH1 V | my=M AY1 | voice=V OY1 S | .
 s074	The wind will wind down by night.	The=DH AH0 | wind=W IH1 N D | will=W IH1 L | wind=W AY1 N D | down=D AW1 N | by=B AY1 | night=N AY1 T | .
 s075	He read the letter aloud yesterday.	He=HH IY1 | read=R EH1 D | the=DH AH0 | letter=L EH1 T ER0 | aloud=AH0 L AW1 D | yesterday=Y EH1 S T ER0 D EY2 | .
@@ -99,7 +99,7 @@ s097	The project will project onto the wall.	The=DH AH0 | project=P R AA1 JH EH0
 s098	The cast took a bow at the end of the play.	The=DH AH0 | cast=K AE1 S T | took=T UH1 K | a=AH0 | bow=B AW1 | at=AE1 T | the=DH AH0 | end=EH1 N D | of=AH1 V | the=DH AH0 | play=P L EY1 | .
 s099	Her mouth moves as she mouths the words.	Her=HH ER1 | mouth=M AW1 TH | moves=M UW1 V Z | as=AE1 Z | she=SH IY1 | mouths=M AW1 DH Z | the=DH AH0 | words=W ER1 D Z | .
 s100	The wound was wound with cloth.	The=DH AH0 | wound=W UW1 N D | was=W AA1 Z | wound=W AW1 N D | with=W IH1 DH | cloth=K L AO1 TH | .
-s101	Zorblax is a made-up word.	Zorblax=Z AO1 R B L AE0 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH2 P | word=W ER1 D | .
+s101	Zorblax is a made-up word.	Zorblax=Z AO1 R B L AE0 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH1 P | word=W ER1 D | .
 s102	We visited Xanadu and Kathmandu.	We=W IY1 | visited=V IH1 Z IH0 T IH0 D | Xanadu=Z AA1 N AH0 D UW2 | and=AH0 N D | Kathmandu=K AE1 TH M AH0 N D UW2 !oov | .
 s103	The qwerty keyboard is common.	The=DH AH0 | qwerty=K ER1 T IY0 !oov | keyboard=K IY1 B AO2 R D | is=IH1 Z | common=K AA1 M AH0 N | .
 s104	Frodo carried the ring to Mordor.	Frodo=F R OW1 D OW2 | carried=K AE1 R IY0 D | the=DH AH0 | ring=R IH1 NG | to=T UW1 | Mordor=M AO1 R D AO2 R | .
@@ -108,7 +108,7 @@ s106	Cryptocurrency exchanges rose again.	Cryptocurrency=K R IH0 P T OW1 K ER0 A
 s107	He tweeted about the iPhone.	He=HH IY1 | tweeted=T W IY1 T IH0 D | about=AH0 B AW1 T | the=DH AH0 | iPhone=AY1 F OW2 N | .
 s108	The unfollowed accounts disappeared.	The=DH AH0 | unfollowed=AH0 N F AA1 L OW0 D | accounts=AH0 K AW1 N T S | disappeared=D IH2 S AH0 P IH1 R D | .
 s109	Their cats' toys are everywhere.	Their=DH EH1 R | cats'=K AE1 T S | toys=T OY1 Z | are=AA1 R | everywhere=EH1 V R IY0 W EH2 R | .
-s110	Her ex-boyfriend's car was towed.	Her=HH ER1 | ex-boyfriend's=EH1 K S B OY2 F R EH2 N D Z | car=K AA1 R | was=W AA1 Z | towed=T OW1 D | .
+s110	Her ex-boyfriend's car was towed.	Her=HH ER1 | ex-boyfriend's=EH1 K S B OY1 F R EH2 N D Z | car=K AA1 R | was=W AA1 Z | towed=T OW1 D | .
 s111	Hello, world!	Hello=HH AH0 L OW1 | , | world=W ER1 L D | !
 s112	Wait... what?	Wait=W EY1 T | ... | what=W AH1 T | ?
 s113	She said: "Never again."	She=SH IY1 | said=S EH1 D | : | " | Never=N EH1 V ER0 | again=AH0 G EH1 N | . | "
@@ -129,18 +129,18 @@ s127	He wrote 日本 on the card.	He=HH IY1 | wrote=R OW1 T | <日本> | on=AA1 
 s128	The café serves crème brûlée.	The=DH AH0 | café=K AH0 F EY1 | serves=S ER1 V Z | crème=K R IY1 M | brûlée=B R UW1 L IY0 !oov | .
 s129	The naïve façade fooled them.	The=DH AH0 | naïve=N AY2 IY1 V | façade=F AH0 S AA1 D | fooled=F UW1 L D | them=DH EH1 M | .
 s130	Wi-Fi is available in room 204.	Wi-Fi=W AY1 F AY2 | is=IH1 Z | available=AH0 V EY1 L AH0 B AH0 L | in=IH0 N | room=R UW1 M | two=T UW1 | hundred=HH AH1 N D R AH0 D | four=F AO1 R | .
-s131	The model is A1 or B2.	The=DH AH0 | model=M AA1 D AH0 L | is=IH1 Z | A=AH0 | 1=W AH1 N | or=AO1 R | B=B IY1 | 2=T UW1 | .
-s132	Press F5 to refresh.	Press=P R EH1 S | F=EH1 F | 5=F AY1 V | to=T UW1 | refresh=R IH0 F R EH1 SH | .
+s131	The model is A1 or B2.	The=DH AH0 | model=M AA1 D AH0 L | is=IH1 Z | A=EY1 | one=W AH1 N | or=AO1 R | B=B IY1 | two=T UW1 | .
+s132	Press F5 to refresh.	Press=P R EH1 S | F=EH1 F | five=F AY1 V | to=T UW1 | refresh=R IH0 F R EH1 SH | .
 s133	She won 4-2 in the final.	She=SH IY1 | won=W AH1 N | four=F AO1 R | to=T UW1 | two=T UW1 | in=IH0 N | the=DH AH0 | final=F AY1 N AH0 L | .
 s134	Version 2.0 is released.	Version=V ER1 ZH AH0 N | two=T UW1 | point=P OY1 N T | zero=Z IH1 R OW0 | is=IH1 Z | released=R IY0 L IY1 S T | .
-s135	Open www.example.com now.	Open=OW1 P AH0 N | www=D AH1 B AH0 L Y UW0 D AH1 B AH0 L Y UW0 D AH1 B AH0 L Y UW0 !oov | . | example=IH0 G Z AE1 M P AH0 L | . | com=K AA1 M | now=N AW1 | .
+s135	Open www.example.com now.	Open=OW1 P AH0 N | W=D AH1 B AH0 L Y UW0 | W=D AH1 B AH0 L Y UW0 | W=D AH1 B AH0 L Y UW0 | dot=D AA1 T | example=IH0 G Z AE1 M P AH0 L | dot=D AA1 T | com=K AA1 M | now=N AW1 | .
 s136	Mix 1/2 cup of flour.	Mix=M IH1 K S | one=W AH1 N | half=HH AE1 F | cup=K AH1 P | of=AH1 V | flour=F L AW1 ER0 | .
 s137	The temperature is -5 degrees.	The=DH AH0 | temperature=T EH1 M P R AH0 CH ER0 | is=IH1 Z | minus=M AY1 N AH0 S | five=F AY1 V | degrees=D IH0 G R IY1 Z | .
 s138	He weighs 180 lbs.	He=HH IY1 | weighs=W EY1 Z | one=W AH1 N | hundred=HH AH1 N D R AH0 D | eighty=EY1 T IY0 | pounds=P AW1 N D Z | .
-s139	The race is 10K long.	The=DH AH0 | race=R EY1 S | is=IH1 Z | 1=W AH1 N | 0=Z IH1 R OW0 | K=K EY1 | long=L AO1 NG | .
+s139	The race is 10K long.	The=DH AH0 | race=R EY1 S | is=IH1 Z | ten=T EH1 N | K=K EY1 | long=L AO1 NG | .
 s140	An ID card is required.	An=AE1 N | I=AY1 | D=D IY1 | card=K AA1 R D | is=IH1 Z | required=R IY0 K W AY1 ER0 D | .
-s141	A 3D printer made it.	A=AH0 | 3=TH R IY1 | D=D IY1 | printer=P R IH1 N T ER0 | made=M EY1 D | it=IH1 T | .
-s142	The area is 25 sq. ft.	The=DH AH0 | area=EH1 R IY0 AH0 | is=IH1 Z | twenty=T W EH1 N T IY0 | five=F AY1 V | sq=EH1 S K Y UW1 !oov | . | ft=EH1 F T IY0 !oov | .
+s141	A 3D printer made it.	A=AH0 | three=TH R IY1 | D=D IY1 | printer=P R IH1 N T ER0 | made=M EY1 D | it=IH1 T | .
+s142	The area is 25 sq. ft.	The=DH AH0 | area=EH1 R IY0 AH0 | is=IH1 Z | twenty=T W EH1 N T IY0 | five=F AY1 V | square=S K W EH1 R | feet=F IY1 T | .
 s143	She drove 60 mph for 2 hrs.	She=SH IY1 | drove=D R OW1 V | sixty=S IH1 K S T IY0 | miles=M AY1 L Z | per=P ER1 | hour=AW1 ER0 | for=F AO1 R | two=T UW1 | hours=AW1 ER0 Z | .
 s144	Add 2 + 2 to get 4.	Add=AE1 D | two=T UW1 | plus=P L AH1 S | two=T UW1 | to=T UW1 | get=G EH1 T | four=F AO1 R | .
 s145	After the storm, the town's mayor thanked the volunteers who had worked tirelessly.	After=AE1 F T ER0 | the=DH AH0 | storm=S T AO1 R M | , | the=DH AH0 | town's=T AW1 N Z | mayor=M EY1 ER0 | thanked=TH AE1 NG K T | the=DH AH0 | volunteers=V AA2 L AH0 N T IH1 R Z | who=HH UW1 | had=HH AE1 D | worked=W ER1 K T | tirelessly=T AY1 R L AH0 S L IY0 | .

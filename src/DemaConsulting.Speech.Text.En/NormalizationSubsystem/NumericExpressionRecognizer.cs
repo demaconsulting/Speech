@@ -7,7 +7,7 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 /// <param name="Start">The UTF-16 offset of the first covered character.</param>
 /// <param name="Length">The number of covered UTF-16 code units; positive.</param>
 /// <param name="Spoken">The spoken words: lowercase letters and single spaces (capitals only in month names, the separate spelled meridiem span <c>P M</c> or <c>A M</c>, <c>Celsius</c> and <c>Fahrenheit</c>), an apostrophe only in <c>o'clock</c>, never a digit.</param>
-/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>. A <c>DateTime</c> span whose spoken text is a letter sequence (the meridiem letters) is the spelled span; a glued meridiem is always its own span, never part of the words of the number.</param>
+/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>; the one spelled capital letter glued to a number (<c>10K</c>) is <see cref="NormalizationKind.Initialism"/>. A <c>DateTime</c> span whose spoken text is a letter sequence (the meridiem letters) is the spelled span; a glued meridiem is always its own span, never part of the words of the number.</param>
 internal readonly record struct NumericSpan(int Start, int Length, string Spoken, NormalizationKind Kind);
 
 /// <summary>
@@ -874,7 +874,69 @@ internal static class NumericExpressionRecognizer
             return TryGluedWord(ref c, integerDigits, fraction, currency.Singular, currency.Plural, false, NormalizationKind.Currency, out match);
         }
 
+        // A number joined to a word by a hyphen (12-year-old, 24-hour, 2.5-inch, 3-D): the number is read and the
+        // hyphenated word is left as it is, so the phonemizer sees "twelve-year-old", one compound.
+        if (c.Sign == '\0' && rest.Length > 1 && rest[0] == '-' && IsLetter(rest[1]))
+        {
+            return TryHyphenatedPrefix(ref c, integerDigits, fraction, hasThousands, out match);
+        }
+
+        // A number with one capital letter glued to it (10K, 5G, 3D, 12B): the number is read and the letter is spelled,
+        // which is how the written form is read aloud whatever the letter stands for (thousand, generation, dimensions).
+        if (unsignedInteger && !hasThousands && c.GroupCount == 1 && rest.Length == 1 && (rest[0] is >= 'A' and <= 'Z' or 'k'))
+        {
+            var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+            var fallback = false;
+            if (!TryAppendInteger(ref writer, integerDigits, ref fallback))
+            {
+                match = FallbackMatch();
+                return true;
+            }
+
+            var builder = new Builder { Consumed = 1, Fallback = fallback };
+            builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.Number);
+            builder.Add(c.Token.Start + c.RestStart, 1, char.ToUpperInvariant(rest[0]).ToString(), NormalizationKind.Initialism);
+            match = builder.ToMatch();
+            return true;
+        }
+
         return false;
+    }
+
+    /// <summary>
+    ///     Reads the number at the start of a hyphenated compound such as <c>12-year-old</c>: one span over the
+    ///     digits, nothing over the hyphen and the word after it.
+    /// </summary>
+    /// <param name="c">The scanned token, whose rest starts with a hyphen and a letter.</param>
+    /// <param name="integerDigits">The integer digits.</param>
+    /// <param name="fraction">The fraction digits, or empty.</param>
+    /// <param name="hasThousands">Whether the integer part had separators.</param>
+    /// <param name="match">The match when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when the number is read or is a fallback.</returns>
+    /// <remarks>
+    ///     A four-digit integer in the year range is read like a year (<c>1500-word</c> is <i>fifteen hundred</i>,
+    ///     <c>2000-seat</c> is <i>two thousand</i>), which is also how such a quantity is usually said; any other number
+    ///     is read as a cardinal or decimal.
+    /// </remarks>
+    private static bool TryHyphenatedPrefix(ref Ctx c, ReadOnlySpan<char> integerDigits, ReadOnlySpan<char> fraction, bool hasThousands, out NumericMatch match)
+    {
+        match = default;
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        var fallback = false;
+        if (fraction.IsEmpty && !hasThousands && integerDigits.Length == 4 && integerDigits[0] != '0' && IsYearRange(integerDigits))
+        {
+            NumberVerbalizer.AppendYear(ref writer, integerDigits);
+        }
+        else if (!TryAppendNumber(ref writer, c.Sign, integerDigits, fraction, ref fallback))
+        {
+            match = FallbackMatch();
+            return true;
+        }
+
+        var builder = new Builder { Consumed = 1, Fallback = fallback };
+        builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.Number);
+        match = builder.ToMatch();
+        return true;
     }
 
     /// <summary>
@@ -1669,14 +1731,16 @@ internal static class NumericExpressionRecognizer
     /// <summary>
     ///     Tells whether the token at an index is read as a number by itself: it is recognized and
     ///     produces at least one spoken span (a counted fallback that leaves the token as written,
-    ///     such as <c>1,23</c>, and an unrecognized token such as <c>2D</c> or <c>25:99</c> are not).
+    ///     such as <c>1,23</c>, and an unrecognized token such as <c>25:99</c> are not). A number with
+    ///     a capital letter glued to it (<c>2D</c>) is read, but it is not a complete number, so it is
+    ///     not an endpoint of a range.
     /// </summary>
     /// <param name="text">The text.</param>
     /// <param name="tokens">The tokens.</param>
     /// <param name="index">The token index, already validated by the caller.</param>
     /// <returns><see langword="true"/> when the token is read as a number.</returns>
     private static bool IsRangeEndpoint(string text, ReadOnlySpan<NormalizationToken> tokens, int index) =>
-        TryRecognize(text, tokens, index, out var endpoint) && endpoint.SpanCount > 0;
+        TryRecognize(text, tokens, index, out var endpoint) && endpoint.SpanCount > 0 && !(endpoint.SpanCount == 2 && endpoint[1].Kind == NormalizationKind.Initialism);
 
     /// <summary>
     ///     Reads a time written <c>h:mm</c>, with an optional glued meridiem or a following

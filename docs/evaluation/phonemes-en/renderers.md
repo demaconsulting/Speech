@@ -21,17 +21,22 @@ the mapping tables.
   `phoneme_id_map` (159 symbols) and Kokoro's vocabulary (115 symbols): `RenderingSubsystemTests` proves it on every
   target framework.
 - **D5 gates (provisional, report then ratchet).** Piper against espeak-ng en-us on the 450-sentence tuning corpus:
-  **word match 88.1 percent (gate 85), phoneme error rate 3.1 percent excluding stress (gate 8), primary stress
-  agreement 94.3 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
+  **word match 89.4 percent (gate 85), phoneme error rate 3.0 percent excluding stress (gate 8), primary stress
+  agreement 96.0 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
   6)**, 2.0 percent with the opt-in weak forms. On text nobody tuned the rules on (60 fresh sentences, 3,000 further
-  frequent words) the figures hold: Piper 90.1 percent word match, 2.6 percent PER, 97.1 percent primary stress
+  frequent words) the figures hold: Piper 91.8 percent word match, 2.5 percent PER, 98.1 percent primary stress
   agreement on the sentences, and 4.4 percent PER on isolated words; Kokoro 4.5 percent PER on the sentences and 2.8
   percent on the words. The one figure below its provisional gate is the **word match of isolated words** (78.6 percent
   tuned, 75.3 percent held out): it is not the gate's corpus (sentences) and its residual is the engine's
   spelling-driven vowel choice (see "Residual classes").
 - **The gates are ratcheted, never loosened:** the figures above are the new floor (the first authored mapping scored
   61.6 percent word match and 9.7 percent PER for Piper, 6.6 percent PER for Kokoro; see "What the measurement
-  changed").
+  changed"). The refinement pass after the first end-to-end audio (hyphenated compounds, a few function-word details)
+  raised Piper from 88.1 to 89.4 percent word match on the tuned sentences (90.1 to 91.8 held out), lowered its PER from
+  3.14 to 3.01 (2.58 to 2.47) and raised its primary stress agreement from 94.3 to 96.0 (97.1 to 98.1); Kokoro's
+  held-out figures did not move, and its tuned-sentence PER moved by +0.01 point (4.88 to 4.89 with full forms, 1.99 to
+  2.00 with weak forms) because three sentences of the corpus now reach the misaki engine as different spoken text (a
+  URL, `10K`, `A1`).
 
 ## What Is Rendered
 
@@ -69,7 +74,10 @@ classes, which the measurement below decided: (a) the articles and the particle 
 and `ðɪ`/`tʊ` before a vowel); (b) most conjunctions, prepositions, auxiliaries and pronouns, which keep their full
 vowel but lose the stress mark (`ænd`, `ʌv`, `wʌz`, `hiː`); (c) a short list of words that keep their dictionary form
 with a secondary instead of a primary stress (`but`, `not`, `how`, `so`, `up`, `us`, `them`, `over`, ...). A few short
-function words followed by the article form one group without a space (`of the`, `in the`, `with the`, `was a`).
+function words followed by the article form one group without a space (`of the`, `in the`, `with the`, `for the`,
+`was a`). Piper's profile adds a few details of its own training text (see "Refinement After the First End-to-End
+Audio"): the flap of `it` and `at` before a vowel, `on the` without a mark, and a secondary stress for `made`, `put`,
+`which`, `what`, `between` and a few more.
 
 Kokoro's default is the full dictionary form (owner decision). The measurement shows that the reference text of Kokoro
 treats function words exactly like the Piper text does (unstressed or demoted), so
@@ -119,21 +127,21 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 
 | System and corpus | Words | Match | No stress | PER | Primary | Signature | Secondary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Piper, 450 sentences | 4,276 | 88.05 | 90.76 | 3.14 | 94.34 | 95.60 | 65.48 |
-| Piper, 60 held-out sentences | 636 | 90.09 | 92.14 | 2.58 | 97.05 | 96.70 | 60.00 |
+| Piper, 450 sentences | 4,279 | 89.44 | 91.14 | 3.01 | 95.98 | 96.80 | 76.29 |
+| Piper, 60 held-out sentences | 636 | 91.82 | 92.61 | 2.47 | 98.10 | 98.11 | 75.56 |
 | Piper, 3,000 words | 3,000 | 78.63 | 81.20 | 4.49 | 95.39 | 93.80 | 62.56 |
 | Piper, 3,000 held-out words | 3,000 | 75.27 | 77.40 | 4.39 | 96.73 | 93.97 | 68.28 |
-| Kokoro full, 450 sentences | 4,342 | 62.69 | 82.20 | 4.88 | 71.36 | 75.03 | 23.36 |
+| Kokoro full, 450 sentences | 4,357 | 62.70 | 82.17 | 4.89 | 71.45 | 75.10 | 23.54 |
 | Kokoro full, 60 held-out sentences | 659 | 64.80 | 83.16 | 4.50 | 72.17 | 76.33 | 21.62 |
 | Kokoro full, 3,000 words | 2,990 | 81.20 | 85.95 | 2.93 | 94.81 | 91.27 | 48.47 |
 | Kokoro full, 3,000 held-out words | 2,955 | 80.61 | 83.76 | 2.81 | 97.39 | 93.81 | 69.02 |
-| Kokoro weak, 450 sentences | 4,342 | 85.77 | 93.16 | 1.99 | 94.22 | 91.04 | 41.57 |
+| Kokoro weak, 450 sentences | 4,357 | 85.72 | 93.09 | 2.00 | 94.25 | 91.07 | 41.73 |
 | Kokoro weak, 60 held-out sentences | 659 | 88.92 | 94.84 | 1.43 | 96.59 | 93.17 | 45.78 |
 
 Columns: words compared, word match (stress marks included), word match ignoring stress, phoneme error rate (PER)
 excluding stress, primary stress agreement, stress signature agreement, secondary stress agreement.
 
-**Gates.** Piper word match 88.1 (gate 85), PER 3.1 (gate 8), primary stress 94.3 (gate 90): met on the tuned corpus and
+**Gates.** Piper word match 89.4 (gate 85), PER 3.0 (gate 8), primary stress 96.0 (gate 90): met on the tuned corpus and
 on the held-out sentences. Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not met: Piper word
 match on isolated words (78.6 and 75.3 against 85); that metric is not the gate's corpus and is dominated by the class
 "unstressed short vowel chosen by spelling" below. The stress agreement of Kokoro with full forms (71 percent) is low
@@ -162,6 +170,38 @@ statistics then showed, in order of size, and each of these became a general rul
 6. **Linking `ɹ`** between an `r`-colored vowel and a following vowel-initial word (Piper).
 7. **Smaller classes:** the shortened `ɔ` before `ŋ f θ s`; `ɚ` followed by a vowel; stress of the numbers thirteen to
    nineteen; `ʊɹ` doubling before a vowel; `un-` as `ʌ`; word groups such as `of the`.
+
+## Refinement After the First End-to-End Audio
+
+After real audio existed (the owner's listening packs and a speech-recognition round trip, see the summary), a second
+measurement pass looked at the whole phoneme string of sentences against espeak-ng, not only word by word: separators,
+punctuation, stress marks and compounds. On a pack of 133 own-written sentences the punctuation passes through at the
+same positions in all 133 and the word separators agree in 130 (the three others are the groups below), so no
+systematic problem of framing, pauses or word boundaries was found; 38 of the 133 whole strings were identical before
+this pass and 42 are after it. The classes it did find were:
+
+1. **Hyphenated compounds (Piper).** All 40 of 40 sentences of a forty-compound probe differed from espeak-ng, and the
+   cause was general: the engine gives every content part of a compound its own primary stress, where the
+   phonemizer demoted the later parts to secondary stress, and it used the dictionary's closed spelling (for example
+   the entry for full-time, whose stress pattern is that of one word) when one was listed. A compound is now pronounced part by part, each part
+   with its own stress; a closed dictionary spelling is used only when a part is not a word of its own (`wi-fi`, where
+   `wi` and `fi` are not words); the small function words inside a compound are unstressed (`of` keeps its full vowel
+   without a mark, `to` is reduced). 26 of the 40 probe sentences now agree exactly, the rest differ only in the
+   spelling-driven vowels. The text-analysis item records where the second part starts, and the Kokoro renderer, whose
+   reference stresses the first part of a compound, demotes the primary stresses after that point (as before).
+2. **Function-word details (Piper only).** The espeak-style text flaps the final `t` of `it` and `at` before a vowel
+   (3 of 3 each), leaves `on` unstressed in `on the` (14 of 14) and says `for the` as one group with
+   the reduced vowel (7 of 7), and gives a secondary stress to `made`, `make`, `put`, `which`, `what`,
+   `between`, `behind`, `beside`, `beneath`, `any` and `already` in all or nearly all of their occurrences in the
+   corpus. These entries apply
+   to the Piper renderer only; the misaki-based profile does not use them (misaki keeps the primary stress and the `t`).
+
+Two candidate rules were measured and rejected because they made the figures worse: a reduced vowel for `for` before any
+consonant (the engine keeps the full vowel of `for` there except in `for the`), and a medial `ɪ` for an unstressed `IY` before a
+consonant (the engine writes `ɪ` in `everyone` but `i` in `twenty-one`).
+
+The numbers above are after this pass: Piper word match 88.05 to 89.44, PER 3.14 to 3.01, primary stress agreement
+94.34 to 95.98 on the 450 tuning sentences; 90.09 to 91.82, 2.58 to 2.47 and 97.05 to 98.10 on the 60 held-out ones.
 
 ## Residual Classes
 

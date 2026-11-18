@@ -82,10 +82,14 @@ sentences) pins the result. Misses seen while building it, all in the text analy
 - the classifier labels two occurrences of one heteronym alike in some same-part-of-speech sentences (`read`, `lead` and
   `content` in the first drafts of the listening sentences; the sentences were replaced by ones it classifies
   correctly, which hides the weakness from the pack, not from this record);
-- a number inside a hyphenated compound (`12-year-old`) is spoken digit by digit ("one two") instead of "twelve";
-- **regression against the old normalizer**: Text.En has no URL or e-mail handling, so a URL is spoken as its parts
-  (the scheme letters, `www` run together, the host, the path words) and an e-mail address loses its `@`. Whether the
-  model should keep a small model-level `NormalizeText` hook for these is an open question for the final review.
+- two further misses were fixed in the refinement pass that followed: a number inside a hyphenated compound
+  (`12-year-old`) was spoken digit by digit ("one two") instead of "twelve", and the **regression against the old
+  normalizer** (no URL or e-mail handling: a URL was spoken as its parts with `www` run together and an e-mail address
+  lost its `@`) is closed in the text analysis itself, so the model needs no `NormalizeText` hook: a URL, e-mail
+  address or bare domain is read with its separators spoken (`john dot smith at example dot com`), `www` and the
+  scheme letters spelled. The scheme is spelled (`H T T P S`) where the old normalizer dropped it, because a span of
+  the analysis can never contain a colon (the sentence chunker would cut it). Markdown links (`[text](url)`) still
+  speak the address after the text.
 
 ## Evidence
 

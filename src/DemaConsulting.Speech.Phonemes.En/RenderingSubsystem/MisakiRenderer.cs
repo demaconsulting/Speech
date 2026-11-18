@@ -152,8 +152,40 @@ public sealed class MisakiRenderer
 
         var demoted = false;
         var weak = string.Empty;
-        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, out weak, out demoted);
-        return known && weak.Length > 0 ? ToMisaki(weak) : MisakiWordRules.Render(item.Pronunciation.Phones, demoted);
+        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord: null, espeakStyle: false, out weak, out demoted);
+        if (known && weak.Length > 0)
+        {
+            return ToMisaki(weak);
+        }
+
+        // Misaki stresses only the first part of a hyphenated compound: the primary stresses of the later parts become secondary
+        var phones = item.Pronunciation.Phones;
+        if (item.CompoundBreak > 0)
+        {
+            phones = DemoteFrom(phones, item.CompoundBreak);
+        }
+
+        return MisakiWordRules.Render(phones, demoted);
+    }
+
+    /// <summary>
+    ///     Lowers every primary stress from a phone on to secondary stress.
+    /// </summary>
+    /// <param name="phones">The phones of a word.</param>
+    /// <param name="start">The index of the first phone to change.</param>
+    /// <returns>The phones with no primary stress from <paramref name="start"/> on.</returns>
+    private static ReadOnlySpan<Phone> DemoteFrom(ReadOnlySpan<Phone> phones, int start)
+    {
+        var changed = phones.ToArray();
+        for (var i = start; i < changed.Length; i++)
+        {
+            if (changed[i].Stress == 1)
+            {
+                changed[i] = changed[i].WithStress(2);
+            }
+        }
+
+        return changed;
     }
 
     /// <summary>

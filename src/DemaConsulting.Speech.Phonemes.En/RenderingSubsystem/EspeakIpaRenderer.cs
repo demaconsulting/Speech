@@ -113,7 +113,7 @@ public sealed class EspeakIpaRenderer
             switch (item.Kind)
             {
                 case PhonemizedItemKind.Word:
-                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1));
+                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1), PhonemeStream.NextWordText(items, i + 1));
                     previousMark = false;
                     break;
                 case PhonemizedItemKind.Punctuation:
@@ -145,8 +145,9 @@ public sealed class EspeakIpaRenderer
     /// </summary>
     /// <param name="item">The word item.</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
+    /// <param name="nextWord">The text of the next word, or <see langword="null"/>.</param>
     /// <returns>The IPA symbols.</returns>
-    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel)
+    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel, string? nextWord)
     {
         if (item.IpaOverride is not null)
         {
@@ -155,7 +156,7 @@ public sealed class EspeakIpaRenderer
 
         var demoted = false;
         var weak = string.Empty;
-        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, out weak, out demoted);
+        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord, espeakStyle: true, out weak, out demoted);
         var text = known && weak.Length > 0 ? weak : EspeakWordRules.Render(item.Pronunciation.Phones, demoted);
 
         // An r-colored vowel at the end of a word is joined to a vowel-initial word by a linking r

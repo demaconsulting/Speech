@@ -192,8 +192,41 @@ public sealed class RenderingSubsystemTests
         // Act and assert
         Assert.Equal("jˈɛs, ʃiː sˈɛd.", new EspeakIpaRenderer().Render(quoted));
         Assert.Equal("“jˈɛs,” ʃˈi sˈɛd.", new MisakiRenderer().Render(quoted));
-        Assert.Equal("wˈeɪt, wˈʌt?", new EspeakIpaRenderer().Render(dashed));
+        Assert.Equal("wˈeɪt, wˌʌt?", new EspeakIpaRenderer().Render(dashed));
         Assert.Equal("wˈAt — wˈʌt?", new MisakiRenderer().Render(dashed));
+    }
+
+    /// <summary>Proves the espeak-style details of the weak-form table: the flap of <i>it</i> and <i>at</i> before a vowel, <i>on the</i> and <i>for the</i> as one group, and the secondary stress of a few more words, none of which misaki's profile has.</summary>
+    [Fact]
+    public void WeakForms_EspeakStyleDetails_AreForPiperOnly()
+    {
+        // Arrange
+        var flap = Phonemizer.Phonemize("it is at all");
+        var groups = Phonemizer.Phonemize("on the table for the road");
+        var demoted = Phonemizer.Phonemize("made between");
+
+        // Assert: Piper flaps the t of it and at before a vowel; Kokoro keeps the t
+        Assert.Equal("ɪɾ ɪz æɾ ˈɔːl", new EspeakIpaRenderer().Render(flap));
+        Assert.Equal("ɪt ɪz æt ˈɔl", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(flap));
+
+        // Assert: on the has no mark on on, for the is one group with the reduced vowel
+        Assert.Equal("ɔnðə tˈeɪbəl fɚðə ɹˈoʊd", new EspeakIpaRenderer().Render(groups));
+
+        // Assert: made and between have the secondary stress in the espeak-style text, the primary in misaki's
+        Assert.Equal("mˌeɪd bᵻtwˌiːn", new EspeakIpaRenderer().Render(demoted));
+        Assert.Equal("mˈAd bətwˈin", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(demoted));
+    }
+
+    /// <summary>Proves Kokoro keeps the stress on the first part of a hyphenated compound only (the later primary stresses become secondary), where Piper stresses every part.</summary>
+    [Fact]
+    public void Compounds_StressIsPerModel()
+    {
+        // Arrange
+        var result = Phonemizer.Phonemize("a well-known author");
+
+        // Assert
+        Assert.Equal("ɐ wˈɛlnˈoʊn ˈɔθɚ", new EspeakIpaRenderer().Render(result));
+        Assert.Equal("ə wˈɛlnˌOn ˈɔθəɹ", new MisakiRenderer().Render(result));
     }
 
     /// <summary>Proves an ellipsis keeps its length for Piper (three dots) and is Kokoro's single ellipsis mark.</summary>

@@ -317,5 +317,5 @@ public sealed class EnglishPhonemizer
     private static PhonemizedItem Item(string text, PronouncedWord? pronounced, string? readingId) =>
         pronounced is null
             ? new PhonemizedItem(PhonemizedItemKind.Unsupported, text, null, PronunciationSource.None)
-            : new PhonemizedItem(PhonemizedItemKind.Word, text, pronounced.Pronunciation, pronounced.Source, readingId);
+            : new PhonemizedItem(PhonemizedItemKind.Word, text, pronounced.Pronunciation, pronounced.Source, readingId, compoundBreak: pronounced.CompoundBreak);
 }

@@ -23,6 +23,15 @@ its tokens (the next token processed is the one after it):
 - **1. Dropped**: the token contains an invisible format character, or is a standalone bullet. One `Dropped`
   span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no other rule looks
   at the token
+- **1b. Web address**: `WebAddressRecognizer.Recognize` accepts a token that is a URL (`http://`, `https://` or
+  `ftp://` scheme, or a leading `www.`), an e-mail address, or a bare domain whose last label is a known
+  top-level domain. The tokenizer keeps such an address in one token, so the spans are inside it: the scheme
+  letters and `www` are spelled (`H T T P S`, `W W W`), the two slashes after the scheme are `Dropped`, and each
+  separator is a `Symbol` span (`.` is `dot`, `/` is `slash`, `@` is `at`, `-` is `dash`, `_` is `underscore`,
+  `?` is `question mark`, `=` is `equals`, `&` is `and`, `#` is `hash`, `+` is `plus`, `%` is `percent`, `~` is
+  `tilde`). The words between the separators are left for the phonemizer. No span contains a colon (A5'), so the
+  colon after the scheme and before a port stays as a pause mark. Runs before the clitic rule so that an address
+  is never taken for a clitic or an abbreviation
 - **2. Clitic**: `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case). A typographic
   apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is
   recorded
@@ -34,6 +43,12 @@ its tokens (the next token processed is the one after it):
 - **4. Acronym or initialism**: `AcronymRecognizer.TryRecognize` accepts the token. A single spelled
   `Initialism` span; a dotted form uses the period and sentence rules as class `Free`; an ampersand initialism
   is decomposed (see *Ampersand initialisms*)
+- **4b. Mixed letters and digits**: `AlphanumericTokenRecognizer` accepts an identifier of capital letters and
+  digits (`A4`, `B12`, `H2O`, `R2D2`, `MP3`: alternating runs of one to three letters and one to four digits) or
+  a name joined to one to three digits by a hyphen (`COVID-19`, `Catch-22`). Each letter run is a spelled
+  `Initialism` span, each digit run a `Number` span (a cardinal for up to three digits without a leading zero,
+  digit by digit otherwise); for the hyphenated name only the digits get a span, so the phonemizer sees
+  `COVID-nineteen`. It runs after the lexicons so that an entry of either wins
 - **5. Symbol or mark**: a standalone operator or mark, or a mark, `&` or `/` inside a word. `Symbol` spans
 - **6. Elision apostrophe**: a typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`,
   `'cause`, `'em`. `Apostrophe` spans

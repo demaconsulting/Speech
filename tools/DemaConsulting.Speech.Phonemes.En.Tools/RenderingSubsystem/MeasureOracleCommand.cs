@@ -34,13 +34,16 @@ internal static class MeasureOracleCommand
 
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: measure-oracle [--out <dir>] [--words <count>] [--root <dir>]
+        Usage: measure-oracle [--out <dir>] [--words <count>] [--root <dir>] [--sentences <file>]
 
         Exports our Piper IPA and Kokoro misaki renderings of the measurement corpora (the golden sentences, the own-written
         sentences of data/phonemes-en/renderer-corpus.tsv and the most frequent dictionary words of the text-analysis
         training sentences) to <dir>/ours.jsonl for the comparison script that is kept outside the repository.
 
         Options:
+          --sentences <file>
+                           Export only the sentences of this tab-separated file (a header line, then an id and a sentence per line)
+                           to <dir>/ours-custom.jsonl, for ad hoc comparisons of a set of sentences.
           --out <dir>      Output folder (default: a DemaConsulting.Speech.Phonemes.En.Oracle folder in the temporary directory,
                            outside the repository). Inside the repository only the git-ignored data/phonemes-en/work is allowed.
           --words <count>  Size of the word-list pass (default: 3000).
@@ -76,6 +79,7 @@ internal static class MeasureOracleCommand
         string? outDirectory = null;
         var words = DefaultWords;
         var offset = 0;
+        string? sentencesFile = null;
         var pending = new Queue<string>(args);
         while (pending.TryDequeue(out var option))
         {
@@ -93,6 +97,9 @@ internal static class MeasureOracleCommand
                 case "--words" when pending.Count > 0 && int.TryParse(pending.Peek(), out var count) && count >= 0:
                     words = count;
                     pending.Dequeue();
+                    break;
+                case "--sentences" when pending.Count > 0:
+                    sentencesFile = Path.GetFullPath(pending.Dequeue(), currentDirectory);
                     break;
                 case "--word-offset" when pending.Count > 0 && int.TryParse(pending.Peek(), out var skip) && skip >= 0:
                     offset = skip;
@@ -123,8 +130,18 @@ internal static class MeasureOracleCommand
             }
 
             Directory.CreateDirectory(outDirectory);
-            var path = Path.Combine(outDirectory, offset > 0 ? "ours-validation.jsonl" : "ours.jsonl");
-            var lines = Export(root, words, offset, path);
+            var outputName = "ours.jsonl";
+            if (sentencesFile is not null)
+            {
+                outputName = "ours-custom.jsonl";
+            }
+            else if (offset > 0)
+            {
+                outputName = "ours-validation.jsonl";
+            }
+
+            var path = Path.Combine(outDirectory, outputName);
+            var lines = Export(root, words, offset, path, sentencesFile);
             output.WriteLine($"{path}: {lines} lines (sentences and words)");
             return 0;
         }
@@ -186,21 +203,39 @@ internal static class MeasureOracleCommand
     /// <param name="words">The size of the word-list pass.</param>
     /// <param name="offset">The number of most frequent words to skip; with an offset the held-out passes are exported instead of the tuning corpora.</param>
     /// <param name="path">The output file.</param>
+    /// <param name="sentencesFile">A file of sentences to export instead of the corpora (and no words), or <see langword="null"/>.</param>
     /// <returns>The number of lines.</returns>
-    private static int Export(string root, int words, int offset, string path)
+    private static int Export(string root, int words, int offset, string path, string? sentencesFile)
     {
         var testData = Path.Combine(root, "test", "DemaConsulting.Speech.Phonemes.En.Tests", "TestData");
-        List<(string Kind, string Id, PhonemizedText Text)> sentences = offset > 0
-            ? [.. GoldenCorpus.ReadSentences(Path.Combine(root, "data", "phonemes-en", "renderer-validation.tsv"))
-                .Select(s => (Kind: "sentence", s.Id, Text: GoldenCorpus.RunEndToEnd(s.Sentence)))]
-            : [.. GoldenCorpus.ReadSentences(Path.Combine(testData, "sentences-golden.tsv"))
-                .Concat(GoldenCorpus.ReadSentences(Path.Combine(root, "data", "phonemes-en", "renderer-corpus.tsv")))
-                .Select(s => (Kind: "sentence", s.Id, Text: GoldenCorpus.RunEndToEnd(s.Sentence)))];
+
+        // Choose the sentence source: an ad hoc file, the held-out validation sentences, or the tuning corpora
+        IEnumerable<SentenceCase> sentenceCases;
+        if (sentencesFile is not null)
+        {
+            sentenceCases = GoldenCorpus.ReadSentences(sentencesFile);
+        }
+        else if (offset > 0)
+        {
+            sentenceCases = GoldenCorpus.ReadSentences(Path.Combine(root, "data", "phonemes-en", "renderer-validation.tsv"));
+        }
+        else
+        {
+            sentenceCases = GoldenCorpus.ReadSentences(Path.Combine(testData, "sentences-golden.tsv"))
+                .Concat(GoldenCorpus.ReadSentences(Path.Combine(root, "data", "phonemes-en", "renderer-corpus.tsv")));
+        }
+
+        List<(string Kind, string Id, PhonemizedText Text)> sentences =
+            [.. sentenceCases.Select(s => (Kind: "sentence", s.Id, Text: GoldenCorpus.RunEndToEnd(s.Sentence)))];
         var phonemizer = new EnglishPhonemizer();
-        var wordList = FrequentWords(Path.Combine(root, "data", "text-en", "train.tsv"), words + offset)
-            .Skip(offset)
-            .Select((w, i) => (Kind: "word", Id: "w" + (offset + i + 1).ToString("D4", System.Globalization.CultureInfo.InvariantCulture), Text: phonemizer.Phonemize(w)))
-            .ToList();
+        List<(string Kind, string Id, PhonemizedText Text)> wordList = [];
+        if (sentencesFile is null)
+        {
+            wordList =
+            [.. FrequentWords(Path.Combine(root, "data", "text-en", "train.tsv"), words + offset)
+                .Skip(offset)
+                .Select((w, i) => (Kind: "word", Id: "w" + (offset + i + 1).ToString("D4", System.Globalization.CultureInfo.InvariantCulture), Text: phonemizer.Phonemize(w)))];
+        }
 
         var piper = new EspeakIpaRenderer();
         var piperFull = new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: false);

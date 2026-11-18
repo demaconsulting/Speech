@@ -32,6 +32,21 @@ internal static class WeakForms
         ["but", "not", "so", "how", "up", "us", "him", "me", "our", "over", "under", "down", "been", "about", "above", "before", "who", "why", "where", "while", "near", "them"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    ///     The words the espeak-style voices also say with a secondary stress (their training text has them so: the
+    ///     measurement against the engine showed it for every occurrence), where misaki keeps the primary stress.
+    /// </summary>
+    private static readonly HashSet<string> EspeakDemoted = new(
+        ["made", "make", "put", "which", "what", "between", "behind", "beside", "beneath", "any", "already"],
+        StringComparer.Ordinal);
+
+    /// <summary>The words whose final <c>t</c> is a flap before a vowel-initial word in the espeak-style training text (<i>it is</i>, <i>at all</i>).</summary>
+    private static readonly Dictionary<string, string> EspeakFlapForms = new(StringComparer.Ordinal)
+    {
+        ["it"] = "ɪɾ",
+        ["at"] = "æɾ",
+    };
+
     /// <summary>Gets the number of words in the table.</summary>
     public static int Count => Forms.Count + Demoted.Count;
 
@@ -39,7 +54,7 @@ internal static class WeakForms
     public static IEnumerable<string> Words => Forms.Keys.Concat(Demoted);
 
     /// <summary>Gets every IPA form of the table (all variants), so a test can prove they are in the voice's inventory.</summary>
-    public static IEnumerable<string> AllForms => Forms.Values.SelectMany(f => new[] { f.BeforeConsonant, f.BeforeVowel });
+    public static IEnumerable<string> AllForms => Forms.Values.SelectMany(f => new[] { f.BeforeConsonant, f.BeforeVowel }).Concat(EspeakFlapForms.Values);
 
     /// <summary>
     ///     Finds the words that are spoken together with the word before them: a short function word and the
@@ -65,16 +80,34 @@ internal static class WeakForms
     /// </summary>
     /// <param name="word">The word as spoken (any case).</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
+    /// <param name="nextWord">The next word as spoken (any case), or <see langword="null"/> when there is none or it is not a word.</param>
+    /// <param name="espeakStyle">Whether the entries that mirror the espeak-style voices' training text (stress of a few more words, the flap of <i>it</i> and <i>at</i>) apply; misaki's profile does not use them.</param>
     /// <param name="form">Receives the explicit weak form; empty when the word is only demoted.</param>
     /// <param name="demoted">Receives whether the word keeps its dictionary vowels with a secondary stress.</param>
     /// <returns><see langword="true"/> when the word is in the table.</returns>
-    public static bool TryGet(string word, bool nextStartsWithVowel, out string form, out bool demoted)
+    public static bool TryGet(string word, bool nextStartsWithVowel, string? nextWord, bool espeakStyle, out string form, out bool demoted)
     {
         var key = word.ToLowerInvariant();
-        demoted = Demoted.Contains(key);
+        demoted = Demoted.Contains(key) || (espeakStyle && EspeakDemoted.Contains(key));
         if (Forms.TryGetValue(key, out var forms))
         {
             form = nextStartsWithVowel ? forms.BeforeVowel : forms.BeforeConsonant;
+
+            // The espeak-style voices flap the t of it and at before a vowel, leave on unstressed in on the, and say for the
+            // as one group with the reduced r-colored vowel
+            if (espeakStyle && nextStartsWithVowel && EspeakFlapForms.TryGetValue(key, out var flap))
+            {
+                form = flap;
+            }
+            else if (espeakStyle && key == "on" && string.Equals(nextWord, "the", StringComparison.OrdinalIgnoreCase))
+            {
+                form = "ɔn";
+            }
+            else if (espeakStyle && key == "for" && string.Equals(nextWord, "the", StringComparison.OrdinalIgnoreCase))
+            {
+                form = "fɚ";
+            }
+
             return true;
         }
 
@@ -94,9 +127,9 @@ internal static class WeakForms
     /// </summary>
     /// <param name="first">The first word, lower case.</param>
     /// <param name="second">The second word, lower case.</param>
-    /// <returns><see langword="true"/> for <i>in the</i>, <i>of the</i>, <i>on the</i>, <i>with the</i>, <i>from the</i>, <i>that the</i>, <i>was the</i>, <i>was a</i> and <i>of a</i>.</returns>
+    /// <returns><see langword="true"/> for <i>in the</i>, <i>of the</i>, <i>on the</i>, <i>with the</i>, <i>from the</i>, <i>for the</i>, <i>that the</i>, <i>was the</i>, <i>was a</i> and <i>of a</i>.</returns>
     private static bool GroupsWithArticle(string first, string second) =>
-        (second == "the" && first is "in" or "of" or "on" or "with" or "from" or "that" or "was")
+        (second == "the" && first is "in" or "of" or "on" or "with" or "from" or "for" or "that" or "was")
         || (second == "a" && first is "was" or "of");
 
     /// <summary>
