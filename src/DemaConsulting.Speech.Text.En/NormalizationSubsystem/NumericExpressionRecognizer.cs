@@ -11,13 +11,16 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 internal readonly record struct NumericSpan(int Start, int Length, string Spoken, NormalizationKind Kind);
 
 /// <summary>
-///     The outcome of recognizing a numeric expression at one token: up to two replacement spans,
+///     The outcome of recognizing a numeric expression at one token: its replacement spans (one or
+///     two in nearly every case; one per digit group for a phone number or identifier),
 ///     the number of tokens the expression consumed, and the counts it asks the pass to record.
 /// </summary>
 /// <remarks>
-///     A plain value (no heap data besides the spoken strings): the recognizer never allocates a
-///     list per token. A match with no spans and <see cref="Fallback"/> set means the token looks
-///     numeric but is left as written because it is outside the documented limits or shapes.
+///     A plain value (no heap data besides the spoken strings) for up to two spans: the recognizer
+///     never allocates a list per token. Only the hyphen-separated digit groups of a phone number
+///     or identifier, which need one span per group, carry an array. A match with no spans and
+///     <see cref="Fallback"/> set means the token looks numeric but is left as written because it
+///     is outside the documented limits or shapes.
 /// </remarks>
 internal readonly struct NumericMatch
 {
@@ -27,20 +30,25 @@ internal readonly struct NumericMatch
     /// <summary>The second span, when <see cref="SpanCount"/> is 2.</summary>
     private readonly NumericSpan _second;
 
+    /// <summary>All spans, when <see cref="SpanCount"/> is more than 2; otherwise <see langword="null"/>.</summary>
+    private readonly NumericSpan[]? _all;
+
     /// <summary>
     ///     Initializes a new match.
     /// </summary>
     /// <param name="first">The first span (ignored when <paramref name="spanCount"/> is 0).</param>
-    /// <param name="second">The second span (ignored unless <paramref name="spanCount"/> is 2).</param>
-    /// <param name="spanCount">The number of spans, 0 to 2.</param>
+    /// <param name="second">The second span (ignored unless <paramref name="spanCount"/> is at least 2).</param>
+    /// <param name="all">Every span when <paramref name="spanCount"/> is more than 2; otherwise <see langword="null"/>.</param>
+    /// <param name="spanCount">The number of spans.</param>
     /// <param name="tokensConsumed">The number of tokens the expression covers from the starting token, at least 1.</param>
     /// <param name="ambiguous">Whether the reading chose a documented default among competing readings.</param>
     /// <param name="fallback">Whether the expression hit a documented limit or an unsupported numeric shape.</param>
     /// <param name="periodUnit">Whether the last span is a unit token that may carry an abbreviation period.</param>
-    internal NumericMatch(NumericSpan first, NumericSpan second, int spanCount, int tokensConsumed, bool ambiguous, bool fallback, bool periodUnit)
+    internal NumericMatch(NumericSpan first, NumericSpan second, NumericSpan[]? all, int spanCount, int tokensConsumed, bool ambiguous, bool fallback, bool periodUnit)
     {
         _first = first;
         _second = second;
+        _all = all;
         SpanCount = spanCount;
         TokensConsumed = tokensConsumed;
         Ambiguous = ambiguous;
@@ -80,6 +88,11 @@ internal readonly struct NumericMatch
             if ((uint)index >= (uint)SpanCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (_all is not null)
+            {
+                return _all[index];
             }
 
             return index == 0 ? _first : _second;
@@ -322,6 +335,9 @@ internal static class NumericExpressionRecognizer
         /// <summary>The second span.</summary>
         private NumericSpan _second;
 
+        /// <summary>Every span after the second, for the one-span-per-group reading of a phone number; <see langword="null"/> until needed.</summary>
+        private List<NumericSpan>? _rest;
+
         /// <summary>The number of spans added.</summary>
         private int _count;
 
@@ -351,9 +367,13 @@ internal static class NumericExpressionRecognizer
             {
                 _first = span;
             }
-            else
+            else if (_count == 1)
             {
                 _second = span;
+            }
+            else
+            {
+                (_rest ??= []).Add(span);
             }
 
             _count++;
@@ -363,7 +383,7 @@ internal static class NumericExpressionRecognizer
         ///     Produces the finished match.
         /// </summary>
         /// <returns>The match.</returns>
-        internal readonly NumericMatch ToMatch() => new(_first, _second, _count, Consumed < 1 ? 1 : Consumed, Ambiguous, Fallback, PeriodUnit);
+        internal readonly NumericMatch ToMatch() => new(_first, _second, _rest is null ? null : [_first, _second, .. _rest], _count, Consumed < 1 ? 1 : Consumed, Ambiguous, Fallback, PeriodUnit);
     }
 
     /// <summary>
@@ -505,7 +525,7 @@ internal static class NumericExpressionRecognizer
     ///     Creates the match of a numeric-looking token that is left as written.
     /// </summary>
     /// <returns>A match with no span and the fallback flag set.</returns>
-    private static NumericMatch FallbackMatch() => new(default, default, 0, 1, false, true, false);
+    private static NumericMatch FallbackMatch() => new(default, default, null, 0, 1, false, true, false);
 
     /// <summary>
     ///     Reads an optional sign, currency symbol or hash and finds where the digits start.
@@ -1942,20 +1962,22 @@ internal static class NumericExpressionRecognizer
         }
         else
         {
-            // A phone number or identifier: every digit on its own.
+            // A phone number or identifier: every digit on its own, one span per hyphen-separated group so the
+            // hyphens stay between the spans (a speaker pauses between the groups of 555-0147, as in 555, 0147)
             if (total > NumberVerbalizer.MaxSpelledDigits)
             {
                 match = FallbackMatch();
                 return true;
             }
 
-            var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
             for (var group = 0; group < c.GroupCount; group++)
             {
-                NumberVerbalizer.AppendDigits(ref writer, c.Group(group));
+                var digits = c.Group(group);
+                builder.Add(c.Token.Start + c.Groups[2 * group], digits.Length, NumberVerbalizer.Digits(digits), NormalizationKind.Number);
             }
 
-            spoken = writer.ToString();
+            match = builder.ToMatch();
+            return true;
         }
 
         builder.Ambiguous = ambiguous;

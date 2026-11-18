@@ -64,6 +64,11 @@ public sealed partial class LexiconSubsystemTests
     [InlineData("P L EY1", "PastEd", "P L EY1 D")]
     [InlineData("W AA1 N T", "PastEd", "W AA1 N T IH0 D")]
     [InlineData("W AO1 K", "Ing", "W AO1 K IH0 NG")]
+    [InlineData("S T R AO1 NG", "SuperlativeEst", "S T R AO1 NG G AH0 S T")]
+    [InlineData("Y AH1 NG", "SuperlativeEst", "Y AH1 NG G AH0 S T")]
+    [InlineData("S T R AO1 NG", "ComparativeEr", "S T R AO1 NG ER0")]
+    [InlineData("W IH1 N IH0 NG", "SuperlativeEst", "W IH1 N IH0 NG AH0 S T")]
+    [InlineData("B IH1 G", "SuperlativeEst", "B IH1 G AH0 S T")]
     public void Morphology_Apply_EndingByLastPhone(string stem, string kind, string expected)
     {
         // Act
@@ -71,6 +76,30 @@ public sealed partial class LexiconSubsystemTests
 
         // Assert
         Assert.Equal(expected, result.ToString());
+    }
+
+    /// <summary>
+    ///     Proves the variants of a spelling are ordered so that the comparative of an adjective in <c>ng</c> that the
+    ///     dictionary lists both with and without the velar stop (<i>stronger</i>) starts with the one that has it, derived
+    ///     from the dictionary's own <c>-est</c> form, while the agentives and the other variant pairs keep the dictionary order.
+    /// </summary>
+    [Theory]
+    [InlineData("stronger", "S T R AO1 NG G ER0")]
+    [InlineData("longer", "L AO1 NG G ER0")]
+    [InlineData("younger", "Y AH1 NG G ER0")]
+    [InlineData("singer", "S IH1 NG ER0")]
+    [InlineData("hanger", "HH AE1 NG ER0")]
+    [InlineData("linger", "L IH1 NG G ER0")]
+    [InlineData("cat", "K AE1 T")]
+    public void Morphology_OrderVariants_ComparativeInNg_StartsWithTheVelarStop(string word, string expectedFirst)
+    {
+        // Act
+        var variants = CmuLexicon.Default.Lookup(word);
+        var ordered = Morphology.OrderVariants(word, variants, CmuLexicon.Default);
+
+        // Assert: the same variants, the expected one first, and nothing lost
+        Assert.Equal(expectedFirst, ordered[0].ToString());
+        Assert.Equal(variants.Select(v => v.ToString()).Order(StringComparer.Ordinal), ordered.Select(v => v.ToString()).Order(StringComparer.Ordinal));
     }
 
     /// <summary>Proves clitics attach to the previous word's pronunciation by its last phone.</summary>

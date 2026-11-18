@@ -53,7 +53,8 @@ sections:
               hyphenated compounds per model (every part stressed for Piper, only the first for Kokoro), words
               separated by one space with a closing mark attached to the word before it, quotation marks and
               dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
-              Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a pronunciation given
+              Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a hyphen
+              between two replaced digit groups (the groups of a phone number) as a pause in both; a pronunciation given
               as ARPAbet or as IPA shall be rendered in the same conventions as the dictionary word with the same
               sounds, and only the seven numbers thirteen to nineteen shall take the first-syllable number stress
               in the Piper rendering.
@@ -69,6 +70,7 @@ sections:
               - RenderingSubsystem_Layout_WordsAndClausePunctuation_FollowTheModelConventions
               - RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel
               - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
+              - RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices
               - RenderingSubsystem_Compounds_StressIsPerModel
               - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
               - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot
@@ -79,15 +81,21 @@ sections:
             title: >-
               The RenderingSubsystem shall render a listed function word unstressed, in its reduced form or
               with a secondary stress, in the Piper rendering unless weak forms are switched off, and shall
-              render it in its full dictionary form in the Kokoro rendering unless weak forms are switched on.
+              render it in its full dictionary form in the Kokoro rendering unless weak forms are switched on;
+              shall keep a function word in its full form right after a word whose readings differ only by the
+              voicing of the final consonant; and shall never render a table entry to nothing or without a
+              vowel, a lone bare full vowel (the pronoun I) of the Kokoro rendering carrying a stress mark.
             justification: |
               The Piper voice was trained on speech with unstressed function words; Kokoro's reference
               phonemizer keeps the full forms and the owner kept that default. Making the profile a switch of
-              the renderer, with the table as data, keeps it observable and testable.
+              the renderer, with the table as data, keeps it observable and testable. The reduced vowel of
+              a function word blurs the final s or z of a word such as close, and the Kokoro model drops a
+              lone unmarked diphthong symbol after a pause, so both are guarded.
             children:
               - SpeechPhonemesEn-Rendering-WeakForms-FunctionWords
             tests:
               - RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled
+              - RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices
 
           - id: SpeechPhonemesEn-Rendering-Parts
             title: >-

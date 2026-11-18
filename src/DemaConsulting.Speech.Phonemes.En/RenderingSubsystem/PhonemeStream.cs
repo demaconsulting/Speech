@@ -91,6 +91,15 @@ internal static class PhonemeStream
         index < items.Count && items[index].Kind == PhonemizedItemKind.Word ? items[index].Text : null;
 
     /// <summary>
+    ///     Gets the text of the word immediately before an item (a function word is rendered in its full form after some words).
+    /// </summary>
+    /// <param name="items">The items.</param>
+    /// <param name="index">The index of the item before the word in question.</param>
+    /// <returns>The text of the item at <paramref name="index"/> when it exists and is a word; otherwise <see langword="null"/>.</returns>
+    public static string? PreviousWordText(IReadOnlyList<PhonemizedItem> items, int index) =>
+        index >= 0 && items[index].Kind == PhonemizedItemKind.Word ? items[index].Text : null;
+
+    /// <summary>
     ///     Splits a long text between items into parts that each render to at most a given number of symbols.
     /// </summary>
     /// <param name="items">The items of the whole text.</param>

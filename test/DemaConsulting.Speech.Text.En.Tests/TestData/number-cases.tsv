@@ -331,7 +331,7 @@ date-invalid-zero	0/5/2024	0/5/2024	0/5/2024	0	0	month zero
 date-invalid-32	2/32/2024	2/32/2024	2/32/2024	0	0	day 32
 date-invalid-year-00	1/1/00	1/1/00	1/1/00	0	0	year 00 is not a year
 date-invalid-short-year	5/5/5	5/5/5	5/5/5	0	0	one-digit year
-date-iso-bad-month	2024-13-01	two zero two four one three zero one	2024-13-01	0	0	not a date: an identifier read digit by digit
+date-iso-bad-month	2024-13-01	two zero two four-one three-zero one	2024-13-01	0	0	not a date: an identifier read digit by digit, a group at a time
 date-dotted	12.25.2024	twelve point twenty five point two zero two four	12.25.2024	0	0	dots are never a date
 date-sentence	Due 12/25/2024. Then rest.	Due December twenty fifth twenty twenty four. Then rest.	Due 12/25/2024.¦Then rest.	0	0	date before a period
 mdate-comma	January 5, 2024	January fifth, twenty twenty four	January 5, 2024	0	0	month day, year
@@ -402,15 +402,19 @@ range-en-dash-unit	5\u201310kg	five to ten kilograms	5\u201310kg	0	0	a unit on t
 range-en-dash-percent	5\u201310%	five to ten percent	5\u201310%	0	0	a percent sign on the right endpoint
 range-en-dash-chain	1\u20132\u20133	one to two to three	1\u20132\u20133	0	0	a chain of read endpoints
 range-context	Read pages 5-10 today.	Read pages five to ten today.	Read pages 5-10 today.	0	0	range in a sentence
-range-leading-zero	01-02	zero one zero two	01-02	0	0	a leading zero is an identifier
-range-huge-group	1234567890-5	one two three four five six seven eight nine zero five	1234567890-5	0	0	a group above nine digits is an identifier
-phone-local	555-1234	five five five one two three four	555-1234	0	0	local number
-phone-us	555-123-4567	five five five one two three four five six seven	555-123-4567	0	0	phone number
-phone-1-800	1-800-555-1234	one eight zero zero five five five one two three four	1-800-555-1234	0	0	toll free
-phone-ssn	123-45-6789	one two three four five six seven eight nine	123-45-6789	0	0	identifier
-phone-area-code	(555) 123-4567	(five five five) one two three four five six seven	(555) 123-4567	0	0	area code in parentheses
+range-leading-zero	01-02	zero one-zero two	01-02	0	0	a leading zero is an identifier, read a group at a time
+range-huge-group	1234567890-5	one two three four five six seven eight nine zero-five	1234567890-5	0	0	a group above nine digits is an identifier, read a group at a time
+phone-local	555-1234	five five five-one two three four	555-1234	0	0	local number: the hyphen between the groups stays, so the speaker pauses there
+phone-local-zero	555-0147	five five five-zero one four seven	555-0147	0	0	local number with a leading zero in the second group
+phone-us	555-123-4567	five five five-one two three-four five six seven	555-123-4567	0	0	phone number
+phone-1-800	1-800-555-1234	one-eight zero zero-five five five-one two three four	1-800-555-1234	0	0	toll free
+phone-1-800-zero	1-800-555-0147	one-eight zero zero-five five five-zero one four seven	1-800-555-0147	0	0	toll free with a leading zero in the last group
+phone-ssn	123-45-6789	one two three-four five-six seven eight nine	123-45-6789	0	0	identifier
+phone-area-code	(555) 123-4567	(five five five) one two three-four five six seven	(555) 123-4567	0	0	area code in parentheses
+phone-area-code-zero	(555) 014-7000	(five five five) zero one four-seven zero zero zero	(555) 014-7000	0	0	area code in parentheses, local number with a leading zero
 phone-parens-alone	(555) only	(five hundred fifty five) only	(555) only	0	0	parentheses alone are a cardinal
-phone-context	Call 555-1234 now.	Call five five five one two three four now.	Call 555-1234 now.	0	0	phone number in a sentence
+phone-context	Call 555-1234 now.	Call five five five-one two three four now.	Call 555-1234 now.	0	0	phone number in a sentence
+phone-context-zero	Please call 555-0147 before noon.	Please call five five five-zero one four seven before noon.	Please call 555-0147 before noon.	0	0	phone number in a sentence, the listening-pack sentence
 dot-version	3.2.1	three point two point one	3.2.1	0	0	version
 dot-version-2	2.0.1	two point zero point one	2.0.1	0	0	version with zero
 dot-address	192.168.0.1	one hundred ninety two point one hundred sixty eight point zero point one	192.168.0.1	0	0	address

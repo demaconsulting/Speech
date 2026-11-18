@@ -322,6 +322,27 @@ public sealed class PhonemizerSubsystemTests
             tokens.Select(t => t.Kind));
     }
 
+    /// <summary>Proves a hyphen whose neighbors are both replacement text (the groups of a phone number, each replaced on its own) ends the word and is a punctuation token, while the hyphen of a compound, or one with an original neighbor, stays inside the word.</summary>
+    [Fact]
+    public void WordTokenizer_Tokenize_HyphenBetweenTwoReplacements_IsPunctuationNotACompoundJoint()
+    {
+        // Arrange: "555-0147" with both groups replaced; "COVID-19" with the number replaced; "twelve-year-old" untouched
+        var phone = SpokenText.Build("555-0147", [Norm(0, 3, "five five five"), Norm(4, 4, "zero one four seven")]);
+        var covid = SpokenText.Build("COVID-19", [Norm(6, 2, "nineteen")]);
+        var compound = SpokenText.Build("twelve-year-old", null);
+
+        // Act
+        var phoneTokens = WordTokenizer.Tokenize(phone, CmuLexicon.Default);
+        var covidTokens = WordTokenizer.Tokenize(covid, CmuLexicon.Default);
+        var compoundTokens = WordTokenizer.Tokenize(compound, CmuLexicon.Default);
+
+        // Assert: the hyphen is a token of its own between the groups; the other two stay one word each
+        Assert.Equal(["five", "five", "five", "-", "zero", "one", "four", "seven"], phoneTokens.Select(t => phone.Text.Substring(t.Start, t.Length)));
+        Assert.Equal(TokenKind.Punctuation, phoneTokens[3].Kind);
+        Assert.Equal([TokenKind.Word], covidTokens.Select(t => t.Kind));
+        Assert.Equal([TokenKind.Word], compoundTokens.Select(t => t.Kind));
+    }
+
     /// <summary>Proves a leading apostrophe belongs to a word only when the dictionary lists it that way, and otherwise is a quote mark.</summary>
     [Fact]
     public void WordTokenizer_Tokenize_LeadingApostrophe_IsPartOfAWordOnlyWhenTheDictionaryListsIt()
@@ -351,6 +372,22 @@ public sealed class PhonemizerSubsystemTests
 
         // Assert: one letter token per spelled letter, then the clitic that the replacement boundary cut off
         Assert.Equal([TokenKind.Letter, TokenKind.Letter, TokenKind.Letter, TokenKind.Clitic], letters.Select(t => t.Kind));
+    }
+
+    /// <summary>Proves the dictionary's first variant is the default except that the comparative of an adjective in <c>ng</c> takes the variant with the velar stop (<i>stronger</i> is listed with and without it), while an agentive does not.</summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var stronger = pronouncer.Pronounce("stronger", null);
+        var singer = pronouncer.Pronounce("singer", null);
+
+        // Assert: both come from the dictionary; the adjective has the stop, the agentive does not
+        Assert.Equal((PronunciationSource.Lexicon, "S T R AO1 NG G ER0"), (stronger!.Source, stronger.Pronunciation.ToString()));
+        Assert.Equal((PronunciationSource.Lexicon, "S IH1 NG ER0"), (singer!.Source, singer.Pronunciation.ToString()));
     }
 
     /// <summary>Proves each source of the priority list is used in order and reported: the reading, the dictionary's first variant, the morphology rules, a productive prefix, and the letter-to-sound model last.</summary>

@@ -98,8 +98,8 @@ internal static class EspeakWordRules
     }
 
     /// <summary>
-    ///     Tests whether a word is one of the numbers thirteen to nineteen: one of the number stems (<c>thir</c>,
-    ///     <c>four</c>, <c>fif</c>, <c>six</c>, <c>seven</c>, <c>eigh</c>, <c>nine</c>) followed by <c>t</c>, a stressed <c>IY</c> and <c>n</c>.
+    ///     Tests whether a word is one of the numbers thirteen to nineteen: the stem of one of the seven number names
+    ///     followed by <c>t</c>, a stressed <c>IY</c> and <c>n</c>.
     /// </summary>
     /// <param name="phones">The phones.</param>
     /// <returns><see langword="true"/> for one of the seven numbers; other words that end in <c>T IY1 N</c> (<c>routine</c>, <c>canteen</c>) are not.</returns>

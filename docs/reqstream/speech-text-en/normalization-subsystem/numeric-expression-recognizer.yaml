@@ -115,7 +115,8 @@ sections:
                 title: >-
                   The NumericExpressionRecognizer class shall read two hyphen-separated numbers as a
                   range (years as years when both are four-digit years in order), any other
-                  hyphen-separated groups digit by digit, three or more period-separated groups with
+                  hyphen-separated groups digit by digit with one span per group and the hyphens left
+                  between the spans, three or more period-separated groups with
                   a one-to-three-digit group without a leading zero as a cardinal and any other group
                   digit by digit, a slash form as a fraction when its numerator is below its
                   denominator and the denominator is in its documented set (reporting it as

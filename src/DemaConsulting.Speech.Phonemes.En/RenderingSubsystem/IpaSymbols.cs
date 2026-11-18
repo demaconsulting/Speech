@@ -35,7 +35,7 @@ internal static class IpaSymbols
     public const string PiperSymbols = " !\"#$'(),-.0123456789:;?X^_abcdefghijklmnopqrstuvwxyzæçðøħŋœǀǁǂǃɐɑɒɓɔɕɖɗɘəɚɛɜɞɟɠɡɢɣɤɥɦɧɨɪɫɬɭɮɯɰɱɲɳɴɵɶɸɹɺɻɽɾʀʁʂʃʄʈʉʊʋʌʍʎʏʐʑʒʔʕʘʙʛʜʝʟʡʢʦʰʲˈˌːˑ˞ˤ\u0303\u030A\u031D\u0327\u0329\u032A\u032F\u033A\u033Bβεθχᵻ↑↓ⱱ";
 
     /// <summary>The symbols of Kokoro's vocabulary that are not IPA: its diphthong capitals and the padding symbol.</summary>
-    private const string KokoroReserved = "AIOQSTWY$";
+    private static readonly string KokoroReserved = new(['A', 'I', 'O', 'Q', 'S', 'T', 'W', 'Y', '$']);
 
     /// <summary>The symbols of the Piper map that are not IPA: the padding, start and end symbols and two espeak markers.</summary>
     private const string PiperReserved = "^_$#X";

@@ -63,6 +63,7 @@ sections:
         tests:
           - SpeechPhonemesEn_ReadingGolden_EveryReadingIsPronouncedAsReviewed
           - SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate
+          - SpeechPhonemesEn_Render_EveryHeteronymReading_BothVoicesRenderTheChosenPronunciation
 
       - id: SpeechPhonemesEn-Pronunciation-SourcePriority
         title: >-
@@ -98,6 +99,7 @@ sections:
           - SpeechPhonemesEn-Lexicon-Morphology
         tests:
           - SpeechPhonemesEn_Phonemize_InflectedAndPrefixedWordsAbsentFromTheDictionary_AreDerivedFromTheirStem
+          - SpeechPhonemesEn_Phonemize_WordsEndingInNg_SpeakTheVelarStopOnlyWhereEnglishDoes
 
       - id: SpeechPhonemesEn-Pronunciation-OutOfVocabulary
         title: >-
@@ -139,6 +141,7 @@ sections:
           - SpeechPhonemesEn_Phonemize_AnalyzedPossessiveOfAHeteronym_KeepsTheChosenReadingForBothApostrophes
           - SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream
           - SpeechPhonemesEn_Phonemize_NoAnnotations_EveryInventoryFormGetsItsDefaultReading
+          - SpeechPhonemesEn_Render_PhoneNumber_PausesBetweenItsDigitGroups
 
       - id: SpeechPhonemesEn-Reporting-UnsupportedText
         title: >-
@@ -179,17 +182,22 @@ sections:
         title: >-
           The library shall render the small function words of the Piper rendering in their unstressed or
           reduced forms by default, shall let a caller switch that off, and shall keep the full forms for
-          Kokoro unless the caller asks for the reduced ones.
+          Kokoro unless the caller asks for the reduced ones; a function word shall keep its full form right
+          after a word whose readings differ only by the voicing of the final consonant (close to), and
+          the pronoun I shall stay audible in the Kokoro rendering after a pause.
         tags: [system]
         justification: |
           The Piper voice was trained on speech in which function words ("the", "of", "and") are unstressed,
           so stressed dictionary forms make it sound like a list of words. Kokoro's own phonemizer renders
           full forms, and the owner decided to leave that default alone, so the profile is a choice of the
-          caller and the choice must be observable.
+          caller and the choice must be observable. A reduced "to" blurs the s of "close", and the Kokoro
+          model drops a bare unstressed I after a comma, as the blinded listening showed.
         children:
           - SpeechPhonemesEn-Rendering-WeakFormTable
         tests:
           - SpeechPhonemesEn_Render_FunctionWords_AreWeakForPiperAndFullForKokoroByDefault
+          - SpeechPhonemesEn_Render_FunctionWordAfterAVoicingAlternatingWord_KeepsItsFullForm
+          - SpeechPhonemesEn_Render_PronounIAfterAComma_KeepsAnAudibleVowelInTheKokoroRendering
 
       - id: SpeechPhonemesEn-Rendering-LongText
         title: >-

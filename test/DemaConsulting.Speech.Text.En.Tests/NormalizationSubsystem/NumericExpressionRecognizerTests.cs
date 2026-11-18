@@ -559,7 +559,8 @@ public sealed class NumericExpressionRecognizerTests
             Assert.False(Try(notDate, 0, out _), notDate);
         }
 
-        Assert.Equal("two zero two four one three zero one", SpokenAt("2024-13-01", 0));
+        // The invalid date is read as an identifier, one span per hyphen-separated group
+        Assert.Equal("two zero two four|one three|zero one", SpokenAt("2024-13-01", 0));
     }
 
     /// <summary>Proves a date written with a month name is read one token at a time: the day as an ordinal, the year by the year policy, the month and comma untouched.</summary>
@@ -754,7 +755,8 @@ public sealed class NumericExpressionRecognizerTests
     [Fact]
     public void NumericExpressionRecognizer_HyphenGroups_RangePhoneIdAndDate()
     {
-        // Arrange: (text, spoken)
+        // Arrange: (text, spoken words of each span joined by a bar); a range or date is one span, a phone number or
+        // identifier one span per hyphen-separated group so the speaker can pause between the groups
         (string Text, string Spoken)[] cases =
         [
             ("5-10", "five to ten"),
@@ -763,12 +765,13 @@ public sealed class NumericExpressionRecognizerTests
             ("1990-2000", "nineteen ninety to two thousand"),
             ("2020-2024", "twenty twenty to twenty twenty four"),
             ("2024-2020", "two thousand twenty four to two thousand twenty"),
-            ("555-1234", "five five five one two three four"),
-            ("555-123-4567", "five five five one two three four five six seven"),
-            ("1-800-555-1234", "one eight zero zero five five five one two three four"),
-            ("123-45-6789", "one two three four five six seven eight nine"),
-            ("01-02", "zero one zero two"),
-            ("1234567890-5", "one two three four five six seven eight nine zero five"),
+            ("555-1234", "five five five|one two three four"),
+            ("555-0147", "five five five|zero one four seven"),
+            ("555-123-4567", "five five five|one two three|four five six seven"),
+            ("1-800-555-1234", "one|eight zero zero|five five five|one two three four"),
+            ("123-45-6789", "one two three|four five|six seven eight nine"),
+            ("01-02", "zero one|zero two"),
+            ("1234567890-5", "one two three four five six seven eight nine zero|five"),
             ("2024-12-25", "December twenty fifth twenty twenty four"),
         ];
 
@@ -776,14 +779,19 @@ public sealed class NumericExpressionRecognizerTests
         foreach (var (text, spoken) in cases)
         {
             Assert.True(Try(text, 0, out var match), text);
-            Assert.Equal(spoken, match[0].Spoken);
-            Assert.Equal(1, match.SpanCount);
+            Assert.Equal(spoken, SpokenAt(text, 0));
+            Assert.Equal(spoken.Count(character => character == '|') + 1, match.SpanCount);
             Assert.False(match.Fallback);
         }
 
-        // Assert: seven groups (63 digits) are read digit by digit; eight groups (72 digits) are a fallback; signs, symbols and letters make the token identity
+        // Assert: the spans of a phone number are the digit groups; the hyphens between them stay as written
+        Assert.True(Try("555-0147", 0, out var phone));
+        Assert.Equal((0, 3), (phone[0].Start, phone[0].Length));
+        Assert.Equal((4, 4), (phone[1].Start, phone[1].Length));
+
+        // Assert: seven groups (63 digits) are read digit by digit, one span per group; eight groups (72 digits) are a fallback; signs, symbols and letters make the token identity
         Assert.True(Try(string.Join('-', Enumerable.Repeat(new string('1', 9), 7)), 0, out var spelled));
-        Assert.Equal(1, spelled.SpanCount);
+        Assert.Equal(7, spelled.SpanCount);
         Assert.False(spelled.Fallback);
         Assert.True(Try(string.Join('-', Enumerable.Repeat(new string('1', 9), 8)), 0, out var tooMany));
         Assert.True(tooMany.Fallback);
@@ -796,9 +804,9 @@ public sealed class NumericExpressionRecognizerTests
         // Assert: a number joined to a hyphenated letter is read as the number; the hyphen and the letter stay as written
         Assert.Equal("five", SpokenAt("5-D", 0));
 
-        // Assert: the area code in parentheses is per token
+        // Assert: the area code in parentheses is per token, the rest of the number one span per hyphen group
         Assert.Equal("five five five", SpokenAt("(555) 123-4567", 1));
-        Assert.Equal("one two three four five six seven", SpokenAt("(555) 123-4567", 3));
+        Assert.Equal("one two three|four five six seven", SpokenAt("(555) 123-4567", 3));
         Assert.Equal("five hundred fifty five", SpokenAt("(555) only", 1));
     }
 
@@ -969,9 +977,11 @@ public sealed class NumericExpressionRecognizerTests
                         var isTimePart = s == 0 && match.SpanCount == 2 && span.Kind == NormalizationKind.DateTime && span.Start == own.Start && match[1].Start == span.Start + span.Length;
                         var isMeridiemPart = s == 1 && match.SpanCount == 2 && span.Kind == NormalizationKind.DateTime && span.Start + span.Length == own.Start + own.Length && span.Spoken is "P M" or "A M";
                         var isHyphenNumber = match.SpanCount == 1 && span.Kind == NormalizationKind.Number && span.Start == own.Start && text[span.Start + span.Length] == '-';
+                        var isHyphenGroup = match.SpanCount >= 2 && span.Kind == NormalizationKind.Number && span.Start >= own.Start && span.Start + span.Length <= own.Start + own.Length
+                            && ((span.Start + span.Length < own.Start + own.Length && text[span.Start + span.Length] == '-') || (span.Start > own.Start && text[span.Start - 1] == '-'));
                         var isLetterNumber = s == 0 && match.SpanCount == 2 && span.Kind == NormalizationKind.Number && span.Start == own.Start && match[1].Start == span.Start + span.Length && match[1].Length == 1;
                         var isGluedLetter = s == 1 && match.SpanCount == 2 && span.Kind == NormalizationKind.Initialism && span.Length == 1 && span.Start + span.Length == own.Start + own.Length && span.Spoken.Length == 1 && span.Spoken[0] is >= 'A' and <= 'Z';
-                        Assert.True(isTimePart || isMeridiemPart || isHyphenNumber || isLetterNumber || isGluedLetter, $"{context}: sub-token span '{covered}'");
+                        Assert.True(isTimePart || isMeridiemPart || isHyphenNumber || isHyphenGroup || isLetterNumber || isGluedLetter, $"{context}: sub-token span '{covered}'");
                     }
                     else
                     {

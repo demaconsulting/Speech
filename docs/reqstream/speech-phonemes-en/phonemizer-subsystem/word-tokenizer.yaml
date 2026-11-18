@@ -19,7 +19,7 @@ sections:
                 title: >-
                   The WordTokenizer class shall cut the spoken text into word tokens (letters with inner
                   apostrophes and hyphens, and a leading apostrophe only when the dictionary lists the word
-                  so), one-letter tokens for a spelled replacement followed by a clitic token for a
+                  so, but not across a hyphen between two replacements, which is a punctuation token), one-letter tokens for a spelled replacement followed by a clitic token for a
                   contraction ending that a replacement boundary cut off, digit runs, punctuation (a run of
                   one mark being one token) and unsupported runs, shall skip whitespace and the audio-tag
                   placeholder, and shall apply a replacement annotation to its span while ignoring an
@@ -32,4 +32,5 @@ sections:
                 tests:
                   - WordTokenizer_Tokenize_WordsPunctuationDigitsAndUnsupportedRuns_AreClassified
                   - WordTokenizer_Tokenize_LeadingApostrophe_IsPartOfAWordOnlyWhenTheDictionaryListsIt
+                  - WordTokenizer_Tokenize_HyphenBetweenTwoReplacements_IsPunctuationNotACompoundJoint
                   - WordTokenizer_Tokenize_ReplacementsAndSpelledLetters_AreAppliedAndBadAnnotationsIgnored

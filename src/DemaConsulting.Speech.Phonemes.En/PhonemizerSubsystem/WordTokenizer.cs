@@ -46,7 +46,9 @@ internal readonly record struct Token(TokenKind Kind, int Start, int End)
 ///     Rules, in the order they are tried at each position: whitespace and the core library's audio-tag placeholder
 ///     are skipped; a letter of a spelled replacement is a token of its own; a run of digits is one token; a run of
 ///     Latin letters is a word, which may contain apostrophes between letters and hyphens between letters (and may
-///     take a trailing apostrophe after <c>s</c>, the plural possessive); a leading apostrophe belongs to a word only
+///     take a trailing apostrophe after <c>s</c>, the plural possessive), except a hyphen between two replacements,
+///     which ends the word and is a punctuation token (the boundary between the digit groups of a phone number);
+///     a leading apostrophe belongs to a word only
 ///     when the lexicon lists it that way (<c>'cause</c>, <c>'tis</c>) and otherwise is a quote mark; a contraction
 ///     ending directly after a word that a replacement boundary cut off (<c>I</c> of a spelled <c>F B I</c> followed
 ///     by <c>'s</c>) is a clitic token; the marks in <see cref="PunctuationMarks"/> are punctuation, a run of one
@@ -209,9 +211,10 @@ internal static class WordTokenizer
             {
                 index++;
             }
-            else if ((IsApostrophe(s[index]) || s[index] == '-') && index + 1 < s.Length && IsWordLetter(spoken, index + 1))
+            else if ((IsApostrophe(s[index]) || s[index] == '-') && index + 1 < s.Length && IsWordLetter(spoken, index + 1) && !spoken.IsBoundaryHyphenAt(index))
             {
-                // An apostrophe or hyphen between two letters stays inside the word
+                // An apostrophe or hyphen between two letters stays inside the word, unless the hyphen separates two
+                // replacements (the groups of a phone number), where it is a boundary of its own
                 index++;
             }
             else

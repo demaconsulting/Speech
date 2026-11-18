@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
@@ -12,9 +13,14 @@ namespace DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
 ///     <para>
 ///     The table is authored from the standard description of English weak forms; the measurement against the speech
 ///     engine the Piper voice was trained on (see <c>docs/evaluation/phonemes-en/renderers.md</c>) decided which of
-///     three classes a word belongs to, and the table records those classes, not engine output. Only the Piper
-///     profile uses it: that voice was trained on text in which function words are unstressed, whereas Kokoro's full
-///     forms are rendered as the dictionary has them.
+///     three classes a word belongs to, and the table records those classes, not engine output. Both renderers can
+///     apply it: the Piper profile always does, and the Kokoro profile does when its weak forms are switched on (the
+///     Kokoro pipeline does so, because that model was trained on text in which function words are reduced).
+///     </para>
+///     <para>
+///     A word with a reduced form keeps its full dictionary form right after a word whose readings differ only by the
+///     voicing of the final consonant (<i>close to</i>, <i>a house to</i>, <i>the use of</i>), because the reduced
+///     vowel of the function word blurs the <c>s</c> or <c>z</c> that tells the readings apart.
 ///     </para>
 ///     <para>
 ///     A few words have a second form before a vowel (<i>the</i> is <c>ðɪ</c> in <i>the apple</i>, <i>to</i> is
@@ -47,6 +53,13 @@ internal static class WeakForms
         ["at"] = "æɾ",
     };
 
+    /// <summary>
+    ///     The spellings whose pronunciations differ only by the voicing of the final consonant (<i>close</i> is
+    ///     <c>kloʊz</c> as a verb and <c>kloʊs</c> as an adjective, <i>use</i>, <i>house</i>, <i>excuse</i>, <i>abuse</i>, ...),
+    ///     derived from the lexicon and the reading table on first use.
+    /// </summary>
+    private static readonly Lazy<HashSet<string>> VoicingAlternations = new(BuildVoicingAlternations, LazyThreadSafetyMode.ExecutionAndPublication);
+
     /// <summary>Gets the number of words in the table.</summary>
     public static int Count => Forms.Count + Demoted.Count;
 
@@ -55,6 +68,9 @@ internal static class WeakForms
 
     /// <summary>Gets every IPA form of the table (all variants), so a test can prove they are in the voice's inventory.</summary>
     public static IEnumerable<string> AllForms => Forms.Values.SelectMany(f => new[] { f.BeforeConsonant, f.BeforeVowel }).Concat(EspeakFlapForms.Values);
+
+    /// <summary>Gets the spellings whose pronunciations differ only by the voicing of the final consonant, which keep a following function word in its full form.</summary>
+    public static IReadOnlyCollection<string> VoicingAlternatingWords => VoicingAlternations.Value;
 
     /// <summary>
     ///     Finds the words that are spoken together with the word before them: a short function word and the
@@ -69,7 +85,10 @@ internal static class WeakForms
         {
             var previous = items[i - 1];
             var current = items[i];
-            grouped[i] = IsWord(previous) && IsWord(current) && GroupsWithArticle(previous.Text.ToLowerInvariant(), current.Text.ToLowerInvariant());
+
+            // A function word that stays in its full form after a voicing-alternating word is not grouped with the article after it
+            var fullForm = i >= 2 && items[i - 2].Kind == PhonemizedItemKind.Word && VoicingAlternations.Value.Contains(items[i - 2].Text.ToLowerInvariant());
+            grouped[i] = !fullForm && IsWord(previous) && IsWord(current) && GroupsWithArticle(previous.Text.ToLowerInvariant(), current.Text.ToLowerInvariant());
         }
 
         return grouped;
@@ -81,16 +100,30 @@ internal static class WeakForms
     /// <param name="word">The word as spoken (any case).</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
     /// <param name="nextWord">The next word as spoken (any case), or <see langword="null"/> when there is none or it is not a word.</param>
+    /// <param name="previousWord">The word immediately before it (any case), or <see langword="null"/> when there is none or it is not a word.</param>
     /// <param name="espeakStyle">Whether the entries that mirror the espeak-style voices' training text (stress of a few more words, the flap of <i>it</i> and <i>at</i>) apply; misaki's profile does not use them.</param>
     /// <param name="form">Receives the explicit weak form; empty when the word is only demoted.</param>
     /// <param name="demoted">Receives whether the word keeps its dictionary vowels with a secondary stress.</param>
     /// <returns><see langword="true"/> when the word is in the table.</returns>
-    public static bool TryGet(string word, bool nextStartsWithVowel, string? nextWord, bool espeakStyle, out string form, out bool demoted)
+    /// <remarks>
+    ///     A word with a reduced form (<i>to</i>, <i>a</i>, <i>the</i>, <i>and</i>, <i>of</i>, ...) keeps its full dictionary form right after a
+    ///     voicing-alternating word (<i>close to</i>, <i>a house to</i>): the reduced vowel of the function word would
+    ///     blur the final <c>s</c> or <c>z</c> of the word before it that tells the readings apart, so the table does not apply.
+    /// </remarks>
+    public static bool TryGet(string word, bool nextStartsWithVowel, string? nextWord, string? previousWord, bool espeakStyle, out string form, out bool demoted)
     {
         var key = word.ToLowerInvariant();
         demoted = Demoted.Contains(key) || (espeakStyle && EspeakDemoted.Contains(key));
         if (Forms.TryGetValue(key, out var forms))
         {
+            // The full form: after a word whose last consonant carries the difference between its readings
+            if (previousWord is not null && VoicingAlternations.Value.Contains(previousWord.ToLowerInvariant()))
+            {
+                form = string.Empty;
+                demoted = false;
+                return false;
+            }
+
             form = nextStartsWithVowel ? forms.BeforeVowel : forms.BeforeConsonant;
 
             // The espeak-style voices flap the t of it and at before a vowel, leave on unstressed in on the, and say for the
@@ -214,4 +247,102 @@ internal static class WeakForms
     /// <param name="beforeVowel">The form before a vowel; the form before a consonant when omitted.</param>
     private static void Add(Dictionary<string, (string, string)> forms, string word, string beforeConsonant, string? beforeVowel = null) =>
         forms.Add(word, (beforeConsonant, beforeVowel ?? beforeConsonant));
+
+    /// <summary>
+    ///     Derives the spellings whose pronunciations differ only by the voicing of the final consonant.
+    /// </summary>
+    /// <remarks>
+    ///     Two sources are read: the variants the dictionary lists for one spelling (<i>abuse</i>, <i>excuse</i>,
+    ///     <i>diffuse</i>, <i>paths</i>) and the pronunciations of the readings of one heteronym lemma
+    ///     (<i>close</i>, <i>use</i>, <i>house</i>: the reading table says which sense is which, the dictionary does
+    ///     not). The function words of this table are left out: their own variants are what the table already says.
+    /// </remarks>
+    /// <returns>The lower-case spellings.</returns>
+    private static HashSet<string> BuildVoicingAlternations()
+    {
+        var words = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in CmuLexicon.Default.Entries())
+        {
+            if (entry.Pronunciations.Count > 1 && AnyPairDiffersOnlyByFinalVoicing(entry.Pronunciations))
+            {
+                words.Add(entry.Word);
+            }
+        }
+
+        foreach (var lemma in ReadingPronunciations.Default.Entries.GroupBy(e => ReadingPronunciations.LemmaOf(e.ReadingId), StringComparer.Ordinal))
+        {
+            var pronunciations = lemma.Select(e => e.Pronunciation).ToList();
+            if (pronunciations.Count > 1 && AnyPairDiffersOnlyByFinalVoicing(pronunciations))
+            {
+                words.Add(lemma.Key);
+            }
+        }
+
+        words.ExceptWith(Forms.Keys);
+        words.ExceptWith(Demoted);
+        return words;
+    }
+
+    /// <summary>
+    ///     Tells whether two of some pronunciations differ only by the voicing of the final consonants.
+    /// </summary>
+    /// <param name="pronunciations">The pronunciations of one spelling.</param>
+    /// <returns><see langword="true"/> when some pair has the same phones except that a fricative in the final consonant run is voiced in one and voiceless in the other.</returns>
+    private static bool AnyPairDiffersOnlyByFinalVoicing(IReadOnlyList<Pronunciation> pronunciations)
+    {
+        for (var i = 0; i < pronunciations.Count; i++)
+        {
+            for (var j = i + 1; j < pronunciations.Count; j++)
+            {
+                if (DiffersOnlyByFinalVoicing(pronunciations[i], pronunciations[j]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Tells whether two pronunciations differ only by the voicing of the final consonants: <c>S</c>/<c>Z</c>, <c>F</c>/<c>V</c> or
+    ///     <c>TH</c>/<c>DH</c> after the last vowel, and a <c>T</c>/<c>D</c> that follows such a pair (the ending of <i>used</i>).
+    /// </summary>
+    /// <param name="a">The first pronunciation.</param>
+    /// <param name="b">The second pronunciation.</param>
+    /// <returns><see langword="true"/> for such a pair.</returns>
+    private static bool DiffersOnlyByFinalVoicing(Pronunciation a, Pronunciation b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        var tail = a.Count;
+        while (tail > 0 && !a[tail - 1].IsVowel)
+        {
+            tail--;
+        }
+
+        var differs = false;
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (a[i] == b[i])
+            {
+                continue;
+            }
+
+            var pair = (a[i].BaseSymbol, b[i].BaseSymbol);
+            var fricative = pair is ("S", "Z") or ("Z", "S") or ("F", "V") or ("V", "F") or ("TH", "DH") or ("DH", "TH");
+            var stop = pair is ("T", "D") or ("D", "T");
+            if (i < tail || !(fricative || (stop && i > 0 && a[i - 1] != b[i - 1])))
+            {
+                return false;
+            }
+
+            differs = true;
+        }
+
+        return differs;
+    }
 }

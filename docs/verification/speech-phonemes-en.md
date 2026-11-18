@@ -63,13 +63,17 @@ inventory that the dictionary lists is pronounced as the first variant of its en
 ### Readings
 
 **Tests**: `SpeechPhonemesEn_ReadingGolden_EveryReadingIsPronouncedAsReviewed`,
-`SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate`
+`SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate`,
+`SpeechPhonemesEn_Render_EveryHeteronymReading_BothVoicesRenderTheChosenPronunciation`
 
 Each of the 395 reading ids has one reviewed sentence; the pronunciation of the target word comes out of the pipeline
 with the reading applied, end to end where the real classifier labels the sentence as intended and with the reading
 forced where it labels it differently (the golden is not bent to the classifier). At least 95 percent of the sentences
 are labeled correctly by the classifier today (97.5 percent measured), and the rows marked as classified end to end are
-re-checked.
+re-checked. The same 395 sentences prove that both voices say the chosen reading: the target word as rendered in its
+sentence by the Piper renderer and by the Kokoro renderer (both with function-word tables on) equals what that renderer
+renders for the pronunciation the reading table gives for the reading, on its own (the Piper voice may add the linking
+r), so a rule of one voice that replaces or changes the reading of a heteronym is caught.
 
 ### Source priority
 
@@ -81,10 +85,14 @@ the enumeration, and the override and the reading give their own pronunciations.
 
 ### Morphology
 
-**Test**: `SpeechPhonemesEn_Phonemize_InflectedAndPrefixedWordsAbsentFromTheDictionary_AreDerivedFromTheirStem`
+**Test**: `SpeechPhonemesEn_Phonemize_InflectedAndPrefixedWordsAbsentFromTheDictionary_AreDerivedFromTheirStem`,
+`SpeechPhonemesEn_Phonemize_WordsEndingInNg_SpeakTheVelarStopOnlyWhereEnglishDoes`
 
 Three words that are not dictionary entries (`unfollowed`, `unfollows`, `unfollow`) are derived by the morphology rules,
 are not reported as out of vocabulary, and end in the sound the rule gives (`D` for the past, `Z` for the third person).
+The comparatives and superlatives of `long`, `strong` and `young` speak the velar stop (`S T R AO1 NG G ER0` for
+`stronger`, although the dictionary lists it first without the `G`), `singer`, `singing`, `longing` and `hanger` do not,
+and `wrongest`, which the dictionary lacks, is derived with the stop.
 
 ### Out of vocabulary
 
@@ -96,12 +104,15 @@ are not reported as out of vocabulary, and end in the sound the rule gives (`D` 
 ### Annotations from the text analysis
 
 **Tests**: `SpeechPhonemesEn_Phonemize_AnalyzedText_SpeaksNormalizationsSpelledLettersAndReadings`,
-`SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream`
+`SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream`,
+`SpeechPhonemesEn_Render_PhoneNumber_PausesBetweenItsDigitGroups`
 
 `Dr. Smith paid $5 for the FBI record.` through the real analyzer gives `Doctor` and `five` as words, `FBI` as three
 spelled letters with the letter names `EH1 F`, `B IY1`, `AY1` and the noun reading of `record`. Every sentence of the
 golden corpus produces exactly its reviewed word stream (text, ARPAbet, punctuation, unsupported tokens and
-out-of-vocabulary marks).
+out-of-vocabulary marks). `Please call 555-0147 before noon.` is read `five five five`, a pause, `zero one four seven`
+(a comma for Piper, a dash for Kokoro), as are `(555) 014-7000` and `1-800-555-0147` group by group, and no hyphen stays
+inside a word.
 
 ### Unsupported text
 
@@ -120,11 +131,16 @@ pronunciation, every sequence of three phones) is a subsystem scenario.
 
 ### Weak forms
 
-**Test**: `SpeechPhonemesEn_Render_FunctionWords_AreWeakForPiperAndFullForKokoroByDefault`
+**Tests**: `SpeechPhonemesEn_Render_FunctionWords_AreWeakForPiperAndFullForKokoroByDefault`,
+`SpeechPhonemesEn_Render_FunctionWordAfterAVoicingAlternatingWord_KeepsItsFullForm`,
+`SpeechPhonemesEn_Render_PronounIAfterAComma_KeepsAnAudibleVowelInTheKokoroRendering`
 
 `a cup of the tea` renders for Piper as `ɐ kˈʌp ʌvðə tˈiː` (the article reduced, `of the` one unstressed group), keeps
 the stress of `of` with weak forms off, and keeps the stress for Kokoro by default but not when weak forms are switched
-on.
+on. `The shop is close to the station.` keeps the full `to` (`klˈOs tˈu ðə` for Kokoro, `klˈoʊs tˈuː ðə` for Piper)
+while `She went to the station` keeps the reduced `tə`; the same holds after `excuse`, `house` and `use`.
+`Honestly, I couldn't`, `So, I think so.` and `Well, I am here.` render `ˌI` (secondary stress) in the weak-form Kokoro
+text and `ˈI` in the full-form one.
 
 ### Long text
 

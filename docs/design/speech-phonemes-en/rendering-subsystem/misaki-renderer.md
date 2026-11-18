@@ -9,13 +9,16 @@ for that voice.
   rendered by the weak-form table. `MisakiProfile` is a public enumeration with the one value `Us`
 - The ARPAbet to misaki table (the single-letter diphthongs `A I O W Y`, `ʧ ʤ`, `ɜɹ`, `əɹ`, `ᵻ`, `ᵊ`) and the word-sound
   rules (`MisakiWordRules`, which use the helpers of `WordShape` in the PhonemeStream unit)
-- Marks: Kokoro keeps its own `“ ” ( ) …`, a dash is written between spaces, opening marks attach to the next word and
+- Marks: Kokoro keeps its own `“ ” ( ) …`, a dash is written between spaces (a hyphen between two replaced digit groups,
+  as in a phone number, is such a dash and a pause), opening marks attach to the next word and
   closing marks to the previous one
 
 **Key Methods**:
 
 - **Render(text)**: the phoneme string of a whole text, as for `EspeakIpaRenderer`, with the misaki rules; the later
-  primary stresses of a hyphenated compound are demoted to secondary (only the first part keeps its stress) A host IPA
+  primary stresses of a hyphenated compound are demoted to secondary (only the first part keeps its stress). A weak form
+  that is a single bare full vowel (`I`) gets a secondary stress mark (`ˌI`, as misaki writes it): the model swallows
+  a lone unmarked diphthong symbol after a pause (`Honestly, I couldn't`). A host IPA
   override is translated into Kokoro's symbols (`aɪ aʊ eɪ oʊ ɔɪ tʃ dʒ` to `I W A O Y ʧ ʤ`, `ɝ ɜː` to `ɜɹ`, `ɚ` to `əɹ`,
   the length mark dropped) and checked against the vocabulary; an override with a symbol the vocabulary does not have is
   replaced by the word's normal pronunciation

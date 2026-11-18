@@ -242,6 +242,150 @@ public sealed class SpeechPhonemesEnTests
         Assert.Equal("B AE1 S IH0 Z", bass.Arpabet);
     }
 
+    /// <summary>
+    ///     Proves a heteronym is pronounced the same way by both voices: for every reading of the readings golden (end to end
+    ///     through the real text analysis, or with the reading forced where the classifier labels the sentence differently)
+    ///     the word as the Piper renderer and as the Kokoro renderer say it in its sentence is exactly what that renderer
+    ///     says for the pronunciation the reading table chose for the reading, on its own. A rule of one voice that
+    ///     replaced or changed the chosen reading of a word (a spelling-keyed special case, a table that wins over the
+    ///     reading) would show here as a difference between the two voices' treatment of the same pronunciation.
+    /// </summary>
+    [Fact]
+    public void SpeechPhonemesEn_Render_EveryHeteronymReading_BothVoicesRenderTheChosenPronunciation()
+    {
+        // Arrange: both voices with their function-word tables on (the way the engines run), so a table entry that wins over a reading is caught too
+        var cases = GoldenCorpus.ReadReadings(TestFile("readings-golden.tsv"));
+        var piper = new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: true);
+        var kokoro = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true);
+        var failures = new List<string>();
+
+        // Act
+        foreach (var c in cases)
+        {
+            var result = c.Mode == "forced" ? GoldenCorpus.RunForced(c.Sentence, c.Target, c.ReadingId) : GoldenCorpus.RunEndToEnd(c.Sentence);
+            var item = GoldenCorpus.FindWord(result, c.Target);
+            var index = item is null ? -1 : result.Items.ToList().IndexOf(item);
+            if (item is null || !ReadingPronunciations.Default.TryResolve(item.Text.ToLowerInvariant(), c.ReadingId, out var chosen) || !item.Pronunciation.Equals(chosen))
+            {
+                failures.Add($"{c.ReadingId}: the phonemizer did not pronounce '{c.Target}' with the pronunciation the reading table gives");
+                continue;
+            }
+
+            // The word in its sentence, from each voice, against the same pronunciation rendered on its own; the only context
+            // the Piper voice may add is the linking r of a word that ends in an r-colored vowel before a vowel-initial word
+            var piperAlone = EspeakIpaRenderer.RenderPronunciation(item.Pronunciation);
+            var piperInContext = piper.RenderItems(result.Items)[index];
+            if (piperInContext != piperAlone && piperInContext != piperAlone + "ɹ")
+            {
+                failures.Add($"{c.ReadingId}: Piper says '{piperInContext}' for '{c.Target}' but '{piperAlone}' for its chosen pronunciation {item.Arpabet}");
+            }
+
+            var kokoroAlone = MisakiRenderer.RenderPronunciation(item.Pronunciation);
+            var kokoroInContext = kokoro.RenderItems(result.Items)[index];
+            if (kokoroInContext != kokoroAlone)
+            {
+                failures.Add($"{c.ReadingId}: Kokoro says '{kokoroInContext}' for '{c.Target}' but '{kokoroAlone}' for its chosen pronunciation {item.Arpabet}");
+            }
+        }
+
+        // Assert
+        Assert.Equal(ReadingInventory.Default.ReadingIds.Count, cases.Count);
+        Assert.Empty(failures);
+    }
+
+    /// <summary>
+    ///     Proves a function word keeps its full form after a word whose readings differ only by the voicing of the final
+    ///     consonant (<i>close to</i>, <i>an excuse to</i>, <i>a house to</i>, <i>the use of</i>), in both voices, and keeps its
+    ///     weak form after any other word.
+    /// </summary>
+    [Theory]
+    [InlineData("The shop is close to the station.", "klˈOs tˈu ðə", "klˈoʊs tˈuː ðə")]
+    [InlineData("He needs an excuse to leave.", "ɪkskjˈus tˈu lˈiv", "ɛkskjˈuːs tˈuː lˈiːv")]
+    [InlineData("They found a house to rent.", "hˈWs tˈu ɹˈɛnt", "hˈaʊs tˈuː ɹˈɛnt")]
+    [InlineData("The use of the tool is free.", "jˈus ˈʌv ðə", "jˈuːs ˈʌv ðə")]
+    [InlineData("She went to the station and ate a cake.", "wˈɛnt tə ðə stˈAʃən ænd", "wˈɛnt tə ðə stˈeɪʃən ænd")]
+    public void SpeechPhonemesEn_Render_FunctionWordAfterAVoicingAlternatingWord_KeepsItsFullForm(string sentence, string kokoroExpected, string piperExpected)
+    {
+        // Act: the real text analysis, then both voices with their function-word tables on
+        var phonemized = GoldenCorpus.RunEndToEnd(sentence);
+        var kokoro = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(phonemized);
+        var piper = new EspeakIpaRenderer().Render(phonemized);
+
+        // Assert
+        Assert.Contains(kokoroExpected, kokoro, StringComparison.Ordinal);
+        Assert.Contains(piperExpected, piper, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves the pronoun <i>I</i> after a comma, a clause start where the Kokoro model drops a bare unstressed vowel, is
+    ///     rendered with a secondary stress mark in the weak-form Kokoro rendering (as misaki writes it) and bare in the full-form one.
+    /// </summary>
+    [Theory]
+    [InlineData("Honestly, I couldn't believe it.", ", ˌI kˈʊdᵊnt", ", ˈI kˈʊdᵊnt")]
+    [InlineData("So, I think so.", ", ˌI θˈɪŋk", ", ˈI θˈɪŋk")]
+    [InlineData("Well, I am here.", ", ˌI æm", ", ˈI ˈæm")]
+    public void SpeechPhonemesEn_Render_PronounIAfterAComma_KeepsAnAudibleVowelInTheKokoroRendering(string sentence, string weakExpected, string fullExpected)
+    {
+        // Act
+        var phonemized = GoldenCorpus.RunEndToEnd(sentence);
+        var weak = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(phonemized);
+        var full = new MisakiRenderer(MisakiProfile.Us, useWeakForms: false).Render(phonemized);
+
+        // Assert
+        Assert.Contains(weakExpected, weak, StringComparison.Ordinal);
+        Assert.Contains(fullExpected, full, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves the velar stop of the adjectives that end in <c>ng</c>: the comparative and the superlative of
+    ///     <i>long</i>, <i>strong</i> and <i>young</i> speak the <c>g</c> (the dictionary's own <i>stronger</i> variant without it is not
+    ///     the one used), the agentive and <c>-ing</c> forms (<i>singer</i>, <i>hanger</i>, <i>singing</i>, <i>longing</i>) do not, and a
+    ///     superlative the dictionary lacks is derived with the stop.
+    /// </summary>
+    [Theory]
+    [InlineData("stronger", "S T R AO1 NG G ER0")]
+    [InlineData("strongest", "S T R AO1 NG G AH0 S T")]
+    [InlineData("longer", "L AO1 NG G ER0")]
+    [InlineData("longest", "L AO1 NG G AH0 S T")]
+    [InlineData("younger", "Y AH1 NG G ER0")]
+    [InlineData("youngest", "Y AH1 NG G AH0 S T")]
+    [InlineData("singer", "S IH1 NG ER0")]
+    [InlineData("singing", "S IH1 NG IH0 NG")]
+    [InlineData("longing", "L AO1 NG IH0 NG")]
+    [InlineData("hanger", "HH AE1 NG ER0")]
+    [InlineData("wrongest", "R AO1 NG G AH0 S T")]
+    [InlineData("wronger", "R AO1 NG ER0")]
+    public void SpeechPhonemesEn_Phonemize_WordsEndingInNg_SpeakTheVelarStopOnlyWhereEnglishDoes(string word, string expected)
+    {
+        // Act
+        var item = new EnglishPhonemizer().Phonemize(word).Items.Single();
+
+        // Assert
+        Assert.Equal(expected, item.Arpabet);
+    }
+
+    /// <summary>
+    ///     Proves a phone number is read group by group with the boundary between the groups kept: the hyphen between two
+    ///     digit groups is a pause in both voices (a comma for Piper, a dash for Kokoro), so <i>555-0147</i> pauses after
+    ///     <i>five five five</i> and not after the fourth digit.
+    /// </summary>
+    [Theory]
+    [InlineData("Please call 555-0147 before noon.", "fˈIv fˈIv fˈIv — zˈɪɹO wˈʌn fˈɔɹ sˈɛvən", "fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən")]
+    [InlineData("Call (555) 014-7000 today.", "(fˈIv fˈIv fˈIv) zˈɪɹO wˈʌn fˈɔɹ — sˈɛvən zˈɪɹO zˈɪɹO zˈɪɹO", "fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ, sˈɛvən zˈɪɹoʊ zˈɪɹoʊ zˈɪɹoʊ")]
+    [InlineData("Call 1-800-555-0147.", "wˈʌn — ˈAt zˈɪɹO zˈɪɹO — fˈIv fˈIv fˈIv — zˈɪɹO wˈʌn fˈɔɹ sˈɛvən.", "wˈʌn, ˈeɪt zˈɪɹoʊ zˈɪɹoʊ, fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən.")]
+    public void SpeechPhonemesEn_Render_PhoneNumber_PausesBetweenItsDigitGroups(string sentence, string kokoroExpected, string piperExpected)
+    {
+        // Act: the real text analysis (one span per digit group), then both renderers
+        var phonemized = GoldenCorpus.RunEndToEnd(sentence);
+        var kokoro = new MisakiRenderer().Render(phonemized);
+        var piper = new EspeakIpaRenderer().Render(phonemized);
+
+        // Assert: the groups are separated by the pause mark, and the hyphens are items of their own, not part of a word
+        Assert.Contains(kokoroExpected, kokoro, StringComparison.Ordinal);
+        Assert.Contains(piperExpected, piper, StringComparison.Ordinal);
+        Assert.DoesNotContain(phonemized.Items, i => i.Kind == PhonemizedItemKind.Word && i.Text.Contains('-', StringComparison.Ordinal));
+    }
+
     /// <summary>Proves both renderers emit only symbols of their voice model for the whole sentence corpus, and that the rendering is non-empty for every sentence.</summary>
     [Fact]
     public void SpeechPhonemesEn_Render_SentenceCorpus_UsesOnlySymbolsOfTheVoiceModels()

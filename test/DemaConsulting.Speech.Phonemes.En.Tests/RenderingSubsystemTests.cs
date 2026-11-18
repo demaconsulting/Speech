@@ -491,10 +491,10 @@ public sealed class RenderingSubsystemTests
     public void WeakForms_TryGet_ListedWords_GiveTheirFormByFollowingSound()
     {
         // Act
-        var article = WeakForms.TryGet("The", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var beforeConsonant, out var articleDemoted);
-        var beforeVowelFound = WeakForms.TryGet("the", nextStartsWithVowel: true, nextWord: null, espeakStyle: false, out var beforeVowel, out _);
-        var demotedWord = WeakForms.TryGet("but", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var butForm, out var butDemoted);
-        var ordinary = WeakForms.TryGet("cat", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var catForm, out var catDemoted);
+        var article = WeakForms.TryGet("The", nextStartsWithVowel: false, nextWord: null, previousWord: null, espeakStyle: false, out var beforeConsonant, out var articleDemoted);
+        var beforeVowelFound = WeakForms.TryGet("the", nextStartsWithVowel: true, nextWord: null, previousWord: null, espeakStyle: false, out var beforeVowel, out _);
+        var demotedWord = WeakForms.TryGet("but", nextStartsWithVowel: false, nextWord: null, previousWord: null, espeakStyle: false, out var butForm, out var butDemoted);
+        var ordinary = WeakForms.TryGet("cat", nextStartsWithVowel: false, nextWord: null, previousWord: null, espeakStyle: false, out var catForm, out var catDemoted);
 
         // Assert: the article is reduced, differently before a vowel; "but" only loses its primary stress; "cat" is not in the table
         Assert.True(article);
@@ -508,6 +508,105 @@ public sealed class RenderingSubsystemTests
         Assert.False(ordinary);
         Assert.Empty(catForm);
         Assert.False(catDemoted);
+    }
+
+    /// <summary>
+    ///     Proves the spellings that keep a following function word in its full form are derived from the data: the words
+    ///     whose readings (the reading table) or dictionary variants differ only by the voicing of the final consonant are in,
+    ///     the function words themselves and ordinary words are out, and a reduced form is withheld right after such a word
+    ///     but not after another.
+    /// </summary>
+    [Fact]
+    public void WeakForms_VoicingAlternatingWords_AreDerivedFromTheReadingTableAndTheLexicon()
+    {
+        // Act
+        var words = WeakForms.VoicingAlternatingWords;
+        var afterClose = WeakForms.TryGet("to", nextStartsWithVowel: false, nextWord: null, previousWord: "Close", espeakStyle: false, out var fullForm, out var fullDemoted);
+        var afterGo = WeakForms.TryGet("to", nextStartsWithVowel: false, nextWord: null, previousWord: "go", espeakStyle: false, out var weakForm, out _);
+        var demotedAfterClose = WeakForms.TryGet("but", nextStartsWithVowel: false, nextWord: null, previousWord: "close", espeakStyle: false, out _, out var butDemoted);
+
+        // Assert: heteronyms of the reading table (close, use, house, mouth, ...) and words with dictionary variants (abuse, excuse, diffuse)
+        Assert.All(new[] { "close", "use", "house", "excuse", "abuse", "diffuse", "misuse", "reuse", "versus" }, word => Assert.Contains(word, words));
+
+        // Assert: not the function words (with is a dictionary variant pair itself), not ordinary words or words that differ in more than the voicing
+        Assert.All(new[] { "with", "the", "to", "cat", "record", "read", "refuse" }, word => Assert.DoesNotContain(word, words));
+
+        // Assert: a reduced word has no form after such a word (the caller then uses its dictionary form) but has one after another word; a word that is only demoted is not affected
+        Assert.False(afterClose);
+        Assert.Empty(fullForm);
+        Assert.False(fullDemoted);
+        Assert.True(afterGo);
+        Assert.Equal("tə", weakForm);
+        Assert.True(demotedAfterClose);
+        Assert.True(butDemoted);
+    }
+
+    /// <summary>
+    ///     Proves no entry of the function-word table renders to nothing or loses its vowel in either voice, before a
+    ///     consonant, before a vowel and at the end of a text, and that the Kokoro rendering of a word that is a single
+    ///     bare full vowel (<i>I</i>) carries a stress mark, because the model swallows a lone unmarked diphthong
+    ///     symbol.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices()
+    {
+        // Arrange: the vowel symbols of the Piper IPA, and those of misaki's symbols (the same plus the capital diphthong letters)
+        const string piperVowels = "aeiouæɑɐɔəɛɜɪɚʊʌᵻ";
+        var kokoroVowels = piperVowels + new string(['A', 'I', 'O', 'W', 'Y']);
+        var piper = new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: true);
+        var kokoro = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true);
+        var failures = new List<string>();
+
+        // Act: every word alone, before a consonant and before a vowel
+        foreach (var word in WeakForms.Words)
+        {
+            foreach (var text in new[] { word, word + " cat", word + " apple" })
+            {
+                var items = Phonemizer.Phonemize(text).Items;
+                var inPiper = piper.RenderItems(items)[0];
+                var inKokoro = kokoro.RenderItems(items)[0];
+                if (!inPiper.Any(piperVowels.Contains))
+                {
+                    failures.Add($"Piper '{text}' -> '{inPiper}' has no vowel");
+                }
+
+                if (!inKokoro.Any(kokoroVowels.Contains))
+                {
+                    failures.Add($"Kokoro '{text}' -> '{inKokoro}' has no vowel");
+                }
+
+                // A form with no consonant at all must be marked, unless it is the reduced vowel that misaki writes bare
+                if (inKokoro.All(kokoroVowels.Contains) && inKokoro != "ɐ" && !inKokoro.Contains('ˈ', StringComparison.Ordinal) && !inKokoro.Contains('ˌ', StringComparison.Ordinal))
+                {
+                    failures.Add($"Kokoro '{text}' -> '{inKokoro}' is a bare vowel without a stress mark");
+                }
+            }
+        }
+
+        // Assert
+        Assert.Empty(failures);
+        Assert.Equal("ˌI", kokoro.RenderItems(Phonemizer.Phonemize("I").Items)[0]);
+        Assert.Equal("ɐ", kokoro.RenderItems(Phonemizer.Phonemize("a cat").Items)[0]);
+    }
+
+    /// <summary>
+    ///     Proves the hyphen between two replacements (the groups of a phone number, spoken as separate replacements) is a
+    ///     pause item of its own in both voices, while the hyphen of a compound that has an original neighbor stays inside
+    ///     the word.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices()
+    {
+        // Act: "555-0147" with one replacement per digit group, and COVID-19 with only the number replaced
+        var phone = Phonemizer.Phonemize("555-0147", [new SegmentAnnotation(0, 3, TextEnAnnotations.Normalized, "five five five"), new SegmentAnnotation(4, 4, TextEnAnnotations.Normalized, "zero one four seven")]);
+        var compound = Phonemizer.Phonemize("COVID-19", [new SegmentAnnotation(6, 2, TextEnAnnotations.Normalized, "nineteen")]);
+
+        // Assert: a comma-like pause for Piper, a dash for Kokoro, between the two groups
+        Assert.Equal("fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən", new EspeakIpaRenderer().Render(phone));
+        Assert.Equal("fˈIv fˈIv fˈIv — zˈɪɹO wˈʌn fˈɔɹ sˈɛvən", new MisakiRenderer().Render(phone));
+
+        // Assert: the compound is one word whose hyphen is inside it
+        Assert.Equal("COVID-nineteen", Assert.Single(compound.Items).Text);
     }
 
     /// <summary>Proves the shared layout: words are separated by one space, a closing mark attaches to the word before it, an opening mark to the word after it, and an item with no piece adds no space.</summary>

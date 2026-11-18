@@ -64,7 +64,9 @@ reported by name. The precondition test shows that the tables are the real ones 
 
 **Tests**: `RenderingSubsystem_Layout_WordsAndClausePunctuation_FollowTheModelConventions`,
 `RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel`,
-`RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`, `RenderingSubsystem_Compounds_StressIsPerModel`,
+`RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`,
+`RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices`,
+`RenderingSubsystem_Compounds_StressIsPerModel`,
 `RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
 `RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
@@ -73,14 +75,19 @@ reported by name. The precondition test shows that the tables are the real ones 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
 `number is` (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
 `a well-known author`; the numbers `thirteen` to `nineteen` and their neighbors `routine`, `canteen`, `thirteenth`;
-ARPAbet and IPA overrides of `record` against the dictionary words with the same phones.
+ARPAbet and IPA overrides of `record` against the dictionary words with the same phones; the groups of `555-0147`, each
+replaced on its own, are separated by a pause (`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for
+Kokoro) while the hyphen of `COVID-19` stays inside its word.
 
 #### Weak forms
 
-**Test**: `RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled`
+**Tests**: `RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled`,
+`RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices`
 
 `a cup of the tea` renders `ɐ kˈʌp ʌvðə tˈiː` for Piper with weak forms and `ɐ kˈʌp ˈʌv ðə tˈiː` without; the stress of
-`of` stays for Kokoro by default and goes when weak forms are enabled.
+`of` stays for Kokoro by default and goes when weak forms are enabled. Every word of the table, alone, before a
+consonant and before a vowel, renders to a string with a vowel symbol in both voices, and a Kokoro form with no
+consonant is either the reduced `ɐ` or carries a stress mark (`I` is `ˌI`).
 
 #### Parts
 

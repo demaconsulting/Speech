@@ -21,7 +21,11 @@ Seventeen regular forms are derived to the expected pronunciation (plurals `cats
 contractions `cat's cats' they'll it'll isn't`); four words that no stem explains (`xyzzy`, `qwxzs`, the empty string
 and `s`) give no derivation; the ending of a stem is chosen by its last phone (`K AE1 T` plural `K AE1 T S`, `D AO1 G`
 plural `D AO1 G Z`, `B AA1 K S` plural `B AA1 K S IH0 Z`, and the past tense forms `T`, `D` and `IH0 D`); and a clitic
-is attached by the last phone of its host (`AY1` + `'ll` is `AY1 L`, `IH1 T` + `'ll` is `IH1 T AH0 L`).
+is attached by the last phone of its host (`AY1` + `'ll` is `AY1 L`, `IH1 T` + `'ll` is `IH1 T AH0 L`). A superlative
+after a stem that ends in a stressed `NG` takes the velar stop (`S T R AO1 NG` + `-est` is `S T R AO1 NG G AH0 S T`, but
+`W IH1 N IH0 NG` + `-est` does not) and a derived comparative does not; the dictionary variants of `stronger`, `longer`
+and `younger` start with the one that ends in `NG G ER0`, and those of `singer`, `hanger`, `linger` and `cat` keep their
+dictionary order.
 
 #### Test Scenarios
 
@@ -32,5 +36,9 @@ is attached by the last phone of its host (`AY1` + `'ll` is `AY1 L`, `IH1 T` + `
 
 ##### Sound of the ending
 
-**Tests**: `Morphology_Apply_EndingByLastPhone` (a seven-row theory), `Morphology_AppendClitic_ByHostLastPhone` (a
+**Tests**: `Morphology_Apply_EndingByLastPhone` (a twelve-row theory), `Morphology_AppendClitic_ByHostLastPhone` (a
 five-row theory)
+
+##### Order of the dictionary variants
+
+**Test**: `Morphology_OrderVariants_ComparativeInNg_StartsWithTheVelarStop` (a seven-row theory)

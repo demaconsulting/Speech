@@ -15,7 +15,7 @@ internal sealed record PronouncedWord(Pronunciation Pronunciation, Pronunciation
 
 /// <summary>
 ///     Pronounces one word by the phonemizer's priority list: the reading the text analysis chose, then the
-///     lexicon's first variant, then the morphology rules, then the letter-to-sound fallback.
+///     lexicon's first variant (the velar comparative first for <i>stronger</i>, see <see cref="Morphology.OrderVariants"/>), then the morphology rules, then the letter-to-sound fallback.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -153,7 +153,7 @@ internal sealed class WordPronouncer
         var listed = _lexicon.Lookup(word);
         if (listed.Count > 0)
         {
-            return new PronouncedWord(listed[0], PronunciationSource.Lexicon);
+            return new PronouncedWord(Morphology.OrderVariants(word, listed, _lexicon)[0], PronunciationSource.Lexicon);
         }
 
         // A form the dictionary lacks, derived from its stem (cats, unfollowed, zebra's)

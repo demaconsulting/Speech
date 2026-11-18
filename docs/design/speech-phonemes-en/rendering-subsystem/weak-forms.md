@@ -21,18 +21,27 @@ The table holds only words whose unstressed use is by far the most common; it do
 
 **Key Methods**:
 
-- **TryGet(word, nextStartsWithVowel, nextWord, espeakStyle, out form, out demoted)**: finds a word (any case); the form
-  is chosen by the sound that follows, the espeak-style details apply only when `espeakStyle` is true, and a word that
-  is only demoted has an empty form and `demoted` true; a word that is not in the table returns `false`
+- **TryGet(word, nextStartsWithVowel, nextWord, previousWord, espeakStyle, out form, out demoted)**: finds a word (any
+  case); the form is chosen by the sound that follows, the espeak-style details apply only when `espeakStyle` is true,
+  and a word that is only demoted has an empty form and `demoted` true; a word that is not in the table returns `false`.
+  A word with an explicit form returns `false` as well when `previousWord` is a voicing-alternating word (see below), so
+  the caller uses its dictionary form
+- **VoicingAlternatingWords**: the spellings whose pronunciations differ only by the voicing of the final consonant
+  (`close` `kloʊz`/`kloʊs`, `use`, `house`, `excuse`, `abuse`, `diffuse` ...), derived at first use, not listed by hand:
+  the reading table's lemmas whose readings differ so, and the dictionary spellings with two variants that differ so (a
+  fricative `S`/`Z`, `F`/`V` or `TH`/`DH` after the last vowel, and a `T`/`D` right after such a pair), without the
+  words of this table. A reduced function word right after one of them keeps its full form (`close to`, `a house to`),
+  because the reduced vowel would blur the `s` or `z` that tells the readings apart
 - **GroupedWithPrevious(items)**: marks the word items that form one group with the word before them (`in the`,
   `of the`, `on the`, `with the`, `from the`, `for the`, `that the`, `was the`, `was a`, `of a`), written without a
-  space
+  space, except where the first word of the group keeps its full form after a voicing-alternating word
 - **Words**, **AllForms**, **Count**: the contents of the table, so a test can prove every form is in the voice's symbol
   table
 
 **Error Handling**: nothing can fail; an unknown word is simply not in the table.
 
-**Dependencies**: the result types of the PhonemizerSubsystem (for the grouping).
+**Dependencies**: the result types of the PhonemizerSubsystem (for the grouping), and `CmuLexicon` and
+`ReadingPronunciations` (for the voicing-alternating words).
 
 **Callers**: `EspeakIpaRenderer` (by default) and `MisakiRenderer` (when weak forms are switched on, without the
 espeak-style details).

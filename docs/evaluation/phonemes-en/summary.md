@@ -19,11 +19,11 @@ the first one.
 | Reading ids with a pronunciation | 100% | 853 of 853 | Pass |
 | Piper symbols in the voice's map | 100% | 100% | Pass |
 | Kokoro symbols in the vocabulary | 100% | 100% | Pass |
-| Piper word match, sentences | 85% or more | 89.44% (held out 91.82%) | Pass |
+| Piper word match, sentences | 85% or more | 89.39% (held out 91.82%) | Pass |
 | Piper word match, isolated words | 85% or more | 78.63% (held out 75.30%) | Below |
 | Piper phoneme error rate | 8% or less | 3.01% (held out 2.47%) | Pass |
-| Piper primary stress agreement | 90% or more | 95.98% (held out 98.10%) | Pass |
-| Kokoro phoneme error rate | 6% or less | 2.00% weak, 4.89% full | Pass |
+| Piper primary stress agreement | 90% or more | 95.90% (held out 98.10%) | Pass |
+| Kokoro phoneme error rate | 6% or less | 2.00% weak, 4.88% full | Pass |
 
 Notes on the gates:
 
@@ -39,13 +39,17 @@ Notes on the gates:
   rules were frozen. The word passes use the 3,000 most frequent words of the text-analysis training sentences (error
   rate 4.49%, stress agreement 95.39%) and the next 3,000 words as the held-out pass (4.39% and 96.76%).
 - Kokoro against misaki US: the shipped default speaks function words in their weak forms (2.00% on the tuning
-  sentences, 1.43% held out). With full forms the figures are 4.89% and 4.50%. On the word passes they are 2.93% and
-  2.81%. Weak forms also raise primary stress agreement from 71.5% to 94.3%; owner listening decides the default.
+  sentences, 1.43% held out). With full forms the figures are 4.88% and 4.50%. On the word passes they are 2.93% and
+  2.81%. Weak forms also raise primary stress agreement from 71.5% to 94.1%; the owner's listening kept them on.
 - Against the first end-to-end figures (Piper 88.05% word match, 3.14% error rate, 94.34% stress agreement; held out
   90.09%, 2.58%, 97.05%) the refinement pass improved every Piper sentence figure. Kokoro's held-out figures are
   unchanged; its tuning-sentence error rate moved by +0.01 point (1.99% to 2.00% weak, 4.88% to 4.89% full) because
   three sentences now reach the misaki engine as different spoken text (a URL, `10K`, `A1`), which the text analysis
   now reads as it should.
+- The listening fixes (see "Listening Fixes" in `renderers.md`) left the Kokoro error rates at 2.00% weak and 4.88% full
+  (4.89% before the `stronger` fix) and moved the Piper tuning-sentence figures by -0.05 point word match (89.44% to
+  89.39%) and -0.08 point primary stress agreement (95.98% to 95.90%): the full form of a function word after
+  `use`, `house` or `close` is a deliberate departure from espeak-ng's weak form in three of the 450 sentences.
 
 ## Supporting Measurements
 
@@ -56,15 +60,16 @@ Notes on the gates:
 | Present participle `ing` | 99.59% of 4,109 |
 | Possessive `s` | 99.39% of 6,023 |
 | Comparative `er` | 99.18% of 2,925 |
-| Superlative `est` | 96.07% of 229 |
+| Superlative `est` | 97.38% of 229 |
 | Adverb `ly` | 97.46% of 1,143 |
 | Classifier hit rate, readings golden | 385 of 395 (97.5%) |
 
 Notes:
 
 - The morphology rows are the agreement of the suffix sound class with the lexicon for words whose stem is listed; a
-  test enforces at least 98% for the main endings. For `est` the exact figure is 78.17% because the lexicon mixes two
-  reduced vowels. The measurement tool prints the full table.
+  test enforces at least 98% for the main endings. For `est` the exact figure is 79.48% because the lexicon mixes two
+  reduced vowels (it was 96.07% and 78.17% before the velar stop of `longest`, `strongest` and `youngest` was added to
+  the rule). The measurement tool prints the full table.
 - Classifier hit rate: the real text analyzer over the own-written sentences of the readings golden; the test gate is
   95%. The 10 misses are pinned as forced readings and the golden was not bent to hide them.
 - Out-of-vocabulary words: our own trained model has 11.59% phoneme error rate against 25.53% for the rules baseline

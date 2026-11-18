@@ -12,7 +12,8 @@ limits below and two internal value types:
 
 - `NumericSpan(Start, Length, Spoken, Kind)`: one replacement the match asks for. `Kind` is `Number`,
   `Currency`, `DateTime` or `Unit` (see *NormalizationAlignment Design*)
-- `NumericMatch`: a readonly struct with up to two spans (`SpanCount`, indexer), `TokensConsumed` (at least 1),
+- `NumericMatch`: a readonly struct with up to two spans held inline (`SpanCount`, indexer; a phone number or
+  identifier has one span per digit group, at most eight, held in an array), `TokensConsumed` (at least 1),
   `Ambiguous` (at most one count per match), `Fallback` (the token looks numeric but is left as written, or was
   read digit by digit because of a limit) and `PeriodUnit` (the last span is a unit token that may carry an
   abbreviation period, so `TextNormalizer` applies its period and sentence rules to it). A match with no span
@@ -241,7 +242,8 @@ four digits (or two digits for a slash date), the month and day one or two digit
 - `2/30/2024`, `2024-02-30`: `February thirtieth twenty twenty four`; day at most 31, no calendar check
 - `1/1/05`: `January first oh five`
 - `13/13/2024`, `0/5/2024`, `2/32/2024`, `1/1/00`, `5/5/5`: identity, not a date
-- `2024-13-01` and `12.25.2024`: not a date; the hyphen-group and dotted-group rules apply
+- `2024-13-01` and `12.25.2024`: not a date; the hyphen-group and dotted-group rules apply (`2024-13-01` is read as
+  the groups `two zero two four`, `one three` and `zero one` with the hyphens between them)
 
 Dates with a month name: month names are matched in Title Case only. A day token is one or two digits from 1 to
 31, without a leading zero, optionally with an ordinal suffix, directly after a month (or the period after a
@@ -272,9 +274,11 @@ month abbreviation, with no retained sentence boundary between them) or directly
   number follows its own policy (`1990–2000` counts one ambiguous reading); both neighbors must themselves be
   read as numbers (`1,234–5,678`, `5:30–6:30`, `5–10kg` read; `1–2D`, `1,23–5`, `5–25:99`, `5–10x` keep the dash
   and every token is read on its own); `5 – 10` and a dash between letters are identity
-- `555-1234`, `1-800-555-1234`, `123-45-6789`, `01-02`, `(555) 123-4567`: digits one by one (`five five five one
-  two three four`); the area code in adjacent parentheses is also digit by digit; any other hyphen shape of two
-  or more groups, not a fallback (over 64 digits in total is)
+- `555-1234`, `1-800-555-1234`, `123-45-6789`, `01-02`, `(555) 123-4567`: digits one by one, **one span per
+  hyphen-separated group, the hyphens left as written between the spans** (`five five five`, hyphen, `one two three
+  four`), so a later stage can pause at the group boundary as a speaker does; the area code in adjacent parentheses is
+  also digit by digit, in its own token; any other hyphen shape of two or more groups, not a fallback (over 64 digits in
+  total is). A match with more than two spans is the only one that carries an array
 - `3.2.1`, `192.168.0.1`, `1.02.3`: `three point two point one`; `one hundred ninety two point one hundred sixty
   eight point zero point one`; `one point zero two point three`; three or more period groups: a group of one to
   three digits without a leading zero (or exactly `0`) is a cardinal, **any other group digit by digit**; at

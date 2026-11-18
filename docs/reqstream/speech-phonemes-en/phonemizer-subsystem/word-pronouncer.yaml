@@ -17,7 +17,9 @@ sections:
               - id: SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
                 title: >-
                   The WordPronouncer class shall pronounce a word from the reading when the reading table
-                  resolves it, else from the dictionary's first variant, else from the morphology rules of a
+                  resolves it, else from the dictionary's first variant (the variant with the velar stop first
+                  for the comparative of an adjective in ng, whose dictionary entry lists it with and without
+                  the stop), else from the morphology rules of a
                   known stem, else from a productive prefix and a known remainder of at least four letters
                   (never splitting a word the dictionary lists), else from the letter-to-sound model, and
                   report the source of its answer; shall fold diacritics before the lookup; shall pronounce
@@ -33,5 +35,6 @@ sections:
                   sound like the words they are.
                 tests:
                   - WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed
+                  - WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop
                   - WordPronouncer_Pronounce_ProductivePrefix_IsPrefixPlusKnownWord
                   - WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules

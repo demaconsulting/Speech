@@ -19,7 +19,14 @@ word.
 - **Apply(stem, kind)**: the stem's pronunciation with the sound of the ending, chosen by the last phone of the stem.
   After a sibilant a plural, third person or possessive adds `IH0 Z` and a past tense after `T` or `D` adds `IH0 D`;
   after another voiceless consonant the ending is `S` or `T`, otherwise `Z` or `D`; `-ing` adds `IH0 NG`; `-er` adds
-  `ER0`, `-est` adds `AH0 S T`; `-ly` adds `L IY0` (`IY0` after a stem that ends in `L`)
+  `ER0`, `-est` adds `AH0 S T` (`G AH0 S T` after a stem that ends in a stressed `NG`: `strongest`, `longest`,
+  `youngest`; the dictionary has the stop in every such form); `-ly` adds `L IY0` (`IY0` after a stem that ends in `L`)
+- **OrderVariants(word, variants, lexicon)**: the variants of a spelling, with the comparative that has the velar stop
+  first for an adjective in `ng`: the dictionary lists `stronger` with and without the `G`, and the variant without it
+  is a known defect, whereas `longer` and `younger` have it. The rule is read from the dictionary: a `-er` spelling
+  whose stem ends in a stressed `NG` and whose `-est` form is listed with `NG G` takes the variant that ends in
+  `NG G ER0` first; the agentives (`singer`, `hanger`) and the `-ing` forms are not touched, and a derived comparative
+  gets no stop, because the agentives far outnumber the adjectives in the dictionary
 - **AppendClitic(host, clitic)**: attaches `'s`, `'d`, `'ll`, `'ve`, `'re`, `'m` to the pronunciation of the host word:
   the possessive `'s` as a plural ending, the others as `AH0` plus the consonant after a consonant and as the consonant
   alone after a vowel (`they'll` is `DH EY1 L`, `it'll` is `IH1 T AH0 L`)

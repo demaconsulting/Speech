@@ -36,13 +36,14 @@ from `renderers.md`):
 
 | Setting | Phoneme error rate | Primary stress agreement |
 | --- | --- | --- |
-| Full dictionary forms | 4.89 percent | 71.5 percent |
-| Weak forms (shipped) | 2.00 percent | 94.3 percent |
+| Full dictionary forms | 4.88 percent | 71.5 percent |
+| Weak forms (shipped) | 2.00 percent | 94.1 percent |
 
 On the 60 validation sentences the same ordering holds (4.50 against 1.43 percent). Over the isolated words of the old
 lexicon the two settings are identical to within 0.02 percentage points, because only function words differ. Decision
 D11 gave the Piper profile the weak forms and left the Kokoro profile on full forms pending listening; the
-measurement is the reason to turn them on, and the blinded listening pack for the owner contains both variants.
+measurement is the reason to turn them on, and the blinded listening pack for the owner contained both variants. The
+owner's listening kept the weak forms on for Kokoro, and found the new pipeline preferable overall.
 **This is a judgment from measurement, not from listening: the owner's blinded listening is the final check.**
 
 ## Old Lexicon Against the New Pipeline

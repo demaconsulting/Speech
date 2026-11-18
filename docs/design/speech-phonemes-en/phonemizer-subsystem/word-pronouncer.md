@@ -18,7 +18,8 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
 - **Pronounce(word, readingId)**: folds the word (lower case, straight apostrophes, diacritics removed, `ß` as `ss`; any
   other character makes the result `null`); a word with a hyphen is a compound; otherwise the sources in order: the
   reading, when `ReadingPronunciations.TryResolve` resolves the spelling under the id (source `Reading`); the
-  dictionary's first variant (`Lexicon`); `Morphology.TryDerive` (`Morphology`); a prefix and a remainder of at least
+  dictionary's first variant (`Lexicon`), the velar comparative first for an adjective in `ng` (see *Morphology*,
+  `OrderVariants`); `Morphology.TryDerive` (`Morphology`); a prefix and a remainder of at least
   four letters that the lexicon lists or the morphology derives (`Morphology`); the letter-to-sound converter
   (`LetterToSound`)
 - **PronounceCompound**: the closed spelling of the dictionary when a part is not a word of its own (`wi-fi`); otherwise

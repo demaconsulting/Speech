@@ -19,13 +19,15 @@ the source.
 the lexicon; `unfollowed` is `AH0 N F AA1 L OW0 D` from the morphology; `Zorblax` comes from the letter-to-sound model;
 `unfollow` is derived by prefix and stem with the source morphology and `under` stays a dictionary word; `café` equals
 `cafe`; `full-time` has a primary stress on both parts, `state-of-the-art` has no primary stress on `of` and `the`,
-`wi-fi` is the closed dictionary spelling; and a word with characters outside the Latin alphabet has no pronunciation.
+`wi-fi` is the closed dictionary spelling; `stronger` is `S T R AO1 NG G ER0` (the dictionary lists it with and without
+the `G`) and `singer` is `S IH1 NG ER0`; and a word with characters outside the Latin alphabet has no pronunciation.
 
 #### Test Scenarios
 
 ##### Priority list
 
-**Test**: `WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed`
+**Tests**: `WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed`,
+`WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop`
 
 ##### Productive prefix
 

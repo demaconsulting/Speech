@@ -127,7 +127,7 @@ public sealed class MisakiRenderer
             switch (item.Kind)
             {
                 case PhonemizedItemKind.Word:
-                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1));
+                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1), PhonemeStream.PreviousWordText(items, i - 1));
                     break;
                 case PhonemizedItemKind.Punctuation:
                     pieces[i] = RenderMark(item.Text, ref quoteOpen);
@@ -157,8 +157,9 @@ public sealed class MisakiRenderer
     /// </summary>
     /// <param name="item">The word item.</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
+    /// <param name="previousWord">The text of the word immediately before it, or <see langword="null"/>.</param>
     /// <returns>The symbols.</returns>
-    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel)
+    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel, string? previousWord)
     {
         if (item.IpaOverride is not null)
         {
@@ -178,7 +179,7 @@ public sealed class MisakiRenderer
 
         var demoted = false;
         var weak = string.Empty;
-        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord: null, espeakStyle: false, out weak, out demoted);
+        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord: null, previousWord, espeakStyle: false, out weak, out demoted);
         if (known && weak.Length > 0)
         {
             return ToMisaki(weak);
@@ -217,19 +218,36 @@ public sealed class MisakiRenderer
     /// <summary>
     ///     Converts an espeak-style IPA form of the weak-form table to misaki symbols.
     /// </summary>
+    /// <remarks>
+    ///     A form that is one bare full vowel (<i>I</i>, <c>aɪ</c>) gets a secondary stress mark, as misaki writes it
+    ///     (<c>ˌI</c>): a single unmarked diphthong symbol is the whole phoneme string of a word, and the model
+    ///     swallows it after a pause (<i>Honestly, I couldn't</i> lost its <i>I</i>). The reduced vowels
+    ///     (<c>ɐ</c>) stay bare, as in misaki's own text.
+    /// </remarks>
     /// <param name="ipa">The IPA form.</param>
     /// <returns>The symbols.</returns>
-    private static string ToMisaki(string ipa) => (ipa == "ðɪ" ? "ði" : ipa)
-        .Replace("tʃ", "ʧ", StringComparison.Ordinal)
-        .Replace("dʒ", "ʤ", StringComparison.Ordinal)
-        .Replace("aɪ", "I", StringComparison.Ordinal)
-        .Replace("eɪ", "A", StringComparison.Ordinal)
-        .Replace("oʊ", "O", StringComparison.Ordinal)
-        .Replace("aʊ", "W", StringComparison.Ordinal)
-        .Replace("ɔɪ", "Y", StringComparison.Ordinal)
-        .Replace("ɜː", "ɜɹ", StringComparison.Ordinal)
-        .Replace("ɚ", "əɹ", StringComparison.Ordinal)
-        .Replace("ː", string.Empty, StringComparison.Ordinal);
+    private static string ToMisaki(string ipa)
+    {
+        var symbols = (ipa == "ðɪ" ? "ði" : ipa)
+            .Replace("tʃ", "ʧ", StringComparison.Ordinal)
+            .Replace("dʒ", "ʤ", StringComparison.Ordinal)
+            .Replace("aɪ", "I", StringComparison.Ordinal)
+            .Replace("eɪ", "A", StringComparison.Ordinal)
+            .Replace("oʊ", "O", StringComparison.Ordinal)
+            .Replace("aʊ", "W", StringComparison.Ordinal)
+            .Replace("ɔɪ", "Y", StringComparison.Ordinal)
+            .Replace("ɜː", "ɜɹ", StringComparison.Ordinal)
+            .Replace("ɚ", "əɹ", StringComparison.Ordinal)
+            .Replace("ː", string.Empty, StringComparison.Ordinal);
+        return symbols.All(IsFullVowelSymbol) ? "ˌ" + symbols : symbols;
+    }
+
+    /// <summary>
+    ///     Tells whether a misaki symbol is a full (not reduced) vowel: a diphthong letter or a lax or tense vowel other than the schwas.
+    /// </summary>
+    /// <param name="symbol">The symbol.</param>
+    /// <returns><see langword="true"/> for a full vowel.</returns>
+    private static bool IsFullVowelSymbol(char symbol) => "AIOWYaeiouæɑɔɛɜɪʊʌ".Contains(symbol, StringComparison.Ordinal);
 
     /// <summary>
     ///     Renders a punctuation item.

@@ -54,7 +54,9 @@ empty of value or malformed is not indexed and the text is spoken as usual.
 
 **Tokens.** At each position the tokenizer tries, in order: skip whitespace and the audio-tag placeholder (U+FFFC); a
 letter of a spelled replacement is a token of its own; a run of ASCII digits; a run of Latin letters, which may contain
-inner apostrophes and hyphens and may take a trailing apostrophe after `s` (the plural possessive `dogs'`); a leading
+inner apostrophes and hyphens and may take a trailing apostrophe after `s` (the plural possessive `dogs'`), except that
+a hyphen whose neighbors on both sides are replacement text (the hyphen between the digit groups of `555-0147`, each
+read by the text analysis on its own) ends the word and is a punctuation token, a pause between the groups; a leading
 apostrophe belongs to a word only when the lexicon lists it so (`'tis`, `'cause`) and otherwise is a quote mark; a
 contraction ending directly after a word that a replacement boundary cut off is a clitic; the marks
 `. , ; : ! ? … — – - ( ) [ ] { } " “ ” ‘ ’ ' « »` are punctuation, a run of one mark being one token; anything else (an
@@ -63,7 +65,8 @@ emoji, a character of another script, `#`) is an unsupported run.
 **Pronouncing a word.** `WordPronouncer` folds the word (lower case, straight apostrophes, diacritics removed, `ß` as
 `ss`; a character that cannot be folded to the Latin alphabet makes the word unpronounceable) and tries the sources in
 priority order: the reading, when the reading table resolves the spelling under the requested id; the first variant of
-the dictionary entry; the morphology derivation from a known stem; a productive prefix
+the dictionary entry (for the comparative of an adjective in `ng` the variant with the velar stop first, since the
+dictionary lists `stronger` also without it); the morphology derivation from a known stem; a productive prefix
 (`counter under super inter multi semi anti over non out sub dis mis pre un re`) with a known or derivable remainder of
 at least four letters, so that a real word that merely begins like a prefix is never split; and the letter-to-sound
 model, which marks the item out of vocabulary. A host override is handled by the phonemizer before the pronouncer is

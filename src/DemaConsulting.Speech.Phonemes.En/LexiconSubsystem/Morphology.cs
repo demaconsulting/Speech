@@ -77,6 +77,9 @@ internal static class Morphology
     /// <summary>Gets <c>AH0 S T</c>.</summary>
     private static readonly Phone[] EstEnding = [Phone.Create("AH", 0), Phone.Create("S"), Phone.Create("T")];
 
+    /// <summary>Gets <c>G AH0 S T</c>: the superlative ending after a stem that ends in a stressed <c>NG</c> (<c>strong</c>, <c>strongest</c>), where the velar stop is spoken.</summary>
+    private static readonly Phone[] GEstEnding = [Phone.Create("G"), Phone.Create("AH", 0), Phone.Create("S"), Phone.Create("T")];
+
     /// <summary>Gets <c>L IY0</c>.</summary>
     private static readonly Phone[] LyEnding = [Phone.Create("L"), Phone.Create("IY", 0)];
 
@@ -114,11 +117,86 @@ internal static class Morphology
             SuffixKind.PastEd => AddPast(stem, last),
             SuffixKind.Ing => stem.Append(IngEnding),
             SuffixKind.ComparativeEr => stem.Append(ErEnding),
-            SuffixKind.SuperlativeEst => stem.Append(EstEnding),
+            SuffixKind.SuperlativeEst => stem.Append(EndsInStressedNg(stem) ? GEstEnding : EstEnding),
             SuffixKind.AdverbLy => stem.Append(last == Phone.Create("L") ? IyEnding : LyEnding),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Use AppendClitic for contractions."),
         };
     }
+
+    /// <summary>
+    ///     Puts the comparative that the dictionary lists with its velar stop first among the variants of a spelling.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     The dictionary lists <i>stronger</i> twice, once without the <c>G</c> (<c>S T R AO1 NG ER0</c>) and once with
+    ///     it (<c>... NG G ER0</c>); the first is a known defect, because English adjectives that end in <c>ng</c> speak the
+    ///     <c>g</c> in the comparative and the superlative (<i>longer</i>, <i>younger</i>, <i>longest</i>, <i>strongest</i> all
+    ///     have it), whereas an agentive <c>-er</c> or an <c>-ing</c> form does not (<i>singer</i>, <i>hanger</i>, <i>longing</i>). The
+    ///     rule is read from the dictionary itself: a stem that ends in a stressed <c>NG</c> and whose <c>-est</c> form is
+    ///     listed with <c>NG G</c> (<i>long</i>, <i>strong</i>, <i>young</i>) is an adjective of that kind, so its <c>-er</c> form with
+    ///     <c>NG G ER0</c> comes first; the other <c>-er</c> words (the many agentives such as <i>singer</i>) are not touched. A
+    ///     comparative that the dictionary lacks is derived without the stop (<see cref="Apply"/>), because the agentives
+    ///     far outnumber the adjectives; a superlative that it lacks is derived with the stop, because the dictionary has it in
+    ///     every <c>-est</c> form of a stem that ends in a stressed <c>NG</c>.
+    ///     </para>
+    ///     <para>
+    ///     A spelling with a single variant is returned as it is: a direct dictionary entry always beats a derived form.
+    ///     </para>
+    /// </remarks>
+    /// <param name="word">The lower-case spelling.</param>
+    /// <param name="variants">The dictionary's variants of the spelling, in its order.</param>
+    /// <param name="lexicon">The lexicon that supplies the stem and its superlative.</param>
+    /// <returns>The variants, the velar comparative first when the rule applies; otherwise <paramref name="variants"/> unchanged.</returns>
+    public static IReadOnlyList<Pronunciation> OrderVariants(string word, IReadOnlyList<Pronunciation> variants, CmuLexicon lexicon)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(lexicon);
+        if (variants.Count < 2 || word.Length < 4 || !word.EndsWith("er", StringComparison.Ordinal))
+        {
+            return variants;
+        }
+
+        var stem = word[..^2];
+        if (!lexicon.Lookup(stem).Any(EndsInStressedNg) || !lexicon.Lookup(stem + "est").Any(EndsWithVelarSuperlative))
+        {
+            return variants;
+        }
+
+        return [.. variants.Where(EndsWithVelarComparative), .. variants.Where(v => !EndsWithVelarComparative(v))];
+    }
+
+    /// <summary>
+    ///     Tells whether a pronunciation ends in a stressed vowel and <c>NG</c> (<c>strong</c>, <c>young</c>, but not <c>singing</c>).
+    /// </summary>
+    /// <param name="pronunciation">The pronunciation.</param>
+    /// <returns><see langword="true"/> for such an ending.</returns>
+    private static bool EndsInStressedNg(Pronunciation pronunciation) =>
+        pronunciation.Count >= 2 && pronunciation[pronunciation.Count - 1] == Phone.Create("NG") && pronunciation[pronunciation.Count - 2].Stress == 1;
+
+    /// <summary>
+    ///     Tells whether a pronunciation ends in <c>NG G ER0</c>.
+    /// </summary>
+    /// <param name="pronunciation">The pronunciation.</param>
+    /// <returns><see langword="true"/> for the comparative with the velar stop.</returns>
+    private static bool EndsWithVelarComparative(Pronunciation pronunciation) =>
+        pronunciation.Count >= 3
+        && pronunciation[pronunciation.Count - 1] == Phone.Create("ER", 0)
+        && pronunciation[pronunciation.Count - 2] == Phone.Create("G")
+        && pronunciation[pronunciation.Count - 3] == Phone.Create("NG");
+
+    /// <summary>
+    ///     Tells whether a pronunciation ends in <c>NG G</c>, a reduced vowel and <c>S T</c>.
+    /// </summary>
+    /// <param name="pronunciation">The pronunciation.</param>
+    /// <returns><see langword="true"/> for the superlative with the velar stop.</returns>
+    private static bool EndsWithVelarSuperlative(Pronunciation pronunciation) =>
+        pronunciation.Count >= 5
+        && pronunciation[pronunciation.Count - 1] == Phone.Create("T")
+        && pronunciation[pronunciation.Count - 2] == Phone.Create("S")
+        && pronunciation[pronunciation.Count - 3].IsVowel
+        && pronunciation[pronunciation.Count - 4] == Phone.Create("G")
+        && pronunciation[pronunciation.Count - 5] == Phone.Create("NG");
 
     /// <summary>
     ///     Appends a contraction clitic to the pronunciation of the word it follows.

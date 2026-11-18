@@ -22,7 +22,8 @@ sections:
                   without a form, report a word that is not in the table as absent, and apply the
                   details of the espeak-style voice (the flap of it and at before a vowel, on the and for the
                   as one group, the secondary stress of a few more words) only when the caller asks for the
-                  espeak style.
+                  espeak style, and shall withhold the reduced form of a listed word right after a word whose
+                  readings differ only by the voicing of the final consonant (close to, a house to).
                 justification: |
                   The table records which function words are weak and how, from the standard description of
                   English weak forms, and which classes the measurement against the training text of the
@@ -31,3 +32,4 @@ sections:
                 tests:
                   - WeakForms_TryGet_ListedWords_GiveTheirFormByFollowingSound
                   - WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly
+                  - WeakForms_VoicingAlternatingWords_AreDerivedFromTheReadingTableAndTheLexicon

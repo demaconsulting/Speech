@@ -117,14 +117,14 @@ is `five`), while `Jan. 5` and `Dec. 25 people` keep the date, and a blank line 
 `NumericExpressionRecognizer_VulgarFractionsAndMixedNumbers`,
 `NumericExpressionRecognizer_EnDashRange_RequiresBothEndpointsRead`
 
-Hyphen groups read ranges (`5-10`, `1990-2000`), phone numbers and identifiers (`555-1234`, `1-800-555-1234`) and the
-leading-zero and size rules; dotted groups read versions and addresses (`3.2.1`, `192.168.0.1`) with the cardinal and
-digit-by-digit group rules and the eight-group cap; slash forms read fractions (`7/16` ambiguous, `3/32` not), dates,
-and leave `24/7` and `9/11` alone; vulgar fractions are read alone, glued (`5½`) and after a whole number (`3 ½`,
-`3 1/2`). The en dash is read as `to` only when both neighbors are read as numbers (`5–10`, `1,234–5,678`, `5:30–6:30`,
-`5–10kg`, every dash of `1–2–3`); `1–2D` (its `2D` is a number with a glued letter, not a complete number), `1,23–5`,
-`5–25:99` and `5–10x` keep the dash and every token follows its own
-rule.
+Hyphen groups read ranges (`5-10`, `1990-2000`), phone numbers and identifiers (`555-1234`, `1-800-555-1234`, one span
+per group with the hyphens left between the spans, which the phonemizer turns into a pause) and the leading-zero and
+size rules; dotted groups read versions and addresses (`3.2.1`, `192.168.0.1`) with the cardinal and digit-by-digit
+group rules and the eight-group cap; slash forms read fractions (`7/16` ambiguous, `3/32` not), dates, and leave `24/7`
+and `9/11` alone; vulgar fractions are read alone, glued (`5½`) and after a whole number (`3 ½`, `3 1/2`). The en dash
+is read as `to` only when both neighbors are read as numbers (`5–10`, `1,234–5,678`, `5:30–6:30`, `5–10kg`, every dash
+of `1–2–3`); `1–2D` (its `2D` is a number with a glued letter, not a complete number), `1,23–5`, `5–25:99` and `5–10x`
+keep the dash and every token follows its own rule.
 
 ##### Hyphenated compounds and glued letters
 

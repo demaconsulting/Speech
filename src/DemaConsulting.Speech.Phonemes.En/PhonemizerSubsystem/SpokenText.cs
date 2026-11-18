@@ -97,6 +97,20 @@ internal sealed class SpokenText
     public bool IsSpelledAt(int index) => _spelled[index];
 
     /// <summary>
+    ///     Tells whether a hyphen of the spoken text separates two replacements, as the hyphens of a phone number do
+    ///     (<c>five five five</c>, a hyphen, <c>zero one four seven</c>).
+    /// </summary>
+    /// <param name="index">The index in <see cref="Text"/> of the hyphen.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the character at <paramref name="index"/> is a hyphen of the original text whose
+    ///     neighbors on both sides are replacement text: the groups were read one by one and the hyphen is the boundary
+    ///     between them, not the joint of a compound word (<c>COVID-nineteen</c> and <c>twelve-year-old</c> keep one
+    ///     original neighbor, so their hyphens stay joints).
+    /// </returns>
+    public bool IsBoundaryHyphenAt(int index) =>
+        Text[index] == '-' && _origin[index] >= 0 && index > 0 && index + 1 < Text.Length && _origin[index - 1] < 0 && _origin[index + 1] < 0;
+
+    /// <summary>
     ///     Finds the original span of a spoken range, for matching the annotations that are anchored to original text.
     /// </summary>
     /// <param name="start">The first spoken index.</param>

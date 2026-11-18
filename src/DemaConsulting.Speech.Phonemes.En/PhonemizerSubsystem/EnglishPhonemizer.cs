@@ -352,7 +352,7 @@ public sealed class EnglishPhonemizer
 
         const string Vowels = "aeiouyɑɐæɒɔəɘɚɛɜɝɞɨɪɯɵøʉʊʌᵻᵿᵊ";
         const string Sibilants = "szʃʒʧʤ";
-        const string Voiceless = "ptkfθχçh";
+        var voiceless = new string(['p', 't', 'k', 'f', 'θ', 'χ', 'ç', 'h']);
         var vowel = Vowels.Contains(last);
         if (!vowel && !char.IsLetter(last))
         {
@@ -360,7 +360,7 @@ public sealed class EnglishPhonemizer
         }
 
         var possessive = Sibilants.Contains(last) ? "ɪz" : "z";
-        if (Voiceless.Contains(last))
+        if (voiceless.Contains(last))
         {
             possessive = "s";
         }

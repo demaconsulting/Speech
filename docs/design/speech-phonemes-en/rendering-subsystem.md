@@ -54,7 +54,9 @@ a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an un
 `-ing`, `-ic`, `-ive`, `-age` and `-ish`, an unstressed prefix `IY0` as a schwa, no secondary stress right before the
 primary and none on a final `-y`. Kokoro keeps its own quotation marks, brackets and ellipsis (`“ ” ( ) …`), writes a
 dash between spaces, and keeps the stress only on the first part of a hyphenated compound, demoting the later primary
-stresses (the item's compound break says where the second part starts).
+stresses (the item's compound break says where the second part starts). A hyphen between two replaced digit groups
+(`555-0147`) is a pause item: a dash for Kokoro, a comma for Piper, so the speaker pauses after the group as a person
+reading a phone number does.
 
 **Weak forms.** In running speech the small function words are unstressed and often reduced, and the Piper voice was
 trained on text where they are. About sixty words have a weak form in one of three classes: a reduced vowel (`the` is
@@ -66,7 +68,11 @@ flap of `it` and `at` before a vowel, `on the` with an unmarked `on`, `for the` 
 (the renderer's own default), and a caller can ask for the weak forms, which agree better with the reference phonemizer
 for function words; the Kokoro model package asks for them (see *SpeechOnnxKokoro KokoroPhonemePipeline Design*, where
 the pipeline's `UseWeakForms` constant is `true`, so the weak-forms-off default described here is the renderer's, not
-the one Kokoro speech uses).
+the one Kokoro speech uses). A word with a reduced form keeps its full dictionary form right after a word whose readings
+differ only by the voicing of the final consonant (`close to`, `a house to`, `the use of`; the set is derived from the
+reading table and the lexicon, see *WeakForms*), because the reduced vowel blurs the `s` or `z` that tells the readings
+apart. In the Kokoro rendering a weak form that is a single bare full vowel (`I`) carries a secondary stress mark (`ˌI`,
+as misaki writes it), because the model drops a lone unmarked diphthong symbol after a pause.
 
 **Layout and parts.** Both renderers join the rendered pieces of the items with one space between words, a closing mark
 attached to the word before and an opening mark attached to the word after (`PhonemeStream.Join`). `RenderParts` renders

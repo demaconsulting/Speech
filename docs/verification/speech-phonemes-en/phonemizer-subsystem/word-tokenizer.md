@@ -19,13 +19,19 @@ pronouncer or phonemizer is involved. Annotations are made by small helpers in t
 emoji and `go`, `!` with the kinds word, punctuation, word, word, digits, unsupported, word, punctuation; `'tis` is one
 word and `'hello'` is punctuation, word, punctuation; a replacement of `Dr.` by `Doctor` gives `Doctor Smith`, a
 replacement running past the end of the text changes nothing, and a spelled `F B I` before `'s` gives three letter
-tokens and a clitic token.
+tokens and a clitic token; `555-0147` with both digit groups replaced gives the tokens `five five five`, `-`,
+`zero one four seven` with the hyphen as punctuation, while `COVID-nineteen` (a replaced number after an original
+hyphen) and `twelve-year-old` stay one word each.
 
 #### Test Scenarios
 
 ##### Token classes
 
 **Test**: `WordTokenizer_Tokenize_WordsPunctuationDigitsAndUnsupportedRuns_AreClassified`
+
+##### Hyphen between replacements
+
+**Test**: `WordTokenizer_Tokenize_HyphenBetweenTwoReplacements_IsPunctuationNotACompoundJoint`
 
 ##### Leading apostrophe
 

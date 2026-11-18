@@ -22,7 +22,7 @@ the mapping tables.
   target framework.
 - **D5 gates (provisional, report then ratchet).** Piper against espeak-ng en-us on the 450-sentence tuning corpus:
   **word match 89.4 percent (gate 85), phoneme error rate 3.0 percent excluding stress (gate 8), primary stress
-  agreement 96.0 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
+  agreement 95.9 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
   6)**, 2.0 percent with the opt-in weak forms. On text nobody tuned the rules on (60 fresh sentences, 3,000 further
   frequent words) the figures hold: Piper 91.8 percent word match, 2.5 percent PER, 98.1 percent primary stress
   agreement on the sentences, and 4.4 percent PER on isolated words; Kokoro 4.5 percent PER on the sentences and 2.8
@@ -36,7 +36,8 @@ the mapping tables.
   3.14 to 3.01 (2.58 to 2.47) and raised its primary stress agreement from 94.3 to 96.0 (97.1 to 98.1); Kokoro's
   held-out figures did not move, and its tuned-sentence PER moved by +0.01 point (4.88 to 4.89 with full forms, 1.99 to
   2.00 with weak forms) because three sentences of the corpus now reach the misaki engine as different spoken text (a
-  URL, `10K`, `A1`).
+  URL, `10K`, `A1`). The later listening fixes (see "Listening Fixes") brought the Piper figures to 89.4 word match and
+  95.9 primary stress, and the Kokoro full-form PER back to 4.88.
 
 ## What Is Rendered
 
@@ -132,21 +133,21 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 
 | System and corpus | Words | Match | No stress | PER | Primary | Signature | Secondary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Piper, 450 sentences | 4,279 | 89.44 | 91.14 | 3.01 | 95.98 | 96.80 | 76.29 |
+| Piper, 450 sentences | 4,279 | 89.39 | 91.14 | 3.01 | 95.90 | 96.75 | 76.29 |
 | Piper, 60 held-out sentences | 636 | 91.82 | 92.61 | 2.47 | 98.10 | 98.11 | 75.56 |
 | Piper, 3,000 words | 3,000 | 78.63 | 81.20 | 4.49 | 95.39 | 93.80 | 62.56 |
 | Piper, 3,000 held-out words | 3,000 | 75.30 | 77.40 | 4.39 | 96.76 | 94.00 | 68.28 |
-| Kokoro full, 450 sentences | 4,357 | 62.70 | 82.17 | 4.89 | 71.45 | 75.10 | 23.54 |
+| Kokoro full, 450 sentences | 4,357 | 62.73 | 82.19 | 4.88 | 71.45 | 75.10 | 23.54 |
 | Kokoro full, 60 held-out sentences | 659 | 64.80 | 83.16 | 4.50 | 72.17 | 76.33 | 21.62 |
 | Kokoro full, 3,000 words | 2,990 | 81.20 | 85.95 | 2.93 | 94.81 | 91.27 | 48.47 |
 | Kokoro full, 3,000 held-out words | 2,955 | 80.61 | 83.76 | 2.81 | 97.39 | 93.81 | 69.02 |
-| Kokoro weak, 450 sentences | 4,357 | 85.72 | 93.09 | 2.00 | 94.25 | 91.07 | 41.73 |
+| Kokoro weak, 450 sentences | 4,357 | 86.21 | 93.09 | 2.00 | 94.14 | 91.53 | 45.34 |
 | Kokoro weak, 60 held-out sentences | 659 | 88.92 | 94.84 | 1.43 | 96.59 | 93.17 | 45.78 |
 
 Columns: words compared, word match (stress marks included), word match ignoring stress, phoneme error rate (PER)
 excluding stress, primary stress agreement, stress signature agreement, secondary stress agreement.
 
-**Gates.** Piper word match 89.4 (gate 85), PER 3.0 (gate 8), primary stress 96.0 (gate 90): met on the tuned corpus and
+**Gates.** Piper word match 89.4 (gate 85), PER 3.0 (gate 8), primary stress 95.9 (gate 90): met on the tuned corpus and
 on the held-out sentences. Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not met: Piper word
 match on isolated words (78.6 and 75.3 against 85); that metric is not the gate's corpus and is dominated by the class
 "unstressed short vowel chosen by spelling" below. The stress agreement of Kokoro with full forms (71 percent) is low
@@ -207,6 +208,32 @@ before a consonant (the engine writes `ɪ` in `everyone` but `i` in `twenty-one`
 
 The numbers above are after this pass: Piper word match 88.05 to 89.44, PER 3.14 to 3.01, primary stress agreement
 94.34 to 95.98 on the 450 tuning sentences; 90.09 to 91.82, 2.58 to 2.47 and 97.05 to 98.10 on the 60 held-out ones.
+
+### Listening Fixes
+
+The owner's blinded listening led to four rule changes. They are general rules, not per-word entries, and they moved the
+tuning-sentence figures only slightly (the held-out and word passes did not move):
+
+1. **Full form after a voicing-alternating word.** A function word with a reduced form keeps its full dictionary form
+   right after a word whose readings or dictionary variants differ only by the voicing of the final consonant (`close
+   to`, `a house to`, `the use of`). The set of such words (about 50 spellings, among them `close`, `use`, `house`,
+   `excuse`, `abuse`, `diffuse`) is derived at first use from the reading table and the lexicon, with the function
+   words themselves left out. The rule fires in 9 of the 450 tuning sentences and changes the rendering in three of them
+   (`use it`, `house on`, `house is`), where espeak-ng keeps the weak form, so Piper moved from 89.44 to 89.39 percent
+   word match and from 95.98 to 95.90 percent primary stress agreement (three words of 4,279). This is the intended cost
+   of the rule.
+2. **A bare full vowel in a Kokoro weak form gets a secondary stress mark.** `I` is one symbol in the Kokoro
+   vocabulary, and the model swallows the lone unmarked symbol after a pause (`Honestly, I couldn't`). Misaki writes
+   it with a secondary stress mark, and so does the renderer now: Kokoro weak-form secondary stress agreement rose from
+   41.73 to 45.34 percent and word match from 85.72 to 86.21 percent.
+3. **Dictionary preference for the comparatives of `long`, `strong` and `young`.** The dictionary lists `stronger`
+   twice, first without the `g` of the velar stop. The variant with it now comes first when the dictionary's own `-est`
+   form of the same stem has it; derived superlatives after a stressed `ng` get the `g` too. Kokoro full-form error rate
+   4.89 to 4.88 percent against misaki.
+4. **A hyphen between two replaced digit groups is a pause.** The text analysis reads the groups of `555-0147` one by
+   one and the phonemizer keeps the hyphen between them as a pause (a comma for Piper, a dash for Kokoro) instead of a
+   compound joint. Espeak-ng has no pause there, so one tuning sentence of 450 has a different word count (same word
+   count 94.89 to 94.67 percent of the sentences) with no change in the error rate.
 
 ## Residual Classes
 
