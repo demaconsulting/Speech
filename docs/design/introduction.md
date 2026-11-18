@@ -1081,9 +1081,9 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   design document and are enforced by the project files; the model's `part` ownership expresses
   only decomposition (system, subsystem, unit), not inter-system dependency.
 - **OTS parts are modeled only where integration code uses the item.** SpeechCli and SpeechDemo
-  reference no ONNX Runtime package directly; the managed `Microsoft.ML.OnnxRuntime` assembly reaches
-  them transitively through the raw ONNX model packages, and its native runtime (Microsoft's, which
-  the sherpa-onnx native library also loads) is deployed with them. They contain no code that calls it, so they
+  reference `Microsoft.ML.OnnxRuntime` directly only to pin its managed API to the ONNX Runtime release that
+  sherpa-onnx's native library bundles (with the native assets excluded, so sherpa's own native
+  library is the one deployed); they contain no code that calls it, so they
   carry no OnnxRuntime OTS part usage. The OTS item itself is modeled and verified under SpeechOnnx. Build-tool OTS
   items are repository-level tooling (see the note in `ots.sysml`).
 - **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only

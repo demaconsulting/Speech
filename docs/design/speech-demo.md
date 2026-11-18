@@ -117,18 +117,17 @@ SpeechDemo also depends on the following NuGet packages:
   declares its native runtime packages as its own dependencies, so they restore transitively
   through the project reference
 - **Microsoft ONNX Runtime**: the raw ONNX model packages (Kokoro, Piper, Nemotron STT and Chatterbox Turbo) use
-  the managed `Microsoft.ML.OnnxRuntime` API (1.31.1), which restores transitively through their project
-  references; the demo declares no direct reference to it and, in particular, does not exclude its native
-  assets. The sherpa-onnx native runtime packages above ship their own ONNX Runtime library (1.28.2 for
-  sherpa-onnx 1.13.8) under the same file name as Microsoft's, and only one file of that name can be in the
-  output. Microsoft's managed API requires a native library at least as new as itself, so Microsoft's native
-  library is the one the demo deploys; it is backward compatible, so sherpa-onnx runs on it too. Earlier
-  revisions excluded Microsoft's native asset so that sherpa's would stay, which cannot work once the managed
-  API is newer than sherpa's native library. The arrangement is verified on `win-x64`; Linux and macOS use the
-  same mechanism but are unverified locally (the continuous integration runs are the check), and Microsoft
-  publishes no `win-x86` native runtime, so the raw ONNX models are not available on that RID. The doctor
-  regression test of the CLI (see *DoctorCommand Verification*) is the observable evidence that the two
-  families coexist in a host built the same way
+  the managed `Microsoft.ML.OnnxRuntime` API. The demo references it directly at `1.28.0` with
+  `ExcludeAssets="native"`: the sherpa-onnx native runtime packages above ship their own ONNX Runtime library
+  (1.28.2 for sherpa-onnx 1.13.8) under the same file name as Microsoft's, only one file of that name can be in
+  the output, and sherpa's must be the one that stays (its Linux libraries are linked against the versioned
+  symbols `VERS_1.28.2`, so Microsoft's copy cannot replace it). Microsoft's managed API requires a native
+  library at least as new as itself, so the managed API is pinned to 1.28.0, the 1.28 release. The raw ONNX
+  packages require 1.28.0 or newer, so this reference raises no package-downgrade warning. The arrangement is
+  verified on `win-x64` and `linux-x64` (the demo's test project passes on both, and the CLI, built the same
+  way, runs every model family there); keep the version equal to the ONNX Runtime release bundled with the
+  sherpa-onnx native runtime packages. The doctor regression test of the CLI (see *DoctorCommand
+  Verification*) is the observable evidence that the two families coexist in a host built the same way
 
 See *OTS Integration Design*, *Avalonia Design*, and *CommunityToolkit.Mvvm Design* for details.
 

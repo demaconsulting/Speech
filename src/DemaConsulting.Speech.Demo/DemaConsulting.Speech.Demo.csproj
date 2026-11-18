@@ -71,6 +71,10 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <!-- ONNX Runtime pairing: sherpa-onnx's native onnxruntime 1.28.2 must stay the only one in the
+         process (Microsoft's native copy would replace it and break sherpa on Linux), so the managed
+         API is pinned to 1.28.0 with native assets excluded. See the CLI project for the full note. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.Piper\DemaConsulting.Speech.Onnx.Piper.csproj" />

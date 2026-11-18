@@ -61,17 +61,29 @@ itself unavailable rather than failing.
 
 `DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.Piper`,
 `DemaConsulting.Speech.Onnx.NemotronStt` and `DemaConsulting.Speech.Onnx.ChatterboxTurbo` use
-Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.31.1). The sherpa-onnx native runtime packages
-ship their own native ONNX Runtime library (1.28.2 for sherpa-onnx 1.13.8) with the same file name, so
-an application that references one of these packages together with `DemaConsulting.Speech.Sherpa`
-restores both copies into the same `runtimes/<rid>/native/` folder, and only one can be loaded.
-Microsoft's managed API requires a native library at least as new as itself (an older one fails with
-"The requested API version [31] is not available"), so Microsoft's native runtime must be the one that
-stays: do not add `ExcludeAssets="native"` to the `Microsoft.ML.OnnxRuntime` reference. The newer runtime
-is backward compatible, so sherpa-onnx runs on it too. On `win-x64` and `win-arm64` NuGet places
-Microsoft's copy in the output when both are restored, and the `speech-cli` tool and the Demo application
-run both model families that way. Linux and macOS use the same mechanism but are not verified on a local
-machine; if a host there ends up with sherpa's older copy, reference `Microsoft.ML.OnnxRuntime` directly
-so its native assets win. Microsoft publishes no `win-x86` native runtime, so the raw ONNX packages are
-not available on that RID. To use an accelerated provider (for example DirectML or CUDA), reference the
-matching `Microsoft.ML.OnnxRuntime.*` package instead of the CPU one.
+Microsoft's `Microsoft.ML.OnnxRuntime` (they require 1.28.0 or newer, the lowest release they are built and
+tested against, so you may choose a version). The sherpa-onnx native runtime packages ship their own native
+ONNX Runtime library (1.28.2 for sherpa-onnx 1.13.8) with the same file name, so an application that
+references one of these packages together with `DemaConsulting.Speech.Sherpa` would restore both copies
+into the same `runtimes/<rid>/native/` folder, and only one can be loaded. Two rules decide which one has to
+stay:
+
+- On Linux, sherpa-onnx's native library is linked against the versioned symbols of its own ONNX Runtime
+  (`VERS_1.28.2`), so sherpa's copy must be the one that stays: with Microsoft's copy in its place (any
+  version, including 1.28.0) sherpa fails to load with "version 'VERS_1.28.2' not found".
+- Microsoft's managed API requires a native library at least as new as itself (an older one fails with
+  "The requested API version [31] is not available"), so with sherpa's 1.28.2 the managed API must not be
+  newer than 1.28.
+
+Reference `Microsoft.ML.OnnxRuntime` directly at `1.28.0` with `ExcludeAssets="native"`:
+
+```xml
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+```
+
+That leaves sherpa's native library as the only one in the output on every platform. The `speech-cli` tool and
+the Demo application do exactly this and run both model families on `win-x64` and `linux-x64` (verified on
+both). With a newer sherpa-onnx, keep the managed version equal to the ONNX Runtime release that its native
+runtime package bundles. An application that does not use sherpa-onnx needs no such pin: the raw ONNX packages
+then bring Microsoft's managed API and native runtime together, and for an accelerated provider (for example
+DirectML or CUDA) it references the matching `Microsoft.ML.OnnxRuntime.*` package instead of the CPU one.

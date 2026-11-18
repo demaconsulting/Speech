@@ -85,7 +85,7 @@
     <!-- Managed ONNX Runtime API only - see the referenced DemaConsulting.Speech.Onnx package's
          own remarks for why this package never references an accelerated execution-provider
          package itself. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
     <!-- The BCL has no BZip2 decoder. SharpCompress reads the voice's .tar.bz2 release archive so the
          installer can pick the two files this package uses out of it (PiperArchiveExtractor). The same
          version as DemaConsulting.Speech.Sherpa. -->

@@ -54,7 +54,8 @@ sections:
                   deliberately exercises the real load path and is skipped on a platform with no supported
                   runtime identifier. Sherpa's and Microsoft's native ONNX Runtime libraries share one file
                   name, so a host that carries both must still be able to load sherpa's library once the
-                  managed runtime has been initialized first; the test that does exactly that is the
+                  managed runtime has been initialized first, with the native runtime in the process being the
+                  one the managed API is pinned to; the test that does exactly that is the
                   observable evidence that the arrangement of the native assets works on the machine.
                 tests:
                   - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable

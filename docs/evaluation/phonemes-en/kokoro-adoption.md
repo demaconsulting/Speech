@@ -101,6 +101,6 @@ sentences) pins the result. Misses seen while building it, all in the text analy
   project excluded the native ONNX Runtime (sherpa-onnx ships its own 1.28.2 under the same file name) while its
   managed API is 1.31.1, so a Kokoro `speak` failed with "API version [31] is not available"; the evidence was
   produced with the 1.31.1 native library copied over the 1.28.2 one in a scratch copy of the CLI output. The CLI and
-  Demo now deploy the 1.31.1 native library (see `docs/design/speech-cli.md`).
+  Demo now keep sherpa-onnx's 1.28.2 native library and pin the managed API to 1.28.0 (see `docs/design/speech-cli.md`).
 - **Listening pack.** Generated for the owner outside the repository: 30 sentences (12 heteronyms, 18 general), three
   blinded variants each (old pipeline, new with weak forms, new with full forms).

@@ -24,8 +24,8 @@ runs the built tool against an isolated `--models-dir`.
   transitively copied into the test project's output on every supported runner. If the asset is
   not packaged for the runner's platform, the test is skipped rather than failed. The test
   `DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable` additionally depends on the test
-  project carrying the managed `Microsoft.ML.OnnxRuntime` API transitively (through the CLI project and the raw ONNX
-  model packages) with Microsoft's native library, not sherpa's older one, deployed beside it.
+  project referencing the managed `Microsoft.ML.OnnxRuntime` API directly at the version pinned for the hosts
+  (1.28.0) with `ExcludeAssets="native"`, so that sherpa's native ONNX Runtime is the one deployed beside it.
 
 #### Acceptance Criteria
 
@@ -83,11 +83,12 @@ skipped, not failed, on a runner where the native asset for the platform is not 
 initialized in the test process first, which throws if the native library deployed with the host is older than the
 managed API; then the real doctor native-library check runs.
 
-**Expected**: The runtime reports a version string and the `[ OK ]` SherpaOnnx line is present, so the host's single
-native ONNX Runtime file serves both families. The test is skipped, not failed, on a runner where the sherpa native
-asset is not packaged for the platform. It is evidence for the platform it runs on only: it has been run on
-`win-x64`, while Linux and macOS use the same deployment mechanism and are checked by the continuous integration
-runs.
+**Expected**: The native runtime reports the same ONNX Runtime release (major.minor) as the managed API the host is
+pinned to, i.e. sherpa's native library and not Microsoft's newer one is the one in the process, and the `[ OK ]`
+SherpaOnnx line is present, so the host's single native ONNX Runtime file serves both families. The test is
+skipped, not failed, on a runner where the sherpa native asset is not packaged for the platform. It is evidence
+for the platform it runs on only: it has been run on `win-x64` and `linux-x64` (and fails on Linux, as intended,
+when Microsoft's native library replaces sherpa's), while macOS is checked by the continuous integration runs.
 
 ##### DoctorCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
 

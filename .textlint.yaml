@@ -114,6 +114,7 @@ words:
   - kokoro
   - kore
   - ksdataformat
+  - libonnxruntime
   - libri
   - librispeech
   - libritts
@@ -199,6 +200,7 @@ words:
   # Variable-length integers (the bucket gaps of the heteronym model file)
   - varint
   - varints
+  - vers
   - vits
   - wasapi
   - wavs
