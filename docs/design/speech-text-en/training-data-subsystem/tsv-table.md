@@ -35,4 +35,5 @@ access error) propagate to `CheckDataCommand`, which reports them as an input er
 
 **Dependencies**: `CheckReport` (to record findings); the .NET base class library only.
 
-**Callers**: `TextEnDataSet`, `DataManifest`, and the unit tests.
+**Callers**: `TextEnDataSet`, `DataManifest`, `TrainingCorpus` and `HeteronymEvaluator` of the TrainingSubsystem (the
+strict read of a labeled file and of the harvest provenance table), and the unit tests.

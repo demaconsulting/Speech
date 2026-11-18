@@ -52,7 +52,7 @@ tests:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
   - name: TextEn_PackageLicenseFiles_Content
-    description: "Text.En NuGet package, when it is packed (only for a pre-release version), ships its license file and dependency notice at the package root and names the license file in its nuspec"
+    description: "Text.En NuGet package, when it is packed (only for a pre-release version), ships its license file (MIT AND CC-BY-3.0-US, naming the embedded heteronym model) and its notices (MASC attribution, dependency notice) at the package root and names the license file in its nuspec"
     tags: [api-docs]
     files:
       # Text.En is packed only for a pre-release version while its DemaConsulting.PartOfSpeech
@@ -67,16 +67,23 @@ tests:
               min: 1
               max: 1
               text:
-                # The line break makes the match exact: the declaration is MIT only, never a longer expression that merely starts with MIT.
-                - contains: "SPDX-License-Identifier: MIT\n\n# License of the DemaConsulting.Speech.Text.En Package"
+                # The line break makes the match exact: the declaration is exactly MIT AND CC-BY-3.0-US (the embedded model is provided under the terms of the license of the MASC-derived data it was trained on), never a longer expression that merely starts with it.
+                - contains: "SPDX-License-Identifier: MIT AND CC-BY-3.0-US\n\n# License of the DemaConsulting.Speech.Text.En Package"
                 - contains: "THIRD-PARTY-NOTICES.md"
+                - contains: "heteronyms.bin"
+                - contains: "Manually Annotated Sub-Corpus"
+                - contains: "CC0"
             - pattern: "THIRD-PARTY-NOTICES.md"
               min: 1
               max: 1
               text:
                 - contains: "Dependency Notice"
                 - contains: "Princeton University"
-                - contains: "Manually Annotated Sub-Corpus"
+                - contains: "Manually Annotated Sub-Corpus (MASC)"
+                - contains: "https://creativecommons.org/licenses/by/3.0/us/"
+                - contains: "heteronyms.bin"
+                - contains: "CC0 1.0"
+                - contains: "do not endorse"
             - pattern: "DemaConsulting.Speech.Text.En.nuspec"
               min: 1
               max: 1

@@ -369,15 +369,17 @@ sections:
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
                 title: >-
-                  The EnglishTextAnalyzer class shall, when no heteronym model is available (the
-                  case of an analyzer built with the options only, since this release embeds none),
-                  emit no reading or confidence annotation, so that its output is unchanged from a
-                  release without readings.
+                  The EnglishTextAnalyzer class shall emit the readings of the embedded model when
+                  built with the options only, and shall, when it is given no model source, emit no
+                  reading or confidence annotation.
                 justification: |
-                  A host that upgrades to this release must see no change in output until a model
-                  is supplied; the reading feature is inert without one.
+                  The analyzer a host builds with the public constructors must use the model that
+                  ships in the package, so that a host that does nothing gets the readings. An
+                  analyzer given no model source has nothing to classify with, so the reading
+                  feature is inert and its output is that of an analyzer without readings.
                 tests:
-                  - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
+                  - EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings
+                  - EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings
 
               - id: SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingModelUse
                 title: >-

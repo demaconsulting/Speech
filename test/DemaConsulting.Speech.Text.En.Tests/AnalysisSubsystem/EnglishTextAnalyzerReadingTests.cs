@@ -44,9 +44,9 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
     }
 
-    /// <summary>Proves a default analyzer (no model embedded) emits no readings, also when only normalization and readings are selected.</summary>
+    /// <summary>Proves a default analyzer (the embedded model) emits the readings of the sentence, also when only normalization and readings are selected.</summary>
     [Fact]
-    public void EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings()
+    public void EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings()
     {
         // Arrange
         const string text = "I want to record a record.";
@@ -56,6 +56,30 @@ public sealed class EnglishTextAnalyzerReadingTests
 
         // Act
         var defaultResult = byDefault.Analyze(text, TestContext.Current.CancellationToken);
+        var readingResult = readingOnly.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: both readings, each with its confidence on the word's span, and no part of speech for the reading-and-normalization selection
+        Assert.Equal(["record.verb", "record.noun"], Readings(defaultResult.Annotations).Select(reading => reading.Id));
+        Assert.Equal(["record.verb", "record.noun"], Readings(readingResult.Annotations).Select(reading => reading.Id));
+        Assert.All(Readings(readingResult.Annotations), reading => Assert.InRange(reading.Confidence, 0.0, 1.0));
+        Assert.DoesNotContain(readingResult.Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech);
+    }
+
+    /// <summary>Proves an analyzer given no model source emits no classified readings, also when only normalization and readings are selected.</summary>
+    [Fact]
+    public void EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings()
+    {
+        // Arrange
+        const string text = "I want to record a record.";
+        var none = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, HeteronymModelProvider.None);
+        var readingOnly = new EnglishTextAnalyzer(
+            new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading },
+            PartOfSpeechAdapter.Shared,
+            null,
+            HeteronymModelProvider.None);
+
+        // Act
+        var defaultResult = none.Analyze(text, TestContext.Current.CancellationToken);
         var readingResult = readingOnly.Analyze(text, TestContext.Current.CancellationToken);
 
         // Assert: no reading kinds anywhere, and nothing at all for the reading-and-normalization selection of this text
@@ -130,7 +154,7 @@ public sealed class EnglishTextAnalyzerReadingTests
             Readings(first.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)));
     }
 
-    /// <summary>Proves a form with a single candidate reading gets that reading with confidence 1.000 when the family is active (a model exists), and nothing without one.</summary>
+    /// <summary>Proves a form with a single candidate reading gets that reading with confidence 1.000 when the family is active (a model exists), and nothing without a model source.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel()
     {
@@ -142,10 +166,11 @@ public sealed class EnglishTextAnalyzerReadingTests
         var text = $"We saw the {word} there.";
         var sink = new RecordingDiagnostics();
         var withModel = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Diagnostics = sink });
+        var withoutModel = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, HeteronymModelProvider.None);
 
         // Act
         var result = withModel.Analyze(text, TestContext.Current.CancellationToken);
-        var without = new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken);
+        var without = withoutModel.Analyze(text, TestContext.Current.CancellationToken);
 
         // Assert
         var reading = Assert.Single(Readings(result.Annotations));

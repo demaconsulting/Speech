@@ -66,9 +66,17 @@ word with its part of speech, describes how abbreviations, symbols, apostrophes,
 times and units are spoken as aligned replacement spans over the original text (`en.norm` annotations, and `en.spell`
 annotations for letters that are spoken by letter name; the text is never rewritten), supplies sentence boundaries, and
 lets a host override how individual words are spoken or pronounced with a dictionary of pronunciation overrides
-(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide). A
-heteronym reading id with a confidence (`en.reading`) needs a trained model, and none ships yet, so only a reading
-override fixes a word's reading today.
+(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide). It
+also resolves heteronyms, words such as "record", "read" and "lead" whose pronunciation depends on the sentence: an
+embedded trained model (about 250 KB) chooses one of the readings of 207 such words from the sentence context and marks
+the word with a reading id and a confidence (`en.reading` and `en.reading-confidence`), with no configuration and no
+download. Measured on text the model never saw, it picks the right reading for about 96 percent of the heteronym words
+(95.4 percent on sentences written blind by a different model family; the labels it is measured against were chosen by
+a rule or a language model and are not human-verified), against about 91 percent for a decision by the part of speech
+alone; it is least reliable for words whose reading depends on meaning rather than grammar, a reading
+below a confidence of 0.60 is wrong about half the time, and a reading override of a host always beats it. The training
+data, the trainer, the evaluation record with its limitations and the license are described in the usage guide and in
+the repository folders `data/text-en/`, `tools/DemaConsulting.Speech.Text.En.Trainer/` and `docs/evaluation/text-en/`.
 
 ### PortAudio runtime support
 
@@ -518,15 +526,22 @@ its `THIRD-PARTY-NOTICES.md` file at the package root. misaki does not document 
 own dictionaries, which that file explains; the Kokoro lexicon is scheduled to be replaced by one generated solely
 from the CMU Pronouncing Dictionary.
 
-The `DemaConsulting.Speech.Text.En` package (pre-release) is licensed under the MIT License (its
-`PACKAGE-LICENSE.md` declares MIT only) and embeds two small lexicon tables (abbreviations and acronyms) that DEMA
-Consulting wrote from scratch under the MIT License; it embeds no third-party data. It depends on the separate
-`DemaConsulting.PartOfSpeech` package, which carries its own license files and embeds data adapted from Open English
-WordNet (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US). The package's
-`THIRD-PARTY-NOTICES.md` file, a dependency notice, reproduces that attribution for your convenience.
+The `DemaConsulting.Speech.Text.En` package (pre-release) declares `MIT AND CC-BY-3.0-US` in its `PACKAGE-LICENSE.md`.
+Its code and two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote from scratch are under the
+MIT License, and its reading inventory is dedicated to the public domain under CC0-1.0. Its embedded heteronym model is
+a set of trained weights without any sentence text; because it was trained in part on sentences adapted from the
+Manually Annotated Sub-Corpus (CC BY 3.0 US), the weights are provided under the terms of that license, with the
+attribution and the statement of the changes in the package's `THIRD-PARTY-NOTICES.md`. The rest of the training data is
+public domain or CC0-1.0, and the content generated or labeled by language models for it is dedicated to the public
+domain under CC0 1.0 by DEMA Consulting. The package depends on the separate `DemaConsulting.PartOfSpeech` package,
+which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0, derived from Princeton
+WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US); that file also reproduces that attribution, as a
+dependency notice, for your convenience.
 
 The repository folder `data/text-en/` holds the training, development and holdout data, the reading inventory and the
-provenance records for a future English heteronym classifier. It is not part of any package in this release. Each row of
+provenance records of the English heteronym classifier. It is not itself part of any package; the trained model that
+`tools/DemaConsulting.Speech.Text.En.Trainer` derives from its training and development files is embedded in the
+`DemaConsulting.Speech.Text.En` package. Each row of
 the data carries its own license (CC0-1.0, Public-Domain or CC-BY-3.0-US, with the attribution for the Manually
 Annotated Sub-Corpus sentences in its `ATTRIBUTION.md`); the content generated or labeled by language models for this
 repository by DEMA Consulting is dedicated to the public domain under CC0 1.0. The data uses no Misaki data, and the

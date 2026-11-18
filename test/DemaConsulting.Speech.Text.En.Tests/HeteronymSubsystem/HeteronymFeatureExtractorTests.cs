@@ -198,6 +198,16 @@ public sealed class HeteronymFeatureExtractorTests
         Assert.Equal(0x38AF8491u, FeatureHashing.RoleSalt("noun"));
     }
 
+    /// <summary>Proves the bucket of a feature is its mixed hash with a salt reduced to the table: the same value the scorer and the trainer both use.</summary>
+    [Fact]
+    public void FeatureHashing_Bucket_IsMixedHashReducedToTheTable()
+    {
+        // Assert: Mix(0x12345678, 0x9ABCDEF0) = 0x7F8EA7CC (see the reference values above)
+        Assert.Equal(0xA7CCu, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, 0xFFFFu));
+        Assert.Equal(0x0EA7CCu, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, (1u << 22) - 1));
+        Assert.Equal(0u, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, 0u));
+    }
+
     /// <summary>Proves the lower-case hash folds ASCII only, so the Turkish dotted capital I is not the letter i, under any culture.</summary>
     [Fact]
     public void HeteronymContext_Create_TurkishDottedI_IsNotFoldedToAscii()

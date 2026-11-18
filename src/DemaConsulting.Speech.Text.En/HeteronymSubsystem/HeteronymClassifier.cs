@@ -119,23 +119,12 @@ internal sealed class HeteronymClassifier
 
         // Score every candidate with integers; a strictly greater score wins, so a tie keeps the earlier candidate.
         var mask = _model.Mask;
+        var weights = new ModelWeights(_model);
         Span<int> scores = stackalloc int[candidates.Length];
         var best = 0;
         for (var c = 0; c < candidates.Length; c++)
         {
-            var labelSalt = Inventory.LabelSalt(candidates[c]);
-            var roleSalt = Inventory.RoleSalt(candidates[c]);
-            var score = 0;
-            for (var i = 0; i < conjoinedCount; i++)
-            {
-                score += _model.GetWeight(FeatureHashing.Mix(conjoined[i], labelSalt) & mask);
-            }
-
-            for (var i = 0; i < sharedCount; i++)
-            {
-                score += _model.GetWeight(FeatureHashing.Mix(shared[i], roleSalt) & mask);
-            }
-
+            var score = ScoreCandidate(weights, conjoined[..conjoinedCount], shared[..sharedCount], Inventory.LabelSalt(candidates[c]), Inventory.RoleSalt(candidates[c]), mask);
             scores[c] = score;
             if (score > scores[best])
             {
@@ -159,5 +148,67 @@ internal sealed class HeteronymClassifier
         }
 
         return prediction;
+    }
+
+    /// <summary>
+    ///     Computes the integer score of one candidate reading: the sum of the weights of the buckets its
+    ///     features select.
+    /// </summary>
+    /// <typeparam name="TWeights">The weight source; a struct, so the call is specialized and allocation-free.</typeparam>
+    /// <param name="weights">The weights of the buckets.</param>
+    /// <param name="conjoined">The conjoined feature hashes, scored through <paramref name="labelSalt"/>.</param>
+    /// <param name="shared">The shared feature hashes, scored through <paramref name="roleSalt"/>.</param>
+    /// <param name="labelSalt">The candidate's label salt.</param>
+    /// <param name="roleSalt">The candidate's role salt.</param>
+    /// <param name="mask">The bucket mask of the weights.</param>
+    /// <returns>The score; a duplicated feature hash counts once per occurrence.</returns>
+    /// <remarks>
+    ///     The single definition of a candidate's score. The classifier scores a loaded model with it and the offline
+    ///     trainer scores its training weights with it, so training and run time cannot disagree.
+    /// </remarks>
+    internal static int ScoreCandidate<TWeights>(
+        TWeights weights,
+        ReadOnlySpan<uint> conjoined,
+        ReadOnlySpan<uint> shared,
+        uint labelSalt,
+        uint roleSalt,
+        uint mask)
+        where TWeights : struct, IWeightSource
+    {
+        var score = 0;
+        foreach (var feature in conjoined)
+        {
+            score += weights.GetWeight(FeatureHashing.Bucket(feature, labelSalt, mask));
+        }
+
+        foreach (var feature in shared)
+        {
+            score += weights.GetWeight(FeatureHashing.Bucket(feature, roleSalt, mask));
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    ///     A source of integer bucket weights that <see cref="ScoreCandidate{TWeights}"/> can score.
+    /// </summary>
+    internal interface IWeightSource
+    {
+        /// <summary>
+        ///     Gets the weight of a bucket.
+        /// </summary>
+        /// <param name="bucket">The bucket, already masked.</param>
+        /// <returns>The integer weight; 0 for a bucket without one.</returns>
+        int GetWeight(uint bucket);
+    }
+
+    /// <summary>
+    ///     The weights of a loaded <see cref="SparsePerceptronModel"/> as a weight source.
+    /// </summary>
+    /// <param name="Model">The model.</param>
+    private readonly record struct ModelWeights(SparsePerceptronModel Model) : IWeightSource
+    {
+        /// <inheritdoc/>
+        public int GetWeight(uint bucket) => Model.GetWeight(bucket);
     }
 }

@@ -4,7 +4,9 @@
 
 `PartOfSpeechAdapter` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/PartOfSpeechAdapterTests.cs` over the real
-part-of-speech package, which is the unit's one dependency and is verified separately as an OTS item. Each
+part-of-speech package, which is the unit's one dependency and is verified separately as an OTS item. The description
+of a sentence for the heteronym features is verified against the heteronym context builder, the independent definition
+of what one token's description is, with the real tagger. Each
 adapter is given a test factory that still returns the real shared tagger (so the process-wide tagger and the
 other tests are undisturbed) and can run an action, such as a cancellation, when the tagger is requested or fail
 its first request, so those points are reached deterministically. The tests assert results, exceptions and
@@ -28,9 +30,21 @@ succeeds with the right tags), and racing callers see at most one failure while 
 call gets the complete result; a factory that returns no tagger is reported as `InvalidOperationException`; an
 already-canceled token throws, and cancellation requested during tagger initialization, or right after the only
 or the final sentence was tagged, throws instead of returning a result; and null arguments throw
-`ArgumentNullException`.
+`ArgumentNullException`; and the description of a tagged sentence for the heteronym features has one entry per token
+in sentence order, each equal to what the heteronym context builder gives for that token, also when the description is
+written into a buffer that is longer than the sentence.
 
 #### Test Scenarios
+
+##### Sentence description
+
+**Test**: `PartOfSpeechAdapter_DescribeSentence_TaggedSentence_DescribesEveryTokenLikeContextCreate`
+
+The text `The record was broken. She said so.` is tagged. The first sentence is described, which gives a buffer larger
+than the second sentence, and the second is described into that buffer. The first entries, as many as the second
+sentence has tokens, each equal the description that the context builder gives for the token's text, span, tag and
+confidence, so the analyzer and the trainer, which both describe a sentence this way, see the same sentence. The entries
+of the buffer past the sentence are not asserted.
 
 ##### Offsets and ordering
 

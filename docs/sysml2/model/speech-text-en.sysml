@@ -6,7 +6,7 @@ package SpeechTextEn {
      * words of a speech request, normalization of abbreviations, symbols, apostrophes and
      * initialisms into aligned spoken forms, host-supplied pronunciation overrides, letter
      * sequences marked to be spelled, heteronym reading ids with a confidence (from a host
-     * reading override today, and from a classifier once a model ships; none ships yet), and
+     * reading override, or from the trained model that the package embeds), and
      * authoritative sentence boundaries, delivered to
      * an annotation-aware synthesis backend as language-neutral annotations. The Analysis
      * subsystem depends on the Normalization subsystem and the Heteronym subsystem, never the
@@ -14,12 +14,15 @@ package SpeechTextEn {
      * must never depend on it. It depends on the Speech library's public API and on the
      * DemaConsulting.PartOfSpeech package (an OTS item), and on no inference runtime. The
      * TrainingDataSubsystem is the non-shipped check-data command of the trainer tool that verifies
-     * the training and evaluation data in data/text-en/; it is not part of the package and is
-     * independent of the runtime subsystems.
+     * the training and evaluation data in data/text-en/, and the TrainingSubsystem is the non-shipped
+     * train and evaluate commands of the same tool that train and measure the heteronym model with
+     * the library's own internal feature extractor, scoring and model format (through
+     * InternalsVisibleTo); neither is part of the package and the runtime subsystems do not know
+     * them.
      */
 
     part def SpeechTextEnSystem {
-        doc /* The SpeechTextEn library as a whole, with the non-shipped training data tooling. */
+        doc /* The SpeechTextEn library as a whole, with the non-shipped training data and training tooling. */
 
         comment designRef /* Design: docs/design/speech-text-en.md */
         comment verificationRef /* Verification: docs/verification/speech-text-en.md */
@@ -30,6 +33,7 @@ package SpeechTextEn {
         part normalizationSubsystem : NormalizationSubsystem;
         part heteronymSubsystem : HeteronymSubsystem;
         part trainingDataSubsystem : TrainingDataSubsystem;
+        part trainingSubsystem : TrainingSubsystem;
         part partOfSpeech : PartOfSpeech;
     }
 }

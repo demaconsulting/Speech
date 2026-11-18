@@ -294,6 +294,7 @@ sections:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingTaggingRule
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingCancellation
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingDetailedTokens
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-SentenceDescription
               - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-ReadingSelection
               - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-LowConfidenceThreshold
               - SpeechTextEn-Analysis-TextEnAnnotations-KindNames
@@ -304,23 +305,25 @@ sections:
 
           - id: SpeechTextEn-Analysis-ReadingModelAvailability
             title: >-
-              The AnalysisSubsystem shall emit no reading when no heteronym model is available (as
-              is the case for the default analyzer of this release) or the reading family is not
-              selected, shall emit the readings of a valid model for every request that contains a
-              word of the inventory, the same for concurrent and for sequential requests, and shall
-              continue without readings when the model is damaged or incompatible.
+              The AnalysisSubsystem shall emit the readings of the embedded model by default for
+              every request that contains a word of the inventory, shall emit no reading when it
+              is given no model or the reading family is not selected, shall give concurrent
+              requests the same readings as sequential requests, and shall continue without
+              readings when the model is damaged or incompatible.
             justification: |
-              The reading runtime ships before the first trained weights, and a host that does
-              nothing must see no change in output; when a model is supplied, every request that
-              needs it gets the same readings, and a model that cannot be used must degrade the
-              analysis to what it was without it. When the model is opened and that it is loaded
-              once are design choices recorded in the analysis and heteronym subsystem designs.
+              A host that does nothing gets the readings of the model that ships in the package;
+              a host that selects no readings, or an analyzer built without any model source,
+              gets none; every request that needs the model gets the same readings, and a model
+              that cannot be used must degrade the analysis to what it was without it. When the
+              model is opened and that it is loaded once are design choices recorded in the
+              analysis and heteronym subsystem designs.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingModelUse
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
             tests:
-              - EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings
+              - EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings
+              - EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings
               - EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem
 
           - id: SpeechTextEn-Analysis-ReadingOverrides

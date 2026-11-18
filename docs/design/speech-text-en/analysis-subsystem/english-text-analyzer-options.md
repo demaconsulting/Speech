@@ -13,9 +13,11 @@ overrides); the dictionary is immutable, so the record holds the reference and a
 `LowConfidenceThreshold` is a `double`, 0.60 by default. `TextEnAnnotationSelection` is a `[Flags]` enumeration
 with `None` (0), `PartOfSpeech` (1), `Normalization` (2) and `Reading` (4); later releases add further families as
 further flags without changing these values. `Reading` covers the `en.reading` and `en.reading-confidence`
-annotations together, there is no separate confidence flag, and the family is effective only where a heteronym model
-exists (a `Reading` override is honored without one, see *EnglishTextAnalyzer Design*), so the default selection
-changes nothing for a host while no model is embedded. `None` still yields the tokenizer's sentence breaks,
+annotations together, there is no separate confidence flag, and the family is effective only where the analyzer has a
+heteronym model source (a `Reading` override is honored without one, see *EnglishTextAnalyzer Design*). The default
+analyzer has the embedded model, so the default selection gives every heteronym word of a text its reading with no
+further configuration, and an analyzer built with a provider that has no source gives none. `None` still yields the
+tokenizer's sentence breaks,
 unreconciled. Selecting `Normalization` alone needs no tagger. The analyzer copies the values it needs when it is
 constructed, so a later `with` copy never affects an existing analyzer. Overrides are applied by the normalization
 pass, so a non-empty dictionary requires `Normalization`; the options record itself accepts any combination and the

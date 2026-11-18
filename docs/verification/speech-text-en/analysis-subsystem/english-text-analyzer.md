@@ -16,10 +16,13 @@ Which phonemes a backend can speak is not verified here; the tests check only th
 dictionary says. The heteronym reading behavior is verified by
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs`: the real
 HeteronymSubsystem and the real tagger are used with a hand-built fixture model (the test fixture builds it through the
-real feature extractor and the real model writer from labeled example sentences, so no binary file is committed and it
-can never go stale against the feature set), supplied through the analyzer's internal constructor with a counting model
-source that counts opens and can supply a corrupt or absent model, and with an observer that cancels at an exact
-classification. The accuracy of a real trained model is not verified here: none ships in this release.
+real feature extractor and the real model writer from labeled example sentences, so no binary fixture file is committed
+and it can never go stale against the feature set), supplied through the analyzer's internal constructor with a counting
+model source that counts opens and can supply a corrupt or absent model, and with an observer that cancels at an exact
+classification; the default analyzer, which uses the embedded model, is used where the test is about the default
+behavior, and an analyzer with a provider that has no model source where it is about an absent model. The accuracy of
+the shipped model is not verified here: it is covered by the trainer's committed-model tests and the evaluation record
+(see *SpeechTextEn System Verification*).
 
 #### Test Environment
 
@@ -58,12 +61,16 @@ every word replacement stay `en.norm`), and nothing is spelled when normalizatio
 
 For heteronym readings: the reading and the confidence of a word are annotations on exactly the word's whole token,
 after its part of speech and valid, in text order, only for a whole-token inventory form (not a hyphenated compound); a
-default analyzer, which has no model, emits no reading, creates no tagger when part of speech is not selected, and a
-selection without the reading family never opens a model; a reading-only selection tags for context and emits no
+default analyzer emits the readings of the embedded model (`record.verb` then `record.noun` for `I want to record a
+record.`, with a confidence from 0 to 1, also when only normalization and readings are selected, and then without a part
+of speech), while an analyzer with a provider that has no model source emits no reading (and nothing at all for the
+selection of normalization and readings on that text); a selection without the reading family never opens a model; a
+reading-only selection tags for context and emits no
 `en.upos`; the model is opened lazily and once; a form with one candidate gets confidence `1.000` only when a model
-exists; a token that a replacement, a pronunciation or any override other than a reading override covers never has a
-reading while the other words still do; a reading override fixes the reading with confidence `1.000`, without a model
-and over the classifier, and is ignored when the reading family is not selected; the detailed analysis carries the
+source exists; a token that a replacement, a pronunciation or any override other than a reading override covers never
+has a reading while the other words still do; a reading override fixes the reading with confidence `1.000`, without a
+model of its own and over the classifier, and is ignored when the reading family is not selected; the detailed analysis
+carries the
 reading, the confidence and the low-confidence flag, and agrees with the language-neutral path; the confidence text is
 invariant under any culture; the threshold counts classified readings below it and never removes one; the heteronym
 event is one counts-only message at most once per request and the model warning is reported once per analyzer and only
@@ -277,14 +284,18 @@ sentence.
 
 ##### Heteronym selection and effectiveness
 
-**Tests**: `EnglishTextAnalyzer_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadings`,
+**Tests**: `EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings`,
+`EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings`,
 `EnglishTextAnalyzer_Analyze_ReadingNotSelected_EmitsNoReadings`,
 `EnglishTextAnalyzer_Analyze_ReadingOnlySelection_EmitsReadingsWithoutPartOfSpeech`,
 `EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem`,
 `EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel`
 
-The default analyzer, which has no embedded model, emits no reading kind, and an analyzer that selects normalization and
-readings without a model yields no annotation at all. With a fixture model and the selection `Normalization` only, no
+The default analyzer, which uses the embedded model, emits the readings `record.verb` and `record.noun` for `I want to
+record a record.`, and so does an analyzer that selects normalization and readings (each reading has a confidence from 0
+to 1 and no `en.upos` annotation is emitted for that selection). An analyzer built with a provider that has no model
+source emits no reading kind with the default selection, and yields no annotation at all for normalization and readings
+on that text. With a fixture model and the selection `Normalization` only, no
 reading is emitted. With the selection `Reading` only, the text is tagged for context, readings are emitted, no
 `en.upos` annotation is emitted and the detailed tokens carry no part of speech, confidence or known-word flag. An empty
 text and a text without a heteronym word get no reading, and a later request with heteronym words gets the readings and
@@ -292,7 +303,7 @@ confidences that a fresh analyzer with the same model gives (`record.verb` then 
 `I want to record a record.`, and `record.verb` for `They will record the meeting.`); when the model is opened, and that
 it is opened once, are design choices and are not asserted. A form with exactly one candidate (the test takes the first
 in the inventory) gets that reading with confidence `1.000` and one `single-candidate` in the heteronym event when a
-model exists, and nothing without one.
+model is available, and no reading from an analyzer whose provider has no model source.
 
 ##### Heteronym coexistence with replacements, pronunciations and overrides
 
@@ -312,7 +323,8 @@ word leaves both.
 `EnglishTextAnalyzer_Analyze_ReadingOverrideWithoutReadingFamily_EmitsNothing`
 
 A `Reading` override for `record` with `record.noun` gives both words the reading `record.noun` with confidence `1.000`,
-with a model that would say verb for the first and with no model at all; the event reports `2 overrides applied` and a
+with a model that would say verb for the first (the fixture model) and with the default analyzer (the embedded model);
+the event reports `2 overrides applied` and a
 heteronym event of `0 classified, 0 single-candidate, 2 by override`. When the selection lacks the reading family, the
 same override emits no reading and no replacement, no pronunciation and no spelling.
 

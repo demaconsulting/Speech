@@ -1,0 +1,9 @@
+key	value
+image_sha256	73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0
+gate_min_pooled_accuracy_per_thousand	930
+confidence_percent	95
+resamples	10000
+bootstrap_seed	7
+accuracy_ok	yes
+interval_ok	yes
+verdict	pass

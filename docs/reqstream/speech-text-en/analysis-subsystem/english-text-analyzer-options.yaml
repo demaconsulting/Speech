@@ -22,9 +22,8 @@ sections:
                 justification: |
                   A host that just constructs an analyzer gets the useful behavior without
                   configuration and no reporting it did not ask for. The reading family is part of
-                  the default selection, but it produces annotations only when a heteronym model
-                  is available, which this release does not embed, so the default output is
-                  unchanged.
+                  the default selection and is served by the heteronym model embedded in the
+                  package, so the default output includes the reading of every heteronym word.
                 tests:
                   - EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink
 

@@ -18,15 +18,18 @@
       (through the DemaConsulting.PartOfSpeech tagger), describes how abbreviations, symbols,
       apostrophes and initialisms are spoken as replacement-span annotations over the original
       text (with host-supplied pronunciation overrides that take precedence), supplies authoritative sentence boundaries, and
-      can mark which reading a heteronym such as record has (when a trained heteronym model is available; none ships yet), for text-to-speech models that use
+      marks which reading a heteronym such as record has (an embedded, trained model decides from the sentence
+      context), for text-to-speech models that use
       sentence-level context. A model package
       returns an EnglishTextAnalyzer from ISynthesisModel.TextAnalyzer; the analysis reaches an
       annotation-aware synthesis backend as language-neutral annotations on each speech segment.
       Core DemaConsulting.Speech stays language-neutral and has no dependency on this package.</Description>
     <!-- A package carries a license expression or a license file, never both. This package names a
-         file (MIT only) so the license text and the dependency notice travel with it; the licenses
-         of the DemaConsulting.PartOfSpeech package's embedded data are described, as a dependency
-         notice, in THIRD-PARTY-NOTICES.md. See PACKAGE-LICENSE.md. -->
+         file (SPDX MIT AND CC-BY-3.0-US: MIT code, with the embedded heteronym model provided under
+         the terms of the license of the MASC-derived data it was trained on) so the license text,
+         the data attribution and the dependency notice travel with it; the licenses of the
+         DemaConsulting.PartOfSpeech package's embedded data are described, as a dependency notice,
+         in THIRD-PARTY-NOTICES.md. See PACKAGE-LICENSE.md. -->
     <PackageLicenseFile>PACKAGE-LICENSE.md</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
     <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
@@ -122,6 +125,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Text.En.Tests" />
+    <!-- The non-shipped trainer tool (and its tests) train and evaluate the heteronym model with this
+         library's own feature extractor, scoring and model format instead of a copy of them. -->
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Text.En.Trainer" />
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Text.En.Trainer.Tests" />
   </ItemGroup>
 
   <!-- The two small lexicon tables written by DEMA Consulting (abbreviations and initialisms) the
@@ -132,11 +139,18 @@
 
   <!-- The heteronym reading inventory (CC0-1.0 tables written by DEMA Consulting), embedded by link from
        data/text-en so the data folder stays the single source of truth (MANIFEST.tsv pins both files).
-       The logical names are fixed and do not clash with the Resources\*.tsv names above. No trained
-       weights are embedded in this release. -->
+       The logical names are fixed and do not clash with the Resources\*.tsv names above. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\data\text-en\readings.tsv" LogicalName="DemaConsulting.Speech.Text.En.Resources.readings.tsv" />
     <EmbeddedResource Include="..\..\data\text-en\forms.tsv" LogicalName="DemaConsulting.Speech.Text.En.Resources.forms.tsv" />
+  </ItemGroup>
+
+  <!-- The trained heteronym model, written by the non-shipped trainer tool (train) from the training and
+       development data in data/text-en and verified against tools/DemaConsulting.Speech.Text.En.Trainer/
+       training.json (the trainer's check command). The resource name is the one HeteronymModelProvider.Embedded reads.
+       The file is required: a build without it fails instead of silently shipping no model. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\heteronyms.bin" LogicalName="DemaConsulting.Speech.Text.En.Resources.heteronyms.bin" />
   </ItemGroup>
 
   <ItemGroup>

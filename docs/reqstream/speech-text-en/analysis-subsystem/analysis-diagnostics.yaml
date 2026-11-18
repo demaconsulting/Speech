@@ -136,7 +136,8 @@ sections:
                 justification: |
                   An unusable model is the one condition of the reading feature that a host can
                   act on, so it is reported; repeating the warning on every request would flood a
-                  log, and an absent model is the normal state of this release.
+                  log, and a model that cannot be used is not the normal state: the model ships in
+                  the package, so only a damaged or incompatible one reaches this report.
                 tests:
                   - AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning
                   - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel

@@ -29,6 +29,17 @@ uses the package's shared default tagger as its factory; creating the adapter do
 - **GetTagger()** (private): double-checked creation. A tagger that already exists is read without
   locking; otherwise the factory runs under the lock, a null return throws `InvalidOperationException`, and
   a created tagger is published with a volatile write
+- **DescribeSentence(analysisText, sentence, buffer)** (internal static): describes every token of one adapted sentence
+  for the heteronym classifier, reusing a buffer. It makes one `ContextToken` per token with
+  `HeteronymContext.Create(analysisText, start, length, tag, confidence)` and returns a buffer whose first
+  `sentence.Count` entries describe the sentence; a null buffer, or one shorter than the sentence, is replaced by a new
+  array, so the caller's array grows to the longest sentence it describes. It is the **single place where an adapted
+  token becomes a context token**: the analyzer's per-request reading pass calls it at run time and the offline trainer
+  calls it when it prepares a row, so the two cannot describe a sentence differently. It lives in the adapter, with the
+  adapted token it consumes, rather than in the analyzer, so that the HeteronymSubsystem does not depend on the
+  AnalysisSubsystem (it was a private method of the analyzer's reading pass before the trainer needed it; the behavior
+  is unchanged). It is stateless and thread-safe as long as the caller does not share the buffer, uses no tagger and
+  does not touch the cancellation token
 - **IsTaggerCreated**: whether a tagger has been created yet; used by tests
 
 **Tagger creation pattern (design decision)**: the tagger is created under a plain lock with a null check
@@ -47,10 +58,13 @@ because a failure is exceptional.
 **Error Handling**: a null text or factory throws `ArgumentNullException`; a canceled token throws
 `OperationCanceledException` at whichever check observes it. An exception from the tagger factory
 propagates to the caller and is not remembered: the next request that needs the tagger invokes the
-factory again. A factory that returns null throws `InvalidOperationException`.
+factory again. A factory that returns null throws `InvalidOperationException`. `DescribeSentence` throws what
+`HeteronymContext.Create` throws (`ArgumentNullException` for a null text, `ArgumentOutOfRangeException` for a token
+span outside the text), which cannot happen for tokens the adapter itself returned for that text.
 
 **Dependencies**: OTS item `DemaConsulting.PartOfSpeech` (see *PartOfSpeech Design*): the tokenizer
-(`Tokenizer.Tokenize`), the tagger (`Tagger.Default`, `Tagger.Tag`), the token and tagged-token types, and
-the tag-name conversion.
+(`Tokenizer.Tokenize`), the tagger (`Tagger.Default`, `Tagger.Tag`), the token and tagged-token types, and the tag-name
+conversion; and, for `DescribeSentence` only, the HeteronymSubsystem's `HeteronymContext` and `ContextToken`.
 
-**Callers**: `EnglishTextAnalyzer`; the unit tests.
+**Callers**: `EnglishTextAnalyzer` (`Analyze`, and `DescribeSentence` from its reading pass); the trainer's row
+preparation (`Analyze` and `DescribeSentence`); the unit tests.

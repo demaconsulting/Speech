@@ -42,4 +42,5 @@ fails loudly.
 **Dependencies**: `DataManifest`, `TextEnDataSet`, `SchemaChecker`, `LicenseChecker`, `LeakageChecker` and
 `CheckReport`; the .NET base class library only.
 
-**Callers**: `Program.Run` of the trainer and the unit tests.
+**Callers**: `Program.Run` of the trainer, `TrainCommand` and `EvaluateCommand` (through `FindDataRoot`, the data folder
+discovery they share) and the unit tests.

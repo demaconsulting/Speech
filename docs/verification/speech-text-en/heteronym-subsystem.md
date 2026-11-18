@@ -6,12 +6,14 @@ The SpeechTextEn HeteronymSubsystem is verified through deterministic tests in
 `test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem` that need no network and no hardware. The subsystem-level
 tests in `HeteronymSubsystemTests.cs` exercise the units together: the real inventory (loaded from the tables embedded
 in the library), the real feature extractor, the real model writer and loader, the real classifier and the real model
-provider. The only thing the tests make up is the model: no trained model ships in this release, so the test project
-builds a small one on demand. The fixture builder `Fakes/HeteronymFixtureModel.cs` describes a few labeled example
+provider. Apart from the embedded-model test, the tests make up the model: the test project builds a small one on
+demand, so that what they check does not depend on what the shipped model happens to decide. The fixture builder
+`Fakes/HeteronymFixtureModel.cs` describes a few labeled example
 sentences exactly as the analyzer does, extracts their features, gives every feature of the gold reading a positive
-weight and writes the result through the real writer; no binary model is committed, so the bytes can never go stale
-against the feature set. A model source fake (`Fakes/CountingModelSource.cs`) serves the bytes and can serve nothing, a
-failing stream or a corrupt file.
+weight and writes the result through the real writer; no binary fixture model is committed, so its bytes can never go
+stale against the feature set. A model source fake (`Fakes/CountingModelSource.cs`) serves the bytes and can serve
+nothing, a failing stream or a corrupt file. One subsystem test uses the shipped model instead: the embedded provider
+loads the model embedded in the library.
 
 **Test-only dependency on the AnalysisSubsystem.** To describe example sentences realistically the fixture builder
 reaches the real part-of-speech tagger through `PartOfSpeechAdapter`, which is a type of the AnalysisSubsystem, and the
@@ -24,7 +26,8 @@ The units are verified in isolation by their own test files (see the unit verifi
 cover what only the combination can show: that a model supplied through a provider chooses a reading by context, that a
 model is bound to reading ids rather than to table positions, that every form of the real inventory classifies within
 its own candidates, and that a configured provider exposes its inventory without a classifier having been requested. The
-accuracy of a trained model is not verified: it is not shipped.
+accuracy of the shipped model is not verified here: that is the subject of the training subsystem's committed-model
+tests and of the committed evaluation record (see *SpeechTextEn TrainingSubsystem Verification*).
 
 ### Test Environment
 
@@ -43,7 +46,9 @@ chooses the verb reading for the verb use and the noun reading for the noun use 
 with a confidence above one half; the decisions of a model do not change when the inventory lists the same readings in a
 different order, because the model binds to reading ids; an empty model classifies every form of the real inventory in a
 sentence, with a prediction inside the form's candidates and a confidence from 0 to 1, without error; and a provider
-that is configured exposes the default inventory (its version and form count) without any classifier request.
+that is configured exposes the default inventory (its version and form count) without any classifier request; and the
+embedded provider is configured, loads the shipped model and, through the real tagger, chooses `wind.coil` for the verb
+and `wind.air` for the noun in `Please wind the clock before the wind blows.`.
 
 ### Test Scenarios
 
@@ -80,6 +85,16 @@ real tokens of all of them and that no form breaks the classifier.
 A provider over a source serving a fixture model reports that it is configured and returns an inventory with the version
 and the number of forms of the default inventory, without any classifier having been requested. Whether the source is
 opened lazily is a design choice and is not asserted.
+
+#### Shipped model through the embedded provider
+
+**Test**: `HeteronymSubsystem_EmbeddedProvider_ShippedModel_ChoosesReadingByContext`
+
+The static embedded provider reports that it is configured and returns a classifier with the status `Loaded`. The
+sentence `Please wind the clock before the wind blows.` is described like the analyzer does, and the classifier chooses
+`wind.coil` for the first `wind` and `wind.air` for the second. This proves that the shipped model is embedded under the
+resource name the provider asks for, that it loads and fits this build, and that it decides one clear pair of contexts;
+it is not a measure of accuracy.
 
 See also the unit documents `reading-inventory.md`, `heteronym-feature-extractor.md`, `sparse-perceptron-model.md` and
 `heteronym-classifier.md`, and *SpeechTextEn System Verification* for the behavior through the public analyzer.

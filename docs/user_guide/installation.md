@@ -29,9 +29,10 @@ Three optional packages add raw ONNX Runtime models that do not need sherpa-onnx
 Together with the Sherpa package, the library supplies seven models through four model packages
 (see "Managing speech models" below).
 
-One further optional package is a preview and ships no model: `DemaConsulting.Speech.Text.En` supplies an
-English text analyzer (part-of-speech and normalization annotations and
-sentence boundaries) that a model package can return from `ISynthesisModel.TextAnalyzer`; see "Text
+One further optional package is a preview and ships no speech model: `DemaConsulting.Speech.Text.En` supplies an
+English text analyzer (part-of-speech and normalization annotations, sentence boundaries and the reading of
+heteronyms such as "record", chosen by a small trained model, about 250 KB, that is embedded in the package) that a
+model package can return from `ISynthesisModel.TextAnalyzer`; see "Text
 analysis for model authors" in the usage guide. The package is a pre-release and is published only in
 pre-release versions (for example `1.0.0-beta.1`, never a stable `1.0.0`): it depends on the pre-release
 `DemaConsulting.PartOfSpeech` tagger (pinned to 0.1.0-beta.5 or later, which clears the working buffers in

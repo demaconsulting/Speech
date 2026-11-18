@@ -18,7 +18,8 @@ Below the system level, the unit and subsystem behavior is verified by the Analy
 *SpeechTextEn AnalysisSubsystem Verification*), the HeteronymSubsystem tests (see *SpeechTextEn HeteronymSubsystem
 Verification*), the NormalizationSubsystem tests (see *SpeechTextEn
 NormalizationSubsystem Verification*) and the TrainingDataSubsystem tests (see *SpeechTextEn
-TrainingDataSubsystem Verification*), and the part-of-speech package the analysis builds on is
+TrainingDataSubsystem Verification*) and the TrainingSubsystem tests (see *SpeechTextEn TrainingSubsystem
+Verification*), and the part-of-speech package the analysis builds on is
 verified separately as an OTS item (see *PartOfSpeech Verification*). The system tests of the normalization
 check its observable result: the `en.norm` annotations a caller reads, the text they produce when applied by
 an independent applier that follows the documented consumer algorithm, the sentence breaks, and what a real
@@ -37,14 +38,19 @@ Verifying that a phoneme string is correct is out of scope: only the syntax of a
 the backends own their phoneme inventories and the decision whether and how to speak a pronunciation.
 
 The system tests of the heteronym readings check the observable behavior of the reading family through the public
-API: that the default analyzer, which embeds no trained model, emits no reading annotation, that a `Reading` override
+API: that the default analyzer, which embeds the trained model, emits the expected reading and a confidence on the word
+for a curated set of clear sentences and none for a text without a heteronym word, that a `Reading` override
 fixes the reading with no model at all and beats a classifier, that a real session delivers reading and confidence
 annotations to an annotation-aware backend, re-based into whichever chunk holds the word, and that the heteronym
-diagnostics are counts only. No trained model ships in this release, so the classified readings are verified with a
-hand-built fixture model that the test project produces by running the real tagger, the real feature extractor and the
-real model writer on a few labeled example sentences (no binary model is committed); it exercises the real format, the
-real loader and the real classifier, but it does not measure the accuracy of any real model, which is not claimed. The
-embedded inventory tables are verified by the project-file test and the subsystem tests.
+diagnostics are counts only. The curated sentences are written independently of any labeled data set, so the test
+checks that the shipped model is wired into the default analyzer and decides clear cases correctly; it is not a measure
+of accuracy. The mechanics that are tested with a model (the concurrency, the confidence, the diagnostics and the
+override precedence) use a hand-built fixture model that the test project produces by running the real tagger, the real
+feature extractor and the real model writer on a few labeled example sentences, so they do not depend on what the
+shipped model happens to decide; the fixture exercises the real format, the real loader and the real classifier. The
+accuracy of the shipped model is verified by the trainer tests of the training scenarios below (the committed model,
+data and evaluation record are checked by the gate, not trusted) and is claimed only as far as the committed evaluation
+record states it. The embedded inventory tables are verified by the project-file test and the subsystem tests.
 
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences:
 the analyzer relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only
@@ -61,7 +67,8 @@ by unit tests, so a change of the tokenizer or of the number rules cannot silent
 System and unit tests reside in the `test/DemaConsulting.Speech.Text.En.Tests` project. The training-data tooling
 (the non-shipped trainer) has its own test project, `test/DemaConsulting.Speech.Text.En.Trainer.Tests`, which holds the
 system-level scenarios of the training-data requirements and the tests of the TrainingDataSubsystem (see *SpeechTextEn
-TrainingDataSubsystem Verification*).
+TrainingDataSubsystem Verification*), and the system-level scenarios of the training requirements and the tests of the
+TrainingSubsystem (see *SpeechTextEn TrainingSubsystem Verification*).
 
 ## Test Environment
 
@@ -387,24 +394,34 @@ sentinel words, payloads, scheme names, phonemes or words of the analyzed text.
 
 ### Heteronym Readings
 
-**Tests**: `SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations`,
+**Tests**: `SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading`,
+`SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations`,
 `SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults`,
 `SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel`,
 `SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking`
 
-Verifies that the default analyzer (the public constructor, which embeds no model) analyzes `I want to record a record.`
-with only part-of-speech annotations, so a host that does nothing sees no change. It verifies that one analyzer with a
+Verifies that the default analyzer (the public constructor, which embeds the trained model and is given no
+configuration) decides the reading in fourteen clear sentences that were written independently of any data set and
+cover `record`, `lead`, `read`, `wind`, `tear`, `bass` and `bow`: for each, exactly one `en.reading` and one
+`en.reading-confidence` (a number from 0 to 1, read through `TryReadReadingConfidence`) lie on exactly the word,
+beside its `en.upos`, and the reading id read through `TryReadReading` is the expected one (for example `record.verb`
+for `They will record the meeting tonight.` and `record.noun` for `She broke the world record last year.`). These
+sentences are clear cases; they show that the model is wired in and decides obvious contexts, and they do not measure
+accuracy. It verifies that `The cat sat on the mat.` gets part-of-speech annotations only, so a text without a
+heteronym word is annotated as before. It verifies that one analyzer with a
 fixture model, shared by thirty-two concurrent requests that race for the model, gives every request the readings and
 confidences of a sequential request (the readings are present in that result); when the model is opened and that it is
 opened once are design choices, not asserted. It verifies that a reading entry
 `record` / `record.noun`, loaded from the tab-separated format, gives both `record` words the reading `record.noun` with
-the confidence `1.000`, readable through `TryReadReading`, both with an analyzer that has no model and with one that has
-a fixture model that would otherwise choose the verb for the first word, so the override beats the classifier and needs
-no model. It verifies, through a real synthesis session, that a text of ten repeated sentences (more than three chunk
-lengths) delivers to an annotation-aware backend in several calls exactly the readings the analyzer produced (twenty in
-all), each reading read through `TryReadReading` on exactly the characters `record` of its chunk and with its
+the confidence `1.000`, readable through `TryReadReading`, both with the default analyzer and with one that has a
+fixture model that would otherwise choose the verb for the first word, so the override beats the classifier and needs
+no model of its own. It verifies, through a real synthesis session, that a text of ten repeated sentences (more than
+three chunk lengths) delivers to an annotation-aware backend in several calls exactly the readings the analyzer produced
+(twenty in all), each reading read through `TryReadReading` on exactly the characters `record` of its chunk and with its
 confidence annotation, read through `TryReadReadingConfidence`, on the same start and length, so no reading is lost,
-duplicated or moved by the chunking.
+duplicated or moved by the chunking. That an analyzer without a model source emits no reading, and that a damaged or
+incompatible model gives no readings and one warning, are verified by the analysis subsystem tests (see *SpeechTextEn
+AnalysisSubsystem Verification*).
 
 ### Heteronym Diagnostics
 
@@ -435,20 +452,14 @@ cancellation) only ends a test that would never finish. A token canceled beforeh
 ### Package Files
 
 **Tests**: `SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot`,
-`SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice`,
-`SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData`,
 `SpeechTextEn_Dependencies_EvaluatedReferences_PinTaggerExactlyAndReferenceNoInferenceRuntime`,
 `SpeechTextEn_PackageVersion_EvaluatedProject_PacksOnlyPrereleaseWhileTaggerIsPrerelease`,
-`SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOfflineAndShipsNoModel`,
+`SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOffline`,
 `TextEn_PackageLicenseFiles_Content`
 
 Verifies that the project file names `PACKAGE-LICENSE.md` as the license file (and no license expression) and packs both
-it and `THIRD-PARTY-NOTICES.md` at the package root; that the license file starts with the SPDX line `MIT` and nothing
-else, contains the MIT license text, describes the tagging package as a separate dependency that is not bundled and
-carries its own license files, and states that this package embeds two small lexicon tables of its own, written from
-scratch by DEMA Consulting under the same license, and no third-party data; that the notices are scoped as a dependency
-notice, state that this package embeds no third-party data in this release, and reproduce the Manually Annotated
-Sub-Corpus and Open English WordNet attribution and the Princeton WordNet notice.
+it and `THIRD-PARTY-NOTICES.md` at the package root. The content of the two files is not checked by a text scan of the
+repository files: it is checked on the built package by the FileAssert test described below.
 
 The dependency and packaging tests do not read the text of the project file: they ask the dotnet command line tool to
 evaluate it (`dotnet msbuild <project> -getItem:PackageReference -getItem:ProjectReference` and
@@ -463,15 +474,21 @@ and that every version is packable once the pin is a stable version (the tempora
 build script's pack verification complements it by checking that a package is actually produced; the test checks the
 outcome and not how the project file spells the condition. The reading-inventory test verifies the inventory shipped
 with the package through the public API: a reading entry `record` / `record.noun` is accepted (validated against the
-inventory) and fixes both readings of `I want to record a record.` with no model, an entry for the undefined reading
-`record.nonsense` is refused with `InvalidDataException`, and the default analyzer emits no reading, so the release
-ships no model. That the tables are linked from the data folder under fixed resource names is a design matter. The last
+inventory) and fixes both readings of `I want to record a record.` to `record.noun`, whereas the default analyzer, with
+no override, reads `record.verb` and then `record.noun`; an entry for the undefined reading `record.nonsense` is refused
+with `InvalidDataException`. That the tables are linked from the data folder under fixed resource names, and the model
+embedded under its resource name, is a design matter. The last
 test, `TextEn_PackageLicenseFiles_Content`, is a FileAssert test over the **built package**, not a repository file: when
-a `.nupkg` was built (only for a prerelease version) it contains `PACKAGE-LICENSE.md` (starting with the line
-`SPDX-License-Identifier: MIT` followed by the license heading, and naming `THIRD-PARTY-NOTICES.md`) and
-`THIRD-PARTY-NOTICES.md` (the dependency notice with its attribution) at the package root, and its `.nuspec` references
-`PACKAGE-LICENSE.md` as the license file; for a stable version no package is built, and the test accepts the absence of
-a package (it rejects more than one).
+a `.nupkg` was built (only for a prerelease version) it contains, at the package root, `PACKAGE-LICENSE.md` (whose first
+line, directly followed by the license heading, is `SPDX-License-Identifier: MIT AND CC-BY-3.0-US`, and which names
+`THIRD-PARTY-NOTICES.md`, the embedded model `heteronyms.bin`, the Manually Annotated Sub-Corpus and CC0) and
+`THIRD-PARTY-NOTICES.md` (the dependency notice, the Princeton University notice, the attribution of the Manually
+Annotated Sub-Corpus with the Creative Commons license link and the statement that its authors do not endorse the model,
+the model `heteronyms.bin`, and the CC0 1.0 dedication), and its `.nuspec` references `PACKAGE-LICENSE.md` as the
+license
+file; for a stable version no package is built, and the test accepts the absence of a package (it rejects more than
+one). The test checks that these statements are present, not that the licensing position is correct: the declaration and
+the notices are the owner's decision.
 
 ### Request Noninterference
 
@@ -514,6 +531,55 @@ external check was skipped. The provenance records are checked by the unit tests
 at system level by the committed-data run. The correctness of the labels themselves is not claimed by any automated
 test.
 
+### Training
+
+**Tests**: `TrainingSubsystem_Train_SameInputsTwice_ProduceIdenticalUncompressedImagesAndRecords`,
+`TrainingSubsystem_Train_FixtureImage_MatchesPinnedHash`,
+`TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale`,
+`TrainingSubsystem_Train_HoldoutFilesAbsentOrAltered_ImageUnchanged`,
+`TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns`,
+`TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord`,
+`TrainingSubsystem_Evaluate_TrainerAndAnalyzerPredictions_AgreeOnEveryFixtureRow`,
+`TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage`,
+`TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds`,
+`TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord`,
+`TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent`,
+`TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`,
+`TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent`
+
+These tests reside in `test/DemaConsulting.Speech.Text.En.Trainer.Tests` and are described in *SpeechTextEn
+TrainingSubsystem Verification*. They verify the six training system requirements (reproducibility, holdout
+isolation, runtime parity, evaluation, the acceptance gate and the provenance record) through the two observable
+interfaces of the training tooling, the `train` and `evaluate` commands. Most run on a small data folder that the tests
+write in code. The reproducibility
+of the model is shown by two trainings of the same inputs giving the same uncompressed image and record, and by the
+SHA-256 hash of the uncompressed fixture model, which is pinned in the test. The identity of that hash on every
+supported operating system is not shown by any single run, and cannot be proven locally: it is evidenced by the CI build
+matrix, which runs the same test on each operating system (so a platform dependence makes the test fail on that system),
+and by the same matrix running `train --check` and `evaluate --check` on the committed files. The staleness of a model
+is verified at system level by one changed training row; the other causes are verified by the unit tests of the train
+command. Holdout isolation is shown by the model and the record staying byte for byte the same when the holdout files
+are absent, altered or replaced. Runtime parity is shown by a model trained on the fixture that the runtime loads and
+that makes the analyzer choose the trained readings, by the count of the rows that are not tokens of the analyzer's
+tokenization in the record, and by the agreement of the trainer's and the analyzer's decisions on every aligned row. The
+evaluation is verified with exact figures, baselines and gate exit codes of the fixture sets, and the evaluation record
+by writing it, checking it and detecting an edited file.
+
+Three tests run against the **committed repository files** (and are skipped only when the repository root cannot be
+found above the test binaries): `TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent` retrains from the
+committed data with the recorded settings and requires the committed model and `training.json` to be what retraining
+produces; `TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate` evaluates the committed model through the
+analyzer that embeds it on the natural holdout and requires the gate (an accuracy of at least 93.0 percent and an
+interval of the improvement over the own-part-of-speech baseline whose lower bound is above zero) to pass; and
+`TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent` requires the committed evaluation record to be exactly what
+evaluation produces. Together they verify that the shipped model, its record and its published figures are consistent
+with each other and with the committed data, and that the model meets the gate the owner fixed in advance. They do not
+verify that the labels are right, and the figures carry the limits that the evaluation record states with them: the
+labels of the natural sentences were chosen by rule or by a language model and were not checked by a person, the
+tagger saw part of the natural holdout, and the improvement comes from the sentences that need meaning rather than
+grammar. The accuracy of the shipped model is therefore claimed exactly as the committed record states it and no
+further.
+
 ## Acceptance Criteria
 
 A SpeechTextEn system-level test run passes when all scenarios above pass without unexpected exceptions, every subsystem
@@ -524,20 +590,32 @@ numeric constructs whose tokens are separated by clause cuts and budget cuts), t
 clitic, initialism and numeric behavior (the golden readings, the documented defaults and their counts), the behavior of
 user pronunciation overrides (whole-word matching, one annotation per action on the exact source characters, precedence
 over the built-in rules, counts only in the diagnostics, identical results under concurrent use, and the documented
-limitations pinned by the golden rows), the spelled-initialism annotations, the heteronym reading behavior (no reading
-annotation from a default analyzer, a `Reading` override that fixes the reading without a model and beats a classifier,
+limitations pinned by the golden rows), the spelled-initialism annotations, the heteronym reading behavior (the expected
+reading and a confidence from a default analyzer for the curated clear sentences and none for a text without a
+heteronym word, a `Reading` override that fixes the reading without a model and beats a classifier,
 the survival of the reading and confidence annotations through real chunking, and the counts-only heteronym
 diagnostics), the large-input output checks and the packaging configuration (evaluated through the dotnet command line
 tool) are claimed as automated coverage, while the linguistic accuracy of the tagger is left to the tagging package's
-own evaluation, the accuracy of a trained heteronym model is not claimed (none ships, and the fixture model only proves
-the mechanics), the abbreviation readings are claimed only for the documented cases and cues, the numeric readings only
+own evaluation, the accuracy of the shipped heteronym model is claimed only as the committed evaluation record states it
+(the gate on the natural holdout is verified by a test against the committed files, and the labels, the tagger's
+exposure to part of the natural set and the small counts per reading are limits that are not claimed away), the
+abbreviation readings are claimed only for the documented cases and cues, the numeric readings only
 for the documented en-US policy, the correctness of the phonemes of a pronunciation override (only its syntax is
 verified; the backends own their phoneme inventories) is not claimed, no elapsed-time, allocation, thread,
 polling-cadence or object-lifetime behavior is claimed (those are design choices, not asserted by test), and the
 clearing of the tagging package's private working buffers is evidenced by the upstream package's regression tests cited
 by version, with the remaining gap (no repository-owned test of that private state) stated for the repository owner's
 approval, not claimed as verified here. The package license files are also part of the acceptance criteria: both must be
-present, the project must pack them at the package root, the license declaration must be MIT only, the license file must
-describe the embedded tables and the absence of third-party data, and the dependency notice must keep the attribution
-chain intact. The training-data scenarios pass when the real committed data passes `check-data` and each class of seeded
-defect is reported by the check that owns it; the labels of the data are not claimed as verified.
+present, the project must pack them at the package root, and the built package must carry the license declaration
+`MIT AND CC-BY-3.0-US`, the description of the embedded tables and model, the attribution of the Manually Annotated
+Sub-Corpus with the changes made, the CC0 dedication and the dependency notice with its attribution chain intact (the
+correctness of the licensing position itself is the owner's decision and is not claimed by test). The training-data
+scenarios pass when the real committed data passes `check-data` and each class of seeded
+defect is reported by the check that owns it; the labels of the data are not claimed as verified. The training scenarios
+pass when the fixture model is the same on repeated training and has the pinned hash (on every operating system of
+the build matrix), holdout files have no influence on the model, the model is loadable by the runtime and counts the
+rows that the analyzer cannot use, the trainer and the analyzer decide alike, the evaluation figures, the gate and the
+record follow the fixture exactly, and a stale model or record is found; and when the committed model and training
+record are what retraining produces, the committed model passes the gate on the natural holdout and the committed
+evaluation record is what evaluation produces (the identity on every operating system is evidenced by the CI matrix
+running these checks, not shown by one local run).

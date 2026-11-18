@@ -1,0 +1,13 @@
+set	confidence	rows	correct	accuracy_bp	upos_baseline_correct
+dev	<0.600	62	36	5806	0
+dev	0.600-0.899	346	264	7630	0
+dev	>=0.900	2824	2783	9855	0
+dev	none	3	0	0	0
+holdout-independent	<0.600	53	30	5660	0
+holdout-independent	0.600-0.899	189	138	7302	0
+holdout-independent	>=0.900	1730	1714	9908	0
+holdout-independent	none	0	0	0	0
+holdout-natural	<0.600	21	10	4762	0
+holdout-natural	0.600-0.899	104	78	7500	0
+holdout-natural	>=0.900	1042	1035	9933	0
+holdout-natural	none	0	0	0	0

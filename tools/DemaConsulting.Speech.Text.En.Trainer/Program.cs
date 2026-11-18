@@ -1,13 +1,15 @@
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
+using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer;
 
 /// <summary>
-///     Hosts the Text.En trainer command line. Today the only command is <c>check-data</c>.
+///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c> and <c>evaluate</c>.
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it exists so the Text.En training
-///     data can be verified locally and in CI. <see cref="Main"/> only wires the real console, current directory and
+///     data can be verified, the heteronym model trained and verified, and the model evaluated, locally and in CI.
+///     <see cref="Main"/> only wires the real console, current directory and
 ///     environment to <see cref="Run"/>, which tests call with in-memory writers. Unknown or missing commands are a
 ///     usage error (exit code 2).
 /// </remarks>
@@ -19,6 +21,8 @@ internal static class Program
 
         Commands:
           check-data   Verify the Text.En training data (run 'check-data --help' for options).
+          train        Train the heteronym model, or verify the committed one with --check (run 'train --help').
+          evaluate     Measure the heteronym model and decide the quality gate (run 'evaluate --help').
         """;
 
     /// <summary>
@@ -34,7 +38,7 @@ internal static class Program
     /// <param name="args">The command-line arguments.</param>
     /// <param name="output">Receives normal output.</param>
     /// <param name="error">Receives usage and I/O errors.</param>
-    /// <returns><c>0</c> on success, <c>1</c> when the data violates a rule, <c>2</c> for a usage or I/O error.</returns>
+    /// <returns><c>0</c> on success, <c>1</c> when the data violates a rule or a model is stale, <c>2</c> for a usage or I/O error.</returns>
     internal static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -46,6 +50,18 @@ internal static class Program
             return args.Count == 0 ? 2 : 0;
         }
 
+        var rest = args.Skip(1).ToList();
+        var currentDirectory = Directory.GetCurrentDirectory();
+        if (string.Equals(args[0], TrainCommand.Name, StringComparison.Ordinal))
+        {
+            return TrainCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], EvaluateCommand.Name, StringComparison.Ordinal))
+        {
+            return EvaluateCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
+        }
+
         if (!string.Equals(args[0], CheckDataCommand.Name, StringComparison.Ordinal))
         {
             error.WriteLine($"Unknown command '{args[0]}'.");
@@ -54,10 +70,10 @@ internal static class Program
         }
 
         return CheckDataCommand.Run(
-            args.Skip(1).ToList(),
+            rest,
             output,
             error,
-            Directory.GetCurrentDirectory(),
+            currentDirectory,
             AppContext.BaseDirectory,
             Environment.GetEnvironmentVariable);
     }

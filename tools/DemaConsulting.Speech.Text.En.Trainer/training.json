@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "training": {
+    "seed": 1,
+    "hashBits": 22,
+    "scale": 64,
+    "pruneThreshold": 2,
+    "naturalWeight": 3,
+    "maxEpochs": 12,
+    "temperatureSteps": 1000,
+    "temperatureDivisor": 20
+  },
+  "evaluation": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "resamples": 10000,
+    "confidencePercent": 95,
+    "bootstrapSeed": 7,
+    "gateMinPooledAccuracyPerThousand": 930
+  },
+  "inputs": {
+    "dataSha256": "d7a94b0225e699e07cab7cf33d06138bf97726954dcdd8f12073f61fab4c5e60",
+    "featuresSha256": "585771a38e3cff2488bf4411f6ca95f0b5e45834270b5850fc20b1458cb2c78d",
+    "taggerVersion": "0.1.0-beta.5",
+    "featureSetVersion": 1,
+    "inventoryVersion": 2,
+    "trainerVersion": 1,
+    "trainRows": 19865,
+    "trainUsed": 18470,
+    "trainSkippedUnaligned": 8,
+    "trainSkippedSingleCandidate": 1387,
+    "devRows": 3235,
+    "devUsed": 3034,
+    "devSkippedUnaligned": 3,
+    "devSkippedSingleCandidate": 198
+  },
+  "result": {
+    "selectedEpochs": 1,
+    "temperatureStep": 392,
+    "temperature": "19.6",
+    "devNaturalCorrect": 1267,
+    "devNaturalRows": 1301,
+    "devAllCorrect": 2885,
+    "devAllRows": 3034,
+    "devNaturalNllMicro": 119721007,
+    "weightCount": 120090,
+    "imageBytes": 363326,
+    "imageSha256": "73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0"
+  }
+}

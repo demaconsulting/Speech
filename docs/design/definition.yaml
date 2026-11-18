@@ -220,6 +220,17 @@ input-files:
   - docs/design/speech-text-en/training-data-subsystem/license-checker.md
   - docs/design/speech-text-en/training-data-subsystem/leakage-checker.md
   - docs/design/speech-text-en/training-data-subsystem/check-data-command.md
+  - docs/design/speech-text-en/training-subsystem.md
+  - docs/design/speech-text-en/training-subsystem/training-corpus.md
+  - docs/design/speech-text-en/training-subsystem/deterministic-random.md
+  - docs/design/speech-text-en/training-subsystem/deterministic-math.md
+  - docs/design/speech-text-en/training-subsystem/averaged-perceptron-trainer.md
+  - docs/design/speech-text-en/training-subsystem/model-selection.md
+  - docs/design/speech-text-en/training-subsystem/training-record.md
+  - docs/design/speech-text-en/training-subsystem/train-command.md
+  - docs/design/speech-text-en/training-subsystem/heteronym-evaluator.md
+  - docs/design/speech-text-en/training-subsystem/evaluation-record.md
+  - docs/design/speech-text-en/training-subsystem/evaluate-command.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md
   - docs/design/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

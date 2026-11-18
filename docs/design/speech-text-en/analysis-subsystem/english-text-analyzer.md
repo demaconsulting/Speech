@@ -33,7 +33,8 @@ normalization was not selected.
 
 `ReadingPass` is a private nested sealed class, created once per request, that owns the per-request reading state: the
 classifier once obtained (null when the model is unavailable) and whether the provider was asked, the context array of
-the sentence being worked on (reused, grown to the longest sentence that has a candidate word) and the index of that
+the sentence being worked on (reused, grown to the longest sentence that has a candidate word, and filled by
+`PartOfSpeechAdapter.DescribeSentence`) and the index of that
 sentence, the four counts (classified, single-candidate, by override and below the threshold) and whether the model
 proved unusable. It creates no object per token.
 
@@ -123,11 +124,14 @@ order, only when the reading family is selected:
    provider already reported that the model is unavailable, there is nothing more to do
 4. **Form lookup**: the inventory's allocation-free whole-token lookup; a token that is not a form is skipped
 5. **Cancellation and classifier**: for a form, the token is checked, then the classifier is obtained once per request
-   from the provider. A status of `NotShipped` turns the family off silently for the request; `Invalid` and
+   from the provider. A status of `NotShipped` (no model source) turns the family off silently for the request;
+   `Invalid` and
    `Incompatible` turn it off and mark the model as unusable, which causes the warning (once per analyzer)
 6. **Single candidate**: a form with one candidate gets that reading with confidence 1 and counts as single-candidate
 7. **Classification**: otherwise the tokens of the sentence are described into the reusable context array with
-   `HeteronymContext.Create` (once per sentence that has a candidate), the classifier chooses the reading and the
+   `PartOfSpeechAdapter.DescribeSentence` (once per sentence that has a candidate; it builds each context token with
+   `HeteronymContext.Create`, and it was a private method of the reading pass before the trainer, which calls the same
+   method, needed it), the classifier chooses the reading and the
    confidence, the reading counts as classified, and it counts as below the threshold when its confidence is lower than
    the threshold (it is emitted all the same)
 
@@ -154,10 +158,11 @@ per-thread working buffers are cleared by the pinned version (0.1.0-beta.5 or la
 <https://github.com/demaconsulting/PartOfSpeech/issues/29>), which this repository cannot inspect through a
 public API; see *SpeechTextEn System Design*, *Retention Verification*.
 
-**Dependencies**: `PartOfSpeechAdapter` (splitting and tagging), `PronunciationOverrides` (the token
+**Dependencies**: `PartOfSpeechAdapter` (splitting and tagging, and `DescribeSentence`, which describes the tokens of a
+sentence for the classifier), `PronunciationOverrides` (the token
 directives of the host's dictionary), the NormalizationSubsystem's
 `TextNormalizer`, `AlignedText` and the `NormalizationKind` and `CliticKind` enumerations (normalization),
-the HeteronymSubsystem's `ReadingInventory`, `HeteronymContext`, `HeteronymClassifier` and `HeteronymModelProvider`
+the HeteronymSubsystem's `ReadingInventory`, `ContextToken`, `HeteronymClassifier` and `HeteronymModelProvider`
 (heteronym readings),
 `AnalysisDiagnostics` (reporting), `EnglishTextAnalyzerOptions` and `TextEnAnnotationSelection`
 (configuration), `TextEnAnnotations` (the kind constants), and the Speech library's `ITextAnalyzer`,

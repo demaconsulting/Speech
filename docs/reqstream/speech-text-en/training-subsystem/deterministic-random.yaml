@@ -1,0 +1,66 @@
+---
+# Software Unit Requirements for DeterministicRandom
+#
+# These requirements describe the design-level behavior of the DeterministicRandom unit, the seeded
+# pseudo-random source of the Text.En trainer, decomposing the parent SpeechTextEn TrainingSubsystem
+# requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/DeterministicRandomTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        sections:
+          - title: DeterministicRandom Requirements
+            requirements:
+              - id: SpeechTextEn-Training-DeterministicRandom-ReproducibleSequence
+                title: >-
+                  The DeterministicRandom class shall produce, for a given seed, the same sequence of
+                  64-bit values and of bounded integers on every operating system, and the sequences of
+                  the reference seeds shall equal the published reference values.
+                justification: |
+                  The order in which the trainer visits the examples decides the weights it learns. The
+                  framework's own random generator is not specified to give the same numbers on every
+                  platform or release, so a model could differ between machines. A source that
+                  reproduces published reference outputs makes the training repeatable everywhere.
+                tests:
+                  - DeterministicRandom_NextUInt64_SeedZero_MatchesReferenceSequence
+                  - DeterministicRandom_NextUInt64_Seed1234567_MatchesReferenceSequence
+                  - DeterministicRandom_NextInt_Seed42_MatchesReferenceSequence
+
+              - id: SpeechTextEn-Training-DeterministicRandom-BoundedDraws
+                title: >-
+                  The DeterministicRandom class shall draw a bounded integer that is never below zero
+                  and never reaches the bound, and shall draw every value below the bound about equally
+                  often.
+                justification: |
+                  A biased draw would visit some examples more often than others and bend the model
+                  without any visible error.
+                tests:
+                  - DeterministicRandom_NextInt_AnyBound_StaysBelowTheBound
+                  - DeterministicRandom_NextInt_ManyDraws_AreRoughlyUniform
+
+              - id: SpeechTextEn-Training-DeterministicRandom-BoundValidation
+                title: >-
+                  The DeterministicRandom class shall throw ArgumentOutOfRangeException for a bound that
+                  is not positive.
+                justification: |
+                  A bound of zero or less has no valid draw, and a programming error has to surface
+                  immediately.
+                tests:
+                  - DeterministicRandom_NextInt_NonPositiveBound_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechTextEn-Training-DeterministicRandom-Shuffle
+                title: >-
+                  The DeterministicRandom class shall reorder a list in place into a permutation of its
+                  items that depends only on the seed, equal to the reference order for the reference
+                  seed, that repeats for the same seed, that can differ for another seed, and that leaves
+                  an empty list and a list of one item unchanged.
+                justification: |
+                  The trainer shuffles the training rows every epoch. A shuffle that lost or repeated a
+                  row, or that depended on anything but the seed, would change what is learned.
+                tests:
+                  - DeterministicRandom_Shuffle_Seed42_ProducesReferencePermutation
+                  - DeterministicRandom_Shuffle_SameSeedRepeatsAndDifferentSeedDiffers
+                  - DeterministicRandom_Shuffle_EmptyAndSingleItem_AreUnchanged

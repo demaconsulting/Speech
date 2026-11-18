@@ -151,3 +151,16 @@ sections:
                   the parity table pins the splittings that occur in English text.
                 tests:
                   - HeteronymContext_Create_TokenizationParity_EquivalentSpellingsGiveTheSameFeatures
+
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BucketDefinition
+                title: >-
+                  The FeatureHashing members of the HeteronymFeatureExtractor unit shall provide the one
+                  definition of the weight-table bucket that a feature hash selects under a salt and a
+                  table mask: the mixed hash of the feature and the salt reduced to the table, so that
+                  it is always inside the table and the same for every caller.
+                justification: |
+                  A model's weights are addressed by these buckets, and the classifier that reads them
+                  and the trainer that writes them must agree on every address. One shared definition
+                  makes that agreement a property of the code and not of two copies being kept alike.
+                tests:
+                  - FeatureHashing_Bucket_IsMixedHashReducedToTheTable

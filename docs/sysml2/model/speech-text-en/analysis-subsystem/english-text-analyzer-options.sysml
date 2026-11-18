@@ -5,8 +5,9 @@ package SpeechTextEn {
              * normalization and reading by default), an optional counts-only diagnostics sink, an optional
              * dictionary of pronunciation overrides (which requires normalization) and the confidence
              * below which a classified reading counts as low confidence. The Reading selection flag is
-             * part of the default selection; it is effective only for words that carry a reading
-             * override until a heteronym model ships. */
+             * part of the default selection; it is effective for every heteronym word under the embedded
+             * model, and an analyzer given no model source honors only words that carry a reading
+             * override. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Text.En/AnalysisSubsystem/EnglishTextAnalyzerOptions.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs */

@@ -14,16 +14,20 @@
 # phoneme string) and the spell-out annotation for letter sequences are provided. The heteronym
 # reading runtime is provided as well (SpeechTextEn-Heteronym-*): a reading inventory embedded in the
 # package, a deterministic feature extractor, a strict loader for the sparse model format and a
-# classifier that annotates the words of the inventory with a reading id and a confidence when a
-# model is available. This release embeds no model, so by default no reading is emitted; a host
-# override can still fix a reading. Each requirement
+# classifier that annotates the words of the inventory with a reading id and a confidence, with a
+# trained model that is embedded in the package. By default a reading is emitted for each heteronym
+# word of the inventory; a host override can fix a reading instead. Each requirement
 # states one observable behavior.
 #
 # The training-data requirements at the end of this file (SpeechTextEn-TrainingData-*) describe the
 # repository's Text.En training and evaluation data (data/text-en/) and the check-data command of the
-# non-shipped Text.En trainer that verifies it; nothing from that data is part of the package.
+# non-shipped Text.En trainer that verifies it; the data itself is not part of the package. The
+# training requirements after them (SpeechTextEn-Training-*) describe the train and evaluate commands of the
+# same trainer, which train the heteronym model from that data and measure it; they are tool behavior,
+# and the model they produce is the one the package embeds.
 #
-# Covered by test/DemaConsulting.Speech.Text.En.Tests (and, for the training-data requirements, by
+# Covered by test/DemaConsulting.Speech.Text.En.Tests (and, for the training-data and training
+# requirements, by
 # test/DemaConsulting.Speech.Text.En.Trainer.Tests) - see the subsystem/unit-level reqstream
 # files under docs/reqstream/speech-text-en/ for the full tests: lists these system requirements
 # decompose into.
@@ -543,26 +547,29 @@ sections:
 
       - id: SpeechTextEn-Heteronym-ModelAvailability
         title: >-
-          The library shall emit no reading for a text when no heteronym model is available, as
-          is the case for the default analyzer of this release, which embeds none, so that a host
-          that does nothing sees the same annotations as before, shall give concurrent requests
-          that use a valid, compatible model the same readings as sequential requests, and shall
-          continue without readings, with one warning per analyzer, when a model is damaged or
-          incompatible.
+          The default analyzer shall, with no host configuration, emit the reading of a heteronym
+          word of the inventory in clear sentences, shall emit no reading for a text without such
+          a word, shall give concurrent requests that use a valid, compatible model the same
+          readings as sequential requests, and shall continue without readings, with one warning
+          per analyzer, when a model is damaged or incompatible.
         tags: [system]
         justification: |
-          The reading runtime ships before the first trained weights do, and a host must be able
-          to upgrade without any change in behavior: nothing is emitted until a model is
-          supplied. When a model is supplied, every request that contains a word of the inventory
-          gets the same readings however many requests run at once, and a model that cannot be
-          used must not break speech, so the analysis goes on as if there were none and the host
-          is told once. (When the model is loaded, and that it is loaded once and shared, is a
-          design choice recorded in the heteronym subsystem design, not a requirement.)
+          A host that does nothing gets the benefit of the embedded trained model: the reading a
+          word has in its sentence, so a backend can pronounce "record" the verb and "record" the
+          noun differently. A text with no heteronym word has nothing to decide, so it is
+          annotated as before. Every request that contains a word of the inventory gets the same
+          readings however many requests run at once, and a model that cannot be used must not
+          break speech, so the analysis goes on as if there were none and the host is told once.
+          (When the model is loaded, and that it is loaded once and shared, is a design choice
+          recorded in the heteronym subsystem design, not a requirement.) The evidence for the
+          first behavior is a set of clear sentences written independently of any data set; how
+          accurate the model is on held-out data is the subject of SpeechTextEn-Training-AcceptanceGate.
         children:
           - SpeechTextEn-Analysis-ReadingModelAvailability
           - SpeechTextEn-Heteronym-ModelSupply
         tests:
-          - SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations
+          - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading
+          - SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations
           - SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults
 
       - id: SpeechTextEn-Heteronym-ModelIntegrity
@@ -651,34 +658,41 @@ sections:
 
       - id: SpeechTextEn-Packaging-LicenseNotices
         title: >-
-          The package shall declare the MIT License only, through a license file that starts with
-          the SPDX expression MIT and contains the MIT license text, shall state that it embeds
-          two lexicon tables of its own (abbreviations and initialisms) under that license and
-          no third-party data, and that the part-of-speech tagging package it requires is a
-          separate dependency with its own license files, and shall carry a dependency notice that
-          reproduces the attribution of that dependency's embedded data; both files shall be
-          packed at the package root.
+          The package shall declare the license of everything it embeds through a license file
+          that starts with the SPDX expression MIT AND CC-BY-3.0-US and contains the MIT license
+          text, shall state that its two lexicon tables (abbreviations and initialisms) are under
+          the MIT License, that its reading inventory is dedicated to the public domain under
+          CC0-1.0, and that its embedded heteronym model was trained on data adapted from the
+          Manually Annotated Sub-Corpus and is provided under the terms of that license, shall
+          state that the part-of-speech tagging package it requires is a separate dependency with
+          its own license files, and shall carry a notice file that attributes the Manually
+          Annotated Sub-Corpus with the changes made, dedicates the content generated or labeled
+          for the model to the public domain under CC0 1.0 and reproduces the attribution of the
+          dependency's embedded data; both files shall be packed at the package root.
         tags: [system]
         justification: |
-          What the package contains is code and two small lexicon tables that DEMA Consulting
-          wrote from scratch, all under the MIT License, so that is all it may declare; claiming
-          the licenses of a dependency's data would misstate what a consumer receives, and saying
-          nothing of the tables would hide that the package now embeds data. The required
-          package, DemaConsulting.PartOfSpeech, is restored separately and carries its own
-          license files, but its embedded lexicon and weights come from Open English WordNet
-          (CC BY 4.0, derived from Princeton WordNet) and the Manually Annotated Sub-Corpus
-          (CC BY 3.0 US), so a consumer of this package should be able to see what the
-          dependency contains and under which licenses. The dependency notice (clearly scoped as
-          such) does that, and will be revisited if a later increment embeds third-party data in
-          this package.
-          The built package is inspected: the FileAssert test checks that both files are at the
-          package root of the .nupkg with the required content and that the .nuspec names the
-          license file, and the project-file and file-content tests check the same properties
-          against the repository files.
+          What the package contains is code, two small lexicon tables and the reading inventory
+          that DEMA Consulting wrote from scratch, and a trained model whose weights were learned
+          from sentences under three licenses: CC BY 3.0 US (sentences adapted from the Manually
+          Annotated Sub-Corpus), public domain and CC0. The weights contain no sentence text, but
+          a model trained on attributed material is a derived work of unsettled legal status, so
+          the package takes the conservative course the tagging package already takes: the model
+          is provided under the terms of the attribution license, with the attribution and the
+          statement of changes, and the declaration names both licenses. Declaring the MIT License
+          only would misstate what a consumer receives. The required package,
+          DemaConsulting.PartOfSpeech, is restored separately and carries its own license files,
+          but its embedded lexicon and weights come from Open English WordNet (CC BY 4.0, derived
+          from Princeton WordNet) and the same corpus, so a consumer of this package should be able
+          to see what the dependency contains and under which licenses; the notice file, clearly
+          scoped, does that. The built package is inspected: the FileAssert test checks that both
+          files are at the package root of the .nupkg with the required content (the declaration,
+          the model, the attribution of the corpus, the dedication and the dependency notice) and
+          that the .nuspec names the license file, and the project-file test checks that the
+          project names the license file and packs both files at the root. This is not legal
+          advice; the declaration and notices are the owner's decision and are revisited if the
+          data or the model changes.
         tests:
           - SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
-          - SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice
-          - SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData
           - TextEn_PackageLicenseFiles_Content
 
       - id: SpeechTextEn-Isolation-RequestNoninterference
@@ -747,23 +761,24 @@ sections:
       - id: SpeechTextEn-Packaging-ReadingInventory
         title: >-
           The package shall supply the documented heteronym reading inventory (the readings, the
-          forms and the candidate readings of each form) from the package itself, with no
-          separate download or file, and shall include no heteronym model in this release.
+          forms and the candidate readings of each form) and the trained heteronym model from the
+          package itself, with no separate download or file.
         tags: [system]
         justification: |
           The reading ids that hosts name in overrides and that backends receive in annotations
           are defined by this inventory, so it must travel with the code that validates them and
-          cannot be a separate download. The data is CC0 data written by DEMA Consulting. No
-          model is included until trained weights are reviewed and released, and a test fails if
-          one appears before the release is meant to carry it. How the tables are embedded
+          cannot be a separate download; the model that chooses among those readings travels with
+          it so that the default analyzer works offline with no setup. The inventory is CC0 data
+          written by DEMA Consulting; the model is trained from the repository's data (see
+          SpeechTextEn-Packaging-LicenseNotices for its license). How the tables are embedded
           (linked from the repository's Text.En data so the trainer and the runtime share one
           source, under resource names the loader asks for) is a design matter recorded in the
           heteronym subsystem design.
         children:
           - SpeechTextEn-Heteronym-ReadingIds
         tests:
-          - SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOfflineAndShipsNoModel
-          - SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations
+          - SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOffline
+          - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading
 
       # The training data of the heteronym reading classifier (data/text-en/) is a tool input of the
       # non-shipped Text.En trainer; the requirements below are verified by its check-data command.
@@ -776,7 +791,7 @@ sections:
         tags: [system]
         justification: |
           The data is meant to be reused and redistributed, including commercially, and to train
-          weights that ship with the package in a later release. A single row under a share-alike,
+          weights that ship with the package. A single row under a share-alike,
           non-commercial or no-derivatives license would taint all of it, and the owner decided that no
           Misaki data is used and that the content generated by DEMA Consulting, including text
           labeled by language models, is released under CC0 1.0. The license of every row is
@@ -844,3 +859,125 @@ sections:
         tests:
           - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
           - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
+
+      # The training of the heteronym reading classifier is done by the train and evaluate commands of the
+      # non-shipped Text.En trainer; the requirements below are verified through those commands.
+      - id: SpeechTextEn-Training-Reproducible
+        title: >-
+          The repository shall provide a command that trains the heteronym model from the committed
+          training data and settings with the same content on every run and on every supported operating
+          system (byte for byte in the uncompressed model), and a command that detects and reports by name
+          a model, a record or an input that no longer matches what retraining produces.
+        tags: [system]
+        justification: |
+          A model that ships in a package must be one the repository can rebuild, so that a reviewer
+          can check where its weights came from. The identity across operating systems is evidenced by
+          the continuous-integration build matrix, which runs the same test, with the hash of a model
+          trained from a small fixture pinned in the test, on every supported operating system; a
+          local run on one system alone does not show it. A model that no longer matches its data,
+          its tagger or its settings, or a record or model file that was edited by hand, would ship
+          weights nobody can reproduce, so the check finds it and names the cause.
+        children:
+          - SpeechTextEn-Training-RepeatableModel
+          - SpeechTextEn-Training-StalenessCheck
+          - SpeechTextEn-Training-CommandContract
+        tests:
+          - TrainingSubsystem_Train_SameInputsTwice_ProduceIdenticalUncompressedImagesAndRecords
+          - TrainingSubsystem_Train_FixtureImage_MatchesPinnedHash
+          - TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale
+          - TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent
+
+      - id: SpeechTextEn-Training-HoldoutIsolation
+        title: >-
+          The training of the heteronym model and the choices made while training it shall use only the
+          training data, the development data and the reading inventory, so that the holdout sets have
+          no influence on the model.
+        tags: [system]
+        justification: |
+          A classifier is only measured honestly on sentences that nothing it was made from has seen.
+          The holdout sets exist to measure the finished model, so they must have no way into the
+          weights, the number of epochs or the confidence calibration.
+        children:
+          - SpeechTextEn-Training-HoldoutFreeTraining
+        tests:
+          - TrainingSubsystem_Train_HoldoutFilesAbsentOrAltered_ImageUnchanged
+
+      - id: SpeechTextEn-Training-RuntimeParity
+        title: >-
+          The heteronym model shall be trained on exactly what the analyzer sees at run time: a training
+          row whose target is not a token of the analyzer's own tokenization shall be reported and
+          counted, and the readings that the trainer's own scoring decides shall equal the readings the
+          analyzer emits with the trained model.
+        tags: [system]
+        justification: |
+          A model tuned on contexts that the analyzer never builds, or decided by a scoring that differs
+          from the analyzer's, would look good in training and fail in use. Reporting the rows that
+          cannot be used and comparing the trainer's decisions with the analyzer's on every row turns
+          the match between training and use from an intention into a measured fact.
+        children:
+          - SpeechTextEn-Training-RuntimeAlignedTraining
+          - SpeechTextEn-Training-LearnedModel
+          - SpeechTextEn-Training-PredictionParity
+        tests:
+          - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
+          - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord
+          - TrainingSubsystem_Evaluate_TrainerAndAnalyzerPredictions_AgreeOnEveryFixtureRow
+
+      - id: SpeechTextEn-Training-Evaluation
+        title: >-
+          The repository shall provide a command that reports the reading accuracy of the heteronym model
+          on the development and holdout sets with always-default (majority) and own-part-of-speech
+          baselines, a paired document-clustered confidence interval of the improvement, the readings
+          with the lowest accuracy and the variation between seeds, that does so deterministically, and
+          that decides the quality gate from them.
+        tags: [system]
+        justification: |
+          Whether a model is worth shipping depends on what it adds beyond what the tagger already gives
+          for free, how certain that improvement is, and where the model fails. The owner fixed the gate
+          before any model was measured, so the decision is made by a command from the recorded
+          thresholds, and a result that is the same on every run can be committed and checked.
+        children:
+          - SpeechTextEn-Training-EvaluationReport
+          - SpeechTextEn-Training-QualityGateDecision
+          - SpeechTextEn-Training-EvaluationRecordFiles
+        tests:
+          - TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage
+          - TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds
+          - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
+          - TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent
+
+      - id: SpeechTextEn-Training-AcceptanceGate
+        title: >-
+          The heteronym model that the package embeds shall, on the committed natural holdout, choose
+          the labeled reading for at least 93.0 percent of the words end to end through the analyzer,
+          and shall improve on the reading chosen by the part of speech alone by an amount whose 95
+          percent confidence interval lies above zero.
+        tags: [system]
+        justification: |
+          The owner fixed this gate before any model was measured: a model that does not clearly beat
+          what the tagger already gives for free is not worth shipping and its size and licensing
+          burden are not justified. The test applies the recorded thresholds to the model that is
+          committed, through the same analyzer a host uses, on data that did not take part in
+          training or in any choice; the committed evaluation record carries the numbers and the
+          honest limits of the measure (labels chosen by rule or by language models, tagger exposure
+          to part of the natural set, and a separate synthetic set written by another model family).
+        tests:
+          - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
+
+      - id: SpeechTextEn-Training-ProvenanceRecord
+        title: >-
+          A heteronym model shall be accompanied by a record of its settings, its inputs and the hash of
+          its image that the training tool can verify.
+        tags: [system]
+        justification: |
+          Without a record, the origin of a set of weights is a claim. The record states what the model
+          was trained from and how, and the tool's check proves that the model and the record still
+          agree with each other and with the data, so that a reviewer can rely on them.
+        children:
+          - SpeechTextEn-Training-ModelProvenance
+          - SpeechTextEn-Training-RecordContent
+        tests:
+          - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
+          - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord
+          - TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale
+          - TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent

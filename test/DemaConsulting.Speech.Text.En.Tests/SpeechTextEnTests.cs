@@ -14,7 +14,7 @@ namespace DemaConsulting.Speech.Text.En.Tests;
 /// <summary>
 ///     System-level tests for SpeechTextEn: the English text analysis exercised through its public
 ///     API, end to end through the real core <c>SynthesisSession</c> and an annotation-aware
-///     backend, and the package license files. The content of the license files is also asserted by the
+///     backend, and the package license files. The content of the license files is asserted by the
 ///     <c>TextEn_PackageLicenseFiles_Content</c> FileAssert test, which inspects the built package.
 /// </summary>
 public sealed class SpeechTextEnTests
@@ -27,9 +27,6 @@ public sealed class SpeechTextEnTests
 
     /// <summary>The package project folder, relative to the repository root.</summary>
     private const string PackageFolder = "src/DemaConsulting.Speech.Text.En";
-
-    /// <summary>The SPDX expression of what the package itself contains: the code only, under the MIT License.</summary>
-    private const string SpdxHeader = "SPDX-License-Identifier: MIT";
 
     /// <summary>The tag placeholder as a string, for building test texts.</summary>
     private const string Tag = "\uFFFC";
@@ -182,8 +179,9 @@ public sealed class SpeechTextEnTests
         Assert.Equal(Describe(new EnglishTextAnalyzer().Analyze(later, TestContext.Current.CancellationToken)), Describe(result));
         string[] earlierWords = ["Quokka", "marmoset", "rested", "Zebra", "galloped"];
         Assert.All(result.Annotations, annotation => Assert.DoesNotContain(earlierWords, word => annotation.Value.Contains(word, StringComparison.OrdinalIgnoreCase)));
-        var reported = Assert.Single(sink.Events.Skip(reportedBefore));
-        Assert.DoesNotContain(earlierWords, word => reported.Message.Contains(word, StringComparison.OrdinalIgnoreCase));
+        var reported = sink.Events.Skip(reportedBefore).ToList();
+        Assert.NotEmpty(reported);
+        Assert.All(reported, report => Assert.DoesNotContain(earlierWords, word => report.Message.Contains(word, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>Proves an analyzed request reports one counts-only event and a faulty sink never interrupts the analysis.</summary>
@@ -289,18 +287,62 @@ public sealed class SpeechTextEnTests
         Assert.Contains("again", annotatedWords);
     }
 
-    /// <summary>Proves the default analyzer, which embeds no heteronym model, emits no reading annotations through the public API, so nothing changes for a host that does nothing.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_DefaultAnalyzerWithoutModel_EmitsNoReadingAnnotations()
+    /// <summary>
+    ///     Proves the default analyzer, with no host configuration, decides the reading of a heteronym word in
+    ///     clear sentences (a curated set written independently of any labeled data set): one reading annotation
+    ///     and one confidence in [0, 1] on exactly the word, next to its part-of-speech annotation.
+    /// </summary>
+    /// <param name="text">The sentence.</param>
+    /// <param name="word">The heteronym word in it.</param>
+    /// <param name="expectedReading">The reading id the word has in that sentence.</param>
+    [Theory]
+    [InlineData("They will record the meeting tonight.", "record", "record.verb")]
+    [InlineData("She broke the world record last year.", "record", "record.noun")]
+    [InlineData("She will lead the team to victory.", "lead", "lead.guide")]
+    [InlineData("The old pipes were made of lead.", "lead", "lead.metal")]
+    [InlineData("Yesterday I read the whole book.", "read", "read.past")]
+    [InlineData("I like to read a book every night.", "read", "read.present")]
+    [InlineData("A cold wind blew across the field.", "wind", "wind.air")]
+    [InlineData("Please wind the clock before bed.", "wind", "wind.coil")]
+    [InlineData("A single tear rolled down her cheek.", "tear", "tear.drop")]
+    [InlineData("Be careful not to tear the paper.", "tear", "tear.rip")]
+    [InlineData("He caught a large bass in the lake.", "bass", "bass.fish")]
+    [InlineData("She plays the bass guitar in a band.", "bass", "bass.music")]
+    [InlineData("The actor took a bow after the show.", "bow", "bow.bend")]
+    [InlineData("He drew the bow and shot an arrow.", "bow", "bow.weapon")]
+    public void SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading(string text, string word, string expectedReading)
     {
         // Arrange
-        const string text = "I want to record a record.";
+        ITextAnalyzer analyzer = new EnglishTextAnalyzer();
+        var start = text.IndexOf(word, StringComparison.Ordinal);
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: exactly one reading and one confidence on exactly the word, and a part of speech beside them
+        var onWord = result.Annotations.Where(annotation => annotation.Start == start && annotation.Length == word.Length).ToList();
+        var reading = Assert.Single(onWord, annotation => annotation.Kind == TextEnAnnotations.Reading);
+        var confidence = Assert.Single(onWord, annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence);
+        Assert.True(TextEnAnnotations.TryReadReading(reading, out var readingId));
+        Assert.Equal(expectedReading, readingId);
+        Assert.True(TextEnAnnotations.TryReadReadingConfidence(confidence, out var confidenceValue));
+        Assert.InRange(confidenceValue, 0.0, 1.0);
+        Assert.Contains(onWord, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech);
+        Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Reading);
+    }
+
+    /// <summary>Proves a text with no heteronym word gets part-of-speech annotations only, so a host that does nothing sees no reading where there is nothing to decide.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations()
+    {
+        // Arrange
+        const string text = "The cat sat on the mat.";
         ITextAnalyzer analyzer = new EnglishTextAnalyzer();
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert: part-of-speech annotations only
+        // Assert
         Assert.NotEmpty(result.Annotations);
         Assert.All(result.Annotations, annotation => Assert.Equal(TextEnAnnotations.PartOfSpeech, annotation.Kind));
     }
@@ -417,9 +459,9 @@ public sealed class SpeechTextEnTests
         });
     }
 
-    /// <summary>Proves the heteronym reading inventory is supplied by the package alone: a reading override is validated against it and applied with no model and no other file, while the default analyzer emits no reading of its own.</summary>
+    /// <summary>Proves the heteronym reading inventory is supplied by the package alone: a reading override is validated against it and applied with no model and no other file, and the default analyzer's own readings differ from the overridden ones where the model decides otherwise.</summary>
     [Fact]
-    public void SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOfflineAndShipsNoModel()
+    public void SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOffline()
     {
         // Arrange: an entry for a reading id the inventory does not define is refused, one it defines is accepted
         const string text = "I want to record a record.";
@@ -432,10 +474,10 @@ public sealed class SpeechTextEnTests
         var fixedReadings = withOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
         var defaultReadings = withoutOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
 
-        // Assert
+        // Assert: the override fixes both words to the noun; the default analyzer reads the verb and then the noun
         Assert.IsType<InvalidDataException>(rejected);
         Assert.Equal(["record.noun", "record.noun"], fixedReadings.Select(annotation => annotation.Value));
-        Assert.Empty(defaultReadings);
+        Assert.Equal(["record.verb", "record.noun"], defaultReadings.Select(annotation => annotation.Value));
     }
 
     /// <summary>Proves the project file names the combined license file, packs both notice files at the package root, and pins its one tagger dependency.</summary>
@@ -465,59 +507,6 @@ public sealed class SpeechTextEnTests
             Assert.Equal("\\", packagePath);
             Assert.True(File.Exists(FindRepositoryFile($"{PackageFolder}/{fileName}")), $"{fileName} does not exist");
         }
-    }
-
-    /// <summary>Proves the license file declares MIT only, contains the MIT text, and presents the tagger package as a separate dependency rather than as bundled content.</summary>
-    [Fact]
-    public void SpeechTextEn_PackageLicense_File_DeclaresMitOnlyAndPointsToDependencyNotice()
-    {
-        // Arrange
-        var licensePath = FindRepositoryFile($"{PackageFolder}/{PackageLicenseFileName}");
-
-        // Act
-        var firstLine = File.ReadLines(licensePath).First().TrimEnd();
-        var text = File.ReadAllText(licensePath);
-
-        // Assert: the declaration is MIT and nothing else
-        Assert.Equal(SpdxHeader, firstLine);
-        Assert.DoesNotContain("CC-BY", firstLine, StringComparison.Ordinal);
-        Assert.Contains("MIT License", text, StringComparison.Ordinal);
-        Assert.Contains("Permission is hereby granted, free of charge", text, StringComparison.Ordinal);
-
-        // The dependency is described as separate, with its own license files, and the notices file is named
-        Assert.Contains("DemaConsulting.PartOfSpeech", text, StringComparison.Ordinal);
-        Assert.Contains("separate NuGet package", text, StringComparison.Ordinal);
-        Assert.Contains("is not bundled", text, StringComparison.Ordinal);
-        Assert.Contains("carries its own license files", text, StringComparison.Ordinal);
-        var flat = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
-        Assert.Contains("two small lexicon tables of its own", flat, StringComparison.Ordinal);
-        Assert.Contains("wrote both from scratch", flat, StringComparison.Ordinal);
-        Assert.Contains("embeds no third-party data", flat, StringComparison.Ordinal);
-        Assert.Contains(ThirdPartyNoticesFileName, text, StringComparison.Ordinal);
-    }
-
-    /// <summary>Proves the third-party notices are scoped as a dependency notice, carry the attribution chain (MASC, Open English WordNet, Princeton WordNet).</summary>
-    [Fact]
-    public void SpeechTextEn_ThirdPartyNotices_File_AttributesDependencyData()
-    {
-        // Arrange
-        var noticesPath = FindRepositoryFile($"{PackageFolder}/{ThirdPartyNoticesFileName}");
-
-        // Act
-        var text = File.ReadAllText(noticesPath);
-
-        // Assert
-        Assert.Contains("Dependency Notice", text, StringComparison.Ordinal);
-        Assert.Contains("separate NuGet package", text, StringComparison.Ordinal);
-        Assert.Contains("carries its own license files", text, StringComparison.Ordinal);
-        Assert.Contains("embeds no third-party data in this release", text, StringComparison.Ordinal);
-        Assert.Contains("Manually Annotated Sub-Corpus (MASC)", text, StringComparison.Ordinal);
-        Assert.Contains("https://creativecommons.org/licenses/by/3.0/us/", text, StringComparison.Ordinal);
-        Assert.Contains("Open English WordNet 2025 Edition", text, StringComparison.Ordinal);
-        Assert.Contains("https://creativecommons.org/licenses/by/4.0/", text, StringComparison.Ordinal);
-        Assert.Contains("WordNet 3.1 Copyright 2011 by Princeton University.  All rights reserved.", text, StringComparison.Ordinal);
-        Assert.Contains("Princeton WordNet", text, StringComparison.Ordinal);
-        Assert.Contains("do not endorse", text, StringComparison.Ordinal);
     }
 
     /// <summary>

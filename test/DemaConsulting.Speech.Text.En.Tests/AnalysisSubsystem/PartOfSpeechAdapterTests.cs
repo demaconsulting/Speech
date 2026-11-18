@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
+using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.Tests.Fakes;
 
 namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
@@ -48,6 +49,28 @@ public sealed class PartOfSpeechAdapterTests
         Assert.True(tokens[0].IsKnownWord);
         Assert.False(tokens[1].IsKnownWord);
         Assert.Equal("PUNCT", tokens[3].Tag);
+    }
+
+    /// <summary>Proves a sentence is described token by token exactly as the context builder describes each token, so the analyzer and the trainer see the same sentence.</summary>
+    [Fact]
+    public void PartOfSpeechAdapter_DescribeSentence_TaggedSentence_DescribesEveryTokenLikeContextCreate()
+    {
+        // Arrange
+        const string text = "The record was broken. She said so.";
+        var adapter = new CountingTaggerSource().CreateAdapter();
+        var sentences = adapter.Analyze(text, true, TestContext.Current.CancellationToken);
+        var longer = PartOfSpeechAdapter.DescribeSentence(text, sentences[0], null);
+
+        // Act: the second sentence, into the buffer of the longer first one
+        var described = PartOfSpeechAdapter.DescribeSentence(text, sentences[1], longer);
+
+        // Assert: the first Count entries describe the second sentence
+        Assert.True(described.Length >= sentences[1].Count);
+        for (var i = 0; i < sentences[1].Count; i++)
+        {
+            var token = sentences[1][i];
+            Assert.Equal(HeteronymContext.Create(text, token.Start, token.Length, token.Tag, token.Confidence), described[i]);
+        }
     }
 
     /// <summary>Proves splitting without tagging reports spans only: sentences and tokens in text order, none of them tagged.</summary>

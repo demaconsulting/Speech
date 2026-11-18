@@ -16,8 +16,8 @@ namespace DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 ///     declared here so a backend can reference stable names from the first release; this release
 ///     produces all of them: <see cref="PartOfSpeech"/>, <see cref="Normalized"/>,
 ///     <see cref="SpellOut"/>, <see cref="Pronunciation"/>, and the pair <see cref="Reading"/> and
-///     <see cref="ReadingConfidence"/>, the last two only when a heteronym model is available or a
-///     <see cref="OverrideAction.Reading"/> override names the word (this release embeds no model). A
+///     <see cref="ReadingConfidence"/>, the last two when the embedded heteronym model decides the word's
+///     reading or a <see cref="OverrideAction.Reading"/> override names the word. A
 ///     backend must ignore any kind it does not recognize. The type is static and therefore thread-safe.
 ///     <para>
 ///     <b>Replacement family.</b> <see cref="Normalized"/> and <see cref="SpellOut"/> are the two
@@ -90,8 +90,8 @@ public static class TextEnAnnotations
     ///     The annotation covers exactly one whole tokenizer token, an ASCII-letter form of the reading
     ///     inventory (<see cref="ReadingInventory"/>), so its span starts and ends on a letter, never
     ///     splits a surrogate pair and contains no whitespace, comma, semicolon or colon; it survives the
-    ///     core library's chunking. It is emitted for a word the classifier decided (which needs a trained
-    ///     heteronym model, none of which this release embeds), for a word whose form has only one
+    ///     core library's chunking. It is emitted for a word the classifier decided (with the trained
+    ///     heteronym model embedded in this package), for a word whose form has only one
     ///     candidate reading (confidence <c>1.000</c>, again only when the classifier is available), and
     ///     for a word that a <see cref="OverrideAction.Reading"/> override names (confidence
     ///     <c>1.000</c>, no model needed).

@@ -1,0 +1,91 @@
+---
+# Software Unit Requirements for EvaluationRecord
+#
+# These requirements describe the design-level behavior of the EvaluationRecord unit, the deterministic
+# tab-separated record files of the evaluation of the Text.En model, decomposing the parent SpeechTextEn
+# TrainingSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluationRecordTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        sections:
+          - title: EvaluationRecord Requirements
+            requirements:
+              - id: SpeechTextEn-Training-EvaluationRecord-SummaryFile
+                title: >-
+                  The EvaluationRecord class shall write a summary file with one row per evaluated set that
+                  holds the exact integer counts and the basis-point ratios of the evaluation.
+                justification: |
+                  The summary is the figure a reviewer reads and the file a later change is compared
+                  with, so it has to hold exact numbers and not rounded text.
+                tests:
+                  - EvaluationRecord_Render_Summary_HasExactFigures
+
+              - id: SpeechTextEn-Training-EvaluationRecord-GateFile
+                title: >-
+                  The EvaluationRecord class shall write a gate file that holds the hash of the model
+                  image, the thresholds, whether each condition holds and the verdict, which is pass when
+                  both conditions hold, fail when one does not and not evaluated when there is no natural
+                  holdout.
+                justification: |
+                  The gate decides whether a model may ship. The decision, the thresholds it was made
+                  with and the model it was made for must be recorded together.
+                tests:
+                  - EvaluationRecord_Render_Gate_HasThresholdsAndVerdict
+                  - EvaluationRecord_Render_Gate_FailAndNotEvaluated
+
+              - id: SpeechTextEn-Training-EvaluationRecord-GroupFiles
+                title: >-
+                  The EvaluationRecord class shall write files that list, for every set, the accuracy by
+                  source, by reading and by confidence bucket, with the own-part-of-speech baseline of
+                  each group.
+                justification: |
+                  Where the model is weak matters as much as how good it is on average, so the strata are
+                  part of the record.
+                tests:
+                  - EvaluationRecord_Render_Groups_ListEveryGroup
+
+              - id: SpeechTextEn-Training-EvaluationRecord-SeedsFile
+                title: >-
+                  The EvaluationRecord class shall write a seeds file that lists the holdout accuracies of
+                  each evaluation seed with their mean, minimum and maximum.
+                justification: |
+                  One training run can be lucky. The spread over several seeds shows how much of the
+                  accuracy is the data and how much is the seed.
+                tests:
+                  - EvaluationRecord_Render_Seeds_HasRowsAndSpread
+
+              - id: SpeechTextEn-Training-EvaluationRecord-DeterministicFiles
+                title: >-
+                  The EvaluationRecord class shall produce the same files for the same evaluation every
+                  time, in ordinal file-name order, with line feeds only and a final line feed.
+                justification: |
+                  The record is committed and compared. Any variation that does not come from the
+                  evaluation would make a current record look stale.
+                tests:
+                  - EvaluationRecord_Render_IsDeterministicWithLineFeedsOnly
+
+              - id: SpeechTextEn-Training-EvaluationRecord-StalenessDetection
+                title: >-
+                  The EvaluationRecord class shall write the record files into a folder and compare a
+                  folder with an evaluation, naming every file that is edited, missing or different from
+                  what the evaluation produces, and naming none when the folder is current.
+                justification: |
+                  A record that cannot be verified would be a claim nobody can check. Naming the files
+                  shows what changed.
+                tests:
+                  - EvaluationRecord_WriteThenCompare_DetectsEditedAndMissingFiles
+                  - EvaluationRecord_Compare_DifferentEvaluation_NamesTheChangedFiles
+
+              - id: SpeechTextEn-Training-EvaluationRecord-PercentFormat
+                title: >-
+                  The EvaluationRecord class shall format a basis-point value as a percentage with two
+                  decimals and an optional sign, without dependence on the current culture.
+                justification: |
+                  The figures printed for the owner and written to reports have to read the same on every
+                  machine.
+                tests:
+                  - EvaluationRecord_FormatPercent_FormatsBasisPoints

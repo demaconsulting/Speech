@@ -68,6 +68,20 @@ sections:
                   - PartOfSpeechAdapter_Analyze_ConcurrentCallersAfterOneFailure_OnlyTheFailingCallSeesIt
                   - PartOfSpeechAdapter_Analyze_FactoryReturnsNull_ThrowsInvalidOperationException
 
+              - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-SentenceDescription
+                title: >-
+                  The PartOfSpeechAdapter class shall describe the tokens of a tagged sentence for the
+                  heteronym features, one description per token in sentence order, exactly as the
+                  heteronym context builder describes each token from its text, span, tag and
+                  confidence, so that the analyzer and the trainer see the same sentence.
+                justification: |
+                  The model is trained on the contexts the trainer builds and applied to the contexts
+                  the analyzer builds. A single description of a sentence that both use means the two
+                  cannot differ in what they feed the features. The adapter owns it so that the
+                  heteronym subsystem need not depend on the analysis subsystem.
+                tests:
+                  - PartOfSpeechAdapter_DescribeSentence_TaggedSentence_DescribesEveryTokenLikeContextCreate
+
               - id: SpeechTextEn-Analysis-PartOfSpeechAdapter-UntaggedSplit
                 title: >-
                   The PartOfSpeechAdapter class shall split a text into sentences and tokens, with

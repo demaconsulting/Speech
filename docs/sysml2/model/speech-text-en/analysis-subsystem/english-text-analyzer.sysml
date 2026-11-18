@@ -6,9 +6,9 @@ package SpeechTextEn {
              * sequences, as letters to spell (en.spell), applies the host's pronunciation overrides
              * (resolved by PronunciationOverrides; en.norm, en.spell, en.pron, a fixed reading or
              * nothing for a word), attaches an en.reading annotation with its en.reading-confidence
-             * to a heteronym word (a classified reading only when a heteronym model exists, which
-             * none does in this release; a fixed reading from a host override with confidence
-             * 1.000), and supplies
+             * to a heteronym word (a classified reading from the embedded model, or from a provider
+             * that supplies one; none when the analyzer has no model source; a fixed reading from a
+             * host override with confidence 1.000), and supplies
              * authoritative sentence breaks, with every offset indexing the exact analyzed text
              * and tag placeholders neutralized to same-length spaces. Also returns the detailed,
              * local-only EnglishTextAnalysis (with its AnalyzedToken and AnalyzedNormalization
