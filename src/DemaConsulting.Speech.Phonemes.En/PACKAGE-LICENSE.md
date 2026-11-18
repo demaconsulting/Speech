@@ -38,11 +38,13 @@ SOFTWARE.
 
 ## Data Embedded in This Package
 
-This package embeds one data file, `cmudict-en.bin.gz`: the words of the CMU Pronouncing Dictionary (CMUdict,
+This package embeds `cmudict-en.bin.gz`: the words of the CMU Pronouncing Dictionary (CMUdict,
 <https://github.com/cmusphinx/cmudict>) that consist of the letters a to z and apostrophes, with all of their
 pronunciation variants, converted to a compact binary form (one byte per ARPAbet phone, words sorted and
 front-coded, gzip-compressed). The pronunciations are those of CMUdict; the conversion changed only their
-representation. CMUdict is licensed under the BSD-style license of Carnegie Mellon University, which requires that
+representation. The package also embeds `lts-en.bin.gz`, a letter-to-sound model trained only on CMUdict (a derived
+work of it), and the reading-pronunciation tables authored for this package from CMUdict entries. CMUdict is
+licensed under the BSD-style license of Carnegie Mellon University, which requires that
 the notice below be retained and reproduced with binary redistributions. `THIRD-PARTY-NOTICES.md` carries the same
 notice together with the statement of the changes made.
 

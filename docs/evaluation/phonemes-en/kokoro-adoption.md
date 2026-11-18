@@ -36,8 +36,8 @@ from `renderers.md`):
 
 | Setting | Phoneme error rate | Primary stress agreement |
 | --- | --- | --- |
-| Full dictionary forms | 4.88 percent | 71.4 percent |
-| Weak forms (shipped) | 1.99 percent | 94.2 percent |
+| Full dictionary forms | 4.89 percent | 71.5 percent |
+| Weak forms (shipped) | 2.00 percent | 94.3 percent |
 
 On the 60 validation sentences the same ordering holds (4.50 against 1.43 percent). Over the isolated words of the old
 lexicon the two settings are identical to within 0.02 percentage points, because only function words differ. Decision
@@ -97,9 +97,10 @@ sentences) pins the result. Misses seen while building it, all in the text analy
   engine, plus the pipeline golden) passes on every target framework.
 - **Real audio.** The real command line `speak` with `kokoro-onnx-v1_0-en` and the installed model wrote 24,000 Hz
   mono WAV files for the 30 listening sentences; each file is non-silent (RMS 0.06 to 0.07, durations 2.6 to 7.6
-  seconds). Running the command line needed a local workaround: the CLI project excludes the native ONNX Runtime
-  (sherpa-onnx ships its own 1.28.2 under the same file name) while its managed API is 1.31.1, so a Kokoro `speak`
-  from the build output fails with "API version [31] is not available"; the evidence was produced with the 1.31.1
-  native library copied over the 1.28.2 one in a scratch copy of the CLI output (Sherpa also still worked).
+  seconds). At the time, the command line needed a local workaround for a since-fixed deployment problem: the CLI
+  project excluded the native ONNX Runtime (sherpa-onnx ships its own 1.28.2 under the same file name) while its
+  managed API is 1.31.1, so a Kokoro `speak` failed with "API version [31] is not available"; the evidence was
+  produced with the 1.31.1 native library copied over the 1.28.2 one in a scratch copy of the CLI output. The CLI and
+  Demo now deploy the 1.31.1 native library (see `docs/design/speech-cli.md`).
 - **Listening pack.** Generated for the owner outside the repository: 30 sentences (12 heteronyms, 18 general), three
   blinded variants each (old pipeline, new with weak forms, new with full forms).

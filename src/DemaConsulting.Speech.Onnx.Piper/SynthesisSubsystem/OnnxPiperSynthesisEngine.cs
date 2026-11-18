@@ -74,8 +74,8 @@ internal sealed class OnnxPiperSynthesisEngine : IAnnotatedSynthesisBackend
     public int SampleRate => _config.SampleRate;
 
     /// <summary>
-    ///     Gets how many phoneme symbols the engine has had to skip because the voice's symbol table does not contain
-    ///     them, over its lifetime. It stays zero for text the shipped phonemizer produced; a non-zero value is a defect
+    ///     Gets how many distinct phoneme symbols, counted once per synthesized utterance, the engine has had to skip
+    ///     because the voice's symbol table does not contain them, over its lifetime. It stays zero for text the shipped phonemizer produced; a non-zero value is a defect
     ///     to investigate.
     /// </summary>
     public long UnknownSymbolCount => Interlocked.Read(ref _unknownSymbolCount);

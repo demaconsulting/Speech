@@ -43,7 +43,7 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 ///     <b>License</b>: CC BY 4.0, confirmed from the voice's own <c>MODEL_CARD</c> in the archive (dataset
 ///     <c>http://www.openslr.org/141/</c>, license CC BY 4.0). It is an attribution license: a redistribution of the
 ///     voice, or of audio it generates where the license's attribution applies, must credit the LibriTTS-R corpus
-///     (Koizumi et al., Google; OpenSLR resource 141) and the Piper project the voice was trained with. The required
+///     (Koizumi et al.; OpenSLR resource 141) and the Piper project the voice was trained with. The required
 ///     credit is in this package's <c>THIRD-PARTY-NOTICES.md</c>.
 ///     </para>
 /// </remarks>
