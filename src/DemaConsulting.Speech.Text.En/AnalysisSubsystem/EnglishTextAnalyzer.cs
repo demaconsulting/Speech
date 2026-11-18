@@ -113,8 +113,8 @@ public sealed class EnglishTextAnalyzer : ITextAnalyzer
 
     /// <summary>
     ///     Initializes a new instance with the default options: part-of-speech, normalization and
-    ///     reading annotations on (the reading classifier is effective only with a model, which this
-    ///     release does not embed) and no diagnostics sink.
+    ///     reading annotations on and no diagnostics sink. The reading classifier uses the heteronym
+    ///     model embedded in this package, so every heteronym word of an analyzed text gets its reading.
     /// </summary>
     public EnglishTextAnalyzer()
         : this(new EnglishTextAnalyzerOptions())

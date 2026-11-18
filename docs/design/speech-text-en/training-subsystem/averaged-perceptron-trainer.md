@@ -40,10 +40,20 @@ rounding half away from zero, clamped to 32,767 in magnitude (the model format c
 when its magnitude is at most the prune threshold. All of it is 64-bit integer arithmetic, so no floating-point value
 is involved and the result is identical on every platform. Buckets that were never touched stay 0.
 
+**Overflow bound.** The arithmetic never wraps silently. With `T` the most steps training can take (the weighted rows
+visited per epoch times the epochs) and `F` the most feature occurrences of one candidate, a step changes a bucket at
+most `2F` times by one, so a live weight is at most `2FT`; `(T + 1) W - U` is the sum of `delta * (T + 1 - s)` over the
+updates, so its magnitude is at most `F T (T + 1)`. The constructor requires `2 * scale * F * T * (T + 1) + T` to fit in
+64 bits (this covers every intermediate value, the doubled numerator and the rounding term) and `2FT` to fit in 32 bits,
+evaluating the bound in 128-bit integers, and otherwise throws `InvalidDataException` naming the scale, natural weight
+and epochs to reduce. The training arithmetic is also `checked`, so a flaw in the derivation would throw rather than
+wrap. The committed corpus and settings are far inside the bound, so the committed model is unchanged.
+
 **Key Methods**:
 
 - **AveragedPerceptronTrainer(corpus, settings)**: null arguments throw `ArgumentNullException`; the settings are
-  validated and a setting out of range is an `InvalidDataException`
+  validated and a setting out of range is an `InvalidDataException`, as are settings that fail the overflow bound for
+  the corpus
 - **Decide(inventory, row, weights, mask, scores)** (static): scores every candidate of a prepared row with a weight
   source, writes the integer scores and returns the position of the best candidate, a strictly greater score replacing
   the best so a tie keeps the earlier candidate. Used by the trainer itself and by model selection, so both decide as

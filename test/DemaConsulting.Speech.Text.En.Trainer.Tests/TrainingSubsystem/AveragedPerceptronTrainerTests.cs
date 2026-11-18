@@ -178,6 +178,78 @@ public sealed class AveragedPerceptronTrainerTests
         Assert.Equal(baseline, withExtras);
     }
 
+    /// <summary>Proves the largest validated scale, natural weight and epoch count train on a fixture and give finite, correctly signed weights (nothing wrapped).</summary>
+    [Fact]
+    public void AveragedPerceptronTrainer_Train_ValidatedMaximumSettings_TrainsWithoutOverflow()
+    {
+        // Arrange: natural rows so the maximum natural weight is exercised, trained at scale 1 as a sign reference
+        using var fixture = new TrainingFixture();
+        fixture.AppendRow("train.tsv", "harvest-t1", "lead.noun", "They will lead the team today.", "lead", "harvest-masc");
+        fixture.AppendRow("train.tsv", "harvest-t2", "lead.verb", "The lead pipe was very heavy.", "lead", "harvest-masc");
+        var corpus = TrainingCorpus.Load(fixture.Root);
+        var reference = TrainEpochs(corpus, Small with { HashBits = 16, Scale = 1, NaturalWeight = 100, MaxEpochs = 100 });
+        var maximum = TrainingSettings.Default with { HashBits = 16, Scale = 1_000_000, PruneThreshold = 0, NaturalWeight = 100, MaxEpochs = 100 };
+
+        // Act
+        var epochs = TrainEpochs(corpus, maximum);
+
+        // Assert: every epoch is reported, and wherever the unscaled weights are non-zero the scaled weight has the same sign
+        Assert.Equal(100, epochs.Count);
+        Assert.Contains(epochs[^1], weight => weight != 0);
+        for (var bucket = 0; bucket < epochs[^1].Length; bucket++)
+        {
+            Assert.True(Math.Sign(reference[^1][bucket]) == 0 || Math.Sign(reference[^1][bucket]) == Math.Sign(epochs[^1][bucket]), $"bucket {bucket}");
+        }
+    }
+
+    /// <summary>Proves settings whose worst-case averaging arithmetic could overflow 64 bits are rejected with a message naming the settings, before any training.</summary>
+    [Fact]
+    public void AveragedPerceptronTrainer_Constructor_SettingsBeyondTheOverflowBound_ThrowsNamingTheSettings()
+    {
+        // Arrange: enough natural rows that scale 1,000,000 at natural weight 100 for 100 epochs cannot be proven to fit
+        using var fixture = new TrainingFixture();
+        for (var i = 0; i < 200; i++)
+        {
+            fixture.AppendRow("train.tsv", $"harvest-big{i}", i % 2 == 0 ? "lead.verb" : "lead.noun", "They will lead the team today.", "lead", "harvest-masc");
+        }
+
+        var corpus = TrainingCorpus.Load(fixture.Root);
+        var tooBig = TrainingSettings.Default with { HashBits = 16, Scale = 1_000_000, NaturalWeight = 100, MaxEpochs = 100 };
+        var tolerable = tooBig with { Scale = 1, NaturalWeight = 1, MaxEpochs = 1 };
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => new AveragedPerceptronTrainer(corpus, tooBig));
+        var accepted = new AveragedPerceptronTrainer(corpus, tolerable);
+
+        // Assert: a clear message, and the same corpus is fine with safe settings
+        Assert.Contains("overflow", exception.Message);
+        Assert.Contains("scale 1000000", exception.Message);
+        Assert.Contains("naturalWeight 100", exception.Message);
+        Assert.Contains("maxEpochs 100", exception.Message);
+        Assert.NotNull(accepted);
+    }
+
+    /// <summary>Proves a forced overflow scenario throws instead of training and wrapping: no epoch is ever reported.</summary>
+    [Fact]
+    public void AveragedPerceptronTrainer_Train_ForcedOverflowScenario_ThrowsRatherThanWraps()
+    {
+        // Arrange: a corpus and maximal settings whose worst case exceeds 64 bits
+        using var fixture = new TrainingFixture();
+        for (var i = 0; i < 200; i++)
+        {
+            fixture.AppendRow("train.tsv", $"harvest-big{i}", "lead.verb", "The lead pipe was very heavy.", "lead", "harvest-masc");
+        }
+
+        var corpus = TrainingCorpus.Load(fixture.Root);
+        var epochs = new List<short[]>();
+
+        // Act / Assert: the failure is an exception, and no weights are produced
+        Assert.Throws<InvalidDataException>(() =>
+            new AveragedPerceptronTrainer(corpus, TrainingSettings.Default with { HashBits = 16, Scale = 1_000_000, NaturalWeight = 100, MaxEpochs = 100 })
+                .Train(epoch => epochs.Add(epoch.Weights)));
+        Assert.Empty(epochs);
+    }
+
     /// <summary>Proves settings out of their range are rejected before any training.</summary>
     [Fact]
     public void AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException()

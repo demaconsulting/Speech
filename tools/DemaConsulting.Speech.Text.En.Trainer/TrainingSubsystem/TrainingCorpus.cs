@@ -126,8 +126,13 @@ internal static class RowPreparer
         var rows = new List<LabeledRow>(table.Rows.Count);
         foreach (var cells in table.Rows)
         {
+            // Both offsets must be plain non-negative integers (NumberStyles.None admits no sign, and the explicit
+            // range test keeps that guarantee independent of the parse style), compared without arithmetic so no
+            // combination of offsets can overflow; later stages slice the sentence with them unchecked.
             if (!int.TryParse(cells[4], NumberStyles.None, CultureInfo.InvariantCulture, out var start)
                 || !int.TryParse(cells[5], NumberStyles.None, CultureInfo.InvariantCulture, out var end)
+                || start < 0
+                || end < 0
                 || start >= end
                 || end > cells[3].Length)
             {

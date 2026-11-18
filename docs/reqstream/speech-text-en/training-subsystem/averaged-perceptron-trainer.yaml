@@ -105,3 +105,17 @@ sections:
                   once and not after a long training run.
                 tests:
                   - AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException
+
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-OverflowBound
+                title: >-
+                  The AveragedPerceptronTrainer constructor shall throw InvalidDataException, naming the
+                  scale, natural weight and epochs, for settings whose worst-case averaging arithmetic on the
+                  corpus could overflow 64-bit integers, and shall train the largest validated settings on a
+                  small corpus without corrupting any weight.
+                justification: |
+                  A wrapped integer would silently corrupt weights and so the committed model; the
+                  worst case is bounded up front so that overflow is impossible rather than unlikely.
+                tests:
+                  - AveragedPerceptronTrainer_Constructor_SettingsBeyondTheOverflowBound_ThrowsNamingTheSettings
+                  - AveragedPerceptronTrainer_Train_ForcedOverflowScenario_ThrowsRatherThanWraps
+                  - AveragedPerceptronTrainer_Train_ValidatedMaximumSettings_TrainsWithoutOverflow

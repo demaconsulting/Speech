@@ -85,6 +85,7 @@ sections:
               - SpeechTextEn-Training-EvaluateCommand-UsageErrors
               - SpeechTextEn-Training-TrainingCorpus-DataValidation
               - SpeechTextEn-Training-AveragedPerceptronTrainer-SettingsValidation
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-OverflowBound
               - SpeechTextEn-Training-ModelSelection-SettingsValidation
               - SpeechTextEn-Training-DeterministicRandom-BoundValidation
               - SpeechTextEn-Training-HeteronymEvaluator-SetValidation

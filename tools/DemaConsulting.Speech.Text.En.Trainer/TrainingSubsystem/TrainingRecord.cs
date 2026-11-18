@@ -44,6 +44,11 @@ internal sealed record TrainingSettings(
     /// <summary>
     ///     Checks that every setting is in its valid range.
     /// </summary>
+    /// <remarks>
+    ///     These ranges are independent of the corpus. Whether the scale, natural weight and epoch count are safe
+    ///     for the integer averaging arithmetic depends on how many rows are trained, so that bound is checked,
+    ///     with its derivation, when the trainer is constructed for a corpus.
+    /// </remarks>
     /// <exception cref="InvalidDataException">A setting is out of range; the message names it.</exception>
     public void Validate()
     {

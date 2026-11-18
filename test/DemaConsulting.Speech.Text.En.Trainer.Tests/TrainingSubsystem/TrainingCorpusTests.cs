@@ -210,6 +210,30 @@ public sealed class TrainingCorpusTests
         Assert.Contains("span", exception.Message);
     }
 
+    /// <summary>Proves a negative, signed, overflowing or empty-span offset is a data error naming the file and line, never a later out-of-range failure.</summary>
+    [Theory]
+    [InlineData("-1", "7")]
+    [InlineData("-2147483648", "7")]
+    [InlineData("+3", "7")]
+    [InlineData("3", "-7")]
+    [InlineData("99999999999", "7")]
+    [InlineData("3", "99999999999")]
+    [InlineData("7", "7")]
+    [InlineData("8", "7")]
+    public void RowPreparer_ReadRows_InvalidOffsets_ThrowsInvalidDataExceptionNamingFileAndLine(string start, string end)
+    {
+        // Arrange: the first dev row (line 2) gets the offsets under test
+        using var fixture = new TrainingFixture();
+        fixture.Replace("dev.tsv", "We lead the team again.\t3\t7\t", $"We lead the team again.\t{start}\t{end}\t");
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => TrainingCorpus.Load(fixture.Root));
+
+        // Assert: the message names the file and the line of the row
+        Assert.Contains("dev.tsv:2:", exception.Message);
+        Assert.Contains("span", exception.Message);
+    }
+
     /// <summary>Proves the reader keeps the strict file format rules: a file with the wrong header is rejected.</summary>
     [Fact]
     public void RowPreparer_ReadRows_WrongHeader_ThrowsInvalidDataException()
