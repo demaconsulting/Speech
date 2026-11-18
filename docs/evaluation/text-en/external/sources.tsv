@@ -1,0 +1,18 @@
+key	value
+image_sha256	73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0
+resamples	10000
+confidence_percent	95
+bootstrap_seed	7
+seeds	1,2,3,4,5
+bench.repository	https://github.com/adventists-ai/heteronym-bench
+bench.commit	064163ef097ece80d9b8319abf5612b2b8a3968b
+bench.files	3
+bench.bytes	169232
+bench.files_sha256	7364030de5c19174119eda4e2339d63f465fd2bac9c914653be7a024c074ec34
+bench.license	Apache-2.0 for the code; the data is CC-BY-SA-4.0
+whd.repository	https://github.com/google-research-datasets/WikipediaHomographData
+whd.commit	8f008f021e88f8b71118a27ae655f1f3121162bc
+whd.files	325
+whd.bytes	2097865
+whd.files_sha256	815d7bd540fc327831dd953e5098e330817e4200257bf592dbfd0381338af5f0
+whd.license	Apache-2.0 for the repository; the sentences are Wikipedia text under CC-BY-SA-3.0

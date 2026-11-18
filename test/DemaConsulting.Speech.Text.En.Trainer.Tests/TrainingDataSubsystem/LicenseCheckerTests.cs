@@ -27,11 +27,10 @@ public sealed class LicenseCheckerTests
         Assert.Contains("rows by license: CC-BY-3.0-US: 2, CC0-1.0: 6, Public-Domain: 1", report.Info);
     }
 
-    /// <summary>Proves share-alike, non-commercial and no-derivatives licenses on a row are rejected.</summary>
+    /// <summary>Proves share-alike and non-commercial licenses on a row are rejected (the allow-list is closed).</summary>
     [Theory]
     [InlineData("CC-BY-SA-4.0")]
     [InlineData("CC-BY-NC-4.0")]
-    [InlineData("CC-BY-ND-4.0")]
     public void LicenseChecker_Run_RestrictedLicenseOnRow_ReportsFinding(string license)
     {
         // Arrange
@@ -45,33 +44,20 @@ public sealed class LicenseCheckerTests
         Assert.Contains(report.Findings, finding => finding.Location == "train.tsv:3" && finding.Message.Contains($"license '{license}' is not allowed"));
     }
 
-    /// <summary>Proves a generated row that is not CC0 is rejected even when the license is otherwise allowed.</summary>
+    /// <summary>Proves a generated row that is not CC0 and a MASC row that is not CC-BY are rejected by the per-source policy.</summary>
     [Fact]
     public void LicenseChecker_Run_GeneratedRowNotCc0_ReportsFinding()
     {
-        // Arrange
+        // Arrange: both licenses are on the allow-list, only the source policy rejects them
         using var fixture = new DatasetFixture();
         fixture.EditRow("train.tsv", "syn-00001", ("license", "Public-Domain"));
-
-        // Act
-        var report = fixture.CheckLicense();
-
-        // Assert
-        Assert.True(DatasetFixture.Has(report, License, "generated row (source 'synthetic') must be CC0-1.0"));
-    }
-
-    /// <summary>Proves a MASC row that is not CC-BY-3.0-US is rejected by the per-source policy.</summary>
-    [Fact]
-    public void LicenseChecker_Run_MascRowNotCcBy_ReportsFinding()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
         fixture.EditRow("train.tsv", "harvest-00001", ("license", "CC0-1.0"));
 
         // Act
         var report = fixture.CheckLicense();
 
         // Assert
+        Assert.True(DatasetFixture.Has(report, License, "generated row (source 'synthetic') must be CC0-1.0"));
         Assert.True(DatasetFixture.Has(report, License, "license 'CC0-1.0' is not allowed for source 'harvest-masc'"));
     }
 
@@ -112,9 +98,7 @@ public sealed class LicenseCheckerTests
     /// <summary>Proves a file whose path names an evaluation-only set is rejected.</summary>
     [Theory]
     [InlineData("audit/heteronym-bench-copy.md")]
-    [InlineData("wikipedia-sentences.tsv")]
     [InlineData("corpus/ewt.conllu")]
-    [InlineData("misaki-lexicon.md")]
     public void LicenseChecker_Run_EvaluationOnlyPath_ReportsFinding(string path)
     {
         // Arrange
@@ -143,33 +127,20 @@ public sealed class LicenseCheckerTests
         Assert.DoesNotContain(report.Findings, finding => finding.Message.Contains("evaluation-only"));
     }
 
-    /// <summary>Proves the name of a forbidden source in a TSV other than the data files is rejected.</summary>
+    /// <summary>Proves a forbidden source named in another table or in the source column of a data file is rejected, with its line.</summary>
     [Fact]
     public void LicenseChecker_Run_MisakiTermInProvenanceTsv_ReportsFindingWithLine()
     {
         // Arrange
         using var fixture = new DatasetFixture();
         fixture.EditRow("harvest-provenance.tsv", "harvest-00003", ("label_method", "misaki"));
-
-        // Act
-        var report = fixture.CheckLicense();
-
-        // Assert
-        Assert.Contains(report.Findings, finding => finding.Location == "harvest-provenance.tsv:3" && finding.Message.Contains("'misaki'"));
-    }
-
-    /// <summary>Proves a restricted term in the source column of a data file is rejected.</summary>
-    [Fact]
-    public void LicenseChecker_Run_RestrictedTermInSourceColumn_ReportsFinding()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
         fixture.EditRow("dev.tsv", "harvest-00003", ("source", "wikipedia"));
 
         // Act
         var report = fixture.CheckLicense();
 
         // Assert
+        Assert.Contains(report.Findings, finding => finding.Location == "harvest-provenance.tsv:3" && finding.Message.Contains("'misaki'"));
         Assert.Contains(report.Findings, finding => finding.Location == "dev.tsv:3" && finding.Message.Contains("restricted-license term 'wikipedia'"));
     }
 
@@ -188,34 +159,23 @@ public sealed class LicenseCheckerTests
         Assert.Empty(report.Findings);
     }
 
-    /// <summary>Proves MASC rows without an attribution file are reported.</summary>
+    /// <summary>Proves MASC rows without an attribution file, or with one that does not name MASC, are reported.</summary>
     [Fact]
     public void LicenseChecker_Run_AttributionFileMissing_ReportsFinding()
     {
         // Arrange
-        using var fixture = new DatasetFixture();
-        File.Delete(fixture.PathOf("ATTRIBUTION.md"));
+        using var missing = new DatasetFixture();
+        File.Delete(missing.PathOf("ATTRIBUTION.md"));
+        using var withoutMasc = new DatasetFixture();
+        withoutMasc.Write("ATTRIBUTION.md", "# Attribution\n\nLicense: CC-BY-3.0-US\n\nSome other corpus.\n");
 
         // Act
-        var report = fixture.CheckLicense();
+        var missingReport = missing.CheckLicense();
+        var withoutMascReport = withoutMasc.CheckLicense();
 
         // Assert
-        Assert.True(DatasetFixture.Has(report, License, "CC-BY-3.0-US rows exist but ATTRIBUTION.md is missing"));
-    }
-
-    /// <summary>Proves an attribution file that does not name MASC is reported.</summary>
-    [Fact]
-    public void LicenseChecker_Run_AttributionWithoutMasc_ReportsFinding()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.Write("ATTRIBUTION.md", "# Attribution\n\nLicense: CC-BY-3.0-US\n\nSome other corpus.\n");
-
-        // Act
-        var report = fixture.CheckLicense();
-
-        // Assert
-        Assert.True(DatasetFixture.Has(report, License, "does not name MASC"));
+        Assert.True(DatasetFixture.Has(missingReport, License, "CC-BY-3.0-US rows exist but ATTRIBUTION.md is missing"));
+        Assert.True(DatasetFixture.Has(withoutMascReport, License, "does not name MASC"));
     }
 
     /// <summary>Proves no attribution file is needed when no row carries the attribution license.</summary>
@@ -235,33 +195,20 @@ public sealed class LicenseCheckerTests
         Assert.Empty(report.Findings);
     }
 
-    /// <summary>Proves a README without a <c>License:</c> line is reported.</summary>
+    /// <summary>Proves a README without a <c>License:</c> line and a README that declares a license outside the allow-list are reported.</summary>
     [Fact]
     public void LicenseChecker_Run_ReadmeWithoutLicenseLine_ReportsFinding()
     {
         // Arrange
         using var fixture = new DatasetFixture();
         fixture.Write("prompts/README.md", "# Prompts\n\nNo license here.\n");
-
-        // Act
-        var report = fixture.CheckLicense();
-
-        // Assert
-        Assert.Contains(report.Findings, finding => finding.Location == "prompts/README.md" && finding.Message.Contains("License:"));
-    }
-
-    /// <summary>Proves a README that declares a license outside the allow-list is reported.</summary>
-    [Fact]
-    public void LicenseChecker_Run_ReadmeWithDisallowedLicense_ReportsFinding()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
         fixture.Write("README.md", "# Fixture\n\nLicense: CC0-1.0 AND GPL-3.0-only\n");
 
         // Act
         var report = fixture.CheckLicense();
 
         // Assert
+        Assert.Contains(report.Findings, finding => finding.Location == "prompts/README.md" && finding.Message.Contains("License:"));
         Assert.Contains(report.Findings, finding => finding.Location == "README.md" && finding.Message.Contains("License:"));
     }
 

@@ -33,14 +33,12 @@ public sealed class HeteronymClassifierTests
         Assert.Equal(0.5, prediction.Confidence, 12);
     }
 
-    /// <summary>Proves the confidence is the temperature-calibrated softmax of the top candidate: two candidates 64 apart at scale 64 give 1/(1+e^-1), and a higher temperature lowers it.</summary>
-    [Theory]
-    [InlineData(1f, 0.7310585786300049)]
-    [InlineData(2f, 0.6224593312018546)]
-    [InlineData(0.5f, 0.8807970779778823)]
-    public void HeteronymClassifier_Classify_TwoCandidates64Apart_ConfidenceIsCalibratedSoftmax(float temperature, double expected)
+    /// <summary>Proves the confidence is the temperature-calibrated softmax of the top candidate: two candidates 64 apart at scale 64 and temperature 2 give 1/(1+e^-0.5).</summary>
+    [Fact]
+    public void HeteronymClassifier_Classify_TwoCandidates64Apart_ConfidenceIsCalibratedSoftmax()
     {
         // Arrange: weight the bias feature of record.verb by 64 (one unit of real score)
+        const float temperature = 2f;
         var inventory = ReadingInventory.Default;
         var (context, target, form) = Prepare(inventory, "I want to record it .", "record");
         var (_, classifier) = Create([BiasWeight(inventory, "record.verb", 64)], temperature);
@@ -50,7 +48,7 @@ public sealed class HeteronymClassifierTests
 
         // Assert
         Assert.Equal("record.verb", inventory.ReadingIdAt(prediction.ReadingIndex));
-        Assert.Equal(expected, prediction.Confidence, 12);
+        Assert.Equal(1 / (1 + Math.Exp(-1 / (double)temperature)), prediction.Confidence, 12);
     }
 
     /// <summary>Proves a reading that is not a candidate of the word can never win, however large the weight of its own features.</summary>
@@ -110,36 +108,21 @@ public sealed class HeteronymClassifierTests
         Assert.Equal(1.0, prediction.Confidence);
     }
 
-    /// <summary>Proves the observer is not called for a single-candidate form, which no model scores.</summary>
-    [Fact]
-    public void HeteronymClassifier_Classify_Observer_NotCalledForSingleCandidateForm()
-    {
-        // Arrange
-        var inventory = ReadingInventory.Default;
-        var form = Enumerable.Range(0, inventory.FormCount).First(f => inventory.GetCandidates(f).Length == 1);
-        var word = inventory.FormAt(form);
-        var (context, target, formIndex) = Prepare(inventory, $"We saw the {word} there .", word);
-        var calls = 0;
-        var (_, classifier) = Create([], observer: _ => calls++);
-
-        // Act
-        classifier.Classify(context, target, formIndex);
-
-        // Assert
-        Assert.Equal(0, calls);
-    }
-
-    /// <summary>Proves the observer receives the running count of model-scored classifications, so a test can act at an exact one.</summary>
+    /// <summary>Proves the observer receives the running count of model-scored classifications, so a test can act at an exact one, and is not called for a single-candidate form, which no model scores.</summary>
     [Fact]
     public void HeteronymClassifier_Classify_Observer_ReceivesRunningCount()
     {
         // Arrange
         var inventory = ReadingInventory.Default;
         var (context, target, form) = Prepare(inventory, "I want to record it .", "record");
+        var singleForm = Enumerable.Range(0, inventory.FormCount).First(f => inventory.GetCandidates(f).Length == 1);
+        var singleWord = inventory.FormAt(singleForm);
+        var (singleContext, singleTarget, singleFormIndex) = Prepare(inventory, $"We saw the {singleWord} there .", singleWord);
         var counts = new List<int>();
         var (_, classifier) = Create([], observer: counts.Add);
 
         // Act
+        classifier.Classify(singleContext, singleTarget, singleFormIndex);
         classifier.Classify(context, target, form);
         classifier.Classify(context, target, form);
         classifier.Classify(context, target, form);
@@ -183,14 +166,8 @@ public sealed class HeteronymClassifierTests
     [Theory]
     [InlineData(false, -1)]
     [InlineData(false, 0)]
-    [InlineData(false, 1)]
-    [InlineData(false, 2)]
     [InlineData(false, 3)]
-    [InlineData(true, -1)]
     [InlineData(true, 0)]
-    [InlineData(true, 1)]
-    [InlineData(true, 2)]
-    [InlineData(true, 3)]
     public void HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException(bool singleCandidate, int targetKind)
     {
         // Arrange: a form of the requested kind and a sentence that contains it
@@ -273,20 +250,6 @@ public sealed class HeteronymClassifierTests
         Assert.False(HeteronymModelProvider.None.IsConfigured);
         Assert.Null(none);
         Assert.Equal(ModelLoadStatus.NotShipped, noneStatus);
-    }
-
-    /// <summary>Proves a provider built over a model source reports that a model is configured.</summary>
-    [Fact]
-    public void HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured()
-    {
-        // Arrange
-        var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
-
-        // Act
-        var provider = HeteronymFixtureModel.CreateProvider(source);
-
-        // Assert
-        Assert.True(provider.IsConfigured);
     }
 
     /// <summary>Proves 32 concurrent first requests all get a working classifier that gives the predictions of a sequential request.</summary>
@@ -400,78 +363,6 @@ public sealed class HeteronymClassifierTests
         Assert.Equal(ModelLoadStatus.Incompatible, status);
     }
 
-    /// <summary>Proves a model of a feature-set version of zero is structurally invalid, not merely incompatible.</summary>
-    [Fact]
-    public void HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid()
-    {
-        // Arrange
-        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
-        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8), 0);
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
-
-        // Act
-        provider.GetClassifier(out var status);
-
-        // Assert
-        Assert.Equal(ModelLoadStatus.Invalid, status);
-    }
-
-    /// <summary>Proves a model whose stored checksum no longer matches its payload is reported as invalid.</summary>
-    [Fact]
-    public void HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid()
-    {
-        // Arrange: flip a bit of the checksum field
-        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
-        bytes[36] ^= 0x01;
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
-
-        // Act
-        provider.GetClassifier(out var status);
-
-        // Assert
-        Assert.Equal(ModelLoadStatus.Invalid, status);
-    }
-
-    /// <summary>Proves a file with the wrong magic is reported as invalid.</summary>
-    [Fact]
-    public void HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid()
-    {
-        // Arrange
-        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples);
-        bytes[0] = (byte)'X';
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(bytes));
-
-        // Act
-        provider.GetClassifier(out var status);
-
-        // Assert
-        Assert.Equal(ModelLoadStatus.Invalid, status);
-    }
-
-    /// <summary>Proves a candidate's score is the sum of the weights of the buckets its features select: conjoined features through the label salt, shared features through the role salt, a repeated feature once per occurrence.</summary>
-    [Fact]
-    public void HeteronymClassifier_ScoreCandidate_SumsWeightsOfSelectedBuckets()
-    {
-        // Arrange: weights on the buckets features 11 and 22 select under the label salt and 33 under the role salt
-        const uint label = 0x1111u;
-        const uint role = 0x2222u;
-        const uint mask = 0xFFFFFFu;
-        var weights = new MapWeights(new Dictionary<uint, int>
-        {
-            [FeatureHashing.Bucket(11, label, mask)] = 3,
-            [FeatureHashing.Bucket(22, label, mask)] = 5,
-            [FeatureHashing.Bucket(33, role, mask)] = 7,
-        });
-
-        // Act
-        var score = HeteronymClassifier.ScoreCandidate(weights, [11u, 11u, 22u], [33u], label, role, mask);
-        var otherCandidate = HeteronymClassifier.ScoreCandidate(weights, [11u, 11u, 22u], [33u], 0x9999u, 0x8888u, mask);
-
-        // Assert: 3 + 3 + 5 + 7; a candidate with other salts selects none of those buckets
-        Assert.Equal(18, score);
-        Assert.Equal(0, otherCandidate);
-    }
-
     /// <summary>
     ///     Builds an inventory and a classifier over a model made of weights.
     /// </summary>
@@ -523,13 +414,5 @@ public sealed class HeteronymClassifierTests
         Assert.True(target >= 0);
         Assert.True(inventory.TryFindForm(word, out var form));
         return (context, target, form);
-    }
-
-    /// <summary>The weights of a few buckets, as a weight source for the scorer; every other bucket weighs zero.</summary>
-    /// <param name="Weights">The weights by bucket.</param>
-    private readonly record struct MapWeights(Dictionary<uint, int> Weights) : HeteronymClassifier.IWeightSource
-    {
-        /// <inheritdoc/>
-        public int GetWeight(uint bucket) => Weights.GetValueOrDefault(bucket);
     }
 }

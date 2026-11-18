@@ -34,77 +34,63 @@ sections:
             children:
               - SpeechTextEn-TrainingData-CheckDataCommand-ExitCodes
               - SpeechTextEn-TrainingData-CheckDataCommand-Options
-              - SpeechTextEn-TrainingData-CheckDataCommand-RunsAllChecks
-              - SpeechTextEn-TrainingData-CheckReport-FindingsFailTheRun
-              - SpeechTextEn-TrainingData-CheckReport-StableOutput
+              - SpeechTextEn-TrainingData-CheckReport-Report
             tests:
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
 
           - id: SpeechTextEn-TrainingData-FileFormat
             title: >-
-              The TrainingDataSubsystem shall accept only data files that are UTF-8 text without a
-              byte order mark, with line feed line ends, a final newline, no empty line, a constant
-              number of tab-separated columns, text in Unicode normalization form C and no quoting,
-              shall preserve the source location of every datum in the findings it reports, and
-              shall know the closed vocabulary of data sources.
+              The TrainingDataSubsystem shall accept only data files that are canonical UTF-8 text
+              (no byte order mark, line feed line ends, a final newline, no empty line, a constant
+              number of tab-separated columns, normalization form C and no quoting), shall preserve
+              the source location of every datum in the findings it reports, shall know the closed
+              vocabulary of data sources, and shall compare every file of the data folder with the
+              committed manifest of file names, SHA-256 hashes, byte counts and row counts, failing
+              when a file differs, is missing, or is not listed.
             justification: |
               The sentence offsets and the manifest hashes only mean the same on every platform
               when the bytes are canonical, and natural sentences that contain quotation marks must
-              not be altered by a reader that interprets them. A defect in the format must fail the
-              check instead of silently shifting an offset.
+              not be altered by a reader that interprets them. The manifest is a reviewed file that
+              pins the exact content of data too large to review row by row, so a data change cannot
+              pass the check without that review.
             children:
               - SpeechTextEn-TrainingData-TsvTable-StrictFormat
-              - SpeechTextEn-TrainingData-TsvTable-NoQuoting
-              - SpeechTextEn-TrainingData-TsvTable-HeaderAndComments
               - SpeechTextEn-TrainingData-TsvTable-FindingLocations
               - SpeechTextEn-TrainingData-TextEnDataSet-Loading
-              - SpeechTextEn-TrainingData-TextEnDataSet-TypedRows
               - SpeechTextEn-TrainingData-TextEnDataSet-SourceVocabulary
-            tests:
-              - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
-              - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
-
-          - id: SpeechTextEn-TrainingData-ManifestVerification
-            title: >-
-              The TrainingDataSubsystem shall compare every file of the data folder with the committed
-              manifest of file names, SHA-256 hashes, byte counts and row counts, and shall fail when a
-              file differs, is missing, or is not listed, with the manifest itself in a single
-              canonical form.
-            justification: |
-              The manifest is a reviewed file that pins the exact content of data too large to
-              review row by row. A change to any data file therefore changes the manifest, and
-              a data change cannot pass the check without that review.
-            children:
               - SpeechTextEn-TrainingData-DataManifest-HashVerification
-              - SpeechTextEn-TrainingData-DataManifest-CompleteListing
-              - SpeechTextEn-TrainingData-DataManifest-Determinism
+              - SpeechTextEn-TrainingData-DataManifest-Format
             tests:
-              - TrainingDataSubsystem_CheckData_ManifestDrift_NamesFileAndPassesAfterRegeneration
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
+              - TrainingDataSubsystem_CheckData_ManifestDrift_NamesFileAndPassesAfterRegeneration
 
           - id: SpeechTextEn-TrainingData-SchemaValidation
             title: >-
               The TrainingDataSubsystem shall validate the reading inventory, its forms and its
               mapping, the extension decisions and every labeled row (identifiers, splits, readings,
               lemmas, sources, licenses and offsets), shall require the target span of every row to be
-              one whole listed form of its reading, and shall keep the published gap table equal to the
-              counts of the committed rows.
+              one whole listed form of its reading, shall keep the published gap table equal to the
+              counts of the committed rows, and shall fail when a row has no provenance record or a
+              provenance record has no row, when a row under a license that requires attribution has
+              no attribution file, or when the documents of the data folder do not state an allowed
+              license.
             justification: |
               The data is thousands of labeled examples that nobody can read through. A wrong label,
               a span that points at the wrong text or a reference to a reading that does not exist
-              would teach the classifier something false, so each of these is checked by machine.
+              would teach the classifier something false, and each row must be traceable to the
+              document it was harvested from or to how it was generated, so each of these is checked
+              by machine.
             children:
               - SpeechTextEn-TrainingData-SchemaChecker-Inventory
-              - SpeechTextEn-TrainingData-SchemaChecker-ReferentialIntegrity
               - SpeechTextEn-TrainingData-SchemaChecker-Rows
               - SpeechTextEn-TrainingData-SchemaChecker-ReadingCounts
-              - SpeechTextEn-TrainingData-SpanValidator-WholeWord
-              - SpeechTextEn-TrainingData-SpanValidator-ListedForm
-              - SpeechTextEn-TrainingData-SpanValidator-Utf16ScalarOffsets
+              - SpeechTextEn-TrainingData-SpanValidator-ValidSpan
+              - SpeechTextEn-TrainingData-LicenseChecker-Attribution
             tests:
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
+              - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
 
           - id: SpeechTextEn-TrainingData-LicenseGate
             title: >-
@@ -116,9 +102,8 @@ sections:
               material and no Misaki data is used. The check keeps that decision true for
               every row on every change.
             children:
-              - SpeechTextEn-TrainingData-LicenseChecker-AllowList
-              - SpeechTextEn-TrainingData-LicenseChecker-SourcePolicy
-              - SpeechTextEn-TrainingData-LicenseChecker-RestrictedTerms
+              - SpeechTextEn-TrainingData-LicenseChecker-AllowedLicenses
+              - SpeechTextEn-TrainingData-LicenseChecker-RestrictedContent
             tests:
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
@@ -136,29 +121,11 @@ sections:
               comparison with the external evaluation sets can only be done by an operator who has them,
               so it is optional and never lets a missing folder pass as success.
             children:
-              - SpeechTextEn-TrainingData-LeakageChecker-SplitSeparation
-              - SpeechTextEn-TrainingData-LeakageChecker-DocumentSeparation
-              - SpeechTextEn-TrainingData-LeakageChecker-TemplateSeparation
-              - SpeechTextEn-TrainingData-LeakageChecker-ExternalSets
-              - SpeechTextEn-TrainingData-LeakageChecker-ExternalOptional
-              - SpeechTextEn-TrainingData-LicenseChecker-EvaluationOnlyPaths
+              - SpeechTextEn-TrainingData-LeakageChecker-InternalLeakage
+              - SpeechTextEn-TrainingData-LeakageChecker-ExternalOverlap
+              - SpeechTextEn-TrainingData-LeakageChecker-EvaluationSetLoading
+              - SpeechTextEn-TrainingData-LicenseChecker-RestrictedContent
             tests:
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
               - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
-              - TrainingDataSubsystem_CheckData_NoEvaluationSets_PassesAndSaysSkipped
-
-          - id: SpeechTextEn-TrainingData-ProvenanceGate
-            title: >-
-              The TrainingDataSubsystem shall fail when a row has no provenance record or a provenance
-              record has no row, and when a row under a license that requires attribution has no
-              attribution file or the documents of the data folder do not state an allowed license.
-            justification: |
-              Each row must be traceable to the document it was harvested from or to how it was
-              generated, and the attribution a license requires must travel with the data.
-            children:
-              - SpeechTextEn-TrainingData-SchemaChecker-ProvenanceIds
-              - SpeechTextEn-TrainingData-SchemaChecker-SourceConsistency
-              - SpeechTextEn-TrainingData-LicenseChecker-Attribution
-            tests:
-              - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
-              - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
+              - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks

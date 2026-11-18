@@ -127,6 +127,9 @@ internal sealed class LeakageChecker
     /// <summary>The header of the leakage report file.</summary>
     private const string ReportHeader = "eval_set\teval_sentences\tsplit\trows\texact\tnear_duplicate\tshare_5gram";
 
+    /// <summary>The number of nested links followed before a path is refused as a likely cycle.</summary>
+    private const int MaxLinkDepth = 40;
+
     /// <summary>The data set under test.</summary>
     private readonly TextEnDataSet _data;
 
@@ -174,15 +177,77 @@ internal sealed class LeakageChecker
     }
 
     /// <summary>
-    ///     Determines whether a folder lies inside (or is) the data root.
+    ///     Determines whether a folder lies inside (or is) the data root, after following every existing link.
     /// </summary>
+    /// <remarks>
+    ///     A lexical comparison is not a security boundary: a symbolic link or junction outside the root can point
+    ///     into it (and the reverse). Both sides are therefore resolved with <see cref="ResolveRealPath"/> first.
+    /// </remarks>
     /// <param name="directory">The folder.</param>
     /// <param name="root">The data root.</param>
     /// <returns><see langword="true"/> when <paramref name="directory"/> is <paramref name="root"/> or below it.</returns>
-    public static bool IsInside(string directory, string root)
+    public static bool IsInside(string directory, string root) =>
+        IsLexicallyInside(ResolveRealPath(directory), ResolveRealPath(root));
+
+    /// <summary>
+    ///     Determines whether a full path lies inside (or is) a root by comparing the path text only.
+    /// </summary>
+    /// <param name="directory">The folder.</param>
+    /// <param name="root">The root.</param>
+    /// <returns><see langword="true"/> when <paramref name="directory"/> is <paramref name="root"/> or below it.</returns>
+    public static bool IsLexicallyInside(string directory, string root)
     {
         var relative = Path.GetRelativePath(Path.GetFullPath(root), Path.GetFullPath(directory));
         return relative == "." || (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
+    }
+
+    /// <summary>
+    ///     Resolves a path to its real location by following symbolic links and junctions on every existing component.
+    /// </summary>
+    /// <remarks>
+    ///     Components that do not exist are kept as written, so the result is usable for a folder that is yet to be
+    ///     created. Mirrors the link handling of the CLI path helper, which the trainer cannot reference.
+    /// </remarks>
+    /// <param name="path">The path.</param>
+    /// <returns>The fully qualified path with no existing link component.</returns>
+    /// <exception cref="IOException">Thrown when links nest deeper than the supported depth (a likely cycle).</exception>
+    public static string ResolveRealPath(string path) => ResolveFullPath(Path.GetFullPath(path), 0);
+
+    /// <summary>
+    ///     Resolves a fully qualified path, restarting the walk after each link that is followed.
+    /// </summary>
+    /// <param name="fullPath">The fully qualified path.</param>
+    /// <param name="depth">The number of links followed so far.</param>
+    /// <returns>The fully qualified path with no existing link component.</returns>
+    private static string ResolveFullPath(string fullPath, int depth)
+    {
+        // A cycle of links never settles, so refuse it rather than loop
+        if (depth > MaxLinkDepth)
+        {
+            throw new IOException($"too many nested links while resolving {fullPath}");
+        }
+
+        // Walk the components from the root; the first existing link is replaced by its target and the walk restarts
+        var current = Path.GetPathRoot(fullPath) ?? string.Empty;
+        var parts = fullPath[current.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        for (var index = 0; index < parts.Length; index++)
+        {
+            var next = Path.Combine(current, parts[index]);
+            FileSystemInfo info = Directory.Exists(next) ? new DirectoryInfo(next) : new FileInfo(next);
+            var linkTarget = info.LinkTarget;
+            if (linkTarget is null)
+            {
+                current = next;
+                continue;
+            }
+
+            // Follow the link (a broken link falls back to its literal target) and resolve what follows it
+            var target = info.ResolveLinkTarget(true)?.FullName ?? Path.GetFullPath(linkTarget, current);
+            var resolved = Path.GetFullPath(Path.Combine([target, .. parts[(index + 1)..]]));
+            return ResolveFullPath(resolved, depth + 1);
+        }
+
+        return current;
     }
 
     /// <summary>

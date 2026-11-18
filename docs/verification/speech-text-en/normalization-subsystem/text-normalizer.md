@@ -10,10 +10,12 @@ real tokenizer of the part-of-speech package through the test helper `Fakes/Norm
 dependency; no tagger is involved), because the rules are written against the tokenizer's real token shapes. Tests that
 need exact control (cancellation, argument validation) hand-build `NormalizationToken` arrays, and cancellation is
 triggered deterministically from the normalizer's token-visited observer (a test seam) at a chosen early token, without
-asserting how many tokens were visited; the two tests that need a different lexicon build a `TextNormalizer` over custom
-tables parsed from a string. The directive tests pass hand-built directives, placed on tokens of the real tokenizer by
-token text, so the normalizer is tested without the dictionary. Most tests assert the exact spoken text that results,
-obtained by applying the spans to the source.
+asserting how many tokens were visited. The directive tests pass hand-built directives, placed on tokens of the real
+tokenizer by token text, so the normalizer is tested without the dictionary. Most tests assert the exact spoken text
+that results, obtained by applying the spans to the source. The inputs and expected texts of the symbol, mark, slash,
+apostrophe, numeric-separation, shouting-sentence and abbreviation rows live in the golden files
+`TestData/normalization-cases.tsv` and `TestData/number-cases.tsv`, which the subsystem tests run (see
+*NormalizationSubsystem Verification*); only a small inline theory of each rule remains here.
 
 #### Test Environment
 
@@ -25,232 +27,145 @@ obtained by applying the spans to the source.
 
 #### Acceptance Criteria
 
-Standalone operators are spoken only when whitespace or a text edge sets them apart on both sides; marks are spoken
-whether they stand alone or touch a word, with a separating space where a letter touches; a slash is spoken only between
-two plain words of at least two letters; invisible characters are dropped with one empty span per run while the emoji
-joiners are kept, and a token that contains one gets no other rule; typographic apostrophes become plain ones inside
-clitics and elisions but quote marks and a trailing apostrophe stay; the clitic roles follow the documented
-classification and are recorded only on request; a suffix abbreviation keeps its period at a sentence end and consumes
-it mid-sentence in both token shapes; a prefix title consumes its period and removes the tokenizer break after it; a
-suffix forces a break only before a capitalized next word; the word reading of `No.` adds a break but no span; each
-ambiguous resolution is counted once; the shouting guard applies per sentence; a dotted initialism needs its period
-token; a pre-canceled token and a cancellation requested mid-pass throw `OperationCanceledException` (no visit count or
-polling cadence is asserted); invalid arguments are rejected; an empty text normalizes to nothing; and repeated
-normalization is deterministic while a custom lexicon changes the outcome. The numeric rule runs after the
-invisible-character and clitic rules and before the abbreviation rule (so `5 ft.` is a unit and `Jan. 5` leaves the
-number to the numeric rule), emits the spans of a match in order and speaks a consumed token only once, separates
-adjacent numeric replacements with exactly one space, applies the suffix period rules to a unit with a period (consumed
-mid-sentence, kept with a forced break at a sentence end or before a capitalized word), reads no token that contains an
-invisible character as a number, and observes cancellation in the middle of a numeric pass. A user directive on a token
-wins over every built-in rule for the spoken form of that token, while the sentence-break edits of the abbreviation and
-acronym rules are still made (see *Directive sentence breaks*): a skip directive and a reading directive emit nothing
-(the token is spoken as written), a replace directive emits one span of the override kind padded by at most one space, a
-spell directive spells ASCII letters (and leaves anything else as written, counted as ignored), and a pronounce
-directive adds a pronunciation mark without a span or a change of the spoken text. A directive on a token that an
-earlier multi-token match consumed is ignored, counted and leaves the match unchanged; every directive is counted
-exactly once as applied or ignored; directives that are out of order, repeated, negative or beyond the tokens are
-rejected without arithmetic on the index; cancellation with directives present throws `OperationCanceledException`;
-and thousands of directives over a large text are all applied. The shape of a replacement decides
-whether it is spelled (letter-name replacements are, word, symbol and number replacements are not), an ampersand
-initialism is decomposed into spelled letter spans and an `and` span with unchanged spoken text and the possessive tail
-outside every span, and adjacent replacements are separated by exactly one space.
+**Spans.** Each replacement lies on the exact characters of one token (with its period token where the abbreviation
+rules say so), so the spans name the source characters. The numeric recognizer runs after the invisible-character and
+clitic rules and before the abbreviation rule (`5 ft.` is a unit, `Ft. Worth` is still Fort), and a token a multi-token
+match consumed is spoken once. An invisible-character run is dropped as one empty span while the emoji joiners stay. A
+replacement is spelled exactly when its spoken text is a letter sequence, an ampersand initialism is decomposed into
+spelled letter spans and an `and` span with unchanged spoken text and the possessive tail outside every span, and
+adjacent replacements are separated by exactly one space. An empty text normalizes to nothing.
+
+**Periods and breaks.** A suffix abbreviation keeps its period at a sentence end and consumes it mid-sentence in both
+token shapes, and forces a break only before a capitalized next word; a prefix title consumes its period and removes
+the tokenizer break after it; the word reading of `No.` adds a break but no span; a name suffix before a credential
+keeps the name in one sentence while a sentence starter still ends it; a dotted initialism needs its period token; and
+each ambiguous resolution is counted once.
+
+**Symbols and apostrophes.** Operators are spoken only where whitespace or a text edge sets them apart, marks are spoken
+alone or touching a word, a slash only between two plain words; typographic apostrophes become plain ones inside clitics
+and elisions while quote marks stay; the clitic roles follow the documented classification and are recorded only on
+request.
+
+**Directives.** A directive wins over every built-in rule for the spoken form of its token while the sentence-break
+edits of the abbreviation rules are still made, so the reconciled breaks equal those without directives: a skip and a
+reading directive emit nothing, a replace directive emits one override span, a spell directive spells ASCII letters (and
+leaves anything else as written, counted as ignored), and a pronounce directive adds a mark without a span. A directive
+on a consumed token is ignored and counted, applied and ignored directives are counted separately, and unordered,
+repeated, negative or out-of-range directive indices are rejected.
+
+**Contract.** A pre-canceled token and a cancellation requested mid-pass throw `OperationCanceledException`; invalid
+arguments and token lists that do not describe the text are rejected; repeated normalization is deterministic and a
+custom lexicon changes the outcome.
 
 #### Test Scenarios
 
-##### Symbols and marks
+##### Spans, numeric rule and separation
 
-**Tests**: `TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart` (a theory over all fifteen
-operators and the cases `&` alone, `a&b`, `a=b`, `(+)` and `a +b`),
-`TextNormalizer_Normalize_Marks_AreSpoken` (a theory),
-`TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets`,
-`TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords` (a theory)
+**Tests**: `TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence`,
+`TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing`,
+`TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations`,
+`TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly` (a three-row theory),
+`TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape`,
+`TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText`,
+`TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace`
 
-Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks` and `A™B`
-becomes `A trademark B`; adjacent marks are separate words (`A™®B` becomes `A trademark registered B`, `§§ 5` becomes
-`section section five`, `© 2025` becomes `copyright twenty twenty five` (the digits are read by the numeric rule),
-`x™©2025` becomes `x trademark copyright 2025` (the number is part of the token and is left alone), the two replacements
-of `A™®B` being `" trademark"` and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes
-`he slash she` while `km/h`, `a/b`, `24/7`, `a/b/cc` and `he/sh3` stay, and `and/or` and `w/o` are the lexicon forms
-`and or` and `without`.
-
-##### Invisible characters
-
-**Tests**: `TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly` (a theory),
-`TextNormalizer_Normalize_TokenWithInvisibleCharacter_GetsNoOtherRule`
-
-A run of zero-width spaces is one span, two runs are two spans, a byte-order mark, a bullet and the
-bidirectional controls are dropped, and the zero-width joiner and non-joiner are kept; `AT&T` followed by a
-zero-width space produces only the dropped span, not the ampersand initialism.
-
-##### Apostrophes and clitics
-
-**Tests**: `TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords` (a theory),
-`TextNormalizer_Normalize_Clitics_AreClassifiedFromContext` (a theory over 23 sentences),
-`TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes`
-
-Contractions, elisions (`y’all`, `o’clock`, `rock’n’roll`, `’Tis`, `’til`, `’cause`) become plain apostrophes
-while `dogs’` and `‘quoted’` stay. The classification theory asserts exactly one clitic mark per sentence, on
-the expected token, with the role of the documented table: `n't` Not, `'re` Are, `'ve` Have, `'ll` Will, `'m`
-Am, `'d` Would or Had (`I'd better go`, `I'd never been`, `they'd gone`), `'s` as Us (`Let's go`), Is, Has and
-Possessive (`What's up`, `It's been cold`, `John's book`, `The company's new plan`), and the documented
-heuristic cases `John's going home` and `The dog's barking loudly` (Is). When roles are not requested no mark
-is recorded but the apostrophes are still canonicalized.
+The spans name the exact source characters: `St` (period kept) at a sentence end and `St.` mid-sentence, `Ave.`
+(consumed) and `Blvd` (kept) for the word-plus-period token shape. `5 Ft. Worth` reads `five feet. Worth` while `No. 5`
+reads both readings. In a sentence with `FBI`, `U.S.`, `Dr.`, `&`, `J.`, `5 p.m.`, `$5`, `50%` and `3 kg`, exactly
+`FBI`, `U.S.`, `J.` and `p.m.` are spelled and every spelled value is a letter sequence. `AT&T's` yields the spelled
+span `A T`, the symbol span `" and "` and the spelled span `T`, with the spoken text `A T and T's`; with a trademark
+mark directly before `AT&T` the result is `trademark A T and T` with no double space. The numeric-separation,
+multi-token and invisible-character-in-number rows (`50%`, `5 million USD`, `5–10`, a number with a zero-width space)
+are golden rows.
 
 ##### Period and sentence rules
 
-**Tests**: `TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence`,
-`TextNormalizer_Normalize_PrefixTitle_ConsumesPeriodAndSuppressesTokenizerBreak`,
+**Tests**: `TextNormalizer_Normalize_PrefixTitle_ConsumesPeriodAndSuppressesTokenizerBreak`,
 `TextNormalizer_Normalize_SuffixBeforeNextWord_ForcesBreakOnlyBeforeCapitalizedWord`,
 `TextNormalizer_Normalize_WordReading_ForcesBreakWithoutSpan`,
+`TextNormalizer_Normalize_DottedInitialismWithSeparatePeriod_IsHandled`,
 `TextNormalizer_Normalize_NameSuffixBeforeCredential_ConsumesPeriodAndKeepsNameTogether`,
-`TextNormalizer_Normalize_NameSuffixBeforeSentenceStarter_StillForcesBreak`,
 `TextNormalizer_Normalize_AmbiguousResolutions_AreCountedOnce`
 
-The spans name the exact source characters: `St` (period kept) at a sentence end and `St.` mid-sentence, `Ave.`
-(consumed) and `Blvd` (kept) for the word-plus-period token shape. For `Sen. Smith spoke.` the tokenizer break is the
-suppressed break and nothing is left after reconciliation. `Maple Dr. He likes it.` forces the break before `He` while
-`Maple Dr. is nice.` and `Maple Dr. 5 times.` force none. `No. I don't know.` has no span and one forced break. In
-`John Smith Jr. Ph.D. spoke.` the span of `Jr.` includes its period and no break is forced; in
-`Ann Lee Ph.D. M.D. spoke.` the tokenizer's break before `M.D.` is the suppressed break and nothing is left after
-reconciliation; in `I met John Smith Jr. He left.` the only break is before `He`. The ambiguity count is 0 for clear
-readings and 1 per inconclusive `They St.` (2 for two of them).
+For `Sen. Smith spoke.` the tokenizer break is suppressed and nothing is left after reconciliation.
+`Maple Dr. He likes it.` forces the break before `He`, while `Maple Dr. is nice.` and `Maple Dr. 5 times.` force none.
+`No. I don't know.` has no span and one forced break. In `John Smith Jr. Ph.D. spoke.` the span of `Jr.` includes its
+period and no break is forced; in `Ann Lee Ph.D. M.D. spoke.` the tokenizer's break between the credentials is
+suppressed; in `I met John Smith Jr. He left.` the only break is before `He`. `5 p.m. Then sleep.` yields the number
+span `five` and one `Initialism` span `P M`, and `x.y` yields none. The ambiguity count is 0 for clear readings and 1
+per inconclusive `They St.`. The unit-period rows (`6 ft. tall`, `He is 6 ft. Then he left.`, `180 lbs.`) and the
+shouting rows (`The US team won. LET US GO NOW.`) are golden rows.
 
-##### Initialisms
+##### Symbols and apostrophes
 
-**Tests**: `TextNormalizer_Normalize_AllCapitalSentence_SuspendsAmbiguousInitialisms`,
-`TextNormalizer_Normalize_DottedInitialismWithSeparatePeriod_IsHandled`,
-`TextNormalizer_Normalize_DottedFormWithoutPeriodToken_IsIdentity`
+**Tests**: `TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart` (a four-row theory),
+`TextNormalizer_Normalize_Marks_AreSpoken` (a three-row theory),
+`TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets`,
+`TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords` (a three-row theory),
+`TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords` (a four-row theory),
+`TextNormalizer_Normalize_Clitics_AreClassifiedFromContext` (one row per role plus negatives),
+`TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes`
 
-`The US team won. LET US GO NOW.` speaks the first `US` letter by letter and leaves the shouted one; `5 p.m.
-Then sleep.` yields the number span `five` and one `Initialism` span `P M`; `x.y` yields none.
+Examples: `a & b` becomes `a and b` but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks`; the two
+replacements of `A™®B` are `" trademark"` and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes
+`he slash she` while `km/h` and `24/7` stay. Contractions and elisions get the plain apostrophe while a trailing `dogs’`
+and `‘quoted’` stay. The classification theory asserts exactly one clitic mark per row, on the expected token, with the
+documented role (`n't` Not, `'re` Are, `'ve` Have, `'ll` Will, `'m` Am, `'d` Would or Had, `'s` as Us, Is, Has and
+Possessive). When roles are not requested no mark is recorded but the apostrophes are still canonicalized. The remaining
+operator, mark, slash and apostrophe forms are golden rows.
 
-##### Numeric rule
-
-**Tests**: `TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations`,
-`TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce`,
-`TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity`,
-`TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace`,
-`TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd`
-
-`Meet at 5 p.m. Then sleep.` yields `five`, then the acronym rule's `P M` with its period kept; `6 ft. tall` (the unit
-with its period consumed, the span covering `ft.`), `6 ft.` and `6 ft. Then he left.` (the span covering `ft` only and a
-forced break before `Then`) and `180 lbs.` (the unit token and its separate period token) check the period rules, and
-`5 Ft. Worth` reads `five feet. Worth`. `5 million USD` has the spans `5` and `USD`; `$5 million a 3 kg` is spoken
-`five million dollars a three kilograms`, each consumed token spoken once as part of its match. `50%` produces `fifty`
-and `" percent"` with one space between the two replacements and no moved offset, and `5–10` produces `five`, `" to "`
-and `ten`; a numeric token with a zero-width space inside produces only the dropped span.
-
-##### Numeric cancellation
-
-**Tests**: `TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException`
-
-For a long hand-built numeric text of 1,000 one-digit numbers, an observer cancels the token while an early token is
-visited and the pass throws `OperationCanceledException`; the same holds for 400 repeated `5 kg` matches (800 tokens,
-each match spanning two tokens) canceled at the first token. How many tokens are visited before the exception, and
-how the polling counts the tokens a match consumed, are design choices and are not asserted.
-
-##### Cancellation
-
-**Tests**: `TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`
-
-A canceled token throws before any work. For 1000 hand-built one-letter tokens, an observer cancels the
-token while an early token is visited, and the pass throws `OperationCanceledException` instead of returning a result.
-
-##### Arguments, empty text and determinism
-
-**Tests**: `TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw`,
-`TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing`,
-`TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic`
-
-A null collaborator or text throws `ArgumentNullException`; an empty token, overlapping tokens and a token
-outside the text throw `ArgumentException`. An empty text and token list yield no span, no clitic and a zero
-ambiguity count. Two runs over one text agree, and a normalizer over a custom lexicon in which only `Dr.` is
-listed reads `Doc Smith and Mr. Jones live on Main St.` while the default reads `Doctor Smith and Mister Jones
-live on Main Street.`
-
-##### User directives
+##### Directives
 
 **Tests**: `TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied`,
 `TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied`,
 `TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding`,
 `TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly`,
-`TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan`
+`TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan`,
+`TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule` (a four-row theory),
+`TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted` (a two-row theory),
+`TextNormalizer_Normalize_MixedDirectives_CountAppliedAndIgnoredSeparately`,
+`TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException` (a five-row theory)
 
-A skip directive on `US` in `US troops` leaves no span and no mark, counts one applied override and leaves the text
-as written. A reading directive (with the value `record.noun`) on the same token behaves exactly like a skip: the
-initialism rule that would spell `US` does not run, no span and no mark is emitted, one override is applied and none
-ignored, and the spoken text is `US troops`, so the reading id never reaches the spoken text. A replace directive on
-`Nginx` in `use Nginx now` yields one span of the `Override` kind at offset 4,
-length 5, not spelled, with the value `engine ex`; with a trademark mark directly before the word (two hand-built
-tokens) the replacement gets exactly one separating space and the spoken text is `trademark engine ex`. A spell
-directive on `gif` yields the spelled span `G I F` (padded the same way after a mark); on `café` it yields no span
-and one ignored override, because the letter names exist only for ASCII letters. A pronounce directive on `Polish`
-yields a pronunciation mark with the exact token range and value, no span, an unchanged text and one applied
-override.
-
-##### Directive precedence and consumed tokens
-
-**Tests**: `TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule` (a theory over eleven texts:
-a clitic stem, a slash form, a symbol-bearing token, a lexicon abbreviation, listed and vowel-less acronyms, an
-elision, an ampersand initialism with and without a possessive, and an initial),
-`TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted` (a theory over a unit at the end and in
-the middle, a magnitude and a meridiem),
-`TextNormalizer_Normalize_MixedDirectives_CountAppliedAndIgnoredSeparately`
-
-With a skip directive on the token, no built-in span lies inside it; with a replace directive, the only span on the
-token is the override span with exactly the token's range. For a token consumed by a number match the spans and the
-spoken text equal those without the directive, nothing is applied and one override is ignored. Four skip directives
-over `US 5 kg FBI and $3 million` (two on free tokens, two on consumed ones) count two applied and two ignored.
+A skip directive on `US` in `US troops` leaves no span and no mark, counts one applied override and leaves the text as
+written; a reading directive (value `record.noun`) behaves exactly like a skip, so the reading id never reaches the
+spoken text. A replace directive on `Nginx` yields one `Override` span at offset 4, length 5, not spelled, with the
+value `engine ex`, and after a trademark mark it gets exactly one separating space. A spell directive on `gif` yields
+the spelled span `G I F`; on `café` it yields no span and one ignored override. A pronounce directive on `Polish` yields
+a mark with the exact token range and value, no span and an unchanged text. On a symbol-bearing token, a lexicon
+abbreviation, a listed acronym and an ampersand initialism a skip directive leaves no built-in span inside the token.
+For a token consumed by a number match (a unit, a magnitude word) the spans equal those without the directive and one
+override is ignored. Four skip directives over `US 5 kg FBI and $3 million` count two applied and two ignored. The
+indices of the invalid-index theory (repeated, descending, negative, too large, extreme) are rejected without arithmetic
+on the index.
 
 ##### Directive sentence breaks
 
-**Tests**: `TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks` (a theory over fourteen
-texts: `Fig`, `Dr`, `St`, `No`, `Jan` and `Ph.D`, mid-sentence and sentence-final, and `Dr` after an em dash),
+**Tests**: `TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks` (a five-row theory),
 `TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak`,
-`TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks`,
-`TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks`,
-`NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks`
+`TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks` (a three-row theory)
 
 For every row and for each of the four directive kinds (skip, replace, spell, pronounce) the reconciled breaks equal
-those of the text without the directive and the sentences match the pinned literals (`See Fig. 5 for details.` is
-one sentence; `We saw the plot in Fig. It was good.` splits after `Fig.`; `Hello—Dr. Smith left.` keeps its
-suppression, which closes the former limitation; `John Smith Jr. Ph.D. He spoke.` keeps the name continuation).
-The spans come from the directive alone: a replace or spell directive leaves exactly one override span with the
-token's range, which never covers a separate period token, and a skip or pronounce directive leaves none. The review
-example has the tokenizer break `[9]` suppressed with and without a `Say` directive. A defective directive (a
-replacement or pronunciation without a value, a spell-out of a token that is not ASCII letters) is ignored and
-counted, and still keeps the built-in breaks. With directives on three abbreviations of one text (`Fig` skipped, `Dr`
-replaced, `Jan` pronounced) all three are applied and the reconciled breaks equal those of the text without
-directives. The seeded differential test (seed
-20261116, 400 random abbreviation-rich texts with periods, dashes and tag placeholders) puts each of the four kinds
-on every word token that a period touches and on up to 16 other word tokens, and once a directive on every sampled
-word at once; the reconciled breaks always equal those without directives, every directive is counted exactly
-once, spans and marks stay ascending and disjoint, and no break lies inside a span.
+those of the text without the directive and the sentences match the pinned literals (`See Fig. 5 for details.` is one
+sentence; `We saw the plot in Fig. It was good.` splits after `Fig.`; `Hello—Dr. Smith left.` keeps its suppression).
+The spans come from the directive alone and never cover a separate period token. The review example has the tokenizer
+break suppressed with and without a `Say` directive. A defective directive (a spell-out of a token that is not ASCII
+letters, a replacement or pronunciation without a value) is ignored and counted and still keeps the built-in breaks. The
+seeded differential test over random abbreviation-rich text lives at subsystem level (see *NormalizationSubsystem
+Verification*).
 
-##### Directive validation, cancellation and size
+##### Contract: cancellation, arguments and determinism
 
-**Tests**: `TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException` (a theory over repeated,
-descending, negative, too large and extreme indices for a text of two tokens),
-`TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException`,
-`TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective`
+**Tests**: `TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException`,
+`TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException`,
+`TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw`,
+`TextNormalizer_Normalize_TokenRangeOverflowingOrOutsideText_ThrowsArgumentException` (a three-row theory),
+`TextNormalizer_Normalize_SecondTokenOverflowing_ThrowsArgumentException`,
+`TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic`
 
-The indices are rejected with `ArgumentException`. For 1000 one-letter tokens with a skip directive on every tenth,
-an observer cancels while an early token is visited and the pass throws `OperationCanceledException`; a second call
-with the canceled token throws again before any work. For 200,000 tokens with a skip directive
-on every twentieth, all 10,000 directives are applied, none is ignored and no span is emitted; no elapsed time is
-asserted.
-
-##### Spelled replacements and ampersand initialisms
-
-**Tests**: `TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape`,
-`TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText`,
-`TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace`
-
-In a sentence with `FBI`, `U.S.`, `Dr.`, `&`, `J.`, `5 p.m.`, `$5`, `50%` and `3 kg`, exactly `FBI`, `U.S.`, `J.`
-and `p.m.` are spelled, every spelled value is a letter sequence and no other span is. `AT&T's` yields the spelled
-span `A T`, the symbol span `" and "` and the spelled span `T`, with the spoken text `A T and T's`; the typographic
-possessive gives the same spoken text plus an apostrophe span; `Q&A and R&D` gives six spans, four of them spelled,
-and `Q and A and R and D`. With a trademark mark directly before `AT&T` the result is `trademark A T and T` with no
-double space.
+A canceled token throws before any work. For 1000 hand-built one-letter tokens an observer cancels the token while an
+early token is visited, and the pass throws `OperationCanceledException` instead of returning a result; how many tokens
+are visited is not asserted. A null collaborator or text throws `ArgumentNullException`; an empty token, overlapping
+tokens, a token outside the text and a token whose end would overflow throw `ArgumentException`. Two runs over one text
+agree, and a normalizer over a custom lexicon in which only `Dr.` is listed reads
+`Doc Smith and Mr. Jones live on Main St.` while the default reads `Doctor Smith and Mister Jones live on Main Street.`
+Cancellation during a numeric pass and under many directives is observed at the subsystem level.

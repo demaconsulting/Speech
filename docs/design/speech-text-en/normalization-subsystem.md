@@ -12,12 +12,11 @@ rewrites the text and never consults the part-of-speech tagger. Host-supplied pr
 as token directives that the normalizer applies before any built-in rule. It contains the following units:
 
 - **NormalizationAlignment**: the alignment model: the public `NormalizationKind` and `CliticKind`
-  enumerations, the internal token, span, pronunciation-mark, directive and segment values, the
+  enumerations, the internal token, span, pronunciation-mark and directive values, the
   `AlignedTextBuilder` that enforces the alignment contract and the immutable `AlignedText` result
 - **TextNormalizer**: the internal orchestrator; one linear pass applies the host's token directives first
-  and then the ordered rules (invisible
-  characters, clitics, numeric expressions, abbreviations, acronyms and initialisms, symbols and marks,
-  elision apostrophes) and the period and sentence rules
+  and then the ordered rules (invisible characters, clitics, numeric expressions, abbreviations, acronyms and
+  initialisms, symbols and marks, elision apostrophes) and the period and sentence rules
 - **NumericExpressionRecognizer**: the internal, stateless recognizer of numeric expressions: token-local
   scanners with bounded look-behind and look-ahead that decide whether a token starts a number, currency
   amount, percent, unit, time, date or digit group, how each token of it is spoken and whether the reading
@@ -44,37 +43,33 @@ fallback count, the counts of overrides applied and ignored, and
 the tag placeholder character) and the framework: its production code does not reference the
 `DemaConsulting.PartOfSpeech` package, the analyzer, the dictionary, the diagnostics reporter or the options.
 A directive is a plain value (token index, kind, optional text), so the dictionary and its matching rules stay
-entirely in the AnalysisSubsystem. Only the tests
-use the real tokenizer of that OTS package (see *PartOfSpeech Design*), through a test helper, to produce
-the token offsets the analyzer would supply.
+entirely in the AnalysisSubsystem. Only the tests use the real tokenizer of that OTS package (see *PartOfSpeech
+Design*), through a test helper, to produce the token offsets the analyzer would supply.
 
 ### Design
 
 `TextNormalizer.Normalize` validates its arguments, the token list and the directive list (strictly
-ascending, each naming an existing token), creates one `AlignedTextBuilder` and
-one `Pass` over the tokens, and returns the builder's `AlignedText`. For each token, in order, the first
-matching rule wins (see *TextNormalizer Design* for the rule order and every table):
+ascending, each naming an existing token), creates one `AlignedTextBuilder` and one `Pass` over the tokens, and
+returns the builder's `AlignedText`. For each token, in order, the first matching rule wins (see *TextNormalizer
+Design* for the rule order and every table):
 
-0. a **user directive** for the token (speak as written, replace, spell, pronounce or keep a reading, which is spoken as
-   written) wins over every rule
-   below for the spoken form, while the sentence-break edits of rules 3 and 4 are still made for the token
-   (decision-only, nothing emitted or counted); a directive whose token an earlier multi-token match has
-   consumed is ignored and counted;
+0. a **user directive** for the token (speak as written, replace, spell, pronounce or keep a reading, which is
+   spoken as written) wins over every rule below for the spoken form, while the sentence-break edits of rules 3
+   and 4 are still made for the token (decision-only, nothing emitted or counted); a directive whose token an
+   earlier multi-token match has consumed is ignored and counted;
 1. invisible characters and bullets are dropped explicitly;
 2. clitic tokens have their typographic apostrophe canonicalized and, on request, their role recorded;
-3. numeric expressions (rule 2a in *TextNormalizer Design*, which keeps the numbers of the other rules) are
-   recognized by `NumericExpressionRecognizer`, which says how each token of the expression is spoken;
-   `NumberVerbalizer` builds the words; a unit that may carry an abbreviation period uses the same period and
-   sentence rules as an abbreviation;
-4. lexicon abbreviations (including the month and weekday abbreviations) are resolved by
+2a. numeric expressions are recognized by `NumericExpressionRecognizer`, which says how each token of the
+   expression is spoken; `NumberVerbalizer` builds the words; a unit that may carry an abbreviation period
+   uses the same period and sentence rules as an abbreviation;
+3. lexicon abbreviations (including the month and weekday abbreviations) are resolved by
    `AbbreviationResolver` from the neighboring tokens, and the period and sentence rules decide the span
    extent and the break edits;
-5. acronyms and initialisms are recognized by `AcronymRecognizer` with the same period and sentence rules
+4. acronyms and initialisms are recognized by `AcronymRecognizer` with the same period and sentence rules
    for dotted forms; an ampersand initialism is emitted as spelled letter-group spans and `and` spans;
-6. symbols, marks and the slash and ampersand inside a word are spoken as words;
-7. typographic apostrophes inside a word (elisions) are canonicalized;
-8. everything else is identity: the capabilities listed in *SpeechTextEn System Design*, *Deferred
-   Capabilities* (and every number the recognizer does not read) pass through untouched.
+5. symbols, marks and the slash and ampersand inside a word are spoken as words;
+6. typographic apostrophes inside a word (elisions) are canonicalized;
+7. everything else is identity, including every number the recognizer does not read.
 
 Every span goes through `AlignedTextBuilder.Add`, which enforces the alignment contract (see *Alignment
 Contract* in *SpeechTextEn System Design* and *NormalizationAlignment Design*), so a defective rule fails
@@ -89,18 +84,16 @@ adjacent word-producing replacements (`50%` gives `fifty` and `" percent"`, `5â€
 pure lookups over their tables and a few neighbor tokens; they know nothing of builders or breaks.
 `TextNormalizer` owns every decision about what the recognizer's spans cover when they are applied, whether a
 period is consumed or kept and which sentence breaks change. `NumberVerbalizer` knows nothing of tokens: it
-turns validated ASCII digits into words and is called only by the recognizer (and the tests).
-`NormalizationAlignment` is the passive model all of them share. The host override table is the one extra
-input: it is resolved to token directives by the AnalysisSubsystem and enters the pass as rule 0, in front of
-every other rule, without changing the contract (a pronunciation is a mark beside the spans, and a spelled flag
-on a span).
+turns validated ASCII digits into words and is called only by the recognizer. `NormalizationAlignment` is the
+passive model all of them share. The host override table is the one extra input: it is resolved to token
+directives by the AnalysisSubsystem and enters the pass as rule 0, in front of every other rule, without
+changing the contract.
 
-**Numeric decomposition (rule (d)).** A numeric construct is never one wide span. Each token of it gets its
-own span, in source order, or a currency symbol (or an apostrophe) is joined with its adjacent number token
-(spans S3 and S4 of the alignment contract); a meridiem glued to its number is the one token that is split, into
-the span of the number or time words and the span of the spelled meridiem letters (S5); nothing wider is
-produced, so no numeric span contains
-whitespace and every numeric span survives the Speech library's chunking by construction. A unit word or a
+**Numeric decomposition.** A numeric construct is never one wide span. Each token of it gets its own span, in
+source order, or a currency symbol (or an apostrophe) is joined with its adjacent number token (spans S3 and
+S4 of the alignment contract); a meridiem glued to its number is the one token that is split, into the span of
+the number or time words and the span of the spelled meridiem letters (S5). No numeric span contains
+whitespace, so every numeric span survives the Speech library's chunking by construction. A unit word or a
 magnitude word is attached to the token that holds it (`$5 million` has the spans `$5` for `five` and
 `million` for `million dollars`).
 
@@ -112,23 +105,20 @@ mutable static state. The per-request state of a pass lives in a `ref struct` on
 `TextNormalizer` serves any number of concurrent requests.
 
 **Cancellation and linearity.** The normalizer checks the token at the start and every 256 visited tokens (a
-token consumed by a numeric expression still counts as visited; the directives, consumed by one forward
-cursor, add no extra visit). Each rule looks at a constant number of
+token consumed by a numeric expression still counts as visited). Each rule looks at a constant number of
 neighboring tokens and each character of a token is visited a constant number of times; the numeric scanners
-refuse a token longer than 128 characters before scanning it, cap the digit groups of a number at 8 and the
-digits of a reading at the documented limits, and use no regular expression, so there is no backtracking to
-exploit. The pass is therefore linear in the text length, which the subsystem tests assert with one megabyte
-of realistic, digit-heavy and adversarially repetitive text and with single huge tokens.
+refuse a token longer than 128 characters before scanning it, cap the digit groups and digits at the documented
+limits, and use no regular expression, so there is no backtracking to exploit. The pass is therefore linear in
+the text length.
 
 **Culture invariance.** The numeric units use `char` arithmetic only: no culture-sensitive parsing,
-formatting, casing or comparison, so the result never depends on the current culture (tests run them under
-Turkish, Arabic, German, Thai and Persian cultures). Only the ASCII digits `0-9` are ever read as digits.
+formatting, casing or comparison, so the result never depends on the current culture. Only the ASCII digits
+`0-9` are ever read as digits.
 
 **Resources.** The two lexicons are embedded resources of the library assembly, `abbreviations.tsv` and
 `acronyms.tsv` in the `Resources` folder, written from scratch by DEMA Consulting under the package's MIT
 License. They are plain tab-separated text so a non-programmer can review them; their formats are documented
 in *AbbreviationResolver Design* and *AcronymRecognizer Design*. The numeric tables (units, currencies,
 month and weekday names, cue words) are read-only arrays in the code of the recognizer and are documented in
-*NumericExpressionRecognizer Design*; the month and weekday vocabulary is shared with the abbreviation
-lexicon and the two are kept consistent by review (and the lexicon's month and weekday readings are checked against an
-independent expected table).
+*NumericExpressionRecognizer Design*; the month vocabulary is shared with the abbreviation lexicon and the two
+are kept consistent by review.

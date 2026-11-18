@@ -20,135 +20,56 @@ sections:
                   package family (normalization, part of speech, reading, reading confidence,
                   pronunciation and spell-out) as distinct constants.
                 justification: |
-                  Backends reference the kinds by name, so the full vocabulary has to be stable
-                  from the first release. This release produces all of the kinds: normalization,
-                  part of speech, spell-out and pronunciation from the earlier increments, and
-                  reading and reading confidence when a heteronym model is available or a host
-                  override fixes a reading. The two reading kinds are emitted together on the same
-                  span and are read back by the readers of the unit.
+                  Backends reference the kinds by name, so the full vocabulary has to be stable from
+                  the first release. The two reading kinds are emitted together on the same span and
+                  are read back by the readers of the unit.
                 tests:
                   - TextEnAnnotations_Kinds_HaveDocumentedDistinctNames
-                  - TextEnAnnotations_ReadingKinds_AreTheOnesTheReadersAccept
 
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadPartOfSpeech
+              - id: SpeechTextEn-Analysis-TextEnAnnotations-Readers
                 title: >-
-                  The TextEnAnnotations class shall read the part of speech out of an annotation
-                  of the part-of-speech kind whose value is a Universal Dependencies tag, and
-                  shall report false, without throwing, for an annotation of another kind or with
-                  a value outside the tag set.
+                  The TextEnAnnotations class shall read, out of an annotation of the matching kind,
+                  the Universal Dependencies tag of a part-of-speech annotation; the spoken text of a
+                  normalization annotation (including the empty text of a dropped character); the
+                  letters of a spell-out annotation whose value is single capital ASCII letters
+                  separated by single spaces with at most one padding space on either side, exactly
+                  as stored; the scheme (ipa or arpabet) and the phonemes of a pronunciation
+                  annotation whose phonemes satisfy that scheme's syntax, splitting at the first
+                  colon; the spoken replacement of either a normalization annotation (never
+                  reported as spelled, whatever its value holds) or a well-formed spell-out
+                  annotation (reported as spelled); the id of a reading annotation whose value
+                  satisfies the reading id grammar, without checking it against the inventory; and
+                  the confidence of a reading-confidence annotation whose value is an unsigned
+                  decimal number from 0 to 1 in ASCII digits with an optional period and at most six
+                  decimals, giving the same number under every culture; and every reader shall
+                  report false, without throwing, for an annotation of another kind or with a value
+                  outside its grammar, and shall throw ArgumentNullException for a null annotation.
                 justification: |
-                  A backend calls the reader on every annotation of a segment, most of which may
-                  be of other kinds, and must not parse kind and value strings itself.
+                  A backend calls the readers on every annotation of a segment, most of which may be
+                  of other kinds, and must not parse kind and value strings itself, so a malformed
+                  value from any source is an ordinary "no" rather than a crash or a wrongly spoken
+                  word. A backend that speaks letters by name must be able to rely on the value being
+                  letters; one that does not support a notation must be able to tell that and speak
+                  the word as usual. The two replacement kinds form one ascending sequence, so one
+                  call returns the value and whether it is letters; only the kind says letters,
+                  because a host's payload of "I" is a word. A backend built against a newer
+                  inventory must still read an id this release does not know, so only the grammar is
+                  checked. Reading the confidence with the current culture would give 0.5 on one
+                  machine and nothing or 5 on another, and a value outside the probability range must
+                  be an ordinary "no".
                 tests:
                   - TextEnAnnotations_TryReadPartOfSpeech_PartOfSpeechAnnotation_ReturnsTagName
                   - TextEnAnnotations_TryReadPartOfSpeech_OtherKindOrUnknownValue_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadArgumentValidation
-                title: >-
-                  The TextEnAnnotations class's readers shall throw ArgumentNullException for a
-                  null annotation.
-                justification: |
-                  A programming error should surface immediately with a clear exception.
-                tests:
-                  - TextEnAnnotations_TryReadPartOfSpeech_NullAnnotation_ThrowsArgumentNullException
-                  - TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException
-                  - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
-                  - TextEnAnnotations_TryReadReading_OtherKindOrIllFormedId_ReturnsFalse
-                  - TextEnAnnotations_TryReadReadingConfidence_InvalidValueOrKind_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
-                title: >-
-                  The TextEnAnnotations class shall read the spoken text out of an annotation of
-                  the normalization kind, including the empty text of a dropped character, and
-                  shall report false, without throwing, for an annotation of another kind.
-                justification: |
-                  A backend calls the reader on every annotation of a segment, most of which may
-                  be of other kinds, and must not parse kind and value strings itself.
-                tests:
                   - TextEnAnnotations_TryReadNormalized_NormalizationAnnotation_ReturnsSpokenText
                   - TextEnAnnotations_TryReadNormalized_OtherKind_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadSpellOut
-                title: >-
-                  The TextEnAnnotations class shall read the letters out of an annotation of the
-                  spell-out kind whose value is single capital ASCII letters separated by single
-                  spaces with at most one padding space on either side, returning the value exactly
-                  as stored, and shall report false, without throwing, for an annotation of
-                  another kind or with any other value.
-                justification: |
-                  A backend that speaks letters by name must be able to rely on the value being
-                  letters, so the reader accepts only the grammar the library produces and a
-                  malformed value from any other source is an ordinary "no" rather than a crash or
-                  a wrongly spoken word.
-                tests:
+                  - TextEnAnnotations_TryReadNormalized_NullAnnotation_ThrowsArgumentNullException
                   - TextEnAnnotations_TryReadSpellOut_WellFormedLetters_ReturnsValueExactly
                   - TextEnAnnotations_TryReadSpellOut_OtherKindOrMalformedValue_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadPronunciation
-                title: >-
-                  The TextEnAnnotations class shall read the scheme and the phonemes out of an
-                  annotation of the pronunciation kind whose value is a scheme from the closed list
-                  (ipa or arpabet), a colon and phonemes that satisfy that scheme's syntax, splitting
-                  at the first colon, and shall report false, without throwing, for an annotation of
-                  another kind, an unknown scheme or malformed phonemes.
-                justification: |
-                  A backend that supports a notation uses the phonemes for the word, and one that
-                  does not must be able to tell that and speak the word as usual, so the reader
-                  returns a typed scheme and reports anything it cannot use as a plain "no".
-                tests:
                   - TextEnAnnotations_TryReadPronunciation_WellFormedValue_ReturnsSchemeAndPhonemes
                   - TextEnAnnotations_TryReadPronunciation_OtherKindOrMalformedValue_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
-                title: >-
-                  The TextEnAnnotations class shall read the spoken replacement out of either a
-                  normalization annotation (reporting words, including the empty text of a dropped
-                  character) or a well-formed spell-out annotation (reporting letters to speak by
-                  letter name), shall report a normalization annotation as not spelled whatever its
-                  value holds, and shall report false, without throwing, for any other kind or a
-                  malformed spelled value.
-                justification: |
-                  The two kinds replace the spoken text of a span and form one ascending sequence,
-                  so a backend collecting them needs one call that returns the value and whether it
-                  is letters, instead of two readers whose results it must merge. Only the kind
-                  says letters: a host's payload of "I" is a word, so the flag is never derived
-                  from the value of a normalization annotation.
-                tests:
                   - TextEnAnnotations_TryReadReplacement_NormAndSpell_ReturnValueAndSpelledFlag
                   - TextEnAnnotations_TryReadReplacement_OtherKindMalformedOrNull_ReturnsFalseOrThrows
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReading
-                title: >-
-                  The TextEnAnnotations class shall read the reading id out of an annotation of the
-                  reading kind whose value is a well-formed reading id (two or three dot-separated
-                  segments of lowercase letters, digits and hyphens, none starting or ending with a
-                  hyphen, at most 64 characters), without checking the id against the inventory, and
-                  shall report false, without throwing, for an annotation of another kind or with an
-                  ill-formed value, and throw ArgumentNullException for a null annotation.
-                justification: |
-                  A backend that selects a pronunciation by reading calls the reader on every
-                  annotation of a segment and must not parse kind and value strings itself; a
-                  backend built against a newer inventory must still be able to read an id that
-                  this release does not know, so only the grammar is checked.
-                tests:
                   - TextEnAnnotations_TryReadReading_WellFormedId_ReturnsId
                   - TextEnAnnotations_TryReadReading_OtherKindOrIllFormedId_ReturnsFalse
-
-              - id: SpeechTextEn-Analysis-TextEnAnnotations-ReadReadingConfidence
-                title: >-
-                  The TextEnAnnotations class shall read the confidence out of an annotation of the
-                  reading-confidence kind whose value is an unsigned decimal number from 0 to 1 in
-                  ASCII digits with an optional period and at most six decimals, giving the same
-                  number under every culture, and shall report false, without throwing, for an
-                  annotation of another kind or a value above 1, negative, signed, not a number, in
-                  exponent form, with whitespace, with a comma, without digits on either side of the
-                  period or with non-ASCII digits, and throw ArgumentNullException for a null
-                  annotation.
-                justification: |
-                  A backend that weighs a reading by its confidence must get one number from one
-                  grammar on every machine; reading with the current culture would give 0.5 on one
-                  machine and nothing or 5 on another, and a value outside the probability range
-                  must be an ordinary "no" rather than a crash or a wrongly weighted reading.
-                tests:
                   - TextEnAnnotations_TryReadReadingConfidence_ValidValue_ReturnsInvariantNumberUnderEveryCulture
                   - TextEnAnnotations_TryReadReadingConfidence_InvalidValueOrKind_ReturnsFalse

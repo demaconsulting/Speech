@@ -19,9 +19,8 @@ line has three columns:
 The listed forms are US, USA, UK, EU, UN, UAE, FBI, CIA, NSA, IRS, DOJ, TV, PC, CEO, CFO, CTO, HR, PR, ID, IT,
 AI, ML, API, URL, HTML, CSS, SQL, PDF, CPU, GPU, USB, LED, LCD, DVD, CD, GPS, ATM, SUV, DNA, RNA, HIV, MRI,
 AM, PM, BBC, CNN, NBC, NPR, HBO, MBA, LLC, VIP, FAQ, ASAP, DIY and FYI; `US`, `IT` and `AM` are marked
-ambiguous. The recognizer holds the entries in a dictionary from form to the spoken text and the ambiguity
-flag. `AcronymMatch(Spoken, TokenEndsWithPeriod)` is the result: the letters to speak, and whether the token
-itself ends with the period of a dotted form.
+ambiguous. `AcronymMatch(Spoken, TokenEndsWithPeriod)` is the result: the letters to speak, and whether the
+token itself ends with the period of a dotted form.
 
 Fixed limits (code constants): an initialism has at least two and at most six upper-case letters, a
 rule-spelled one at most five, and a group beside an ampersand at most four.
@@ -33,10 +32,9 @@ rule-spelled one at most five, and a group beside an ampersand at most four.
   spoken text or one with surrounding whitespace, an ambiguity column other than `yes` or `no`, and a
   duplicate form. A null reader throws `ArgumentNullException`
 - **Default**: the recognizer over the embedded lexicon, created once on first use under `Lazy<T>`
-  (`ExecutionAndPublication`)
 - **TryRecognize(token, sentenceIsAllCapitals, out match)**: applies the rules below in order and returns
-  the first that matches. `sentenceIsAllCapitals` is the shouting guard computed by the caller for the
-  token's tokenizer sentence
+  the first that matches; `sentenceIsAllCapitals` is the shouting guard the caller computed for the token's
+  tokenizer sentence
 
 **Rule order for one token**:
 
@@ -45,8 +43,7 @@ rule-spelled one at most five, and a group beside an ampersand at most four.
    upper-cases every letter and separates them with spaces (`U.S.A.` becomes `U S A`);
    `TokenEndsWithPeriod` says whether the final period is part of the token. The caller treats the form
    without its own period as an initialism only when the tokenizer split the period off as an adjacent token.
-   Lexicon abbreviations such as `e.g.`, `i.e.`, `a.k.a.` and `Ph.D.` are matched by the abbreviation
-   resolver first, because it runs before this unit
+   Lexicon abbreviations such as `e.g.` and `Ph.D.` are matched by the abbreviation resolver first
 2. **Ampersand initialisms** (`AT&T`, `R&D`, `Q&A`): groups of one to four capital ASCII letters joined by
    `&` (at least two groups), optionally followed by a possessive `'s` in any apostrophe style. The groups are
    spelled and joined by `" and "`: `AT&T` becomes `A T and T`, and `AT&T's` becomes `A T and T's`

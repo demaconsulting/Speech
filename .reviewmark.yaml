@@ -25,11 +25,14 @@ needs-review:
   - "data/text-en/readings.tsv"                                     # Text.En reading inventory
   - "data/text-en/forms.tsv"                                        # Text.En reading forms
   - "data/text-en/whd-mapping.tsv"                                  # Text.En evaluation id mapping (ids only)
+  - "data/text-en/bench-mapping.tsv"                                # Text.En external benchmark key to reading id mapping (ids only)
   - "data/text-en/extension-decisions.tsv"                          # Text.En inventory extension decisions
   - "data/text-en/leakage-report.tsv"                               # Text.En recorded external leakage result
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
   - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
   - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
+  - "tools/DemaConsulting.Speech.Text.En.Trainer/external-sources.json"  # Text.En external evaluation dataset pins (revision, address, listing hash)
+  - "tools/DemaConsulting.Speech.Text.En.Trainer/external-files.tsv"     # Text.En external evaluation per-file pins (path, SHA-256, size)
   - "docs/evaluation/**/*.md"                                       # Text.En heteronym model evaluation record documents
   - "docs/evaluation/**/*.tsv"                                      # Text.En heteronym model evaluation record tables
   - "!**/obj/**"                  # Exclude build output
@@ -3784,7 +3787,7 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"            # trainer commands and determinism contract
       - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"           # protocol, development exploration and gate runs
       - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"        # committed training record of the shipped model
-      - "docs/evaluation/text-en/**/*"                                     # committed evaluation record of the shipped model
+      - "docs/evaluation/text-en/*"                                        # committed evaluation record of the shipped model
 
   # SpeechTextEn-TrainingSubsystem-TrainingCorpus Review (one per unit)
   - id: SpeechTextEn-TrainingSubsystem-TrainingCorpus
@@ -3947,6 +3950,122 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluateCommand.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluateCommandTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem
+    title: Review that SpeechTextEn ExternalEvaluationSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"   # subsystem requirements
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"        # subsystem design
+      - "docs/verification/speech-text-en/external-evaluation-subsystem.md"  # subsystem verification
+      - "docs/sysml2/model/speech-text-en/external-evaluation-subsystem.sysml"  # subsystem model
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/ExternalSourceFixture.cs"   # fake datasets, archives and pins built in code
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/ExternalEvaluationRig.cs"   # runs the external evaluation over the fakes
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/external-sources.json"  # pins of the external evaluation datasets
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/external-files.tsv"     # per-file pins of the external evaluation datasets
+      - "data/text-en/bench-mapping.tsv"                                     # id-only benchmark key to reading mapping
+      - "docs/evaluation/text-en/external/**/*"                              # committed external evaluation record
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-ExternalSourceCache Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-ExternalSourceCache
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem ExternalSourceCache Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/external-source-cache.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/external-source-cache.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/external-source-cache.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/ExternalSourceCache.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalSourceCacheTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-ExternalRowConversion Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-ExternalRowConversion
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem ExternalRowConversion Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/external-row-conversion.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/external-row-conversion.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/external-row-conversion.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/ExternalRowConversion.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalRowConversionTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-WikipediaHomographAdapter Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-WikipediaHomographAdapter
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem WikipediaHomographAdapter Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/wikipedia-homograph-adapter.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/wikipedia-homograph-adapter.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/wikipedia-homograph-adapter.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/WikipediaHomographAdapter.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/WikipediaHomographAdapterTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-HeteronymBenchAdapter Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-HeteronymBenchAdapter
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem HeteronymBenchAdapter Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/HeteronymBenchAdapter.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/HeteronymBenchAdapterTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-ExternalEvaluationRecord Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-ExternalEvaluationRecord
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem ExternalEvaluationRecord Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/external-evaluation-record.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/ExternalEvaluationRecord.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalEvaluationRecordTests.cs"
+
+  # SpeechTextEn-ExternalEvaluationSubsystem-EvaluateExternalCommand Review (one per unit)
+  - id: SpeechTextEn-ExternalEvaluationSubsystem-EvaluateExternalCommand
+    title: >-
+      Review that SpeechTextEn ExternalEvaluationSubsystem EvaluateExternalCommand Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/external-evaluation-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/external-evaluation-subsystem/evaluate-external-command.yaml"
+      - "docs/design/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md"
+      - "docs/verification/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/EvaluateExternalCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/EvaluateExternalCommandTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

@@ -10,14 +10,19 @@ namespace DemaConsulting.Speech.Text.En.Tests.HeteronymSubsystem;
 /// </summary>
 public sealed class HeteronymSubsystemTests
 {
-    /// <summary>Proves a model supplied through the provider chooses the noun or the verb reading of the same spelling by context.</summary>
+    /// <summary>Proves a model supplied through the provider chooses the noun or the verb reading of the same spelling by context, and that the configured provider exposes the reading inventory before any classifier has been requested.</summary>
     [Fact]
     public void HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext()
     {
         // Arrange
         var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
         var provider = HeteronymFixtureModel.CreateProvider(source);
+        var configured = provider.IsConfigured;
+        var inventory = provider.Inventory;
         var classifier = provider.GetClassifier(out var status);
+        Assert.True(configured);
+        Assert.Equal(ReadingInventory.Default.Version, inventory.Version);
+        Assert.Equal(ReadingInventory.Default.FormCount, inventory.FormCount);
         Assert.Equal(ModelLoadStatus.Loaded, status);
         Assert.NotNull(classifier);
 
@@ -78,24 +83,6 @@ public sealed class HeteronymSubsystemTests
             Assert.Contains(prediction.ReadingIndex, inventory.GetCandidates(form).ToArray());
             Assert.InRange(prediction.Confidence, 0.0, 1.0);
         }
-    }
-
-    /// <summary>Proves a configured provider exposes the reading inventory without a classifier having been requested.</summary>
-    [Fact]
-    public void HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier()
-    {
-        // Arrange
-        var source = new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples));
-        var provider = HeteronymFixtureModel.CreateProvider(source);
-
-        // Act
-        var configured = provider.IsConfigured;
-        var inventory = provider.Inventory;
-
-        // Assert
-        Assert.True(configured);
-        Assert.Equal(ReadingInventory.Default.Version, inventory.Version);
-        Assert.Equal(ReadingInventory.Default.FormCount, inventory.FormCount);
     }
 
     /// <summary>Proves the embedded provider serves the shipped model: it is configured, loads, and its classifier decides clear contexts of one spelling differently.</summary>

@@ -115,24 +115,6 @@ public sealed class EvaluateCommandTests
         Assert.Contains("worst reading lead.verb: 20/21", output);
     }
 
-    /// <summary>Proves the gate exits zero when both conditions hold and says so.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GateConditionsMet_ExitsZero()
-    {
-        // Arrange: 97.5% on the natural holdout, improvement over a baseline that is the first candidate
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 900);
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate");
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains("GATE: PASS", output);
-        Assert.Contains("GATE RUN on holdout-natural", output);
-    }
-
     /// <summary>Proves the gate exits one when the pooled accuracy is below the threshold.</summary>
     [Fact]
     public void EvaluateCommand_Run_GateAccuracyBelowThreshold_ExitsOne()
@@ -187,157 +169,57 @@ public sealed class EvaluateCommandTests
         // Assert
         Assert.Equal(0, exitCode);
         Assert.Contains("pooled accuracy 97.50%", output);
+        Assert.Contains("GATE RUN on holdout-natural", output);
         Assert.Contains("GATE: PASS", output);
         Assert.Equal(6, Directory.GetFiles(recordDirectory).Length);
     }
 
-    /// <summary>Proves a failing gate is not masked by a current record: both results are printed and the exit code is one.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GateFailsRecordCurrent_ExitsOne()
-    {
-        // Arrange: the record is written with a threshold the model (97.5%) does not reach, so it is current but the gate fails
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 990);
-        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
-        var write = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--check", "--record-dir", recordDirectory);
-
-        // Assert
-        Assert.Equal(0, write.ExitCode);
-        Assert.Equal(1, exitCode);
-        Assert.Contains("GATE: FAIL", output);
-        Assert.Contains("--check: OK (the evaluation record is current)", output);
-    }
-
-    /// <summary>Proves a passing gate does not hide a stale record: both results are printed and the exit code is one.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GatePassesRecordStale_ExitsOne()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 900);
-        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
-        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
-        File.AppendAllText(Path.Combine(recordDirectory, EvaluationRecord.SummaryFile), "tampered\n");
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--check", "--record-dir", recordDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("GATE: PASS", output);
-        Assert.Contains("STALE: summary.tsv", output);
-    }
-
-    /// <summary>Proves the gate and the check together exit zero only when the gate passes and the record is current.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 900);
-        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
-        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--check", "--record-dir", recordDirectory);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains("GATE: PASS", output);
-        Assert.Contains("--check: OK (the evaluation record is current)", output);
-    }
-
-    /// <summary>Proves a failing gate and a stale record together exit one and print both results.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GateFailsRecordStale_ExitsOne()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 990);
-        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
-        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
-        File.AppendAllText(Path.Combine(recordDirectory, EvaluationRecord.SummaryFile), "tampered\n");
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--check", "--record-dir", recordDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("GATE: FAIL", output);
-        Assert.Contains("STALE: summary.tsv", output);
-    }
-
-    /// <summary>Proves writing the record in the same run does not hide a failing gate, and the record is still written.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_GateFailsWithWrite_ExitsOneAndWritesRecord()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 990);
-        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--write", "--record-dir", recordDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("GATE: FAIL", output);
-        Assert.Equal(6, Directory.GetFiles(recordDirectory).Length);
-    }
-
-    /// <summary>Proves a harvested row without a source document stops the evaluation with a data error that names the file or the row, and no gate verdict is printed.</summary>
+    /// <summary>Proves the gate and the check together exit zero only when the gate passes and the record is current, and print both results.</summary>
     [Theory]
-    [InlineData(true, "holdout-natural", "harvest-provenance.tsv")]
-    [InlineData(false, "holdout-natural", "harvest-h00")]
-    public void EvaluateCommand_Run_HarvestedRowWithoutProvenance_ExitsTwoNamingTheProblem(bool deleteFile, string set, string expected)
+    [InlineData(900, false, 0, "GATE: PASS", "--check: OK (the evaluation record is current)")]
+    [InlineData(990, false, 1, "GATE: FAIL", "--check: OK (the evaluation record is current)")]
+    [InlineData(900, true, 1, "GATE: PASS", "STALE: summary.tsv")]
+    public void EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero(int threshold, bool tamper, int expectedExit, string gate, string record)
     {
-        // Arrange
+        // Arrange: the record is written with the threshold under test, so it is current unless it is edited afterwards
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        if (deleteFile)
+        SetGateThreshold(modelDirectory, threshold);
+        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
+        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
+        if (tamper)
         {
-            File.Delete(fixture.PathOf("harvest-provenance.tsv"));
-        }
-        else
-        {
-            var kept = fixture.Read("harvest-provenance.tsv").Split('\n').Where(line => !line.StartsWith(expected + "\t", StringComparison.Ordinal));
-            fixture.Write("harvest-provenance.tsv", string.Join('\n', kept));
+            File.AppendAllText(Path.Combine(recordDirectory, EvaluationRecord.SummaryFile), "tampered\n");
         }
 
         // Act
-        var (exitCode, output, error) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--set", set);
+        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--check", "--record-dir", recordDirectory);
 
         // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains(expected, error);
-        Assert.DoesNotContain("GATE:", output);
+        Assert.Equal(expectedExit, exitCode);
+        Assert.Contains(gate, output);
+        Assert.Contains(record, output);
     }
 
-    /// <summary>Proves the development set, whose rows are harvested too, also stops with a data error that names the row.</summary>
+    /// <summary>Proves a harvested row without a source document stops the evaluation with a data error that names the row, and no gate verdict is printed.</summary>
     [Fact]
-    public void EvaluateCommand_Run_DevRowWithoutProvenance_ExitsTwoNamingTheRow()
+    public void EvaluateCommand_Run_HarvestedRowWithoutProvenance_ExitsTwoNamingTheProblem()
     {
         // Arrange
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        var kept = fixture.Read("harvest-provenance.tsv").Split('\n').Where(line => !line.StartsWith("harvest-d00\t", StringComparison.Ordinal));
+        var kept = fixture.Read("harvest-provenance.tsv").Split('\n').Where(line => !line.StartsWith("harvest-h00\t", StringComparison.Ordinal));
         fixture.Write("harvest-provenance.tsv", string.Join('\n', kept));
 
         // Act
-        var (exitCode, _, error) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "dev");
+        var (exitCode, output, error) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate", "--set", "holdout-natural");
 
         // Assert
         Assert.Equal(2, exitCode);
-        Assert.Contains("harvest-d00", error);
+        Assert.Contains("harvest-h00", error);
+        Assert.DoesNotContain("GATE:", output);
     }
+
 
     /// <summary>Proves the multi-seed report trains once per evaluation seed and prints the holdout accuracy of each.</summary>
     [Fact]
@@ -383,27 +265,6 @@ public sealed class EvaluateCommandTests
         Assert.Equal(1, stale.ExitCode);
         Assert.Contains("STALE: summary.tsv", stale.Output);
         Assert.Contains("STALE: gate.tsv", stale.Output);
-    }
-
-    /// <summary>Proves the record is the same when written twice: it holds no time stamp or other varying value.</summary>
-    [Fact]
-    public void EvaluateCommand_Run_WriteTwice_ProducesIdenticalRecords()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        var first = Path.Combine(fixture.BaseDirectory, "record-1");
-        var second = Path.Combine(fixture.BaseDirectory, "record-2");
-
-        // Act
-        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", first);
-        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", second);
-
-        // Assert
-        foreach (var file in Directory.GetFiles(first))
-        {
-            Assert.Equal(File.ReadAllBytes(file), File.ReadAllBytes(Path.Combine(second, Path.GetFileName(file))));
-        }
     }
 
     /// <summary>

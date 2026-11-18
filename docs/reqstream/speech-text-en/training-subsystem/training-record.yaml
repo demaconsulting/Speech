@@ -19,30 +19,24 @@ sections:
                 title: >-
                   The TrainingRecord class shall write a record as text and read that text back into an
                   equal record, with every training setting, evaluation setting, input description and
-                  result, including the calibration temperature.
+                  result, including the calibration temperature, and shall write the same text for the
+                  same record every time, with line feeds only, a final newline, and no dependence on the
+                  current culture.
                 justification: |
-                  The record is the only description of how a model was made. A record that did not read
-                  back to what was written could not be used to retrain the model or to verify it.
+                  The record is the only description of how a model was made, and it is committed to the
+                  repository and compared by the check. A record that did not read back to what was
+                  written could not be used to retrain the model or to verify it, and text that varied with
+                  the machine or the culture would make a current record look stale, or hide a real change.
                 tests:
                   - TrainingRecord_ToJsonThenParse_RoundTripsEveryField
-
-              - id: SpeechTextEn-Training-TrainingRecord-DeterministicText
-                title: >-
-                  The TrainingRecord class shall write the same text for the same record every time, with
-                  line feeds only, a final newline, and no dependence on the current culture.
-                justification: |
-                  The record is committed to the repository and compared by the check. Text that varied
-                  with the machine or the culture would make a current record look stale, or hide a real
-                  change.
-                tests:
                   - TrainingRecord_ToJson_IsDeterministicWithLineFeedsAndFinalNewline
                   - TrainingRecord_ToJson_UnderAnotherCulture_IsUnchanged
 
               - id: SpeechTextEn-Training-TrainingRecord-Validation
                 title: >-
-                  The TrainingRecord class shall reject with an InvalidDataException text that is empty,
-                  is not a record, has an unsupported schema, lacks a property (naming the property) or
-                  holds a setting outside its range.
+                  The TrainingRecord class shall reject with an InvalidDataException text that is not a
+                  record, has an unsupported schema, lacks a property (naming the property) or holds a
+                  setting outside its range.
                 justification: |
                   The record drives retraining and the quality gate. A damaged or hand-edited record must be
                   refused and explained, not trusted.
@@ -50,15 +44,3 @@ sections:
                   - TrainingRecord_Parse_MalformedText_ThrowsInvalidDataException
                   - TrainingRecord_Parse_MissingProperty_ThrowsNamingTheProperty
                   - TrainingRecord_Parse_SettingOutOfRange_ThrowsInvalidDataException
-
-              - id: SpeechTextEn-Training-TrainingRecord-DefaultGate
-                title: >-
-                  The TrainingRecord default settings shall be valid and shall carry the pre-registered
-                  gate thresholds: a pooled accuracy of at least 93.0 percent, a confidence level of 95
-                  percent for the interval of the improvement, and 10,000 resamples.
-                justification: |
-                  The thresholds that a model must meet were fixed before any model was measured, so that
-                  they cannot be tuned to the result. Having them as the defaults of the record makes the
-                  gate the same for everyone who trains.
-                tests:
-                  - TrainingSettings_Default_AreValidAndCarryTheGate

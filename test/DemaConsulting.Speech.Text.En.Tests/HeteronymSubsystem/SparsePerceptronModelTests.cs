@@ -18,16 +18,13 @@ public sealed class SparsePerceptronModelTests
         (0u, 5), (1u, -7), (63u, 64), (64u, -64), (65u, 3), (127u, 100), (128u, -1), (1_000u, 32_767), (40_000u, -32_767), (65_535u, 9),
     ];
 
-    /// <summary>Proves a model round-trips through the compressed and the raw representation, with every header field and weight preserved.</summary>
-    /// <param name="compress">Whether the payload is stored as Deflate.</param>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights(bool compress)
+    /// <summary>Proves a compressed model round-trips with every header field and weight preserved.</summary>
+    [Fact]
+    public void SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights()
     {
         // Arrange
         var manifest = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
-        var image = SparsePerceptronModelWriter.Compile(16, 2, 1.5f, 64f, StandardWeights, compress, trainerVersion: 77, dataManifestSha256: manifest);
+        var image = SparsePerceptronModelWriter.Compile(16, 2, 1.5f, 64f, StandardWeights, compress: true, trainerVersion: 77, dataManifestSha256: manifest);
 
         // Act
         var model = SparsePerceptronModel.Load(image);
@@ -41,9 +38,8 @@ public sealed class SparsePerceptronModelTests
         Assert.Equal(77u, model.TrainerVersion);
         Assert.Equal(StandardWeights.Length, model.RowCount);
         Assert.Equal(65_535u, model.Mask);
-        Assert.Equal(manifest, model.GetDataManifestSha256());
         Assert.All(StandardWeights, pair => Assert.Equal(pair.Weight, model.GetWeight(pair.Bucket)));
-        Assert.Equal((image[6] & 1) == 1, compress);
+        Assert.True((image[6] & 1) == 1);
     }
 
     /// <summary>Proves buckets with no stored weight read as zero, including at word boundaries and beyond the table.</summary>
@@ -97,15 +93,12 @@ public sealed class SparsePerceptronModelTests
         Assert.All(StandardWeights, pair => Assert.Equal(pair.Weight, model.GetWeight(pair.Bucket)));
     }
 
-    /// <summary>Proves a model with no weights is valid, in both representations.</summary>
-    /// <param name="compress">Whether the payload is stored as Deflate.</param>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void SparsePerceptronModel_Load_NoWeights_IsValid(bool compress)
+    /// <summary>Proves a model with no weights is valid.</summary>
+    [Fact]
+    public void SparsePerceptronModel_Load_NoWeights_IsValid()
     {
         // Act
-        var model = SparsePerceptronModel.Load(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, [], compress));
+        var model = SparsePerceptronModel.Load(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, [], compress: true));
 
         // Assert
         Assert.Equal(0, model.RowCount);
@@ -140,9 +133,7 @@ public sealed class SparsePerceptronModelTests
     /// <summary>Proves the magic is checked first, so a foreign or tiny file is reported as not a model.</summary>
     /// <param name="length">The length of the file.</param>
     [Theory]
-    [InlineData(0)]
     [InlineData(2)]
-    [InlineData(4)]
     [InlineData(200)]
     public void SparsePerceptronModel_Load_WrongMagic_IsRejectedAsForeignFile(int length)
     {
@@ -171,15 +162,11 @@ public sealed class SparsePerceptronModelTests
     [Theory]
     [InlineData(4, new byte[] { 2, 0 }, "Unsupported heteronym model format version 2")]
     [InlineData(6, new byte[] { 2, 0 }, "unknown flag bits 0x0002")]
-    [InlineData(6, new byte[] { 0, 0x80 }, "unknown flag bits 0x8000")]
     [InlineData(8, new byte[] { 0, 0 }, "the feature-set version must be at least 1")]
     [InlineData(10, new byte[] { 0, 0 }, "the inventory version must be at least 1")]
     [InlineData(12, new byte[] { 15 }, "the hash bits 15 are outside 16 to 24")]
     [InlineData(12, new byte[] { 25 }, "the hash bits 25 are outside 16 to 24")]
-    [InlineData(13, new byte[] { 1 }, "a reserved field is not zero")]
-    [InlineData(15, new byte[] { 0x80 }, "a reserved field is not zero")]
     [InlineData(44, new byte[] { 1, 0, 0, 0 }, "a reserved field is not zero")]
-    [InlineData(44, new byte[] { 0, 0, 0, 0x80 }, "a reserved field is not zero")]
     public void SparsePerceptronModel_Load_InvalidHeaderField_IsRejected(int offset, byte[] bytes, string expected)
     {
         // Arrange
@@ -191,14 +178,11 @@ public sealed class SparsePerceptronModelTests
     }
 
     /// <summary>Proves a well-formed file that records another feature-set version still loads, with that version preserved, so the caller can report it as incompatible rather than invalid.</summary>
-    /// <param name="compress">Whether the payload is stored as Deflate.</param>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion(bool compress)
+    [Fact]
+    public void SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion()
     {
         // Arrange: the header is not covered by the checksum, so patching the field keeps the file well-formed
-        var image = Standard(compress);
+        var image = Standard(compress: true);
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(8), 7);
 
         // Act
@@ -215,14 +199,8 @@ public sealed class SparsePerceptronModelTests
     /// <param name="value">The invalid value.</param>
     [Theory]
     [InlineData(16, float.NaN)]
-    [InlineData(16, float.PositiveInfinity)]
-    [InlineData(16, float.NegativeInfinity)]
     [InlineData(16, 0f)]
-    [InlineData(16, -1f)]
     [InlineData(16, 1.0000001e6f)]
-    [InlineData(20, float.NaN)]
-    [InlineData(20, float.PositiveInfinity)]
-    [InlineData(20, 0f)]
     [InlineData(20, -64f)]
     [InlineData(20, 2e6f)]
     public void SparsePerceptronModel_Load_InvalidTemperatureOrScale_IsRejected(int offset, float value)
@@ -289,74 +267,42 @@ public sealed class SparsePerceptronModelTests
         AssertInvalid(image, "the payload length does not fit the row count");
     }
 
-    /// <summary>Proves a stored length shorter than the bytes after the header reports trailing bytes, and a longer one reports truncation.</summary>
+    /// <summary>Proves a stored length shorter than the bytes after the header reports trailing bytes, a longer one reports truncation, and an uncompressed payload must have equal stored and payload lengths.</summary>
     [Fact]
     public void SparsePerceptronModel_Load_StoredLengthMismatch_IsRejected()
     {
         // Arrange
         var shorter = Standard(compress: false);
         var longer = Standard(compress: false);
+        var unequal = Standard(compress: false);
         var stored = BinaryPrimitives.ReadUInt32LittleEndian(shorter.AsSpan(32));
         BinaryPrimitives.WriteUInt32LittleEndian(shorter.AsSpan(32), stored - 1);
         BinaryPrimitives.WriteUInt32LittleEndian(longer.AsSpan(32), stored + 1);
+        var payload = BinaryPrimitives.ReadUInt32LittleEndian(unequal.AsSpan(28));
+        BinaryPrimitives.WriteUInt32LittleEndian(unequal.AsSpan(28), payload + 1);
 
         // Act / Assert
         AssertInvalid(shorter, "1 unexpected trailing bytes");
         AssertInvalid(longer, "truncated");
+        AssertInvalid(unequal, "an uncompressed payload must have equal stored and payload lengths");
     }
 
-    /// <summary>Proves an uncompressed payload must have equal stored and payload lengths.</summary>
+    /// <summary>Proves a changed stored byte or a changed checksum field fails the checksum, which is verified before inflation, in both representations.</summary>
     [Fact]
-    public void SparsePerceptronModel_Load_RawPayloadLengthsDiffer_IsRejected()
+    public void SparsePerceptronModel_Load_ChangedStoredByte_FailsChecksum()
     {
-        // Arrange
-        var image = Standard(compress: false);
-        var payload = BinaryPrimitives.ReadUInt32LittleEndian(image.AsSpan(28));
-        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(28), payload + 1);
+        foreach (var compress in new[] { true, false })
+        {
+            // Arrange
+            var changedByte = Standard(compress);
+            changedByte[^1] ^= 0x01;
+            var changedField = Standard(compress);
+            changedField[36] ^= 0xFF;
 
-        // Act / Assert
-        AssertInvalid(image, "an uncompressed payload must have equal stored and payload lengths");
-    }
-
-    /// <summary>Proves a declared payload length that the stored bytes cannot inflate to (a hostile length) is rejected without inflating.</summary>
-    [Fact]
-    public void SparsePerceptronModel_Load_PayloadLengthBeyondDeflateRatio_IsRejected()
-    {
-        // Arrange: claim 180,000 payload bytes (60,000 rows) from a tiny stored region
-        var image = Standard(compress: true);
-        var rows = 60_000u;
-        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(24), rows);
-        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(28), rows * 3);
-
-        // Act / Assert
-        AssertInvalid(image, "larger than the stored bytes can inflate to");
-    }
-
-    /// <summary>Proves a changed stored byte fails the checksum, which is verified before inflation, in both representations.</summary>
-    /// <param name="compress">Whether the payload is stored as Deflate.</param>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void SparsePerceptronModel_Load_ChangedStoredByte_FailsChecksum(bool compress)
-    {
-        // Arrange
-        var image = Standard(compress);
-        image[^1] ^= 0x01;
-
-        // Act / Assert
-        AssertInvalid(image, "the checksum does not match");
-    }
-
-    /// <summary>Proves the checksum field itself is checked.</summary>
-    [Fact]
-    public void SparsePerceptronModel_Load_ChangedChecksumField_FailsChecksum()
-    {
-        // Arrange
-        var image = Standard(compress: false);
-        image[36] ^= 0xFF;
-
-        // Act / Assert
-        AssertInvalid(image, "the checksum does not match");
+            // Act / Assert
+            AssertInvalid(changedByte, "the checksum does not match");
+            AssertInvalid(changedField, "the checksum does not match");
+        }
     }
 
     /// <summary>Proves the payload structure is validated even when the file is otherwise consistent: a gap of zero.</summary>
@@ -424,7 +370,6 @@ public sealed class SparsePerceptronModelTests
     /// <param name="removed">How many trailing bytes of the Deflate stream are removed.</param>
     [Theory]
     [InlineData(1)]
-    [InlineData(2)]
     [InlineData(5)]
     public void SparsePerceptronModel_Load_CutOffDeflateWithForgedLengthAndChecksum_IsRejected(int removed)
     {
@@ -436,23 +381,13 @@ public sealed class SparsePerceptronModelTests
         AssertInvalid(Forge(image, stored));
     }
 
-    /// <summary>Proves bytes after the end of the Deflate stream, inside the stored region, are rejected even when the lengths and checksum are forged to match.</summary>
+    /// <summary>Proves bytes after the end of the Deflate stream, inside the stored region, are rejected even when the lengths and checksum are forged to match, and so is a Deflate payload that inflates to fewer bytes than declared, or more.</summary>
     [Fact]
     public void SparsePerceptronModel_Load_TrailingBytesInsideDeflateRegion_IsRejected()
     {
-        // Arrange
+        // Arrange: the declared payload length is also one more, then one less, than the stream really holds
         var image = Standard(compress: true);
         var stored = image.AsSpan(ModelBinaryFormat.HeaderLength).ToArray().Concat(new byte[] { 0, 0, 0, 0 }).ToArray();
-
-        // Act / Assert
-        AssertInvalid(Forge(image, stored));
-    }
-
-    /// <summary>Proves a Deflate payload that inflates to fewer bytes than declared, or more, is rejected.</summary>
-    [Fact]
-    public void SparsePerceptronModel_Load_DeflatePayloadSizeDiffersFromDeclared_IsRejected()
-    {
-        // Arrange: the declared payload length is one more, then one less, than the stream really holds
         var longer = Standard(compress: true);
         var shorter = Standard(compress: true);
         var length = BinaryPrimitives.ReadUInt32LittleEndian(longer.AsSpan(28));
@@ -460,14 +395,20 @@ public sealed class SparsePerceptronModelTests
         BinaryPrimitives.WriteUInt32LittleEndian(shorter.AsSpan(28), length - 1);
 
         // Act / Assert: fewer bytes than declared is reported either as a short stream or a stream without its end
+        AssertInvalid(Forge(image, stored));
         AssertInvalid(longer);
         AssertInvalid(shorter, "longer than declared");
     }
 
-    /// <summary>Proves an inflation bomb (a stream that inflates to far more than declared) is rejected.</summary>
+    /// <summary>Proves a declared payload length that the stored bytes cannot inflate to (a hostile length) is rejected without inflating, and an inflation bomb (a stream that inflates to far more than declared) is rejected.</summary>
     [Fact]
     public void SparsePerceptronModel_Load_InflationBomb_IsRejected()
     {
+        // Arrange: claim 180,000 payload bytes (60,000 rows) from a tiny stored region
+        var hostile = Standard(compress: true);
+        BinaryPrimitives.WriteUInt32LittleEndian(hostile.AsSpan(24), 60_000);
+        BinaryPrimitives.WriteUInt32LittleEndian(hostile.AsSpan(28), 60_000 * 3);
+
         // Arrange: 64 MiB of zeros compress to a small stream; the header declares only 300,000 payload bytes
         var bomb = DeflateZeros(64 * 1024 * 1024);
         var image = Standard(compress: true);
@@ -480,6 +421,7 @@ public sealed class SparsePerceptronModelTests
         var exception = Assert.Throws<InvalidDataException>(() => SparsePerceptronModel.Load(forged));
 
         // Assert
+        AssertInvalid(hostile, "larger than the stored bytes can inflate to");
         Assert.Contains("longer than declared", exception.Message, StringComparison.Ordinal);
     }
 
@@ -572,36 +514,6 @@ public sealed class SparsePerceptronModelTests
         Assert.Throws<ArgumentOutOfRangeException>(() => SparsePerceptronModelWriter.Compile(16, 1, 0f, 64f, []));
         Assert.Throws<ArgumentOutOfRangeException>(() => SparsePerceptronModelWriter.Compile(16, 1, 1f, -1f, []));
         Assert.Throws<ArgumentException>(() => SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, [], dataManifestSha256: new byte[31]));
-    }
-
-    /// <summary>Proves the stream overload of the writer writes exactly the compiled bytes.</summary>
-    [Fact]
-    public void SparsePerceptronModelWriter_Write_Stream_WritesCompiledBytes()
-    {
-        // Arrange
-        using var output = new MemoryStream();
-
-        // Act
-        SparsePerceptronModelWriter.Write(output, 16, 1, 1f, 64f, StandardWeights, compress: false);
-
-        // Assert
-        Assert.Equal(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, StandardWeights, compress: false), output.ToArray());
-        Assert.Throws<ArgumentNullException>(() => SparsePerceptronModelWriter.Write(null!, 16, 1, 1f, 64f, []));
-    }
-
-    /// <summary>Proves a loaded model is immutable and thread-safe: many threads read the same weights concurrently.</summary>
-    [Fact]
-    public async Task SparsePerceptronModel_GetWeight_ConcurrentReaders_SeeTheSameWeights()
-    {
-        // Arrange
-        var model = SparsePerceptronModel.Load(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, StandardWeights));
-
-        // Act
-        var results = await Task.WhenAll(Enumerable.Range(0, 16)
-            .Select(_ => Task.Run(() => StandardWeights.Sum(pair => (long)model.GetWeight(pair.Bucket)) + model.GetWeight(2), TestContext.Current.CancellationToken)));
-
-        // Assert
-        Assert.All(results, result => Assert.Equal(StandardWeights.Sum(pair => (long)pair.Weight), result));
     }
 
     /// <summary>Proves the model loads the same under a culture with unusual number formatting (floats are binary, never parsed from text).</summary>

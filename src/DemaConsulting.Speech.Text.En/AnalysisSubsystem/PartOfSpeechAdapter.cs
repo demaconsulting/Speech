@@ -92,11 +92,6 @@ internal sealed class PartOfSpeechAdapter
     internal static PartOfSpeechAdapter Shared { get; } = new(static () => Tagger.Default);
 
     /// <summary>
-    ///     Gets a value that indicates whether this adapter has already obtained its tagger.
-    /// </summary>
-    internal bool IsTaggerCreated => Volatile.Read(ref _tagger) is not null;
-
-    /// <summary>
     ///     Splits <paramref name="text"/> into sentences and tokens and, when
     ///     <paramref name="tag"/> is <see langword="true"/>, tags every token.
     /// </summary>

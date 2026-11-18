@@ -73,4 +73,4 @@ public entry point (upstream pull request <https://github.com/demaconsulting/Par
 core `ITextAnalyzer` no-retention contract can be met. Managed strings that the package itself creates (for
 example the normalized copy of a non-ASCII token) and the result objects it returns are not cleared; SpeechTextEn
 keeps neither. The workspaces are private and this repository does not inspect them (see *SpeechTextEn System
-Design*, *Retention Verification*, and *PartOfSpeech Verification*).
+Design*, *Retention*, and *PartOfSpeech Verification*).

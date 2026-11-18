@@ -1,0 +1,118 @@
+---
+# Software Subsystem Requirements for the SpeechTextEn ExternalEvaluationSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechTextEn ExternalEvaluationSubsystem,
+# decomposing the system-level evaluation requirements in docs/reqstream/speech-text-en.yaml. The subsystem is the
+# non-shipped evaluate-external command of the Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer): it
+# measures the embedded heteronym model on external, evaluation-only datasets (Google WikipediaHomographData and
+# heteronym-bench) that it fetches at evaluation time from pinned revisions into a local cache that is not
+# committed. It consists of the pinned source cache (ExternalSourceCache), the shared row conversion
+# (ExternalRowConversion), the two dataset adapters (WikipediaHomographAdapter, HeteronymBenchAdapter), the record
+# files (ExternalEvaluationRecord) and the command (EvaluateExternalCommand). It also relies on the evaluator of
+# the TrainingSubsystem, which evaluates the converted rows. Each requirement states one observable behavior.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-text-en/external-evaluation-subsystem/. Covered by
+# test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystemTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        requirements:
+          - id: SpeechTextEn-ExternalEvaluation-FetchAndVerify
+            title: >-
+              The ExternalEvaluationSubsystem shall, when asked to fetch, download each needed external
+              source at its pinned revision into a cache folder that is the git-ignored external folder of
+              the data folder or is outside the repository, accept it only when every pinned file has its
+              pinned size and hash, reuse a valid cache without touching the network, and evaluate
+              nothing from a cached file that is missing or differs from its pin, exiting with 2 and
+              printing no figure when it refuses one.
+            justification: |
+              The datasets are never committed, so the evaluation has to be able to obtain them, and a
+              copy that is not exactly the pinned one must not be measured. Fetching only on request,
+              publishing a download only when all of it is right and keeping the cache where version
+              control ignores it keeps the cache either empty or exact and the datasets out of every
+              commit. A cache can be edited or damaged after it was verified once, so every file that is
+              read is checked against its pin and a figure always comes from exactly the pinned data.
+            children:
+              - SpeechTextEn-ExternalEvaluation-ExternalSourceCache-Pins
+              - SpeechTextEn-ExternalEvaluation-ExternalSourceCache-VerifiedFetch
+              - SpeechTextEn-ExternalEvaluation-ExternalSourceCache-CacheReuse
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-FetchOption
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-UsageErrors
+            tests:
+              - ExternalEvaluationSubsystem_Evaluate_FetchConvertEvaluateAndRecord_EndToEnd
+              - ExternalEvaluationSubsystem_Evaluate_TamperedCache_IsRefusedWithNoFigures
+
+          - id: SpeechTextEn-ExternalEvaluation-LabelMapping
+            title: >-
+              The ExternalEvaluationSubsystem shall map each external label to a reading of the
+              repository's inventory by identifier only, place the target of every evaluated row on the
+              target word of its sentence, including for a dataset whose offsets count bytes and for a
+              sentence with characters outside ASCII, skip a row whose label, word or reading cannot be
+              mapped, whose span is not that word or whose dataset item duplicates another evaluated
+              dataset, report every skipped row by reason, and not treat a skipped row as an error.
+            justification: |
+              The datasets use their own labels. Only a mapping of identifiers, written in the
+              repository's own words, relates them to readings, and a dataset that drifts from the
+              mapping must show up as counted skipped rows and not as a crash or as silently dropped data.
+              The datasets state offsets in bytes of the encoded text, so a sentence with an accented
+              letter or a symbol before the target would be evaluated at the wrong place without a
+              conversion, and a model that is shown the wrong word is not measured.
+            children:
+              - SpeechTextEn-ExternalEvaluation-ExternalRowConversion-Mapping
+              - SpeechTextEn-ExternalEvaluation-ExternalRowConversion-Conversion
+              - SpeechTextEn-ExternalEvaluation-WikipediaHomographAdapter-Rows
+              - SpeechTextEn-ExternalEvaluation-HeteronymBenchAdapter-Items
+            tests:
+              - ExternalEvaluationSubsystem_Evaluate_SkippedRows_AreReportedNotFatal
+              - ExternalEvaluationSubsystem_Evaluate_NonAsciiSentence_IsEvaluatedAtTheTarget
+              - ExternalEvaluationSubsystem_CommittedBenchMapping_ResolvesToInventoryReadings
+
+          - id: SpeechTextEn-ExternalEvaluation-SeedVariance
+            title: >-
+              The ExternalEvaluationSubsystem shall, on request and whenever it writes or checks the
+              record, retrain the model with each evaluation seed from the training and development data
+              alone and report for each set the accuracy of every seed with its confidence interval and
+              the mean, minimum and maximum, so that the external rows have no influence on any model, and
+              shall print and record only counts, set and stratum names, the repository's own reading
+              identifiers and the pins, never a sentence, a target word or a label of an external dataset.
+            justification: |
+              One trained model can be lucky or unlucky on a dataset. The spread over seeds shows how much
+              of the figure is the model, and retraining from the committed data only keeps the external
+              sets honest. The datasets carry share-alike licenses and the repository commits nothing of
+              them, so limiting every output to numbers and our own identifiers means that neither the
+              console output nor a committed record can carry any of their text.
+            children:
+              - SpeechTextEn-ExternalEvaluation-ExternalEvaluationRecord-Record
+              - SpeechTextEn-ExternalEvaluation-ExternalEvaluationRecord-NoDatasetText
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-Report
+              - SpeechTextEn-Training-HeteronymEvaluator-InputValidation
+            tests:
+              - ExternalEvaluationSubsystem_Seeds_ReportSpreadAndIntervals
+              - ExternalEvaluationSubsystem_Output_HoldsNoDatasetText
+
+          - id: SpeechTextEn-ExternalEvaluation-CommandContract
+            title: >-
+              The ExternalEvaluationSubsystem shall provide a command that exits with 0 when it completed
+              and, when it checks the record, the record is current, with 1 when the checked record is
+              stale, and with 2 for a usage, input, pin, hash or data error, in which case it prints no
+              figures; that reports the result of each set; and that writes or verifies a deterministic
+              record.
+            justification: |
+              The command is run by an owner and, for the record check, may be run by a script. The exit
+              codes tell them what happened, a deterministic record can be compared with a fresh
+              evaluation, and a malformed input must stop the command before it prints a number that
+              could be mistaken for a result. The committed record files must be well formed, so that
+              the checks have something sound to compare with.
+            children:
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-UsageErrors
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-Report
+              - SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-WriteAndCheck
+              - SpeechTextEn-ExternalEvaluation-WikipediaHomographAdapter-StrictFormat
+              - SpeechTextEn-ExternalEvaluation-HeteronymBenchAdapter-StrictFormat
+              - SpeechTextEn-ExternalEvaluation-ExternalEvaluationRecord-Record
+            tests:
+              - ExternalEvaluationSubsystem_Failures_ExitTwoWithNoFigures
+              - ExternalEvaluationSubsystem_CommittedRecord_HasExpectedFilesAndNumericGrammar

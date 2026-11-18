@@ -3,7 +3,8 @@ using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests.TrainingDataSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="CheckReport"/>: the exit code, the deterministic output and the per-check cap.
+///     Unit tests for <see cref="CheckReport"/>: the exit code, the deterministic output and the per-check cap (a finding renders as
+///     <c>check-data: check: location: message</c> in the written output).
 /// </summary>
 public sealed class CheckReportTests
 {
@@ -98,19 +99,5 @@ public sealed class CheckReportTests
     {
         // Arrange / Act / Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => new CheckReport(0));
-    }
-
-    /// <summary>Proves a finding renders as the <c>check-data: check: location: message</c> line.</summary>
-    [Fact]
-    public void CheckReport_Finding_ToString_UsesTheDocumentedFormat()
-    {
-        // Arrange
-        var finding = new Finding("manifest", "README.md", "changed");
-
-        // Act
-        var text = finding.ToString();
-
-        // Assert
-        Assert.Equal("check-data: manifest: README.md: changed", text);
     }
 }

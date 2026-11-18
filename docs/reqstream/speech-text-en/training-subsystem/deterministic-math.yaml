@@ -14,41 +14,21 @@ sections:
         sections:
           - title: DeterministicMath Requirements
             requirements:
-              - id: SpeechTextEn-Training-DeterministicMath-ExponentialAccuracy
+              - id: SpeechTextEn-Training-DeterministicMath-Accuracy
                 title: >-
-                  The DeterministicMath class shall compute the exponential of a number with a relative
-                  error of at most 1e-12 against the framework's exponential over the range the
-                  calibration uses and beyond, and the logarithm of an exponential shall return the
-                  original number to within 1e-11.
+                  The DeterministicMath class shall compute the exponential and the natural logarithm with
+                  a relative error of at most 1e-12 against the framework's functions over the range the
+                  calibration uses and many orders of magnitude beyond, including subnormal arguments, and
+                  shall define both functions for the special arguments (zero, one, a negative number,
+                  infinity, not-a-number, and an exponent whose result underflows or overflows) with the
+                  values the framework's functions return.
                 justification: |
                   The calibration temperature stored in the model is chosen from losses that are sums of
                   these functions. The framework's own functions are allowed to differ in the last bits
-                  between platforms, so the trainer uses its own, whose results are the same everywhere
-                  and close enough to the framework's that the chosen temperature is the right one.
+                  between platforms, so the trainer uses its own, whose results are the same everywhere,
+                  close enough to the framework's that the chosen temperature is the right one, and
+                  defined for the extreme probabilities a loss can meet.
                 tests:
                   - DeterministicMath_Exp_SweepOfArguments_MatchesFrameworkWithinTolerance
-                  - DeterministicMath_Log_OfExp_ReturnsTheArgument
-
-              - id: SpeechTextEn-Training-DeterministicMath-LogarithmAccuracy
-                title: >-
-                  The DeterministicMath class shall compute the natural logarithm of a positive number
-                  with a relative error of at most 1e-12 against the framework's logarithm over many
-                  orders of magnitude, and shall handle a subnormal argument.
-                justification: |
-                  See the exponential: the same reasoning applies to the loss, which is a sum of
-                  logarithms of probabilities that can be very small.
-                tests:
                   - DeterministicMath_Log_SweepOfArguments_MatchesFrameworkWithinTolerance
-                  - DeterministicMath_Log_SubnormalArgument_MatchesFramework
-
-              - id: SpeechTextEn-Training-DeterministicMath-SpecialValues
-                title: >-
-                  The DeterministicMath class shall define the exponential and the logarithm for the
-                  special arguments (zero, one, a negative number, infinity and not-a-number, and an
-                  exponent whose result underflows or overflows) with the values the framework's
-                  functions return.
-                justification: |
-                  A loss that meets an extreme probability must give a defined result on every
-                  platform and not an exception or a platform-specific value.
-                tests:
                   - DeterministicMath_ExpAndLog_SpecialValues_AreDefined

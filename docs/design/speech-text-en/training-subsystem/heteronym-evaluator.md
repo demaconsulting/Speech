@@ -2,16 +2,16 @@
 
 **Purpose**: Measure a trained model on a labeled data set through the product's own path, and decide the quality
 gate: the end-to-end accuracy, three baselines, strata by source, by reading and by confidence, a paired clustered
-bootstrap interval of the improvement over the part-of-speech baseline, and a parity check between the analyzer and
-the trainer's
-direct path. Everything is integer arithmetic, so the numbers are identical on every platform.
+bootstrap interval of the improvement over the part-of-speech baseline, and a parity check between the analyzer and the
+trainer's direct path. Everything is integer arithmetic, so the numbers are identical on every platform.
 
 **Data Model** (the result types are internal sealed records, immutable):
 
 - `SetEvaluation`: the set name; the rows; the rows that are aligned (the target is exactly one runtime token); the rows
   of a one-candidate form; the rows **covered** (a reading was emitted); the rows decided correctly end to end; the rows
   each of the three baselines decides correctly; the tallies by source, by reading and by confidence; the bootstrap
-  interval; and the parity counts
+  interval; the parity counts; and, only for an end-to-end evaluation of caller-supplied rows, the bootstrap interval of
+  the accuracy itself (null otherwise)
 - `GroupTally`: a group name, its rows, the rows the model decides correctly and the rows the part-of-speech baseline
   decides correctly (0 for a confidence bucket)
 - `BootstrapInterval`: the number of clusters, the point estimate of the difference (model minus baseline) and the lower
@@ -26,10 +26,10 @@ direct path. Everything is integer arithmetic, so the numbers are identical on e
 - `HeteronymEvaluator` (an internal sealed class, not thread-safe): the corpus, the data folder, the evaluation
   settings, the majority reading of every form seen in the training file, the prepared sets it has already read, and the
   cluster ids of the harvest provenance table once a harvested row needs it. `SetFiles` names the four sets: `train`
-  (`train.tsv`, used only
-  for the parity check of the training rows), `dev` (`dev.tsv`), `holdout-natural` (`holdout-natural.tsv`) and
-  `holdout-independent` (`holdout-independent.tsv`); `ReportSets` lists the three of the evaluation record (`dev` and
-  the two holdouts). This unit is the only place a holdout file is opened, and only for a set name that a command passes
+  (`train.tsv`, used only for the parity check of the training rows), `dev` (`dev.tsv`), `holdout-natural`
+  (`holdout-natural.tsv`) and `holdout-independent` (`holdout-independent.tsv`); `ReportSets` lists the three of the
+  evaluation record (`dev` and the two holdouts). This unit is the only place a holdout file is opened, and only for a
+  set name that a command passes
 
 **Evaluation path (end to end).** `Evaluate(set, image)` prepares the rows of the set once with `RowPreparer.Prepare`
 and keeps the classifier context. It builds a real `EnglishTextAnalyzer` (default options, the shared part-of-speech
@@ -41,6 +41,22 @@ loaded with `SparsePerceptronModel.Load` and the corpus inventory); the two path
 the parity counts. A mismatch means the features the model was trained on differ from what the analyzer sees, which is
 exactly the drift the parity check exists to find. `EvaluateDirect(set, image)` uses the direct path only, as the
 multi-seed study does, and reports zero parity counts.
+
+**Caller-supplied rows (external sets).** `EvaluateRows(set, rows, image, clusterOf)` and `EvaluateRowsDirect(set, rows,
+image, clusterOf)` take labeled rows and a clustering function from the caller instead of reading a file of the data
+folder, so the external evaluation (see *ExternalEvaluationSubsystem Design*) is measured by exactly the same code as
+the committed sets. The prepared rows are kept under the set name for the length of one run, so one name must always
+mean the same rows. The clustering function replaces the file-and-provenance rule of the committed sets: rows that it
+gives the same name resample together, and no provenance table is read for such rows. No number of a file set changes.
+A row whose target is not a form of the inventory or whose label is not one of its candidates still stops the
+evaluation with an `InvalidDataException`, because `RowPreparer.Prepare` rejects it; the external adapters therefore
+skip and count such rows before they call the evaluator.
+
+**Accuracy interval.** The end-to-end path of `EvaluateRows` also reports an interval of the accuracy itself: the same
+paired bootstrap, with the baseline counts of every cluster taken as zero, so the interval is that of the summed
+correct rows over the summed rows, in basis points, with the same resamples, confidence level, seed and integer
+ordering. Its point estimate is the accuracy. The interval is computed only on that path: `Evaluate` and the direct path
+leave it null, so the committed record is byte for byte unchanged and the seed study stays cheap.
 
 **Baselines.** The **own-part-of-speech** baseline picks the one candidate whose `pos_hint` list (in `readings.tsv`)
 holds the tagger's part of speech of the word; with no tag, no such candidate or several, it picks the first candidate.
@@ -71,10 +87,9 @@ lower bound of the interval is exactly greater than zero. Both conditions are re
 reported but is not part of the gate. The thresholds are the evaluation settings of the training record (see
 *TrainingRecord Design*).
 
-**Key Methods**: `Evaluate`, `EvaluateDirect` and `DecideGate` as above; `Bootstrap(clusters, settings)` (public static,
-the interval); `RoundBasisPoints(numerator, denominator)` (public static, half away from zero, integers only, 0 for a
-non-positive denominator). An unknown set name, a malformed set file or provenance table, or a model that does not load
-or does not fit this build is an `InvalidDataException`.
+**Key Methods**: `Evaluate`, `EvaluateDirect` and `DecideGate` as above; `EvaluateRows` and `EvaluateRowsDirect` for
+caller-supplied rows; `Bootstrap(clusters, settings)` (public static, the interval); `RoundBasisPoints(numerator,
+denominator)` (public static, half away from zero, integers only, 0 for a non-positive denominator).
 
 **Error Handling**: null arguments throw `ArgumentNullException`; settings out of range, an unknown set, a data file
 that the strict reader rejects (a table finding, a span outside its sentence, a target or label the inventory does not
@@ -92,5 +107,5 @@ or independent rows needs no table, and a failed read is not cached. The evaluat
 and `EnglishTextAnalyzerOptions`, `TextEnAnnotations` (the typed readers of the reading annotations),
 `PartOfSpeechAdapter`, `HeteronymModelProvider`, `HeteronymClassifier` and `SparsePerceptronModel`.
 
-**Callers**: `EvaluateCommand`, `EvaluationRecord` (the result types and `RoundBasisPoints`, `DecideGate`) and the unit
-tests.
+**Callers**: `EvaluateCommand`, `EvaluateExternalCommand` (the caller-supplied rows), `EvaluationRecord` (the result
+types and `RoundBasisPoints`, `DecideGate`), `ExternalEvaluationRecord` (the result types) and the unit tests.

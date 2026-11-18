@@ -231,6 +231,13 @@ input-files:
   - docs/design/speech-text-en/training-subsystem/heteronym-evaluator.md
   - docs/design/speech-text-en/training-subsystem/evaluation-record.md
   - docs/design/speech-text-en/training-subsystem/evaluate-command.md
+  - docs/design/speech-text-en/external-evaluation-subsystem.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/external-source-cache.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/external-row-conversion.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/wikipedia-homograph-adapter.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md
+  - docs/design/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md
   - docs/design/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

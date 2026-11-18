@@ -70,32 +70,25 @@ public sealed class NumberVerbalizerTests
         }
     }
 
-    /// <summary>Proves every ordinal from 0 to 9999 is spoken as the independent reference speaks it.</summary>
+    /// <summary>Proves every ordinal from 0 to 9999 is spoken as the independent reference speaks it, and for 1 to 1000 ends the way the written suffix (st, nd, rd, th) says.</summary>
     [Fact]
     public void NumberVerbalizer_Ordinal_EveryValueFrom0To9999_MatchesReference()
     {
         // Act / Assert
         for (var value = 0UL; value <= 9999; value++)
         {
-            Assert.True(
-                ReferenceNumberWords.Ordinal(value) == NumberVerbalizer.Ordinal(value.ToString(CultureInfo.InvariantCulture)),
-                $"value {value}");
-        }
-    }
+            var ordinal = NumberVerbalizer.Ordinal(value.ToString(CultureInfo.InvariantCulture));
+            Assert.True(ReferenceNumberWords.Ordinal(value) == ordinal, $"value {value}");
 
-    /// <summary>Proves the ordinal word ends the way the written suffix (st, nd, rd, th) says, for 1 to 1000.</summary>
-    [Fact]
-    public void NumberVerbalizer_OrdinalSuffix_MatchesNumber_For1To1000()
-    {
-        // Act / Assert
-        for (var value = 1; value <= 1000; value++)
-        {
-            var suffix = (value % 100) is >= 11 and <= 13
-                ? "th"
-                : (value % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
-            var last = NumberVerbalizer.Ordinal(value.ToString(CultureInfo.InvariantCulture)).Split(' ')[^1];
-            var wordSuffix = last switch { "first" => "st", "second" => "nd", "third" => "rd", _ => "th" };
-            Assert.True(suffix == wordSuffix, $"value {value}: written suffix {suffix}, ordinal word {last}");
+            if (value is >= 1 and <= 1000)
+            {
+                var suffix = (value % 100) is >= 11 and <= 13
+                    ? "th"
+                    : (value % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
+                var last = ordinal.Split(' ')[^1];
+                var wordSuffix = last switch { "first" => "st", "second" => "nd", "third" => "rd", _ => "th" };
+                Assert.True(suffix == wordSuffix, $"value {value}: written suffix {suffix}, ordinal word {last}");
+            }
         }
     }
 
@@ -106,12 +99,12 @@ public sealed class NumberVerbalizerTests
         // Act / Assert
         for (var year = 1000UL; year <= 2099; year++)
         {
-            Assert.True(ReferenceNumberWords.Year(year) == NumberVerbalizer.Year(year.ToString(CultureInfo.InvariantCulture)), $"year {year}");
+            Assert.True(ReferenceNumberWords.Year(year) == NormalizationHarness.Year(year.ToString(CultureInfo.InvariantCulture)), $"year {year}");
         }
 
-        Assert.Equal("nine thousand nine hundred ninety nine", NumberVerbalizer.Year("9999"));
-        Assert.Equal("two thousand one hundred", NumberVerbalizer.Year("2100"));
-        Assert.Equal("nine hundred ninety nine", NumberVerbalizer.Year("0999"));
+        Assert.Equal("nine thousand nine hundred ninety nine", NormalizationHarness.Year("9999"));
+        Assert.Equal("two thousand one hundred", NormalizationHarness.Year("2100"));
+        Assert.Equal("nine hundred ninety nine", NormalizationHarness.Year("0999"));
         Assert.True(NumberVerbalizer.IsYearReadingDifferent(1999));
         Assert.False(NumberVerbalizer.IsYearReadingDifferent(2000));
         Assert.False(NumberVerbalizer.IsYearReadingDifferent(1000));
@@ -140,27 +133,20 @@ public sealed class NumberVerbalizerTests
         }
     }
 
-    /// <summary>Proves the fraction digits of a decimal are read one by one, zeros included, and an empty integer part is just the point.</summary>
+    /// <summary>Proves the fraction digits of a decimal are read one by one, zeros included, an empty integer part is just the point, and every digit is spelled in order.</summary>
     [Fact]
     public void NumberVerbalizer_Decimal_FractionDigitsAreSpelledIncludingZeros()
     {
         // Act / Assert
-        Assert.Equal("three point one four", NumberVerbalizer.Decimal("3", "14"));
-        Assert.Equal("five point zero", NumberVerbalizer.Decimal("5", "0"));
-        Assert.Equal("zero point zero five", NumberVerbalizer.Decimal("0", "05"));
-        Assert.Equal("point five", NumberVerbalizer.Decimal("", "5"));
-        Assert.Equal("one thousand two hundred point two", NumberVerbalizer.Decimal("1200", "2"));
-        Assert.Equal("zero zero seven point five", NumberVerbalizer.Decimal("007", "5"));
+        Assert.Equal("three point one four", NormalizationHarness.Decimal("3", "14"));
+        Assert.Equal("five point zero", NormalizationHarness.Decimal("5", "0"));
+        Assert.Equal("zero point zero five", NormalizationHarness.Decimal("0", "05"));
+        Assert.Equal("point five", NormalizationHarness.Decimal("", "5"));
+        Assert.Equal("one thousand two hundred point two", NormalizationHarness.Decimal("1200", "2"));
+        Assert.Equal("zero zero seven point five", NormalizationHarness.Decimal("007", "5"));
         Assert.Equal(
             "zero point " + string.Join(' ', Enumerable.Repeat("one", 32)),
-            NumberVerbalizer.Decimal("0", new string('1', 32)));
-    }
-
-    /// <summary>Proves every digit is spelled, in order, with single spaces.</summary>
-    [Fact]
-    public void NumberVerbalizer_Digits_SpellsEveryDigit()
-    {
-        // Act / Assert
+            NormalizationHarness.Decimal("0", new string('1', 32)));
         Assert.Equal("zero one two three four five six seven eight nine", NumberVerbalizer.Digits("0123456789"));
         Assert.Equal("seven", NumberVerbalizer.Digits("7"));
         Assert.Equal(64, NumberVerbalizer.Digits(new string('0', 64)).Split(' ').Length);
@@ -192,7 +178,7 @@ public sealed class NumberVerbalizerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => NumberVerbalizer.Fraction(1, 101));
     }
 
-    /// <summary>Proves all 24 hours times 60 minutes are spoken as the reference speaks them, with and without a leading zero and a meridiem.</summary>
+    /// <summary>Proves all 24 hours times 60 minutes are spoken as the reference speaks them, with and without a leading zero and a meridiem, and the named forms (o'clock, hundred, oh, midnight).</summary>
     [Fact]
     public void NumberVerbalizer_Clock_AllHoursAndMinutes_MatchReference()
     {
@@ -205,45 +191,38 @@ public sealed class NumberVerbalizerTests
                 var plain = hour.ToString(CultureInfo.InvariantCulture);
                 var padded = hour.ToString("00", CultureInfo.InvariantCulture);
                 Assert.True(
-                    ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, false) == NumberVerbalizer.Clock(plain, minuteText, false),
+                    ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, false) == NormalizationHarness.Clock(plain, minuteText, false),
                     $"{plain}:{minuteText}");
 
                 // A leading zero exists only for the hours 0 to 9 written with two digits.
                 if (hour < 10)
                 {
                     Assert.True(
-                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, true, false) == NumberVerbalizer.Clock(padded, minuteText, false),
+                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, true, false) == NormalizationHarness.Clock(padded, minuteText, false),
                         $"{padded}:{minuteText}");
                 }
                 else
                 {
                     Assert.True(
-                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, false) == NumberVerbalizer.Clock(padded, minuteText, false),
+                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, false) == NormalizationHarness.Clock(padded, minuteText, false),
                         $"{padded}:{minuteText} without a leading zero");
                 }
                 Assert.True(
-                    ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, true) == NumberVerbalizer.Clock(plain, minuteText, true),
+                    ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, true) == NormalizationHarness.Clock(plain, minuteText, true),
                     $"{plain}:{minuteText} with a meridiem");
             }
         }
-    }
 
-    /// <summary>Proves the named clock forms: o'clock, hundred, oh, a leading zero and midnight.</summary>
-    [Fact]
-    public void NumberVerbalizer_Clock_OClockHundredAndLeadingZeroForms()
-    {
-        // Act / Assert
-        Assert.Equal("five o'clock", NumberVerbalizer.Clock("5", "00", false));
-        Assert.Equal("twelve o'clock", NumberVerbalizer.Clock("12", "00", false));
-        Assert.Equal("thirteen hundred", NumberVerbalizer.Clock("13", "00", false));
-        Assert.Equal("seventeen hundred", NumberVerbalizer.Clock("17", "00", false));
-        Assert.Equal("oh seven hundred", NumberVerbalizer.Clock("07", "00", false));
-        Assert.Equal("oh seven oh five", NumberVerbalizer.Clock("07", "05", false));
-        Assert.Equal("zero hundred", NumberVerbalizer.Clock("00", "00", false));
-        Assert.Equal("zero hundred", NumberVerbalizer.Clock("0", "00", false));
-        Assert.Equal("zero thirty", NumberVerbalizer.Clock("0", "30", false));
-        Assert.Equal("five", NumberVerbalizer.Clock("5", "00", true));
-        Assert.Equal("five thirty", NumberVerbalizer.Clock("5", "30", true));
+        Assert.Equal("five o'clock", NormalizationHarness.Clock("5", "00", false));
+        Assert.Equal("twelve o'clock", NormalizationHarness.Clock("12", "00", false));
+        Assert.Equal("thirteen hundred", NormalizationHarness.Clock("13", "00", false));
+        Assert.Equal("oh seven hundred", NormalizationHarness.Clock("07", "00", false));
+        Assert.Equal("oh seven oh five", NormalizationHarness.Clock("07", "05", false));
+        Assert.Equal("zero hundred", NormalizationHarness.Clock("00", "00", false));
+        Assert.Equal("zero hundred", NormalizationHarness.Clock("0", "00", false));
+        Assert.Equal("zero thirty", NormalizationHarness.Clock("0", "30", false));
+        Assert.Equal("five", NormalizationHarness.Clock("5", "00", true));
+        Assert.Equal("five thirty", NormalizationHarness.Clock("5", "30", true));
     }
 
     /// <summary>Proves the month names and the day ordinals 1 to 31, and the date words built from them.</summary>
@@ -256,25 +235,21 @@ public sealed class NumberVerbalizerTests
             Assert.Equal(ReferenceNumberWords.Month(month), NumberVerbalizer.MonthName(month));
         }
 
-        // Act / Assert: every day ordinal
+        // Act / Assert: every day ordinal inside a date
         for (var day = 1; day <= 31; day++)
         {
-            Assert.Equal(ReferenceNumberWords.Ordinal((ulong)day), NumberVerbalizer.DayOrdinal(day));
+            Assert.Equal(
+                "June " + ReferenceNumberWords.Ordinal((ulong)day) + " twenty twenty four",
+                NormalizationHarness.Date(6, day, "2024"));
         }
 
         // Act / Assert: whole dates
-        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
-        NumberVerbalizer.AppendDate(ref writer, 12, 25, "2024");
-        Assert.Equal("December twenty fifth twenty twenty four", writer.ToString());
-        var shortYear = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
-        NumberVerbalizer.AppendDate(ref shortYear, 1, 2, "05");
-        Assert.Equal("January second oh five", shortYear.ToString());
-        var twoDigit = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
-        NumberVerbalizer.AppendDate(ref twoDigit, 3, 4, "24");
-        Assert.Equal("March fourth twenty four", twoDigit.ToString());
+        Assert.Equal("December twenty fifth twenty twenty four", NormalizationHarness.Date(12, 25, "2024"));
+        Assert.Equal("January second oh five", NormalizationHarness.Date(1, 2, "05"));
+        Assert.Equal("March fourth twenty four", NormalizationHarness.Date(3, 4, "24"));
     }
 
-    /// <summary>Proves the documented worst-case inputs of every reading stay inside the 1,024-character output bound.</summary>
+    /// <summary>Proves the documented worst-case inputs of every reading stay inside the 1,024-character output bound, and no output of any reading contains a digit or leaves the independent reference's closed vocabulary.</summary>
     [Fact]
     public void NumberVerbalizer_WorstCaseInputs_StayWithinOutputBound()
     {
@@ -282,47 +257,30 @@ public sealed class NumberVerbalizerTests
         var spelled = new string('7', NumberVerbalizer.MaxSpelledDigits);
         var fraction = new string('7', NumberVerbalizer.MaxFractionDigits);
         var longestCardinal = "877877877877877";
-
-        // Act
-        var results = new List<string>
+        var worstCases = new List<string>
         {
             NumberVerbalizer.Cardinal(longestCardinal),
             NumberVerbalizer.Ordinal(longestCardinal),
             NumberVerbalizer.Digits(spelled),
-            NumberVerbalizer.Decimal(longestCardinal, fraction),
-            NumberVerbalizer.Decimal("0" + spelled[..63], fraction),
-            NumberVerbalizer.Year("1888"),
-            NumberVerbalizer.Clock("07", "37", false),
+            NormalizationHarness.Decimal(longestCardinal, fraction),
+            NormalizationHarness.Decimal("0" + spelled[..63], fraction),
+            NormalizationHarness.Year("1888"),
+            NormalizationHarness.Clock("07", "37", false),
+            NormalizationHarness.Date(9, 23, "1877"),
         };
-        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
-        NumberVerbalizer.AppendDate(ref writer, 9, 23, "1877");
-        results.Add(writer.ToString());
 
-        // Assert
-        Assert.All(results, result => Assert.True(result.Length <= NumberVerbalizer.MaxSpokenLength, $"{result.Length} characters"));
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            var tiny = new SpokenWriter(stackalloc char[8]);
-            tiny.Append("overflowing words");
-        });
-    }
-
-    /// <summary>Proves no output of any reading contains a digit, and every word is in the independent reference's closed vocabulary.</summary>
-    [Fact]
-    public void NumberVerbalizer_AnyOutput_HasNoDigitAndOnlyReferenceVocabulary()
-    {
-        // Arrange
-        var outputs = new List<string>();
+        // Arrange: a sweep over every reading
+        var outputs = new List<string>(worstCases);
         for (var value = 0; value <= 2200; value++)
         {
             var digits = value.ToString(CultureInfo.InvariantCulture);
             outputs.Add(NumberVerbalizer.Cardinal(digits));
             outputs.Add(NumberVerbalizer.Ordinal(digits));
             outputs.Add(NumberVerbalizer.Digits(digits));
-            outputs.Add(NumberVerbalizer.Decimal(digits, "05"));
+            outputs.Add(NormalizationHarness.Decimal(digits, "05"));
             if (digits.Length == 4)
             {
-                outputs.Add(NumberVerbalizer.Year(digits));
+                outputs.Add(NormalizationHarness.Year(digits));
             }
         }
 
@@ -334,8 +292,8 @@ public sealed class NumberVerbalizerTests
 
         for (var hour = 0; hour < 24; hour++)
         {
-            outputs.Add(NumberVerbalizer.Clock(hour.ToString(CultureInfo.InvariantCulture), "07", false));
-            outputs.Add(NumberVerbalizer.Clock(hour.ToString("00", CultureInfo.InvariantCulture), "00", false));
+            outputs.Add(NormalizationHarness.Clock(hour.ToString(CultureInfo.InvariantCulture), "07", false));
+            outputs.Add(NormalizationHarness.Clock(hour.ToString("00", CultureInfo.InvariantCulture), "00", false));
         }
 
         foreach (var decade in new[] { "10", "20", "90", "1990", "2000", "1900" })
@@ -343,7 +301,8 @@ public sealed class NumberVerbalizerTests
             outputs.Add(NumberVerbalizer.Decade(decade));
         }
 
-        // Act / Assert
+        // Assert
+        Assert.All(worstCases, result => Assert.True(result.Length <= NumberVerbalizer.MaxSpokenLength, $"{result.Length} characters"));
         foreach (var output in outputs)
         {
             Assert.DoesNotContain(output, character => character is >= '0' and <= '9');
@@ -351,6 +310,12 @@ public sealed class NumberVerbalizerTests
             Assert.Equal(output.Trim(), output);
             Assert.DoesNotContain("  ", output, StringComparison.Ordinal);
         }
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var tiny = new SpokenWriter(stackalloc char[8]);
+            tiny.Append("overflowing words");
+        });
     }
 
     /// <summary>Proves the words never depend on the current culture, including cultures with other digits, other casing rules and other calendars.</summary>
@@ -362,13 +327,13 @@ public sealed class NumberVerbalizerTests
             "|",
             NumberVerbalizer.Cardinal("1234567"),
             NumberVerbalizer.Ordinal("21"),
-            NumberVerbalizer.Year("1999"),
+            NormalizationHarness.Year("1999"),
             NumberVerbalizer.Decade("1990"),
-            NumberVerbalizer.Decimal("3", "14"),
+            NormalizationHarness.Decimal("3", "14"),
             NumberVerbalizer.Fraction(3, 16),
-            NumberVerbalizer.Clock("17", "05", false),
+            NormalizationHarness.Clock("17", "05", false),
             NumberVerbalizer.MonthName(9),
-            NumberVerbalizer.DayOrdinal(1),
+            NormalizationHarness.Date(9, 1, "2024"),
             NumberVerbalizer.Digits("0123456789"));
         var expected = Sample();
         var originalCulture = CultureInfo.CurrentCulture;
@@ -406,22 +371,22 @@ public sealed class NumberVerbalizerTests
         // Assert: beyond the documented limits
         Assert.Throws<ArgumentException>(() => NumberVerbalizer.Cardinal("1000000000000000"));
         Assert.Throws<ArgumentException>(() => NumberVerbalizer.Digits(new string('1', 65)));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decimal("1", string.Empty));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decimal("1", new string('1', 33)));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decimal("1", "x"));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Decimal("1", string.Empty));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Decimal("1", new string('1', 33)));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Decimal("1", "x"));
 
         // Assert: shapes of the other readings
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Year("199"));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Year("19999"));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Year("199"));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Year("19999"));
         Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decade("95"));
         Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decade("00"));
         Assert.Throws<ArgumentException>(() => NumberVerbalizer.Decade("2100"));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Clock("24", "00", false));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Clock("5", "60", false));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Clock("5", "3", false));
-        Assert.Throws<ArgumentException>(() => NumberVerbalizer.Clock("123", "30", false));
-        Assert.Throws<ArgumentOutOfRangeException>(() => NumberVerbalizer.DayOrdinal(0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => NumberVerbalizer.DayOrdinal(32));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Clock("24", "00", false));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Clock("5", "60", false));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Clock("5", "3", false));
+        Assert.Throws<ArgumentException>(() => NormalizationHarness.Clock("123", "30", false));
+        Assert.Throws<ArgumentOutOfRangeException>(() => NormalizationHarness.Date(1, 0, "2024"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => NormalizationHarness.Date(1, 32, "2024"));
         Assert.Throws<ArgumentOutOfRangeException>(() => NumberVerbalizer.MonthName(0));
         Assert.Throws<ArgumentOutOfRangeException>(() => NumberVerbalizer.MonthName(13));
     }

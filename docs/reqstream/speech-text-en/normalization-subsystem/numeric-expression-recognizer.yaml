@@ -19,133 +19,96 @@ sections:
         sections:
           - title: NumericExpressionRecognizer Requirements
             requirements:
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-IntegerAndDecimalShapes
+              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Numbers
                 title: >-
                   The NumericExpressionRecognizer class shall read a token of ASCII digits as a
-                  cardinal, a signed number with minus or plus, a number with en-US thousands
-                  separators only when the grouping is exactly one to three digits followed by
-                  groups of three, a decimal with a period (never as thousands), a hash number, and
-                  a number with a leading zero digit by digit.
+                  cardinal, a signed number, a number with en-US thousands separators only when the
+                  grouping is exactly one to three digits followed by groups of three, a decimal
+                  with a period, a hash number, and a number with a leading zero digit by digit,
+                  shall read an ordinal only when its two-letter suffix is the one its number
+                  requires (in any letter case), shall read a decade only for a two-digit number
+                  from 10 to 90 or a four-digit number from 1000 to 2099 that ends in zero and is
+                  followed by s or 's (an apostrophe token directly before such a decade as one span
+                  covering both tokens), and shall read an unsigned four-digit number from 1000 to
+                  2099 as a year after a year cue word, a month or a date context, or before an era,
+                  as a cardinal after a quantity cue word or before a unit, a percent sign, a
+                  currency, a magnitude word or a counted noun, and otherwise as a year (from 1100)
+                  or a cardinal (1000 to 1099), reporting that last choice as ambiguous only when
+                  the year and cardinal readings differ.
                 justification: |
-                  These are the plain shapes of a number, and the grouping rule is what separates
-                  "1,234" from "1,23" (not en-US, left as written) and a decimal period from a
-                  thousands comma. A leading zero marks an identifier, not a quantity.
+                  The grouping rule is what separates "1,234" from "1,23" (not en-US, left as
+                  written) and a decimal period from a thousands comma, and a leading zero marks an
+                  identifier, not a quantity. "1th" and "2st" are not ordinals and "5s" or "1995s"
+                  are not decades, so a wrong suffix must leave the text as written, and the
+                  apostrophe form "'90s" is two tokens that must still be one span so that the
+                  apostrophe is not left behind. "In 1999" and "about 1500 people" are decided by
+                  the words around the number, the closed cue lists make the decision predictable,
+                  and where no cue exists the default must be documented and counted, while a number
+                  whose two readings are the same (2000) is never a guess.
                 tests:
                   - NumericExpressionRecognizer_PlainNumbers_AreReadByShape
                   - NumericExpressionRecognizer_ThousandsSeparators_MustBeExactlyGrouped
                   - NumericExpressionRecognizer_LeadingZeros_AreReadDigitByDigit
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-OrdinalsAndDecades
-                title: >-
-                  The NumericExpressionRecognizer class shall read an ordinal number only when its
-                  two-letter suffix is the one its number requires (in any letter case), shall read
-                  a decade only for a two-digit number from 10 to 90 or a four-digit number from
-                  1000 to 2099 that ends in zero and is followed by s or 's, and shall read an
-                  apostrophe token directly before such a decade token as one span covering both
-                  tokens.
-                justification: |
-                  "1th" and "2st" are not ordinals and "5s" or "1995s" are not decades, so a wrong
-                  suffix must leave the text as written. The apostrophe form "'90s" is two tokens
-                  that must still be one span so that the apostrophe is not left behind.
-                tests:
                   - NumericExpressionRecognizer_Ordinals_RequireMatchingSuffix
                   - NumericExpressionRecognizer_Decades_AreRecognizedOnlyForTensAndHundreds
                   - NumericExpressionRecognizer_ApostropheDecade_SpansBothAdjacentTokens
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-YearPolicy
-                title: >-
-                  The NumericExpressionRecognizer class shall read an unsigned four-digit number from
-                  1000 to 2099 as a year after a year cue word, a month or a date context, or before
-                  an era; as a cardinal after a quantity cue word or before a unit, a percent sign,
-                  a currency, a magnitude word or a counted noun; and otherwise as a year (from 1100)
-                  or a cardinal (1000 to 1099), reporting that last choice as ambiguous only when
-                  the year and cardinal readings differ.
-                justification: |
-                  "In 1999" and "about 1500 people" are decided by the words around the number, and
-                  the closed cue lists make the decision predictable. Where no cue exists the
-                  default must be documented and counted, and a number whose two readings are the
-                  same (2000) is never a guess.
-                tests:
                   - NumericExpressionRecognizer_Year_CueTable_DecidesYearOrCardinal
                   - NumericExpressionRecognizer_Year_NoCue_UsesDefaultAndIsCountedAmbiguous
 
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Currency
+              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-CurrencyAndUnits
                 title: >-
                   The NumericExpressionRecognizer class shall read an amount with a dollar, euro,
                   pound or yen symbol (glued or as the adjacent token before the number) with major
                   and minor units, singular only for exactly one, with cents only for exactly two
-                  fraction digits and no magnitude and never for yen; shall read a magnitude word or
-                  a K, M or B letter after a symbol amount per token; shall read a suffix currency
-                  code or symbol as the unit of a plain number without cents; and shall leave a
-                  prefix currency code and an amount with invalid grouping unchanged.
+                  fraction digits and no magnitude and never for yen, shall read a magnitude word or
+                  a K, M or B letter after a symbol amount per token, shall read a suffix currency
+                  code or symbol as the unit of a plain number without cents, shall leave a prefix
+                  currency code and an amount with invalid grouping unchanged, shall read a percent
+                  sign only when a number precedes it, shall read a unit of its closed
+                  case-sensitive table glued to or one space after a plain number as the unit's
+                  words (singular for exactly one), flagging a unit that may carry an abbreviation
+                  period, and shall leave an excluded or unknown unit unchanged.
                 justification: |
                   "$5.50" is "five dollars and fifty cents" while "5.50 EUR" is read per token as a
                   decimal; reading a suffix code with cents would need the unit and the amount in
-                  one span across a space, which a chunk cut could split. The prefix code is
-                  deferred for the same reason.
+                  one span across a space, which a chunk cut could split, and the prefix code is
+                  deferred for the same reason. "50%" and "5 kg" are spoken with their words, but
+                  "5 m", "5 g" and "5 in" are too ambiguous to read and a unit in the wrong case
+                  ("Kg") is not the unit. The period flag lets the normalizer apply the abbreviation
+                  period rules to "ft.".
                 tests:
                   - NumericExpressionRecognizer_Currency_SymbolsCentsAndSingular
-                  - NumericExpressionRecognizer_Currency_MagnitudeWordAndLetterSuffix_Decompose
-                  - NumericExpressionRecognizer_Currency_SuffixCodeAndSymbol_ArePerToken
-                  - NumericExpressionRecognizer_Currency_PrefixCode_IsLeftAlone
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-PercentAndUnits
-                title: >-
-                  The NumericExpressionRecognizer class shall read a percent sign joined to a number
-                  as the word percent only when a number precedes it, shall read a unit of its
-                  closed case-sensitive table glued to or one space after a plain number as the
-                  unit's words (singular for exactly one), shall flag a unit that may carry an
-                  abbreviation period, and shall leave an excluded or unknown unit unchanged.
-                justification: |
-                  "50%" and "5 kg" are spoken with their words, but "5 m", "5 g" and "5 in" are too
-                  ambiguous to read, and a unit read in the wrong case ("Kg") is not the unit. The
-                  period flag lets the normalizer apply the abbreviation period rules to "ft.".
-                tests:
-                  - NumericExpressionRecognizer_Percent_FollowsANumberOnly
                   - NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod
-                  - NumericExpressionRecognizer_Units_ExcludedAmbiguousForms_AreLeftAlone
 
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Times
+              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-TimesAndDates
                 title: >-
                   The NumericExpressionRecognizer class shall read h:mm for an hour from 0 to 23 and
-                  two-digit minutes from 00 to 59 as a clock time, shall read a glued meridiem or a
-                  lower-case am or pm token joined after an hour from 1 to 12 as the letters A M or
-                  P M in a span of their own (a glued meridiem is split inside its token into the
-                  span of the hour or time words and the adjacent span of the letters), and shall
-                  leave an invalid time (a seconds field, an hour above 23, minutes
-                  above 59, a meridiem on a 24-hour time) unchanged without counting it.
+                  two-digit minutes from 00 to 59 as a clock time, with a glued or separate
+                  lower-case am or pm meridiem after an hour from 1 to 12 as the letters A M or P M
+                  in a span of their own, shall leave an invalid time (a seconds field, an hour above
+                  23, minutes above 59, a meridiem on a 24-hour time) unchanged without counting it,
+                  shall read a numeric date of three groups (month first, day first only where the
+                  first part is above 12, or year first), reporting it as ambiguous when the month
+                  and the day could be exchanged, shall read a day next to a month name as an ordinal
+                  and a year in a date context as a year, shall match month names in Title Case only,
+                  shall give no date reading to a number after the period of a full month name or May
+                  (the period ends the sentence), and shall leave a group combination that is not a
+                  date unchanged.
                 justification: |
-                  A time is easily confused with a ratio or a score; only the valid h:mm form is
-                  read, and the meridiem is read per token so that the existing initialism rule
-                  spells "p.m." the same way as "pm".
+                  A time is easily confused with a ratio or a score, so only the valid h:mm form is
+                  read, and the meridiem is read per token so that the initialism rule spells "p.m."
+                  the same way as "pm". "12/25/2024" is a date and "13/13/2024" is not, while
+                  "3/4/2024" is a guess that the count must report. Reading the day and the year per
+                  token keeps the month name and the comma untouched and every span free of
+                  whitespace. The abbreviation lexicon consumes the period of "Jan." but has no row
+                  for a full month name or May, so "May. 5 people" keeps its sentence end and the
+                  date context must not reach across it.
                 tests:
                   - NumericExpressionRecognizer_Times_ValidAndInvalidShapes
-                  - NumericExpressionRecognizer_Meridiem_GluedSeparateAndDotted
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Dates
-                title: >-
-                  The NumericExpressionRecognizer class shall read a numeric date of three groups
-                  (month first, day first only where the first part is above 12, or year first) with
-                  a four-digit year (or a two-digit year for a slash date), shall report it as
-                  ambiguous when the month and the day could be exchanged, shall read a day of one
-                  or two digits next to a month name as an ordinal and a year in a date context as
-                  a year, shall treat only a month-abbreviation period and no retained sentence
-                  boundary as part of a date context (so the period after a full month name or May
-                  ends the sentence and gives the next number no date reading), shall match month
-                  names in Title Case only, and shall leave a group combination that is not a date
-                  unchanged.
-                justification: |
-                  "12/25/2024" is a date and "13/13/2024" is not; "3/4/2024" is a guess that the
-                  count must report. Reading the day and the year per token keeps the month name and
-                  the comma untouched and every span free of whitespace. The abbreviation lexicon
-                  consumes the period of "Jan." and suppresses the break after it but has no row for
-                  a full month name or May, so "May. 5 people" keeps its sentence end and the date
-                  context must not reach across it.
-                tests:
                   - NumericExpressionRecognizer_NumericDates_OrderAndValidation
                   - NumericExpressionRecognizer_MonthNameDates_DecomposePerToken
+                  - NumericExpressionRecognizer_OrdinalDay_NextToMonth_IsDateTime
                   - NumericExpressionRecognizer_MonthContext_RequiresTitleCase
-                  - NumericExpressionRecognizer_MonthContext_StopsAtSentenceBoundaries
 
               - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-DigitGroups
                 title: >-
@@ -172,64 +135,35 @@ sections:
                   - NumericExpressionRecognizer_VulgarFractionsAndMixedNumbers
                   - NumericExpressionRecognizer_EnDashRange_RequiresBothEndpointsRead
 
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-SpanShapes
+              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Limits
                 title: >-
                   The NumericExpressionRecognizer class shall produce spans of one token, of a
                   currency symbol token with its adjacent number token, or of an apostrophe token
                   with its adjacent decade token only, with no whitespace in any span, a comma or
                   colon only between two ASCII digits, a spoken text of letters, spaces and the
-                  apostrophe of o'clock without a digit, the follow-up tokens of a construct (a
+                  apostrophe of o'clock without a digit, and the follow-up tokens of a construct (a
                   unit, a percent sign, a magnitude word, a meridiem) as spans of their own in
-                  source order, and at most two spans per match.
+                  source order; shall leave a numeric-looking token of more than 128 characters as
+                  written without scanning it, cap the digit groups of a number at eight, read at
+                  most 15 digits as a cardinal, 16 to 64 digits digit by digit and at most 32
+                  fraction digits, and flag each number that hits a limit or a non-en-US shape as a
+                  numeric fallback; shall validate token ranges without overflow, throwing
+                  ArgumentException for an empty or out-of-text token; and shall report no
+                  expression and no fallback for a token that contains letters mixed into digits
+                  (3D, 101A, 1e5, 0x1F, 1_000, Q3), a digit that is not an ASCII digit, a compound
+                  with a digit, a Roman numeral or any other deferred shape.
                 justification: |
-                  These shapes are what make every numeric annotation survive the Speech library's
-                  chunking: no span can contain a place where a chunk is cut. Generated token
-                  sequences check every produced span against the shapes instead of trusting a list
-                  of examples.
+                  The documented span shapes are what make every numeric annotation survive the
+                  Speech library's chunking: no span can contain a place where a chunk is cut, and
+                  generated token sequences check every produced span against the shapes instead of
+                  trusting a list of examples. Digit runs of any length occur in real text, and
+                  reading or scanning them without a bound would make the work grow with the token;
+                  the caps make the work per token constant, the fallback flag makes the loss
+                  visible, and range validation protects against token arrays that do not describe
+                  the text. A reading the library cannot make safely ("3-D", "COVID-19", a Roman
+                  numeral) must not be guessed or counted as a failure.
                 tests:
                   - NumericExpressionRecognizer_Spans_AreOnlyTheDocumentedShapes_OverGeneratedTokens
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Limits
-                title: >-
-                  The NumericExpressionRecognizer class shall leave a numeric-looking token of more
-                  than 128 characters as written without scanning it, shall cap the digit groups of a
-                  number at eight, shall read at most 15 digits as a cardinal, 16 to 64 digits digit
-                  by digit and at most 32 fraction digits, shall flag each number that hits a limit
-                  or a non-en-US shape as a numeric fallback, and shall validate token ranges
-                  without overflow, throwing ArgumentException for an empty or out-of-text token.
-                justification: |
-                  Digit runs of any length occur in real text, and reading or scanning them without
-                  a bound would make the work grow with the token. The caps make the work per token
-                  constant, the fallback flag makes the loss visible, and range validation protects
-                  against token arrays that do not describe the text.
-                tests:
                   - NumericExpressionRecognizer_Caps_LeaveOversizedTokensAsWrittenAndFlagFallback
                   - NumericExpressionRecognizer_HostileTokenRanges_AreRejectedWithoutOverflow
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-NonNumericUntouched
-                title: >-
-                  The NumericExpressionRecognizer class shall report no expression and no fallback
-                  for a token that contains letters mixed into digits (3D, 101A, 1e5, 0x1F, 1_000,
-                  Q3), a digit that is not an ASCII digit, a compound with a digit, a Roman numeral
-                  or any other deferred shape.
-                justification: |
-                  A reading the library cannot make safely must not be guessed or counted as a
-                  failure: "3-D", "COVID-19" and Roman numerals are not numbers this increment
-                  reads, and the deferral is asserted so that a later increment changes it knowingly.
-                tests:
                   - NumericExpressionRecognizer_DeferredAndNonNumericShapes_AreIdentityWithoutFallback
-
-              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-Concurrency
-                title: >-
-                  The NumericExpressionRecognizer class shall keep no mutable state and shall expose
-                  its month and weekday vocabularies only as read-only views, so that concurrent
-                  recognition of the same tokens gives identical results and no caller can change
-                  a table.
-                justification: |
-                  One shared static recognizer serves every request on thread-pool threads, so state
-                  kept between calls would make results depend on timing; a vocabulary array handed
-                  out by a property could be changed by any caller and would change every later
-                  recognition.
-                tests:
-                  - NumericExpressionRecognizer_ConcurrentCalls_ReturnIdenticalResults
-                  - NumericExpressionRecognizer_VocabularyViews_AreReadOnly

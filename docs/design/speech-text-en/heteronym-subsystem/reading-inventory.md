@@ -32,10 +32,9 @@ lower-case ASCII letters. The unit keeps:
   keyed by the folded FNV-1a hash of the form, plus the length of the shortest and of the longest form.
 
 The inventory is a revision: `Version` is the integer revision of the tables, a constant of the code (`CurrentVersion`)
-that a test pins together with the counts of the embedded tables (revision 2: 395 readings, 501 distinct forms, 350 of
-them with more than one candidate), so a change of the data cannot pass without a deliberate decision about the
-revision. **Version policy:** a model records the revision it was trained for and is accepted only by an inventory of
-the same or a higher revision, because a model binds its weights to reading ids through salts and never to table
+that a test checks against the embedded tables, so a change of the data cannot pass without a deliberate decision about
+the revision. **Version policy:** a model records the revision it was trained for and is accepted only by an inventory
+of the same or a higher revision, because a model binds its weights to reading ids through salts and never to table
 positions; the classifier enforces it (see *HeteronymClassifier Design*).
 
 The tables are the repository's `data/text-en/readings.tsv` and `forms.tsv`, embedded by link (the data folder is the
@@ -73,16 +72,16 @@ and reading occurs once.
   **RoleSalt**, **FormCount** and **ReadingCount** (internal): the index-based accessors of the classifier, the
   override validation and the tests; the candidates are returned as a span over the shared array, in table order
 - **Parse(readings, forms, version)** (internal): the factory behind `Default` that parses two `TextReader`s with the
-  limits above; tests use it to feed hand-built tables. It reads each line through a bounded buffer one character at a
-  time, so an endless line is stopped at the limit
+  limits above; tests use it to feed hand-built tables. It reads each line through a bounded buffer, so an endless
+  line is stopped at the limit
 - **ReadingIdSyntax.IsValid(id)** and **ReadingIdSyntax.RoleOf(id)** (internal): the grammar and the role
 
 **Error Handling**: a malformed table throws `InvalidDataException` whose message names the table, the one-based line
 and a fixed reason (`readings.tsv line 3: duplicate reading id.`) and never the offending data, so a defect of the data
-cannot leak content through an exception. The embedded tables are checked by the same parser, so a defective embedded
-table is a defective build: the failure is deterministic and is neither retried nor turned into a degraded inventory.
-The public lookups throw only `ArgumentNullException` for a null argument and never fail for any other text. A
-missing embedded table throws `InvalidDataException` as well.
+cannot leak content through an exception. The embedded tables are checked by the same parser, so a defective or missing
+embedded table is a defective build: the failure is deterministic and is neither retried nor turned into a degraded
+inventory. The public lookups throw only `ArgumentNullException` for a null argument and never fail for any other
+text.
 
 **Dependencies**: the framework and the hash functions of the feature extractor (`FeatureHashing`) for the salts and
 the folded hash. No other unit and no OTS item.

@@ -23,350 +23,198 @@ sections:
         requirements:
           - id: SpeechTextEn-Analysis-AnalyzerContract
             title: >-
-              The AnalysisSubsystem shall provide an analyzer that implements the Speech
-              library's text-analysis contract, gives every request a result that does not depend
-              on earlier requests, serves concurrent requests, honors cancellation at any point
-              (never returning a result or reporting diagnostics for a canceled request), and also
+              The AnalysisSubsystem shall provide an analyzer that implements the Speech library's
+              text-analysis contract, gives every request a result that does not depend on earlier
+              requests, serves concurrent requests (including the first ones that race on a fresh
+              analyzer) and lets a later request succeed after an earlier one failed because the
+              part-of-speech tagger could not be created, honors cancellation at any point (never
+              returning a result or reporting diagnostics for a canceled request), supplies as a
+              non-null list the offset of the first word of every sentence after the first (sentences
+              determined by the tagger package's tokenizer and, when normalization is selected,
+              reconciled with the readings of abbreviations, with offsets that index the exact
+              analyzed text), analyzes a text containing audio-tag placeholders exactly as it would
+              analyze the text with each placeholder replaced by a space, emits only the annotation
+              families its options select while still supplying sentence breaks and tokens, and also
               offers a richer, local-only analysis result.
             justification: |
-              The Speech library calls one analyzer instance for every request on thread-pool
-              threads and expects it to stop when the operation is canceled; the richer result
-              lets a model package and tests see every token without going through the
-              language-neutral annotations. Independence from earlier requests is the observable
-              side of the library's rule that an analyzer must not retain the request text; how the
-              analyzer and the tagging package keep no text (and the documented limitation of the
-              dependency's per-thread working buffer) is recorded in the system design.
+              The Speech library calls one analyzer instance for every request on thread-pool threads
+              and expects it to stop when the operation is canceled; the richer result lets a model
+              package and tests see every token without going through the language-neutral
+              annotations. Independence from earlier requests is the observable side of the
+              library's rule that an analyzer must not retain the request text; how the analyzer and
+              the tagging package keep no text is recorded in the system design. A non-null list is
+              what makes the analyzer's opinion authoritative to the Speech library even when it
+              finds no break, and offsets into the exact input are what the library re-bases onto its
+              segments. A same-length replacement keeps every offset valid for the original text, and
+              analyzing across the replaced position carries context over an inline audio tag. The
+              tagger inflates about 1.3 MB of embedded data on first use, so a host that does not
+              want tags should not need it, and a failed creation (for example a transient
+              out-of-memory condition) must not disable analysis for the rest of the process; how the
+              tagger is obtained is a design strategy recorded in the analysis subsystem design.
             children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Cancellation
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ArgumentValidation
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ConcurrencyAndRequestIndependence
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Contract
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-EmptyText
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-Cancellation
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-ArgumentValidation
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-PartOfSpeechAnnotations
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-SentenceBreaks
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Placeholders
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-Resilience
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-TaggedSplit
             tests:
               - AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing
-              - AnalysisSubsystem_Analyze_CancellationDuringLastSentence_ThrowsOperationCanceledExceptionAndReportsNothing
               - AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult
+              - AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds
+              - AnalysisSubsystem_Analyze_MultiSentenceText_ReturnsAuthoritativeBreaks
+              - AnalysisSubsystem_Analyze_PlaceholderBetweenWords_IsNeverCoveredAndContextIsCarried
+              - AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks
 
           - id: SpeechTextEn-Analysis-PartOfSpeechAnnotations
             title: >-
               The AnalysisSubsystem shall annotate each word token of the analyzed text with its
-              Universal Dependencies part of speech on the word's exact source span, shall name
-              and read back that annotation through a documented vocabulary, and shall let the
-              options switch it off independently of the normalization annotations.
+              Universal Dependencies part of speech on the word's exact source span, shall name and
+              read back that annotation through a documented vocabulary, and shall let the options
+              switch it off independently of the normalization annotations.
             justification: |
               This decomposes the system part-of-speech requirement: the analyzer produces the
               annotation, the options select it (together with the normalization annotations by
               default), and the vocabulary gives a backend a typed way to read it.
             children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-WordAnnotations
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-WellFormedAnnotations
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-OptionsSelection
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Defaults
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Initialization
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-SelectionValidation
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-PartOfSpeechAnnotations
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-AnnotationSelection
               - SpeechTextEn-Analysis-TextEnAnnotations-KindNames
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadPartOfSpeech
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadArgumentValidation
+              - SpeechTextEn-Analysis-TextEnAnnotations-Readers
             tests:
               - AnalysisSubsystem_Analyze_Sentence_AnnotationsReadBackThroughTypedReader
               - AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks
 
           - id: SpeechTextEn-Analysis-NormalizationAnnotations
             title: >-
-              The AnalysisSubsystem shall run the normalization on the tokens of the analyzed
-              text when the options select it, whether or not part-of-speech annotation is
-              selected, shall emit each
-              normalization as an annotation of the normalization kind (or, for a letter sequence,
-              the spell-out kind) on its span, merged in
-              text order with the part-of-speech annotations (the part of speech first at an equal
-              start), shall return sentence breaks reconciled with the abbreviation readings, shall
-              name and read back the annotation through the documented vocabulary, and shall offer
-              the normalizations and clitic roles in the detailed result.
+              The AnalysisSubsystem shall run the normalization on the tokens of the analyzed text
+              when the options select it, whether or not part-of-speech annotation is selected, shall
+              emit each normalization as an annotation of the normalization kind (or, for a sequence
+              of capital letters, the spell-out kind with the same span and value) on its span,
+              merged in text order with the part-of-speech annotations (the part of speech first at
+              an equal start), shall return sentence breaks reconciled with the abbreviation
+              readings, shall name and read back both kinds through the documented vocabulary as one
+              replacement family, and shall offer the normalizations (with a spelled flag) and the
+              clitic roles in the detailed result.
             justification: |
               The normalization subsystem describes how spans are spoken and edits the sentence
-              breaks; this subsystem puts the result in the language-neutral form the Speech
-              library carries to a backend, keeps the annotations in the order the library
-              expects, and, since the sentence breaks are the analyzer's single opinion, hands
-              over the reconciled list. The richer result gives a model package and tests the
-              data that has no place in the annotations. A host that selects only normalization
-              gets normalizations alone, without part-of-speech annotations or tags.
+              breaks; this subsystem puts the result in the language-neutral form the Speech library
+              carries to a backend, keeps the annotations in the order the library expects, and,
+              since the sentence breaks are the analyzer's single opinion, hands over the reconciled
+              list. The analyzer chooses the annotation kind from the shape the normalizer decided,
+              and the vocabulary lets a backend read the two replacement kinds with one call and
+              learn whether the value is letters to speak by name. The richer result gives a model
+              package and tests the data that has no place in the annotations. A host that selects
+              only normalization gets normalizations alone, without part-of-speech annotations or
+              tags.
             children:
               - SpeechTextEn-Analysis-EnglishTextAnalyzer-NormalizationAnnotations
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReconciledBreaks
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedNormalization
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-NormalizationSelection
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadNormalized
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-SentenceBreaks
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-AnnotationSelection
+              - SpeechTextEn-Analysis-TextEnAnnotations-Readers
             tests:
               - AnalysisSubsystem_Analyze_NormalizedText_AnnotationsReadBackAndBreaksAreReconciled
-              - EnglishTextAnalyzer_Analyze_AbbreviationToken_EmitsPartOfSpeechThenNormalization
-              - EnglishTextAnalyzer_Analyze_NormalizationOnly_EmitsOnlyNormalizationsAndUntaggedTokens
-              - EnglishTextAnalyzer_Analyze_NormalizationNotSelected_KeepsTokenizerBreaksAndEmitsNoNormalization
-              - EnglishTextAnalyzer_AnalyzeDetailed_NormalizedText_ListsNormalizationsAndCliticRoles
+              - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
 
-          - id: SpeechTextEn-Analysis-SelectedAnnotationsAndRecovery
+          - id: SpeechTextEn-Analysis-OverrideAnnotations
             title: >-
-              The AnalysisSubsystem shall emit only the annotation families its options select
-              (and still supply sentence breaks and tokens when part-of-speech annotation is not
-              selected or the text has no word), shall give concurrent requests, including the
-              first ones that race on a fresh analyzer, the same results as sequential requests,
-              and shall let a later request succeed after an earlier request failed because the
-              part-of-speech tagger could not be created.
+              The AnalysisSubsystem shall supply the pronunciation dictionary as an immutable,
+              thread-safe value that is built from entries or from a tab-separated file, whose
+              entries (word, case flag, action and payload) and whole size are validated and bounded,
+              whose errors name a position and a reason but never content, and whose file format is
+              simple enough to maintain by hand, and shall, when its options carry a non-empty
+              dictionary and select normalization, resolve the dictionary against the tokens of the
+              analyzed text and annotate each matching word on its exact span (a normalization
+              annotation with the spoken words, a spell-out annotation with the letters, a
+              pronunciation annotation with the scheme and phonemes, and no annotation for a word
+              spoken as written), keeping the part-of-speech annotation of the word, never changing
+              the analyzed text or the sentence breaks, reading the annotations back through typed
+              readers, and rejecting at construction a non-empty dictionary without normalization.
             justification: |
-              The tagger inflates about 1.3 MB of embedded data on first use, so a host that does
-              not want tags, or never speaks, should not need it, a failed creation (for example a
-              transient out-of-memory condition) must not disable analysis for the rest of the
-              process, and concurrent first requests must all be served correctly. What the host
-              can observe is the selected output, the agreement of concurrent and sequential
-              results and the recovery after a failure. How the tagger is obtained (lazily, once
-              and shared per process, never for an analyzer that has nothing to tag) is a design
-              strategy recorded in the analysis subsystem design.
+              This decomposes the system override and dictionary requirements into the subsystem's
+              behavior: the dictionary validates and bounds what a host supplies, the analyzer asks
+              it which tokens match, the normalization pass applies the result, and the annotations
+              carry it to a backend in the form the Speech library delivers; the typed readers let a
+              backend use the result without parsing strings. An override changes how a word is
+              spoken, not where a sentence ends, so the sentence breaks are untouched.
             children:
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-ConcurrentUseAndRecovery
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-UntaggedSplit
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Overrides
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Settings
+              - SpeechTextEn-Analysis-TextEnAnnotations-Readers
+              - SpeechTextEn-Analysis-PronunciationOverrides-Matching
+              - SpeechTextEn-Analysis-PronunciationOverrides-Contract
+              - SpeechTextEn-Analysis-PronunciationOverrides-EntryValidation
+              - SpeechTextEn-Analysis-PronunciationOverrides-TsvLoading
+              - SpeechTextEn-Analysis-PronunciationOverrides-Immutability
             tests:
-              - AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations
-              - AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult
-              - AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds
+              - AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders
 
-          - id: SpeechTextEn-Analysis-SentenceBoundaries
+          - id: SpeechTextEn-Analysis-ReadingAnnotations
             title: >-
-              The AnalysisSubsystem shall supply, as a non-null list, the offset of the first word
-              of every sentence after the first, with sentences determined by the tagger package's
-              tokenizer (and, when normalization is selected, reconciled with the readings of
-              abbreviations) and offsets that index the exact analyzed text.
+              The AnalysisSubsystem shall, when its options select the reading family (as they do by
+              default) and a heteronym model is available, annotate each whole word token that is a
+              form of the reading inventory with an annotation of the reading kind (the reading id)
+              and one of the reading-confidence kind (the confidence with three decimals and an
+              invariant period), both on exactly the span of the token and after the part-of-speech
+              annotation of the word, shall never emit them for a token that carries or lies inside a
+              replacement, a spell-out or a pronunciation or that has any other override, shall
+              decide each reading in the context of the sentence of the word, shall flag a reading
+              below a configurable threshold in the detailed result without withholding it, shall
+              name and read back both annotations through the documented vocabulary, shall emit the
+              readings of the embedded model by default, none when it is given no model or the family
+              is not selected, and continue without readings when the model is damaged or
+              incompatible, and shall let a reading entry of the pronunciation dictionary fix the
+              reading of a word, emitting the id with a confidence of 1.000 without any model and
+              without letting the classifier overrule it, validated against the reading inventory
+              when the dictionary is built.
             justification: |
-              A non-null list is what makes the analyzer's opinion authoritative to the Speech
-              library even when it finds no break, and offsets into the exact input are what the
-              library re-bases onto its segments.
+              This decomposes the system reading requirement: the analyzer asks the classifier, the
+              options select the family and the threshold, and the vocabulary gives a backend typed
+              readers. The annotations sit on the word because they say how it is spoken, so a token
+              that another rule has already decided has no reading. A host that does nothing gets
+              the readings of the model that ships in the package, and a model that cannot be used
+              must degrade the analysis to what it was without it. A classifier is right most of the
+              time, not always; the host that knows the reading of a name must be able to say so with
+              the dictionary it already uses, and the entry must be checked when it is written
+              because a reading id that no word can have would otherwise be silently ignored.
             children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-SentenceBreaks
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-SourceOffsets
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-TagReporting
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingAnnotations
+              - SpeechTextEn-Analysis-EnglishTextAnalyzer-DetailedAnalysis
+              - SpeechTextEn-Analysis-PartOfSpeechAdapter-TaggedSplit
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-AnnotationSelection
+              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Settings
+              - SpeechTextEn-Analysis-TextEnAnnotations-KindNames
+              - SpeechTextEn-Analysis-TextEnAnnotations-Readers
+              - SpeechTextEn-Analysis-PronunciationOverrides-EntryValidation
+              - SpeechTextEn-Analysis-PronunciationOverrides-Matching
+              - SpeechTextEn-Normalization-TokenDirectives
             tests:
-              - AnalysisSubsystem_Analyze_MultiSentenceText_ReturnsAuthoritativeBreaks
-
-          - id: SpeechTextEn-Analysis-PlaceholderNeutrality
-            title: >-
-              The AnalysisSubsystem shall analyze a text containing audio-tag placeholders exactly
-              as it would analyze the same text with each placeholder replaced by a space, so that
-              no annotation covers a placeholder and the words around it keep their context.
-            justification: |
-              A same-length replacement keeps every offset valid for the original text, and
-              analyzing across the replaced position is what carries context over an inline audio
-              tag.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Placeholders
-            tests:
-              - AnalysisSubsystem_Analyze_PlaceholderBetweenWords_IsNeverCoveredAndContextIsCarried
+              - AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech
+              - AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts
 
           - id: SpeechTextEn-Analysis-DiagnosticsAggregation
             title: >-
               The AnalysisSubsystem shall report one event of counts per completed analysis to the
               optional diagnostics sink, counting sentences, tokens, annotations, unknown words,
-              normalizations, ambiguous readings, numeric fallbacks, overrides applied and
-              overrides ignored, built from fixed words and numbers only (the readings assigned
-              to heteronyms are reported by their own event, see
-              SpeechTextEn-Analysis-ReadingDiagnostics),
-              shall report nothing when no sink is configured or the analysis is canceled, and
-              shall contain a failing sink.
+              normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides
+              ignored, shall report, when readings were assigned to a text, one Info-level event of
+              counts only (classified, single-candidate, set by override and below the threshold) in
+              the category TextEn.Heteronym and, once per analyzer, one Warning-level event in the
+              category TextEn.Model when the heteronym model is damaged or incompatible, shall build
+              the events from fixed words and numbers only, shall report nothing when no sink is
+              configured or the analysis is canceled, and shall contain a failing sink.
             justification: |
-              This decomposes the system diagnostics requirement into the reporter's observable
-              behavior: aggregate counts, one event, no text and no dictionary content, and failure
-              containment.
+              This decomposes the system diagnostics requirements into the reporter's observable
+              behavior: aggregate counts, no text, no dictionary content and no word or reading id,
+              so a host learns how many readings were decided and how many were doubtful and that its
+              model was refused, and a sink is an observer whose fault must never stop speech.
             children:
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-SingleCountsEvent
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-NormalizationCounts
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-OverrideCounts
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-NullSink
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-SinkFailureContained
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-RequestEvent
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymAndModelEvents
+              - SpeechTextEn-Analysis-AnalysisDiagnostics-SinkContainment
             tests:
               - AnalysisSubsystem_Analyze_Request_ReportsOneCountsOnlyDiagnostic
               - AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult
               - AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing
-
-          - id: SpeechTextEn-Analysis-OverrideAnnotations
-            title: >-
-              The AnalysisSubsystem shall, when its options carry a non-empty pronunciation
-              dictionary and select normalization, resolve the dictionary against the tokens of
-              the analyzed text and annotate each matching word on its exact span (a normalization
-              annotation with the spoken words, a spell-out annotation with the letters, a
-              pronunciation annotation with the scheme and phonemes, and no annotation for a word
-              spoken as written), keeping the part-of-speech annotation of the word, shall never
-              change the analyzed text or the sentence breaks, shall read the annotations back
-              through typed readers, shall reject at construction a non-empty dictionary without
-              normalization, and shall give an override a source kind of its own in the detailed
-              result.
-            justification: |
-              This decomposes the system override requirements into the subsystem's behavior: the
-              analyzer asks the dictionary which tokens match, the normalization pass applies the
-              result, and the annotations carry it to a backend in the form the Speech library
-              delivers; the typed readers let a backend use the result without parsing strings. An
-              override changes how a word is spoken, not where a sentence ends, so the sentence
-              breaks are untouched.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-Overrides
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-OverridesRequireNormalization
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-Overrides
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadPronunciation
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
-              - SpeechTextEn-Analysis-PronunciationOverrides-Directives
-              - SpeechTextEn-Analysis-PronunciationOverrides-WholeWordMatching
-              - SpeechTextEn-Analysis-PronunciationOverrides-CaseRules
-              - SpeechTextEn-Analysis-PronunciationOverrides-Cancellation
-            tests:
-              - AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders
-              - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
-              - EnglishTextAnalyzer_Analyze_OverridesDoNotChangeSentenceBreaks
-              - EnglishTextAnalyzer_Analyze_OverridesOnAbbreviations_DoNotChangeSentenceBreaks
-
-          - id: SpeechTextEn-Analysis-OverrideDictionary
-            title: >-
-              The AnalysisSubsystem shall supply the pronunciation dictionary as an immutable,
-              thread-safe value that is built from entries or from a tab-separated file, whose
-              entries (word, case flag, action and payload) and whole size are validated and
-              bounded, whose errors name a position and a reason but never content, and whose
-              file format is simple enough to maintain by hand.
-            justification: |
-              This decomposes the system dictionary requirement into the units that carry it:
-              the validation of an entry, the grammar of the payloads, the duplicate rule, the
-              limits, the file format and its validation, immutability and the argument checks of
-              the lookup.
-            children:
-              - SpeechTextEn-Analysis-PronunciationOverrides-EntryValidation
-              - SpeechTextEn-Analysis-PronunciationOverrides-PayloadGrammar
-              - SpeechTextEn-Analysis-PronunciationOverrides-DuplicateKeys
-              - SpeechTextEn-Analysis-PronunciationOverrides-Limits
-              - SpeechTextEn-Analysis-PronunciationOverrides-TsvLoading
-              - SpeechTextEn-Analysis-PronunciationOverrides-TsvValidation
-              - SpeechTextEn-Analysis-PronunciationOverrides-Immutability
-              - SpeechTextEn-Analysis-PronunciationOverrides-ArgumentValidation
-            tests:
-              - PronunciationOverrides_FromTsv_SampleDictionary_ParsesEntries
-              - PronunciationOverrides_FromTsv_EquivalentToCreate
-
-          - id: SpeechTextEn-Analysis-SpelledInitialismAnnotations
-            title: >-
-              The AnalysisSubsystem shall annotate each replacement that is a sequence of capital
-              letters with a spell-out annotation instead of a normalization annotation, with the
-              same span and the same value, shall list it in the detailed result with a spelled
-              flag, shall produce no spell-out annotation when normalization is not selected, and
-              shall name and read back the annotation through the documented vocabulary together
-              with the normalization annotation as one replacement family.
-            justification: |
-              This decomposes the system spelled-initialism requirement: the analyzer chooses the
-              annotation kind from the shape the normalizer decided, and the vocabulary lets a
-              backend read the two replacement kinds with one call and learn whether the value is
-              letters to speak by name.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-SpelledInitialisms
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadSpellOut
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReplacement
-            tests:
-              - AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint
-              - EnglishTextAnalyzer_Analyze_Initialisms_EmitSpellInsteadOfNorm
-              - EnglishTextAnalyzer_AnalyzeDetailed_ListsOverrideNormalizationKind
-
-          - id: SpeechTextEn-Analysis-ReadingAnnotations
-            title: >-
-              The AnalysisSubsystem shall, when its options select the reading family (as they do
-              by default) and a heteronym model is available, annotate each whole word token that
-              is a form of the reading inventory with an annotation of the reading kind (the
-              reading id) and one of the reading-confidence kind (the confidence with three
-              decimals and an invariant period), both on exactly the span of the token and after
-              the part-of-speech annotation of the word, shall never emit them for a token that
-              carries or lies inside a replacement, a spell-out or a pronunciation or that has any
-              other override, shall decide each reading in the context of the sentence of the
-              word, shall flag a reading below a configurable threshold in the detailed result
-              without withholding it, shall name and read back both annotations through the
-              documented vocabulary.
-            justification: |
-              This decomposes the system reading requirement: the analyzer asks the classifier,
-              the options select the family and the threshold, and the vocabulary gives a backend
-              typed readers. The annotations sit on the word because they say how it is spoken, so
-              a token that another rule has already decided has no reading.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingAnnotations
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSingleCandidate
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingTaggingRule
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingCancellation
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingDetailedTokens
-              - SpeechTextEn-Analysis-PartOfSpeechAdapter-SentenceDescription
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-ReadingSelection
-              - SpeechTextEn-Analysis-EnglishTextAnalyzerOptions-LowConfidenceThreshold
-              - SpeechTextEn-Analysis-TextEnAnnotations-KindNames
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReading
-              - SpeechTextEn-Analysis-TextEnAnnotations-ReadReadingConfidence
-            tests:
-              - AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech
-
-          - id: SpeechTextEn-Analysis-ReadingModelAvailability
-            title: >-
-              The AnalysisSubsystem shall emit the readings of the embedded model by default for
-              every request that contains a word of the inventory, shall emit no reading when it
-              is given no model or the reading family is not selected, shall give concurrent
-              requests the same readings as sequential requests, and shall continue without
-              readings when the model is damaged or incompatible.
-            justification: |
-              A host that does nothing gets the readings of the model that ships in the package;
-              a host that selects no readings, or an analyzer built without any model source,
-              gets none; every request that needs the model gets the same readings, and a model
-              that cannot be used must degrade the analysis to what it was without it. When the
-              model is opened and that it is loaded once are design choices recorded in the
-              analysis and heteronym subsystem designs.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingNoModelNoReadings
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingModelUse
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingUnusableModel
-            tests:
-              - EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings
-              - EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings
-              - EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem
-
-          - id: SpeechTextEn-Analysis-ReadingOverrides
-            title: >-
-              The AnalysisSubsystem shall let a reading entry of the pronunciation dictionary fix
-              the reading of a word, emitting the id with a confidence of 1.000 on the word's span
-              without any model and without letting the classifier overrule it, shall validate
-              such an entry against the reading inventory when the dictionary is built, shall
-              resolve it to a directive that speaks the word as written, and shall let any other
-              override of a heteronym word suppress the classifier for that word.
-            justification: |
-              A classifier is right most of the time, not always; the host that knows the reading
-              of a name must be able to say so with the dictionary it already uses, and the entry
-              must be checked when it is written because a reading id that no word can have would
-              otherwise be silently ignored.
-            children:
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingOverride
-              - SpeechTextEn-Analysis-EnglishTextAnalyzer-ReadingSkipRules
-              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingAction
-              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingStrictValidation
-              - SpeechTextEn-Analysis-PronunciationOverrides-ReadingDirective
-              - SpeechTextEn-Normalization-TokenDirectives
-            tests:
-              - AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts
-
-          - id: SpeechTextEn-Analysis-ReadingDiagnostics
-            title: >-
-              The AnalysisSubsystem shall report, when readings were assigned to a text, one
-              Info-level event of counts only (classified, single-candidate, set by override and
-              below the threshold) in the category TextEn.Heteronym, and, once per analyzer, one
-              Warning-level event in the category TextEn.Model when the heteronym model is damaged
-              or incompatible, shall build both from fixed words and numbers only and shall
-              contain a failing sink.
-            justification: |
-              This decomposes the system reading-diagnostics requirement: a host learns how many
-              readings were decided and how many were doubtful, and that its model was refused,
-              without any word or reading id reaching a log, and a sink is an observer whose fault
-              must never stop speech.
-            children:
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymEvent
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymNoTextContent
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-ModelWarningOncePerAnalyzer
-              - SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymSinkFailureContained
-            tests:
-              - EnglishTextAnalyzer_Analyze_Diagnostics_HeteronymEventIsCountsOnlyAndAtMostOnce
-              - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel

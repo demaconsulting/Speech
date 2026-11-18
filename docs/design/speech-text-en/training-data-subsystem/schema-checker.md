@@ -30,15 +30,14 @@ the `ReadingCount` of every reading. The rules it applies are the following.
 - **Provenance identifiers**: what a row needs is decided by its `source`, never by its identifier. A row of a
   `synthetic*` source has an entry in the synthetic provenance table and a row of a `harvest-*` source (including the
   `-llm` variants) has an entry in the harvest provenance table; the only row without a provenance table is a row of the
-  `independent-holdout` source in `holdout-independent.tsv`. An entry may not be repeated and may not match no row of
-  the kind its table describes (an entry for a row with an unknown source is left to the unknown-source finding, which
-  also takes that row out of the coverage).
+  `independent-holdout` source in `holdout-independent.tsv`. An entry may not be repeated and must match a row of the
+  kind its table describes (an entry for a row with an unknown source is left to the unknown-source finding).
 - **Source consistency** (per row, reported at the row): the `independent-holdout` source is allowed only in
   `holdout-independent.tsv` and every row of that file has that source; an `independent-holdout` identifier starts with
   `hind-`; a synthetic identifier starts with `syn`; and a harvested identifier starts with neither `syn` nor `hind-`.
-  Rows with an unknown source are not judged here. The rule closes the way around the exemption: a synthetic row renamed
-  `hind-x` is a finding for its identifier and for its missing synthetic provenance entry, and a row moved to or from
-  the independent holdout file is a finding for its source.
+  Rows with an unknown source are not judged here. A synthetic row renamed `hind-x` is a finding for its identifier and
+  for its missing synthetic provenance entry, and a row moved to or from the independent holdout file is a finding for
+  its source.
 - **Reading counts**: the committed `gaps-v4.tsv` must equal the computed counts cell by cell: a row that is stale, a
   repeated or unknown reading, and a reading without a row are findings.
 
@@ -46,10 +45,9 @@ the `ReadingCount` of every reading. The rules it applies are the following.
 
 - **SchemaChecker(data, report)**: stores the arguments; a null argument throws `ArgumentNullException`.
 - **Run()**: runs the rules above in that order, records the findings with the file and line, and adds information lines
-  (not findings): the number of extension decisions, readings, lemmas, mapped identifiers and forms; the rows by split
-  and kind; and the readings with rows in each split, including those with fewer than five independent holdout rows. It
-  returns the `ReadingCounts`. A rule that depends on a table that did not load simply sees no rows, because the load
-  already reported the cause.
+  (not findings): the counts of decisions, readings, lemmas, mapped identifiers and forms, the rows by split and kind,
+  and the readings with rows in each split. It returns the `ReadingCounts`. A rule that depends on a table that did
+  not load simply sees no rows, because the load already reported the cause.
 - **ReadingCounts.Build(data)**: the counts from the loaded rows; **WriteTable(writer)** writes a header and one line
   per reading (the command prints it for the counts option).
 

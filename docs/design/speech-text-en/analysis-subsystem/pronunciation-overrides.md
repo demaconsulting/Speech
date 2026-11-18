@@ -136,10 +136,6 @@ payload, line or entry count, so a dictionary of names cannot leak through an ex
 instance; all fields are read-only; a built dictionary is safe to share across analyzers, requests and threads
 without locks. The accumulator is local to one build call.
 
-**Complexity**: building is `O(n log n)` for `n` entries; `Resolve` is `O(tokens × log(entries) × min(token
-length, key length))`, bounded by `MaxEntries` and `MaxWordLength`; there is no regular expression, no hashing,
-no culture API and no per-token string.
-
 **Dependencies**: the NormalizationSubsystem's internal `NormalizationToken`, `TokenDirective` and
 `TokenDirectiveKind` values (the directive hand-over), `OverrideSyntax`, the HeteronymSubsystem's `ReadingInventory`
 and `ReadingIdSyntax` (the validation of a `Reading` entry), and the framework. No OTS item

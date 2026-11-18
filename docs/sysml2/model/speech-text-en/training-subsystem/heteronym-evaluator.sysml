@@ -4,6 +4,8 @@ package SpeechTextEn {
              * counts as wrong), compares it with the direct classifier path for parity, reports three
              * baselines and strata by source, reading and confidence, computes the paired
              * document-clustered bootstrap interval in integer arithmetic, and decides the quality gate.
+             * Also evaluates caller-supplied rows with caller-supplied clustering (the external sets) and
+             * reports a clustered interval of the accuracy itself for them.
              * Also holds the SetEvaluation, GroupTally, BootstrapInterval, ClusterStats, ParityCounts,
              * SeedResult and GateVerdict result records. */
 

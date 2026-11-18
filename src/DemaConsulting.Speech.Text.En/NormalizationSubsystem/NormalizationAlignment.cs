@@ -1,4 +1,3 @@
-using System.Text;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
@@ -266,15 +265,6 @@ internal static class SpelledGrammar
         return true;
     }
 }
-
-/// <summary>
-///     One piece of the full partition of a text into changed spans and untouched gaps.
-/// </summary>
-/// <param name="Start">The UTF-16 offset of the piece.</param>
-/// <param name="Length">The piece's length in UTF-16 code units.</param>
-/// <param name="Spoken">The spoken text of a changed span, or the source characters of an untouched gap.</param>
-/// <param name="Kind">The kind of a changed span, or <see langword="null"/> for an untouched gap.</param>
-internal readonly record struct AlignedSegment(int Start, int Length, string Spoken, NormalizationKind? Kind);
 
 /// <summary>
 ///     Collects the decisions of one normalization pass and enforces the alignment contract on
@@ -683,52 +673,6 @@ internal sealed class AlignedText
 
     /// <summary>Gets the number of numeric expressions left as written or read digit by digit because of a documented limit or an unsupported numeric shape.</summary>
     internal int FallbackCount { get; }
-
-    /// <summary>
-    ///     Enumerates the full partition of the text: every changed span and every untouched gap
-    ///     between them, in order, contiguous and covering the whole text.
-    /// </summary>
-    /// <returns>The segments; empty for an empty text.</returns>
-    internal IEnumerable<AlignedSegment> Segments()
-    {
-        var position = 0;
-        foreach (var span in Spans)
-        {
-            // The untouched text before this span, if any.
-            if (span.Start > position)
-            {
-                yield return new AlignedSegment(position, span.Start - position, Source.Substring(position, span.Start - position), null);
-            }
-
-            yield return new AlignedSegment(span.Start, span.Length, span.Spoken, span.Kind);
-            position = span.End;
-        }
-
-        // The untouched tail.
-        if (position < Source.Length)
-        {
-            yield return new AlignedSegment(position, Source.Length - position, Source[position..], null);
-        }
-    }
-
-    /// <summary>
-    ///     Applies every span: the text a backend would speak.
-    /// </summary>
-    /// <returns>The source with each span replaced by its spoken text.</returns>
-    internal string ApplySpokenForms()
-    {
-        var builder = new StringBuilder(Source.Length + 16);
-        var position = 0;
-        foreach (var span in Spans)
-        {
-            builder.Append(Source, position, span.Start - position);
-            builder.Append(span.Spoken);
-            position = span.End;
-        }
-
-        builder.Append(Source, position, Source.Length - position);
-        return builder.ToString();
-    }
 
     /// <summary>
     ///     Combines the tokenizer's sentence breaks with this normalization's edits: every

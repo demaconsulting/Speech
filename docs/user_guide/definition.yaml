@@ -12,6 +12,7 @@ input-files:
   - docs/user_guide/recognizing-speech.md
   - docs/user_guide/audio-tags.md
   - docs/user_guide/synthesizing-speech.md
+  - docs/user_guide/text-analysis.md
   - docs/user_guide/hot-instance.md
   - docs/user_guide/minimal-application.md
   - docs/user_guide/demo-application.md

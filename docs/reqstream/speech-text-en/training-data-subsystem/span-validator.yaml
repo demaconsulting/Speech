@@ -14,50 +14,28 @@ sections:
         sections:
           - title: SpanValidator Requirements
             requirements:
-              - id: SpeechTextEn-TrainingData-SpanValidator-WholeWord
+              - id: SpeechTextEn-TrainingData-SpanValidator-ValidSpan
                 title: >-
                   The SpanValidator class shall accept a span only when it is a non-empty range inside
-                  its sentence and the character before it and the character after it, where they
-                  exist, are neither a letter nor a number, and shall otherwise return an error
-                  message.
+                  its sentence, its text lowercased with the invariant culture is one of the forms
+                  listed for the row's reading, and the character before it and the character after it,
+                  where they exist, are neither a letter nor a number, shall interpret offsets as UTF-16
+                  code units with an exclusive end, reject an offset inside a surrogate pair and judge
+                  the neighbors by whole Unicode scalars, and shall otherwise return an error message.
                 justification: |
-                  A training row labels one whole word. A span that stops inside a longer word, such
-                  as the "read" of "reader", labels the wrong text and would teach the classifier a
-                  wrong reading, so only whole-word spans are valid.
+                  A training row labels one whole word of a spelling that the reading can actually take.
+                  A span that stops inside a longer word, such as the "read" of "reader", or whose text
+                  belongs to another reading labels the wrong text and would teach the classifier a wrong
+                  reading. The consumers of the data index .NET strings, which count UTF-16 code units,
+                  so an offset into the middle of a surrogate pair would split one character.
                 tests:
                   - SpanValidator_Validate_ExactWord_ReturnsNull
+                  - SpanValidator_Validate_CapitalizedWord_MatchesListedFormCaseInsensitively
+                  - SpanValidator_Validate_UnlistedForm_ReturnsError
                   - SpanValidator_Validate_EdgesAndPunctuation_AreWholeWords
                   - SpanValidator_Validate_LetterOrNumberBefore_ReturnsPrecededError
                   - SpanValidator_Validate_LetterOrNumberAfter_ReturnsFollowedError
                   - SpanValidator_Validate_OffByOne_ReturnsError
                   - SpanValidator_Validate_OutOfRange_ReturnsError
-
-              - id: SpeechTextEn-TrainingData-SpanValidator-ListedForm
-                title: >-
-                  The SpanValidator class shall accept a span only when its text, lowercased with the
-                  invariant culture, is one of the forms listed for the row's reading.
-                justification: |
-                  The span must be a spelling that the reading can actually take. A span whose text
-                  belongs to another reading, or to none, shows that the offsets or the reading label
-                  of the row are wrong.
-                tests:
-                  - SpanValidator_Validate_CapitalizedWord_MatchesListedFormCaseInsensitively
-                  - SpanValidator_Validate_UnlistedForm_ReturnsError
-
-              - id: SpeechTextEn-TrainingData-SpanValidator-Utf16ScalarOffsets
-                title: >-
-                  The SpanValidator class shall interpret offsets as UTF-16 code units with an
-                  exclusive end, shall reject an offset that falls inside a surrogate pair, and shall
-                  judge the neighbors of a span by whole Unicode scalars, so that a neighbor outside
-                  the Basic Multilingual Plane is handled correctly.
-                justification: |
-                  The consumers of the data index .NET strings, which count UTF-16 code units. An
-                  offset into the middle of a surrogate pair would split one character, and
-                  looking at half a surrogate pair as a neighbor would misjudge a letter.
-                tests:
                   - SpanValidator_Validate_StartInsideSurrogatePair_ReturnsError
-                  - SpanValidator_Validate_EndInsideSurrogatePair_ReturnsError
-                  - SpanValidator_Validate_AstralLetterBefore_ReturnsPrecededError
-                  - SpanValidator_Validate_AstralLetterAfter_ReturnsFollowedError
-                  - SpanValidator_Validate_AstralSymbolNeighbors_AreWordBoundaries
                   - SpanValidator_Validate_LoneSurrogateNeighbor_IsNotALetter

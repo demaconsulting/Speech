@@ -138,21 +138,6 @@ internal static class NumericExpressionRecognizer
         "Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Sept", "Oct", "Nov", "Dec",
     ];
 
-    /// <summary>The weekday abbreviations, written without a period.</summary>
-    private static readonly string[] WeekdayAbbreviationTable =
-    [
-        "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat", "Sun",
-    ];
-
-    /// <summary>The cached read-only view of <see cref="MonthNameTable"/>; declared after its table so it is never created from a null array.</summary>
-    private static readonly IReadOnlyList<string> MonthNameView = Array.AsReadOnly(MonthNameTable);
-
-    /// <summary>The cached read-only view of <see cref="MonthAbbreviationTable"/>.</summary>
-    private static readonly IReadOnlyList<string> MonthAbbreviationView = Array.AsReadOnly(MonthAbbreviationTable);
-
-    /// <summary>The cached read-only view of <see cref="WeekdayAbbreviationTable"/>.</summary>
-    private static readonly IReadOnlyList<string> WeekdayAbbreviationView = Array.AsReadOnly(WeekdayAbbreviationTable);
-
     /// <summary>The words directly before a four-digit number that make it a year.</summary>
     private static readonly string[] YearCues =
     [
@@ -380,24 +365,6 @@ internal static class NumericExpressionRecognizer
         /// <returns>The match.</returns>
         internal readonly NumericMatch ToMatch() => new(_first, _second, _count, Consumed < 1 ? 1 : Consumed, Ambiguous, Fallback, PeriodUnit);
     }
-
-    /// <summary>
-    ///     Gets a read-only view of the full month names, January first (used by tests and design
-    ///     checks to compare vocabularies). The same cached view is returned on every call.
-    /// </summary>
-    internal static IReadOnlyList<string> MonthNames => MonthNameView;
-
-    /// <summary>
-    ///     Gets a read-only view of the month abbreviations the recognizer treats as months,
-    ///     without a period. The same cached view is returned on every call.
-    /// </summary>
-    internal static IReadOnlyList<string> MonthAbbreviations => MonthAbbreviationView;
-
-    /// <summary>
-    ///     Gets a read-only view of the weekday abbreviations the abbreviation lexicon resolves,
-    ///     without a period. The same cached view is returned on every call.
-    /// </summary>
-    internal static IReadOnlyList<string> WeekdayAbbreviations => WeekdayAbbreviationView;
 
     /// <summary>
     ///     Tells whether a token is a month: a Title Case full name, or a Title Case abbreviation

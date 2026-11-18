@@ -4,7 +4,10 @@
 
 `AnalysisDiagnostics` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs` against a recording
-sink that can be told to throw.
+sink that can be told to throw. That the analyzer supplies the counts, reports the heteronym event at most once per
+request and the model warning once per analyzer, and only for an unusable model, is verified in the
+`EnglishTextAnalyzer`
+unit tests.
 
 #### Test Environment
 
@@ -15,86 +18,55 @@ sink that can be told to throw.
 
 #### Acceptance Criteria
 
-One request produces exactly one Info event in the `TextEn.Analysis` category with the documented message
-(`Analyzed one text: {S} sentences, {T} tokens, {A} annotations, {U} unknown words, {N} normalizations, {X} ambiguous readings, {F} numeric fallbacks, {P} overrides applied, {I} overrides ignored.`);
-the message matches a template of fixed words and nine numbers for any counts, including large ones, so no word, spoken
-replacement, annotation value or dictionary content can appear; the two override counts come last, are named, and are
-zero for counts built without them; a missing sink is accepted and reports nothing; and a sink that throws is contained,
-with the event still delivered to it. The heteronym event is one Info event in the `TextEn.Heteronym` category with the
-message
-`Assigned {n} heteronym readings: {c} classified, {s} single-candidate, {o} by override, {l} below confidence {t}.`,
-built from fixed words and invariant numbers (the threshold with two decimals and a period) under any culture, and
-reported only when at least one reading was assigned; the model warning is one Warning event in the `TextEn.Model`
-category with the fixed message `Heteronym model unusable (invalid or incompatible file); readings disabled.`; and both
-new reports tolerate a missing sink and a sink that throws.
+- **Request event**: one request produces exactly one Info event in the `TextEn.Analysis` category with the message
+  `Analyzed one text: {S} sentences, {T} tokens, {A} annotations, {U} unknown words, {N} normalizations, {X} ambiguous
+  readings, {F} numeric fallbacks, {P} overrides applied, {I} overrides ignored.`; the message matches a template of
+  fixed
+  words and nine numbers for any counts, so no word, spoken replacement, annotation value or dictionary content can
+  appear; the two override counts come last and are zero for counts built without them
+- **Heteronym and model events**: one Info event in the `TextEn.Heteronym` category with the message `Assigned {n}
+  heteronym readings: {c} classified, {s} single-candidate, {o} by override, {l} below confidence {t}.`, built from
+  fixed
+  words and invariant numbers (the threshold with two decimals and a period) under any culture and reported only when at
+  least one reading was assigned; one Warning event in the `TextEn.Model` category with the fixed message `Heteronym
+  model unusable (invalid or incompatible file); readings disabled.`
+- **Containment**: a missing sink is accepted and reports nothing, and a sink that throws is contained for all three
+  reports, the event still having been delivered to it
 
 #### Test Scenarios
 
-##### One counts event
+##### Request event
 
-**Test**: `AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts`
+**Tests**: `AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts`,
+`AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers`
 
-The event's message states all nine counts (the test uses distinct values so that a swapped count fails),
-including the ambiguous readings, the numeric fallbacks and the overrides applied and ignored.
+The first test reports the counts 3, 17, 12, 2, 4, 1, 5, 6 and 7 (distinct values, so a swapped count fails) and
+requires
+one Info event in the right category whose labeled counts are those values in the documented order, with counts built
+without the last two reporting zero overrides applied and ignored. The second formats nine counts including a large one
+and requires that the nine labeled numbers are the only digits of the message.
 
-##### Message contains only fixed words and numbers
+##### Heteronym and model events
 
-**Test**: `AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers`
+**Tests**: `AnalysisDiagnostics_ReportReadings_Counts_ReceivesOneInfoEventInHeteronymCategory`,
+`AnalysisDiagnostics_ReportReadings_NothingAssigned_ReportsNothing`,
+`AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers`,
+`AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning`
 
-The message must match the template `Analyzed one text: N sentences, N tokens, N annotations, N unknown words,
-N normalizations, N ambiguous readings, N numeric fallbacks, N overrides applied, N overrides ignored.` for any nine
-counts.
+For the counts 3, 2, 1 and 1 and the threshold 0.6 the sink receives exactly one event in the `TextEn.Heteronym`
+category with the message `Assigned 6 heteronym readings: 3 classified, 2 single-candidate, 1 by override, 1 below
+confidence 0.60.`, so the total is the sum of the first three counts. Counts of zero report nothing. Under `ar-SA` the
+message for 1234, 5, 6 and 7 with the threshold 0.5 is exactly `Assigned 1245 heteronym readings: 1234 classified, 5
+single-candidate, 6 by override, 7 below confidence 0.50.`. The model problem gives one Warning event in the
+`TextEn.Model`
+category with the fixed message, which names neither a file nor any text.
 
-##### Override counts
+##### Sink containment
 
-**Test**: `AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered`
+**Tests**: `AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained`,
+`AnalysisDiagnostics_ReportReadingsAndModelProblem_NullOrThrowingSink_AreContained`
 
-For the counts 1 to 9 the message ends with `7 numeric fallbacks, 8 overrides applied, 9 overrides ignored.`, so the
-applied count precedes the ignored count and both follow the numeric fallbacks. Counts built with only the first
-seven values report zero overrides applied and zero ignored. That the analyzer supplies the two counts, and that
-no dictionary content reaches the message, is verified in the `EnglishTextAnalyzer` unit tests.
-
-##### No sink
-
-**Test**: `AnalysisDiagnostics_ReportRequest_NullSink_DoesNothing`
-
-##### Failing sink
-
-**Test**: `AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained`
-
-##### Heteronym event
-
-**Test**: `AnalysisDiagnostics_ReportReadings_Counts_ReceivesOneInfoEventInHeteronymCategory`
-
-For the counts 3, 2, 1 and 1 and the threshold 0.6 the sink receives exactly one Info event in the `TextEn.Heteronym`
-category whose message is `Assigned 6 heteronym readings: 3 classified, 2 single-candidate, 1 by override, 1 below
-confidence 0.60.`, so the total is the sum of the first three counts and the threshold has two decimals.
-
-##### Heteronym message under another culture
-
-**Test**: `AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers`
-
-Under `ar-SA` the message for 1234, 5, 6 and 7 with the threshold 0.5 is exactly `Assigned 1245 heteronym readings:
-1234 classified, 5 single-candidate, 6 by override, 7 below confidence 0.50.` and matches a template of fixed words,
-ASCII digits and a decimal period.
-
-##### Nothing assigned
-
-**Test**: `AnalysisDiagnostics_ReportReadings_NothingAssigned_ReportsNothing`
-
-With a sink and counts of zero nothing is reported, and the total of such counts is zero.
-
-##### Model warning
-
-**Test**: `AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning`
-
-The sink receives exactly one Warning event in the `TextEn.Model` category with the fixed message, which names neither a
-file nor any text.
-
-##### No sink or failing sink for the new reports
-
-**Test**: `AnalysisDiagnostics_ReportReadingsAndModelProblem_NullOrThrowingSink_AreContained`
-
-With no sink both reports do nothing and do not throw; with a sink that throws both reports are contained and the sink
-still received both events. That the analyzer reports the heteronym event at most once per request and the warning once
-per analyzer, and only for an unusable model, is verified in the `EnglishTextAnalyzer` unit tests.
+With a sink that throws, and with no sink, the request report completes normally and the throwing sink was still
+reached.
+With no sink the heteronym and model reports do nothing; with a sink that throws both are contained and the sink still
+received both events.

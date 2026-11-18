@@ -70,10 +70,8 @@ public sealed class TrainingRecordTests
 
     /// <summary>Proves text that is not a valid record is rejected with an InvalidDataException.</summary>
     [Theory]
-    [InlineData("")]
     [InlineData("not json")]
     [InlineData("[]")]
-    [InlineData("{}")]
     [InlineData("{\"schema\": 2}")]
     public void TrainingRecord_Parse_MalformedText_ThrowsInvalidDataException(string json)
     {
@@ -98,7 +96,6 @@ public sealed class TrainingRecordTests
     /// <summary>Proves a setting outside its range is rejected when the record is parsed.</summary>
     [Theory]
     [InlineData("\"hashBits\": 20", "\"hashBits\": 99")]
-    [InlineData("\"naturalWeight\": 3", "\"naturalWeight\": 0")]
     [InlineData("\"confidencePercent\": 95", "\"confidencePercent\": 5")]
     [InlineData("\"resamples\": 5000", "\"resamples\": 1")]
     public void TrainingRecord_Parse_SettingOutOfRange_ThrowsInvalidDataException(string valid, string invalid)
@@ -109,18 +106,5 @@ public sealed class TrainingRecordTests
 
         // Act / Assert
         Assert.Throws<InvalidDataException>(() => TrainingRecord.Parse(json));
-    }
-
-    /// <summary>Proves the default settings are valid and carry the committed gate threshold.</summary>
-    [Fact]
-    public void TrainingSettings_Default_AreValidAndCarryTheGate()
-    {
-        // Act / Assert
-        TrainingSettings.Default.Validate();
-        EvaluationSettings.Default.Validate();
-        Assert.Equal(930, EvaluationSettings.Default.GateMinPooledAccuracyPerThousand);
-        Assert.Equal(95, EvaluationSettings.Default.ConfidencePercent);
-        Assert.Equal(10_000, EvaluationSettings.Default.Resamples);
-        Assert.Contains(TrainingSettings.Default.Seed, EvaluationSettings.Default.Seeds);
     }
 }

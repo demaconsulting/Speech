@@ -23,28 +23,21 @@ needed.
 
 The exponential agrees with the framework's to a relative error of 1e-12 for every argument from -700.00 to 7.99 in
 steps of 0.01; the logarithm agrees with the framework's to 1e-12 (relative to its result, or absolute when that result
-is smaller than one) for arguments from 1e-300 to 1e300 and in a fine sweep around one; the logarithm of a subnormal
-number agrees to 1e-9; the logarithm of the exponential of a number returns the number to 1e-11; the exponential of 0 is
-1, of -1000 is 0, of 1000 is positive infinity and of not-a-number is not-a-number; the logarithm of 1 is 0, of 0 is
-negative infinity, of -1 and of not-a-number is not-a-number and of positive infinity is positive infinity.
+is smaller than one) for arguments from 1e-300 to 1e300, in a fine sweep around one and for a subnormal number; the
+special values are defined: the exponential of 0 is 1, of -1000 is 0, of 1000 is positive infinity and of
+not-a-number is not-a-number; the logarithm of 1 is 0, of 0 is negative infinity, of -1 and of not-a-number is
+not-a-number and of positive infinity is positive infinity.
 
 #### Test Scenarios
 
-##### Exponential accuracy
+##### Accuracy
 
 **Tests**: `DeterministicMath_Exp_SweepOfArguments_MatchesFrameworkWithinTolerance`,
-`DeterministicMath_Log_OfExp_ReturnsTheArgument`
+`DeterministicMath_Log_SweepOfArguments_MatchesFrameworkWithinTolerance`
 
 A sweep of 70,800 arguments from far below any real score difference up to modest positive values is compared with the
-framework's exponential. The logarithm of the exponential of seven numbers between -5.5 and 20 returns each number.
-
-##### Logarithm accuracy
-
-**Tests**: `DeterministicMath_Log_SweepOfArguments_MatchesFrameworkWithinTolerance`,
-`DeterministicMath_Log_SubnormalArgument_MatchesFramework`
-
-The logarithms of numbers over 600 orders of magnitude, and of numbers just below and above one, are compared with the
-framework's. The logarithm of a subnormal number is compared with the framework's.
+framework's exponential. The logarithms of numbers over 600 orders of magnitude, of numbers just below and above one
+and of a subnormal number are compared with the framework's logarithm.
 
 ##### Special values
 

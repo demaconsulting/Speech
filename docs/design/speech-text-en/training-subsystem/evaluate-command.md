@@ -16,19 +16,16 @@ between runs.
 default; `train` exists for the parity check of the training rows), `--gate`, `--seeds`, `--write`, `--check`,
 `--record-dir <dir>` and `--help`. The exit codes are 0 (done, or the gate passed), 1 (the gate failed, or the
 evaluation record is stale) and 2 (a usage, input, I/O or data error). With `--gate` and `--check` (or `--write`)
-together the exit code is the more severe of the two results, so 0 needs a passing gate and a current record.
-`--write` and `--check` cannot be combined; an unknown
-option or set name, a missing value, and a model file that does not exist are usage or input errors.
+together the exit code is the more severe of the two results, so 0 needs a passing gate and a current record. `--write`
+and `--check` cannot be combined; an unknown option or set name, a missing value, and a model file that does not exist
+are usage or input errors.
 
 **Locations.** The data folder is found as for `train`. The model under test is `--model`, or else `heteronyms.bin` in
-`--model-dir`, or else the committed location `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin` of the
-repository two levels above the data folder. The training record is the `training.json` in the model directory or at
-the committed location `tools/DemaConsulting.Speech.Text.En.Trainer/training.json`; when it exists, its training and
-evaluation settings are used (the settings the model was trained with and the gate that was committed with it), and
-otherwise the defaults. The evaluation record folder is `--record-dir` or else `docs/evaluation/text-en` of the
-repository. These are the places where the model, the training record and the evaluation record are placed by the
-trainer, and all three are committed (the model is embedded in the package); `evaluate --check` verifies the evaluation
-record in the build.
+`--model-dir`, or else the committed location `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin`. The
+training record is the `training.json` in the model directory or at the committed location
+`tools/DemaConsulting.Speech.Text.En.Trainer/training.json`; when it exists, its training and evaluation settings are
+used (the settings the model was trained with and the gate that was committed with it), and otherwise the defaults. The
+evaluation record folder is `--record-dir` or else `docs/evaluation/text-en` of the repository.
 
 **What it does.**
 
@@ -54,12 +51,12 @@ record in the build.
 **Error Handling**: `IOException`, `UnauthorizedAccessException`, `InvalidDataException` (data, settings, record and
 model errors, and a harvested row that has no source document in `harvest-provenance.tsv`, reported before any gate
 verdict is printed), `ArgumentException` and `NotSupportedException` are caught by `Run` and reported on the error
-writer as
-`evaluate: error: <message>` with exit code 2; a failed gate and a stale record are results (exit code 1), not errors.
-Nothing else is caught.
+writer as `evaluate: error: <message>` with exit code 2; a failed gate and a stale record are results (exit code 1), not
+errors. Nothing else is caught.
 
 **Dependencies**: `HeteronymEvaluator` and `EvaluationRecord`, `TrainingCorpus`, `ModelSelection` (the retraining of the
 study), `TrainingRecord` and its settings, `TrainCommand` (the file-name constants), `CheckDataCommand` (the data folder
 discovery, from the TrainingDataSubsystem) and `SparsePerceptronModelWriter` (the uncompressed image used for the hash).
 
-**Callers**: `Program.cs` (the dispatch of the `evaluate` command) and the unit tests.
+**Callers**: `Program.cs` (the dispatch of the `evaluate` command), `EvaluateExternalCommand` (which reuses the
+resolution of the model file) and the unit tests.

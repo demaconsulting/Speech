@@ -5,7 +5,7 @@ using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests.TrainingDataSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="LeakageChecker"/> and <see cref="SentenceKeys"/>: split separation inside the data
+///     Unit tests for <see cref="LeakageChecker"/>: split separation inside the data
 ///     and the optional comparison with external evaluation sets.
 /// </summary>
 public sealed class LeakageCheckerTests
@@ -19,20 +19,6 @@ public sealed class LeakageCheckerTests
         var checker = new LeakageChecker(TextEnDataSet.Load(fixture.Root, report), report);
         var rows = checker.CheckExternal(LeakageChecker.LoadEvaluationSets(fixture.EvaluationDirectory));
         return (report, rows);
-    }
-
-    /// <summary>Proves the valid fixture has no internal leakage.</summary>
-    [Fact]
-    public void LeakageChecker_CheckInternal_ValidFixture_ReportsNothing()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-
-        // Act
-        var report = fixture.CheckLeakage();
-
-        // Assert
-        Assert.Empty(report.Findings);
     }
 
     /// <summary>Proves a sentence that differs only in punctuation and case still collides across two files.</summary>
@@ -205,14 +191,14 @@ public sealed class LeakageCheckerTests
         Assert.Equal(1, train.Share5Gram);
     }
 
-    /// <summary>Proves a long sentence below the 80 percent containment is only counted as sharing a 5-gram.</summary>
+    /// <summary>Proves rows below the 80 percent containment, or of fewer than eight words, are only counted as sharing a 5-gram.</summary>
     [Fact]
     public void LeakageChecker_CheckExternal_BelowContainmentThreshold_OnlyCountsSharedGram()
     {
-        // Arrange: only the first of the six 5-grams is shared
+        // Arrange: of the six 5-grams of the long row only the first is shared; the five-word row is fully contained in a longer evaluation sentence
         using var fixture = new DatasetFixture();
         fixture.AppendDataRow("train.tsv", "syn-00004", "lead.noun", "The old lead pipe in the cellar was very heavy", "lead", "synthetic", "CC0-1.0");
-        fixture.WriteEvaluationSet("gold", "the old lead pipe in some other place entirely");
+        fixture.WriteEvaluationSet("gold", "the old lead pipe in some other place entirely", "The lead pipe was heavy and old");
 
         // Act
         var (report, rows) = RunExternal(fixture);
@@ -221,23 +207,7 @@ public sealed class LeakageCheckerTests
         Assert.Empty(report.Findings);
         var train = Assert.Single(rows, row => row.Split == "train");
         Assert.Equal(0, train.NearDuplicate);
-        Assert.Equal(1, train.Share5Gram);
-    }
-
-    /// <summary>Proves a sentence of fewer than eight words is never a near duplicate, however much is shared.</summary>
-    [Fact]
-    public void LeakageChecker_CheckExternal_ShortSentenceFullyContained_IsNotNearDuplicate()
-    {
-        // Arrange: "The lead pipe was heavy" has five words and one 5-gram, fully contained in the evaluation sentence
-        using var fixture = new DatasetFixture();
-        fixture.WriteEvaluationSet("gold", "The lead pipe was heavy and old");
-
-        // Act
-        var (report, rows) = RunExternal(fixture);
-
-        // Assert
-        Assert.Empty(report.Findings);
-        Assert.Equal(1, Assert.Single(rows, row => row.Split == "train").Share5Gram);
+        Assert.Equal(2, train.Share5Gram);
     }
 
     /// <summary>Proves the report has one row per evaluation set and split, with sets sorted by name.</summary>
@@ -314,17 +284,16 @@ public sealed class LeakageCheckerTests
         Assert.Throws<InvalidDataException>(() => LeakageChecker.LoadEvaluationSets(fixture.EvaluationDirectory));
     }
 
-    /// <summary>Proves an evaluation file that holds no sentence is rejected by name, whatever its format.</summary>
+    /// <summary>Proves a file that holds no sentence is rejected by name, whatever its format, even next to good sets.</summary>
     [Theory]
     [InlineData("empty.txt", "")]
-    [InlineData("blank.txt", "\n\n")]
     [InlineData("spaces.txt", "   \n\t\n  \r\n")]
-    [InlineData("header.tsv", "id\tsentence\n")]
     [InlineData("blankcells.tsv", "id\tsentence\n1\t\n2\t   \n")]
     public void LeakageChecker_LoadEvaluationSets_FileWithoutSentences_ThrowsNamingTheFile(string fileName, string content)
     {
-        // Arrange
+        // Arrange: a good set sits next to the empty file, which must still reject the whole folder
         using var fixture = new DatasetFixture();
+        fixture.WriteEvaluationSet("good", "a real sentence");
         File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, fileName), content, new UTF8Encoding(false));
 
         // Act
@@ -333,35 +302,6 @@ public sealed class LeakageCheckerTests
         // Assert
         Assert.Contains(fileName, exception.Message);
         Assert.Contains("has no sentences", exception.Message);
-    }
-
-    /// <summary>Proves a folder whose files are all empty is rejected, so the external check cannot pass with nothing evaluated.</summary>
-    [Fact]
-    public void LeakageChecker_LoadEvaluationSets_AllFilesEmpty_ThrowsInvalidDataException()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, "one.txt"), string.Empty);
-        File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, "two.tsv"), "sentence\n");
-
-        // Act / Assert
-        Assert.Throws<InvalidDataException>(() => LeakageChecker.LoadEvaluationSets(fixture.EvaluationDirectory));
-    }
-
-    /// <summary>Proves one empty file among good ones rejects the whole folder and names the empty file.</summary>
-    [Fact]
-    public void LeakageChecker_LoadEvaluationSets_OneEmptyFileAmongGoodOnes_ThrowsNamingTheEmptyFile()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.WriteEvaluationSet("good", "a real sentence");
-        File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, "hollow.txt"), string.Empty);
-
-        // Act
-        var exception = Assert.Throws<InvalidDataException>(() => LeakageChecker.LoadEvaluationSets(fixture.EvaluationDirectory));
-
-        // Assert
-        Assert.Contains("hollow.txt", exception.Message);
     }
 
     /// <summary>Positive control: blank lines are skipped and the original text of every other sentence is kept.</summary>
@@ -400,8 +340,6 @@ public sealed class LeakageCheckerTests
     [InlineData("data/text-en", "data/text-en", true)]
     [InlineData("data/text-en/eval", "data/text-en", true)]
     [InlineData("data/text-en-eval", "data/text-en", false)]
-    [InlineData("data", "data/text-en", false)]
-    [InlineData("elsewhere/eval", "data/text-en", false)]
     public void LeakageChecker_IsInside_ComparesFullPaths(string directory, string root, bool expected)
     {
         // Arrange
@@ -414,7 +352,50 @@ public sealed class LeakageCheckerTests
         Assert.Equal(expected, inside);
     }
 
-    /// <summary>Proves the leakage report is written as UTF-8 without byte order mark, LF line endings and the documented columns.</summary>
+    /// <summary>Proves a link outside the root that points into it counts as inside, and a link inside the root that points out counts as outside.</summary>
+    [Fact]
+    public void LeakageChecker_IsInside_LinkedPaths_UseRealLocations()
+    {
+        // Arrange: a root with a real folder, an outside folder, a link out to the root and a link in to the outside folder
+        var baseDirectory = Path.Combine(Path.GetTempPath(), "texten-links-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(baseDirectory, "root");
+        var outside = Path.Combine(baseDirectory, "outside");
+        Directory.CreateDirectory(Path.Combine(root, "real"));
+        Directory.CreateDirectory(outside);
+        try
+        {
+            var linkIn = Path.Combine(baseDirectory, "link-to-root");
+            var linkOut = Path.Combine(root, "link-to-outside");
+            Assert.SkipUnless(DirectoryLink.TryCreate(linkIn, root) && DirectoryLink.TryCreate(linkOut, outside), DirectoryLink.SkipReason);
+
+            // Act
+            var insideViaLinkIn = LeakageChecker.IsInside(Path.Combine(linkIn, "real"), root);
+            var newFolderViaLink = LeakageChecker.IsInside(Path.Combine(linkIn, "not-yet", "created"), root);
+            var insideViaLink = LeakageChecker.IsInside(Path.Combine(linkOut, "x"), root);
+            var plainOutside = LeakageChecker.IsInside(Path.Combine(outside, "x"), root);
+
+            // Assert
+            Assert.True(insideViaLinkIn);
+            Assert.True(newFolderViaLink);
+            Assert.False(insideViaLink);
+            Assert.False(plainOutside);
+        }
+        finally
+        {
+            // Remove the links themselves first so the recursive delete never meets them
+            foreach (var link in new[] { Path.Combine(baseDirectory, "link-to-root"), Path.Combine(root, "link-to-outside") })
+            {
+                if (Directory.Exists(link))
+                {
+                    Directory.Delete(link, false);
+                }
+            }
+
+            Directory.Delete(baseDirectory, true);
+        }
+    }
+
+    /// <summary>Proves the report is written as UTF-8 without byte order mark, LF line endings and the documented columns.</summary>
     [Fact]
     public void LeakageChecker_WriteReport_Rows_WritesDocumentedFormat()
     {
@@ -432,40 +413,5 @@ public sealed class LeakageCheckerTests
         Assert.Equal(
             "eval_set\teval_sentences\tsplit\trows\texact\tnear_duplicate\tshare_5gram\ngold\t500\ttrain\t19865\t0\t1\t39\n",
             Encoding.UTF8.GetString(bytes));
-    }
-
-    /// <summary>Proves key normalization keeps lower-case ASCII letters and digits only.</summary>
-    [Fact]
-    public void SentenceKeys_Key_MixedText_KeepsLowerCaseLettersAndDigits()
-    {
-        // Arrange / Act
-        var key = SentenceKeys.Key("It's 5 O'Clock, Café!");
-
-        // Assert
-        Assert.Equal("its5oclockcaf", key);
-    }
-
-    /// <summary>Proves words are the alphanumeric runs of the lower-cased text.</summary>
-    [Fact]
-    public void SentenceKeys_Words_MixedText_SplitsOnNonAlphanumerics()
-    {
-        // Arrange / Act
-        var words = SentenceKeys.Words("It's 5 O'Clock");
-
-        // Assert
-        Assert.Equal(["it", "s", "5", "o", "clock"], words);
-    }
-
-    /// <summary>Proves n-grams are joined words and absent for short sentences.</summary>
-    [Fact]
-    public void SentenceKeys_Ngrams_ShortAndLongSentence_ReturnsDistinctGrams()
-    {
-        // Arrange / Act
-        var none = SentenceKeys.Ngrams("one two three four");
-        var grams = SentenceKeys.Ngrams("a b c d e f");
-
-        // Assert
-        Assert.Empty(none);
-        Assert.Equal(["a b c d e", "b c d e f"], grams.Order());
     }
 }

@@ -18,112 +18,51 @@ sections:
                 title: >-
                   The SchemaChecker class shall report a finding for a reading in the inventory whose
                   identifier is not unique or is not a lowercase ASCII lemma-and-sense identifier whose
-                  lemma part equals the lemma column, whose part-of-speech hint is not from the
-                  closed set, whose status is neither active nor deprecated, whose description is empty
-                  or repeated, or that contains any phonetic (IPA) character.
+                  lemma part equals the lemma column, whose part-of-speech hint is not from the closed
+                  set, whose status is neither active nor deprecated, whose description is empty or
+                  repeated, or that contains any phonetic (IPA) character, and for a mapping row whose
+                  target reading does not exist, a repeated word identifier, a reading without a mapping
+                  that was not added as a new reading by an extension decision, a form of an unknown
+                  reading, a reading without any form, and an extension decision that is neither an
+                  addition nor a deferral, adds an unknown reading or defers with readings listed.
                 justification: |
-                  The reading identifiers are the labels a classifier is trained on and are owned by
-                  this repository. They must be well formed and unique, and the inventory must carry
-                  no phonetic transcription, because pronunciations come from a different source and
-                  must not be copied from a restricted one.
-                tests:
-                  - SchemaChecker_Run_ReadingIdGrammar_ReportsFinding
-                  - SchemaChecker_Run_ReadingLemmaNotIdPrefix_ReportsFinding
-                  - SchemaChecker_Run_DuplicateReadingId_ReportsFinding
-                  - SchemaChecker_Run_BadPosTokenAndStatus_ReportsFindings
-                  - SchemaChecker_Run_DuplicateDescription_ReportsFinding
-                  - SchemaChecker_Run_IpaSymbolInDescription_ReportsFinding
-
-              - id: SpeechTextEn-TrainingData-SchemaChecker-ReferentialIntegrity
-                title: >-
-                  The SchemaChecker class shall report a finding for a mapping row whose target
-                  reading does not exist, for a repeated word identifier in the mapping, for a reading
-                  that has no mapping and was not added as a new reading by an extension decision, for
-                  a form that names an unknown reading, for a reading without any form, and for an
-                  extension decision that is neither an addition nor a deferral, that adds an unknown
-                  reading or that defers with readings listed.
-                justification: |
-                  The inventory, the form table, the mapping to the evaluation corpus identifiers and
-                  the extension decisions describe one set of readings. A dangling or missing reference
+                  The reading identifiers are the labels a classifier is trained on and are owned by this
+                  repository. They must be well formed and unique, the inventory must carry no phonetic
+                  transcription, and the inventory, the form table, the mapping and the extension
+                  decisions must describe one set of readings, because a dangling or missing reference
                   makes the span check or an evaluation silently skip a reading.
                 tests:
-                  - SchemaChecker_Run_DuplicateWordId_ReportsFinding
-                  - SchemaChecker_Run_MappingToUnknownReading_ReportsFinding
-                  - SchemaChecker_Run_UnmappedReading_ReportsFinding
+                  - SchemaChecker_Run_ReadingInventoryDefects_ReportsEachFinding
+                  - SchemaChecker_Run_ReferentialDefects_ReportsEachFinding
                   - SchemaChecker_Run_ExtensionAddedReadingWithoutMapping_ReportsNothing
-                  - SchemaChecker_Run_FormOfUnknownReading_ReportsFinding
-                  - SchemaChecker_Run_ReadingWithoutForm_ReportsFinding
-                  - SchemaChecker_Run_InvalidDecision_ReportsFinding
-                  - SchemaChecker_Run_AddDecisionWithUnknownReading_ReportsFinding
-                  - SchemaChecker_Run_DeferDecisionWithReadings_ReportsFinding
+                  - SchemaChecker_Run_ExtensionDecisionDefects_ReportsEachFinding
 
               - id: SpeechTextEn-TrainingData-SchemaChecker-Rows
                 title: >-
                   The SchemaChecker class shall report a finding for a data row whose identifier is not
                   unique across the four data files, whose split column differs from its file, whose
                   reading does not exist, whose lemma differs from the reading's lemma, whose source is
-                  outside the vocabulary, or whose target span fails the strict whole-word check, and
-                  shall report no finding for a valid data set.
+                  outside the vocabulary, or whose target span fails the strict whole-word check; shall
+                  decide from the source of each row, never from its identifier, which provenance table
+                  must describe it and report a row or a provenance entry that has no counterpart or is
+                  repeated; shall report a row of the independent holdout source outside the independent
+                  holdout file, a row of that file with another source, and an identifier whose prefix
+                  does not match the family of its source; and shall report no finding for a valid data
+                  set or for the identifier families of the committed data with their matching sources.
                 justification: |
-                  Each row is one labeled example. A row with a wrong split, an unknown label, a lemma
-                  that does not belong to its reading or a span that does not point at the labeled
-                  word is a wrong example, and the thousands of rows can only be checked by machine.
+                  Each row is one labeled example, and the thousands of rows can only be checked by
+                  machine. A wrong split, an unknown label or a span that does not point at the labeled
+                  word is a wrong example. Every row must be traceable to the document it was harvested
+                  from or to how it was generated, and an identifier is free text that can be edited, so
+                  an exemption keyed on it would let a row escape provenance and template separation or
+                  pass as independent holdout data by being renamed.
                 tests:
                   - SchemaChecker_Run_ValidFixture_ReportsNoFindings
-                  - SchemaChecker_Run_DuplicateIdAcrossFiles_ReportsFinding
-                  - SchemaChecker_Run_WrongSplitColumn_ReportsFinding
-                  - SchemaChecker_Run_UnknownReading_ReportsFinding
-                  - SchemaChecker_Run_LemmaMismatch_ReportsFinding
-                  - SchemaChecker_Run_UnknownSource_ReportsFinding
-                  - SchemaChecker_Run_NonIntegerOffsets_ReportsFinding
-                  - SchemaChecker_Run_SpanOffByOne_ReportsFinding
-                  - SchemaChecker_Run_SpanInsideLongerWord_ReportsFinding
-                  - SchemaChecker_Run_SpanSplitsSurrogatePair_ReportsFinding
-                  - SchemaChecker_Run_SpanBeyondSentence_ReportsFinding
-
-              - id: SpeechTextEn-TrainingData-SchemaChecker-ProvenanceIds
-                title: >-
-                  The SchemaChecker class shall decide from the source of each row, never from its
-                  identifier, which provenance table must describe it, and shall report a finding when a
-                  row of a harvest source has no entry in the harvest provenance table, when a row of a
-                  synthetic source has no entry in the synthetic provenance table, when a provenance entry
-                  is repeated, and when a provenance entry matches no row it should describe, the only row
-                  without a provenance table being a row of the independent holdout source in the
-                  independent holdout file.
-                justification: |
-                  Every row must be traceable to the document it was harvested from or to the record
-                  of how it was generated. A row without a record, or a record without a row, means the
-                  provenance claims of the data are incomplete or stale. An identifier is a free text
-                  that can be edited, so an exemption keyed on an identifier prefix would let a
-                  synthetic or harvested row escape provenance and template separation by being renamed.
-                tests:
-                  - SchemaChecker_Run_HarvestRowWithoutProvenance_ReportsFinding
-                  - SchemaChecker_Run_SyntheticRowWithoutProvenance_ReportsFinding
-                  - SchemaChecker_Run_ProvenanceWithoutRow_ReportsFinding
-                  - SchemaChecker_Run_DuplicateProvenanceEntry_ReportsFinding
+                  - SchemaChecker_Run_RowFieldDefects_ReportsEachFinding
+                  - SchemaChecker_Run_ProvenanceDefects_ReportsEachFinding
                   - SchemaChecker_Run_SyntheticRowRenamedToHoldoutId_ReportsIdAndMissingProvenance
                   - SchemaChecker_Run_HoldoutIndependentRowWithSyntheticSource_ReportsFindings
-
-              - id: SpeechTextEn-TrainingData-SchemaChecker-SourceConsistency
-                title: >-
-                  The SchemaChecker class shall report a finding, at the row, when a row of the
-                  independent holdout source is outside the independent holdout file, when a row of the
-                  independent holdout file has another source, when an independent holdout row has an
-                  identifier that does not start with hind-, when a synthetic row has an identifier that
-                  does not start with syn, and when a harvested row has an identifier that starts with
-                  syn or hind-, and shall report no finding for the identifier families of the committed
-                  data with their matching sources.
-                justification: |
-                  The source, the identifier and the file of a row must tell the same story. If they may
-                  disagree, one edited cell is enough to move a generated row out of the checks that
-                  apply to its source or to pass it off as independent holdout data.
-                tests:
-                  - SchemaChecker_Run_SyntheticRowRenamedToHoldoutId_ReportsIdAndMissingProvenance
-                  - SchemaChecker_Run_IndependentHoldoutSourceInTrain_ReportsFinding
-                  - SchemaChecker_Run_HoldoutIndependentRowWithSyntheticSource_ReportsFindings
-                  - SchemaChecker_Run_HarvestRowWithGeneratedId_ReportsFinding
-                  - SchemaChecker_Run_SyntheticRowIdWithoutSynPrefix_ReportsFinding
-                  - SchemaChecker_Run_IndependentHoldoutRowIdWithoutHindPrefix_ReportsFinding
+                  - SchemaChecker_Run_IdentifierAndSourceMismatches_ReportsEachFinding
                   - SchemaChecker_Run_AllIdentifierFamiliesWithMatchingSources_ReportsNoFindings
 
               - id: SpeechTextEn-TrainingData-SchemaChecker-ReadingCounts
@@ -139,8 +78,4 @@ sections:
                 tests:
                   - ReadingCounts_Build_ValidFixture_CountsRowsPerReading
                   - ReadingCount_Needs_AreClampedAtZero
-                  - ReadingCounts_WriteTable_ValidFixture_WritesHeaderAndOneLinePerReading
-                  - SchemaChecker_Run_StaleGapsRow_ReportsFinding
-                  - SchemaChecker_Run_GapsRowMissing_ReportsFinding
-                  - SchemaChecker_Run_GapsRowUnknownOrDuplicate_ReportsFindings
-                  - SchemaChecker_Run_ValidFixture_AddsSummaryInfo
+                  - SchemaChecker_Run_GapTableDefects_ReportsEachFinding

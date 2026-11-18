@@ -12,12 +12,12 @@ is where both are written down.
   of each natural row per epoch), `MaxEpochs`, `TemperatureSteps` and `TemperatureDivisor` (the grid of candidate
   temperatures `k / divisor`). `TrainingSettings.Default` is the committed configuration: seed 1, 22 hash bits, scale
   64, prune threshold 2, natural weight 3, at most 12 epochs, a grid of 1,000 steps of 1/20. The prune threshold and the
-  natural-row weight were chosen on the development set only, by a grid that was written down before it was run (see
-  `RUN-LOG.md` of the trainer folder); the seed, the hash bits and the scale are fixed values of that grid
+  natural-row weight were chosen on the development set only, by a grid that was written down before it was run; the
+  seed, the hash bits and the scale are fixed values of that grid
 - `EvaluationSettings`: `Seeds` (the seeds of the multi-seed study, 1 to 5 by default, including the committed seed),
   `Resamples` (10,000), `ConfidencePercent` (95), `BootstrapSeed` (7) and the least pooled accuracy of the gate in
-  per mille (930, that is
-  93.0%). `EvaluationSettings.Default` is the quality gate's definition, committed before the first holdout evaluation
+  per mille (930, that is 93.0%). `EvaluationSettings.Default` is the quality gate's definition, committed before the
+  first holdout evaluation
 - `TrainingInputs`: what the training read: the data hash, the features hash, the tagger version, the feature-set
   version, the inventory version, the trainer version, and for the training and the development file the number of rows,
   of rows used, of rows skipped because the target is not exactly one runtime token and of rows skipped because the form

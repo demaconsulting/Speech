@@ -6,8 +6,9 @@
 # behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/AnalysisDiagnosticsTests.cs
-# and, for the heteronym events as the analyzer reports them,
-# test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerReadingTests.cs.
+# and, for the events as the analyzer reports them,
+# test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerTests.cs and
+# EnglishTextAnalyzerReadingTests.cs.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -16,141 +17,68 @@ sections:
         sections:
           - title: AnalysisDiagnostics Requirements
             requirements:
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-SingleCountsEvent
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-RequestEvent
                 title: >-
                   The AnalysisDiagnostics class shall report exactly one Info-level event per
                   completed request to its sink, in the category TextEn.Analysis, carrying the
-                  number of sentences, tokens, annotations and unknown words.
+                  numbers of sentences, tokens, annotations, unknown words, normalizations, readings
+                  chosen by default without a clear context, numeric fallbacks, overrides applied and
+                  overrides ignored (both zero without a dictionary), in that fixed order, built
+                  from fixed words and numbers only so that no word, token, annotation value or
+                  dictionary content can appear in it, and the analyzer shall supply the counts from
+                  the normalization result of the request, counting sentences as the reconciled
+                  breaks plus one when the text has any token.
                 justification: |
-                  A host can group and filter by category and wants a summary of the work done,
-                  not an event per word.
-                tests:
-                  - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NormalizationCounts
-                title: >-
-                  The AnalysisDiagnostics class shall carry in its event the number of
-                  normalizations (replacements of the normalization and the spell-out kind), the
-                  number of readings that were chosen by default without a
-                  clear context (abbreviations and numeric readings), and the number of numeric
-                  fallbacks, and the analyzer shall supply them from the normalization result
-                  of the request, counting sentences as the reconciled breaks plus one when the
-                  text has any token.
-                justification: |
-                  The three counts tell a host how much the normalization changed, how often it
-                  had to guess between readings and how often it left a number as written, without
-                  revealing any text; the sentence count has to follow the reconciled breaks, since
-                  they are the sentences the analyzer reports.
+                  A host can group and filter by category and wants a summary of the work done, not
+                  an event per word; the counts tell it how much the normalization changed, how
+                  often it had to guess and whether its dictionary does anything. The library's
+                  diagnostics contract forbids synthesized text content in any report, and a
+                  dictionary can hold names, so building the message from counts alone makes a leak
+                  impossible rather than merely unlikely.
                 tests:
                   - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
                   - AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers
                   - EnglishTextAnalyzer_Analyze_NormalizedText_ReportsNormalizationAndAmbiguityCounts
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-OverrideCounts
-                title: >-
-                  The AnalysisDiagnostics class shall carry in its event, after the other counts
-                  and in the fixed order, the number of pronunciation overrides applied to a word
-                  and the number ignored because an earlier multi-token match had already consumed
-                  the word, both zero without a dictionary, and the analyzer shall supply them from
-                  the normalization result of the request without reporting any word, key, payload,
-                  scheme or entry count of the dictionary.
-                justification: |
-                  The two counts tell a host whether its dictionary does anything and whether an
-                  entry is shadowed by a number or unit rule, which is the evidence for fixing the
-                  dictionary; the dictionary itself can hold names, so none of its content may reach
-                  a sink.
-                tests:
-                  - AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered
-                  - AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts
                   - EnglishTextAnalyzer_Analyze_Overrides_ReportCountsAndNoContent
 
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NoTextContent
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymAndModelEvents
                 title: >-
-                  The AnalysisDiagnostics class shall build its message from fixed words and
-                  numbers only, so no word, token or annotation value can appear in it.
+                  The AnalysisDiagnostics class shall report, when at least one reading was assigned
+                  to a request, exactly one Info-level event in the category TextEn.Heteronym
+                  carrying the numbers of readings assigned, classified by the model, taken from a
+                  form with a single candidate, set by a reading override and below the confidence
+                  threshold (which the message also states), and none when no reading was assigned;
+                  shall report a damaged or incompatible heteronym model as one Warning-level event
+                  with a fixed message in the category TextEn.Model, which the analyzer reports at
+                  most once per analyzer and never for a model that is merely absent; and shall build
+                  both messages from fixed words and numbers written with the invariant culture only.
                 justification: |
-                  The library's diagnostics contract forbids synthesized text content in any
-                  report; building the message from counts alone makes a leak impossible rather
-                  than merely unlikely.
-                tests:
-                  - AnalysisDiagnostics_FormatMessage_AnyCounts_ContainsOnlyFixedWordsAndNumbers
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-NullSink
-                title: >-
-                  The AnalysisDiagnostics class shall accept a missing sink and report nothing.
-                justification: |
-                  Diagnostics are optional; an analyzer without a sink must work unchanged.
-                tests:
-                  - AnalysisDiagnostics_ReportRequest_NullSink_DoesNothing
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-SinkFailureContained
-                title: >-
-                  The AnalysisDiagnostics class shall contain any exception thrown by its sink,
-                  so that reporting never interrupts the analysis it observes.
-                justification: |
-                  A diagnostics sink is an observer whose contract forbids throwing; if one throws
-                  anyway, the speech request it was observing must still complete.
-                tests:
-                  - AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymEvent
-                title: >-
-                  The AnalysisDiagnostics class shall report, when at least one reading was
-                  assigned to a request, exactly one Info-level event in the category
-                  TextEn.Heteronym carrying the numbers of readings assigned, classified by the
-                  model, taken from a form with a single candidate, set by a reading override and
-                  below the confidence threshold (which the message also states), and shall
-                  report no such event when no reading was assigned, leaving the TextEn.Analysis
-                  event unchanged.
-                justification: |
-                  A host can group and filter by category; the counts tell it how much of the
-                  assignment came from the model and how much from its own entries, and how many
-                  readings were doubtful, which is the evidence for tuning the threshold. A
-                  separate event leaves the existing analysis message, which hosts may already
-                  parse, exactly as it was.
+                  A host learns how much of the assignment came from the model and how much from its
+                  own entries, how many readings were doubtful (the evidence for tuning the
+                  threshold) and that its model was refused, without any word or reading id reaching
+                  a log: a reading id begins with the lemma of the word, and culture-specific digits
+                  would make the event differ between hosts. A separate event leaves the analysis
+                  message, which hosts may already parse, as it was; repeating the warning on every
+                  request would flood a log.
                 tests:
                   - AnalysisDiagnostics_ReportReadings_Counts_ReceivesOneInfoEventInHeteronymCategory
                   - AnalysisDiagnostics_ReportReadings_NothingAssigned_ReportsNothing
+                  - AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers
+                  - AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning
                   - EnglishTextAnalyzer_Analyze_Diagnostics_HeteronymEventIsCountsOnlyAndAtMostOnce
                   - EnglishTextAnalyzer_Analyze_LowConfidenceThreshold_CountsClassifiedReadingsBelowIt
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymNoTextContent
-                title: >-
-                  The AnalysisDiagnostics class shall build the heteronym message from fixed words
-                  and numbers written with the invariant culture only, so that no word, token,
-                  reading id or annotation value can appear in it under any culture.
-                justification: |
-                  The library's diagnostics contract forbids synthesized text content in any
-                  report; a reading id begins with the lemma of the word, so it would leak the
-                  text, and culture-specific digits would make the event differ between hosts.
-                tests:
-                  - AnalysisDiagnostics_FormatReadingMessage_AnyCulture_ContainsOnlyFixedWordsAndInvariantNumbers
-
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-ModelWarningOncePerAnalyzer
-                title: >-
-                  The AnalysisDiagnostics class shall report a damaged or incompatible heteronym
-                  model as exactly one Warning-level event with a fixed message in the category
-                  TextEn.Model to its sink, and the analyzer shall report it at most once per
-                  analyzer however many requests follow and never for a model that is merely
-                  absent.
-                justification: |
-                  An unusable model is the one condition of the reading feature that a host can
-                  act on, so it is reported; repeating the warning on every request would flood a
-                  log, and a model that cannot be used is not the normal state: the model ships in
-                  the package, so only a damaged or incompatible one reaches this report.
-                tests:
-                  - AnalysisDiagnostics_ReportModelProblem_Sink_ReceivesOneFixedWarning
                   - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
 
-              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-HeteronymSinkFailureContained
+              - id: SpeechTextEn-Analysis-AnalysisDiagnostics-SinkContainment
                 title: >-
-                  The AnalysisDiagnostics class shall accept a missing sink for the heteronym and
-                  model events and report nothing, and shall contain any exception thrown by the
-                  sink while they are reported, so that the analysis that assigned the readings
-                  still returns them.
+                  The AnalysisDiagnostics class shall accept a missing sink and report nothing, and
+                  shall contain any exception thrown by its sink while it reports the request,
+                  heteronym and model events, so that reporting never interrupts the analysis it
+                  observes.
                 justification: |
-                  A diagnostics sink is an observer whose contract forbids throwing; if one throws
-                  anyway, the speech request it was observing must still complete with its readings.
+                  Diagnostics are optional, so an analyzer without a sink must work unchanged; and a
+                  diagnostics sink is an observer whose contract forbids throwing, so if one throws
+                  anyway the speech request it was observing must still complete with its result.
                 tests:
+                  - AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained
                   - AnalysisDiagnostics_ReportReadingsAndModelProblem_NullOrThrowingSink_AreContained
-                  - EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained

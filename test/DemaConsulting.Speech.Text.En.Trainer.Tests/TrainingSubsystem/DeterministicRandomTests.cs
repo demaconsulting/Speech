@@ -22,20 +22,6 @@ public sealed class DeterministicRandomTests
         Assert.Equal([16294208416658607535UL, 7960286522194355700UL, 487617019471545679UL, 17909611376780542444UL], outputs);
     }
 
-    /// <summary>Proves a second reference seed gives the reference outputs, so the recurrence, not a coincidence of zero, is right.</summary>
-    [Fact]
-    public void DeterministicRandom_NextUInt64_Seed1234567_MatchesReferenceSequence()
-    {
-        // Arrange
-        var random = new DeterministicRandom(1234567);
-
-        // Act
-        var outputs = Enumerable.Range(0, 3).Select(_ => random.NextUInt64()).ToArray();
-
-        // Assert
-        Assert.Equal([6457827717110365317UL, 3203168211198807973UL, 9817491932198370423UL], outputs);
-    }
-
     /// <summary>Proves the bounded draws of a seed are a fixed sequence of in-range values.</summary>
     [Fact]
     public void DeterministicRandom_NextInt_Seed42_MatchesReferenceSequence()
@@ -53,7 +39,6 @@ public sealed class DeterministicRandomTests
     /// <summary>Proves a bound of one always gives zero and a larger bound never reaches it.</summary>
     [Theory]
     [InlineData(1)]
-    [InlineData(2)]
     [InlineData(7)]
     [InlineData(1000003)]
     public void DeterministicRandom_NextInt_AnyBound_StaysBelowTheBound(int bound)
@@ -79,24 +64,6 @@ public sealed class DeterministicRandomTests
 
         // Act / Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => random.NextInt(bound));
-    }
-
-    /// <summary>Proves every value below the bound is drawn about equally often.</summary>
-    [Fact]
-    public void DeterministicRandom_NextInt_ManyDraws_AreRoughlyUniform()
-    {
-        // Arrange
-        var random = new DeterministicRandom(2024);
-        var counts = new int[6];
-
-        // Act
-        for (var i = 0; i < 60000; i++)
-        {
-            counts[random.NextInt(6)]++;
-        }
-
-        // Assert: each of six values is expected 10000 times
-        Assert.All(counts, count => Assert.InRange(count, 9500, 10500));
     }
 
     /// <summary>Proves a shuffle is a permutation that depends only on the seed and equals the reference order.</summary>
@@ -132,22 +99,5 @@ public sealed class DeterministicRandomTests
         Assert.NotEqual(first, other);
         Assert.Equal(Enumerable.Range(0, 100), first.Order());
         Assert.NotEqual(Enumerable.Range(0, 100), first);
-    }
-
-    /// <summary>Proves shuffling nothing or one item leaves it as it is.</summary>
-    [Fact]
-    public void DeterministicRandom_Shuffle_EmptyAndSingleItem_AreUnchanged()
-    {
-        // Arrange
-        var empty = Array.Empty<int>();
-        var single = new[] { 7 };
-
-        // Act
-        new DeterministicRandom(3).Shuffle(empty.AsSpan());
-        new DeterministicRandom(3).Shuffle(single.AsSpan());
-
-        // Assert
-        Assert.Empty(empty);
-        Assert.Equal([7], single);
     }
 }

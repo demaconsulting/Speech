@@ -2,9 +2,8 @@
 
 **Purpose**: Keep the owner's licensing decisions true for every row and every file of the data folder: only open
 licenses, a license that suits the source, no restricted or Misaki material, no evaluation-only corpus in the folder,
-and the attribution that the licenses require. It deliberately does not recompute the license of a harvested row from
-the original corpus tables, which the repository does not have; the closed per-source policy replaces that, and the
-result of the one-off recomputation is recorded in the data folder.
+and the attribution that the licenses require. It does not recompute the license of a harvested row from the original
+corpus tables, which the repository does not have; the closed per-source policy replaces that.
 
 **Data Model**: `LicenseChecker` holds the data folder, the loaded `TextEnDataSet` and the `CheckReport`; its findings
 use the check name `license`. Its fixed rules are:

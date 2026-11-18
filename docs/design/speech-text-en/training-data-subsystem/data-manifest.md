@@ -18,17 +18,17 @@ and the two local cache folders `external/` and `work/`. Its findings use the ch
   are not integers is a finding with its line and is not an entry.
 - **Verify(root, report)**: loads the manifest and then checks it: the entries must be unique and in ordinal path order
   (a finding for each violation); each entry's path must be a relative path with forward slashes below the folder, with
-  no empty, `.` or `..` segment; the file must exist, and its SHA-256 (over the bytes), byte count and row count must
-  equal the entry's, each difference being a finding that names the file and both values; finally every file under the
-  folder that no entry lists is a finding. A missing manifest is one finding. Findings are in the order of the manifest
-  and then of the unlisted files in ordinal order, so the output is stable.
+  no empty, `.` or `..` segment; the file must exist, and its SHA-256, byte count and row count must equal the entry's,
+  each difference being a finding that names the file and both values; finally every file under the folder that no
+  entry lists is a finding. A missing manifest is one finding. Findings are in the order of the manifest and then of
+  the unlisted files in ordinal order, so the output is stable.
 - **EnumerateDataFiles(root)**: every file under the folder as a relative path with forward slashes in ordinal order,
   without the manifest and the cache folders. `LicenseChecker` and `TextEnDataSet` use it so all units see the same
   files.
 - **CountLines(bytes)**: the number of line terminators plus one for an unterminated last line.
 
-This unit only verifies; it never writes the manifest. The manifest of this release was produced once by a one-off
-tool that is not part of the repository, and the verifier is the independent check of it.
+This unit only verifies; it never writes the manifest, which is produced by a one-off tool that is not part of the
+repository.
 
 **Error Handling**: every defect of the manifest or of a listed file is a finding. Input and output exceptions while
 reading a file propagate to `CheckDataCommand` (exit code 2).

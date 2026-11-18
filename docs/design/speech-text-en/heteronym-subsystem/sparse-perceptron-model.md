@@ -41,9 +41,10 @@ bytes per row. When the Deflate flag is clear the stored bytes are the payload a
 
 *In memory*: an occupancy bitmap of `2^hashBits` bits in 64-bit words (at most 2 MiB at 24 bits), the number of weights
 stored before each word (the rank base) and the packed weights. A lookup is one bit test plus one population count over
-the bits below it, with no hashing and no allocation. The header values (hash bits, temperature, scale, versions,
-trainer version, row count and a copy of the manifest hash) are exposed as properties; the manifest hash is returned as
-a fresh copy so the instance stays immutable.
+the bits below it, with no hashing and no allocation. The header values the lookup and the callers use (hash bits,
+temperature, scale, feature-set and inventory versions, trainer version and row count) are exposed as properties. The
+data manifest digest is only an informational field of the on-disk header: the loader reads past it, the model does
+not store or expose it, and the writer records whatever digest the trainer supplies.
 
 **Loading rules** (`Load(byte[])` and `Load(Stream)`; the checks run in this order and each failure is an
 `InvalidDataException` with a fixed message that names the defect and never the data):
@@ -81,9 +82,9 @@ more than the capped, declared size. An exception of the inflater that is not al
 (`InvalidOperationException`, `ArgumentException`, `IOException`, `IndexOutOfRangeException` or
 `NotSupportedException`) is wrapped in `InvalidDataException`, so the loader has one failure type.
 
-*Allocation bounds.* Every allocation is sized by a validated header value: the bitmap and the rank base by the hash
-bits (at most 2 MiB and 1 MiB), the payload buffer by the payload length (at most 32 MiB), and the weights by the row
-count after the structure of the gaps is proven. No allocation depends on an unchecked count from the file.
+*Allocation bounds.* Every allocation is sized by a validated header value (the bitmap and the rank base by the hash
+bits, the payload buffer by the payload length, and the weights by the row count after the structure of the gaps is
+proven); no allocation depends on an unchecked count from the file.
 
 **Key Methods**:
 
@@ -96,7 +97,6 @@ count after the structure of the gaps is proven. No allocation depends on an unc
   outside the table and a weight of -32768, drops zero weights, refuses more rows than a file may hold, and writes the
   payload compressed (the smallest size) or raw with the lengths, the flag and the checksum computed. A writer refuses
   everything the loader refuses, so a model it produces always loads
-- **SparsePerceptronModelWriter.Write(output, ...)**: compiles and writes the bytes to a stream
 - **SparsePerceptronModelWriter.ToUncompressedImage(image)**: rewrites a valid file with the Deflate flag cleared and
   the checksum recomputed, every other field unchanged. The compressed and the raw form of one model give identical
   bytes, so a later staleness check can compare two models byte for byte without depending on the Deflate
@@ -115,5 +115,5 @@ text, so the current culture has no effect.
 **Dependencies**: the framework only (`DeflateStream`, `BinaryPrimitives`, `BitOperations`), and the FNV constants of
 `FeatureHashing`.
 
-**Callers**: `HeteronymClassifier` (the weights and the header values), `HeteronymModelProvider` (loading), the later
-trainer (the writer) and the tests.
+**Callers**: `HeteronymClassifier` (the weights and the header values), `HeteronymModelProvider` (loading), the trainer
+(the writer) and the tests.

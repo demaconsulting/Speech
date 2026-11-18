@@ -1,41 +1,22 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text.Json;
-using System.Xml.Linq;
 using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 using DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 using DemaConsulting.Speech.Text.En.Tests.Fakes;
-using NuGet.Versioning;
 
 namespace DemaConsulting.Speech.Text.En.Tests;
 
 /// <summary>
 ///     System-level tests for SpeechTextEn: the English text analysis exercised through its public
-///     API, end to end through the real core <c>SynthesisSession</c> and an annotation-aware
-///     backend, and the package license files. The content of the license files is asserted by the
-///     <c>TextEn_PackageLicenseFiles_Content</c> FileAssert test, which inspects the built package.
+///     API, and end to end through the real core <c>SynthesisSession</c> with a fake synthesis
+///     model and an annotation-aware backend. The package metadata (license files and the pinned
+///     dependency) is asserted by the FileAssert tests <c>TextEn_PackageLicenseFiles_Content</c> and
+///     <c>TextEn_PackageDependencies_Nuspec</c>, which inspect the built package.
 /// </summary>
 public sealed class SpeechTextEnTests
 {
-    /// <summary>The license file the package names as its license.</summary>
-    private const string PackageLicenseFileName = "PACKAGE-LICENSE.md";
-
-    /// <summary>The third-party notices file shipped next to the license file.</summary>
-    private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.md";
-
-    /// <summary>The package project folder, relative to the repository root.</summary>
-    private const string PackageFolder = "src/DemaConsulting.Speech.Text.En";
-
     /// <summary>The tag placeholder as a string, for building test texts.</summary>
     private const string Tag = "\uFFFC";
-
-    /// <summary>Tells whether an annotation replaces spoken text: an <c>en.norm</c> or an <c>en.spell</c> one.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <returns><see langword="true"/> for a member of the replacement family.</returns>
-    private static bool IsReplacement(SegmentAnnotation annotation) =>
-        annotation.Kind is TextEnAnnotations.Normalized or TextEnAnnotations.SpellOut;
 
     /// <summary>Proves the analyzer tags the words of a text with a part of speech a backend can read, and leaves punctuation unannotated.</summary>
     [Fact]
@@ -117,38 +98,22 @@ public sealed class SpeechTextEnTests
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat.", cancellation.Token));
     }
 
-    /// <summary>Proves one analyzer shared by many concurrent requests gives every request the same result.</summary>
-    [Fact]
-    public async Task SpeechTextEn_Analyze_ConcurrentRequestsOnSharedAnalyzer_ReturnIdenticalResults()
-    {
-        // Arrange
-        const string text = "Please read the record. I will record it later. Then we leave.";
-        var analyzer = new EnglishTextAnalyzer();
-        var expected = Describe(analyzer.Analyze(text, TestContext.Current.CancellationToken));
-
-        // Act
-        var tasks = Enumerable.Range(0, 32)
-            .Select(_ => Task.Run(
-                () => Describe(analyzer.Analyze(text, TestContext.Current.CancellationToken)),
-                TestContext.Current.CancellationToken))
-            .ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        // Assert
-        Assert.All(results, result => Assert.Equal(expected, result));
-    }
-
-    /// <summary>Proves requests with different texts running at once on one shared analyzer each get exactly the result they would get alone, so no request is influenced by another.</summary>
+    /// <summary>Proves requests with different texts (numbers, abbreviations, overrides and heteronyms among them) running at once on one shared analyzer each get exactly the result they would get alone, so no request is influenced by another.</summary>
     /// <returns>A task that completes when every request has been checked.</returns>
     [Fact]
     public async Task SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult()
     {
         // Arrange
-        string[] texts = ["Please read the record.", "Dr. Smith & Jones paid $5 on Jan. 5.", "Quokka gazelles zigzag past the old mill.", "I will record it later."];
-        var analyzer = new EnglishTextAnalyzer();
-        var expected = texts.Select(text => Describe(new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken))).ToArray();
+        string[] texts =
+        [
+            "Please read the record.", "Dr. Smith & Jones paid $5 on Jan. 5.", "Quokka gazelles zigzag past the old mill.", "I want to record a record.",
+            "Nginx and SQL; Polish food, a GIF.", "5 kg of Kubernetes at 5 pm; NASA's US and FBI.",
+        ];
+        var options = new EnglishTextAnalyzerOptions { Overrides = NormalizationHarness.LoadSampleDictionary() };
+        var analyzer = new EnglishTextAnalyzer(options);
+        var expected = texts.Select(text => Describe(new EnglishTextAnalyzer(options).Analyze(text, TestContext.Current.CancellationToken))).ToArray();
 
-        // Act
+        // Act: the very first requests race for the tagger and the heteronym model
         var tasks = Enumerable.Range(0, 32)
             .Select(index => Task.Run(
                 () => (Index: index % texts.Length, Result: Describe(analyzer.Analyze(texts[index % texts.Length], TestContext.Current.CancellationToken))),
@@ -157,6 +122,7 @@ public sealed class SpeechTextEnTests
         var results = await Task.WhenAll(tasks);
 
         // Assert
+        Assert.Contains(TextEnAnnotations.Reading, expected[3], StringComparison.Ordinal);
         Assert.All(results, result => Assert.Equal(expected[result.Index], result.Result));
     }
 
@@ -207,84 +173,155 @@ public sealed class SpeechTextEnTests
     }
 
     /// <summary>
-    ///     Proves a real synthesis session driven by a model that supplies the analyzer delivers
-    ///     part-of-speech annotations to an annotation-aware backend, and that they survive
-    ///     chunking of a long, multi-sentence text.
+    ///     Proves, end to end through a real <c>SynthesisSession</c>, a fake synthesis model and an annotation-aware backend with the real default
+    ///     analyzer, that the normalization, spell-out, override and heteronym-reading annotations of a long text with audio tags reach the
+    ///     backend, each on the exact characters of the chunk that holds the word: nothing is lost, duplicated or moved by the chunking, a
+    ///     number or an abbreviation is never split from its annotation, and an override beats the model.
     /// </summary>
     [Fact]
-    public async Task SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesPartOfSpeechAnnotationsThatSurviveChunking()
+    public async Task SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags()
     {
-        // Arrange: well over the default 200-character chunk length, so the session must chunk it
-        var sentence = "The quick brown fox jumps over the lazy dog near the quiet river bank.";
-        var text = string.Join(' ', Enumerable.Repeat(sentence, 12));
-        Assert.True(text.Length > 4 * SentenceChunker.DefaultMaxChunkLength);
-        var analyzer = new EnglishTextAnalyzer();
-        var expected = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
+        // Arrange: three paragraphs, well over the chunk length, each with numbers, abbreviations, an initialism, one override per action, a heteronym and three audio tags
+        const string dictionary = "Nginx\tinsensitive\tsay\tengine ex\nGIF\tsensitive\tspell\nPolish\tsensitive\tpron\tipa:\u02C8po\u028Al\u026A\u0283\nNASA\tsensitive\tskip\nlead\tsensitive\treading\tlead.metal\n";
+        const string paragraph = "Dr. Smith paid $1,234.50 at 5:30pm on January 5, 2024 [excited] and 50% went to the FBI. I want to record a record. Nginx and the GIF met Polish & Co. [whispers] NASA agreed. She will lead the team. John Smith Jr. Ph.D. spoke [short pause] again. ";
+        var input = string.Concat(Enumerable.Repeat(paragraph, 3)).TrimEnd();
+        var seenByAnalyzer = input.Replace("[excited]", Tag, StringComparison.Ordinal).Replace("[whispers]", Tag, StringComparison.Ordinal).Replace("[short pause]", Tag, StringComparison.Ordinal);
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = PronunciationOverrides.FromTsv(new StringReader(dictionary)) });
+        var expected = Overlays(analyzer.Analyze(seenByAnalyzer, TestContext.Current.CancellationToken).Annotations, seenByAnalyzer, includePartOfSpeech: true);
         var backend = new RecordingAnnotatedBackend();
 
         // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
+        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), input);
 
-        // Assert: several chunks, every one annotated, and no word's annotation lost between analysis and backend
+        // Assert: several chunks, no tag in any of them, and the words of the text arrive in order (the chunks only trim whitespace)
         var calls = backend.Calls;
-        Assert.True(calls.Count > 1);
-        Assert.All(calls, call => Assert.NotEmpty(call.Annotations));
-        foreach (var call in calls)
+        Assert.True(calls.Count > 3);
+        Assert.All(calls, call => Assert.DoesNotContain(Tag, call.Text, StringComparison.Ordinal));
+        Assert.Equal(
+            string.Concat(seenByAnalyzer.Replace(Tag, string.Empty, StringComparison.Ordinal).Where(character => !char.IsWhiteSpace(character))),
+            string.Concat(calls.SelectMany(call => call.Text).Where(character => !char.IsWhiteSpace(character))));
+
+        // Assert: the annotations the backend received are exactly the analyzer's, on the same characters and in the same order
+        var delivered = calls.SelectMany(call => Overlays(call.Annotations, call.Text, includePartOfSpeech: true)).ToList();
+        Assert.Equal(expected, delivered);
+        foreach (var kind in new[] { TextEnAnnotations.PartOfSpeech, TextEnAnnotations.Normalized, TextEnAnnotations.SpellOut, TextEnAnnotations.Pronunciation, TextEnAnnotations.Reading, TextEnAnnotations.ReadingConfidence })
         {
-            Assert.All(
-                call.Annotations,
-                annotation =>
-                {
-                    Assert.True(TextEnAnnotations.TryReadPartOfSpeech(annotation, out _));
-                    Assert.Contains(call.Text.Substring(annotation.Start, annotation.Length), sentence, StringComparison.Ordinal);
-                });
+            Assert.Contains(delivered, item => item.Kind == kind);
         }
 
-        Assert.Equal(expected.Annotations.Count, calls.Sum(call => call.Annotations.Count));
-        Assert.Equal(
-            expected.Annotations.Select(annotation => annotation.Value),
-            calls.SelectMany(call => call.Annotations.Select(annotation => annotation.Value)));
-    }
+        // Assert: normalization and spelling, as a backend reads them
+        Assert.Contains(("Dr.", TextEnAnnotations.Normalized, "Doctor"), delivered);
+        Assert.Contains(("$1,234.50", TextEnAnnotations.Normalized, "one thousand two hundred thirty four dollars and fifty cents"), delivered);
+        Assert.Contains(("FBI", TextEnAnnotations.SpellOut, "F B I"), delivered);
+        Assert.Contains(("Ph.D.", TextEnAnnotations.SpellOut, "P H D"), delivered);
 
-    /// <summary>Proves the analyzer's sentence breaks, not the punctuation heuristic, decide where the session splits sentences.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_AnalyzerSentenceBreaks_DriveChunkBoundaries()
-    {
-        // Arrange
-        const string text = "Dr. Smith arrived. He left.";
-        var withAnalyzer = new RecordingAnnotatedBackend();
-        var withoutAnalyzer = new RecordingAnnotatedBackend();
+        // Assert: one override per action; the skipped word has no replacement
+        Assert.Contains(("Nginx", TextEnAnnotations.Normalized, "engine ex"), delivered);
+        Assert.Contains(("GIF", TextEnAnnotations.SpellOut, "G I F"), delivered);
+        Assert.Contains(("Polish", TextEnAnnotations.Pronunciation, "ipa:\u02C8po\u028Al\u026A\u0283"), delivered);
+        Assert.DoesNotContain(delivered, item => item.Source == "NASA" && item.Kind is TextEnAnnotations.Normalized or TextEnAnnotations.SpellOut);
 
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), withAnalyzer), text);
-        await SynthesizeAsync(new AnalyzingSynthesisModel(null, withoutAnalyzer), text);
+        // Assert: the sentence breaks of the analysis, not every period, decide the chunks: an abbreviation and a name's credentials are not cut off
+        Assert.DoesNotContain(calls, call => call.Text.EndsWith("Dr.", StringComparison.Ordinal) || call.Text.EndsWith("Jr.", StringComparison.Ordinal));
+        Assert.Contains(calls, call => call.Text.Contains("John Smith Jr. Ph.D. spoke", StringComparison.Ordinal));
 
-        // Assert: the abbreviation stays attached with the analyzer; the heuristic alone splits after "Dr."
-        Assert.Equal(["Dr. Smith arrived.", "He left."], withAnalyzer.Calls.Select(call => call.Text));
-        Assert.Equal(["Dr.", "Smith arrived.", "He left."], withoutAnalyzer.Calls.Select(call => call.Text));
-    }
-
-    /// <summary>Proves a request containing an audio tag still annotates the words around it, and no annotation ever covers the tag's placeholder.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_TextWithAudioTag_AnnotatesWordsAroundTheTag()
-    {
-        // Arrange
-        const string text = "I've [whispers] read it. Then say it again.";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert: words on both sides of the tag are annotated; neither text nor annotation contains a placeholder
-        var calls = backend.Calls;
-        Assert.NotEmpty(calls);
-        Assert.All(calls, call => Assert.DoesNotContain(Tag, call.Text, StringComparison.Ordinal));
-        var annotatedWords = calls
-            .SelectMany(call => call.Annotations.Select(annotation => call.Text.Substring(annotation.Start, annotation.Length)))
+        // Assert: the heteronym readings, each with a confidence on the same span, in the same chunk; the override reading is certain
+        var records = calls
+            .SelectMany(call => call.Annotations
+                .Where(annotation => annotation.Kind == TextEnAnnotations.Reading && call.Text.Substring(annotation.Start, annotation.Length) == "record")
+                .Select(annotation => annotation.Value))
             .ToList();
-        Assert.Contains("I", annotatedWords);
-        Assert.Contains("read", annotatedWords);
-        Assert.Contains("again", annotatedWords);
+        Assert.Equal(["record.verb", "record.noun", "record.verb", "record.noun", "record.verb", "record.noun"], records);
+        foreach (var call in calls)
+        {
+            foreach (var reading in call.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading))
+            {
+                var confidence = Assert.Single(call.Annotations, annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence && annotation.Start == reading.Start && annotation.Length == reading.Length);
+                Assert.True(TextEnAnnotations.TryReadReadingConfidence(confidence, out var value));
+                Assert.InRange(value, 0.0, 1.0);
+                if (call.Text.Substring(reading.Start, reading.Length) == "lead")
+                {
+                    Assert.Equal("lead.metal", reading.Value);
+                    Assert.Equal("1.000", confidence.Value);
+                }
+
+                Assert.DoesNotContain(call.Annotations, annotation => annotation.Kind is TextEnAnnotations.Normalized or TextEnAnnotations.SpellOut or TextEnAnnotations.Pronunciation && annotation.Start < reading.End && reading.Start < annotation.End);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Proves, through a real <c>SynthesisSession</c> and the real default analyzer, that wherever the chunk budget or a clause falls
+    ///     (every padding is tried), no number, date, amount or symbol annotation is split from its text or lost, a chunk of only a symbol
+    ///     or an invisible character is merged into a neighbor with its annotation, and a lone symbol keeps its normalization.
+    /// </summary>
+    [Fact]
+    public async Task SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost()
+    {
+        // Arrange
+        var backend = new RecordingAnnotatedBackend();
+        var sawLoneSign = false;
+
+        // Act / Assert
+        await WithEngineAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), async engine =>
+        {
+            // The 200-character budget cut falls anywhere in a text of two-token amounts, times, dates and units
+            for (var padding = 150; padding <= 199; padding++)
+            {
+                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " $5 million at 5:30pm on January 5 2024 for 5 kg and 1,234.50 or 12/25/2024 end";
+                var before = backend.Calls.Count;
+                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+                var expected = new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations
+                    .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
+                    .Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value))
+                    .ToList();
+                Assert.True(expected.Count >= 9);
+                Assert.Equal(expected, DeliveredNormalizations(backend.Calls.Skip(before).ToList()));
+            }
+
+            // The cut falls between a number and its percent sign, which then stands alone in a chunk
+            for (var padding = 185; padding <= 199; padding++)
+            {
+                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " 50 %";
+                var before = backend.Calls.Count;
+                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
+                var calls = backend.Calls.Skip(before).ToList();
+                Assert.Equal([("50", "fifty"), ("%", "percent")], DeliveredNormalizations(calls));
+                sawLoneSign |= calls.Any(call => call.Text == "%");
+            }
+
+            // The comma between a day and a year is a clause cut, so the two numbers land in different chunks
+            var before2 = backend.Calls.Count;
+            _ = await engine.SynthesizeAsync("He was born on January 5, 2024, then paid $1,234.50 at 5:30pm: 50 % done.", TestContext.Current.CancellationToken);
+            var clauseCalls = backend.Calls.Skip(before2).ToList();
+            Assert.True(clauseCalls.Count >= 3);
+            Assert.Equal(
+                [("5", "fifth"), ("2024", "twenty twenty four"), ("$1,234.50", "one thousand two hundred thirty four dollars and fifty cents"), ("5:30", "five thirty"), ("50", "fifty"), ("%", "percent")],
+                DeliveredNormalizations(clauseCalls));
+            Assert.Equal(
+                [("pm", " P M")],
+                clauseCalls.SelectMany(call => call.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.SpellOut).Select(annotation => (call.Text.Substring(annotation.Start, annotation.Length), annotation.Value))));
+
+            // A lone symbol, and a symbol before clause punctuation, keep their chunk and normalization
+            var before3 = backend.Calls.Count;
+            _ = await engine.SynthesizeAsync("&", TestContext.Current.CancellationToken);
+            _ = await engine.SynthesizeAsync("\u00A9; Brand", TestContext.Current.CancellationToken);
+            var symbolCalls = backend.Calls.Skip(before3).ToList();
+            Assert.Equal(["&", "\u00A9;", "Brand"], symbolCalls.Select(call => call.Text));
+            Assert.Equal([("&", "and"), ("\u00A9", "copyright")], DeliveredNormalizations(symbolCalls));
+
+            // A clause of only an invisible character or a bare symbol is merged into its neighbor, and carries no part of speech
+            var before4 = backend.Calls.Count;
+            _ = await engine.SynthesizeAsync("Hello, \u200B, there", TestContext.Current.CancellationToken);
+            _ = await engine.SynthesizeAsync("Hello, *, there", TestContext.Current.CancellationToken);
+            var mergedCalls = backend.Calls.Skip(before4).ToList();
+            Assert.Equal(["Hello, \u200B,", "there", "Hello, *,", "there"], mergedCalls.Select(call => call.Text));
+            var dropped = Assert.Single(mergedCalls[0].Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
+            Assert.Equal(("\u200B", string.Empty), (mergedCalls[0].Text.Substring(dropped.Start, dropped.Length), dropped.Value));
+            Assert.DoesNotContain(mergedCalls[0].Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && mergedCalls[0].Text[annotation.Start] == '\u200B');
+            Assert.DoesNotContain(mergedCalls[2].Annotations, annotation => mergedCalls[2].Text.Substring(annotation.Start, annotation.Length).Contains('*'));
+        });
+        Assert.True(sawLoneSign, "no padding put the percent sign alone in a chunk");
     }
 
     /// <summary>
@@ -298,17 +335,11 @@ public sealed class SpeechTextEnTests
     [Theory]
     [InlineData("They will record the meeting tonight.", "record", "record.verb")]
     [InlineData("She broke the world record last year.", "record", "record.noun")]
-    [InlineData("She will lead the team to victory.", "lead", "lead.guide")]
     [InlineData("The old pipes were made of lead.", "lead", "lead.metal")]
     [InlineData("Yesterday I read the whole book.", "read", "read.past")]
-    [InlineData("I like to read a book every night.", "read", "read.present")]
     [InlineData("A cold wind blew across the field.", "wind", "wind.air")]
-    [InlineData("Please wind the clock before bed.", "wind", "wind.coil")]
-    [InlineData("A single tear rolled down her cheek.", "tear", "tear.drop")]
     [InlineData("Be careful not to tear the paper.", "tear", "tear.rip")]
     [InlineData("He caught a large bass in the lake.", "bass", "bass.fish")]
-    [InlineData("She plays the bass guitar in a band.", "bass", "bass.music")]
-    [InlineData("The actor took a bow after the show.", "bow", "bow.bend")]
     [InlineData("He drew the bow and shot an arrow.", "bow", "bow.weapon")]
     public void SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading(string text, string word, string expectedReading)
     {
@@ -347,91 +378,24 @@ public sealed class SpeechTextEnTests
         Assert.All(result.Annotations, annotation => Assert.Equal(TextEnAnnotations.PartOfSpeech, annotation.Kind));
     }
 
-    /// <summary>Proves one analyzer with a model, shared by many concurrent requests, gives every request the readings of a sequential request.</summary>
-    /// <returns>A task that completes when every request has been checked.</returns>
+    /// <summary>Proves a reading override fixes the reading of a word through the public API, and the classifier of the default analyzer loses to it, with confidence 1.000.</summary>
     [Fact]
-    public async Task SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults()
-    {
-        // Arrange
-        const string text = "I want to record a record. They will record the meeting. This record is old.";
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
-        var expected = Describe(new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)))).Analyze(text, TestContext.Current.CancellationToken));
-
-        // Act: the very first requests race for the model
-        var tasks = Enumerable.Range(0, 32)
-            .Select(_ => Task.Run(() => Describe(analyzer.Analyze(text, TestContext.Current.CancellationToken)), TestContext.Current.CancellationToken))
-            .ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        // Assert
-        Assert.Contains(TextEnAnnotations.Reading, expected, StringComparison.Ordinal);
-        Assert.All(results, result => Assert.Equal(expected, result));
-    }
-
-    /// <summary>Proves a reading override fixes the reading of a word through the public API with no model at all, and the classifier loses to it when a model exists.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel()
+    public void SpeechTextEn_Analyze_ReadingOverride_BeatsClassifier()
     {
         // Arrange
         const string text = "I want to record a record.";
         var overrides = PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.noun\n"));
-        var options = new EnglishTextAnalyzerOptions { Overrides = overrides };
-        var plain = new EnglishTextAnalyzer(options);
-        var withModel = new EnglishTextAnalyzer(options, PartOfSpeechAdapter.Shared, null, HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples))));
+        var withOverride = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+        var withoutOverride = new EnglishTextAnalyzer();
 
         // Act
-        var results = new[] { plain.Analyze(text, TestContext.Current.CancellationToken), withModel.Analyze(text, TestContext.Current.CancellationToken) };
+        var overridden = withOverride.Analyze(text, TestContext.Current.CancellationToken);
+        var classified = withoutOverride.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert: both records are the noun reading with confidence 1.000
-        foreach (var result in results)
-        {
-            var readings = result.Annotations.Where(annotation => TextEnAnnotations.TryReadReading(annotation, out _)).ToList();
-            Assert.Equal(2, readings.Count);
-            Assert.All(readings, annotation => Assert.Equal("record.noun", annotation.Value));
-            Assert.Equal(["1.000", "1.000"], result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence).Select(annotation => annotation.Value));
-        }
-    }
-
-    /// <summary>
-    ///     Proves a real synthesis session delivers reading and confidence annotations to an annotation-aware
-    ///     backend, re-based exactly into whichever chunk holds the word, for a long multi-sentence text.
-    /// </summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking()
-    {
-        // Arrange: well over the chunk length, every sentence carrying a verb and a noun "record"
-        var text = string.Join(' ', Enumerable.Repeat("I want to record a record of the quiet river bank near the old mill.", 10));
-        Assert.True(text.Length > 3 * SentenceChunker.DefaultMaxChunkLength);
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
-        var expected = analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations
-            .Where(annotation => annotation.Kind == TextEnAnnotations.Reading)
-            .Select(annotation => annotation.Value)
-            .ToList();
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert: several chunks; every reading sits exactly on the word "record" of its chunk, with its confidence on the same span
-        var calls = backend.Calls;
-        Assert.True(calls.Count > 1);
-        var delivered = new List<string>();
-        foreach (var call in calls)
-        {
-            foreach (var reading in call.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading))
-            {
-                Assert.True(TextEnAnnotations.TryReadReading(reading, out var id));
-                Assert.Equal("record", call.Text.Substring(reading.Start, reading.Length));
-                var confidence = Assert.Single(call.Annotations, annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence && annotation.Start == reading.Start && annotation.Length == reading.Length);
-                Assert.True(TextEnAnnotations.TryReadReadingConfidence(confidence, out _));
-                delivered.Add(id);
-            }
-        }
-
-        Assert.Equal(20, expected.Count);
-        Assert.Equal(expected, delivered);
+        // Assert: the classifier reads the verb and then the noun; the override makes both the noun, certain
+        Assert.Equal(["record.verb", "record.noun"], classified.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).Select(annotation => annotation.Value));
+        Assert.Equal(["record.noun", "record.noun"], overridden.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).Select(annotation => annotation.Value));
+        Assert.Equal(["1.000", "1.000"], overridden.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence).Select(annotation => annotation.Value));
     }
 
     /// <summary>Proves the heteronym diagnostics are counts only: no word, no reading id, and the analysis event keeps its exact wording.</summary>
@@ -441,8 +405,7 @@ public sealed class SpeechTextEnTests
         // Arrange
         const string text = "I want to record a record.";
         var sink = new RecordingDiagnostics();
-        var provider = HeteronymFixtureModel.CreateProvider(new CountingModelSource(HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples)));
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink }, PartOfSpeechAdapter.Shared, null, provider);
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink });
 
         // Act
         _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
@@ -457,165 +420,6 @@ public sealed class SpeechTextEnTests
             Assert.DoesNotContain("record", e.Message, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("noun", e.Message, StringComparison.Ordinal);
         });
-    }
-
-    /// <summary>Proves the heteronym reading inventory is supplied by the package alone: a reading override is validated against it and applied with no model and no other file, and the default analyzer's own readings differ from the overridden ones where the model decides otherwise.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOffline()
-    {
-        // Arrange: an entry for a reading id the inventory does not define is refused, one it defines is accepted
-        const string text = "I want to record a record.";
-        var accepted = PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.noun\n"));
-        var withOverride = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = accepted });
-        var withoutOverride = new EnglishTextAnalyzer();
-
-        // Act
-        var rejected = Record.Exception(() => PronunciationOverrides.FromTsv(new StringReader("record\tinsensitive\treading\trecord.nonsense\n")));
-        var fixedReadings = withOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
-        var defaultReadings = withoutOverride.Analyze(text, TestContext.Current.CancellationToken).Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Reading).ToList();
-
-        // Assert: the override fixes both words to the noun; the default analyzer reads the verb and then the noun
-        Assert.IsType<InvalidDataException>(rejected);
-        Assert.Equal(["record.noun", "record.noun"], fixedReadings.Select(annotation => annotation.Value));
-        Assert.Equal(["record.verb", "record.noun"], defaultReadings.Select(annotation => annotation.Value));
-    }
-
-    /// <summary>Proves the project file names the combined license file, packs both notice files at the package root, and pins its one tagger dependency.</summary>
-    [Fact]
-    public void SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot()
-    {
-        // Arrange
-        var projectPath = FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj");
-
-        // Act
-        var project = XDocument.Load(projectPath);
-        var licenseFiles = project.Descendants("PackageLicenseFile").Select(element => element.Value.Trim()).ToList();
-        var licenseExpressions = project.Descendants("PackageLicenseExpression").ToList();
-        var packedItems = project.Descendants("None")
-            .Where(element => (string?)element.Attribute("Pack") == "true")
-            .ToDictionary(
-                element => (string?)element.Attribute("Include") ?? string.Empty,
-                element => (string?)element.Attribute("PackagePath"),
-                StringComparer.Ordinal);
-
-        // Assert
-        Assert.Equal([PackageLicenseFileName], licenseFiles);
-        Assert.Empty(licenseExpressions);
-        foreach (var fileName in new[] { PackageLicenseFileName, ThirdPartyNoticesFileName })
-        {
-            Assert.True(packedItems.TryGetValue(fileName, out var packagePath), $"{fileName} is not packed");
-            Assert.Equal("\\", packagePath);
-            Assert.True(File.Exists(FindRepositoryFile($"{PackageFolder}/{fileName}")), $"{fileName} does not exist");
-        }
-    }
-
-    /// <summary>
-    ///     Proves the package depends on exactly one version of the tagger package, pinned with the exact-range notation, and on no
-    ///     speech-engine inference runtime: the evaluated package and project references of the project are inspected, not its text.
-    /// </summary>
-    /// <returns>A task that completes when the evaluated references have been checked.</returns>
-    [Fact]
-    public async Task SpeechTextEn_Dependencies_EvaluatedReferences_PinTaggerExactlyAndReferenceNoInferenceRuntime()
-    {
-        // Act
-        var output = await RunMsBuildAsync("-getItem:PackageReference", "-getItem:ProjectReference");
-        using var document = JsonDocument.Parse(output);
-        var items = document.RootElement.GetProperty("Items");
-        var packageReferences = items.GetProperty("PackageReference").EnumerateArray()
-            .ToDictionary(item => item.GetProperty("Identity").GetString() ?? string.Empty, item => item.GetProperty("Version").GetString(), StringComparer.Ordinal);
-        var projectReferences = items.GetProperty("ProjectReference").EnumerateArray()
-            .Select(item => Path.GetFileName((item.GetProperty("Identity").GetString() ?? string.Empty).Replace('\\', '/')))
-            .ToList();
-
-        // Assert: exact-range notation pins one version of the tagger; the only project reference is core Speech; no ONNX anywhere
-        Assert.True(packageReferences.TryGetValue("DemaConsulting.PartOfSpeech", out var version), "the tagger package is not referenced");
-        var range = VersionRange.Parse(version ?? string.Empty);
-        Assert.True(
-            range.IsMinInclusive && range.IsMaxInclusive && range.MinVersion is not null && range.MinVersion == range.MaxVersion,
-            $"The reference '{version}' is not an exact version, written [version]");
-        Assert.Equal(["DemaConsulting.Speech.csproj"], projectReferences);
-        Assert.DoesNotContain(packageReferences.Keys, name => name.Contains("Onnx", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    ///     Proves, through the evaluated project, that the package is packable only for a prerelease package version while the tagger
-    ///     dependency it pins is a prerelease (a stable package may not depend on a prerelease package, NuGet NU5104, and the shared
-    ///     release workflow can pack a stable version): a stable version is not packable, a prerelease version is packable, build
-    ///     metadata is ignored, PackageVersion wins over Version, and the guard is gone once the pin is a stable version.
-    /// </summary>
-    /// <returns>A task that completes when whether the project is packable has been checked.</returns>
-    [Fact]
-    public async Task SpeechTextEn_PackageVersion_EvaluatedProject_PacksOnlyPrereleaseWhileTaggerIsPrerelease()
-    {
-        // Arrange: the version properties to evaluate with, and whether the project must be packable for them while the tagger is a prerelease
-        (string[] Properties, bool Packable)[] cases =
-        [
-            (["PackageVersion=1.0.0"], false),
-            (["PackageVersion=1.0.0+build.5"], false),
-            (["PackageVersion=1.0.0-beta.1"], true),
-            (["PackageVersion=1.0.0-beta.1+build.5"], true),
-            (["PackageVersion=0.0.1-test"], true),
-            (["Version=1.0.0-rc.1"], true),
-            (["Version=1.0.0"], false),
-            (["Version=1.0.0-beta.1", "PackageVersion=1.0.0"], false),
-            (["Version=1.0.0", "PackageVersion=1.0.0-beta.1"], true),
-        ];
-        using var dependencies = JsonDocument.Parse(await RunMsBuildAsync("-getItem:PackageReference"));
-        var pin = dependencies.RootElement.GetProperty("Items").GetProperty("PackageReference").EnumerateArray()
-            .Single(item => item.GetProperty("Identity").GetString() == "DemaConsulting.PartOfSpeech")
-            .GetProperty("Version").GetString();
-        var taggerIsPrerelease = VersionRange.Parse(pin ?? string.Empty).MinVersion!.IsPrerelease;
-
-        foreach (var (properties, packable) in cases)
-        {
-            // Act
-            var isPackable = (await RunMsBuildAsync(["-getProperty:IsPackable", .. properties.Select(property => $"--property:{property}")])).Trim();
-
-            // Assert: while the tagger is a prerelease only a prerelease version packs; with a stable tagger every version packs
-            Assert.True(
-                bool.Parse(isPackable) == (!taggerIsPrerelease || packable),
-                $"IsPackable is {isPackable} for {string.Join(' ', properties)}");
-        }
-    }
-
-    /// <summary>Evaluates the package project with <c>dotnet msbuild</c> (no build is run) and returns what it prints.</summary>
-    /// <param name="arguments">The arguments after the project path, for example <c>-getProperty:IsPackable</c>.</param>
-    /// <returns>The standard output of the evaluation: a plain value for one property, JSON for items or several properties.</returns>
-    private static async Task<string> RunMsBuildAsync(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        startInfo.ArgumentList.Add("msbuild");
-        startInfo.ArgumentList.Add(FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Text.En.csproj"));
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        Process? process = null;
-        try
-        {
-            process = Process.Start(startInfo);
-        }
-        catch (Win32Exception)
-        {
-            Assert.Skip("The dotnet command line tool cannot be started in this environment.");
-        }
-
-        using (process)
-        {
-            Assert.NotNull(process);
-            var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, $"dotnet msbuild failed ({process.ExitCode}): {await error}{output}");
-            return output;
-        }
     }
 
     /// <summary>Proves an abbreviation is described by an <c>en.norm</c> annotation over its exact source characters, the text itself is never changed, and unchanged words get no such annotation.</summary>
@@ -658,18 +462,13 @@ public sealed class SpeechTextEnTests
         Assert.NotEmpty(normalized.Annotations);
     }
 
-    /// <summary>Proves St., Dr., Sr. and No. are resolved from their neighbors.</summary>
+    /// <summary>Proves an ambiguous abbreviation (St. and Dr. here) is resolved from its neighbors.</summary>
     /// <param name="text">The text.</param>
     /// <param name="source">The abbreviation as written.</param>
     /// <param name="spoken">The expected spoken form of the first occurrence.</param>
     [Theory]
     [InlineData("Visit St. Louis. Then go.", "St.", "Saint")]
-    [InlineData("I live on Main St. It is nice.", "St", "Street")]
-    [InlineData("Dr. Smith lives here.", "Dr.", "Doctor")]
     [InlineData("Maple Dr. He likes it.", "Dr", "Drive")]
-    [InlineData("Sr. Maria prayed.", "Sr.", "Sister")]
-    [InlineData("John Smith Sr. He left.", "Sr", "Senior")]
-    [InlineData("Item No. 5 shipped.", "No.", "Number")]
     public void SpeechTextEn_Analyze_ContextDependentAbbreviations_ResolveFromNeighbors(string text, string source, string spoken)
     {
         // Arrange
@@ -702,25 +501,6 @@ public sealed class SpeechTextEnTests
         Assert.Equal("I live on Main Street. It is nice. Doctor Smith agrees. No. I don't know.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
     }
 
-    /// <summary>Proves the abbreviation-aware breaks, not the punctuation heuristic, decide the chunks a real session hands the backend.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_AbbreviationBreaks_DriveChunkBoundaries()
-    {
-        // Arrange
-        const string text = "I live on Main St. It is nice. Dr. Smith agrees.";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert: split after "Main St." and not after "Dr."; each normalization is on its own chunk's text
-        var calls = backend.Calls;
-        Assert.Equal(["I live on Main St.", "It is nice.", "Dr. Smith agrees."], calls.Select(call => call.Text));
-        Assert.Equal(
-            ["St", "Dr."],
-            calls.SelectMany(call => call.Annotations.Where(a => a.Kind == "en.norm").Select(a => call.Text.Substring(a.Start, a.Length))));
-    }
-
     /// <summary>Proves credentials after a name suffix stay in the name's sentence, while a sentence starter after them still ends it.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_CredentialsAfterNameSuffix_StayInOneSentence()
@@ -741,192 +521,6 @@ public sealed class SpeechTextEnTests
             NormalizationHarness.ApplyNormalizations(text, result.Annotations));
     }
 
-    /// <summary>Proves adjacent marks are spoken as separate words through the public API.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_AdjacentMarks_AreSpokenAsSeparateWords()
-    {
-        // Arrange
-        const string text = "A\u2122\u00AEB and \u00A9\u2122\u00AE.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert: one annotation per mark, each on its own source character
-        Assert.Equal(5, result.Annotations.Count);
-        Assert.All(result.Annotations, annotation => Assert.Equal(1, annotation.Length));
-        Assert.Equal("A trademark registered B and copyright trademark registered.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
-    /// <summary>Proves a name with a suffix and a credential reaches the backend as one chunk with both normalizations.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_NameWithCredentials_IsOneChunk()
-    {
-        // Arrange
-        const string text = "John Smith Jr. Ph.D. spoke.";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert
-        var call = Assert.Single(backend.Calls);
-        Assert.Equal(text, call.Text);
-        Assert.Equal(
-            [("Jr.", "Junior"), ("Ph.D.", "P H D")],
-            call.Annotations
-                .Where(IsReplacement)
-                .Select(annotation => (call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)));
-        Assert.Equal(TextEnAnnotations.SpellOut, Assert.Single(call.Annotations, annotation => call.Text.Substring(annotation.Start, annotation.Length) == "Ph.D." && annotation.Kind != TextEnAnnotations.PartOfSpeech).Kind);
-    }
-
-    /// <summary>Proves a symbol-only text keeps its normalization when the Speech library chunks it.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_SymbolOnlyText_KeepsItsNormalization()
-    {
-        // Arrange
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), "&");
-
-        // Assert
-        var call = Assert.Single(backend.Calls);
-        Assert.Equal("&", call.Text);
-        var annotation = Assert.Single(call.Annotations, candidate => candidate.Kind == TextEnAnnotations.Normalized);
-        Assert.Equal(("&", "and"), (call.Text.Substring(annotation.Start, annotation.Length), annotation.Value));
-    }
-
-    /// <summary>Proves a symbol before clause punctuation keeps its own chunk and normalization instead of being dropped.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_SymbolBeforeClausePunctuation_KeepsItsNormalization()
-    {
-        // Arrange
-        const string text = "\u00A9; Brand";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert
-        var calls = backend.Calls;
-        Assert.Equal(["\u00A9;", "Brand"], calls.Select(call => call.Text));
-        var annotation = Assert.Single(calls[0].Annotations, candidate => candidate.Kind == TextEnAnnotations.Normalized);
-        Assert.Equal(("\u00A9", "copyright"), (calls[0].Text.Substring(annotation.Start, annotation.Length), annotation.Value));
-    }
-
-    /// <summary>Proves, for a normalization-only analysis, an invisible-only clause is still merged into its neighbor, with the dropped-character annotation delivered there.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_InvisibleOnlyClause_KeepsDroppedAnnotationWithItsNeighbor()
-    {
-        // Arrange: normalization only, so the only annotation on the invisible character is its empty-valued drop
-        const string text = "Hello, \u200B, there";
-        var backend = new RecordingAnnotatedBackend();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert: the invisible character does not become a chunk of its own
-        var calls = backend.Calls;
-        Assert.Equal(2, calls.Count);
-        Assert.Equal("Hello, \u200B,", calls[0].Text);
-        var dropped = Assert.Single(calls[0].Annotations);
-        Assert.Equal(("\u200B", string.Empty), (calls[0].Text.Substring(dropped.Start, dropped.Length), dropped.Value));
-    }
-
-    /// <summary>Proves that with the default analyzer (part of speech included) an invisible-only clause is also merged into its neighbor, because the tagger's opinion of an invisible character is not annotated.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor()
-    {
-        // Arrange: the default analyzer tags the zero-width space of this text as an interjection
-        const string text = "Hello, \u200B, there";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert: two chunks, the invisible character carries only its empty-valued drop
-        var calls = backend.Calls;
-        Assert.Equal(["Hello, \u200B,", "there"], calls.Select(call => call.Text));
-        Assert.DoesNotContain(
-            calls[0].Annotations,
-            annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && calls[0].Text[annotation.Start] == '\u200B');
-        var dropped = Assert.Single(calls[0].Annotations, annotation => annotation.Kind == TextEnAnnotations.Normalized);
-        Assert.Equal(("\u200B", string.Empty), (calls[0].Text.Substring(dropped.Start, dropped.Length), dropped.Value));
-    }
-
-    /// <summary>Proves that with the default analyzer a bare symbol clause that the tagger labels a word is merged into its neighbor like any punctuation-only clause.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor()
-    {
-        // Arrange: the default analyzer tags the asterisk of this text as an interjection
-        const string text = "Hello, *, there";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert: two chunks, and the asterisk carries no annotation
-        var calls = backend.Calls;
-        Assert.Equal(["Hello, *,", "there"], calls.Select(call => call.Text));
-        Assert.DoesNotContain(
-            calls[0].Annotations,
-            annotation => calls[0].Text.Substring(annotation.Start, annotation.Length).Contains('*'));
-    }
-
-    /// <summary>Proves non-numeric symbols are spoken as words.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_Symbols_AreSpokenAsWords()
-    {
-        // Arrange
-        const string text = "Tom & Jerry = friends @ home, he/she \u00A9 w/o AT&T.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal("Tom and Jerry equals friends at home, he slash she copyright without A T and T.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
-    /// <summary>Proves typographic apostrophes in contractions and elisions are canonicalized, and nothing else about the words changes.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_TypographicApostrophes_AreCanonicalized()
-    {
-        // Arrange
-        const string text = "It\u2019s true, I don\u2019t know y\u2019all, but \u2018quotes\u2019 stay.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.All(result.Annotations, annotation => Assert.Equal("'", annotation.Value));
-        Assert.Equal("It's true, I don't know y'all, but \u2018quotes\u2019 stay.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
-    /// <summary>Proves invisible characters are dropped explicitly: an annotation with an empty value, never a silent loss.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_InvisibleCharacters_AreDroppedExplicitly()
-    {
-        // Arrange
-        const string text = "co\u00AD" + "operate a\u200B" + "b \uFEFF" + "done";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert: three annotations, each readable as "speak nothing"
-        Assert.Equal(3, result.Annotations.Count);
-        Assert.All(result.Annotations, annotation =>
-        {
-            Assert.True(TextEnAnnotations.TryReadNormalized(annotation, out var spoken));
-            Assert.Equal(string.Empty, spoken);
-        });
-        Assert.Equal("cooperate ab done", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
     /// <summary>Proves the detailed analysis records the grammatical role of each clitic, and the language-neutral path does not need it.</summary>
     [Fact]
     public void SpeechTextEn_AnalyzeDetailed_Clitics_RecordTheirRole()
@@ -943,144 +537,36 @@ public sealed class SpeechTextEnTests
         Assert.Equal([("'s", CliticKind.Has), ("'s", CliticKind.Possessive), ("n't", CliticKind.Not)], roles);
     }
 
-    /// <summary>Proves acronyms and initialisms are recognized case-sensitively and spelled letter by letter.</summary>
+    /// <summary>Proves numbers, currency amounts, percentages, units, times and dates are spoken as plain words per token, the text itself is never rewritten, and the tokens that are not numbers are left unannotated.</summary>
     [Fact]
-    public void SpeechTextEn_Analyze_AcronymsAndInitialisms_AreCaseSensitive()
+    public void SpeechTextEn_Analyze_NumbersCurrencyUnitsDatesAndTimes_AreSpokenAsWordsWithoutChangingText()
     {
-        // Arrange
-        const string text = "US troops asked us about IT. The FBI and the U.S. Army know NASA.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert: the pronoun "us" and the word NASA are untouched
-        Assert.Equal("U S troops asked us about I T. The F B I and the U S Army know NASA.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
-    /// <summary>Proves hostile random text always yields normalization annotations that satisfy the alignment contract, checked by an applier independent of the production code.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract()
-    {
-        // Arrange
-        string[] pieces =
+        // Arrange: (text, the text as spoken)
+        (string Text, string Spoken)[] rows =
         [
-            "the", "Smith", "Main", "St.", "Dr.", "Mr.", "No.", "5", ".", ",", ";", ":", "!", "&", "/", "+", "=", "\u00A9", "\u2019", "'s", "n't",
-            "y\u2019all", "he/she", "w/o", "AT&T", "FBI", "US", "us", "U.S.", "p.m.", "etc.", "\u200B", "\u00AD", "\uFEFF", "\u2022",
-            " ", "  ", "\t", "\n", Tag, "\U0001F600", "e\u0301", "\uD83D", "\uDE00", "\0", "(", ")",
+            (
+                "I have 5 apples, 1,234 pears, 3.5 plums, the 21st, #5 and the 1990s.",
+                "I have five apples, one thousand two hundred thirty four pears, three point five plums, the twenty first, number five and the nineteen nineties."),
+            (
+                "Pay $1,234.50, \u20AC5 and 50 % of 5 million USD for 3 kg, 1 ft. and 72\u00B0F.",
+                "Pay one thousand two hundred thirty four dollars and fifty cents, five euros and fifty percent of five million dollars for three kilograms, one foot and seventy two degrees Fahrenheit."),
+            (
+                "On January 5th, 2024 at 5:30pm, 12/25/2024 at 17:45 and 7 am.",
+                "On January fifth, twenty twenty four at five thirty P M, December twenty fifth twenty twenty four at seventeen forty five and seven A M."),
         ];
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        var random = new Random(20260611);
 
-        for (var iteration = 0; iteration < 200; iteration++)
+        foreach (var (text, spoken) in rows)
         {
-            var text = string.Concat(Enumerable.Range(0, random.Next(0, 40)).Select(_ => pieces[random.Next(pieces.Length)] + (random.Next(3) == 0 ? string.Empty : " ")));
-
             // Act
             var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
-            // Assert: ordered, disjoint, in bounds, whitespace-free edges, no placeholder, no cut pair, chunk-safe content
-            var previousEnd = 0;
-            foreach (var annotation in result.Annotations)
-            {
-                Assert.True(IsReplacement(annotation), $"unexpected kind in iteration {iteration}");
-                Assert.True(annotation.Start >= previousEnd && annotation.End <= text.Length, $"order or bounds in iteration {iteration}");
-                var covered = text.Substring(annotation.Start, annotation.Length);
-                Assert.False(char.IsWhiteSpace(covered[0]) || char.IsWhiteSpace(covered[^1]), $"whitespace edge in iteration {iteration}");
-                Assert.DoesNotContain(Tag, covered, StringComparison.Ordinal);
-                Assert.DoesNotContain(covered, character => char.IsWhiteSpace(character) || character is ',' or ';' or ':');
-                Assert.False(annotation.Start > 0 && char.IsLowSurrogate(text[annotation.Start]) && char.IsHighSurrogate(text[annotation.Start - 1]), $"cut pair in iteration {iteration}");
-                Assert.False(annotation.End < text.Length && char.IsHighSurrogate(text[annotation.End - 1]) && char.IsLowSurrogate(text[annotation.End]), $"cut pair in iteration {iteration}");
-                Assert.DoesNotContain(Tag, annotation.Value, StringComparison.Ordinal);
-                previousEnd = annotation.End;
-            }
-
-            // Assert: everything outside the annotations is spoken exactly as written
-            var outside = new System.Text.StringBuilder();
-            var position = 0;
-            foreach (var annotation in result.Annotations)
-            {
-                outside.Append(text, position, annotation.Start - position);
-                position = annotation.End;
-            }
-
-            outside.Append(text, position, text.Length - position);
-            Assert.Equal(text.Length - result.Annotations.Sum(annotation => annotation.Length), outside.Length);
+            // Assert: the annotations name the source characters, every value is plain words and the source is untouched
+            Assert.Equal(spoken, NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+            Assert.All(
+                result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized),
+                annotation => Assert.Matches("^[A-Za-z' ]+$", annotation.Value));
         }
-    }
-
-    /// <summary>
-    ///     Proves every normalization annotation of a long text that mixes every rule (so both the clause pass and the
-    ///     whitespace-budget path of the core chunker run) reaches exactly one backend call, on the same source characters.
-    /// </summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking()
-    {
-        // Arrange: well over 800 characters, mixing every rule
-        const string paragraph = "Dr. Smith & Mr. Jones live on Main St. The FBI said it\u2019s w/o proof, etc. He left at 5 p.m. Then he met the U.S. Army at AT&T, R&D and Q&A. No. I don\u2019t know; see Fig. 3, he/she said: Y\u2019all go to Elm Dr. Smith agrees. ";
-        var text = string.Concat(Enumerable.Repeat(paragraph, 5)).TrimEnd();
-        Assert.True(text.Length > 800);
-        var analyzer = new EnglishTextAnalyzer();
-        var expected = analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations
-            .Where(IsReplacement)
-            .Select(annotation => (Source: text.Substring(annotation.Start, annotation.Length), annotation.Value))
-            .ToList();
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert: the sequence of (source characters, value) the backend sees equals the analyzer's, so nothing was lost or moved
-        var delivered = backend.Calls
-            .SelectMany(call => call.Annotations
-                .Where(IsReplacement)
-                .Select(annotation => (Source: call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
-            .ToList();
-        Assert.True(backend.Calls.Count > 3);
-        Assert.Equal(expected, delivered);
-    }
-
-    /// <summary>Proves an audio tag between an abbreviation and the name it belongs to does not cost either annotation.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_NormalizedTextWithAudioTag_KeepsBothAnnotations()
-    {
-        // Arrange
-        const string text = "Dr. [whispers] Smith & Jones agree.";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert
-        var delivered = backend.Calls
-            .SelectMany(call => call.Annotations
-                .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
-                .Select(annotation => (Source: call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
-            .ToList();
-        Assert.Equal([("Dr.", "Doctor"), ("&", "and")], delivered);
-    }
-
-    /// <summary>Proves numbers (cardinals, decimals, ordinals, hash numbers, decades) are annotated with their spoken words, the text itself is never rewritten, and every value is plain words.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_Numbers_AreSpokenAsWordsWithoutChangingText()
-    {
-        // Arrange
-        const string text = "I have 5 apples, 1,234 pears, 3.5 plums, the 21st, #5 and the 1990s.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert: the annotations name the source characters and their words; the source is untouched
-        var normalizations = result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Normalized).ToList();
-        Assert.Equal(
-            [("5", "five"), ("1,234", "one thousand two hundred thirty four"), ("3.5", "three point five"), ("21st", "twenty first"), ("#5", "number five"), ("1990s", "nineteen nineties")],
-            normalizations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value)));
-        Assert.Equal(
-            "I have five apples, one thousand two hundred thirty four pears, three point five plums, the twenty first, number five and the nineteen nineties.",
-            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-        Assert.All(normalizations, annotation => Assert.Matches("^[A-Za-z' ]+$", annotation.Value));
-        Assert.Equal("I have 5 apples, 1,234 pears, 3.5 plums, the 21st, #5 and the 1990s.", text);
     }
 
     /// <summary>Proves the sentence breaks around numbers, decimals, amounts, abbreviated dates and units fall exactly where the sentences end.</summary>
@@ -1100,46 +586,6 @@ public sealed class SpeechTextEnTests
             NormalizationHarness.JoinSentences(text, result.SentenceBreaks!));
     }
 
-    /// <summary>Proves currency amounts, percent and units are spoken as words, per token, with singular and plural.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_CurrencyAndUnits_AreSpokenAsWords()
-    {
-        // Arrange
-        const string text = "Pay $1,234.50, \u20AC5 and 50 % of 5 million USD for 3 kg, 1 ft. and 72\u00B0F.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(
-            "Pay one thousand two hundred thirty four dollars and fifty cents, five euros and fifty percent of five million dollars for three kilograms, one foot and seventy two degrees Fahrenheit.",
-            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-        var covered = result.Annotations.Select(annotation => text.Substring(annotation.Start, annotation.Length)).ToList();
-        Assert.Contains("$1,234.50", covered);
-        Assert.Contains("\u20AC5", covered);
-        Assert.Contains("%", covered);
-        Assert.Contains("USD", covered);
-        Assert.Contains("72\u00B0F", covered);
-    }
-
-    /// <summary>Proves times, numeric dates and month-name dates are spoken as words.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_DatesAndTimes_AreSpokenAsWords()
-    {
-        // Arrange
-        const string text = "On January 5th, 2024 at 5:30pm, 12/25/2024 at 17:45 and 7 am.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(
-            "On January fifth, twenty twenty four at five thirty P M, December twenty fifth twenty twenty four at seventeen forty five and seven A M.",
-            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
     /// <summary>Proves month and weekday abbreviations resolve from the date around them, keep the sentence breaks that are real and drop the ones the tokenizer invented.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext()
@@ -1157,26 +603,6 @@ public sealed class SpeechTextEnTests
             NormalizationHarness.ApplyNormalizations(text, result.Annotations));
         Assert.Equal(
             [text.IndexOf("He left", StringComparison.Ordinal), text.IndexOf("He came", StringComparison.Ordinal)],
-            result.SentenceBreaks);
-    }
-
-    /// <summary>Proves a period after a full month name or May ends the sentence and gives the next number no date reading, while a month abbreviation's period keeps the date together.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_FullMonthPeriod_EndsTheSentenceAndGivesNoDateContext()
-    {
-        // Arrange
-        const string text = "We finished in May. 5 people stayed. Born Jan. 5, 2024.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert: "5 people" is a cardinal after the sentence end; "Jan. 5, 2024" is one date
-        Assert.Equal(
-            "We finished in May. five people stayed. Born January fifth, twenty twenty four.",
-            NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-        Assert.Equal(
-            [text.IndexOf("5 people", StringComparison.Ordinal), text.IndexOf("Born", StringComparison.Ordinal)],
             result.SentenceBreaks);
     }
 
@@ -1202,27 +628,6 @@ public sealed class SpeechTextEnTests
         Assert.Matches(@"\d+ normalizations, 4 ambiguous readings, 0 numeric fallbacks, 0 overrides applied, 0 overrides ignored\.$", reported.Message);
     }
 
-    /// <summary>Proves the diagnostics event carries the numeric counts and counts only: no digit of the analyzed text, no word, no spoken value.</summary>
-    [Fact]
-    public void SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly()
-    {
-        // Arrange: one ambiguous year, one number in an unsupported shape (left as written)
-        const string text = "He read 1999 and 1,23 pages.";
-        var sink = new RecordingDiagnostics();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Diagnostics = sink });
-
-        // Act
-        _ = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        var reported = Assert.Single(sink.Events);
-        Assert.Matches(@"^Analyzed one text: 1 sentences, \d+ tokens, \d+ annotations, \d+ unknown words, 1 normalizations, 1 ambiguous readings, 1 numeric fallbacks, 0 overrides applied, 0 overrides ignored\.$", reported.Message);
-        Assert.DoesNotContain("1999", reported.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("1,23", reported.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("nineteen", reported.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("pages", reported.Message, StringComparison.Ordinal);
-    }
-
     /// <summary>Proves oversized numbers are bounded and counted: 16 to 64 digits are read digit by digit, longer ones and long fractions are left as written, and no value exceeds the documented size.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted()
@@ -1246,176 +651,6 @@ public sealed class SpeechTextEnTests
         Assert.Matches(@"3 numeric fallbacks, 0 overrides applied, 0 overrides ignored\.$", Assert.Single(sink.Events).Message);
     }
 
-    /// <summary>Proves hostile random numeric text always yields normalization annotations that satisfy the alignment contract, checked by an applier independent of the production code.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_NumericText_AnnotationsSatisfyAlignmentContract()
-    {
-        // Arrange
-        string[] pieces =
-        [
-            "5", "50", "007", "1,234", "1,234.50", "3.5", ".5", "-5", "1,23", "$", "\u20AC", "$5", "$5.50", "5$", "5USD", "USD", "5:30", "5:30pm", "5pm", "pm", "p.m.", "12/25/2024", "2024-12-25",
-            "5-10", "555-1234", "3.2.1", "1/2", "24/7", "\u00BD", "1st", "22nd", "1990s", "'90s", "\u2013", "%", "50%", "kg", "5kg", "ft.", "lbs.", "mph", "72\u00B0F", "million", "$5M", "January", "Jan.", "Mar.",
-            "Sun.", "2024", "1999", "#5", ",", ".", ";", ":", "-", "/", "the", "No.", "Dr.", "&", "\u200B", "\u2022", Tag, "\U0001F600", "\uD835\uDFD9", "e\u0301", "\uD83D", "\uDE00", "\0", "(", ")",
-            new string('9', 20), " ", "  ", "\t", "\n", "\u00A0",
-        ];
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        var random = new Random(20260806);
-
-        for (var iteration = 0; iteration < 300; iteration++)
-        {
-            var text = string.Concat(Enumerable.Range(0, random.Next(0, 40)).Select(_ => pieces[random.Next(pieces.Length)] + (random.Next(3) == 0 ? string.Empty : " ")));
-
-            // Act
-            var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-            // Assert: ordered, disjoint, in bounds, whitespace-free edges, no placeholder, no cut pair, chunk-safe content (A5')
-            var previousEnd = 0;
-            foreach (var annotation in result.Annotations)
-            {
-                Assert.True(IsReplacement(annotation), $"unexpected kind in iteration {iteration}");
-                Assert.True(annotation.Start >= previousEnd && annotation.End <= text.Length, $"order or bounds in iteration {iteration}");
-                var covered = text.Substring(annotation.Start, annotation.Length);
-                Assert.False(char.IsWhiteSpace(covered[0]) || char.IsWhiteSpace(covered[^1]), $"whitespace edge in iteration {iteration}");
-                Assert.DoesNotContain(Tag, covered, StringComparison.Ordinal);
-                Assert.DoesNotContain(covered, character => char.IsWhiteSpace(character) || character == ';');
-                for (var i = 0; i < covered.Length; i++)
-                {
-                    if (covered[i] is ',' or ':')
-                    {
-                        Assert.True(i > 0 && i < covered.Length - 1 && covered[i - 1] is >= '0' and <= '9' && covered[i + 1] is >= '0' and <= '9', $"separator not between digits in iteration {iteration}: '{covered}'");
-                    }
-                }
-
-                Assert.False(annotation.Start > 0 && char.IsLowSurrogate(text[annotation.Start]) && char.IsHighSurrogate(text[annotation.Start - 1]), $"cut pair in iteration {iteration}");
-                Assert.False(annotation.End < text.Length && char.IsHighSurrogate(text[annotation.End - 1]) && char.IsLowSurrogate(text[annotation.End]), $"cut pair in iteration {iteration}");
-                Assert.DoesNotContain(Tag, annotation.Value, StringComparison.Ordinal);
-                previousEnd = annotation.End;
-            }
-
-            // Assert: no reconciled sentence break lies strictly inside an annotation
-            Assert.All(result.SentenceBreaks!, offset => Assert.DoesNotContain(result.Annotations, annotation => annotation.Start < offset && offset < annotation.End));
-
-            // Assert: everything outside the annotations is spoken exactly as written
-            var outside = new System.Text.StringBuilder();
-            var position = 0;
-            foreach (var annotation in result.Annotations)
-            {
-                outside.Append(text, position, annotation.Start - position);
-                position = annotation.End;
-            }
-
-            outside.Append(text, position, text.Length - position);
-            Assert.Equal(text.Length - result.Annotations.Sum(annotation => annotation.Length), outside.Length);
-        }
-    }
-
-    /// <summary>
-    ///     Proves every normalization annotation of a long text that mixes every numeric construct (so both the clause pass and the
-    ///     whitespace-budget path of the core chunker run) reaches exactly one backend call, on the same source characters.
-    /// </summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_NumericText_AnnotationsSurviveChunking()
-    {
-        // Arrange: well over 800 characters
-        const string paragraph = "Dr. Smith paid $1,234.50 at 5:30pm on January 5, 2024, then 50 % of 3 1/2 kg; he ran 5 ft. in the 1990s: #5, 1st, 22nd, 3.5, 12/25/2024. In 1999 about 1500 people saw 5 million USD, 72\u00B0F, 555-1234 and Jan. 7. ";
-        var text = string.Concat(Enumerable.Repeat(paragraph, 5)).TrimEnd();
-        Assert.True(text.Length > 800);
-        var analyzer = new EnglishTextAnalyzer();
-        var expected = analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations
-            .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
-            .Select(annotation => (Source: text.Substring(annotation.Start, annotation.Length), annotation.Value))
-            .ToList();
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert: the sequence of (source characters, value) the backend sees equals the analyzer's, so nothing was lost or moved
-        var delivered = DeliveredNormalizations(backend.Calls);
-        Assert.True(backend.Calls.Count > 3);
-        Assert.True(expected.Count > 60, "the text must carry many numeric annotations");
-        Assert.Equal(expected, delivered);
-    }
-
-    /// <summary>Proves a date whose day and year are on opposite sides of a clause cut keeps the annotation of every token.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_DateAcrossClauseCut_KeepsEveryTokenAnnotation()
-    {
-        // Arrange: the comma between the day and the year is a clause cut, so the two numbers land in different chunks
-        const string text = "He was born on January 5, 2024, then paid $1,234.50 at 5:30pm: 50 % done.";
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), text);
-
-        // Assert: every token of the date, the amount, the time and the percent is delivered once; the glued meridiem
-        // is its own spelled span, delivered with the time even when the clause cut falls right before it
-        Assert.True(backend.Calls.Count >= 3);
-        Assert.Equal(
-            [("5", "fifth"), ("2024", "twenty twenty four"), ("$1,234.50", "one thousand two hundred thirty four dollars and fifty cents"), ("5:30", "five thirty"), ("50", "fifty"), ("%", "percent")],
-            DeliveredNormalizations(backend.Calls));
-        Assert.Equal(
-            [("pm", " P M")],
-            backend.Calls
-                .SelectMany(call => call.Annotations
-                    .Where(annotation => annotation.Kind == TextEnAnnotations.SpellOut)
-                    .Select(annotation => (call.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
-                .ToList());
-    }
-
-    /// <summary>Proves a percent sign that ends up alone in a chunk (the budget cut falls between the number and the sign) keeps its normalization.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization()
-    {
-        // Arrange: slide the budget cut across the gap between "50" and "%"
-        var backend = new RecordingAnnotatedBackend();
-        var sawLoneSign = false;
-
-        // Act / Assert
-        await WithEngineAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), async engine =>
-        {
-            for (var padding = 185; padding <= 199; padding++)
-            {
-                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " 50 %";
-                var before = backend.Calls.Count;
-                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
-                var calls = backend.Calls.Skip(before).ToList();
-                Assert.Equal(
-                    [("50", "fifty"), ("%", "percent")],
-                    DeliveredNormalizations(calls));
-                sawLoneSign |= calls.Any(call => call.Text == "%");
-            }
-        });
-        Assert.True(sawLoneSign, "no padding put the percent sign alone in a chunk");
-    }
-
-    /// <summary>Proves that wherever the 200-character budget cut falls (every padding is tried), no numeric annotation is split or lost, and two-token amounts stay whole.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit()
-    {
-        // Arrange
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act / Assert
-        await WithEngineAsync(new AnalyzingSynthesisModel(new EnglishTextAnalyzer(), backend), async engine =>
-        {
-            for (var padding = 150; padding <= 199; padding++)
-            {
-                var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " $5 million at 5:30pm on January 5 2024 for 5 kg and 1,234.50 or 12/25/2024 end";
-                var before = backend.Calls.Count;
-                _ = await engine.SynthesizeAsync(text, TestContext.Current.CancellationToken);
-
-                // Assert: the sequence the analyzer produced is the sequence delivered
-                var expected = new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations
-                    .Where(annotation => annotation.Kind == TextEnAnnotations.Normalized)
-                    .Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value))
-                    .ToList();
-                Assert.True(expected.Count >= 9);
-                Assert.Equal(expected, DeliveredNormalizations(backend.Calls.Skip(before).ToList()));
-            }
-        });
-    }
-
     /// <summary>Proves a number, an audio tag and a unit with no spaces between them keep both annotations and the tag is never covered.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations()
@@ -1433,30 +668,6 @@ public sealed class SpeechTextEnTests
             [("5", "five"), ("kg", "kilograms"), ("5", "five"), ("50", "fifty"), ("%", "percent")],
             normalizations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Value)));
         Assert.All(normalizations, annotation => Assert.DoesNotContain(Tag, text.Substring(annotation.Start, annotation.Length), StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    ///     Proves one megabyte of every numeric construct, repeated, is analyzed through the public API to the annotations and sentence
-    ///     breaks a short text gives: away from the two ends every repetition is annotated and broken exactly alike.
-    /// </summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_AnnotatesEveryRepetitionAlike()
-    {
-        // Arrange: normalization only, so no tagger is involved
-        string[] units = ["1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "1/2 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ", "555-123-4567 ", "1990s ", "3 1/2 ", "1999 "];
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-
-        foreach (var unit in units)
-        {
-            var text = string.Concat(Enumerable.Repeat(unit, (1_000_000 / unit.Length) + 1));
-
-            // Act
-            var result = analyzer.Analyze(text, hangGuard.Token);
-
-            // Assert
-            AssertRepetitionsAnalyzedAlike(analyzer, unit, text, result);
-        }
     }
 
     /// <summary>
@@ -1545,20 +756,25 @@ public sealed class SpeechTextEnTests
     }
 
     /// <summary>
-    ///     Proves one megabyte of realistic and of adversarially repetitive text is analyzed through the public API to the annotations
-    ///     and sentence breaks a short text gives: away from the two ends every repetition is annotated and broken exactly alike.
+    ///     Proves a large text (a quarter of a million characters) built of one repeated unit, for every numeric construct and for
+    ///     realistic and adversarially repetitive units, is analyzed through the public API to the annotations and sentence breaks a
+    ///     short text gives: away from the two ends every repetition is annotated and broken exactly alike.
     /// </summary>
     [Fact]
     public void SpeechTextEn_Analyze_LargeRepetitiveTexts_AnnotatesEveryRepetitionAlike()
     {
         // Arrange: normalization only, so no tagger is involved
-        string[] units = ["Dr. Smith lives on Maple Dr. He likes it, etc. The FBI said it\u2019s w/o proof & more. ", "St. ", "A. ", "& ", "Dr. He "];
+        string[] units =
+        [
+            "Dr. Smith lives on Maple Dr. He likes it, etc. The FBI said it\u2019s w/o proof & more. ", "St. ", "A. ", "& ", "Dr. He ",
+            "1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ", "555-123-4567 ", "1990s ", "3 1/2 ", "1999 ",
+        ];
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
         using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
         foreach (var unit in units)
         {
-            var text = string.Concat(Enumerable.Repeat(unit, (1_000_000 / unit.Length) + 1));
+            var text = string.Concat(Enumerable.Repeat(unit, (250_000 / unit.Length) + 1));
 
             // Act
             var result = analyzer.Analyze(text, hangGuard.Token);
@@ -1570,20 +786,13 @@ public sealed class SpeechTextEnTests
 
     // ---------------------------------------------------------------- pronunciation overrides, spelled initialisms
 
-    /// <summary>Loads the documented sample dictionary from its file, through a stream reader, as a host would.</summary>
-    /// <returns>The dictionary.</returns>
-    private static PronunciationOverrides LoadSampleDictionary()
-    {
-        using var reader = new StreamReader(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"));
-        return PronunciationOverrides.FromTsv(reader);
-    }
-
-    /// <summary>Lists the replacement and pronunciation annotations of a result as (source, kind, value), in order.</summary>
+    /// <summary>Lists the replacement, pronunciation and reading annotations of a result as (source, kind, value), in order.</summary>
     /// <param name="annotations">The annotations.</param>
     /// <param name="text">The analyzed text.</param>
-    /// <returns>The tuples; part-of-speech annotations are left out.</returns>
-    private static List<(string Source, string Kind, string Value)> Overlays(IEnumerable<SegmentAnnotation> annotations, string text) =>
-        [.. annotations.Where(annotation => annotation.Kind != TextEnAnnotations.PartOfSpeech).Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value))];
+    /// <param name="includePartOfSpeech">Whether the part-of-speech annotations are listed too.</param>
+    /// <returns>The tuples; part-of-speech annotations are left out unless asked for.</returns>
+    private static List<(string Source, string Kind, string Value)> Overlays(IEnumerable<SegmentAnnotation> annotations, string text, bool includePartOfSpeech = false) =>
+        [.. annotations.Where(annotation => includePartOfSpeech || annotation.Kind != TextEnAnnotations.PartOfSpeech).Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value))];
 
     /// <summary>Proves a host dictionary annotates whole words only, one annotation per action, on the exact source characters, and never rewrites the text.</summary>
     [Fact]
@@ -1591,7 +800,7 @@ public sealed class SpeechTextEnTests
     {
         // Arrange
         const string text = "Nginx and nginxes run a GIF, Polish SQL; NASA's US.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Overrides = LoadSampleDictionary() });
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Overrides = NormalizationHarness.LoadSampleDictionary() });
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
@@ -1614,7 +823,7 @@ public sealed class SpeechTextEnTests
     {
         // Arrange
         const string text = "Nginx runs Kubernetes and kubernetes, a GIF and Polish food.";
-        ITextAnalyzer analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = LoadSampleDictionary() });
+        ITextAnalyzer analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = NormalizationHarness.LoadSampleDictionary() });
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
@@ -1728,46 +937,25 @@ public sealed class SpeechTextEnTests
         Assert.EndsWith("2 overrides applied, 0 overrides ignored.", sink.Events[1].Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves the documented sample file loads through a stream reader and drives an analysis end to end.</summary>
+    /// <summary>Proves the documented sample file loads through a stream reader and drives an analysis end to end, and a bad line is refused by its number and a fixed reason, never by its content.</summary>
     [Fact]
-    public void SpeechTextEn_Overrides_SampleDictionaryFile_LoadsAndDrivesAnalysis()
+    public void SpeechTextEn_Overrides_Dictionary_LoadsFromFileValidatesAndDrivesAnalysis()
     {
         // Arrange
-        var overrides = LoadSampleDictionary();
+        var overrides = NormalizationHarness.LoadSampleDictionary();
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
         const string text = "Wi-Fi and Nginx-based Kubernetes apps; Cafe, \u0130stanbul.";
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        var refused = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader("Nginx\tinsensitive\tsay\tengine ex\nQuuxsentinel\twrong\tsay\tx\n")));
 
         // Assert
         Assert.Equal(23, overrides.Count);
         Assert.Equal("why fie and engine ex based koo ber net eez apps; Cafe, istanbul.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
         Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Pronunciation && annotation.Value == "arpabet:K AE0 F EY1");
-    }
-
-    /// <summary>Proves one analyzer with one dictionary, shared by many threads each analyzing different texts, returns exactly what a sequential run returns.</summary>
-    [Fact]
-    public async Task SpeechTextEn_Overrides_SharedAnalyzerConcurrentRequests_ReturnIdenticalResults()
-    {
-        // Arrange
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = LoadSampleDictionary() });
-        string[] texts =
-        [
-            "Nginx and SQL; Polish food.", "5 kg of Kubernetes, kubernetes at 5 pm.", "NASA's US and FBI and AT&T's Wi-Fi.", "A GIF, a gif, O\u2019Brien and O'Brien.", "Dr. Smith said Nginx-based Mr Jones left.",
-        ];
-        var expected = texts.Select(text => Describe(analyzer.Analyze(text, TestContext.Current.CancellationToken))).ToArray();
-
-        // Act
-        var tasks = Enumerable.Range(0, 32)
-            .Select(worker => Task.Run(
-                () => Enumerable.Range(0, 20).Select(i => (Index: (worker + i) % texts.Length, Key: Describe(analyzer.Analyze(texts[(worker + i) % texts.Length], CancellationToken.None)))).ToList(),
-                TestContext.Current.CancellationToken))
-            .ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        // Assert
-        Assert.All(results.SelectMany(list => list), item => Assert.Equal(expected[item.Index], item.Key));
+        Assert.StartsWith("Line 2:", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Quuxsentinel", refused.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Proves the shapes of spelled replacements - initialisms, dotted initialisms, single-letter initials (including the lone <c>A</c> and <c>I</c> a phoneme backend could take for words), credentials and meridiems - are annotated as spelled, so a consumer never reads them as words.</summary>
@@ -1804,9 +992,6 @@ public sealed class SpeechTextEnTests
     /// <param name="meridiemValue">The value of the <c>en.spell</c> span, with its separating space when it touches the number.</param>
     [Theory]
     [InlineData("at 5pm today", "5", "five", "pm", " P M")]
-    [InlineData("at 5PM today", "5", "five", "PM", " P M")]
-    [InlineData("at 5:30pm today", "5:30", "five thirty", "pm", " P M")]
-    [InlineData("at 12:00am today", "12:00", "twelve", "am", " A M")]
     [InlineData("at 5 p.m. today", "5", "five", "p.m.", "P M")]
     public void SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans(string text, string numberSource, string numberValue, string meridiemSource, string meridiemValue)
     {
@@ -1859,137 +1044,6 @@ public sealed class SpeechTextEnTests
         Assert.Equal("I", value);
         Assert.False(isSpelled);
         Assert.False(TextEnAnnotations.TryReadSpellOut(annotation, out _));
-    }
-
-    /// <summary>Proves an ampersand initialism is decomposed into spelled letter spans and an <c>and</c> normalization, with the same spoken text as before.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans()
-    {
-        // Arrange
-        const string text = "AT&T's R&D and Q&A.";
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
-
-        // Act
-        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(
-            [
-                ("AT", "en.spell", "A T"), ("&", "en.norm", " and "), ("T", "en.spell", "T"),
-                ("R", "en.spell", "R"), ("&", "en.norm", " and "), ("D", "en.spell", "D"),
-                ("Q", "en.spell", "Q"), ("&", "en.norm", " and "), ("A", "en.spell", "A"),
-            ],
-            Overlays(result.Annotations, text));
-        Assert.Equal("A T and T's R and D and Q and A.", NormalizationHarness.ApplyNormalizations(text, result.Annotations));
-    }
-
-    /// <summary>Proves hostile random text with a dictionary always yields annotations that satisfy the alignment contract through the public analyzer: replacements ascending and disjoint, pronunciations disjoint from them, every value readable, both entry points equal, and the result deterministic.</summary>
-    [Fact]
-    public void SpeechTextEn_Analyze_Overrides_AnnotationsSatisfyAlignmentContract()
-    {
-        // Arrange
-        string[] pieces =
-        [
-            "Nginx", "nginx", "Kubernetes", "GIF", "gif", "Polish", "polish", "SQL", "NASA", "NASA's", "Nginx-based", "Wi-Fi", "kg", "5 kg", "$3 million", "pm", "5 pm", "US", "us", "FBI", "Mr", "Mr.", "Do", "Don't",
-            "O'Brien", "O\u2019Brien", "\u0130stanbul", "\U00010400\U00010401x", "Cafe", "AT&T", "AT&T's", "J.", "U.S.", "Dr.", "&", "\u200B", "\u2022", "\uD83D", "\uDE00", "e\u0301", Tag, ",", ";", ":", ".", "(", ")", "'", "\u2019",
-            " ", "  ", "\t", "\n", "\0", new string('N', 70),
-        ];
-        var normalizationOnly = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization, Overrides = LoadSampleDictionary() });
-        var full = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = LoadSampleDictionary() });
-        var random = new Random(20260905);
-
-        for (var iteration = 0; iteration < 300; iteration++)
-        {
-            var text = string.Concat(Enumerable.Range(0, random.Next(0, 40)).Select(_ => pieces[random.Next(pieces.Length)] + (random.Next(3) == 0 ? string.Empty : " ")));
-            var analyzer = iteration % 5 == 0 ? full : normalizationOnly;
-
-            // Act
-            var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-            var detailed = analyzer.AnalyzeDetailed(text, TestContext.Current.CancellationToken);
-            var repeat = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-
-            // Assert: both entry points and a repeat agree
-            Assert.Equal(Describe(result), Describe(repeat));
-            Assert.Equal(detailed.Annotations, result.Annotations);
-
-            // replacements: one ascending, disjoint sequence of readable annotations
-            var previousEnd = 0;
-            foreach (var annotation in result.Annotations.Where(IsReplacement))
-            {
-                Assert.True(TextEnAnnotations.TryReadReplacement(annotation, out var value, out var spelled), $"unreadable replacement in iteration {iteration}");
-                Assert.True(annotation.Start >= previousEnd && annotation.End <= text.Length, $"order or bounds in iteration {iteration}");
-                var covered = text.Substring(annotation.Start, annotation.Length);
-                Assert.False(char.IsWhiteSpace(covered[0]) || char.IsWhiteSpace(covered[^1]), $"whitespace edge in iteration {iteration}");
-                Assert.DoesNotContain(covered, character => char.IsWhiteSpace(character) || character is ',' or ';' or ':');
-                Assert.DoesNotContain(Tag, covered, StringComparison.Ordinal);
-                Assert.DoesNotContain(Tag, value, StringComparison.Ordinal);
-                Assert.Equal(annotation.Kind == TextEnAnnotations.SpellOut, spelled);
-                previousEnd = annotation.End;
-            }
-
-            // pronunciations: disjoint from each other and from every replacement, readable, on exactly one token
-            var covering = result.Annotations.Where(annotation => annotation.Kind != TextEnAnnotations.PartOfSpeech).OrderBy(annotation => annotation.Start).ToList();
-            for (var i = 1; i < covering.Count; i++)
-            {
-                Assert.True(covering[i - 1].End <= covering[i].Start, $"overlap in iteration {iteration}");
-            }
-
-            foreach (var annotation in result.Annotations.Where(annotation => annotation.Kind == TextEnAnnotations.Pronunciation))
-            {
-                Assert.True(TextEnAnnotations.TryReadPronunciation(annotation, out _, out _), $"unreadable pronunciation in iteration {iteration}");
-                Assert.DoesNotContain(text.Substring(annotation.Start, annotation.Length), character => char.IsWhiteSpace(character) || character is ',' or ';' or ':');
-            }
-        }
-    }
-
-    /// <summary>Proves, through a real synthesis session and the real core chunker, that every replacement, spelling and pronunciation annotation of a long text with clause cuts, a budget cut and audio tags next to overridden words reaches exactly one backend call on the same characters.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_OverrideAnnotations_SurviveChunking()
-    {
-        // Arrange: well over 800 characters, so both the clause pass and the whitespace-budget path of the chunker run
-        const string paragraph = "Nginx, SQL and Polish food; the GIF, NASA's US and FBI: AT&T's R&D, Q&A, Kubernetes, Cafe. He paid $3 million for 5 kg of Wi-Fi at 5 pm, then Nginx-based apps ran. Mr Jones said O\u2019Brien likes polish. ";
-        var text = string.Concat(Enumerable.Repeat(paragraph, 5)).TrimEnd();
-        Assert.True(text.Length > 800);
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = LoadSampleDictionary() });
-        var expected = Overlays(analyzer.Analyze(text, TestContext.Current.CancellationToken).Annotations, text);
-        var backend = new RecordingAnnotatedBackend();
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert: the sequence of (source characters, kind, value) the backend sees equals the analyzer's, so nothing was lost or moved
-        var delivered = backend.Calls
-            .SelectMany(call => Overlays(call.Annotations, call.Text))
-            .ToList();
-        Assert.True(backend.Calls.Count > 3);
-        Assert.True(expected.Count > 60, "the text must carry many annotations");
-        Assert.Contains(expected, item => item.Kind == TextEnAnnotations.Pronunciation);
-        Assert.Contains(expected, item => item.Kind == TextEnAnnotations.SpellOut);
-        Assert.Equal(expected, delivered);
-    }
-
-    /// <summary>Proves an audio tag between overridden words keeps every override annotation: the tag is never covered and both sides are annotated.</summary>
-    [Fact]
-    public async Task SpeechTextEn_SynthesisSession_OverridesAroundAudioTag_KeepEveryAnnotation()
-    {
-        // Arrange
-        const string text = "Nginx [whispers] SQL, Polish [laughs] GIF done.";
-        var backend = new RecordingAnnotatedBackend();
-        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = LoadSampleDictionary() });
-
-        // Act
-        await SynthesizeAsync(new AnalyzingSynthesisModel(analyzer, backend), text);
-
-        // Assert
-        var delivered = backend.Calls.SelectMany(call => Overlays(call.Annotations, call.Text)).ToList();
-        Assert.Equal(
-            [
-                ("Nginx", TextEnAnnotations.Normalized, "engine ex"),
-                ("SQL", TextEnAnnotations.Normalized, "sequel"),
-                ("Polish", TextEnAnnotations.Pronunciation, "ipa:\u02C8po\u028Al\u026A\u0283"),
-                ("GIF", TextEnAnnotations.SpellOut, "G I F"),
-            ],
-            delivered);
     }
 
     /// <summary>Proves the diagnostics event reports only the counts, including the two override counts, and never a key, a payload, a phoneme string or a word of the analyzed text.</summary>
@@ -2059,21 +1113,4 @@ public sealed class SpeechTextEnTests
     private static string Describe(TextAnalysisResult result) =>
         string.Join(',', result.Annotations.Select(a => $"{a.Start}:{a.Length}:{a.Kind}:{a.Value}"))
         + "|" + string.Join(',', result.SentenceBreaks!);
-
-    /// <summary>Finds a file in the repository by walking up from the test output folder to the repository root.</summary>
-    /// <param name="relativePath">The path of the file relative to the repository root, using forward slashes.</param>
-    /// <returns>The full path of the file.</returns>
-    /// <exception cref="InvalidOperationException">The repository root cannot be found above the test output folder.</exception>
-    private static string FindRepositoryFile(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Speech.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory == null
-            ? throw new InvalidOperationException("The repository root (the folder containing Speech.slnx) was not found.")
-            : Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-    }
 }

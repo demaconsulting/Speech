@@ -1,0 +1,49 @@
+---
+# Software Unit Requirements for HeteronymBenchAdapter
+#
+# These requirements describe the design-level behavior of the HeteronymBenchAdapter unit, the part of the Text.En
+# trainer that reads the pinned English read set of heteronym-bench from the verified cache into external records,
+# decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement states one
+# observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/HeteronymBenchAdapterTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: HeteronymBenchAdapter Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-HeteronymBenchAdapter-Items
+                title: >-
+                  The HeteronymBenchAdapter unit shall read each item of the English read set with its
+                  sentence, word, target span and answer, label it with the word and the answer and give
+                  it the stratum of the item's own origin, shall skip, under the reason duplicate of WHD
+                  and before it looks at the offsets, every item that the benchmark took from
+                  WikipediaHomographData, and shall, when the span of an item is not its word, read the
+                  span as byte offsets and use it if that gives the word, counting the item as repaired,
+                  and otherwise skip the item under the reason bad offsets.
+                justification: |
+                  The strata let a reader see whether the model is as good on the items of one origin as
+                  on those of another, and the label is what the mapping relates to a reading. Items taken
+                  from the other dataset would weight the same sentences twice in the pooled figures. A
+                  known defect of the benchmark file is spans that count bytes, and a repair that is
+                  checked against the word, and counted, keeps the item without guessing a position.
+                tests:
+                  - HeteronymBenchAdapter_Read_Items_ParsedWithStratumAndLabel
+                  - HeteronymBenchAdapter_Read_WhdItems_SkippedAsDuplicates
+                  - HeteronymBenchAdapter_Read_ByteOffsetItem_IsRepairedAndCounted
+
+              - id: SpeechTextEn-ExternalEvaluation-HeteronymBenchAdapter-StrictFormat
+                title: >-
+                  The HeteronymBenchAdapter unit shall throw InvalidDataException that names the item and
+                  quotes no content when the document is not a read set of English, has no items, or an
+                  item lacks a usable field.
+                justification: |
+                  A document that is not what was pinned means that the dataset changed or the copy is
+                  damaged. The read stops with a message and does not evaluate a part of it.
+                tests:
+                  - HeteronymBenchAdapter_Read_MalformedDocument_Throws
+                  - HeteronymBenchAdapter_Read_InvalidUtf8_Throws
+                  - HeteronymBenchAdapter_Read_RepeatedItemId_Throws

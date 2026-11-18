@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "id": "whd",
+      "repository": "https://github.com/google-research-datasets/WikipediaHomographData",
+      "commit": "8f008f021e88f8b71118a27ae655f1f3121162bc",
+      "archive": "https://codeload.github.com/google-research-datasets/WikipediaHomographData/tar.gz/8f008f021e88f8b71118a27ae655f1f3121162bc",
+      "license": "Apache-2.0 for the repository; the sentences are Wikipedia text under CC-BY-SA-3.0",
+      "files": 325,
+      "bytes": 2097865,
+      "filesSha256": "815d7bd540fc327831dd953e5098e330817e4200257bf592dbfd0381338af5f0"
+    },
+    {
+      "id": "bench",
+      "repository": "https://github.com/adventists-ai/heteronym-bench",
+      "commit": "064163ef097ece80d9b8319abf5612b2b8a3968b",
+      "archive": "https://codeload.github.com/adventists-ai/heteronym-bench/tar.gz/064163ef097ece80d9b8319abf5612b2b8a3968b",
+      "license": "Apache-2.0 for the code; the data is CC-BY-SA-4.0",
+      "files": 3,
+      "bytes": 169232,
+      "filesSha256": "7364030de5c19174119eda4e2339d63f465fd2bac9c914653be7a024c074ec34"
+    }
+  ]
+}

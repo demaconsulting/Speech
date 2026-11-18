@@ -3,904 +3,452 @@
 #
 # These requirements describe the externally visible behavior of the SpeechTextEn library
 # (DemaConsulting.Speech.Text.En) from the perspective of a model package or host application
-# consuming it, without specifying implementation details. SpeechTextEn is a sibling system to
-# Speech: it supplies an English implementation of the Speech library's ITextAnalyzer seam,
-# ships as its own package, and is versioned as part of this repository. The Speech library never
-# depends on it. This is a preview: part-of-speech annotation, sentence boundaries and the
-# normalization of English text (abbreviations including month and weekday abbreviations, symbols,
-# apostrophes and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and
-# dates, delivered as annotations that never rewrite the text), host-supplied pronunciation overrides
-# (whole words spoken as written, replaced by plain words, spelled letter by letter or given a
-# phoneme string) and the spell-out annotation for letter sequences are provided. The heteronym
-# reading runtime is provided as well (SpeechTextEn-Heteronym-*): a reading inventory embedded in the
-# package, a deterministic feature extractor, a strict loader for the sparse model format and a
-# classifier that annotates the words of the inventory with a reading id and a confidence, with a
-# trained model that is embedded in the package. By default a reading is emitted for each heteronym
-# word of the inventory; a host override can fix a reading instead. Each requirement
-# states one observable behavior.
+# consuming it. SpeechTextEn is a sibling system to Speech: it supplies an English implementation
+# of the Speech library's ITextAnalyzer seam, ships as its own (preview) package and is versioned
+# as part of this repository. The Speech library never depends on it. The analysis is delivered
+# as annotations on spans of the unchanged text: part of speech, the spoken form of abbreviations,
+# symbols, initialisms and en-US numbers (normalization), host pronunciation overrides, and the
+# reading of heteronym words decided by a trained model that is embedded in the package.
 #
-# The training-data requirements at the end of this file (SpeechTextEn-TrainingData-*) describe the
-# repository's Text.En training and evaluation data (data/text-en/) and the check-data command of the
-# non-shipped Text.En trainer that verifies it; the data itself is not part of the package. The
-# training requirements after them (SpeechTextEn-Training-*) describe the train and evaluate commands of the
-# same trainer, which train the heteronym model from that data and measure it; they are tool behavior,
-# and the model they produce is the one the package embeds.
+# The requirements from SpeechTextEn-TrainingData-OpenLicenses onward describe the repository's
+# training and evaluation data (data/text-en/) and the non-shipped Text.En trainer that checks it,
+# trains the heteronym model from it and measures the model on the committed held-out data and on
+# pinned external datasets. They are tool behavior; the model they produce is the one the package
+# embeds. The datasets are not part of the package.
 #
-# Covered by test/DemaConsulting.Speech.Text.En.Tests (and, for the training-data and training
-# requirements, by
-# test/DemaConsulting.Speech.Text.En.Trainer.Tests) - see the subsystem/unit-level reqstream
-# files under docs/reqstream/speech-text-en/ for the full tests: lists these system requirements
-# decompose into.
+# Covered by test/DemaConsulting.Speech.Text.En.Tests (the library) and test/DemaConsulting.Speech.Text.En.Trainer.Tests
+# (the trainer; the trainer has no system-level test class, so its system requirements are evidenced
+# by its subsystem-level tests), and by the FileAssert tests of the built package. The subsystem and
+# unit requirements under docs/reqstream/speech-text-en/ decompose these.
 
 sections:
   - title: SpeechTextEn Requirements
     requirements:
       - id: SpeechTextEn-Analysis-TextAnalyzer
         title: >-
-          The library shall provide an English text analyzer that a synthesis model can supply
-          to the Speech library's text-analysis seam, that is safe for concurrent use, and that
-          honors cancellation.
+          The library shall provide an English text analyzer that a synthesis model can supply to the
+          Speech library's text-analysis seam, that supplies the sentence boundaries of the text, never
+          treats an audio-tag placeholder as part of a word or covers it by an annotation, gives the same
+          result for the same text however long or repetitive it is, is safe for concurrent use and
+          stops when its request is canceled.
         tags: [system]
         justification: |
-          A phoneme-driven model needs sentence-level English context that no chunk or
-          tag-delimited fragment carries. The Speech library is language-neutral, so an English
-          analyzer has to be supplied by a separate package through the library's analyzer seam;
-          that seam runs one analyzer instance for many requests and expects cancellation to stop
-          it.
+          A phoneme-driven model needs sentence-level English context that no chunk or tag-delimited
+          fragment carries, and the language-neutral Speech library has to get it from a separate
+          package through its analyzer seam. The seam runs one analyzer for many requests, drops any
+          annotation that covers a tag placeholder, splits sentences where the analysis says instead of
+          at every period ("Dr." does not end a sentence), and a stopped engine waits for a running
+          analysis, so cancellation must end it. The analyzer also runs on text pasted from documents
+          and data, which must be handled exactly like any other text.
         children:
           - SpeechTextEn-Analysis-AnalyzerContract
+          - SpeechTextEn-Normalization-LongInputAndCancellation
         tests:
-          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesPartOfSpeechAnnotationsThatSurviveChunking
+          - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
+          - SpeechTextEn_Analyze_MultipleSentencesAndTag_ReturnsAuthoritativeBreaks
+          - SpeechTextEn_Analyze_TagPlaceholder_IsNeverCoveredByAnAnnotation
           - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
-          - SpeechTextEn_Analyze_ConcurrentRequestsOnSharedAnalyzer_ReturnIdenticalResults
+          - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
+          - SpeechTextEn_Analyze_LargeRepetitiveTexts_AnnotatesEveryRepetitionAlike
 
       - id: SpeechTextEn-Analysis-PartOfSpeech
         title: >-
-          The library shall annotate each word of an English text with its Universal Dependencies
-          part of speech, as an annotation positioned on the word that a synthesis backend can
-          read, and shall let a host switch this annotation off.
+          The library shall annotate each word of an English text with its Universal Dependencies part
+          of speech, as an annotation positioned on the word that a synthesis backend can read, and
+          shall let a host switch the annotation off.
         tags: [system]
         justification: |
-          The part of speech is the context that selects the pronunciation of many English words
-          (for example "record" as a noun or a verb). A backend needs it attached to the word, in
-          a form it can read without parsing strings itself, and a host that does not need it
-          must be able to switch it off and get only the annotation families it selected.
+          The part of speech selects the pronunciation of many English words (for example "record" as a
+          noun or a verb). A backend needs it attached to the word, in a form it can read without
+          parsing strings, and a host that does not need it must get only the annotation families it
+          selected.
         children:
           - SpeechTextEn-Analysis-PartOfSpeechAnnotations
-          - SpeechTextEn-Analysis-SelectedAnnotationsAndRecovery
+          - SpeechTextEn-Analysis-AnalyzerContract
         tests:
           - SpeechTextEn_Analyze_Sentence_AnnotatesWordsWithReadablePartOfSpeech
           - SpeechTextEn_Analyze_PartOfSpeechDisabled_ProducesNoAnnotations
-          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesPartOfSpeechAnnotationsThatSurviveChunking
-
-      - id: SpeechTextEn-Analysis-SentenceBreaks
-        title: >-
-          The library shall supply the sentence boundaries of the analyzed text so that the Speech
-          library splits sentences where the analysis says, rather than at every period.
-        tags: [system]
-        justification: |
-          A period after an abbreviation such as "Dr." does not end a sentence, and splitting
-          there would give a model a fragment without its context. The analysis knows English
-          sentence structure; the library's own punctuation heuristic does not.
-        children:
-          - SpeechTextEn-Analysis-SentenceBoundaries
-          - SpeechTextEn-Analysis-NormalizationAnnotations
-        tests:
-          - SpeechTextEn_Analyze_MultipleSentencesAndTag_ReturnsAuthoritativeBreaks
-          - SpeechTextEn_SynthesisSession_AnalyzerSentenceBreaks_DriveChunkBoundaries
-
-      - id: SpeechTextEn-Analysis-PlaceholderHandling
-        title: >-
-          The library shall treat the Speech library's audio-tag placeholder as an opaque
-          separator that is never part of a word or covered by an annotation, while still
-          analyzing the words on both sides of it as one running text.
-        tags: [system]
-        justification: |
-          The Speech library replaces each recognized audio tag with one placeholder character
-          before analysis, and drops any annotation that covers a placeholder. An analysis that
-          treated the placeholder as text would lose annotations, and one that cut the text at
-          every tag would lose the context that tags such as "[whispers]" sit in the middle of.
-        children:
-          - SpeechTextEn-Analysis-PlaceholderNeutrality
-        tests:
-          - SpeechTextEn_Analyze_TagPlaceholder_IsNeverCoveredByAnAnnotation
-          - SpeechTextEn_SynthesisSession_TextWithAudioTag_AnnotatesWordsAroundTheTag
+          - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
 
       - id: SpeechTextEn-Analysis-Diagnostics
         title: >-
-          The library shall report one aggregate-counts analysis event per analyzed text to a
-          host-supplied diagnostics sink (readings assigned are reported by their own event, see
-          SpeechTextEn-Heteronym-Diagnostics), counting sentences, tokens, annotations, unknown
-          words, normalizations,
-          ambiguous readings, numeric fallbacks, overrides applied and overrides ignored, shall
-          never include any text content or any content of a pronunciation dictionary in it, and
-          shall not let a failing sink interrupt an analysis.
+          The library shall report one aggregate-counts event per analyzed text, and one for the
+          readings assigned, to a host-supplied diagnostics sink, counting sentences, tokens,
+          annotations, normalizations, ambiguous readings, numeric fallbacks, overrides applied and
+          ignored and readings by kind, shall never include text, a word, a reading id or dictionary
+          content in an event, and shall not let a failing sink interrupt an analysis.
         tags: [system]
         justification: |
-          The Speech library's diagnostics contract forbids synthesized text in any report, so
-          the analyzer can tell a host only how much it did, never what it read. The counts of
-          normalizations, of readings chosen by default where the words around an abbreviation or
-          a number did not decide (an abbreviation, a bare year, a month-first date) and of
-          numeric text left as written tell a host how much the normalization changed and how
-          often it had to guess or give up, which is the evidence for tuning it. The counts of
-          overrides applied and ignored tell a host whether its dictionary is doing anything and
-          whether an entry is shadowed by a number or unit rule, without revealing a word of the
-          dictionary, which can hold names. A diagnostics sink is an observer, and a fault in it
-          must never stop speech.
+          The Speech library's diagnostics contract forbids synthesized text in any report, so the
+          analyzer can tell a host only how much it did, never what it read. The counts show how often
+          the analysis had to guess (an ambiguous abbreviation or number), give up (numeric text left
+          as written) or was doubtful (a low-confidence reading), and whether a dictionary does
+          anything, without revealing a word of it (a dictionary can hold names). A sink is an
+          observer, and a fault in it must never stop speech.
         children:
           - SpeechTextEn-Analysis-DiagnosticsAggregation
         tests:
           - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+          - SpeechTextEn_Diagnostics_Readings_AreCountsOnly
           - SpeechTextEn_Diagnostics_Overrides_ReportCountsOnlyAndNeverDictionaryContent
+          - SpeechTextEn_Analyze_AmbiguousNumbers_UseDocumentedDefaultsAndAreCounted
+          - SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted
 
       - id: SpeechTextEn-Normalization-ReplacementAnnotations
         title: >-
-          The library shall deliver English text normalization as annotations that name the
-          spoken form of a span of the analyzed text, shall never rewrite the analyzed text or
-          annotate text that needs no change, and shall let a host switch normalization off
-          without needing the part-of-speech tagger for it.
+          The library shall deliver English text normalization as annotations that name the spoken form
+          of an exact span of the analyzed text (as words, or as capital letters to spell), shall never
+          rewrite the text or annotate text that needs no change, shall keep the spans in text order,
+          disjoint and free of whitespace, shall lose no annotation when the Speech library chunks the
+          text, and shall let a host switch normalization off without needing the part-of-speech tagger.
         tags: [system]
         justification: |
-          A synthesis backend needs to know how written English is spoken (an abbreviation in
-          full, a symbol as words), but the Speech library's annotations are positions in the
-          text it supplied, so rewriting the text would move every position and lose the user's
-          own words. Annotating only what changes keeps the cost proportional to the work done,
-          a host that wants only the part of speech must be able to leave normalization out, and
-          normalization works on the tokens alone, so it must not load the tagger.
+          A synthesis backend needs to know how written English is spoken (an abbreviation in full, a
+          symbol or a number as words, an initialism letter by letter), but the Speech library's
+          annotations are positions in the text it supplied: rewriting the text would move every
+          position and lose the user's own words. The library re-bases annotations onto its chunks and
+          drops one that is split by a chunk boundary or starts or ends on trimmed whitespace, so a span
+          that breaks these rules would silently lose its normalization, and a consumer applies the
+          spans as one ordered sequence. A host that wants only the part of speech must be able to
+          leave normalization out, and normalization works on the tokens alone.
         children:
           - SpeechTextEn-Normalization-SpanContract
           - SpeechTextEn-Analysis-NormalizationAnnotations
+          - SpeechTextEn-Normalization-AcronymHandling
+          - SpeechTextEn-Normalization-TokenDirectives
         tests:
+          - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
+          - SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost
           - SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText
           - SpeechTextEn_Analyze_NormalizationNotSelected_ProducesNoNormAnnotations
+          - SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations
+          - SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut
+          - SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans
+          - SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled
 
       - id: SpeechTextEn-Normalization-Abbreviations
         title: >-
-          The library shall give the spoken form of the common written English abbreviations,
-          shall resolve the ambiguous ones (St., Dr., Sr. and No.) from the words around them,
-          and shall use a documented default, counted in the diagnostics, where the words around
-          an ambiguous abbreviation do not decide.
+          The library shall give the spoken form of the common written English abbreviations (including
+          month and weekday abbreviations, read from the date around them), shall resolve the ambiguous
+          ones (St., Dr., Sr. and No.) from the words around them with a documented, counted default,
+          and shall end a sentence after an abbreviation period only where the abbreviation is read as
+          the last word of its sentence, keeping a name suffix and its credentials in one sentence.
         tags: [system]
         justification: |
-          A phoneme-driven model cannot pronounce "Dr." or "St." from their letters, and the two
-          readings of "St. Louis" and "Main St." differ in meaning. The neighboring words decide
-          most cases; where they do not, a documented default is predictable and a count of such
-          cases tells a host how often the normalization had to guess.
+          A phoneme-driven model cannot pronounce "Dr." or "St." from their letters, and "St. Louis"
+          and "Main St." differ in meaning; the neighboring words decide most cases and a documented
+          default, with a count of its use, covers the rest. The tokenizer cannot tell the period after
+          "Dr." from the one after "Main St." without knowing how the abbreviation is read, and a wrong
+          break gives a model a fragment without its context or cuts a name in two, so the sentence
+          breaks must follow the reading chosen.
         children:
           - SpeechTextEn-Normalization-AbbreviationResolution
         tests:
           - SpeechTextEn_Analyze_Abbreviation_AnnotatesSpokenFormWithoutChangingText
           - SpeechTextEn_Analyze_ContextDependentAbbreviations_ResolveFromNeighbors
-          - SpeechTextEn_Diagnostics_AnalyzedRequest_ReportsCountsOnlyAndSinkFailureIsContained
+          - SpeechTextEn_Analyze_AbbreviationAtSentenceEnd_BreaksAfterItAndKeepsThePeriod
+          - SpeechTextEn_Analyze_CredentialsAfterNameSuffix_StayInOneSentence
+          - SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext
 
       - id: SpeechTextEn-Normalization-Numbers
         title: >-
-          The library shall annotate cardinal numbers, negative numbers, thousands-separated
-          numbers, decimals, ordinals, percentages, fractions, years, decades and digit groups
-          (ranges, phone numbers, identifiers and dotted numbers) of en-US text with their spoken
-          words, in plain lowercase words that contain no digit, hyphen or comma, shall never
-          rewrite the text, and shall leave text that is not a number it reads unchanged.
+          The library shall annotate en-US numbers (cardinals, decimals, ordinals, percentages,
+          fractions, years, decades, digit groups), currency amounts, units, clock times and dates with
+          their spoken words, in plain words that contain no digit, hyphen or comma, shall
+          read a number the words around it do not decide by a documented, counted default, shall
+          bound the numbers it reads (longer ones stay as written and are counted), and shall leave
+          text that is not a number it reads unchanged.
         tags: [system]
         justification: |
-          A phoneme-driven model cannot pronounce digits: it needs "1,234" as "one thousand two
-          hundred thirty four" and "1990s" as "nineteen nineties". The spoken words must be plain
-          words that a backend can feed to its lexicon without a number parser, so the value
-          holds no digit, hyphen or comma that would change how the text is split into clauses.
-          Numbers inside identifiers, compounds and other scripts are not numbers the library can
-          read safely, so they stay as written rather than being guessed.
+          A phoneme-driven model cannot pronounce digits: it needs "1,234" as "one thousand two hundred
+          thirty four" and "$5.50" as "five dollars and fifty cents". The spoken words must be plain
+          words a backend can feed to its lexicon without a number parser. "1999" can be a year or a
+          quantity and "3/4/2024" can be March or April, so a documented default makes the choice
+          predictable and its count tells a host how often the analysis guessed. A text may contain
+          digit runs of any length (hashes, serial numbers), and reading a million digits aloud or
+          building an unbounded value would stall speech, so the numbers are bounded and the rest stay
+          as written rather than being guessed.
         children:
           - SpeechTextEn-Normalization-NumberReading
-          - SpeechTextEn-Normalization-YearsAndDecades
-          - SpeechTextEn-Normalization-DigitGroupReading
-          - SpeechTextEn-Normalization-NumericCultureInvariance
-        tests:
-          - SpeechTextEn_Analyze_Numbers_AreSpokenAsWordsWithoutChangingText
-          - SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd
-
-      - id: SpeechTextEn-Normalization-CurrencyAndUnits
-        title: >-
-          The library shall annotate currency amounts written with the symbols $, euro, pound and
-          yen or the codes USD, EUR, GBP and JPY (with cents, singular and plural, and magnitude
-          words), percentages and the listed units of measure after a number with their spoken
-          words, singular for exactly one and plural otherwise.
-        tags: [system]
-        justification: |
-          "$5.50" is "five dollars and fifty cents" and "1 kg" is "one kilogram"; a model that
-          reads the symbols and the letters of the units as written would say neither. The
-          singular and plural agree with the amount, and a closed, documented table of units
-          keeps ambiguous letters such as "m" and "in" from being reworded.
-        children:
           - SpeechTextEn-Normalization-CurrencyReading
-          - SpeechTextEn-Normalization-UnitsReading
-        tests:
-          - SpeechTextEn_Analyze_CurrencyAndUnits_AreSpokenAsWords
-
-      - id: SpeechTextEn-Normalization-DatesAndTimes
-        title: >-
-          The library shall annotate clock times (with or without a meridiem), numeric dates and
-          dates written with a month name with their spoken words, shall give the spoken form of
-          the month and weekday abbreviations from the date context around them, and shall report
-          the sentence breaks that follow from those abbreviations.
-        tags: [system]
-        justification: |
-          "5:30pm" is "five thirty P M" and "12/25/2024" is a date, not a fraction; the day and the
-          year next to a month name are read as an ordinal and a year. "Jan. 5" and "Sat. 5 Jan.
-          2024" contain periods that do not end a sentence, whereas "He left Mon. He came Tue."
-          contains two that do, so the abbreviation's reading must set the sentence breaks the
-          tokenizer gets wrong. "We finished in May. 5 people stayed." keeps its sentence end and
-          reads the number as a cardinal, while "Jan. 5" stays one date.
-        children:
           - SpeechTextEn-Normalization-TimeReading
-          - SpeechTextEn-Normalization-DateReading
           - SpeechTextEn-Normalization-AbbreviationResolution
-        tests:
-          - SpeechTextEn_Analyze_DatesAndTimes_AreSpokenAsWords
-          - SpeechTextEn_Analyze_MonthAndWeekdayAbbreviations_ResolveFromDateContext
-          - SpeechTextEn_Analyze_FullMonthPeriod_EndsTheSentenceAndGivesNoDateContext
-
-      - id: SpeechTextEn-Normalization-NumericAmbiguity
-        title: >-
-          The library shall read a number whose reading the words around it do not decide (a
-          four-digit year or quantity, a month-first or day-first numeric date, a fraction that
-          could be a date) by a documented default, shall count each such reading in the
-          diagnostics, and shall never guess silently.
-        tags: [system]
-        justification: |
-          "1999" can be a year or a quantity and "3/4/2024" can be March or April; no rule is
-          right for all text. A documented default makes the choice predictable, and the count of
-          defaults tells a host how often the normalization had to guess, which is the evidence
-          for refining the rules.
-        children:
-          - SpeechTextEn-Normalization-NumberAmbiguity
           - SpeechTextEn-Analysis-DiagnosticsAggregation
         tests:
+          - SpeechTextEn_Analyze_NumbersCurrencyUnitsDatesAndTimes_AreSpokenAsWordsWithoutChangingText
+          - SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd
           - SpeechTextEn_Analyze_AmbiguousNumbers_UseDocumentedDefaultsAndAreCounted
-          - SpeechTextEn_Diagnostics_NumericCounts_AreReportedAsCountsOnly
-
-      - id: SpeechTextEn-Normalization-NumericLimits
-        title: >-
-          The library shall bound the numbers it reads (at most 15 digits as a cardinal, a longer
-          digit run read digit by digit up to 64 digits, a longer one or one outside the supported
-          shapes left as written), shall count each number it could not read as written in the
-          diagnostics, and shall keep every spoken value to a fixed maximum size.
-        tags: [system]
-        justification: |
-          A text may contain digit runs of any length, such as hashes, serial numbers or pasted
-          data. Reading a million digits aloud, or building a spoken value of unbounded size, would
-          stall speech and exhaust memory, so the numbers are bounded by documented limits, the
-          ones beyond them are left as they were written, and the count tells a host that it
-          happened.
-        children:
-          - SpeechTextEn-Normalization-NumberLimits
-        tests:
           - SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted
-
-      - id: SpeechTextEn-Normalization-SentenceBoundaries
-        title: >-
-          The library shall end a sentence after an abbreviation period only where the
-          abbreviation is read as the last word of its sentence, shall keep a name suffix and
-          its credentials ("John Smith Jr. Ph.D.") in one sentence, and shall report the
-          sentence breaks accordingly.
-        tags: [system]
-        justification: |
-          A period after "Dr." does not end a sentence, but the period after "Main St." in "I
-          live on Main St. It is nice." does. The tokenizer cannot tell them apart without
-          knowing how the abbreviation is read, and a wrong break gives a model a fragment
-          without its context or a run-on sentence, so the reported breaks must follow the
-          reading chosen for the abbreviation. A break between a name suffix and its credential
-          would cut a name in two.
-        children:
-          - SpeechTextEn-Normalization-SentenceBoundaryReconciliation
-          - SpeechTextEn-Analysis-NormalizationAnnotations
-        tests:
-          - SpeechTextEn_Analyze_AbbreviationAtSentenceEnd_BreaksAfterItAndKeepsThePeriod
-          - SpeechTextEn_SynthesisSession_AbbreviationBreaks_DriveChunkBoundaries
-          - SpeechTextEn_Analyze_CredentialsAfterNameSuffix_StayInOneSentence
-          - SpeechTextEn_SynthesisSession_NameWithCredentials_IsOneChunk
+          - SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost
 
       - id: SpeechTextEn-Normalization-SymbolsAndClitics
         title: >-
-          The library shall give the spoken form of non-numeric symbols that stand for words
-          (speaking adjacent symbols as separate words),
-          shall canonicalize typographic apostrophes inside contractions and elisions, shall
-          drop invisible formatting characters only as explicit annotated edits, and shall make
-          the role of each clitic available to the caller.
+          The library shall give the spoken form of non-numeric symbols and of initialisms (spelled
+          letter by letter, case-sensitively), shall canonicalize typographic apostrophes inside
+          contractions, shall drop invisible formatting characters only as explicit annotated edits,
+          shall keep a clause of only a symbol or an invisible character with its neighbor, and shall
+          make the role of each clitic available to the caller.
         tags: [system]
         justification: |
           A model reads "&" and the copyright sign as nothing unless it is told the words, and a
           typographic apostrophe in "don't" can defeat a lexicon lookup that expects an ASCII one.
-          Invisible characters such as a soft hyphen or a zero-width space would be heard as a
-          break or as
-          noise, so they are dropped, but never silently. Knowing whether "'s" is a possessive or
-          a contraction of "is" or "has" lets a model package choose the pronunciation without
-          re-parsing the text.
+          Invisible characters would be heard as a break or as noise, so they are dropped, but never
+          silently. A clause that holds only a symbol must neither be discarded with its
+          normalization nor be spoken alone. Knowing whether "'s" is a possessive or a contraction lets
+          a model package choose the pronunciation without re-parsing the text.
         children:
           - SpeechTextEn-Normalization-SymbolsAndMarks
-          - SpeechTextEn-Normalization-ApostropheAndClitics
-        tests:
-          - SpeechTextEn_Analyze_Symbols_AreSpokenAsWords
-          - SpeechTextEn_Analyze_AdjacentMarks_AreSpokenAsSeparateWords
-          - SpeechTextEn_Analyze_TypographicApostrophes_AreCanonicalized
-          - SpeechTextEn_Analyze_InvisibleCharacters_AreDroppedExplicitly
-          - SpeechTextEn_AnalyzeDetailed_Clitics_RecordTheirRole
-
-      - id: SpeechTextEn-Normalization-AcronymsAndInitialisms
-        title: >-
-          The library shall recognize acronyms and initialisms case-sensitively, shall speak the
-          initialisms letter by letter, and shall leave acronyms that are spoken as words, and
-          the ordinary words that merely resemble an initialism, unchanged.
-        tags: [system]
-        justification: |
-          "FBI" is spelled out and "NASA" is a word; "US" is the country and "us" is a pronoun.
-          Only the exact capitalization carries that information, so matching must be
-          case-sensitive and must not treat every capitalized word as an acronym.
-        children:
           - SpeechTextEn-Normalization-AcronymHandling
         tests:
-          - SpeechTextEn_Analyze_AcronymsAndInitialisms_AreCaseSensitive
-
-      - id: SpeechTextEn-Normalization-SpelledInitialisms
-        title: >-
-          The library shall annotate every replacement that is a sequence of single capital
-          letters (an initialism, a dotted initialism, a single-letter initial, a credential such
-          as Ph.D., the letters of a meridiem and a word a host asked to spell out) with a
-          spell-out annotation instead of a normalization annotation, shall give it a value of
-          capital letters separated by single spaces that a backend speaks by letter name and
-          never as a word, shall give the meridiem letters of a number glued to a meridiem
-          ("5pm", "5:30pm") a spell-out annotation of their own, adjacent to and not overlapping
-          the annotation of the number or time words, shall speak every normalization annotation
-          value as words (a host's "Say" payload of "I" included), shall decompose an ampersand
-          initialism into letter spans and an "and" span, and shall leave the spoken text of
-          every such replacement unchanged.
-        tags: [system]
-        justification: |
-          A phoneme backend that receives the replacement "A" or "I" as plain text cannot tell
-          the letter from the article or the pronoun, so a letter sequence has to carry its own
-          annotation kind that promises letter names. The kind is the only signal: a backend
-          that inferred spelling from the content of a normalization value would spell a host's
-          "Say" payload of "I", so a glued meridiem is split into a words span and a letters
-          span instead of being left inside one normalization value. The ampersand of "AT&T" is
-          the word "and",
-          not a letter, so such a token is split into spans that each keep that promise. Moving
-          initialisms to the new kind changes only the annotation kind, never the words a
-          consumer that applies both kinds speaks, so the earlier golden spoken texts hold.
-        children:
-          - SpeechTextEn-Analysis-SpelledInitialismAnnotations
-          - SpeechTextEn-Normalization-SpelledReplacements
-        tests:
+          - SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost
           - SpeechTextEn_Analyze_SpelledInitialisms_AreAnnotatedAsSpellOut
-          - SpeechTextEn_Analyze_AmpersandInitialisms_AreDecomposedIntoLetterSpans
-          - SpeechTextEn_Analyze_Meridiems_AreTypedSpellOutSpans
-          - SpeechTextEn_Analyze_SayOverrideWithSingleLetterPayload_IsNotSpelled
+          - SpeechTextEn_AnalyzeDetailed_Clitics_RecordTheirRole
 
       - id: SpeechTextEn-Overrides-WordOverrides
         title: >-
-          The library shall let a host supply a dictionary of pronunciation overrides, each
-          matching one whole word of the analyzed text, and shall apply the matching entry to that
-          word by annotation only, without rewriting the text: speaking the word as written,
-          replacing it with plain words (a normalization annotation), spelling it letter by letter
-          (a spell-out annotation) or giving a backend a phoneme string for it (a pronunciation
-          annotation, which replaces nothing), and shall reject a dictionary when normalization
-          is not selected.
+          The library shall let a host supply a dictionary of pronunciation overrides, built from
+          entries or from a tab-separated file, validated and bounded, each matching one whole word of
+          the analyzed text and applied by annotation only (the word spoken as written, replaced by
+          plain words, spelled letter by letter, or given a phoneme string), shall let an override win
+          over every built-in rule and a case-sensitive entry over a case-insensitive one, shall leave a
+          word consumed by an earlier multi-token match to that match and count the override as
+          ignored, shall leave the sentence breaks unchanged, shall report a bad entry by its position
+          and a fixed reason but never by its content, and shall keep the dictionary immutable and safe
+          to share.
         tags: [system]
         justification: |
           No built-in table knows a product name, a brand or a person's name, and a model that
-          mispronounces it cannot be fixed by editing the library. A host must be able to say
-          how a word is spoken, as written, as other words, letter by letter or with exact
-          phonemes, and the Speech library's annotations are positions in the text it supplied, so
-          the override has to be an annotation like every other normalization. Overrides are applied
-          by the normalization pass, so accepting a dictionary and silently ignoring it would hide a
-          configuration mistake.
+          mispronounces it cannot be fixed by editing the library. The host must be able to say how a
+          word is spoken, and the override has to be an annotation like every other normalization. A
+          host that asks for "US" to be spoken as written must not be overruled by the acronym table.
+          "5 kg" is one construct that the number rules read as a whole, so an override for its unit
+          cannot be applied to part of it; the override is ignored and counted rather than applied
+          silently. An override changes how a word is spoken, never where a sentence ends. The
+          dictionary is usually a text file kept by someone who is not a programmer, so an error needs a
+          line number, may contain names that must not appear in a message, comes from a file the host
+          does not control (so it is bounded) and serves many threads (so it cannot change).
         children:
           - SpeechTextEn-Analysis-OverrideAnnotations
           - SpeechTextEn-Normalization-TokenDirectives
         tests:
+          - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
           - SpeechTextEn_Analyze_Overrides_AnnotateWholeWordsPerAction
           - SpeechTextEn_Analyze_OverrideActions_ReadBackThroughTypedReaders
-
-      - id: SpeechTextEn-Overrides-Precedence
-        title: >-
-          The library shall let an override win over every built-in normalization rule for the
-          spoken form of its word, a case-sensitive entry over a case-insensitive one, shall leave
-          a word that an
-          earlier multi-token match has already consumed (the unit of "5 kg", the magnitude of
-          "$5 million", the meridiem of "5 pm") to that match, shall count such an override as
-          ignored, and shall leave the sentence breaks, and so the chunks, exactly as they are
-          without the override, even for an abbreviation word whose period the tokenizer separates
-          ("Fig" in "See Fig. 5 for details.").
-        tags: [system]
-        justification: |
-          A host that asks for "US" to be spoken as written must not be overruled by the
-          acronym table, and a name that differs from a common word only in case needs the exact
-          spelling to win. A number with its unit or magnitude is one construct that the number
-          rules read as a whole, so an override for the unit word cannot be applied to part of it;
-          doing so silently would be a surprise, so the override is ignored and the count says
-          that it happened. An override changes how a word is spoken, never where a sentence
-          ends: a changed break would split "See Fig." from "5 for details." in synthesis.
-        children:
-          - SpeechTextEn-Analysis-OverrideAnnotations
-          - SpeechTextEn-Normalization-TokenDirectives
-        tests:
           - SpeechTextEn_Analyze_OverridePrecedence_UserOverridesBuiltInRules
           - SpeechTextEn_Analyze_OverrideOnConsumedToken_IsIgnoredAndCounted
           - SpeechTextEn_Analyze_OverrideOnAbbreviationWord_KeepsSentenceBreaksAndChunks
-
-      - id: SpeechTextEn-Overrides-Dictionary
-        title: >-
-          The library shall build a pronunciation dictionary from entries or from a tab-separated
-          file, validating every entry and bounding its size, shall report a bad entry or line by
-          its position and a fixed reason but never by its content, and shall keep the dictionary
-          immutable and safe to share across analyzers, requests and threads.
-        tags: [system]
-        justification: |
-          A dictionary is host configuration, usually a text file kept by someone who is not a
-          programmer, so a mistake must be reported with its line number; it may contain names that
-          must never appear in an error message or log; it comes from a file the host does not
-          control, so its size is bounded; and one instance serves every request of a model on
-          many threads, so it cannot change after it was validated.
-        children:
-          - SpeechTextEn-Analysis-OverrideDictionary
-        tests:
-          - SpeechTextEn_Overrides_SampleDictionaryFile_LoadsAndDrivesAnalysis
-          - SpeechTextEn_Overrides_SharedAnalyzerConcurrentRequests_ReturnIdenticalResults
-
-      - id: SpeechTextEn-Normalization-AlignmentContract
-        title: >-
-          The library shall place every normalization, every spell-out and every pronunciation
-          on exact spans of the analyzed text. The normalizations and spell-outs together shall be
-          in text order and not overlap, the pronunciations shall be in text order and overlap
-          neither each other nor a normalization or spell-out, and every span shall start and end
-          on non-whitespace characters and contain no whitespace and no semicolon (a comma or colon
-          only between two digits of a number); spell-out values shall be capital letters separated
-          by single spaces. The library shall leave case and punctuation outside the spans
-          untouched, shall drop no
-          character of the text silently, shall give each token of a multi-token numeric
-          construct (a date, an amount with a magnitude word, a mixed number) its own span, and
-          shall lose no annotation when the Speech library chunks the text, including a chunk
-          that consists only of symbols and a sentence or clause cut between the tokens of a
-          date or an overridden word.
-        tags: [system]
-        justification: |
-          The Speech library re-bases annotations onto its chunks and discards one that starts
-          or ends on trimmed whitespace, covers a placeholder or is split by a chunk boundary, so
-          a span that breaks these rules would silently lose its normalization. A reader must
-          also be able to trust that the only differences between the original text and its
-          spoken form are the annotated spans, which is what makes the normalization auditable;
-          a consumer applies the normalizations and the spell-outs as one sequence, so they cannot
-          overlap each other, and a pronunciation is attached to a word that is not also replaced.
-          A text such as "&" has no letter or digit, so chunking that treated it as punctuation
-          would discard the word it was normalized to. A numeric construct such as "January 5,
-          2024" or "$5 million" crosses spaces and a comma that the chunker may cut at, so each
-          of its tokens carries its own span rather than one span across the gap, and the only
-          comma or colon inside a span is the one inside a number ("1,234.50", "5:30"), which the
-          chunker never cuts.
-        children:
-          - SpeechTextEn-Normalization-SpanContract
-          - SpeechTextEn-Normalization-ChunkSafeSpans
-          - SpeechTextEn-Normalization-DecomposedAnnotations
-          - SpeechTextEn-Normalization-SpelledReplacements
-          - SpeechTextEn-Normalization-TokenDirectives
-        tests:
-          - SpeechTextEn_Analyze_NormalizedText_AnnotationsSatisfyAlignmentContract
-          - SpeechTextEn_SynthesisSession_NormalizedText_AnnotationsSurviveChunking
-          - SpeechTextEn_SynthesisSession_NormalizedTextWithAudioTag_KeepsBothAnnotations
-          - SpeechTextEn_SynthesisSession_SymbolOnlyText_KeepsItsNormalization
-          - SpeechTextEn_SynthesisSession_SymbolBeforeClausePunctuation_KeepsItsNormalization
-          - SpeechTextEn_SynthesisSession_InvisibleOnlyClause_KeepsDroppedAnnotationWithItsNeighbor
-          - SpeechTextEn_SynthesisSession_InvisibleOnlyClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
-          - SpeechTextEn_SynthesisSession_BareSymbolClauseWithPartOfSpeech_IsMergedIntoItsNeighbor
-          - SpeechTextEn_Analyze_NumericText_AnnotationsSatisfyAlignmentContract
-          - SpeechTextEn_SynthesisSession_NumericText_AnnotationsSurviveChunking
-          - SpeechTextEn_SynthesisSession_DateAcrossClauseCut_KeepsEveryTokenAnnotation
-          - SpeechTextEn_SynthesisSession_PercentSymbolChunk_KeepsItsNormalization
-          - SpeechTextEn_SynthesisSession_NumbersAtBudgetCut_AreNeverSplit
-          - SpeechTextEn_Analyze_NumberNextToAudioTag_KeepsBothAnnotations
-          - SpeechTextEn_Analyze_Overrides_AnnotationsSatisfyAlignmentContract
-          - SpeechTextEn_SynthesisSession_OverrideAnnotations_SurviveChunking
-          - SpeechTextEn_SynthesisSession_OverridesAroundAudioTag_KeepEveryAnnotation
-
-      - id: SpeechTextEn-Normalization-LargeInputAndCancellation
-        title: >-
-          The library shall return correct annotations and sentence breaks for large, repetitive,
-          adversarial and digit-heavy texts, shall give the same result for the same text however
-          long or repetitive it is, and shall stop analyzing when the request is canceled.
-        tags: [system]
-        justification: |
-          The analyzer runs on every synthesis request, including texts pasted from documents
-          and data, so a pathological text (a megabyte of numbers, or one enormous digit run)
-          must be handled exactly like any other text, and a stopped or disposed engine waits
-          for the analyzer to return, so a canceled request must end promptly. How the scan is
-          kept linear is a design matter (see the normalization subsystem design); here the
-          behavior is the contract.
-        children:
-          - SpeechTextEn-Normalization-LongInputAndCancellation
-        tests:
-          - SpeechTextEn_Analyze_LargeRepetitiveTexts_AnnotatesEveryRepetitionAlike
-          - SpeechTextEn_Analyze_CanceledToken_ThrowsOperationCanceledException
-          - SpeechTextEn_Analyze_LargeRepetitiveNumericTexts_AnnotatesEveryRepetitionAlike
+          - SpeechTextEn_Overrides_Dictionary_LoadsFromFileValidatesAndDrivesAnalysis
+          - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
 
       - id: SpeechTextEn-Heteronym-Readings
         title: >-
-          The library shall, when the reading annotation family is selected and a heteronym model
-          is available, annotate each word of an English text that has more than one reading in
-          the reading inventory (and each single-reading form of the inventory) with the id of its
-          reading and a confidence, as two annotations on the word's exact span that coexist with
-          the part-of-speech annotation, are never placed on text that carries a normalization,
-          a spell-out or a pronunciation, and survive the Speech library's chunking of the text.
+          The default analyzer shall, with no host configuration and from data in the package alone,
+          annotate each word of the reading inventory that has more than one reading with the id of its
+          reading in the sentence and a confidence, as two annotations on the word's exact span that
+          coexist with its part-of-speech annotation, are never placed on text that is replaced,
+          spelled or pronounced, survive the Speech library's chunking, and give the same result for
+          concurrent requests; shall emit no reading for a text without such a word; and shall let a
+          host fix the reading of a word with a validated reading entry of the dictionary, which beats
+          the model with a confidence of 1.000.
         tags: [system]
         justification: |
           English spells different words alike ("record" the noun and "record" the verb), and a
-          phoneme-driven model can only pronounce them correctly if something decides which one a
-          sentence means. The reading id names the decision in a stable vocabulary and the
-          confidence lets a backend or a host judge it. The annotations belong to the word and
-          nothing else: a span that is already replaced, spelled or pronounced by another rule has
-          a spoken form, so a reading there would contradict it, and the Speech library re-bases
-          the annotations of a long text onto its chunks, so they have to hold up in whichever
-          chunk the word lands.
+          phoneme-driven model can pronounce them correctly only if something decides which one a
+          sentence means. The reading id names the decision in a stable vocabulary, the confidence lets
+          a backend judge it, and the embedded model and inventory make the analyzer work offline with
+          no setup (the inventory is the vocabulary hosts name in overrides, so it cannot be a separate
+          download). The annotations belong to the word and nothing else: a span another rule has
+          already replaced, spelled or pronounced has a spoken form that a reading would contradict,
+          and the Speech library re-bases the annotations of a long text onto its chunks. A classifier
+          is right most of the time, not always, so a host that knows the reading of a name must be
+          able to say so. How accurate the model is on held-out data is the subject of
+          SpeechTextEn-Training-Evaluation.
         children:
           - SpeechTextEn-Analysis-ReadingAnnotations
           - SpeechTextEn-Heteronym-Classification
-          - SpeechTextEn-Heteronym-Confidence
-        tests:
-          - SpeechTextEn_SynthesisSession_AnnotatedBackend_ReceivesReadingsThatSurviveChunking
-          - EnglishTextAnalyzer_Analyze_MixedCorpus_ReadingNeverOverlapsReplacementOrPronunciation
-
-      - id: SpeechTextEn-Heteronym-ModelAvailability
-        title: >-
-          The default analyzer shall, with no host configuration, emit the reading of a heteronym
-          word of the inventory in clear sentences, shall emit no reading for a text without such
-          a word, shall give concurrent requests that use a valid, compatible model the same
-          readings as sequential requests, and shall continue without readings, with one warning
-          per analyzer, when a model is damaged or incompatible.
-        tags: [system]
-        justification: |
-          A host that does nothing gets the benefit of the embedded trained model: the reading a
-          word has in its sentence, so a backend can pronounce "record" the verb and "record" the
-          noun differently. A text with no heteronym word has nothing to decide, so it is
-          annotated as before. Every request that contains a word of the inventory gets the same
-          readings however many requests run at once, and a model that cannot be used must not
-          break speech, so the analysis goes on as if there were none and the host is told once.
-          (When the model is loaded, and that it is loaded once and shared, is a design choice
-          recorded in the heteronym subsystem design, not a requirement.) The evidence for the
-          first behavior is a set of clear sentences written independently of any data set; how
-          accurate the model is on held-out data is the subject of SpeechTextEn-Training-AcceptanceGate.
-        children:
-          - SpeechTextEn-Analysis-ReadingModelAvailability
+          - SpeechTextEn-Heteronym-ReadingIds
           - SpeechTextEn-Heteronym-ModelSupply
         tests:
+          - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
           - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading
           - SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations
-          - SpeechTextEn_Analyze_ReadingsOnSharedAnalyzerConcurrentRequests_ReturnIdenticalResults
+          - SpeechTextEn_Analyze_ReadingOverride_BeatsClassifier
+          - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
 
       - id: SpeechTextEn-Heteronym-ModelIntegrity
         title: >-
-          The library shall load a heteronym model only from a file that passes strict
-          validation of its header, payload, checksum and compression and whose feature set and
-          reading-inventory version the runtime supports, shall reject every other file with a
-          clear error rather than a crash, and shall never apply a
-          model to the wrong readings.
+          The library shall load a heteronym model only from a file that passes strict validation and
+          whose feature set and reading-inventory version it supports, shall continue without readings
+          and report the problem once per analyzer when a model is damaged or incompatible, and shall
+          derive the features of a reading decision and write the confidence identically on every
+          operating system, runtime and current culture.
         tags: [system]
         justification: |
-          A model file is data from outside the process: it can be truncated, corrupted, hostile
-          or trained for another version of the reading inventory. Trusting it would risk wrong
-          pronunciations of common words, an out-of-memory failure or a crash on the speech path,
-          so every defect is detected before any weight is used, and a model is bound to reading
-          ids so that an inventory that adds or reorders readings cannot silently change what a
-          weight means.
+          A model file is data from outside the process: it can be truncated, corrupted, hostile or
+          trained for another version of the reading inventory, and trusting it would risk wrong
+          pronunciations, an out-of-memory failure or a crash on the speech path. A model that cannot
+          be used must not break speech, so the analysis goes on without readings and the host is told
+          once. The weights are indexed by hashed features, so a derivation that depends on the culture
+          (a Turkish dotted I) or the platform would make a model decide differently from the one that
+          was trained, which no test of the weights alone could reveal.
         children:
           - SpeechTextEn-Heteronym-SparseFormat
-          - SpeechTextEn-Heteronym-InventoryModelCompatibility
-          - SpeechTextEn-Analysis-ReadingModelAvailability
-        tests:
-          - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
-          - EnglishTextAnalyzer_Analyze_IncompatibleModel_NoReadingsAndOneWarning
-
-      - id: SpeechTextEn-Heteronym-Determinism
-        title: >-
-          The library shall derive the features of a reading decision, and shall write the
-          confidence of a reading, identically on every operating system, runtime and current
-          culture, so that a model trained on one machine decides the same way on every other.
-        tags: [system]
-        justification: |
-          The weights are indexed by hashed features. A feature derivation that depends on the
-          culture (a Turkish dotted I), the platform or the runtime would make a model decide
-          differently from the one that was trained, which no test of the weights alone could
-          reveal. The feature encoding is therefore specified exactly for each feature-set
-          version (see the heteronym subsystem design for the encoding and its hash functions) and
-          checked against golden vectors, and the confidence is written
-          with the invariant culture so that a backend can always parse it.
-        children:
-          - SpeechTextEn-Heteronym-FeatureDeterminism
+          - SpeechTextEn-Heteronym-Classification
           - SpeechTextEn-Analysis-ReadingAnnotations
         tests:
+          - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
           - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
           - EnglishTextAnalyzer_Analyze_ConfidenceText_IsInvariantUnderTurkishAndFrenchCultures
 
-      - id: SpeechTextEn-Heteronym-OverridesFirst
-        title: >-
-          The library shall let a host fix the reading of a word with a reading entry of the
-          pronunciation dictionary (validated against the reading inventory), shall emit that
-          reading with a confidence of 1.000 without any model, shall let it beat the classifier,
-          and shall never classify a word that carries any other override.
-        tags: [system]
-        justification: |
-          A classifier is right most of the time, not always, and a host that knows the reading
-          of a product name or a recurring phrase must be able to say so, with the same
-          dictionary it already uses for pronunciations. An override is the host's decision, so
-          it needs no model and no confidence below certainty, and a word the host has replaced,
-          spelled, skipped or pronounced has been decided by the host and must not be overruled
-          by a guess.
-        children:
-          - SpeechTextEn-Analysis-ReadingOverrides
-        tests:
-          - SpeechTextEn_Analyze_ReadingOverride_BeatsClassifierAndNeedsNoModel
-
-      - id: SpeechTextEn-Heteronym-Diagnostics
-        title: >-
-          The library shall report the readings assigned to an analyzed text as one aggregate
-          event of counts only (readings classified, single-candidate, set by override and below
-          the confidence threshold) to the host's diagnostics sink, shall never include any text,
-          word or reading id in it, shall report an unusable model once per analyzer, and shall
-          not let a failing sink interrupt an analysis.
-        tags: [system]
-        justification: |
-          The Speech library's diagnostics contract forbids synthesized text in any report, so a
-          host can learn how many readings were decided and how many were doubtful, which is the
-          evidence for tuning the threshold or fixing a word with an override, but never which
-          words they were. An unusable model is the one condition a host can act on, so it is
-          reported, but once, not on every request.
-        children:
-          - SpeechTextEn-Analysis-ReadingDiagnostics
-        tests:
-          - SpeechTextEn_Diagnostics_Readings_AreCountsOnly
-          - EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel
-          - EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained
-
-      - id: SpeechTextEn-Packaging-LicenseNotices
-        title: >-
-          The package shall declare the license of everything it embeds through a license file
-          that starts with the SPDX expression MIT AND CC-BY-3.0-US and contains the MIT license
-          text, shall state that its two lexicon tables (abbreviations and initialisms) are under
-          the MIT License, that its reading inventory is dedicated to the public domain under
-          CC0-1.0, and that its embedded heteronym model was trained on data adapted from the
-          Manually Annotated Sub-Corpus and is provided under the terms of that license, shall
-          state that the part-of-speech tagging package it requires is a separate dependency with
-          its own license files, and shall carry a notice file that attributes the Manually
-          Annotated Sub-Corpus with the changes made, dedicates the content generated or labeled
-          for the model to the public domain under CC0 1.0 and reproduces the attribution of the
-          dependency's embedded data; both files shall be packed at the package root.
-        tags: [system]
-        justification: |
-          What the package contains is code, two small lexicon tables and the reading inventory
-          that DEMA Consulting wrote from scratch, and a trained model whose weights were learned
-          from sentences under three licenses: CC BY 3.0 US (sentences adapted from the Manually
-          Annotated Sub-Corpus), public domain and CC0. The weights contain no sentence text, but
-          a model trained on attributed material is a derived work of unsettled legal status, so
-          the package takes the conservative course the tagging package already takes: the model
-          is provided under the terms of the attribution license, with the attribution and the
-          statement of changes, and the declaration names both licenses. Declaring the MIT License
-          only would misstate what a consumer receives. The required package,
-          DemaConsulting.PartOfSpeech, is restored separately and carries its own license files,
-          but its embedded lexicon and weights come from Open English WordNet (CC BY 4.0, derived
-          from Princeton WordNet) and the same corpus, so a consumer of this package should be able
-          to see what the dependency contains and under which licenses; the notice file, clearly
-          scoped, does that. The built package is inspected: the FileAssert test checks that both
-          files are at the package root of the .nupkg with the required content (the declaration,
-          the model, the attribution of the corpus, the dedication and the dependency notice) and
-          that the .nuspec names the license file, and the project-file test checks that the
-          project names the license file and packs both files at the root. This is not legal
-          advice; the declaration and notices are the owner's decision and are revisited if the
-          data or the model changes.
-        tests:
-          - SpeechTextEn_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
-          - TextEn_PackageLicenseFiles_Content
-
       - id: SpeechTextEn-Isolation-RequestNoninterference
         title: >-
-          The library shall give each analysis request a result and diagnostics that depend only
-          on that request's own text and configuration, so that the results and diagnostics of a
-          request never disclose text from any other request, also when requests run one after
-          another or concurrently on one analyzer.
+          The library shall give each analysis request a result and diagnostics that depend only on that
+          request's own text and configuration, so that they never disclose text from any other request,
+          also when requests run one after another or concurrently on one analyzer.
         tags: [system]
         justification: |
-          The core ITextAnalyzer contract requires an analyzer not to retain the request text,
-          which is the user's speech content, and one analyzer serves many requests. What a host
-          or a backend can observe of that is noninterference: the result and the diagnostics of
-          a request carry nothing of another request and equal what a fresh analyzer would give.
-          That is what this requirement states and the tests prove. The stronger design obligation
-          that the library and its tagging dependency keep no reference to analyzed text in
-          memory (the dependency's working buffers, the repository's pin of a version that
-          clears them, and the analyzer's own state) cannot be observed through the public
-          interface; it is recorded in the system design and in the PartOfSpeech verification
-          document and is not claimed to be proven by test.
+          The core ITextAnalyzer contract requires an analyzer not to retain the request text, which is
+          the user's speech content, and one analyzer serves many requests. What a host or a backend can
+          observe of that is noninterference: the result and the diagnostics of a request carry nothing
+          of another request and equal what a fresh analyzer would give. The stronger design obligation
+          that the library and its tagging dependency keep no reference to analyzed text in memory
+          cannot be observed through the public interface; it is recorded in the system design and the
+          PartOfSpeech verification document and is not claimed to be proven by test.
         tests:
           - SpeechTextEn_Analyze_AfterAnotherRequest_ResultAndDiagnosticsDiscloseNothingOfIt
           - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
 
-      - id: SpeechTextEn-Packaging-PrereleaseOnly
+      - id: SpeechTextEn-Packaging-LicenseNotices
         title: >-
-          While the part-of-speech tagging package it depends on is a pre-release, the package
-          shall be packed only for a pre-release package version, so that a stable version packs
-          every other package and neither fails nor publishes a stable package that depends on a
-          pre-release one.
+          The package shall declare the license of everything it embeds through a license file that
+          starts with the SPDX expression MIT AND CC-BY-3.0-US and contains the MIT license text, shall
+          state that its lexicon tables are under the MIT License, that its reading inventory is
+          dedicated to the public domain under CC0-1.0, that its embedded heteronym model was trained on
+          data adapted from the Manually Annotated Sub-Corpus and is provided under the terms of that
+          license, and that the part-of-speech tagging package it requires is a separate dependency with
+          its own license files, and shall carry a notice file that attributes the Manually Annotated
+          Sub-Corpus with the changes made, dedicates the content generated or labeled for the model to
+          the public domain under CC0 1.0 and reproduces the attribution of the dependency's embedded
+          data; both files shall be packed at the package root.
         tags: [system]
         justification: |
-          NuGet does not allow a stable package to depend on a pre-release package (NU5104).
-          The shared build and release workflows pack every packable project with one version,
-          and the release version can be stable, so the project is packable only when the
-          effective package version (PackageVersion when given, otherwise Version, ignoring
-          build metadata) has a prerelease label. A stable version then skips this project
-          and still packs the other packages, and a pre-release version, including the
-          versions of the push build and of the pack verification, packs it. This is a
-          temporary guard: the requirement and the guard are removed once
-          DemaConsulting.PartOfSpeech ships a stable release and the pin moves to it, and the
-          test fails if the guard outlives a pre-release pin. The test evaluates the project
-          through the dotnet command line tool for stable, prerelease and build-metadata
-          versions, so it checks the packing outcome and not how the project file spells the
-          condition; the build script's pack verification checks that a package is actually
-          produced.
+          The package contains code, two small lexicon tables and a reading inventory that DEMA
+          Consulting wrote from scratch, and a trained model whose weights were learned from sentences
+          under three licenses: CC BY 3.0 US (sentences adapted from the Manually Annotated Sub-Corpus),
+          public domain and CC0. The weights contain no sentence text, but the package takes the
+          conservative course the tagging package already takes: the model is provided under the terms
+          of the attribution license, with the attribution and the statement of changes, and the
+          declaration names both licenses; declaring the MIT License only would misstate what a
+          consumer receives. The required tagging package carries its own license files, but its
+          embedded lexicon and weights come from Open English WordNet (CC BY 4.0) and the same corpus,
+          so a consumer should be able to see what the dependency contains; the notice file, clearly
+          scoped, does that. The built package is inspected by a FileAssert test: both files are at the
+          package root of the .nupkg with the required content and the .nuspec names the license file.
+          This is not legal advice; the declaration and notices are the owner's decision and are
+          revisited if the data or the model changes.
         tests:
-          - SpeechTextEn_PackageVersion_EvaluatedProject_PacksOnlyPrereleaseWhileTaggerIsPrerelease
+          - TextEn_PackageLicenseFiles_Content
 
       - id: SpeechTextEn-Packaging-PinnedDependency
         title: >-
-          The package shall depend on exactly one version of the part-of-speech tagging package
-          and on no speech-engine inference runtime.
+          The package shall depend on the part-of-speech tagging package pinned to one exact version and
+          on no speech-engine inference runtime.
         tags: [system]
         justification: |
-          The tagging package is a pre-release package whose results can change between
-          versions, so a floating version would silently change the analysis a model builds on.
-          The analysis is plain managed text processing and must stay usable by any model
-          package, so it must not drag an inference runtime into every consumer. The test
-          inspects the evaluated package and project references of the project (through the
-          dotnet command line tool), not the text of the project file. The minimum acceptable
-          version of the tagging package is a dependency policy recorded in the system design.
+          The tagging package is a pre-release package whose results can change between versions, so a
+          floating version would silently change the analysis a model builds on. The analysis is plain
+          managed text processing and must stay usable by any model package, so it must not drag an
+          inference runtime into every consumer. The built package is inspected by a FileAssert test of
+          its .nuspec, not the text of the project file, and only when a package exists: NuGet does not
+          allow a stable package to depend on a pre-release package (NU5104), so while the tagging
+          package is a pre-release the project is packable only for a pre-release version (a temporary
+          guard recorded in the system design, which goes with the pre-release pin; the build script's
+          pack verification checks that a package is produced).
         tests:
-          - SpeechTextEn_Dependencies_EvaluatedReferences_PinTaggerExactlyAndReferenceNoInferenceRuntime
+          - TextEn_PackageDependencies_Nuspec
 
-      - id: SpeechTextEn-Packaging-ReadingInventory
-        title: >-
-          The package shall supply the documented heteronym reading inventory (the readings, the
-          forms and the candidate readings of each form) and the trained heteronym model from the
-          package itself, with no separate download or file.
-        tags: [system]
-        justification: |
-          The reading ids that hosts name in overrides and that backends receive in annotations
-          are defined by this inventory, so it must travel with the code that validates them and
-          cannot be a separate download; the model that chooses among those readings travels with
-          it so that the default analyzer works offline with no setup. The inventory is CC0 data
-          written by DEMA Consulting; the model is trained from the repository's data (see
-          SpeechTextEn-Packaging-LicenseNotices for its license). How the tables are embedded
-          (linked from the repository's Text.En data so the trainer and the runtime share one
-          source, under resource names the loader asks for) is a design matter recorded in the
-          heteronym subsystem design.
-        children:
-          - SpeechTextEn-Heteronym-ReadingIds
-        tests:
-          - SpeechTextEn_Analyze_ReadingInventoryInPackage_ValidatesReadingOverridesOffline
-          - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading
-
-      # The training data of the heteronym reading classifier (data/text-en/) is a tool input of the
-      # non-shipped Text.En trainer; the requirements below are verified by its check-data command.
       - id: SpeechTextEn-TrainingData-OpenLicenses
         title: >-
           The repository shall hold the Text.En training and evaluation data only under the open
-          licenses CC0-1.0, Public-Domain and CC-BY-3.0-US, shall fail its checks for any row under another
-          license and for any restricted-license or Misaki data, and shall state that the content
-          generated or labeled for it by DEMA Consulting is dedicated to the public domain under CC0 1.0.
+          licenses CC0-1.0, Public-Domain and CC-BY-3.0-US, shall record for every row where it came from
+          (a source document with its license, or how it was generated) and carry the attribution its
+          licenses require, shall state that the content generated or labeled for it by DEMA Consulting
+          is dedicated to the public domain under CC0 1.0, and shall fail its checks for a row under
+          another license, a restricted-license or Misaki row, or a row without a record or a record
+          without a row.
         tags: [system]
         justification: |
-          The data is meant to be reused and redistributed, including commercially, and to train
-          weights that ship with the package. A single row under a share-alike,
-          non-commercial or no-derivatives license would taint all of it, and the owner decided that no
-          Misaki data is used and that the content generated by DEMA Consulting, including text
-          labeled by language models, is released under CC0 1.0. The license of every row is
-          therefore checked on every change.
+          The data is meant to be reused and redistributed, including commercially, and to train weights
+          that ship with the package. A single row under a share-alike, non-commercial or no-derivatives
+          license would taint all of it, and the owner decided that no Misaki data is used and that the
+          content generated by DEMA Consulting, including text labeled by language models, is released
+          under CC0 1.0. A license claim is only as good as the record behind it, so every harvested row
+          needs its source document and every generated row the template or labeling it came from, and
+          the license of every row is checked on every change.
         children:
           - SpeechTextEn-TrainingData-LicenseGate
+          - SpeechTextEn-TrainingData-SchemaValidation
         tests:
           - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
           - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
 
       - id: SpeechTextEn-TrainingData-Integrity
         title: >-
-          The repository shall provide a command that fails when the committed Text.En training
-          data is malformed, differs from its committed manifest, or contains a row whose label,
-          lemma, source, license or target-word offsets are inconsistent with the reading inventory.
+          The repository shall provide a command that fails when the committed Text.En training data is
+          malformed, differs from its committed manifest, contains a row whose label, lemma, source,
+          license or target-word offsets are inconsistent with the reading inventory, or shares a
+          sentence, a document or a template between the training, development and holdout sets (and,
+          when an operator supplies local copies of the evaluation sets, repeats or nearly repeats an
+          evaluation sentence), and the repository shall never hold the evaluation-only corpora.
         tags: [system]
         justification: |
-          The data is far too large to review by reading, and a silent defect in it (a shifted
-          offset, a wrong label, an altered file) would only show up later as a worse classifier.
-          A command that checks every file and every row, and that the lint script and the build
-          pipeline run, keeps the committed data what its reviewed manifest says it is.
+          The data is far too large to review by reading, and a silent defect in it (a shifted offset, a
+          wrong label, an altered file) would only show up later as a worse classifier. A classifier is
+          only measured honestly on sentences it did not train on, and the evaluation corpora are
+          licensed for evaluation only, so they are never committed. A command that checks every file
+          and every row, and that the lint script and the build pipeline run, keeps the committed data
+          what its reviewed manifest says it is; the comparison with the external sets can only be run
+          by someone who has them, so it is optional.
         children:
           - SpeechTextEn-TrainingData-CheckCommand
           - SpeechTextEn-TrainingData-FileFormat
-          - SpeechTextEn-TrainingData-ManifestVerification
           - SpeechTextEn-TrainingData-SchemaValidation
+          - SpeechTextEn-TrainingData-LeakageGate
         tests:
           - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
           - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
           - TrainingDataSubsystem_CheckData_ManifestDrift_NamesFileAndPassesAfterRegeneration
-
-      - id: SpeechTextEn-TrainingData-EvaluationIsolation
-        title: >-
-          The repository shall never hold the evaluation-only corpora used to measure heteronym
-          resolution, shall fail its checks when the committed training, development and holdout
-          data share a sentence, a document or a template, and, when an operator supplies local copies of
-          the evaluation sets, shall also fail when a row repeats or nearly repeats an evaluation sentence.
-        tags: [system]
-        justification: |
-          A classifier is only measured honestly on sentences it did not train on, and the evaluation
-          corpora are licensed for evaluation only, so the owner decided that they are never committed
-          and never trained on. The separation of the committed splits is a build gate; the comparison
-          with the external sets can only be run by someone who has them, so it is optional.
-        children:
-          - SpeechTextEn-TrainingData-LeakageGate
-        tests:
-          - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
           - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
-          - TrainingDataSubsystem_CheckData_NoEvaluationSets_PassesAndSaysSkipped
+          - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
 
-      - id: SpeechTextEn-TrainingData-Provenance
-        title: >-
-          The repository shall record for every committed training row where it came from (a source
-          document with its license, or the record of how it was generated), shall carry the attribution
-          that its licenses require, and shall fail its checks when a row has no record or a record has
-          no row.
-        tags: [system]
-        justification: |
-          A license claim is only as good as the record behind it. Every harvested row needs
-          its source document, every generated row the template or the language-model labeling it came
-          from, and the attribution that the CC-BY-3.0-US rows require must travel with the data, so
-          that the claims can be checked and later audited.
-        children:
-          - SpeechTextEn-TrainingData-ProvenanceGate
-        tests:
-          - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
-          - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
-
-      # The training of the heteronym reading classifier is done by the train and evaluate commands of the
-      # non-shipped Text.En trainer; the requirements below are verified through those commands.
       - id: SpeechTextEn-Training-Reproducible
         title: >-
           The repository shall provide a command that trains the heteronym model from the committed
-          training data and settings with the same content on every run and on every supported operating
-          system (byte for byte in the uncompressed model), and a command that detects and reports by name
-          a model, a record or an input that no longer matches what retraining produces.
+          training and development data, the reading inventory and the committed settings alone (the
+          holdout sets have no influence) with the same content on every run and on every supported
+          operating system, together with a record of its settings, inputs and image hash, and a command
+          that detects and reports by name a model, a record or an input that no longer matches what
+          retraining produces.
         tags: [system]
         justification: |
-          A model that ships in a package must be one the repository can rebuild, so that a reviewer
-          can check where its weights came from. The identity across operating systems is evidenced by
-          the continuous-integration build matrix, which runs the same test, with the hash of a model
-          trained from a small fixture pinned in the test, on every supported operating system; a
-          local run on one system alone does not show it. A model that no longer matches its data,
-          its tagger or its settings, or a record or model file that was edited by hand, would ship
-          weights nobody can reproduce, so the check finds it and names the cause.
+          A model that ships in a package must be one the repository can rebuild, so that a reviewer can
+          check where its weights came from, and a classifier is only measured honestly when nothing it
+          was made from has seen the holdout sets (not the weights, the number of epochs or the
+          confidence calibration). The identity across operating systems is evidenced by the
+          continuous-integration build matrix, which runs the same test, with the hash of a model
+          trained from a small fixture pinned in the test, on every supported operating system. A model
+          that no longer matches its data, its tagger or its settings, or a record or model file edited
+          by hand, would ship weights nobody can reproduce, so the check finds it and names the cause.
         children:
           - SpeechTextEn-Training-RepeatableModel
-          - SpeechTextEn-Training-StalenessCheck
           - SpeechTextEn-Training-CommandContract
+          - SpeechTextEn-Training-HoldoutFreeTraining
         tests:
           - TrainingSubsystem_Train_SameInputsTwice_ProduceIdenticalUncompressedImagesAndRecords
           - TrainingSubsystem_Train_FixtureImage_MatchesPinnedHash
+          - TrainingSubsystem_Train_HoldoutFilesAbsentOrAltered_ImageUnchanged
           - TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale
           - TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent
-
-      - id: SpeechTextEn-Training-HoldoutIsolation
-        title: >-
-          The training of the heteronym model and the choices made while training it shall use only the
-          training data, the development data and the reading inventory, so that the holdout sets have
-          no influence on the model.
-        tags: [system]
-        justification: |
-          A classifier is only measured honestly on sentences that nothing it was made from has seen.
-          The holdout sets exist to measure the finished model, so they must have no way into the
-          weights, the number of epochs or the confidence calibration.
-        children:
-          - SpeechTextEn-Training-HoldoutFreeTraining
-        tests:
-          - TrainingSubsystem_Train_HoldoutFilesAbsentOrAltered_ImageUnchanged
 
       - id: SpeechTextEn-Training-RuntimeParity
         title: >-
@@ -916,8 +464,6 @@ sections:
           the match between training and use from an intention into a measured fact.
         children:
           - SpeechTextEn-Training-RuntimeAlignedTraining
-          - SpeechTextEn-Training-LearnedModel
-          - SpeechTextEn-Training-PredictionParity
         tests:
           - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
           - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord
@@ -925,59 +471,80 @@ sections:
 
       - id: SpeechTextEn-Training-Evaluation
         title: >-
-          The repository shall provide a command that reports the reading accuracy of the heteronym model
-          on the development and holdout sets with always-default (majority) and own-part-of-speech
-          baselines, a paired document-clustered confidence interval of the improvement, the readings
-          with the lowest accuracy and the variation between seeds, that does so deterministically, and
-          that decides the quality gate from them.
+          The repository shall provide a command that reports, deterministically, the reading accuracy of
+          the heteronym model on the development and holdout sets with always-default (majority) and
+          own-part-of-speech baselines, a paired document-clustered confidence interval of the
+          improvement, the readings with the lowest accuracy and the variation between seeds, and that
+          decides the quality gate from them: the embedded model shall choose the labeled reading for at
+          least 93.0 percent of the words of the committed natural holdout, end to end through the
+          analyzer, and improve on the part of speech alone by an amount whose 95 percent confidence
+          interval lies above zero.
         tags: [system]
         justification: |
           Whether a model is worth shipping depends on what it adds beyond what the tagger already gives
           for free, how certain that improvement is, and where the model fails. The owner fixed the gate
-          before any model was measured, so the decision is made by a command from the recorded
-          thresholds, and a result that is the same on every run can be committed and checked.
+          before any model was measured: a model that does not clearly beat the tagger is not worth its
+          size and licensing burden. The decision is made by a command from the recorded thresholds,
+          through the same analyzer a host uses, on data that took part in neither training nor any
+          choice, and a result that is the same on every run can be committed and checked. The committed
+          evaluation record carries the numbers and the honest limits of the measure (labels chosen by
+          rule or by language models, tagger exposure to part of the natural set, and a separate
+          synthetic set written by another model family).
         children:
           - SpeechTextEn-Training-EvaluationReport
-          - SpeechTextEn-Training-QualityGateDecision
-          - SpeechTextEn-Training-EvaluationRecordFiles
         tests:
           - TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage
           - TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds
           - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
-          - TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent
-
-      - id: SpeechTextEn-Training-AcceptanceGate
-        title: >-
-          The heteronym model that the package embeds shall, on the committed natural holdout, choose
-          the labeled reading for at least 93.0 percent of the words end to end through the analyzer,
-          and shall improve on the reading chosen by the part of speech alone by an amount whose 95
-          percent confidence interval lies above zero.
-        tags: [system]
-        justification: |
-          The owner fixed this gate before any model was measured: a model that does not clearly beat
-          what the tagger already gives for free is not worth shipping and its size and licensing
-          burden are not justified. The test applies the recorded thresholds to the model that is
-          committed, through the same analyzer a host uses, on data that did not take part in
-          training or in any choice; the committed evaluation record carries the numbers and the
-          honest limits of the measure (labels chosen by rule or by language models, tagger exposure
-          to part of the natural set, and a separate synthetic set written by another model family).
-        tests:
           - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
 
-      - id: SpeechTextEn-Training-ProvenanceRecord
+      - id: SpeechTextEn-Evaluation-ExternalFetchOnly
         title: >-
-          A heteronym model shall be accompanied by a record of its settings, its inputs and the hash of
-          its image that the training tool can verify.
+          The repository shall obtain evaluation-only external datasets only into a local cache that is
+          not committed, shall use exactly the pinned upstream revision and files of each dataset and
+          never evaluate content that fails verification against its pin, shall commit and embed nothing
+          of them, and shall never use them to train a heteronym model or to choose any setting of one.
         tags: [system]
         justification: |
-          Without a record, the origin of a set of weights is a claim. The record states what the model
-          was trained from and how, and the tool's check proves that the model and the record still
-          agree with each other and with the data, so that a reviewer can rely on them.
+          The external datasets are licensed for evaluation, and a model trained or tuned on them could
+          no longer be measured on them, so they are fetched at evaluation time into a folder that
+          version control ignores and nothing of them can reach a commit, a package or a model. A figure
+          is only comparable between runs, and only reviewable, when the data behind it is the same
+          data: the pins fix the revision and every file by size and hash, so a changed or damaged copy
+          is refused instead of silently measured.
         children:
-          - SpeechTextEn-Training-ModelProvenance
-          - SpeechTextEn-Training-RecordContent
+          - SpeechTextEn-ExternalEvaluation-FetchAndVerify
+          - SpeechTextEn-ExternalEvaluation-SeedVariance
         tests:
-          - TrainingSubsystem_Train_TinyFixture_ProducesLoadableModelThatClassifiesTrainingPatterns
-          - TrainingSubsystem_Train_UnalignedRow_SkippedAndCountedInRecord
-          - TrainingSubsystem_TrainCheck_FreshModelIsCurrentAndChangesMakeItStale
-          - TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent
+          - ExternalEvaluationSubsystem_Evaluate_FetchConvertEvaluateAndRecord_EndToEnd
+          - ExternalEvaluationSubsystem_Evaluate_TamperedCache_IsRefusedWithNoFigures
+          - ExternalEvaluationSubsystem_Seeds_ReportSpreadAndIntervals
+
+      - id: SpeechTextEn-Evaluation-ExternalReport
+        title: >-
+          The external evaluation shall report, for each external set, the accuracy of the embedded
+          heteronym model with always-default, majority and own-part-of-speech baselines, the results for
+          each reading, the rows that were skipped with the reason, and the variation of the accuracy
+          across training seeds with clustered confidence intervals, and the committed external record
+          shall be deterministic, hold only numbers, pins and the repository's own identifiers, and be
+          verifiable against a fresh evaluation.
+        tags: [system]
+        justification: |
+          A single accuracy on a dataset of another domain says little. The baselines show what the model
+          adds, the per-reading results show where it fails, the skipped rows show how much of the
+          dataset the figure does not cover, and the seeds with their intervals show how much of the
+          result is the model and how much is luck. The record is the reviewable evidence of the figures:
+          it has to come out the same on every run so that it can be compared, it must carry nothing of
+          the licensed datasets, and a record nobody can check against a fresh evaluation would be a
+          claim and not evidence.
+        children:
+          - SpeechTextEn-ExternalEvaluation-LabelMapping
+          - SpeechTextEn-ExternalEvaluation-SeedVariance
+          - SpeechTextEn-ExternalEvaluation-CommandContract
+        tests:
+          - ExternalEvaluationSubsystem_Evaluate_SkippedRows_AreReportedNotFatal
+          - ExternalEvaluationSubsystem_CommittedBenchMapping_ResolvesToInventoryReadings
+          - ExternalEvaluationSubsystem_Seeds_ReportSpreadAndIntervals
+          - ExternalEvaluationSubsystem_Failures_ExitTwoWithNoFigures
+          - ExternalEvaluationSubsystem_CommittedRecord_HasExpectedFilesAndNumericGrammar
+          - ExternalEvaluationSubsystem_Output_HoldsNoDatasetText

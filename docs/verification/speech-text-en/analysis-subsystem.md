@@ -10,17 +10,15 @@ part-of-speech package, and, because the default options select normalization, t
 too), injecting a test tagger factory (that still returns the real shared tagger, so the shared process-wide tagger
 is never disturbed) to cancel at the tagger or to make its first creation fail, and asserting results, exceptions and
 recovery rather than how often the tagger is created. The override tests load the sample dictionary
-`TestData/overrides-dictionary.tsv` through its documented file format. Each unit is verified in isolation by its own
-test file (see the unit verification documents); the normalization pipeline of the analyzer (the order and
-merging of `en.upos` and `en.norm` annotations, the reconciled breaks, the detailed data, the selection
-flags, the cancellation inside normalization and the counts) and the annotation of overrides and spelled
-initialisms are verified by the `EnglishTextAnalyzer` unit tests, the dictionary by the `PronunciationOverrides`
-unit tests, and the normalization rules themselves by the NormalizationSubsystem tests (see *SpeechTextEn
+`TestData/overrides-dictionary.tsv` through its documented file format.
+
+Each unit is verified in isolation by its own test file (see the unit verification documents). The normalization
+pipeline of the analyzer (annotation order, reconciled breaks, detailed data, selection flags, cancellation and
+counts), the annotation of overrides and spelled initialisms and the reading rules in detail (coexistence, single
+candidate, diagnostics, cancellation) belong to the `EnglishTextAnalyzer` unit tests, the dictionary to the
+`PronunciationOverrides` unit tests and the normalization rules to the NormalizationSubsystem tests (see *SpeechTextEn
 NormalizationSubsystem Verification*). The heteronym readings are verified at this level through the real
-HeteronymSubsystem with a hand-built fixture model and with the shipped model (the default analyzer), and their rules
-in detail
-(the coexistence rules, the single-candidate rule, diagnostics, cancellation) by the `EnglishTextAnalyzer`
-unit tests in `EnglishTextAnalyzerReadingTests.cs`.
+HeteronymSubsystem with a hand-built fixture model.
 
 ### Test Environment
 
@@ -35,21 +33,19 @@ unit tests in `EnglishTextAnalyzerReadingTests.cs`.
 ### Acceptance Criteria
 
 The subsystem tests pass when: annotations read back through the typed reader at exactly the words they annotate;
-selecting no annotations yields none but still yields sentence breaks; breaks are authoritative and unaffected by
-abbreviations and tags, and an abbreviation title does not split a sentence under the default (normalizing) options; the
+selecting no annotations yields none but still yields authoritative sentence breaks, and an empty request yields no
+annotations and an empty, non-null break list; an abbreviation title does not split a sentence under the default
+(normalizing) options; a placeholder is never covered and the analysis equals that of the same text with spaces; the
 normalization annotations read back at their spans, merged with the parts of speech, with the sentence breaks
-reconciled; a placeholder is never covered and the analysis equals that of the same text with spaces; an untagged
-analysis and an empty text return no annotations, many concurrent requests agree with a sequential request and a request
-after a failed tagger creation succeeds; one counts-only event (sentences, tokens, annotations, unknown words,
-normalizations, ambiguous readings, numeric fallbacks, overrides applied and overrides ignored) is reported without any
-word and a throwing sink changes nothing; every action of a pronunciation dictionary read from the documented file
-format reaches a consumer through the typed readers, which, applied by the documented algorithm, give the expected
-spoken text and phonemes; the replacement annotations of every kind form one ascending, disjoint sequence and the
-pronunciations are disjoint from them; the reading annotations of an analysis with a model read back through the typed
-readers at exactly the words they annotate and coexist with the part of speech on the same span; a reading override
-loaded from the tab-separated format is validated when it is read, applied by the analyzer and counted as an applied
-override; and cancellation, whether it arrives during tagger initialization or during the last sentence, throws
-`OperationCanceledException` and reports nothing.
+reconciled; many concurrent requests agree with a sequential request and a request after a failed tagger creation
+succeeds; cancellation throws `OperationCanceledException` and reports nothing; one counts-only event is reported
+without
+any word and a throwing sink changes nothing; every action of a pronunciation dictionary read from the documented file
+format reaches a consumer through the typed readers, the replacement annotations of every kind form one ascending,
+disjoint sequence and the pronunciations are disjoint from them; the reading annotations of an analysis with a model
+read
+back through the typed readers and coexist with the part of speech on the same span; and a reading override loaded from
+the tab-separated format is validated when it is read, applied and counted.
 
 ### Test Scenarios
 
@@ -58,18 +54,19 @@ override; and cancellation, whether it arrives during tagger initialization or d
 **Tests**: `AnalysisSubsystem_Analyze_Sentence_AnnotationsReadBackThroughTypedReader`,
 `AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks`
 
-A sentence is analyzed and every annotation is read back through `TextEnAnnotations`; with the selection set
-to `None` there are no annotations but the sentence break is still supplied.
+A sentence is analyzed and every annotation is read back through `TextEnAnnotations`. With the selection set to `None`
+there are no annotations but the sentence break is still supplied, and an empty text returns no annotations and an
+empty, non-null break list.
 
 #### Sentence boundaries and placeholders
 
 **Tests**: `AnalysisSubsystem_Analyze_MultiSentenceText_ReturnsAuthoritativeBreaks`,
 `AnalysisSubsystem_Analyze_PlaceholderBetweenWords_IsNeverCoveredAndContextIsCarried`
 
-A text with an abbreviation title (`Dr.`, which is also normalized under the default options), a placeholder
-and several sentences yields breaks only at the first word of each
-later sentence; a text with a placeholder inside "I will ... record it" gives annotations identical to the
-same text with a space, with "record" tagged as a verb because the words before the tag are still context.
+A text with an abbreviation title (`Dr.`, which is also normalized under the default options), a placeholder and several
+sentences yields breaks only at the first word of each later sentence. A text with a placeholder inside "I will ...
+record it" gives annotations identical to the same text with a space, with "record" tagged as a verb because the words
+before the tag are still context.
 
 #### Normalization annotations
 
@@ -80,76 +77,60 @@ and normalization annotations are both present in text order, the normalizations
 `TextEnAnnotations.TryReadNormalized` at their source spans, and the sentence breaks are reconciled (a break is added
 after `Main St.` and none falls inside `Dr. Smith`).
 
-#### Selected annotations and recovery
+#### Concurrency, recovery and cancellation
 
-**Tests**: `AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations`,
-`AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult`,
-`AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds`
+**Tests**: `AnalysisSubsystem_Analyze_ManyConcurrentRequests_AgreeWithSequentialResult`,
+`AnalysisSubsystem_Analyze_TaggerFailsOnce_LaterRequestSucceeds`,
+`AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing`
 
-An analyzer that does not select part-of-speech annotation returns no annotations and still supplies the break before
-`She`, and an empty text returns no annotations and no breaks; thirty-two concurrent requests across four analyzers
-sharing one adapter, racing on their first use, all return the annotations a sequential request gives; and when the
-first creation of the tagger fails the first request throws `InvalidOperationException` and the next request returns
-exactly the annotations and breaks of a healthy analyzer. How the tagger is obtained (lazily, once, shared, never for an
-analyzer that has nothing to tag) is a design strategy recorded in the analysis subsystem design; no test counts tagger
-creations.
+Thirty-two concurrent requests across four analyzers sharing one adapter, racing on their first use, all return the
+annotations a sequential request gives. When the first creation of the tagger fails the first request throws
+`InvalidOperationException` and the next request returns exactly the annotations and breaks of a healthy analyzer. How
+the tagger is obtained (lazily, once, shared, never for an analyzer that has nothing to tag) is a design strategy
+recorded in the analysis subsystem design; no test counts tagger creations. A token canceled the moment the tagger is
+first requested, in a multi-sentence text, makes the analysis throw `OperationCanceledException`, return no result and
+send the sink no event.
 
 #### Diagnostics
 
 **Tests**: `AnalysisSubsystem_Analyze_Request_ReportsOneCountsOnlyDiagnostic`,
 `AnalysisSubsystem_Analyze_ThrowingDiagnosticsSink_StillReturnsSameResult`
 
-A text of invented words produces one Info event in the `TextEn.Analysis` category whose message matches the
-fixed template of nine counts (ending with the overrides applied and ignored) and contains none of the words; an
-analyzer whose sink throws returns the same result as one without a sink.
+A text of invented words produces one Info event in the `TextEn.Analysis` category whose message matches the fixed
+template of nine counts (ending with the overrides applied and ignored) and contains none of the words; an analyzer
+whose sink throws returns the same result as one without a sink.
 
 #### Pronunciation overrides through the typed readers
 
-**Test**: `AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders`
+**Tests**: `AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders`,
+`AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint`
 
 The sample dictionary file is loaded and the text `Nginx runs a GIF in Polish, US and FBI and AT&T's SQL.` is
-analyzed. A consumer written only against `TextEnAnnotations.TryReadReplacement` and `TryReadPronunciation` applies
-the replacements in order and must obtain `engine ex runs a G I F in Polish, US and FBI and A T and T's sequel.`:
-the say entries become words, the spell entry and the ampersand initialism become letters, the skip entries leave
-`US` and `FBI` as written, and the one pronunciation (`Polish` with the IPA phonemes of the sample) is read with its
-scheme. The spelled values are `G I F`, `A T` and `T`, and the `sequel` replacement is not spelled.
+analyzed. A consumer written only against `TextEnAnnotations.TryReadReplacement` and `TryReadPronunciation` applies the
+replacements in order and must obtain `engine ex runs a G I F in Polish, US and FBI and A T and T's sequel.`: the say
+entries become words, the spell entry and the ampersand initialism become letters, the skip entries leave `US` and `FBI`
+as written, and the one pronunciation (`Polish` with the IPA phonemes of the sample) is read with its scheme. A text
+that
+mixes a title, an ampersand, an override, currency, a unit, a time, an initialism and a credential is analyzed with the
+same dictionary: every annotation other than the part of speech, in start order, ends before the next one starts, and
+at least one pronunciation, one spell-out and one normalization annotation are present.
 
-#### Disjoint replacements and pronunciations
+#### Heteronym readings
 
-**Test**: `AnalysisSubsystem_Analyze_OverrideAndSpelledText_ReplacementsAndPronunciationsAreDisjoint`
-
-A text that mixes a title, an ampersand, an override, currency, a unit, a time, an initialism and a credential is
-analyzed with the sample dictionary. Every annotation other than the part of speech, in start order, ends before
-the next one starts, so the replacements of both kinds and the pronunciations form one non-overlapping sequence,
-and at least one pronunciation, one spell-out and one normalization annotation are present.
-
-#### Heteronym readings through the typed readers
-
-**Test**: `AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech`
+**Tests**: `AnalysisSubsystem_Analyze_ReadingFamily_ReadsBackThroughTypedReadersAndCoexistsWithPartOfSpeech`,
+`AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts`
 
 The text `I want to record a record.` is analyzed by an analyzer with the default options and a provider over a
-hand-built fixture model (the HeteronymSubsystem is real; only the weights are made by the test, see *SpeechTextEn
+hand-built
+fixture model (the HeteronymSubsystem is real; only the weights are made by the test, see *SpeechTextEn
 HeteronymSubsystem Verification*). Reading the annotations with `TextEnAnnotations.TryReadReading` gives `record.verb`
 and then `record.noun`, each on exactly the characters `record`, and on every such span the part of speech and the
-confidence (read with `TryReadReadingConfidence`) are present on the same start and length.
-
-#### Reading override from the tab-separated format
-
-**Test**: `AnalysisSubsystem_Analyze_ReadingOverrideFromTsv_AppliesAndCounts`
-
-A dictionary read from two `reading` lines is applied by the default analyzer to `They read the record.`: the
-readings are `read.past` and `record.noun` (the override decides both words, whatever the embedded model would choose),
-the analysis event reports `2 overrides applied, 0 overrides ignored`, and
-a `reading` line whose id is not a candidate of its word is rejected with `InvalidDataException` when the file is read.
-
-#### Cancellation
-
-**Tests**: `AnalysisSubsystem_Analyze_CancellationRequested_ThrowsOperationCanceledExceptionAndReportsNothing`,
-`AnalysisSubsystem_Analyze_CancellationDuringLastSentence_ThrowsOperationCanceledExceptionAndReportsNothing`
-
-In the first test the token is canceled the moment the tagger is first requested (tagger initialization) in
-a multi-sentence text; in the second it is canceled right after the only (last) sentence was tagged. In both
-the analysis throws `OperationCanceledException`, returns no result and the sink receives no event.
+confidence (read with `TryReadReadingConfidence`) are present on the same start and length. A dictionary read from two
+`reading` lines is applied by the default analyzer to `They read the record.`: the readings are `read.past` and
+`record.noun` (the override decides both words, whatever the embedded model would choose), the analysis event reports
+`2 overrides applied, 0 overrides ignored`, and a `reading` line whose id is not a candidate of its word is rejected
+with
+`InvalidDataException` when the file is read.
 
 See also *SpeechTextEn System Verification* and the unit documents `english-text-analyzer.md`,
 `english-text-analyzer-options.md`, `text-en-annotations.md`, `pronunciation-overrides.md`,

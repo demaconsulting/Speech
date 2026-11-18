@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.Text.En.Tests.AnalysisSubsystem;
 /// </summary>
 public sealed class AnalysisDiagnosticsTests
 {
-    /// <summary>Proves one request produces exactly one Info event in the documented category carrying each labeled count, in the documented order.</summary>
+    /// <summary>Proves one request produces exactly one Info event in the documented category carrying each labeled count, in the documented order (the override counts last, each under its own label, and zero when not supplied).</summary>
     [Fact]
     public void AnalysisDiagnostics_ReportRequest_Sink_ReceivesOneInfoEventWithCounts()
     {
@@ -28,6 +28,8 @@ public sealed class AnalysisDiagnosticsTests
         Assert.Equal(
             [("sentences", 3), ("tokens", 17), ("annotations", 12), ("unknown words", 2), ("normalizations", 4), ("ambiguous readings", 1), ("numeric fallbacks", 5), ("overrides applied", 6), ("overrides ignored", 7)],
             LabeledCounts(reported.Message));
+        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesApplied);
+        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesIgnored);
     }
 
     /// <summary>Proves the message is built from fixed words and numbers only: it states nine labeled counts and nothing else with a digit.</summary>
@@ -44,19 +46,6 @@ public sealed class AnalysisDiagnosticsTests
             string.Concat(message.Where(char.IsAsciiDigit)));
     }
 
-    /// <summary>Proves the two override counts are part of the message, after the counts that existed before, each under its own label, so a count can never be mistaken for another.</summary>
-    [Fact]
-    public void AnalysisDiagnostics_FormatMessage_OverrideCounts_AreNamedAndOrdered()
-    {
-        // Act
-        var message = AnalysisDiagnostics.FormatMessage(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7, 8, 9));
-
-        // Assert
-        Assert.Equal([("numeric fallbacks", 7), ("overrides applied", 8), ("overrides ignored", 9)], LabeledCounts(message).TakeLast(3));
-        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesApplied);
-        Assert.Equal(0, new AnalysisCounts(1, 2, 3, 4, 5, 6, 7).OverridesIgnored);
-    }
-
     /// <summary>Reads the labeled counts ("<c>17 tokens</c>", "<c>2 unknown words</c>") of a message, in the order they are stated.</summary>
     /// <param name="message">The message.</param>
     /// <returns>The label and value of every count.</returns>
@@ -64,19 +53,7 @@ public sealed class AnalysisDiagnosticsTests
         [.. Regex.Matches(message, @"(?<value>\d+) (?<label>[A-Za-z]+(?: [A-Za-z]+)?)(?=[,.])", RegexOptions.CultureInvariant)
             .Select(match => (match.Groups["label"].Value, int.Parse(match.Groups["value"].Value, System.Globalization.CultureInfo.InvariantCulture)))];
 
-    /// <summary>Proves a missing sink is allowed and silently reports nothing.</summary>
-    [Fact]
-    public void AnalysisDiagnostics_ReportRequest_NullSink_DoesNothing()
-    {
-        // Arrange
-        var diagnostics = new AnalysisDiagnostics(null);
-
-        // Act / Assert
-        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7)));
-        Assert.Null(exception);
-    }
-
-    /// <summary>Proves a sink that throws is contained.</summary>
+    /// <summary>Proves a missing sink is allowed and silently reports nothing, and a sink that throws is contained.</summary>
     [Fact]
     public void AnalysisDiagnostics_ReportRequest_ThrowingSink_IsContained()
     {
@@ -85,10 +62,12 @@ public sealed class AnalysisDiagnosticsTests
         var diagnostics = new AnalysisDiagnostics(sink);
 
         // Act
-        var exception = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7)));
+        var thrown = Record.Exception(() => diagnostics.ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7)));
+        var none = Record.Exception(() => new AnalysisDiagnostics(null).ReportRequest(new AnalysisCounts(1, 2, 3, 4, 5, 6, 7)));
 
-        // Assert: the call completed normally even though the sink threw, and the sink was reached
-        Assert.Null(exception);
+        // Assert: both calls completed normally, and the throwing sink was reached
+        Assert.Null(thrown);
+        Assert.Null(none);
         Assert.Single(sink.Events);
     }
 

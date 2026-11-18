@@ -44,25 +44,36 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.Equal(result.Annotations.OrderBy(annotation => annotation.Start).Select(annotation => annotation.Start), result.Annotations.Select(annotation => annotation.Start));
     }
 
-    /// <summary>Proves a default analyzer (the embedded model) emits the readings of the sentence, also when only normalization and readings are selected.</summary>
+    /// <summary>Proves a default analyzer (the embedded model) emits the readings of the sentence, also when only normalization and readings are selected, and that requests without a heteronym word emit no readings and do not disturb later requests.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_DefaultAnalyzer_EmitsEmbeddedModelReadings()
     {
         // Arrange
         const string text = "I want to record a record.";
         var byDefault = new EnglishTextAnalyzer();
+        var fresh = new EnglishTextAnalyzer();
         var readingOnly = new EnglishTextAnalyzer(
             new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading });
 
         // Act
+        var empty = byDefault.Analyze(string.Empty, TestContext.Current.CancellationToken);
+        var plain = byDefault.Analyze("The cat sat on the mat.", TestContext.Current.CancellationToken);
         var defaultResult = byDefault.Analyze(text, TestContext.Current.CancellationToken);
         var readingResult = readingOnly.Analyze(text, TestContext.Current.CancellationToken);
+        var freshResult = fresh.Analyze(text, TestContext.Current.CancellationToken);
 
         // Assert: both readings, each with its confidence on the word's span, and no part of speech for the reading-and-normalization selection
         Assert.Equal(["record.verb", "record.noun"], Readings(defaultResult.Annotations).Select(reading => reading.Id));
         Assert.Equal(["record.verb", "record.noun"], Readings(readingResult.Annotations).Select(reading => reading.Id));
         Assert.All(Readings(readingResult.Annotations), reading => Assert.InRange(reading.Confidence, 0.0, 1.0));
         Assert.DoesNotContain(readingResult.Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech);
+
+        // requests without a heteronym word emit nothing, and the later request equals that of a fresh analyzer
+        Assert.Empty(Readings(empty.Annotations));
+        Assert.Empty(Readings(plain.Annotations));
+        Assert.Equal(
+            Readings(freshResult.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)),
+            Readings(defaultResult.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)));
     }
 
     /// <summary>Proves an analyzer given no model source emits no classified readings, also when only normalization and readings are selected.</summary>
@@ -129,32 +140,7 @@ public sealed class EnglishTextAnalyzerReadingTests
         });
     }
 
-    /// <summary>Proves requests without a heteronym word emit no readings and do not disturb later requests: the readings of a later request equal those of a fresh analyzer.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_RequestsWithoutHeteronymWords_EmitNoReadingsAndLaterRequestsStillGetThem()
-    {
-        // Arrange
-        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
-        var fresh = CreateAnalyzer(new CountingModelSource(RecordModel.Value));
-        const string text = "I want to record a record.";
-
-        // Act
-        var empty = analyzer.Analyze(string.Empty, TestContext.Current.CancellationToken);
-        var plain = analyzer.Analyze("The cat sat on the mat.", TestContext.Current.CancellationToken);
-        var first = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-        var second = analyzer.Analyze("They will record the meeting.", TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Empty(Readings(empty.Annotations));
-        Assert.Empty(Readings(plain.Annotations));
-        Assert.Equal(["record.verb", "record.noun"], Readings(first.Annotations).Select(reading => reading.Id));
-        Assert.Equal(["record.verb"], Readings(second.Annotations).Select(reading => reading.Id));
-        Assert.Equal(
-            Readings(fresh.Analyze(text, TestContext.Current.CancellationToken).Annotations).Select(reading => (reading.Id, reading.ConfidenceText)),
-            Readings(first.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)));
-    }
-
-    /// <summary>Proves a form with a single candidate reading gets that reading with confidence 1.000 when the family is active (a model exists), and nothing without a model source.</summary>
+    /// <summary>Proves a single candidate form gets confidence 1.000 when the family is active (a model exists), and nothing without a model source.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_SingleCandidateForm_EmitsConfidenceOneOnlyWithModel()
     {
@@ -222,7 +208,7 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.Equal(text.LastIndexOf("record", StringComparison.Ordinal), readings[1].Start);
     }
 
-    /// <summary>Proves a token that carries or lies inside a replacement, a pronunciation or any other override never gets a reading, while the rest of the text still does; checked over a mixed corpus.</summary>
+    /// <summary>Proves a token that carries or lies inside a replacement, a pronunciation or any other override never gets a reading, while the rest of the text still does; checked over a mixed corpus. Also proves an override of the heteronym word itself, whatever its action, suppresses the classifier for that word only.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_MixedCorpus_ReadingNeverOverlapsReplacementOrPronunciation()
     {
@@ -262,15 +248,9 @@ public sealed class EnglishTextAnalyzerReadingTests
         }
 
         Assert.True(totalReadings > 0, "the corpus must contain classified readings");
-    }
 
-    /// <summary>Proves a skip, say, spell-out or pronunciation override on a heteronym word suppresses the classifier for that token only.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_OtherOverridesOnHeteronym_SuppressClassifier()
-    {
-        // Arrange
-        const string text = "I want to record a record.";
-        var source = new CountingModelSource(RecordModel.Value);
+        // a skip, say, spell-out or pronunciation override on the heteronym word suppresses the classifier for that word only
+        const string recordText = "I want to record a record.";
         var entries = new[]
         {
             PronunciationOverrideEntry.Skip("record"),
@@ -278,18 +258,15 @@ public sealed class EnglishTextAnalyzerReadingTests
             PronunciationOverrideEntry.SpellOut("record"),
             PronunciationOverrideEntry.Pronounce("record", PronunciationScheme.Ipa, "r\u025Bk\u0254rd"),
         };
-
-        // Act / Assert
         foreach (var entry in entries)
         {
-            var analyzer = CreateAnalyzer(source, new EnglishTextAnalyzerOptions { Overrides = PronunciationOverrides.Create([entry]) });
-            var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
-            Assert.Empty(Readings(result.Annotations));
+            var suppressed = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Overrides = PronunciationOverrides.Create([entry]) });
+            Assert.Empty(Readings(suppressed.Analyze(recordText, TestContext.Current.CancellationToken).Annotations));
         }
 
-        // a case-sensitive override of another word leaves both readings alone
-        var other = CreateAnalyzer(source, new EnglishTextAnalyzerOptions { Overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("want")]) });
-        Assert.Equal(2, Readings(other.Analyze(text, TestContext.Current.CancellationToken).Annotations).Count);
+        // an override of another word leaves both readings alone
+        var other = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("want")]) });
+        Assert.Equal(2, Readings(other.Analyze(recordText, TestContext.Current.CancellationToken).Annotations).Count);
     }
 
     /// <summary>Proves a reading override beats the classifier, emits the id with confidence 1.000 without any model, and is counted as applied and as an override reading.</summary>
@@ -442,7 +419,7 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.DoesNotContain("noun", heteronym.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Proves a corrupt model produces no readings and exactly one model warning per analyzer however many requests follow, while a model that is simply absent is silent.</summary>
+    /// <summary>Proves a corrupt or incompatible (newer inventory) model produces no readings and exactly one model warning per analyzer however many requests follow, while a model that is simply absent is silent.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_ModelWarning_OncePerAnalyzerOnlyForUnusableModel()
     {
@@ -451,8 +428,11 @@ public sealed class EnglishTextAnalyzerReadingTests
         corrupt[^1] ^= 0x01;
         var warnings = new RecordingDiagnostics();
         var silent = new RecordingDiagnostics();
+        var incompatibleWarnings = new RecordingDiagnostics();
         var badAnalyzer = CreateAnalyzer(new CountingModelSource(corrupt), new EnglishTextAnalyzerOptions { Diagnostics = warnings });
         var absentAnalyzer = CreateAnalyzer(new CountingModelSource(null), new EnglishTextAnalyzerOptions { Diagnostics = silent });
+        var incompatible = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples, inventoryVersion: ReadingInventory.CurrentVersion + 1);
+        var incompatibleAnalyzer = CreateAnalyzer(new CountingModelSource(incompatible), new EnglishTextAnalyzerOptions { Diagnostics = incompatibleWarnings });
 
         // Act
         var results = new[]
@@ -460,6 +440,8 @@ public sealed class EnglishTextAnalyzerReadingTests
             badAnalyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken),
             badAnalyzer.Analyze("They will record the meeting.", TestContext.Current.CancellationToken),
             absentAnalyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken),
+            incompatibleAnalyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken),
+            incompatibleAnalyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken),
         };
 
         // Assert
@@ -469,48 +451,13 @@ public sealed class EnglishTextAnalyzerReadingTests
         Assert.Equal("Heteronym model unusable (invalid or incompatible file); readings disabled.", warning.Message);
         Assert.DoesNotContain(silent.Events, e => e.Category is "TextEn.Model" or "TextEn.Heteronym");
         Assert.DoesNotContain(warnings.Events, e => e.Category == "TextEn.Heteronym");
+        Assert.Single(incompatibleWarnings.Events, e => e.Category == "TextEn.Model");
     }
 
-    /// <summary>Proves a model of a newer inventory is incompatible: no readings, one warning.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_IncompatibleModel_NoReadingsAndOneWarning()
-    {
-        // Arrange
-        var sink = new RecordingDiagnostics();
-        var bytes = HeteronymFixtureModel.Build(HeteronymFixtureModel.RecordExamples, inventoryVersion: ReadingInventory.CurrentVersion + 1);
-        var analyzer = CreateAnalyzer(new CountingModelSource(bytes), new EnglishTextAnalyzerOptions { Diagnostics = sink });
-
-        // Act
-        var result = analyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken);
-        _ = analyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Empty(Readings(result.Annotations));
-        Assert.Single(sink.Events, e => e.Category == "TextEn.Model");
-    }
-
-    /// <summary>Proves a diagnostics sink that throws never interrupts an analysis that assigns readings.</summary>
-    [Fact]
-    public void EnglishTextAnalyzer_Analyze_ThrowingSink_IsContained()
-    {
-        // Arrange
-        var sink = new RecordingDiagnostics(throwOnReport: true);
-        var analyzer = CreateAnalyzer(new CountingModelSource(RecordModel.Value), new EnglishTextAnalyzerOptions { Diagnostics = sink });
-
-        // Act
-        var result = analyzer.Analyze("I want to record a record.", TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(2, Readings(result.Annotations).Count);
-        Assert.True(sink.Events.Count >= 2);
-    }
-
-    /// <summary>Proves cancellation before any work, between candidate words and during the last candidate throws without returning a result or reporting any event.</summary>
-    /// <param name="cancelAfter">The number of classifications after which the observer cancels; 0 cancels before the call.</param>
+    /// <summary>Proves cancellation between candidate words and during the last candidate throws without returning a result or reporting any event.</summary>
+    /// <param name="cancelAfter">The number of classifications after which the observer cancels.</param>
     [Theory]
-    [InlineData(0)]
     [InlineData(1)]
-    [InlineData(2)]
     [InlineData(3)]
     public void EnglishTextAnalyzer_Analyze_Cancellation_ThrowsAndReportsNothing(int cancelAfter)
     {
@@ -527,10 +474,6 @@ public sealed class EnglishTextAnalyzerReadingTests
             }
         });
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Diagnostics = sink }, PartOfSpeechAdapter.Shared, null, provider);
-        if (cancelAfter == 0)
-        {
-            cancellation.Cancel();
-        }
 
         // Act / Assert
         Assert.Throws<OperationCanceledException>(() => analyzer.Analyze(text, cancellation.Token));

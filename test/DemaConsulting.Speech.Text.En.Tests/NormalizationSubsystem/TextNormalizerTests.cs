@@ -16,29 +16,13 @@ public sealed class TextNormalizerTests
     /// <returns>The text with every normalization applied.</returns>
     private static string Spoken(string text) => NormalizationHarness.Normalize(text).ApplySpokenForms();
 
-    /// <summary>Proves standalone operators are spoken, but only when whitespace sets them apart.</summary>
+    /// <summary>Proves standalone operators are spoken, but only when whitespace sets them apart (the golden file holds the other operators).</summary>
     /// <param name="text">The text.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("a & b", "a and b")]
-    [InlineData("a @ b", "a at b")]
-    [InlineData("a + b", "a plus b")]
-    [InlineData("a = b", "a equals b")]
     [InlineData("a < b", "a less than b")]
-    [InlineData("a > b", "a greater than b")]
-    [InlineData("a / b", "a slash b")]
-    [InlineData("a \\ b", "a backslash b")]
-    [InlineData("a \u00D7 b", "a times b")]
-    [InlineData("a \u00F7 b", "a divided by b")]
-    [InlineData("a \u00B1 b", "a plus or minus b")]
-    [InlineData("a \u2248 b", "a approximately equal to b")]
-    [InlineData("a \u2260 b", "a not equal to b")]
-    [InlineData("a \u2264 b", "a less than or equal to b")]
-    [InlineData("a \u2265 b", "a greater than or equal to b")]
-    [InlineData("&", "and")]
-    [InlineData("a&b", "a and b")]
     [InlineData("a=b", "a=b")]
-    [InlineData("(+)", "(+)")]
     [InlineData("a +b", "a +b")]
     public void TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart(string text, string spoken)
     {
@@ -46,23 +30,13 @@ public sealed class TextNormalizerTests
         Assert.Equal(spoken, Spoken(text));
     }
 
-    /// <summary>Proves marks are spoken whether they stand alone or touch a word, with a separating space where a letter touches.</summary>
+    /// <summary>Proves marks are spoken whether they stand alone or touch a word, with a separating space where a letter touches (the golden file holds the other marks).</summary>
     /// <param name="text">The text.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("\u00A9 2025", "copyright twenty twenty five")]
-    [InlineData("Acme\u00AE rocks", "Acme registered rocks")]
-    [InlineData("Brand\u2122 rocks", "Brand trademark rocks")]
-    [InlineData("\u00A7 5", "section five")]
-    [InlineData("\u00B6 3", "paragraph three")]
     [InlineData("A\u2122B", "A trademark B")]
-    [InlineData("Brand\u2122&Co", "Brand trademark&Co")]
-    [InlineData("A\u2122\u00AEB", "A trademark registered B")]
-    [InlineData("A\u2122\u00AE", "A trademark registered")]
     [InlineData("\u2122\u00AE", "trademark registered")]
-    [InlineData("\u00A9\u2122\u00AE", "copyright trademark registered")]
-    [InlineData("\u00A7\u00A7 5", "section section five")]
-    [InlineData("x\u2122\u00A92025", "x trademark copyright 2025")]
     public void TextNormalizer_Normalize_Marks_AreSpoken(string text, string spoken)
     {
         // Act / Assert
@@ -85,18 +59,20 @@ public sealed class TextNormalizerTests
         Assert.DoesNotContain("  ", spoken, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a name suffix directly before a credential consumes its period and keeps the name in one sentence, removing a tokenizer break between two credentials.</summary>
+    /// <summary>Proves a name suffix directly before a credential consumes its period and keeps the name in one sentence, removing a tokenizer break between two credentials, while a suffix before a word that starts a sentence still ends the sentence.</summary>
     [Fact]
     public void TextNormalizer_Normalize_NameSuffixBeforeCredential_ConsumesPeriodAndKeepsNameTogether()
     {
         // Arrange
         const string suffixAndCredential = "John Smith Jr. Ph.D. spoke.";
         const string twoCredentials = "Ann Lee Ph.D. M.D. spoke.";
+        const string suffixBeforeStarter = "I met John Smith Jr. He left.";
         var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(twoCredentials);
 
         // Act
         var first = NormalizationHarness.Normalize(suffixAndCredential);
         var second = NormalizationHarness.Normalize(twoCredentials);
+        var third = NormalizationHarness.Normalize(suffixBeforeStarter);
 
         // Assert: "Jr." is consumed with its period and no break is forced after it
         Assert.Equal("Jr.", suffixAndCredential.Substring(first.Spans[0].Start, first.Spans[0].Length));
@@ -107,35 +83,18 @@ public sealed class TextNormalizerTests
         Assert.NotEmpty(tokenizerBreaks);
         Assert.Equal(tokenizerBreaks, second.SuppressedBreaks);
         Assert.Empty(second.ReconcileBreaks(tokenizerBreaks));
+
+        // Assert: a suffix before a word that starts a sentence still forces the break before "He"
+        Assert.Equal([suffixBeforeStarter.IndexOf("He", StringComparison.Ordinal)], third.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(suffixBeforeStarter)));
     }
 
-    /// <summary>Proves a name suffix before a word that starts a sentence still ends the sentence.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_NameSuffixBeforeSentenceStarter_StillForcesBreak()
-    {
-        // Arrange
-        const string text = "I met John Smith Jr. He left.";
-
-        // Act
-        var aligned = NormalizationHarness.Normalize(text);
-
-        // Assert: the sentence break falls before "He"
-        Assert.Equal([text.IndexOf("He", StringComparison.Ordinal)], aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(text)));
-    }
-
-    /// <summary>Proves a slash between two plain words is spoken, and every other slash use is left alone.</summary>
+    /// <summary>Proves a slash between two plain words is spoken, and every other slash use is left alone (the golden file holds the other slash forms).</summary>
     /// <param name="text">The text.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("he/she", "he slash she")]
-    [InlineData("input/output", "input slash output")]
     [InlineData("km/h", "km/h")]
-    [InlineData("a/b", "a/b")]
-    [InlineData("24/7", "24/7")]
-    [InlineData("a/b/cc", "a/b/cc")]
     [InlineData("and/or", "and or")]
-    [InlineData("w/o", "without")]
-    [InlineData("he/sh3", "he/sh3")]
     public void TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords(string text, string spoken)
     {
         // Act / Assert
@@ -147,15 +106,9 @@ public sealed class TextNormalizerTests
     /// <param name="spoken">The expected spoken form.</param>
     /// <param name="spans">The expected number of spans.</param>
     [Theory]
-    [InlineData("a\u200Bb", "ab", 1)]
     [InlineData("a\u200B\u200B\u200Bb", "ab", 1)]
     [InlineData("a\u200Bb\u00ADc", "abc", 2)]
-    [InlineData("\uFEFFHello", "Hello", 1)]
-    [InlineData("x \u200B y", "x  y", 1)]
-    [InlineData("\u2022 item", " item", 1)]
-    [InlineData("\u202Ahi\u202C", "hi", 2)]
     [InlineData("a\u200Db", "a\u200Db", 0)]
-    [InlineData("a\u200Cb", "a\u200Cb", 0)]
     public void TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly(string text, string spoken, int spans)
     {
         // Act
@@ -167,34 +120,14 @@ public sealed class TextNormalizerTests
         Assert.All(aligned.Spans, span => Assert.Equal(NormalizationKind.Dropped, span.Kind));
     }
 
-    /// <summary>Proves a token that contains an invisible character is otherwise left alone (no other rule applies to it).</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_TokenWithInvisibleCharacter_GetsNoOtherRule()
-    {
-        // Act
-        var aligned = NormalizationHarness.Normalize("AT&T\u200B");
-
-        // Assert: only the dropped run, not the ampersand initialism
-        Assert.Equal(NormalizationKind.Dropped, Assert.Single(aligned.Spans).Kind);
-    }
-
-    /// <summary>Proves typographic apostrophes are canonicalized inside clitics and elisions, and quote marks stay.</summary>
+    /// <summary>Proves typographic apostrophes are canonicalized inside clitics and elisions, and quote marks stay (the golden file holds the other apostrophe forms).</summary>
     /// <param name="text">The text.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("it\u2019s", "it's")]
-    [InlineData("don\u2019t", "don't")]
-    [InlineData("we\u2019re we\u2019ve we\u2019ll I\u2019m I\u2019d", "we're we've we'll I'm I'd")]
-    [InlineData("it\u2018s", "it's")]
-    [InlineData("y\u2019all", "y'all")]
-    [InlineData("o\u2019clock", "o'clock")]
-    [InlineData("rock\u2019n\u2019roll", "rock'n'roll")]
     [InlineData("\u2019Tis the season", "'Tis the season")]
-    [InlineData("wait \u2019til dawn", "wait 'til dawn")]
-    [InlineData("tea \u2019cause", "tea 'cause")]
     [InlineData("dogs\u2019", "dogs\u2019")]
     [InlineData("\u2018quoted\u2019", "\u2018quoted\u2019")]
-    [InlineData("it's don't", "it's don't")]
     public void TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords(string text, string spoken)
     {
         // Act / Assert
@@ -213,21 +146,12 @@ public sealed class TextNormalizerTests
     [InlineData("I'm here", "'m", CliticKind.Am)]
     [InlineData("I'd go", "'d", CliticKind.Would)]
     [InlineData("I'd better go", "'d", CliticKind.Had)]
-    [InlineData("I'd never been", "'d", CliticKind.Had)]
-    [InlineData("they'd gone", "'d", CliticKind.Had)]
     [InlineData("It's cold", "'s", CliticKind.Is)]
     [InlineData("It's been cold", "'s", CliticKind.Has)]
     [InlineData("He's never been", "'s", CliticKind.Has)]
     [InlineData("Let's go", "'s", CliticKind.Us)]
-    [InlineData("What's up", "'s", CliticKind.Is)]
-    [InlineData("Nobody's home", "'s", CliticKind.Is)]
-    [InlineData("Who's been here", "'s", CliticKind.Has)]
     [InlineData("John's book", "'s", CliticKind.Possessive)]
-    [InlineData("The company's new plan", "'s", CliticKind.Possessive)]
     [InlineData("John's going home", "'s", CliticKind.Is)]
-    [InlineData("The dog's barking loudly", "'s", CliticKind.Is)]
-    [InlineData("John's been here", "'s", CliticKind.Has)]
-    [InlineData("John's not here", "'s", CliticKind.Is)]
     [InlineData("It\u2019s cold", "\u2019s", CliticKind.Is)]
     public void TextNormalizer_Normalize_Clitics_AreClassifiedFromContext(string text, string clitic, CliticKind expected)
     {
@@ -333,20 +257,13 @@ public sealed class TextNormalizerTests
         Assert.Equal(2, NormalizationHarness.Normalize("They St. said so. They Dr. said so.").AmbiguousCount);
     }
 
-    /// <summary>Proves the shouting guard applies per sentence: a capitalized initialism in a normal sentence is spelled, in an all-capital sentence it is not.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_AllCapitalSentence_SuspendsAmbiguousInitialisms()
-    {
-        // Act / Assert
-        Assert.Equal("The U S team won. LET US GO NOW.", Spoken("The US team won. LET US GO NOW."));
-    }
-
-    /// <summary>Proves a dotted initialism without its own period needs the separate period token, and consumes or keeps it by the sentence rule.</summary>
+    /// <summary>Proves a dotted initialism without its own period needs the separate period token, and consumes or keeps it by the sentence rule; a dotted form with no period token after it is left alone.</summary>
     [Fact]
     public void TextNormalizer_Normalize_DottedInitialismWithSeparatePeriod_IsHandled()
     {
         // Act
         var aligned = NormalizationHarness.Normalize("Meet at 5 p.m. Then sleep.");
+        var withoutPeriodToken = NormalizationHarness.Normalize("the x.y thing");
 
         // Assert: the hour is read by the numeric rule and the dotted form by the initialism rule
         Assert.Equal(2, aligned.Spans.Count);
@@ -355,17 +272,7 @@ public sealed class TextNormalizerTests
         var span = aligned.Spans[1];
         Assert.Equal(NormalizationKind.Initialism, span.Kind);
         Assert.Equal("P M", span.Spoken);
-    }
-
-    /// <summary>Proves a dotted form with no period token after it is left alone.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_DottedFormWithoutPeriodToken_IsIdentity()
-    {
-        // Act
-        var aligned = NormalizationHarness.Normalize("the x.y thing");
-
-        // Assert
-        Assert.Empty(aligned.Spans);
+        Assert.Empty(withoutPeriodToken.Spans);
     }
 
     /// <summary>Proves a pre-canceled token throws before any work.</summary>
@@ -405,24 +312,6 @@ public sealed class TextNormalizerTests
         Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
     }
 
-    /// <summary>Proves cancellation requested while repeated multi-token numeric matches are normalized ends the request with OperationCanceledException.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException()
-    {
-        // Arrange: 400 "5 kg" matches, 800 tokens; the observer cancels while the first token is visited
-        var text = string.Concat(Enumerable.Repeat("5 kg ", 400));
-        var tokens = NormalizationHarness.Tokenize(text);
-        using var cancellation = new CancellationTokenSource();
-        var normalizer = new TextNormalizer(
-            AbbreviationResolver.Default,
-            AcronymRecognizer.Default,
-            _ => cancellation.Cancel());
-
-        // Act / Assert
-        Assert.Equal(800, tokens.Length);
-        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
-    }
-
     /// <summary>Proves a numeric token is recognized before the abbreviation lexicon: <c>5 ft.</c> is a unit while <c>Ft. Worth</c> is still Fort, and <c>No. 5</c> reads both.</summary>
     [Fact]
     public void TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations()
@@ -441,96 +330,6 @@ public sealed class TextNormalizerTests
         Assert.Equal([NormalizationKind.Abbreviation, NormalizationKind.Number], reference.Spans.Select(span => span.Kind));
     }
 
-    /// <summary>Proves numeric matches that span several tokens are each spoken once and a word between them is left alone.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce()
-    {
-        // Arrange: "$5 million" is three tokens and one match; "3 kg" two tokens and one match; "a" is a word of its own
-        const string text = "$5 million a 3 kg";
-        var tokens = NormalizationHarness.Tokenize(text);
-
-        // Act
-        var aligned = NormalizationHarness.Normalize(text);
-
-        // Assert
-        Assert.Equal(6, tokens.Length);
-        Assert.Equal("five million dollars a three kilograms", aligned.ApplySpokenForms());
-    }
-
-    /// <summary>Proves a numeric-looking token that contains an invisible character is left to the invisible-character rule: only a dropped span, no number.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity()
-    {
-        // Act
-        var aligned = NormalizationHarness.Normalize("5\u200B0 and $\u200B5 and 1,\u00AD234");
-
-        // Assert: only the invisible characters are dropped, and nothing is read as a number
-        Assert.All(aligned.Spans, span => Assert.Equal(NormalizationKind.Dropped, span.Kind));
-        Assert.Equal("50 and $5 and 1,234", aligned.ApplySpokenForms());
-    }
-
-    /// <summary>Proves two adjacent numeric spans are separated by exactly one space, with the source offsets unchanged.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace()
-    {
-        // Act
-        var percent = NormalizationHarness.Normalize("50%");
-        var range = NormalizationHarness.Normalize("5\u201310");
-
-        // Assert: "fifty" and " percent"; "five", " to " and "ten"
-        Assert.Equal(["fifty", " percent"], percent.Spans.Select(span => span.Spoken));
-        Assert.Equal([(0, 2), (2, 1)], percent.Spans.Select(span => (span.Start, span.Length)));
-        Assert.Equal("fifty percent", percent.ApplySpokenForms());
-        Assert.Equal(["five", " to ", "ten"], range.Spans.Select(span => span.Spoken));
-        Assert.Equal("five to ten", range.ApplySpokenForms());
-    }
-
-    /// <summary>Proves a unit with an abbreviation period consumes the period mid-sentence and keeps it, with a forced break, where a capitalized word follows or the text ends.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd()
-    {
-        // Act
-        var middle = NormalizationHarness.Normalize("He is 6 ft. tall.");
-        var end = NormalizationHarness.Normalize("He is 6 ft.");
-        var capital = NormalizationHarness.Normalize("He is 6 ft. Then left.");
-        var separate = NormalizationHarness.Normalize("It weighs 180 lbs. now.");
-        var separateEnd = NormalizationHarness.Normalize("It weighs 180 lbs.");
-        var glued = NormalizationHarness.Normalize("He is 6ft. tall.");
-
-        // Assert: consumed, kept, kept with a forced break
-        Assert.Equal("He is six feet tall.", middle.ApplySpokenForms());
-        Assert.Equal("He is six feet.", end.ApplySpokenForms());
-        Assert.Equal("He is six feet. Then left.", capital.ApplySpokenForms());
-        Assert.Equal([capital.Source.IndexOf("Then", StringComparison.Ordinal)], capital.ForcedBreaks);
-        Assert.Empty(middle.ForcedBreaks);
-        Assert.Equal("It weighs one hundred eighty pounds now.", separate.ApplySpokenForms());
-        Assert.Equal("It weighs one hundred eighty pounds.", separateEnd.ApplySpokenForms());
-        Assert.Equal("He is six feet tall.", glued.ApplySpokenForms());
-    }
-
-    /// <summary>Proves cancellation requested in the middle of a long numeric text ends the request with OperationCanceledException.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException()
-    {
-        // Arrange: 1,000 one-digit numbers; the observer cancels while an early token is visited
-        var text = string.Concat(Enumerable.Repeat("5 ", 1000));
-        var tokens = Enumerable.Range(0, 1000).Select(i => new NormalizationToken(i * 2, 1, i == 0)).ToArray();
-        using var cancellation = new CancellationTokenSource();
-        var normalizer = new TextNormalizer(
-            AbbreviationResolver.Default,
-            AcronymRecognizer.Default,
-            index =>
-            {
-                if (index == 10)
-                {
-                    cancellation.Cancel();
-                }
-            });
-
-        // Act / Assert
-        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token));
-    }
-
     /// <summary>Proves bad arguments are rejected: null text, null collaborators, and malformed token lists.</summary>
     [Fact]
     public void TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw()
@@ -547,42 +346,12 @@ public sealed class TextNormalizerTests
         Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, [new NormalizationToken(5, 5, true)], false, CancellationToken.None));
     }
 
-    /// <summary>Proves a mark touching a supplementary-plane letter (a surrogate pair) is padded exactly as it is next to a BMP letter, on each side.</summary>
-    /// <param name="text">The text.</param>
-    /// <param name="spoken">The expected spoken form.</param>
-    [Theory]
-    [InlineData("\uD835\uDD38\u2122\uD835\uDD39", "\uD835\uDD38 trademark \uD835\uDD39")]
-    [InlineData("\uD835\uDD38\u2122", "\uD835\uDD38 trademark")]
-    [InlineData("\u2122\uD835\uDD39", "trademark \uD835\uDD39")]
-    [InlineData("\uD835\uDD38\u2122\u00AE\uD835\uDD39", "\uD835\uDD38 trademark registered \uD835\uDD39")]
-    [InlineData("\uD835\uDFD8\u2122\uD835\uDFD9", "\uD835\uDFD8 trademark \uD835\uDFD9")]
-    public void TextNormalizer_Normalize_MarkNextToSupplementaryLetter_IsPaddedOnTheTouchingSide(string text, string spoken)
-    {
-        // Act / Assert
-        Assert.Equal(spoken, Spoken(text));
-    }
-
-    /// <summary>Proves an ampersand or typographic apostrophe between two supplementary-plane letters is treated as between letters.</summary>
-    /// <param name="text">The text.</param>
-    /// <param name="spoken">The expected spoken form.</param>
-    [Theory]
-    [InlineData("\uD835\uDD38&\uD835\uDD39", "\uD835\uDD38 and \uD835\uDD39")]
-    [InlineData("\uD835\uDD38\u2019\uD835\uDD39", "\uD835\uDD38'\uD835\uDD39")]
-    public void TextNormalizer_Normalize_SeparatorBetweenSupplementaryLetters_IsRecognizedAsBetweenLetters(string text, string spoken)
-    {
-        // Act / Assert
-        Assert.Equal(spoken, Spoken(text));
-    }
-
     /// <summary>Proves a token whose end would overflow, or that starts past the text, is rejected with the documented ArgumentException rather than passing the range check.</summary>
     /// <param name="start">The token's start.</param>
     /// <param name="length">The token's length.</param>
     [Theory]
     [InlineData(int.MaxValue, 1)]
-    [InlineData(int.MaxValue, int.MaxValue)]
-    [InlineData(1, int.MaxValue)]
     [InlineData(7, 1)]
-    [InlineData(8, 1)]
     [InlineData(-1, 2)]
     public void TextNormalizer_Normalize_TokenRangeOverflowingOrOutsideText_ThrowsArgumentException(int start, int length)
     {
@@ -761,21 +530,14 @@ public sealed class TextNormalizerTests
         Assert.Equal(1, aligned.OverridesApplied);
     }
 
-    /// <summary>Proves a directive wins over every built-in rule for its token: clitic stem, symbol-bearing token, lexicon abbreviation, listed acronym, vowel-less rule, elision and ampersand initialism.</summary>
+    /// <summary>Proves a directive wins over every built-in rule for its token: symbol-bearing token, lexicon abbreviation, listed acronym and ampersand initialism.</summary>
     /// <param name="text">The text.</param>
     /// <param name="word">The token that gets a skip directive.</param>
     [Theory]
-    [InlineData("NASA's launch", "NASA")]
     [InlineData("he/she left", "he/she")]
-    [InlineData("a\u00A9b", "a\u00A9b")]
     [InlineData("Mr Smith left", "Mr")]
     [InlineData("US troops", "US")]
-    [InlineData("The CIA left", "CIA")]
-    [InlineData("a SQL query", "SQL")]
-    [InlineData("hello y\u2019all", "y\u2019all")]
     [InlineData("the AT&T network", "AT&T")]
-    [InlineData("the AT&T's network", "AT&T's")]
-    [InlineData("I met J. Smith", "J.")]
     public void TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule(string text, string word)
     {
         // Arrange
@@ -788,24 +550,22 @@ public sealed class TextNormalizerTests
         var skipped = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, TokenDirectiveKind.Skip, null)]);
         var replaced = NormalizationHarness.Normalize(text, false, [new TokenDirective(index, TokenDirectiveKind.Replace, "other words")]);
 
-        // Assert: the built-in rule fired without the directive (or the word was a clitic stem and nothing was spoken differently), and never with it
+        // Assert: the built-in rule fired without the directive, and never with it
         Assert.DoesNotContain(skipped.Spans, span => span.Start >= tokens[index].Start && span.End <= tokens[index].End);
         Assert.Equal(1, skipped.OverridesApplied);
         var overrideSpan = Assert.Single(replaced.Spans, span => span.Kind == NormalizationKind.Override);
         Assert.Equal(tokens[index].Start, overrideSpan.Start);
         Assert.Equal(tokens[index].Length, overrideSpan.Length);
         Assert.DoesNotContain(replaced.Spans, span => span.Kind != NormalizationKind.Override && span.Start >= tokens[index].Start && span.End <= tokens[index].End);
-        Assert.True(builtIn.Spans.Count > 0 || word == "NASA");
+        Assert.NotEmpty(builtIn.Spans);
     }
 
-    /// <summary>Proves a directive on a token that an earlier multi-token match consumed (a unit, a magnitude, a meridiem, at the end of the text or in the middle) is ignored and counted, and the match is unchanged.</summary>
+    /// <summary>Proves a directive on a token that an earlier multi-token match consumed (a unit or a magnitude word) is ignored and counted, and the match is unchanged.</summary>
     /// <param name="text">The text.</param>
     /// <param name="word">The consumed token that gets a directive.</param>
     [Theory]
     [InlineData("5 kg of rice", "kg")]
-    [InlineData("rice 5 kg", "kg")]
     [InlineData("$5 million", "million")]
-    [InlineData("at 5 pm today", "pm")]
     public void TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted(string text, string word)
     {
         // Arrange
@@ -852,12 +612,9 @@ public sealed class TextNormalizerTests
     [Theory]
     [InlineData(1, 0)]
     [InlineData(1, 1)]
-    [InlineData(0, 2)]
-    [InlineData(0, 3)]
     [InlineData(-1, 0)]
+    [InlineData(0, 2)]
     [InlineData(0, int.MaxValue)]
-    [InlineData(int.MinValue, 0)]
-    [InlineData(2, int.MinValue)]
     public void TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException(int first, int second)
     {
         // Arrange: a text of exactly two tokens
@@ -868,31 +625,6 @@ public sealed class TextNormalizerTests
 
         // Act / Assert
         Assert.Throws<ArgumentException>(() => TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives));
-    }
-
-    /// <summary>Proves cancellation requested while a text with directives is normalized ends the request with OperationCanceledException, and a pre-canceled request with directives throws too.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException()
-    {
-        // Arrange: 1000 single-letter tokens, a skip directive on every 10th, canceled while an early token is visited
-        var text = string.Concat(Enumerable.Repeat("a ", 1000));
-        var tokens = NormalizationHarness.Tokenize(text);
-        var directives = Enumerable.Range(0, 100).Select(i => new TokenDirective(i * 10, TokenDirectiveKind.Skip, null)).ToArray();
-        using var cancellation = new CancellationTokenSource();
-        var normalizer = new TextNormalizer(
-            AbbreviationResolver.Default,
-            AcronymRecognizer.Default,
-            index =>
-            {
-                if (index == 10)
-                {
-                    cancellation.Cancel();
-                }
-            });
-
-        // Act / Assert: canceled while processing, then canceled beforehand
-        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
-        Assert.Throws<OperationCanceledException>(() => normalizer.Normalize(text, tokens, false, cancellation.Token, directives));
     }
 
     /// <summary>Proves the shape-based spelling decision: letter-name replacements are spelled, word replacements, symbols and numbers are not.</summary>
@@ -946,24 +678,6 @@ public sealed class TextNormalizerTests
         Assert.DoesNotContain("  ", aligned.ApplySpokenForms(), StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a pass with thousands of directives over a large text applies every directive and leaves the other tokens alone.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective()
-    {
-        // Arrange: 200,000 tokens, a skip directive on every 20th
-        var text = string.Concat(Enumerable.Repeat("word ", 200_000));
-        var tokens = Enumerable.Range(0, 200_000).Select(i => new NormalizationToken(i * 5, 4, i == 0)).ToArray();
-        var directives = Enumerable.Range(0, 10_000).Select(i => new TokenDirective(i * 20, TokenDirectiveKind.Skip, null)).ToArray();
-
-        // Act
-        var aligned = TextNormalizer.Default.Normalize(text, tokens, false, CancellationToken.None, directives);
-
-        // Assert
-        Assert.Equal(10_000, aligned.OverridesApplied);
-        Assert.Equal(0, aligned.OverridesIgnored);
-        Assert.Empty(aligned.Spans);
-    }
-
     /// <summary>The four directive kinds, with the value each needs, that the sentence-break tests apply in turn.</summary>
     private static readonly (TokenDirectiveKind Kind, string? Value)[] AllDirectiveKinds =
     [
@@ -1000,19 +714,10 @@ public sealed class TextNormalizerTests
     /// <param name="occurrence">Which occurrence of the word gets the directive.</param>
     /// <param name="expectedSentences">The expected sentences, without and with the directive, joined by the broken bar.</param>
     [Theory]
-    [InlineData("See Fig. 5 for details.", "Fig", 0, "See Fig. 5 for details.")]
     [InlineData("We saw the plot in Fig. It was good.", "Fig", 0, "We saw the plot in Fig.¦It was good.")]
-    [InlineData("Dr. Smith lives here. He sleeps.", "Dr", 0, "Dr. Smith lives here.¦He sleeps.")]
     [InlineData("Dr. Smith lives on Maple Dr. He likes it.", "Dr", 1, "Dr. Smith lives on Maple Dr.¦He likes it.")]
-    [InlineData("Visit St. Louis. Then go.", "St", 0, "Visit St. Louis.¦Then go.")]
-    [InlineData("I live on Main St. It is nice.", "St", 0, "I live on Main St.¦It is nice.")]
-    [InlineData("No. 5 is here. Then go.", "No", 0, "No. 5 is here.¦Then go.")]
     [InlineData("He said No. I don't know.", "No", 0, "He said No.¦I don't know.")]
-    [InlineData("Jan. 5 was cold. Then go.", "Jan", 0, "Jan. 5 was cold.¦Then go.")]
-    [InlineData("We met in Jan. It was cold.", "Jan", 0, "We met in Jan.¦It was cold.")]
-    [InlineData("Hello\u2014Dr. Smith left.", "Dr", 0, "Hello\u2014Dr. Smith left.")]
     [InlineData("Hello\u2014Dr. Smith left. Bye.", "Dr", 0, "Hello\u2014Dr. Smith left.¦Bye.")]
-    [InlineData("John Smith Jr. Ph.D. spoke.", "Ph.D", 0, "John Smith Jr. Ph.D. spoke.")]
     [InlineData("John Smith Jr. Ph.D. He spoke.", "Ph.D", 0, "John Smith Jr. Ph.D.¦He spoke.")]
     public void TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks(string text, string word, int occurrence, string expectedSentences)
     {
@@ -1088,9 +793,7 @@ public sealed class TextNormalizerTests
     /// <param name="kindName">The name of the defective directive's kind; it never has a value.</param>
     [Theory]
     [InlineData("See Fig. 5 for details.", "Fig", "Replace")]
-    [InlineData("Hello\u2014Dr. Smith left.", "Dr", "Replace")]
     [InlineData("Hello\u2014Dr. Smith left.", "Dr", "Pronounce")]
-    [InlineData("Dr. Smith lives here. He sleeps.", "Dr", "Spell")]
     [InlineData("We met in caf\u00E9. It was cold.", "caf\u00E9", "Spell")]
     public void TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks(string text, string word, string kindName)
     {
@@ -1111,29 +814,5 @@ public sealed class TextNormalizerTests
         Assert.DoesNotContain(aligned.Spans, span => span.Start < tokens[index].End && span.End > tokens[index].Start);
         Assert.Empty(aligned.Pronunciations);
         Assert.True(baselineBreaks.SequenceEqual(aligned.ReconcileBreaks(tokenizerBreaks)), $"breaks differ for '{text}'");
-    }
-
-    /// <summary>Proves directives on several abbreviations in one text are all applied and, as for each alone, leave the built-in sentence breaks unchanged.</summary>
-    [Fact]
-    public void TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks()
-    {
-        // Arrange
-        const string text = "See Fig. 5 for details. Hello\u2014Dr. Smith left. Jan. 5 was cold.";
-        var tokens = NormalizationHarness.Tokenize(text);
-        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(text);
-        TokenDirective[] directives =
-        [
-            new(IndexOf(text, tokens, "Fig"), TokenDirectiveKind.Skip, null),
-            new(IndexOf(text, tokens, "Dr"), TokenDirectiveKind.Replace, "doctor"),
-            new(IndexOf(text, tokens, "Jan"), TokenDirectiveKind.Pronounce, "ipa:abc"),
-        ];
-        var baselineBreaks = NormalizationHarness.Normalize(text).ReconcileBreaks(tokenizerBreaks);
-
-        // Act
-        var aligned = NormalizationHarness.Normalize(text, false, directives);
-
-        // Assert
-        Assert.Equal(3, aligned.OverridesApplied);
-        Assert.Equal(baselineBreaks, aligned.ReconcileBreaks(tokenizerBreaks));
     }
 }

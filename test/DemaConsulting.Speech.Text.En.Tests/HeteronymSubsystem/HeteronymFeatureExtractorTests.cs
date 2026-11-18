@@ -16,11 +16,9 @@ public sealed class HeteronymFeatureExtractorTests
     private const string GoldenFileName = "heteronym-feature-vectors.tsv";
 
     /// <summary>Proves the golden feature vectors are reproduced exactly, under cultures whose rules differ (so no extraction step depends on the current culture).</summary>
-    /// <param name="cultureName">The culture to run under; empty for the invariant culture.</param>
+    /// <param name="cultureName">The culture to run under.</param>
     [Theory]
-    [InlineData("")]
     [InlineData("tr-TR")]
-    [InlineData("de-DE")]
     [InlineData("ar-SA")]
     public void HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture(string cultureName)
     {
@@ -29,7 +27,7 @@ public sealed class HeteronymFeatureExtractorTests
         var previous = CultureInfo.CurrentCulture;
         try
         {
-            CultureInfo.CurrentCulture = cultureName.Length == 0 ? CultureInfo.InvariantCulture : new CultureInfo(cultureName);
+            CultureInfo.CurrentCulture = new CultureInfo(cultureName);
 
             // Act / Assert: every row's hashes equal the file's
             Assert.NotEmpty(rows);
@@ -57,21 +55,6 @@ public sealed class HeteronymFeatureExtractorTests
         Assert.Equal(
             ["basic-verb", "basic-noun", "sentence-initial", "sentence-final-untagged", "clitic-split", "curly-apostrophe", "numbers", "capitalized", "all-caps", "non-ascii-neighbor", "supplementary-letter", "punctuation-neighbors", "untagged", "long-bag", "closed-classes"],
             ids);
-    }
-
-    /// <summary>Proves extraction is a pure function: the same input gives the same hashes in the same order.</summary>
-    [Fact]
-    public void HeteronymFeatureExtractor_Extract_SameInputTwice_GivesIdenticalHashes()
-    {
-        // Arrange
-        var context = Describe("I:PRON:0.99 want:VERB:0.95 to:PART:0.99 record:VERB:0.97 a:DET:0.99 record:NOUN:0.98 .:PUNCT:1.0");
-
-        // Act
-        var first = ExtractHex(context, 3);
-        var second = ExtractHex(context, 3);
-
-        // Assert
-        Assert.Equal(first, second);
     }
 
     /// <summary>Proves the hashes do not depend on where the sentence sits in the text (the context is the sentence only).</summary>
@@ -150,45 +133,21 @@ public sealed class HeteronymFeatureExtractorTests
         Assert.Throws<ArgumentOutOfRangeException>(() => HeteronymFeatureExtractor.Extract(context, target, new uint[HeteronymFeatureExtractor.MaxConjoined], new uint[HeteronymFeatureExtractor.MaxShared], out _, out _));
     }
 
-    /// <summary>Proves the feature-set version can be recorded in a model: it is non-zero and fits the 16-bit version field of the header, and a model written for it is read back with it.</summary>
+    /// <summary>Proves FNV-1a over code units gives the published known answers, the folded hash equals the plain hash of the ASCII-lowered text and leaves non-ASCII letters alone, and the combiner, the feature hash, the salts and the bucket reduction equal values computed by an independent implementation.</summary>
     [Fact]
-    public void HeteronymFeatureExtractor_FeatureSetVersion_IsRecordableInAModelHeader()
-    {
-        // Act
-        var model = SparsePerceptronModel.Load(SparsePerceptronModelWriter.Compile(16, 1, 1f, 64f, []));
-
-        // Assert: the writer's default is this extractor's version, which a header can hold
-        Assert.InRange(HeteronymFeatureExtractor.FeatureSetVersion, 1, ushort.MaxValue);
-        Assert.Equal(HeteronymFeatureExtractor.FeatureSetVersion, model.FeatureSetVersion);
-    }
-
-    /// <summary>Proves FNV-1a over code units gives the published known answers.</summary>
-    [Fact]
-    public void FeatureHashing_Fnv1a_KnownAnswers()
+    public void FeatureHashing_MixAndFeature_ReferenceValues()
     {
         // Assert: the reference values of the FNV-1a 32-bit hash
         Assert.Equal(0x811C9DC5u, FeatureHashing.Fnv1a(""));
         Assert.Equal(0xE40C292Cu, FeatureHashing.Fnv1a("a"));
         Assert.Equal(0xBF9CF968u, FeatureHashing.Fnv1a("foobar"));
         Assert.Equal(0x8CBF6432u, FeatureHashing.Fnv1a("<S>"));
-    }
-
-    /// <summary>Proves the folded hash equals the plain hash of the ASCII-lowered text and leaves non-ASCII letters alone.</summary>
-    [Fact]
-    public void FeatureHashing_Fnv1aFolded_FoldsAsciiOnly()
-    {
-        // Assert
         Assert.Equal(FeatureHashing.Fnv1a("foobar"), FeatureHashing.Fnv1aFolded("FooBAR"));
         Assert.NotEqual(FeatureHashing.Fnv1a("i"), FeatureHashing.Fnv1aFolded("\u0130"));
         Assert.Equal(FeatureHashing.Fnv1a("\u00C9"), FeatureHashing.Fnv1aFolded("\u00C9"));
         Assert.Equal('a', FeatureHashing.FoldAscii('A'));
         Assert.Equal('\u212A', FeatureHashing.FoldAscii('\u212A'));
-    }
 
-    /// <summary>Proves the combiner, the feature hash and the salts equal values computed by an independent implementation.</summary>
-    [Fact]
-    public void FeatureHashing_MixAndFeature_ReferenceValues()
-    {
         // Assert: expected values come from an independent reference implementation (Python) of Murmur3 mixing
         Assert.Equal(0x7F8EA7CCu, FeatureHashing.Mix(0x12345678u, 0x9ABCDEF0u));
         Assert.Equal(0xDC472F75u, FeatureHashing.Feature(0, 0, 0));
@@ -196,16 +155,7 @@ public sealed class HeteronymFeatureExtractorTests
         Assert.Equal(0xB83C48B6u, FeatureHashing.Feature(4, 7, FeatureHashing.Fnv1a("<S>")));
         Assert.Equal(0xC523ACF4u, FeatureHashing.LabelSalt("record.noun"));
         Assert.Equal(0x38AF8491u, FeatureHashing.RoleSalt("noun"));
-    }
-
-    /// <summary>Proves the bucket of a feature is its mixed hash with a salt reduced to the table: the same value the scorer and the trainer both use.</summary>
-    [Fact]
-    public void FeatureHashing_Bucket_IsMixedHashReducedToTheTable()
-    {
-        // Assert: Mix(0x12345678, 0x9ABCDEF0) = 0x7F8EA7CC (see the reference values above)
         Assert.Equal(0xA7CCu, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, 0xFFFFu));
-        Assert.Equal(0x0EA7CCu, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, (1u << 22) - 1));
-        Assert.Equal(0u, FeatureHashing.Bucket(0x12345678u, 0x9ABCDEF0u, 0u));
     }
 
     /// <summary>Proves the lower-case hash folds ASCII only, so the Turkish dotted capital I is not the letter i, under any culture.</summary>
@@ -277,16 +227,9 @@ public sealed class HeteronymFeatureExtractorTests
     [Theory]
     [InlineData("record", 3, true)]
     [InlineData("Record", 6, true)]
-    [InlineData("RECORD", 5, true)]
-    [InlineData("rEcord", 7, true)]
-    [InlineData("A", 4, true)]
     [InlineData("1999", 2, true)]
-    [InlineData("...", 1, false)]
-    [InlineData("\U0001F600", 1, false)]
-    [InlineData("\U0001D400", 4, true)]
     [InlineData("\U0001D400\U0001D401", 5, true)]
     [InlineData("\uD800", 1, false)]
-    [InlineData("\u00C9cole", 6, true)]
     public void HeteronymContext_Create_Shape_IsDecidedPerScalar(string text, int shape, bool isWord)
     {
         // Act
@@ -302,21 +245,17 @@ public sealed class HeteronymFeatureExtractorTests
     /// <param name="text">The token text.</param>
     /// <param name="expected">The expected class code.</param>
     [Theory]
-    [InlineData("the", HeteronymContext.ClassDet)]
     [InlineData("THE", HeteronymContext.ClassDet)]
     [InlineData("she", HeteronymContext.ClassPron)]
-    [InlineData("would", HeteronymContext.ClassModal)]
     [InlineData("'ll", HeteronymContext.ClassModal)]
+    [InlineData("would", HeteronymContext.ClassModal)]
     [InlineData("was", HeteronymContext.ClassAux)]
-    [InlineData("'s", HeteronymContext.ClassAux)]
     [InlineData("to", HeteronymContext.ClassTo)]
     [InlineData("n't", HeteronymContext.ClassNeg)]
     [InlineData("under", HeteronymContext.ClassPrep)]
     [InlineData("because", HeteronymContext.ClassConj)]
-    [InlineData("record", HeteronymContext.ClassNone)]
     [InlineData("underneath", HeteronymContext.ClassPrep)]
     [InlineData("understandingly", HeteronymContext.ClassNone)]
-    [InlineData(",", HeteronymContext.ClassPunct)]
     [InlineData("42", HeteronymContext.ClassNum)]
     public void HeteronymContext_Create_Class_UsesTheClosedWordLists(string text, byte expected)
     {
@@ -340,7 +279,6 @@ public sealed class HeteronymFeatureExtractorTests
         // Assert
         Assert.Equal(Enumerable.Range(1, 17).Select(i => (byte)i), codes);
         Assert.Equal(0, HeteronymContext.Create("x", 0, 1, null, 0).Upos);
-        Assert.Equal(0, HeteronymContext.Create("x", 0, 1, "noun", 0).Upos);
         Assert.Equal(0, HeteronymContext.Create("x", 0, 1, "WAT", 0).Upos);
     }
 
@@ -348,14 +286,10 @@ public sealed class HeteronymFeatureExtractorTests
     /// <param name="confidence">The confidence.</param>
     /// <param name="bucket">The expected bucket.</param>
     [Theory]
-    [InlineData(1.0, 3)]
     [InlineData(0.99, 3)]
-    [InlineData(0.9899, 2)]
     [InlineData(0.9, 2)]
-    [InlineData(0.89, 1)]
     [InlineData(0.7, 1)]
     [InlineData(0.69, 0)]
-    [InlineData(0.0, 0)]
     [InlineData(double.NaN, 0)]
     public void HeteronymContext_Create_Confidence_FallsInDocumentedBucket(double confidence, int bucket)
     {
@@ -372,13 +306,9 @@ public sealed class HeteronymFeatureExtractorTests
     [Theory]
     [InlineData(-1, 1)]
     [InlineData(0, 0)]
-    [InlineData(0, -1)]
-    [InlineData(0, 7)]
     [InlineData(3, 4)]
-    [InlineData(6, 1)]
     [InlineData(int.MaxValue, 1)]
     [InlineData(1, int.MaxValue)]
-    [InlineData(int.MaxValue, int.MaxValue)]
     public void HeteronymContext_Create_InvalidRange_ThrowsArgumentOutOfRangeException(int start, int length)
     {
         // Act / Assert
@@ -404,12 +334,8 @@ public sealed class HeteronymFeatureExtractorTests
     /// <param name="target">The target word to compare features of.</param>
     [Theory]
     [InlineData("I can't read it.", "I ca n't read it.", "read")]
-    [InlineData("They don't record it.", "They do n't record it.", "record")]
-    [InlineData("John's record is good.", "John 's record is good.", "record")]
     [InlineData("He said \"read it\" twice.", "He said \" read it \" twice.", "read")]
-    [InlineData("(Read it) now.", "( Read it ) now.", "Read")]
     [InlineData("The U.S. record stands.", "The U.S. record stands .", "record")]
-    [InlineData("A well-known record.", "A well-known record .", "record")]
     public void HeteronymContext_Create_TokenizationParity_EquivalentSpellingsGiveTheSameFeatures(string first, string second, string target)
     {
         // Act

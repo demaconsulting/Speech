@@ -230,6 +230,8 @@ ignorePaths:
   - tools/ChatterboxTurboSpike/**
   - '**/chatterbox-turbo-tokenizer-golden.json'
   - '**/chatterbox-turbo-tokenizer.json.gz'
+  # Local cache of the evaluation-only external datasets (git-ignored third-party text, never part of the repository)
+  - data/text-en/external/**
 
 overrides:
   # Kokoro lexicon phonemizer tests use deliberately unknown and misspelled words to prove the unknown-word handling
@@ -335,7 +337,7 @@ overrides:
       - /\S*tech-deverbal\S*/
       - /`[^`\n]*\|[^`\n]*`/
   # IPA phoneme strings (letters of the International Phonetic Alphabet are not words) in the override examples
-  - filename: '**/{PronunciationOverrideEntry.cs,speech-text-en.md,usage.md,.textlint.yaml}'
+  - filename: '**/{PronunciationOverrideEntry.cs,speech-text-en.md,usage.md,text-analysis.md,.textlint.yaml}'
     ignoreRegExpList:
       - /\S*[\u0250-\u02FF]\S*/
   # Names and terms of the attribution notices that the licenses of the tagger package's data require verbatim
@@ -393,6 +395,7 @@ overrides:
       - conllu
       - blankcells
       - cand
+      - cands
       - creativecommons
       - derivat
       - deverbal
@@ -406,6 +409,7 @@ overrides:
       - ngrams
       - oclockcaf
       - readingid
+      - readset
       - semcor
       - titlecase
       - wordid

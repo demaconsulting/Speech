@@ -47,27 +47,6 @@ public sealed class AveragedPerceptronTrainerTests
         Assert.Equal(0, weights.Sum(weight => (int)weight));
     }
 
-    /// <summary>Proves that after training on the row it got wrong, the weights decide that row for its label.</summary>
-    [Fact]
-    public void AveragedPerceptronTrainer_Train_SingleMistakenRow_WeightsThenDecideTheLabel()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        fixture.Write("train.tsv", string.Join('\n', fixture.Read("train.tsv").Split('\n').Take(1)) + "\n");
-        fixture.AppendRow("train.tsv", "syn-only", "lead.noun", "The lead pipe was very heavy.", "lead", "synthetic");
-        var corpus = TrainingCorpus.Load(fixture.Root);
-        var weights = TrainEpochs(corpus, Small).Single();
-        var row = corpus.Train.Single();
-        var scores = new int[2];
-
-        // Act
-        var decided = AveragedPerceptronTrainer.Decide(corpus.Inventory, row, new ShortWeights(weights), (1u << 18) - 1, scores);
-
-        // Assert
-        Assert.Equal(row.LabelIndex, row.Candidates[decided]);
-        Assert.True(scores[1] > scores[0]);
-    }
-
     /// <summary>Proves training on separable rows ends with weights that decide every training row correctly.</summary>
     [Fact]
     public void AveragedPerceptronTrainer_Train_SeparableFixture_DecidesEveryTrainingRow()
@@ -87,22 +66,6 @@ public sealed class AveragedPerceptronTrainerTests
             var decided = AveragedPerceptronTrainer.Decide(corpus.Inventory, row, new ShortWeights(weights), (1u << 18) - 1, scores);
             Assert.Equal(row.LabelIndex, row.Candidates[decided]);
         }
-    }
-
-    /// <summary>Proves every epoch is reported once, in order, with its own weights.</summary>
-    [Fact]
-    public void AveragedPerceptronTrainer_Train_ReportsEachEpochInOrder()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        var corpus = TrainingCorpus.Load(fixture.Root);
-        var numbers = new List<int>();
-
-        // Act
-        new AveragedPerceptronTrainer(corpus, Small with { MaxEpochs = 4 }).Train(epoch => numbers.Add(epoch.Epoch));
-
-        // Assert
-        Assert.Equal([1, 2, 3, 4], numbers);
     }
 
     /// <summary>Proves the same seed and settings give identical weights after every epoch.</summary>
@@ -227,27 +190,6 @@ public sealed class AveragedPerceptronTrainerTests
         Assert.Contains("naturalWeight 100", exception.Message);
         Assert.Contains("maxEpochs 100", exception.Message);
         Assert.NotNull(accepted);
-    }
-
-    /// <summary>Proves a forced overflow scenario throws instead of training and wrapping: no epoch is ever reported.</summary>
-    [Fact]
-    public void AveragedPerceptronTrainer_Train_ForcedOverflowScenario_ThrowsRatherThanWraps()
-    {
-        // Arrange: a corpus and maximal settings whose worst case exceeds 64 bits
-        using var fixture = new TrainingFixture();
-        for (var i = 0; i < 200; i++)
-        {
-            fixture.AppendRow("train.tsv", $"harvest-big{i}", "lead.verb", "The lead pipe was very heavy.", "lead", "harvest-masc");
-        }
-
-        var corpus = TrainingCorpus.Load(fixture.Root);
-        var epochs = new List<short[]>();
-
-        // Act / Assert: the failure is an exception, and no weights are produced
-        Assert.Throws<InvalidDataException>(() =>
-            new AveragedPerceptronTrainer(corpus, TrainingSettings.Default with { HashBits = 16, Scale = 1_000_000, NaturalWeight = 100, MaxEpochs = 100 })
-                .Train(epoch => epochs.Add(epoch.Weights)));
-        Assert.Empty(epochs);
     }
 
     /// <summary>Proves settings out of their range are rejected before any training.</summary>

@@ -33,9 +33,8 @@ with the options `--data <folder>`, `--eval-sets <folder>`, `--leakage-report <f
 `--counts`, and the environment variable `TEXTEN_EVAL_SETS` as the default of `--eval-sets`. It returns the exit code 0
 when every check passes, 1 when any check reports a finding and 2 for a usage or input error. Findings and progress are
 written to the standard output as lines of the form `check-data: <check>: <file>[:<line>]: <message>`; usage and input
-errors go to the standard error. The subsystem consumes only the .NET base class library: none of its units uses the
-Speech or Text.En libraries (the tool's project references Text.En for the sibling TrainingSubsystem only), and it has
-no OTS dependency. The classes live in the `DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem` namespace.
+errors go to the standard error. The subsystem consumes only the .NET base class library and has no OTS dependency. The
+classes live in the `DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem` namespace.
 
 ### Design
 
@@ -44,8 +43,8 @@ and runs the checks in a fixed order, each of which adds findings to the report 
 
 1. `DataManifest` verifies that the files of the folder are exactly the files of `MANIFEST.tsv`, with equal hashes,
    byte counts and row counts.
-2. `TextEnDataSet` loads every table through `TsvTable`, which enforces the file format; the load never throws for a
-   defective file, it records a finding and continues with what it could read.
+2. `TextEnDataSet` loads every table through `TsvTable`, which enforces the file format; a defective file is a finding
+   and the load continues with what it could read.
 3. `SchemaChecker` checks the inventory, the form table, the mapping, the extension decisions, every data row (using
    `SpanValidator` for the target span), the provenance identifiers and the gap table.
 4. `LicenseChecker` checks the license of every row against the allow-list and its source, the restricted terms, the
@@ -54,14 +53,13 @@ and runs the checks in a fixed order, each of which adds findings to the report 
    rows with the sentences of the external evaluation sets.
 6. `CheckReport` prints the summary and gives the exit code.
 
-**Unit collaboration.** The checkers are independent of each other: each takes the loaded `TextEnDataSet` (and the
-`CheckReport`) and nothing else (`LicenseChecker` also takes the data folder, because it inspects the file names and the
-documents), so each is tested with a small data set built in code and no checker knows another. `TsvTable` is the
-only unit that parses a data file, `DataManifest` the only one that hashes them, `SpanValidator` the
-only one that knows what a whole-word span is, and `CheckReport` the only one that decides the exit code. The
-dependency direction is `CheckDataCommand` to the units it runs, the checkers to `TextEnDataSet`, `SpanValidator` and
-`CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files), and `TextEnDataSet` and `DataManifest`
-to `TsvTable` and `CheckReport` (`TextEnDataSet` also to `DataManifest`); there are no cycles.
+**Unit collaboration.** The checkers are independent of each other: each takes the loaded `TextEnDataSet` and the
+`CheckReport` (`LicenseChecker` also the data folder, because it inspects the file names and the documents), and no
+checker knows another. `TsvTable` is the only unit that parses a data file, `DataManifest` the only one that hashes
+them, `SpanValidator` the only one that knows what a whole-word span is, and `CheckReport` the only one that decides
+the exit code. The dependency direction is `CheckDataCommand` to the units it runs, the checkers to `TextEnDataSet`,
+`SpanValidator` and `CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files), and `TextEnDataSet`
+and `DataManifest` to `TsvTable` and `CheckReport` (`TextEnDataSet` also to `DataManifest`); there are no cycles.
 
 **Data Model: the dataset as a tool input.** The dataset in `data/text-en/` is not a software item. It is reviewed
 through its own review sets (see the review configuration) and pinned by `MANIFEST.tsv`. Every table is UTF-8 text
@@ -109,11 +107,11 @@ tables when the data was built, and requires a provenance record for every harve
 Synthetic rows are separated by their template, so that one template is in one split. The sentence itself may not occur
 in two files. A synthetic generation batch is not a separation unit: a batch may straddle splits and is not checked.
 
-**Manifest.** `MANIFEST.tsv` lists every file of the folder except itself, the local cache folders `external/` and
-`work/`, which are never committed, and nothing else, sorted by ordinal comparison of the forward-slash relative
-path, with the SHA-256 in lowercase hexadecimal, the byte count and the row count (the lines minus the header for a
-`.tsv` file, all lines for other text). It is regenerated whenever any data file changes; this release has a
-verifier only, so regeneration is a one-off task of the data maintainer.
+**Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and
+`work/`, which are never committed, sorted by ordinal comparison of the forward-slash relative path, with the SHA-256
+in lowercase hexadecimal, the byte count and the row count (the lines minus the header for a `.tsv` file, all lines for
+other text). It is regenerated whenever any data file changes; the subsystem has a verifier only, so regeneration is a
+one-off task of the data maintainer.
 
 **External evaluation sets.** The evaluation-only corpora (WikipediaHomographData, heteronym-bench and similar) are
 never committed (owner decision). An operator who holds local copies converts them to a folder in a neutral format and
@@ -121,8 +119,7 @@ passes it with `--eval-sets` or `TEXTEN_EVAL_SETS`: every `*.txt` file is one se
 every `*.tsv` file is one set whose first row is a header and whose sentences are in the column `sentence`, or else
 `text` (no quoting). The name of a set is the file name without the extension. A folder that is given but missing or
 without a set is a usage error, so a missing input never looks like a pass; a folder inside the data folder is a
-finding. Adapters that convert the real corpora belong to the later evaluation increment. The continuous
-integration pipeline never has the sets, so it runs only the internal separation checks.
+finding. The continuous integration pipeline never has the sets, so it runs only the internal separation checks.
 
 **What the gate does and does not prove.** `check-data` proves that the committed files are the reviewed files, that
 every row is well formed and consistent with the inventory, that no row carries a license outside the allow-list or
@@ -133,10 +130,9 @@ the operator does not have.
 
 **Review coverage of the data.** The documents of the data folder and the small inventory tables are covered by
 review sets (see `.reviewmark.yaml`). The large tables (the four data files, the provenance and gap tables, the
-exclusions and candidates, the audit tables, the check output) are deliberately not review files: tens of thousands
-of rows cannot be reviewed line by line, and a review of them would be noise on every regeneration. They are controlled
-by the reviewed manifest (any change to any data file changes the manifest and so forces a new review of the data
-provenance set), by the checks of this subsystem, and by the documented blind audits.
+audit tables, the check output) are deliberately not review files: tens of thousands of rows cannot be reviewed line by
+line. They are controlled by the reviewed manifest (any change to any data file changes the manifest and so forces a
+new review of the data provenance set), by the checks of this subsystem, and by the documented blind audits.
 
 **Concurrency and cancellation.** None: the command is single threaded, runs to completion and keeps no state between
-runs. The checks read each file once and keep only the loaded tables.
+runs.

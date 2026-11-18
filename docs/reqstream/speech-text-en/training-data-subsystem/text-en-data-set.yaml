@@ -19,36 +19,25 @@ sections:
                   The TextEnDataSet class shall validate every supported file of a data folder,
                   including the reading inventory, the form table, the mapping table, the extension
                   decisions, the four data files, both provenance tables and the gap table, shall
-                  check the format of every other table file, and shall report a finding, never an
+                  check the format of every other table file, shall report a finding, never an
                   exception, for a missing file, a header that differs from the expected one or a
                   value that is not an integer where an integer is required, and continue with the
-                  rest.
+                  rest, and shall give every data row, reading, form and provenance record with the
+                  line it came from (and, for a data row, its file and split) and the forms listed for
+                  a reading.
                 justification: |
-                  Every check works on the same tables. A defective or missing file is the very
-                  thing the checks exist to find, so it has to become a reported finding that lets
-                  the other checks run, not an unhandled failure that hides them. (The design reads
-                  and format-checks each file once; see the TextEnDataSet design.)
+                  Every check works on the same tables and reports where it found a defect. A defective
+                  or missing file is the very thing the checks exist to find, so it has to become a
+                  reported finding that lets the other checks run, not an unhandled failure that hides
+                  them, and every datum a check reads must carry its origin.
                 tests:
                   - TextEnDataSet_Load_ValidFixture_LoadsAllTablesWithoutFindings
+                  - TextEnDataSet_Load_Rows_CarryFileSplitLineAndOffsets
+                  - TextEnDataSet_FormsOf_KnownAndUnknownReading_ReturnListedForms
                   - TextEnDataSet_Load_MissingFile_ReportsFindingAndContinues
                   - TextEnDataSet_Load_NonIntegerOffsets_ReportsFindingAndKeepsRow
                   - TextEnDataSet_Load_WrongDataHeader_ReportsFindingAndLoadsNoRowsOfThatFile
                   - TextEnDataSet_Load_OtherTsvFileWithBadFormat_ReportsFinding
-
-              - id: SpeechTextEn-TrainingData-TextEnDataSet-TypedRows
-                title: >-
-                  The TextEnDataSet class shall give every data row, reading, form and provenance
-                  record with the line it came from (and, for a data row, its file and split),
-                  keeping a sentence that begins with a quotation mark and its offsets intact, and
-                  shall give the forms listed for a reading.
-                justification: |
-                  The checkers compare columns by meaning, not by position, and report where they
-                  found a defect, so every datum a check reads must carry its origin. (The design
-                  models each datum as a typed value; see the TextEnDataSet design.)
-                tests:
-                  - TextEnDataSet_Load_Rows_CarryFileSplitLineAndOffsets
-                  - TextEnDataSet_Load_SentenceStartingWithQuote_KeepsSentenceAndOffsets
-                  - TextEnDataSet_FormsOf_KnownAndUnknownReading_ReturnListedForms
 
               - id: SpeechTextEn-TrainingData-TextEnDataSet-SourceVocabulary
                 title: >-

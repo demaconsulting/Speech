@@ -522,3 +522,22 @@ gap-tab	5\tkg	five\tkg	5\tkg	0	0	a tab does not join
 gap-nbsp-percent	50\u00A0%	fifty\u00A0percent	50\u00A0%	0	0	a no-break space before a percent sign
 gap-nbsp-currency	5\u00A0USD	five\u00A0dollars	5\u00A0USD	0	0	a no-break space before a code
 gap-nbsp-time	5\u00A0pm	five\u00A0P M	5\u00A0pm	0	0	a no-break space before a meridiem
+id-invisible-mixed	5\u200B0 and $\u200B5 and 1,\u00AD234	50 and $5 and 1,234	5\u200B0 and $\u200B5 and 1,\u00AD234	0	0	invisible characters inside number, currency and grouped tokens: dropped, nothing is read as a number
+multi-token-around-word	$5 million a 3 kg	five million dollars a three kilograms	$5 million a 3 kg	0	0	two multi-token matches with a plain word between them
+cur-euro-0	\u20AC0	zero euros	\u20AC0	0	0	zero euros
+cur-euro-0-01	\u20AC0.01	one cent	\u20AC0.01	0	0	euro minor unit, singular
+cur-euro-0-50	\u20AC0.50	fifty cents	\u20AC0.50	0	0	euro minor unit, plural
+cur-euro-1-01	\u20AC1.01	one euro and one cent	\u20AC1.01	0	0	singular euro with a singular cent
+cur-euro-5-00	\u20AC5.00	five euros	\u20AC5.00	0	0	zero cents are not spoken
+cur-pound-0	\u00A30	zero pounds	\u00A30	0	0	zero pounds
+cur-pound-0-01	\u00A30.01	one penny	\u00A30.01	0	0	singular penny
+cur-pound-5-50	\u00A35.50	five pounds and fifty pence	\u00A35.50	0	0	pounds and pence
+cur-yen-0	\u00A50	zero yen	\u00A50	0	0	zero yen
+cur-yen-1-00	\u00A51.00	one point zero zero yen	\u00A51.00	0	0	yen takes no minor unit, even for exactly one
+cur-yen-0-50	\u00A50.50	zero point five zero yen	\u00A50.50	0	0	yen takes no minor unit, even below one
+unit-singular-length	1 mm and 1 cm and 1 km and 1 yd and 1 mi	one millimeter and one centimeter and one kilometer and one yard and one mile	1 mm and 1 cm and 1 km and 1 yd and 1 mi	0	0	singular length units
+unit-singular-weight-volume	1 mg and 1 oz and 1 ml and 1 lbs	one milligram and one ounce and one milliliter and one pound	1 mg and 1 oz and 1 ml and 1 lbs	0	0	singular weight and volume units
+unit-singular-data	1 KB and 1 MB and 1 GB and 1 TB	one kilobyte and one megabyte and one gigabyte and one terabyte	1 KB and 1 MB and 1 GB and 1 TB	0	0	singular data units
+unit-singular-time-speed	1 hr and 1 hrs and 1 min and 1 km/h and 1\u00B0F	one hour and one hour and one minute and one kilometer per hour and one degree Fahrenheit	1 hr and 1 hrs and 1 min and 1 km/h and 1\u00B0F	0	0	singular time, speed and temperature units
+unit-plural-hrs	2 hrs	two hours	2 hrs	0	0	hours plural
+unit-period-mid-sentence	a 2 yd. b 2 mi. c 2 lb. d 2 oz. e 2 hr. f 2 hrs. g	a two yards b two miles c two pounds d two ounces e two hours f two hours g	a 2 yd. b 2 mi. c 2 lb. d 2 oz. e 2 hr. f 2 hrs. g	0	0	the period of every unit that may carry one is consumed mid-sentence

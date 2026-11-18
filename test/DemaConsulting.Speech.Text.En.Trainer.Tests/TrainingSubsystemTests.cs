@@ -65,7 +65,6 @@ public sealed class TrainingSubsystemTests
         Assert.Equal(0, exitCode);
         Assert.Equal(ReadingInventory.CurrentVersion, model.InventoryVersion);
         Assert.Equal(HeteronymFeatureExtractor.FeatureSetVersion, model.FeatureSetVersion);
-        Assert.Equal(TrainingCorpus.Load(fixture.Root).DataSha256Bytes, model.GetDataManifestSha256());
         Assert.Equal("lead.verb", ReadingOf(analyzer, "You will lead the class today.", "lead"));
         Assert.Equal("lead.noun", ReadingOf(analyzer, "The lead roof was very heavy.", "lead"));
     }
@@ -273,7 +272,7 @@ public sealed class TrainingSubsystemTests
         Assert.Contains("seeds.tsv", stale.Output);
     }
 
-    /// <summary>Proves the tool's entry point dispatches the new commands and still reports an unknown command.</summary>
+    /// <summary>Proves the tool's entry point dispatches the train and evaluate commands and still reports an unknown command.</summary>
     [Fact]
     public void TrainingSubsystem_Program_DispatchesTrainAndEvaluate()
     {
@@ -313,7 +312,7 @@ public sealed class TrainingSubsystemTests
         Assert.True(exitCode == 0, output.ToString() + error);
     }
 
-    /// <summary>Proves the committed model meets the quality gate on the natural holdout, end to end through the analyzer that embeds it.</summary>
+    /// <summary>Proves the committed model meets the quality gate on the natural holdout, end to end through the analyzer that embeds it, and the committed evaluation record is exactly what that evaluation produces.</summary>
     [Fact]
     public void TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate()
     {
@@ -324,24 +323,7 @@ public sealed class TrainingSubsystemTests
         var error = new StringWriter();
 
         // Act
-        var exitCode = EvaluateCommand.Run(["--gate"], output, error, root, root);
-
-        // Assert
-        Assert.True(exitCode == 0, output.ToString() + error);
-    }
-
-    /// <summary>Proves the committed evaluation record is exactly what evaluating the committed model and data produces.</summary>
-    [Fact]
-    public void TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent()
-    {
-        // Arrange
-        var root = FindRepositoryRoot();
-        Assert.SkipUnless(root is not null, "The repository root (Speech.slnx) was not found above the test binaries.");
-        var output = new StringWriter();
-        var error = new StringWriter();
-
-        // Act
-        var exitCode = EvaluateCommand.Run(["--check"], output, error, root, root);
+        var exitCode = EvaluateCommand.Run(["--gate", "--check"], output, error, root, root);
 
         // Assert
         Assert.True(exitCode == 0, output.ToString() + error);

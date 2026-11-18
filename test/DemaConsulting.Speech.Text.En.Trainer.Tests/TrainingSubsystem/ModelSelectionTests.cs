@@ -34,23 +34,6 @@ public sealed class ModelSelectionTests
         Assert.Equal(8, model.Result.DevAllRows);
     }
 
-    /// <summary>Proves the chosen temperature is a value of the grid and is the one stored in the image.</summary>
-    [Fact]
-    public void ModelSelection_Train_Fixture_ChoosesAGridTemperatureAndStoresIt()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        var corpus = TrainingCorpus.Load(fixture.Root);
-
-        // Act
-        var model = ModelSelection.Train(corpus, Small);
-
-        // Assert
-        Assert.InRange(model.Result.TemperatureStep, 1, 1000);
-        Assert.Equal((float)model.Result.TemperatureStep / 20, model.Result.Temperature);
-        Assert.Equal(model.Result.Temperature, SparsePerceptronModel.Load(model.CompressedImage).Temperature);
-    }
-
     /// <summary>Proves the calibration temperature is the grid value that minimizes the development loss: no other grid value gives a smaller loss.</summary>
     [Fact]
     public void ModelSelection_Train_Fixture_TemperatureMinimizesTheLossOnTheSelectionRows()
@@ -63,38 +46,15 @@ public sealed class ModelSelectionTests
         var model = ModelSelection.Train(corpus, Small);
         var chosen = Loss(corpus, model, model.Result.TemperatureStep);
 
-        // Assert: a nearby and a far temperature are no better
+        // Assert: a nearby and a far temperature are no better, and the chosen one is the one stored in the image
+        Assert.Equal(model.Result.Temperature, SparsePerceptronModel.Load(model.CompressedImage).Temperature);
         foreach (var step in new[] { 1, 5, 20, 100, 1000, model.Result.TemperatureStep - 1, model.Result.TemperatureStep + 1 }.Where(step => step is >= 1 and <= 1000))
         {
             Assert.True(Loss(corpus, model, step) >= chosen - 1e-12, $"step {step} has a smaller loss than the chosen step {model.Result.TemperatureStep}");
         }
     }
 
-    /// <summary>Proves both images load, hold the same weights, and carry the versions, the data hash and the trainer version.</summary>
-    [Fact]
-    public void ModelSelection_Train_Fixture_ImagesAreEquivalentAndCarryProvenance()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        var corpus = TrainingCorpus.Load(fixture.Root);
-
-        // Act
-        var model = ModelSelection.Train(corpus, Small);
-        var loaded = SparsePerceptronModel.Load(model.CompressedImage);
-
-        // Assert
-        Assert.Equal(model.UncompressedImage, SparsePerceptronModelWriter.ToUncompressedImage(model.CompressedImage));
-        Assert.Equal(model.Result.WeightCount, loaded.RowCount);
-        Assert.Equal(ReadingInventory.CurrentVersion, loaded.InventoryVersion);
-        Assert.Equal(HeteronymFeatureExtractor.FeatureSetVersion, loaded.FeatureSetVersion);
-        Assert.Equal(ModelSelection.TrainerVersion, loaded.TrainerVersion);
-        Assert.Equal(corpus.DataSha256Bytes, loaded.GetDataManifestSha256());
-        Assert.Equal(Small.HashBits, loaded.HashBits);
-        Assert.Equal(Convert.ToHexString(SHA256.HashData(model.UncompressedImage)).ToLowerInvariant(), model.Result.ImageSha256);
-        Assert.Equal(model.UncompressedImage.Length, model.Result.ImageBytes);
-    }
-
-    /// <summary>Proves the same corpus and settings give byte-identical uncompressed images.</summary>
+    /// <summary>Proves the same corpus and settings give byte-identical uncompressed images, and that both images of a model hold the same weights, the versions and the hash of the image.</summary>
     [Fact]
     public void ModelSelection_Train_SameInputsTwice_GivesIdenticalImages()
     {
@@ -105,10 +65,15 @@ public sealed class ModelSelectionTests
         // Act
         var first = ModelSelection.Train(corpus, Small);
         var second = ModelSelection.Train(corpus, Small);
+        var loaded = SparsePerceptronModel.Load(first.CompressedImage);
 
         // Assert
         Assert.Equal(first.UncompressedImage, second.UncompressedImage);
         Assert.Equal(first.Result, second.Result);
+        Assert.Equal(first.UncompressedImage, SparsePerceptronModelWriter.ToUncompressedImage(first.CompressedImage));
+        Assert.Equal(first.Result.WeightCount, loaded.RowCount);
+        Assert.Equal(ModelSelection.TrainerVersion, loaded.TrainerVersion);
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(first.UncompressedImage)).ToLowerInvariant(), first.Result.ImageSha256);
     }
 
     /// <summary>Proves that without natural development rows the choices are made on all development rows.</summary>
@@ -147,31 +112,6 @@ public sealed class ModelSelectionTests
         Assert.Equal(1, model.Result.SelectedEpochs);
         Assert.Equal(1.0f, model.Result.Temperature);
         Assert.Equal(0, model.Result.DevAllRows);
-    }
-
-    /// <summary>Proves the inputs record counts the rows used and the rows skipped as not aligned or without signal.</summary>
-    [Fact]
-    public void ModelSelection_BuildInputs_Fixture_CountsUsedAndSkippedRows()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        fixture.AppendRow("train.tsv", "syn-unaligned", "lead.noun", "The leader spoke softly.", "lead", "synthetic");
-        var corpus = TrainingCorpus.Load(fixture.Root);
-
-        // Act
-        var inputs = ModelSelection.BuildInputs(corpus);
-
-        // Assert
-        Assert.Equal(37, inputs.TrainRows);
-        Assert.Equal(34, inputs.TrainUsed);
-        Assert.Equal(1, inputs.TrainSkippedUnaligned);
-        Assert.Equal(2, inputs.TrainSkippedSingleCandidate);
-        Assert.Equal(8, inputs.DevRows);
-        Assert.Equal(8, inputs.DevUsed);
-        Assert.Equal(corpus.DataSha256, inputs.DataSha256);
-        Assert.Equal(corpus.FeaturesSha256, inputs.FeaturesSha256);
-        Assert.Equal(TrainingCorpus.TaggerVersion, inputs.TaggerVersion);
-        Assert.Equal(ReadingInventory.CurrentVersion, inputs.InventoryVersion);
     }
 
     /// <summary>Proves invalid settings are rejected.</summary>

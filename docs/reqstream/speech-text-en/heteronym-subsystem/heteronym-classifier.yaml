@@ -21,79 +21,35 @@ sections:
         sections:
           - title: HeteronymClassifier Requirements
             requirements:
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-CandidateRestricted
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-Decision
                 title: >-
                   The HeteronymClassifier class shall choose the reading of a word only among the
                   candidate readings that the inventory lists for that word, deterministically on
-                  every platform, so that no weight of any other reading can change the choice.
+                  every platform, preferring the candidate that the forms table lists first on a
+                  tie (including every candidate of a model without weights), shall return the
+                  single candidate of a form with one reading with a confidence of 1, shall report
+                  for every other decision a confidence from 0 to 1 that is the temperature-calibrated
+                  probability of the chosen candidate, and shall throw ArgumentOutOfRangeException
+                  for a target that is negative or not below the length of the sentence.
                 justification: |
                   A model is trained on context, not on the inventory; a decision outside the
-                  candidates would name a reading that the word cannot have. The decision must be
-                  identical on every platform and runtime. How it is computed (the sum of the
-                  weights of the buckets of the word's features conjoined with the reading and
-                  shared with its role, accumulated as integers because floating-point addition
-                  does not guarantee the same result everywhere) is a design choice recorded in the
-                  heteronym classifier design.
+                  candidates would name a reading that the word cannot have, and a model must not be
+                  able to turn a form with one reading into something else. The decision must be
+                  identical on every platform and runtime, and a deterministic tie rule makes an
+                  empty or ambiguous model reproducible and lets the order of the forms table
+                  express the default reading. A confidence that depends on a temperature fitted at
+                  training time is a calibrated probability that hosts can compare with a
+                  threshold. A programming error should surface immediately as an exception rather
+                  than as a decision about the wrong word. How the decision is computed (integer
+                  accumulation of weights, floating point only for the reported confidence) is a
+                  design choice recorded in the heteronym classifier design.
                 tests:
                   - HeteronymClassifier_Classify_NonCandidateWithHugeWeight_NeverWins
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-CandidateScore
-                title: >-
-                  The HeteronymClassifier class shall provide the one definition of the integer score of
-                  a candidate reading, shared by the classifier and the trainer: the sum of the weights
-                  of the buckets selected by the conjoined features of the context under the reading's
-                  own salt and by the shared features under the reading's role salt, with a feature that
-                  occurs more than once counted once for each occurrence, and zero for a candidate whose
-                  salts select no weighted bucket.
-                justification: |
-                  The score decides which reading is chosen, and the trainer learns weights to move it.
-                  If the trainer scored a candidate in any way the runtime does not, the learned weights
-                  would not mean what they were trained to mean. One definition used by both removes that
-                  possibility.
-                tests:
-                  - HeteronymClassifier_ScoreCandidate_SumsWeightsOfSelectedBuckets
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-TieBreak
-                title: >-
-                  The HeteronymClassifier class shall choose, when several candidates have the
-                  highest score (including every candidate of a model without weights), the one
-                  that the forms table lists first.
-                justification: |
-                  A deterministic tie rule makes the result of an empty or ambiguous model
-                  reproducible and lets the order of the forms table express which reading is the
-                  default for a word.
-                tests:
                   - HeteronymClassifier_Classify_NoWeights_TieGoesToFirstCandidate
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-CalibratedConfidence
-                title: >-
-                  The HeteronymClassifier class shall report the confidence of a decision as the
-                  probability of the chosen candidate when the candidate scores, divided by the
-                  scale and the temperature of the model, are turned into probabilities (the
-                  exponential of each score as a share of the sum over all candidates), a number from 0
-                  to 1 that is the largest of the candidates' probabilities.
-                justification: |
-                  A confidence that depends on a temperature fitted at training time is a
-                  calibrated probability that hosts can compare with a threshold. Using the integer
-                  score for the decision and the floating-point value only for the report, so that
-                  a difference between platforms in the last bits of a logarithm can never change
-                  which reading is chosen, is a design choice recorded in the heteronym classifier
-                  design.
-                tests:
                   - HeteronymClassifier_Classify_TwoCandidates64Apart_ConfidenceIsCalibratedSoftmax
                   - HeteronymClassifier_Classify_ThreeCandidates_ConfidenceIsInRangeAndTopOne
-                  - HeteronymClassifier_Classify_NoWeights_TieGoesToFirstCandidate
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-SingleCandidate
-                title: >-
-                  The HeteronymClassifier class shall return, for a form with a single candidate,
-                  that reading with a confidence of 1.
-                justification: |
-                  There is nothing to decide, so the answer is certain; the model must not be able
-                  to turn a form with one reading into something else. That no scoring is done for
-                  such a form is a design choice recorded in the heteronym classifier design.
-                tests:
                   - HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOne
+                  - HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
 
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
                 title: >-
@@ -110,78 +66,45 @@ sections:
                   - HeteronymClassifier_Constructor_InventoryVersionCompatibility_IsChecked
                   - HeteronymClassifier_Constructor_NullArgument_ThrowsArgumentNullException
 
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ArgumentValidation
-                title: >-
-                  The HeteronymClassifier class shall throw ArgumentOutOfRangeException for a
-                  target that is negative or not below the length of the sentence it is given,
-                  whether the form has one candidate or several.
-                justification: |
-                  A programming error should surface immediately with a clear exception rather than
-                  as a decision about the wrong word.
-                tests:
-                  - HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafety
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafetyAndCancellation
                 title: >-
                   The HeteronymClassifier class shall give the same predictions to any number of
-                  threads classifying at once as to a single thread.
+                  threads classifying at once as to a single thread, and shall report each
+                  classification that it scores with a model, but not a single-candidate form, to an
+                  optional observer with the running count, so that a caller can act at an exact
+                  classification.
                 justification: |
                   One classifier is shared by every analyzer of the process and used on thread-pool
-                  threads, so it must keep no state between calls.
+                  threads, so it must keep no state between calls. Cancellation between candidate
+                  words must be testable at a chosen word without depending on timing, and the
+                  count is the only state the classifier exposes.
                 tests:
                   - HeteronymClassifier_Classify_ConcurrentCallers_GetSingleThreadedResults
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-CancellationObserver
-                title: >-
-                  The HeteronymClassifier class shall report each classification that it scores
-                  with a model, but not a single-candidate form, to an optional observer with the
-                  running count, so that a caller can act at an exact classification.
-                justification: |
-                  Cancellation between candidate words must be testable at a chosen word without
-                  depending on timing, and the count is the only state the classifier exposes.
-                tests:
                   - HeteronymClassifier_Classify_Observer_ReceivesRunningCount
-                  - HeteronymClassifier_Classify_Observer_NotCalledForSingleCandidateForm
 
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ProviderSupply
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-ModelSupply
                 title: >-
-                  The HeteronymModelProvider class shall report whether a model source is
-                  configured, shall give every one of any number of concurrent first requests a
-                  classifier that predicts exactly as a sequentially obtained one does, shall
-                  report the provider without a source as not configured and without a model,
-                  shall report the embedded provider as configured with a model that loads and
-                  fits this build, and shall expose the inventory it was built with.
+                  The HeteronymModelProvider class shall give every one of any number of concurrent
+                  first requests a classifier that predicts exactly as a sequentially obtained one
+                  does, shall report the embedded provider as configured with a model that loads
+                  and fits this build, shall report the provider without a source as not
+                  configured and without a model, and shall report a source without a model, a
+                  damaged model, a source that fails to read, a well-formed model of another
+                  feature set and a model of a newer inventory as a status (not shipped, invalid
+                  for the damaged and unreadable, incompatible for the well-formed models that do
+                  not fit this build) with no classifier rather than by throwing.
                 justification: |
-                  Many analyzers never need a model, so asking whether one exists must work
-                  without a request for a classifier, and concurrent first requests must all be
-                  served correctly. The shared embedded provider serves the model that ships in
-                  the package, and the provider without a source never has one. When the source is
-                  opened, and that it is opened
-                  once and the classifier shared, are design choices recorded in the heteronym
-                  classifier design.
+                  Many analyzers never need a model, concurrent first requests must all be served
+                  correctly, and a model that cannot be used must not break speech: the status lets
+                  the analyzer tell a host once. The shared embedded provider serves the model that
+                  ships in the package, and the provider without a source never has one. When the
+                  source is opened, that it is opened once and the classifier shared, and that a
+                  failed load is remembered are design choices recorded in the heteronym classifier
+                  design and are not required of every implementation.
                 tests:
-                  - HeteronymModelProvider_IsConfigured_ProviderWithSource_ReportsConfigured
-                  - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
                   - HeteronymModelProvider_EmbeddedAndNone_EmbeddedLoadsAndNoneHasNoModel
-
-              - id: SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
-                title: >-
-                  The HeteronymModelProvider class shall report a source without a model, a damaged
-                  model, a source that fails to read, a well-formed model of another feature set
-                  and a model of a newer inventory as a status (not shipped, invalid for the
-                  damaged and unreadable, incompatible for the well-formed models that do not fit
-                  this build) with no classifier rather than by
-                  throwing.
-                justification: |
-                  A model that cannot be used must not break speech; the status lets the analyzer
-                  tell a host once. That the status is remembered, so a bad file costs one failed
-                  read for the life of the process, is a design choice recorded in the heteronym
-                  classifier design and is not required of every implementation.
-                tests:
+                  - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
                   - HeteronymModelProvider_GetClassifier_NoModel_ReportsNotShipped
                   - HeteronymModelProvider_GetClassifier_CorruptOrFailingSource_ReportsInvalid
                   - HeteronymModelProvider_GetClassifier_ModelOfNewerInventory_ReportsIncompatible
                   - HeteronymModelProvider_GetClassifier_ModelOfOtherFeatureSet_ReportsIncompatible
-                  - HeteronymModelProvider_GetClassifier_ModelWithZeroFeatureSet_ReportsInvalid
-                  - HeteronymModelProvider_GetClassifier_CorruptedChecksum_ReportsInvalid
-                  - HeteronymModelProvider_GetClassifier_BadMagic_ReportsInvalid

@@ -30,16 +30,12 @@ Together with the Sherpa package, the library supplies seven models through four
 (see "Managing speech models" below).
 
 One further optional package is a preview and ships no speech model: `DemaConsulting.Speech.Text.En` supplies an
-English text analyzer (part-of-speech and normalization annotations, sentence boundaries and the reading of
-heteronyms such as "record", chosen by a small trained model, about 250 KB, that is embedded in the package) that a
-model package can return from `ISynthesisModel.TextAnalyzer`; see "Text
-analysis for model authors" in the usage guide. The package is a pre-release and is published only in
-pre-release versions (for example `1.0.0-beta.1`, never a stable `1.0.0`): it depends on the pre-release
-`DemaConsulting.PartOfSpeech` tagger (pinned to 0.1.0-beta.5 or later, which clears the working buffers in
-which it keeps analyzed text, so the core `ITextAnalyzer` no-retention contract is met), and NuGet does not allow
-a stable package to depend on a pre-release one. Install it with a pre-release version, for example
-`dotnet add package DemaConsulting.Speech.Text.En --prerelease`. Stable versions of the other packages are
-unaffected. This changes once the tagger ships a stable release.
+English text analyzer (part of speech, normalization, sentence boundaries and heteronym readings) that a model package
+can return from `ISynthesisModel.TextAnalyzer`; see "English Text Analysis". The package is a pre-release and is
+published only in pre-release versions (for example `1.0.0-beta.1`, never a stable `1.0.0`): it depends on the
+pre-release `DemaConsulting.PartOfSpeech` tagger, and NuGet does not allow a stable package to depend on a pre-release
+one. Install it with a pre-release version, for example `dotnet add package DemaConsulting.Speech.Text.En --prerelease`.
+Stable versions of the other packages are unaffected. This changes once the tagger ships a stable release.
 
 The core package references `PortAudioSharp2`, whose transitive native runtime packages cover
 `win-x64`, `linux-x64`, `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64`

@@ -11,19 +11,18 @@ strings (from `TextEnDataSet.FormsOf`), so the validator knows no file and no re
 
 - **Validate(sentence, start, end, listedForms)**: returns null when the span is valid and otherwise a short error
   message, the first rule that fails giving the message. In order: the span is invalid when `0 <= start < end <= length`
-  does not hold; when `start` or `end` lies between a high and a low surrogate; when the text `sentence[start..end]`
-  lowercased with `ToLowerInvariant()` is not a listed form; when the character before `start` (if any) is a letter or a
-  number; or when the character at `end` (if any) is a letter or a number. The neighbors are judged by Unicode scalars,
-  not by code units: the scalar that ends at `start` and the scalar that starts at `end` are decoded with `Rune`, so a
-  letter outside the Basic Multilingual Plane is one neighbor, and a lone surrogate is not a letter.
+  does not hold; when `start` or `end` lies between a high and a low surrogate; when `sentence[start..end]` lowercased
+  with `ToLowerInvariant()` is not a listed form; when the character before `start` (if any) is a letter or a number;
+  or when the character at `end` (if any) is a letter or a number. The neighbors are judged by Unicode scalars, not by
+  code units (decoded with `Rune`), so a letter outside the Basic Multilingual Plane is one neighbor and a lone
+  surrogate is not a letter.
 - **IsLetterOrNumber(rune)**: true for a letter category (uppercase, lowercase, title case, modifier or other letter) or
   a number category (decimal digit, letter number or other number); this includes a digit, a non-ASCII letter and a
   superscript digit, so the rule equals the letter-or-digit rule of the one-off prototype that built the data.
   Punctuation, symbols, spaces and the ends of the sentence are valid neighbors.
 
-**Error Handling**: the method never throws for the content of a row; every defect is a returned message, which the
-caller turns into a finding with file and line. A null argument is a programming error and throws
-`ArgumentNullException`.
+**Error Handling**: every defect of a row is a returned message, which the caller turns into a finding with file and
+line. A null argument is a programming error and throws `ArgumentNullException`.
 
 **Dependencies**: the .NET base class library (`System.Text.Rune`, `System.Globalization.UnicodeCategory`) only.
 

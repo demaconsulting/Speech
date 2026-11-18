@@ -1,0 +1,51 @@
+---
+# Software Unit Requirements for WikipediaHomographAdapter
+#
+# These requirements describe the design-level behavior of the WikipediaHomographAdapter unit, the part of the
+# Text.En trainer that reads the pinned files of Google WikipediaHomographData from the verified cache into
+# external records, decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement
+# states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/WikipediaHomographAdapterTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: WikipediaHomographAdapter Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-WikipediaHomographAdapter-Rows
+                title: >-
+                  The WikipediaHomographAdapter unit shall read tab-separated rows whose fields may be
+                  quoted, with a doubled quote standing for one quote, keeping the sentence and the target
+                  position exact, shall convert the byte offsets of a row to character offsets, counting
+                  the sentences with characters outside ASCII and the rows whose offsets changed, shall
+                  skip a row, under the reason bad offsets, when the converted target span is not the
+                  row's homograph, ignoring case, without guessing a position, and shall read the
+                  training split and the evaluation split from the pinned files of their own folder only,
+                  in ordinal path order, giving the rows the stratum of their split.
+                justification: |
+                  Over a thousand sentences of the dataset contain quotation marks, and the dataset states
+                  its offsets in bytes, so without the quoting rule and the conversion rows would be
+                  evaluated at the wrong place or skipped. The homograph column is an independent
+                  statement of what the span should be, and the two splits are separate sets whose figures
+                  must each be about exactly that split.
+                tests:
+                  - WikipediaHomographAdapter_ReadSplit_QuotedSentence_KeepsDoubledQuotesAndOffsets
+                  - WikipediaHomographAdapter_ReadSplit_NonAsciiSentence_ConvertsByteOffsets
+                  - WikipediaHomographAdapter_ReadSplit_HomographMismatch_SkipsAsBadOffsets
+                  - WikipediaHomographAdapter_ReadSplit_CrLfFile_IsRead
+                  - WikipediaHomographAdapter_ReadSplit_TrainAndEval_ReadOnlyTheirOwnPinnedFilesInOrder
+
+              - id: SpeechTextEn-ExternalEvaluation-WikipediaHomographAdapter-StrictFormat
+                title: >-
+                  The WikipediaHomographAdapter unit shall throw InvalidDataException that names the file
+                  and the record, and quotes no content, for a file whose header is not the expected five
+                  fields or that is empty, whose row does not have five fields with integer offsets, or that has a quoted
+                  field that is not closed.
+                justification: |
+                  A file in an unexpected format means that the dataset changed or the copy is damaged.
+                  Guessing would produce figures that look valid, so the read stops and says where.
+                tests:
+                  - WikipediaHomographAdapter_ReadSplit_MalformedFile_Throws

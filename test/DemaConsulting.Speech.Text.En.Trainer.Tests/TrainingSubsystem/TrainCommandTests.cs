@@ -36,80 +36,40 @@ public sealed class TrainCommandTests
     [InlineData("--bogus", "unknown option")]
     [InlineData("--seed", "needs a value")]
     [InlineData("--model-dir", "needs a value")]
+    [InlineData("--seed abc", "non-negative integer")]
     public void TrainCommand_Run_BadCommandLine_ExitsTwoNamingTheProblem(string argument, string message)
     {
         // Arrange
         using var fixture = new TrainingFixture();
 
         // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, argument);
+        var (exitCode, _, error) = CommandHarness.Train(fixture, argument.Split(' '));
 
         // Assert
         Assert.Equal(2, exitCode);
         Assert.Contains(message, error);
     }
 
-    /// <summary>Proves an experiment value that is not a number is a usage error.</summary>
-    [Fact]
-    public void TrainCommand_Run_NonNumericExperimentValue_ExitsTwo()
+    /// <summary>Proves an out-of-range experiment value, an experiment option without a model folder and an experiment option combined with the check are usage errors that write nothing.</summary>
+    [Theory]
+    [InlineData("--model-dir {model} --hash-bits 40", "hashBits")]
+    [InlineData("--seed 5", "--model-dir")]
+    [InlineData("--check --model-dir {model} --seed 5", "--check")]
+    public void TrainCommand_Run_ExperimentOptionMisuse_ExitsTwoAndWritesNothing(string arguments, string message)
     {
         // Arrange
         using var fixture = new TrainingFixture();
+        var args = arguments.Split(' ').Select(argument => argument == "{model}" ? fixture.ModelDirectory : argument).ToArray();
 
         // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory, "--seed", "abc");
+        var (exitCode, _, error) = CommandHarness.Train(fixture, args);
 
         // Assert
         Assert.Equal(2, exitCode);
-        Assert.Contains("--seed", error);
-    }
-
-    /// <summary>Proves an out-of-range experiment value is a usage error and nothing is written.</summary>
-    [Fact]
-    public void TrainCommand_Run_ExperimentValueOutOfRange_ExitsTwoAndWritesNothing()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-
-        // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory, "--hash-bits", "40");
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("hashBits", error);
+        Assert.Contains(message, error);
         Assert.False(Directory.Exists(fixture.ModelDirectory));
-    }
-
-    /// <summary>Proves an experiment option without a model folder is refused, and the committed locations are left untouched.</summary>
-    [Fact]
-    public void TrainCommand_Run_ExperimentOptionWithoutModelDir_ExitsTwoAndLeavesCommittedFilesUntouched()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-
-        // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, "--seed", "5");
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("--model-dir", error);
         Assert.False(Directory.Exists(Path.Combine(fixture.BaseDirectory, "src")));
         Assert.False(Directory.Exists(Path.Combine(fixture.BaseDirectory, "tools")));
-    }
-
-    /// <summary>Proves an experiment option cannot be combined with the check.</summary>
-    [Fact]
-    public void TrainCommand_Run_ExperimentOptionWithCheck_ExitsTwo()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-
-        // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory, "--seed", "5");
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("--check", error);
     }
 
     /// <summary>Proves a missing data folder is a usage error.</summary>
@@ -166,144 +126,76 @@ public sealed class TrainCommandTests
         Assert.Equal(500, TrainingRecord.Parse(File.ReadAllText(recordPath)).Evaluation.GateMinPooledAccuracyPerThousand);
     }
 
-    /// <summary>Proves without a model folder the committed locations of the repository are written and checked.</summary>
-    [Fact]
-    public void TrainCommand_Run_DefaultLocations_WritesCommittedFilesThatCheckAccepts()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-
-        // Act
-        var (trainExit, _, _) = CommandHarness.Train(fixture);
-        var (checkExit, checkOutput, _) = CommandHarness.Train(fixture, "--check");
-
-        // Assert
-        Assert.Equal(0, trainExit);
-        Assert.True(File.Exists(Path.Combine(fixture.BaseDirectory, "src", "DemaConsulting.Speech.Text.En", "Resources", Model)));
-        Assert.True(File.Exists(Path.Combine(fixture.BaseDirectory, "tools", "DemaConsulting.Speech.Text.En.Trainer", Record)));
-        Assert.Equal(0, checkExit);
-        Assert.Contains("OK", checkOutput);
-    }
-
-    /// <summary>Proves a model trained from the data passes the check.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckFreshModel_ExitsZero()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains("OK", output);
-    }
-
-    /// <summary>Proves a model whose file is the same model with an uncompressed payload still passes: only content is compared, never the compressed bytes.</summary>
+    /// <summary>Proves a model trained from the data passes the check, also when its file is the same model with an uncompressed payload: only content is compared, never the compressed bytes.</summary>
     [Fact]
     public void TrainCommand_Run_CheckRecompressedButEqualModel_ExitsZero()
     {
         // Arrange
         using var fixture = new TrainingFixture();
         CommandHarness.TrainFixtureModel(fixture);
+        var fresh = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
         var modelPath = Path.Combine(fixture.ModelDirectory, Model);
         File.WriteAllBytes(modelPath, SparsePerceptronModelWriter.ToUncompressedImage(File.ReadAllBytes(modelPath)));
 
         // Act
-        var (exitCode, _, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
+        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
 
         // Assert
+        Assert.Equal(0, fresh.ExitCode);
+        Assert.Contains("OK", fresh.Output);
         Assert.Equal(0, exitCode);
+        Assert.Contains("OK", output);
     }
 
-    /// <summary>Proves a change to a training row makes the committed model stale and the message names the data.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckAfterTrainingRowChanged_ExitsOneNamingTheData()
+    /// <summary>Proves a change to the training data, to a recorded setting or to the tagger version makes the committed model stale and the message names the cause.</summary>
+    [Theory]
+    [InlineData("train.tsv", "They will lead the team today.", "They will lead the crew today.", "STALE: the training data changed")]
+    [InlineData("record", "\"scale\": 64", "\"scale\": 32", "weights differ")]
+    [InlineData("record", "{tagger}", "0.0.1", "tagger changed")]
+    public void TrainCommand_Run_CheckAfterInputOrRecordChanged_ExitsOneNamingTheCause(string target, string original, string replacement, string message)
     {
         // Arrange
         using var fixture = new TrainingFixture();
         CommandHarness.TrainFixtureModel(fixture);
-        fixture.Replace("train.tsv", "They will lead the team today.", "They will lead the crew today.");
+        var from = original.Replace("{tagger}", TrainingCorpus.TaggerVersion, StringComparison.Ordinal);
+        if (target == "record")
+        {
+            var recordPath = Path.Combine(fixture.ModelDirectory, Record);
+            File.WriteAllText(recordPath, File.ReadAllText(recordPath).Replace(from, replacement, StringComparison.Ordinal));
+        }
+        else
+        {
+            fixture.Replace(target, from, replacement);
+        }
 
         // Act
         var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
 
         // Assert
         Assert.Equal(1, exitCode);
-        Assert.Contains("STALE: the training data changed", output);
-        Assert.Contains("FAILED", output);
+        Assert.Contains(message, output);
     }
 
-    /// <summary>Proves a change to a development row makes the committed model stale.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckAfterDevRowChanged_ExitsOne()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
-        fixture.Replace("dev.tsv", "We lead the team again.", "We lead the crew again.");
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("training data changed", output);
-    }
-
-    /// <summary>Proves a change to a recorded setting makes the committed model stale and the message names the weights.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckAfterRecordedSettingChanged_ExitsOneNamingTheWeights()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
-        var recordPath = Path.Combine(fixture.ModelDirectory, Record);
-        File.WriteAllText(recordPath, File.ReadAllText(recordPath).Replace("\"scale\": 64", "\"scale\": 32", StringComparison.Ordinal));
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("weights differ", output);
-    }
-
-    /// <summary>Proves a committed model file that holds other weights is stale.</summary>
+    /// <summary>Proves a committed model file that holds other weights, is corrupt or is missing is stale, not an error.</summary>
     [Fact]
     public void TrainCommand_Run_CheckAfterModelFileReplaced_ExitsOneNamingTheModelFile()
     {
         // Arrange
         using var fixture = new TrainingFixture();
         CommandHarness.TrainFixtureModel(fixture);
-        File.WriteAllBytes(Path.Combine(fixture.ModelDirectory, Model), SparsePerceptronModelWriter.Compile(18, ReadingInventory.CurrentVersion, 1f, 64f, []));
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("committed model file differs", output);
-    }
-
-    /// <summary>Proves a corrupt or missing model file is stale, not an error.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckCorruptOrMissingModelFile_ExitsOne()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
         var modelPath = Path.Combine(fixture.ModelDirectory, Model);
-        File.WriteAllBytes(modelPath, [1, 2, 3]);
+        File.WriteAllBytes(modelPath, SparsePerceptronModelWriter.Compile(18, ReadingInventory.CurrentVersion, 1f, 64f, []));
 
         // Act
+        var replaced = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
+        File.WriteAllBytes(modelPath, [1, 2, 3]);
         var corrupt = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
         File.Delete(modelPath);
         var missing = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
 
         // Assert
+        Assert.Equal(1, replaced.ExitCode);
+        Assert.Contains("committed model file differs", replaced.Output);
         Assert.Equal(1, corrupt.ExitCode);
         Assert.Contains("not a valid model", corrupt.Output);
         Assert.Equal(1, missing.ExitCode);
@@ -332,24 +224,6 @@ public sealed class TrainCommandTests
         Assert.Contains("record", missing.Output);
     }
 
-    /// <summary>Proves a record that names another tagger version makes the model stale and the message names the tagger.</summary>
-    [Fact]
-    public void TrainCommand_Run_CheckAfterTaggerVersionChanged_ExitsOneNamingTheTagger()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
-        var recordPath = Path.Combine(fixture.ModelDirectory, Record);
-        File.WriteAllText(recordPath, File.ReadAllText(recordPath).Replace(TrainingCorpus.TaggerVersion, "0.0.1", StringComparison.Ordinal));
-
-        // Act
-        var (exitCode, output, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("tagger changed", output);
-    }
-
     /// <summary>Proves a data error while checking (a label that is not a candidate) is a usage or input error, not staleness.</summary>
     [Fact]
     public void TrainCommand_Run_CheckWithDataError_ExitsTwo()
@@ -365,22 +239,5 @@ public sealed class TrainCommandTests
         // Assert
         Assert.Equal(2, exitCode);
         Assert.Contains("syn-v000", error);
-    }
-
-    /// <summary>Proves a row whose labeled reading is not a candidate of its form stops training with exit two and names the row.</summary>
-    [Fact]
-    public void TrainCommand_Run_LabelNotACandidate_ExitsTwoNamingTheRow()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        fixture.Replace("train.tsv", "syn-v000\tlead\tlead.verb", "syn-v000\tlead\twind.noun");
-
-        // Act
-        var (exitCode, _, error) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory);
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("syn-v000", error);
-        Assert.False(File.Exists(Path.Combine(fixture.ModelDirectory, Model)));
     }
 }

@@ -17,6 +17,7 @@ recorded per file and per row. Nothing here is legal advice.
 | [readings.tsv](readings.tsv) | 395 | inventory v1.1: one row per reading (`reading_id lemma pos_hint description status`), 207 lemmas: the 318 readings of the 162 WHD homographs plus 77 extension readings | CC0-1.0 |
 | [forms.tsv](forms.tsv) | 853 | candidate readings per surface form (`form reading_id kind`): 501 forms | CC0-1.0 |
 | [whd-mapping.tsv](whd-mapping.tsv) | 326 | id-to-id mapping `whd_wordid reading_id` for the external evaluation (ids only, no text, no IPA, no gloss) | CC0-1.0 |
+| [bench-mapping.tsv](bench-mapping.tsv) | 60 | id-to-id mapping `bench_key reading_id` for the external evaluation: the benchmark's own reading key of a word to our reading id (ids only, no text, no IPA, no gloss) | CC0-1.0 |
 | [train.tsv](train.tsv) | 19,865 | training rows: 13,064 synthetic (9,242 first round, 3,172 second round, 650 third round), 1,621 LLM-labeled natural, 5,180 UPOS-derived natural | per row (`license` column) |
 | [dev.tsv](dev.tsv) | 3,235 | development rows (model selection): 1,934 synthetic, 317 LLM-labeled natural, 984 UPOS-derived natural | per row |
 | [holdout-natural.tsv](holdout-natural.tsv) | 1,167 | natural rows reserved for the final accuracy gate, document-separated; never used for training or model selection (283 LLM-labeled, 884 UPOS-derived) | per row |
@@ -66,7 +67,7 @@ Every `.tsv` file of this folder follows the same conventions, and `check-data` 
 - **Open licenses only.** CC0, public domain and CC BY (with attribution). No share-alike, non-commercial or no-derivative
   material. `check-data` enforces it (see "Check" below): a license allow-list, a per-source license policy and a list of forbidden terms.
 - **Evaluation-only sets are never committed.** WikipediaHomographData (CC BY-SA text) and heteronym-bench (CC BY-SA data)
-  are fetched at evaluation time only. The only trace of them here is the id-only `whd-mapping.tsv`. No sentence of any
+  are fetched at evaluation time only. The only traces of them here are the id-only `whd-mapping.tsv` and `bench-mapping.tsv`. No sentence of any
   evaluation set is in these files (`check-data` with the external leakage check, see "Leakage"). Misaki data is not used anywhere in this folder.
 - **Reading ids are self-owned.** `lemma.discriminator[.sub]`, lowercase ASCII `[a-z0-9-]`, immutable once released
   (a mistake is fixed by deprecating the id and adding a new one), versioned inventory, no IPA and no third-party text.
@@ -139,9 +140,10 @@ blind audit) and OpenAI `gpt-6.1-sol` (adjudication).
 
 ### Inventory and mappings
 
-`readings.tsv`, `forms.tsv` and `whd-mapping.tsv` are written by DEMA Consulting under CC0-1.0. The WikipediaHomographData ids
+`readings.tsv`, `forms.tsv`, `whd-mapping.tsv` and `bench-mapping.tsv` are written by DEMA Consulting under CC0-1.0. The WikipediaHomographData ids
 (`whd_wordid`) were used only to enumerate the homographs and their number of readings; descriptions are written in our own
-words and contain no IPA, no WHD gloss and no WHD sentence.
+words and contain no IPA, no WHD gloss and no WHD sentence. `bench-mapping.tsv` pairs the reading key that heteronym-bench gives each of its 30 words
+(an identifier such as `reed` or `red`) with our reading id; it was checked against the benchmark's own description of each key and contains no benchmark sentence, IPA or gloss.
 
 ## Splits
 
@@ -182,7 +184,7 @@ The last full run of the external leakage check was the Python prototype recorde
 (31,324 sentences, 28,708 distinct keys): **0 exact matches and 0 near duplicates** in all four data files. Rows that share at least one word 5-gram with at least
 one evaluation set: train 688 of 19,865, dev 93 of 3,235, holdout-natural 68 of 1,167, holdout-independent 4 of 1,972 (per set and split in `leakage-report.tsv`).
 
-WikipediaHomographData and heteronym-bench are **evaluation-only and never committed**; the only trace of them in this folder is the id-only `whd-mapping.tsv`.
+WikipediaHomographData and heteronym-bench are **evaluation-only and never committed**; the only traces of them in this folder are the id-only `whd-mapping.tsv` and `bench-mapping.tsv`.
 Because the evaluation sets are not committed, `check-data` runs only the internal separation checks by default (and so does CI). The external check must be
 re-run by an operator with local copies of the evaluation sets before any change of the data (command and options in "Check" below).
 

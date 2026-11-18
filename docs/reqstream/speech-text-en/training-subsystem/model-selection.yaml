@@ -15,70 +15,40 @@ sections:
         sections:
           - title: ModelSelection Requirements
             requirements:
-              - id: SpeechTextEn-Training-ModelSelection-EpochChoice
+              - id: SpeechTextEn-Training-ModelSelection-Selection
                 title: >-
-                  The ModelSelection class shall keep the earliest epoch at which the most natural
-                  development rows are decided correctly, shall use all development rows when there are no
-                  natural development rows, shall keep the first epoch when there are no development rows,
-                  and shall make this choice from the development rows only.
+                  The ModelSelection class shall, from the development rows only, keep the earliest epoch
+                  at which the most natural development rows are decided correctly (all development rows
+                  when there are no natural ones, the first epoch when there are none), and shall choose as
+                  the calibration temperature the value of a fixed grid that gives the smallest loss on those
+                  rows (one when there are none) and store it in the model.
                 justification: |
                   More epochs fit the training data better but can fit the examples' quirks instead of
                   the language. The development set, which the model never learns from, is where the
                   choice can be made honestly, and preferring the earliest of equal epochs keeps the
-                  choice stable.
+                  choice stable. The confidence the runtime reports is only a probability a host can
+                  compare with a threshold if the temperature is fitted on examples that were not trained
+                  on.
                 tests:
                   - ModelSelection_Train_Fixture_KeepsTheEarliestEpochWithTheMostNaturalDevRowsCorrect
                   - ModelSelection_Train_NoNaturalDevRows_SelectsOnAllDevRows
                   - ModelSelection_Train_NoDevRows_KeepsFirstEpochAtTemperatureOne
-
-              - id: SpeechTextEn-Training-ModelSelection-TemperatureChoice
-                title: >-
-                  The ModelSelection class shall choose as the calibration temperature the value of a
-                  fixed grid that gives the smallest loss on the development rows, shall store that value
-                  in the model, and shall use a temperature of one when there are no development rows.
-                justification: |
-                  The confidence the runtime reports is only a probability a host can compare with a
-                  threshold if the temperature is fitted on examples that were not trained on.
-                tests:
-                  - ModelSelection_Train_Fixture_ChoosesAGridTemperatureAndStoresIt
                   - ModelSelection_Train_Fixture_TemperatureMinimizesTheLossOnTheSelectionRows
-                  - ModelSelection_Train_NoDevRows_KeepsFirstEpochAtTemperatureOne
 
-              - id: SpeechTextEn-Training-ModelSelection-ModelImages
+              - id: SpeechTextEn-Training-ModelSelection-Images
                 title: >-
                   The ModelSelection class shall build the model both as a compressed file and as an
-                  uncompressed image that hold the same weights, each recording the inventory version,
-                  the feature-set version, the trainer version and the hash of the training data, and
-                  shall report the hash and size of the uncompressed image.
+                  uncompressed image that hold the same weights, shall report the hash and size of the
+                  uncompressed image and the counts of the rows used and skipped, and shall give
+                  byte-identical uncompressed images and identical results for the same corpus and settings.
                 justification: |
                   The runtime refuses a model whose inventory or feature set does not fit, and the owner
                   must be able to tell which data produced a model. The uncompressed image is what is
                   compared and hashed, because the bytes of a compressed file depend on the compression
-                  library.
-                tests:
-                  - ModelSelection_Train_Fixture_ImagesAreEquivalentAndCarryProvenance
-
-              - id: SpeechTextEn-Training-ModelSelection-Determinism
-                title: >-
-                  The ModelSelection class shall give byte-identical uncompressed images and identical
-                  results for the same corpus and settings.
-                justification: |
-                  The model is checked for staleness by retraining it, so the same inputs must give the
-                  same model.
+                  library, and the model is checked for staleness by retraining it, so the same inputs must
+                  give the same model.
                 tests:
                   - ModelSelection_Train_SameInputsTwice_GivesIdenticalImages
-
-              - id: SpeechTextEn-Training-ModelSelection-InputCounts
-                title: >-
-                  The ModelSelection class shall describe the inputs of a training run, counting the
-                  training rows, the rows used, the rows skipped because they are not aligned and the rows
-                  skipped because their word has a single candidate, the development rows and those used,
-                  and recording the data and feature hashes, the tagger version and the inventory version.
-                justification: |
-                  The rows that could not be used are the measure of how well the examples match the
-                  analyzer, and the versions and hashes say what the model was trained from.
-                tests:
-                  - ModelSelection_BuildInputs_Fixture_CountsUsedAndSkippedRows
 
               - id: SpeechTextEn-Training-ModelSelection-SettingsValidation
                 title: >-

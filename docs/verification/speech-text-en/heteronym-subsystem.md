@@ -24,10 +24,10 @@ tags, and it is why the subsystem tests state the tagger as a real collaborator 
 
 The units are verified in isolation by their own test files (see the unit verification documents); the subsystem tests
 cover what only the combination can show: that a model supplied through a provider chooses a reading by context, that a
-model is bound to reading ids rather than to table positions, that every form of the real inventory classifies within
-its own candidates, and that a configured provider exposes its inventory without a classifier having been requested. The
-accuracy of the shipped model is not verified here: that is the subject of the training subsystem's committed-model
-tests and of the committed evaluation record (see *SpeechTextEn TrainingSubsystem Verification*).
+model is bound to reading ids rather than to table positions, and that every form of the real inventory classifies
+within its own candidates. The accuracy of the shipped model is not verified here: that is the subject of the training
+subsystem's committed-model tests and of the committed evaluation record (see *SpeechTextEn TrainingSubsystem
+Verification*).
 
 ### Test Environment
 
@@ -41,14 +41,14 @@ tests and of the committed evaluation record (see *SpeechTextEn TrainingSubsyste
 
 ### Acceptance Criteria
 
-The subsystem tests pass when: a provider over a fixture model yields a classifier whose status is `Loaded` and which
-chooses the verb reading for the verb use and the noun reading for the noun use of the same spelling in one sentence,
-with a confidence above one half; the decisions of a model do not change when the inventory lists the same readings in a
-different order, because the model binds to reading ids; an empty model classifies every form of the real inventory in a
-sentence, with a prediction inside the form's candidates and a confidence from 0 to 1, without error; and a provider
-that is configured exposes the default inventory (its version and form count) without any classifier request; and the
-embedded provider is configured, loads the shipped model and, through the real tagger, chooses `wind.coil` for the verb
-and `wind.air` for the noun in `Please wind the clock before the wind blows.`.
+The subsystem tests pass when: a provider over a fixture model is configured, exposes the default inventory (its version
+and form count) and yields a classifier whose status is `Loaded` and which chooses the verb reading for the verb use and
+the noun reading for the noun use of the same spelling in one sentence, with a confidence above one half; the decisions
+of a model do not change when the inventory lists the same readings in a different order, because the model binds to
+reading ids; an empty model classifies every form of the real inventory in a sentence, with a prediction inside the
+form's candidates and a confidence from 0 to 1, without error; and the embedded provider is configured, loads the
+shipped model and, through the real tagger, chooses `wind.coil` for the verb and `wind.air` for the noun in
+`Please wind the clock before the wind blows.`.
 
 ### Test Scenarios
 
@@ -56,10 +56,12 @@ and `wind.air` for the noun in `Please wind the clock before the wind blows.`.
 
 **Test**: `HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext`
 
-A provider over a source serving a fixture model trained on four example sentences is asked for its classifier
-(status `Loaded`). The sentence `I want to record a record.` is described like the analyzer does (the tokens are `I`,
-`want`, `to`, `record`, `a`, `record` and the period); the first `record` is classified as `record.verb` and the second
-as `record.noun`, each with a confidence above 0.5.
+A provider over a source serving a fixture model trained on four example sentences reports that it is configured and
+exposes the version and form count of the default inventory before any classifier has been requested (whether the
+source is opened lazily is a design choice and is not asserted). It is then asked for its classifier (status
+`Loaded`). The sentence `I want to record a record.` is described like the analyzer does (the tokens are `I`, `want`,
+`to`, `record`, `a`, `record` and the period); the first `record` is classified as `record.verb` and the second as
+`record.noun`, each with a confidence above 0.5.
 
 #### Model bound to ids, not positions
 
@@ -77,14 +79,6 @@ For every form of the real inventory a sentence `We said {form} there.` is descr
 by a classifier over an empty model (hash bits 18, no weights); each prediction names one of the form's candidates and
 has a confidence from 0 to 1. This proves that every embedded form is found as a single token, that extraction works for
 real tokens of all of them and that no form breaks the classifier.
-
-#### Provider configuration
-
-**Test**: `HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier`
-
-A provider over a source serving a fixture model reports that it is configured and returns an inventory with the version
-and the number of forms of the default inventory, without any classifier having been requested. Whether the source is
-opened lazily is a design choice and is not asserted.
 
 #### Shipped model through the embedded provider
 

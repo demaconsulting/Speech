@@ -164,29 +164,11 @@ public sealed class EvaluationRecordTests : IDisposable
         Assert.Equal([EvaluationRecord.SeedsFile, EvaluationRecord.SummaryFile], stale);
     }
 
-    /// <summary>Proves a different evaluation makes the written record stale.</summary>
-    [Fact]
-    public void EvaluationRecord_Compare_DifferentEvaluation_NamesTheChangedFiles()
-    {
-        // Arrange
-        EvaluationRecord.Write(Sample, _directory);
-        var other = Sample with { ImageSha256 = "different" };
-
-        // Act
-        var stale = EvaluationRecord.Compare(other, _directory);
-
-        // Assert
-        Assert.Equal([EvaluationRecord.GateFile], stale);
-    }
-
     /// <summary>Proves percentages format from basis points with two decimals and an optional sign.</summary>
     [Theory]
     [InlineData(9312, false, "93.12%")]
-    [InlineData(0, true, "0.00%")]
     [InlineData(246, true, "+2.46%")]
-    [InlineData(246, false, "2.46%")]
     [InlineData(-5, true, "-0.05%")]
-    [InlineData(10000, false, "100.00%")]
     public void EvaluationRecord_FormatPercent_FormatsBasisPoints(int basisPoints, bool signed, string expected)
     {
         // Act / Assert

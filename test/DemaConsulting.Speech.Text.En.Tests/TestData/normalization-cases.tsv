@@ -124,3 +124,35 @@ cred-tag	Mark Twain Jr. \uFFFC Ph.D. spoke.	Mark Twain Junior \uFFFC P H D spoke
 sym-mark-supplementary-both	\uD835\uDD38\u2122\uD835\uDD39	\uD835\uDD38 trademark \uD835\uDD39	\uD835\uDD38\u2122\uD835\uDD39	0	a mark between two supplementary-plane letters is padded on both sides
 sym-mark-supplementary-left	\uD835\uDD38\u2122	\uD835\uDD38 trademark	\uD835\uDD38\u2122	0	a mark after a supplementary-plane letter is padded on the left
 sym-mark-supplementary-right	\u2122\uD835\uDD39	trademark \uD835\uDD39	\u2122\uD835\uDD39	0	a mark before a supplementary-plane letter is padded on the right
+sym-mark-supplementary-chain	\uD835\uDD38\u2122\u00AE\uD835\uDD39	\uD835\uDD38 trademark registered \uD835\uDD39	\uD835\uDD38\u2122\u00AE\uD835\uDD39	0	adjacent marks between supplementary-plane letters
+sym-mark-supplementary-digits	\uD835\uDFD8\u2122\uD835\uDFD9	\uD835\uDFD8 trademark \uD835\uDFD9	\uD835\uDFD8\u2122\uD835\uDFD9	0	a mark between supplementary-plane digits is padded like one between letters
+sym-amp-supplementary	\uD835\uDD38&\uD835\uDD39	\uD835\uDD38 and \uD835\uDD39	\uD835\uDD38&\uD835\uDD39	0	an ampersand between supplementary-plane letters is between letters
+apos-supplementary	\uD835\uDD38\u2019\uD835\uDD39	\uD835\uDD38'\uD835\uDD39	\uD835\uDD38\u2019\uD835\uDD39	0	a typographic apostrophe between supplementary-plane letters is canonicalized
+sym-lt-gt	a < b and c > d	a less than b and c greater than d	a < b and c > d	0	angle brackets set apart
+sym-slash-apart	a / b	a slash b	a / b	0	a slash set apart
+sym-relations	a \u00B1 b \u2260 c \u2264 d \u2265 e	a plus or minus b not equal to c less than or equal to d greater than or equal to e	a \u00B1 b \u2260 c \u2264 d \u2265 e	0	relation signs set apart
+sym-amp-alone	&	and	&	0	a lone ampersand
+sym-amp-letters	a&b	a and b	a&b	0	an ampersand between single letters
+sym-ops-touching	(+) and a +b	(+) and a +b	(+) and a +b	0	an operator that touches its neighbor is left alone
+sym-mark-registered	Acme\u00AE rocks	Acme registered rocks	Acme\u00AE rocks	0	registered mark touching a word
+sym-paragraph	\u00B6 3	paragraph three	\u00B6 3	0	paragraph sign; the digit is now spoken
+sym-mark-between-letters	A\u2122B	A trademark B	A\u2122B	0	a mark between letters is padded on both sides
+sym-mark-before-ampersand	Brand\u2122&Co	Brand trademark&Co	Brand\u2122&Co	0	an ampersand after a mark is not between letters
+slash-single-letters	a/b	a/b	a/b	0	single letters left alone
+slash-chain	a/b/cc	a/b/cc	a/b/cc	0	a chain of slashes left alone
+slash-digit-tail	he/sh3	he/sh3	he/sh3	0	a token with a digit left alone
+apos-we-clitics	we\u2019re we\u2019ve we\u2019ll I\u2019m I\u2019d	we're we've we'll I'm I'd	we\u2019re we\u2019ve we\u2019ll I\u2019m I\u2019d	0	typographic apostrophes in every clitic
+apos-left-quote	it\u2018s	it's	it\u2018s	0	a left single quote between letters is an apostrophe
+apos-rock-n-roll	rock\u2019n\u2019roll	rock'n'roll	rock\u2019n\u2019roll	0	two apostrophes in one token
+apos-leading-cause	tea \u2019cause	tea 'cause	tea \u2019cause	0	leading elision after a word
+drop-token-no-other-rule	AT&T\u200B	AT&T	AT&T\u200B	0	a token with an invisible character gets no other rule
+drop-zwnj-kept	a\u200Cb	a\u200Cb	a\u200Cb	0	the non-joiner is not dropped
+acr-shouting-per-sentence	The US team won. LET US GO NOW.	The U S team won. LET US GO NOW.	The US team won.¦LET US GO NOW.	0	the shouting guard applies per sentence
+acr-dotted-army	He lives in the U.S. Army camp.	He lives in the U S Army camp.	He lives in the U.S. Army camp.	0	a capitalized noun after a dotted initialism does not end the sentence
+addr-dr-after-title	Dr. Smith lives on Maple Dr. He likes it.	Doctor Smith lives on Maple Drive. He likes it.	Dr. Smith lives on Maple Dr.¦He likes it.	0	prefix title and suffix in one text
+plain-text	The quick brown fox jumps over the lazy dog. It was fun, wasn't it?	The quick brown fox jumps over the lazy dog. It was fun, wasn't it?	The quick brown fox jumps over the lazy dog.¦It was fun, wasn't it?	0	a text with nothing to normalize is unchanged
+abbr-ranks	Gen. Ames, Lt. Bell, Cpl. Cox, Maj. Dow, Cmdr. Eve, Adm. Fox, Gov. Gray, Pres. Hill and Supt. Ives met.	General Ames, Lieutenant Bell, Corporal Cox, Major Dow, Commander Eve, Admiral Fox, Governor Gray, President Hill and Superintendent Ives met.	Gen. Ames, Lt. Bell, Cpl. Cox, Maj. Dow, Cmdr. Eve, Adm. Fox, Gov. Gray, Pres. Hill and Supt. Ives met.	0	rank and office titles before names
+abbr-plural-titles	Messrs. Ames and Bell, Mmes. Cox and Dow, Messrs Eve and Fox, Prof Gray and Mrs Hill spoke.	Messieurs Ames and Bell, Mesdames Cox and Dow, Messieurs Eve and Fox, Professor Gray and Missus Hill spoke.	Messrs. Ames and Bell, Mmes. Cox and Dow, Messrs Eve and Fox, Prof Gray and Mrs Hill spoke.	0	plural titles, with and without the period
+abbr-street-types	Walk down Elm Rd. to Oak Ct. past Pine Pl. and Fir Sq. near Main Hwy. or Lake Pkwy. today.	Walk down Elm Road to Oak Court past Pine Place and Fir Square near Main Highway or Lake Parkway today.	Walk down Elm Rd. to Oak Ct. past Pine Pl. and Fir Sq. near Main Hwy. or Lake Pkwy. today.	0	address suffixes mid sentence
+abbr-building-types	Call the Apt. office, the Ste. office, the Bldg. office or the Dept. office today.	Call the Apartment office, the Suite office, the Building office or the Department office today.	Call the Apt. office, the Ste. office, the Bldg. office or the Dept. office today.	0	address and organization suffixes mid sentence
+abbr-corp-misc-cf-co	Acme Corp. sells misc. items, cf. the notes, and c/o Smith ships them.	Acme Corporation sells miscellaneous items, compare the notes, and care of Smith ships them.	Acme Corp. sells misc. items, cf. the notes, and c/o Smith ships them.	0	business suffix, free abbreviations and a slash form mid sentence

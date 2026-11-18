@@ -23,34 +23,39 @@ analyzer scores every row, so the parity tests compare two real code paths. Noth
 
 #### Acceptance Criteria
 
-Ratios convert to basis points rounded half away from zero (1/3 gives 3,333, 2/3 gives 6,667, -1/3 gives -3,333, 1/32
-gives 313, -1/32 gives -313, 1/16 gives 625, 1,100/1,167 gives 9,426) and a zero denominator gives 0; twenty-five
-identical clusters give the interval 5,000 to 5,000 around 5,000 with a positive lower bound; a model equal to its
-baseline gives a difference, a lower bound and an upper bound of 0 and a lower bound that is not above zero; a clearly
-better model gives the exact estimate (3,975 basis points) inside an interval whose lower bound is positive; one
-cluster gives an interval equal to its own difference; the same improvement as ten documents gives a wider interval than
-as two hundred independent rows with the same estimate; the same seed gives the same interval and no clusters give the
-empty one; the gate passes at 930 of 1,000 and at 93 of 100 and fails at 929 of 1,000 and 92 of 100, fails when the
-lower bound is not above zero however accurate the model is, and fails for a set without rows; the natural holdout of
-the fixture has 40 rows, 40 aligned, 40 covered, 39 correct and 21 correct for each of the three baselines, one
-source tally, 40 clusters, a positive lower bound and a difference of 4,500 basis points; the readings are listed worst
-first (`lead.verb` 20 of 21, `lead.noun` 19 of 19); in the independent holdout the unaligned row is wrong, uncovered,
-not aligned and in the `none` confidence bucket; an informative hint makes the own-part-of-speech baseline better than
-the first candidate; the majority baseline follows the training labels (11 correct when the noun is the training
-majority, against 10 for the first candidate); for every set the number of rows compared equals the number aligned
-with none mismatched and none suppressed; the direct evaluation equals the end-to-end one; an unknown set name throws
-`InvalidDataException`; two natural rows moved to the same source document give 39 clusters instead of 40; a natural
-holdout evaluated with the provenance file deleted, or with the line of one row removed, throws `InvalidDataException`
-whose message names `harvest-provenance.tsv` or the set file and the row; the independent holdout (21 clusters) and the
-training rows (one cluster per row) evaluate without any provenance file.
+- **Metrics**: ratios convert to basis points rounded half away from zero (1/3 gives 3,333, -2/3 gives -6,667, 1/32
+  gives 313, -1/32 gives -313) and a zero denominator gives 0; the natural holdout of the fixture has 40 rows, 40
+  aligned, 40 covered, 39 correct and 21 correct for each of the three baselines, one source tally and 40 clusters; the
+  readings are listed worst first (`lead.verb` 20 of 21, `lead.noun` 19 of 19); in the independent holdout the
+  unaligned row is wrong, uncovered, not aligned and in the `none` confidence bucket.
+- **Baselines**: an informative hint makes the own-part-of-speech baseline better than the first candidate; the majority
+  baseline follows the training labels (11 correct when the noun is the training majority, against 10 for the first
+  candidate).
+- **Improvement interval**: twenty-five identical clusters give the interval 5,000 to 5,000 around 5,000 with a positive
+  lower bound; a model equal to its baseline gives a difference and both bounds of 0 and a lower bound that is not
+  above zero; a clearly better model gives the exact estimate (3,975 basis points) inside an interval whose lower bound
+  is positive; one cluster gives an interval equal to its own difference; the same improvement as ten documents gives a
+  wider interval than as two hundred independent rows with the same estimate; two natural rows moved to the same source
+  document give 39 clusters instead of 40; the same seed gives the same interval and no clusters give the empty one.
+- **Gate decision**: the gate passes at 930 of 1,000 and fails at 929 of 1,000, fails when the lower bound is not above
+  zero however accurate the model is, and fails for a set without rows; for every set, the training rows included, the
+  number of rows compared equals the number aligned with none mismatched and none suppressed, and the direct evaluation
+  equals the end-to-end one.
+- **Input validation**: a natural holdout evaluated with the provenance file deleted, or with the line of one row
+  removed, throws `InvalidDataException` whose message names `harvest-provenance.tsv` or the set file and the row; the
+  independent holdout (21 clusters) and the training rows (one cluster per row) evaluate without any provenance file;
+  an unknown set name throws `InvalidDataException`; a clustering supplied by the caller decides how many clusters
+  there are (one cluster, one per reading and one per row); the accuracy interval of rows supplied by the caller
+  encloses the point estimate on the end-to-end path and is absent on the direct path and on a file set.
 
 #### Test Scenarios
 
-##### Scoring metrics
+##### Metrics
 
 **Tests**: `HeteronymEvaluator_Evaluate_NaturalHoldout_ComputesExactMetrics`,
 `HeteronymEvaluator_Evaluate_NaturalHoldout_ListsReadingsWorstFirst`,
-`HeteronymEvaluator_Evaluate_UnalignedRow_CountsWrongAndUncovered`
+`HeteronymEvaluator_Evaluate_UnalignedRow_CountsWrongAndUncovered`,
+`HeteronymEvaluator_RoundBasisPoints_RoundsHalfAwayFromZero` (a theory over four cases)
 
 The fixture model is evaluated on the natural and the independent holdout and every count of the result record is
 compared with the hand count.
@@ -60,63 +65,44 @@ compared with the hand count.
 **Tests**: `HeteronymEvaluator_Evaluate_UposBaseline_UsesTheTagWhenTheHintIsUnique`,
 `HeteronymEvaluator_Evaluate_MajorityBaseline_FollowsTheTrainingLabels`
 
-The fixture is built with informative hints, and with six noun rows added to the training file; the baselines are
-compared with the counts that follow.
+The fixture is built with informative hints, and with six noun rows added to the training file.
 
-##### Rounding
-
-**Test**: `HeteronymEvaluator_RoundBasisPoints_RoundsHalfAwayFromZero` (a theory over eleven cases)
-
-The cases include exact halves in both signs (1/32 and 1/16) and a zero denominator.
-
-##### Interval
+##### Improvement interval
 
 **Tests**: `HeteronymEvaluator_Bootstrap_IdenticalClusters_GiveExactDegenerateInterval`,
 `HeteronymEvaluator_Bootstrap_ModelEqualsBaseline_LowerBoundIsNotPositive`,
 `HeteronymEvaluator_Bootstrap_ModelClearlyBetter_HasPositiveLowerBoundAroundTheEstimate`,
 `HeteronymEvaluator_Bootstrap_SingleCluster_IntervalEqualsTheEstimate`,
 `HeteronymEvaluator_Bootstrap_RowsOfOneDocumentResampleTogether_SoTheIntervalIsWider`,
+`HeteronymEvaluator_Evaluate_RowsOfOneDocument_FormOneCluster`,
 `HeteronymEvaluator_Bootstrap_FixedSeed_IsRepeatableAndEmptyInputIsEmpty`
 
-The cases are built from cluster statistics whose true difference is known; the exact values are in the acceptance
-criteria. The interval is not compared with a bound computed by another implementation: its width is asserted only
-relatively (wider with clustering) and by the degenerate cases, which have one possible answer.
+The cases are built from cluster statistics whose true difference is known. The interval is not compared with a bound
+computed by another implementation: its width is asserted only relatively and by the degenerate cases, which have one
+possible answer. One line of the provenance table of the fixture is edited to move a row to the document of another.
 
-##### Provenance and clusters
+##### Gate decision and parity
 
-**Tests**: `HeteronymEvaluator_Evaluate_RowsOfOneDocument_FormOneCluster`,
-`HeteronymEvaluator_Evaluate_MissingProvenanceFile_ThrowsInvalidDataException`,
-`HeteronymEvaluator_Evaluate_HarvestedRowWithoutProvenanceEntry_ThrowsInvalidDataException`,
-`HeteronymEvaluator_Evaluate_IndependentAndSyntheticRows_NeedNoProvenance`
-
-The provenance table of the fixture is edited (one row moved to the document of another, one line removed, the whole
-file
-deleted) and the natural holdout is evaluated; the cluster count and the exception message are compared. The sets of
-synthetic and independent rows are evaluated with the file deleted. The committed data is covered by the subsystem tests
-`TrainingSubsystem_Evaluate_CommittedRecord_IsCurrent` (the 266 natural clusters are part of the record) and
-`TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`.
-
-##### Gate decision
-
-**Tests**: `HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive` (a theory over five cases),
-`HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails`, `HeteronymEvaluator_DecideGate_NoRows_Fails`
-
-Evaluations with a given number correct and an interval are decided with the default thresholds; the accuracy
-condition, the interval condition and the verdict are compared.
-
-##### Parity
-
-**Tests**: `HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow`,
-`HeteronymEvaluator_Evaluate_TrainingRows_ParityHoldsAndUnalignedRowsAreReported`,
+**Tests**: `HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive` (a theory over two cases),
+`HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails`, `HeteronymEvaluator_DecideGate_NoRows_Fails`,
+`HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow`,
 `HeteronymEvaluator_EvaluateDirect_AgreesWithEndToEndOnTheFixture`
 
-The development set and both holdout sets are evaluated; the parity counts are compared, and the direct evaluation is
-compared with the end-to-end one. The training rows can be evaluated too (the set named `train`, used only for the
-parity check): the aligned rows are all compared and a row whose target is not a runtime token is counted as not
-aligned.
+Evaluations with a given number correct and an interval are decided with the default thresholds. The training rows (the
+set named `train`, used only for the parity check, with one unaligned row appended), the development set and both
+holdout sets are evaluated and the parity counts are compared; the direct evaluation is compared with the end-to-end
+one.
 
-##### Set validation
+##### Input validation
 
-**Test**: `HeteronymEvaluator_Evaluate_UnknownSet_ThrowsInvalidDataException`
+**Tests**: `HeteronymEvaluator_Evaluate_MissingProvenanceFile_ThrowsInvalidDataException`,
+`HeteronymEvaluator_Evaluate_IndependentAndSyntheticRows_NeedNoProvenance`,
+`HeteronymEvaluator_Evaluate_UnknownSet_ThrowsInvalidDataException`,
+`HeteronymEvaluator_EvaluateRows_CustomClustering_GroupsRowsOfOneCluster`,
+`HeteronymEvaluator_EvaluateRows_AccuracyInterval_EnclosesPointEstimate`
 
-A set named `holdout-secret` is rejected.
+The provenance table of the fixture is deleted, and then restored without the line of one row, and the natural holdout
+is evaluated each time; the sets of synthetic and independent rows are evaluated with the file deleted; a set named
+`holdout-secret` is rejected. The rows of a file set are supplied to `EvaluateRows` grouped as one cluster, by reading
+and one per row. The committed data is covered by the subsystem test
+`TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`.
