@@ -31,13 +31,21 @@ Four optional packages add raw ONNX Runtime models that do not need sherpa-onnx:
 Together with the Sherpa package, the library supplies eight models through five model packages
 (see "Managing speech models" below).
 
-One further optional package is a preview and ships no speech model: `DemaConsulting.Speech.Text.En` supplies an
-English text analyzer (part of speech, normalization, sentence boundaries and heteronym readings) that a model package
-can return from `ISynthesisModel.TextAnalyzer`; see "English Text Analysis". The package is a pre-release and is
-published only in pre-release versions (for example `1.0.0-beta.1`, never a stable `1.0.0`): it depends on the
-pre-release `DemaConsulting.PartOfSpeech` tagger, and NuGet does not allow a stable package to depend on a pre-release
-one. Install it with a pre-release version, for example `dotnet add package DemaConsulting.Speech.Text.En --prerelease`.
-Stable versions of the other packages are unaffected. This changes once the tagger ships a stable release.
+One further optional package is a preview and ships no speech model: `DemaConsulting.Speech.Text.En` supplies an English
+text analyzer (part of speech, normalization, sentence boundaries and heteronym readings) that a model package can
+return from `ISynthesisModel.TextAnalyzer`; see "English Text Analysis". The package is a pre-release and is published
+only in pre-release versions (for example `1.0.0-beta.1`, never a stable `1.0.0`): it depends on the pre-release
+`DemaConsulting.PartOfSpeech` tagger, and NuGet does not allow a stable package to depend on a pre-release one. Install
+it with a pre-release version, for example `dotnet add package DemaConsulting.Speech.Text.En --prerelease`. Stable
+versions of the packages that do not depend on a preview package are unaffected. This changes once the tagger ships a
+stable release.
+
+`DemaConsulting.Speech.Phonemes.En` is a second preview package that ships no speech model: it turns English text (with
+the annotations of `DemaConsulting.Speech.Text.En`) into the phoneme input of a voice, from the embedded CMU
+Pronouncing Dictionary, a trained letter-to-sound model for unknown words, and renderers for the Piper and Kokoro
+phoneme symbols. The Kokoro and Piper packages depend on it and on `DemaConsulting.Speech.Text.En`, so referencing
+either of them restores both; a host does not install them separately. Like `DemaConsulting.Speech.Text.En` it is
+published only in pre-release versions, and so are the Kokoro and Piper packages that depend on it.
 
 The core package references `PortAudioSharp2`, whose transitive native runtime packages cover
 `win-x64`, `linux-x64`, `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64`

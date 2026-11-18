@@ -89,17 +89,15 @@ the selected model's own declared audio-tag support (`IModelCapabilityProfile`):
 - A pause tag (`[short pause]`/`[long pause]`) always renders as a real timed silence segment
   regardless of a model's declared support, since honoring a pause requires no model cooperation.
 
-**The Sherpa models and the raw ONNX Kokoro model declare `None`**
-(`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, `SherpaOnnxKokoroEnglishSynthesisModel` and
-`OnnxKokoroEnglishSynthesisModel`), so every non-pause tag is stripped to plain narration for them -
-the plain words are always spoken regardless, per the "never worse than plain narration" guarantee
-above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps the
-callers' tags (for example `[laughs]`, `[clears throat]` and `[gasp]`) to the model's internal
-native tokens - `[laugh]`, `[clear throat]` and `[gasp]` are those internal tokens, not tags you
-type - and handles the mood tags described under the "Mood tags" subsection of the Chatterbox
-Turbo section below. `ParameterMapped` is fully implemented
-and exercised by tests, ready for a
-future or host-supplied model to declare, but no shipped model currently uses it.
+**The Sherpa models and the raw ONNX Kokoro and Piper models declare `None`**
+(`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, `SherpaOnnxKokoroEnglishSynthesisModel`,
+`OnnxKokoroEnglishSynthesisModel` and `OnnxPiperLibriTtsEnSynthesisModel`), so every non-pause tag is stripped to plain
+narration for them - the plain words are always spoken regardless, per the "never worse than plain narration" guarantee
+above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps the callers' tags
+(for example `[laughs]`, `[clears throat]` and `[gasp]`) to the model's internal native tokens - `[laugh]`,
+`[clear throat]` and `[gasp]` are those internal tokens, not tags you type - and handles the mood tags described under
+the "Mood tags" subsection of the Chatterbox Turbo section below. `ParameterMapped` is fully implemented and exercised
+by tests, ready for a future or host-supplied model to declare, but no shipped model currently uses it.
 
 For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
 tags have a built-in conservative mapping - every other non-pause tag (all emotion and non-verbal
@@ -137,7 +135,7 @@ and is a safe no-op when nothing is speaking. A synthesis-engine fault or a play
 drops mid-utterance fails the awaited `SpeakAsync` task honestly rather than hanging or crashing
 the process.
 
-The library provides four production synthesis models (each also reports its license
+The library provides five production synthesis models (each also reports its license
 programmatically via `ISpeechModel.LicenseName`/`LicenseUrl`, without requiring you to parse
 this prose or `DisplayName`). Two are described below, followed by the raw ONNX Runtime models:
 
@@ -173,9 +171,95 @@ The optional `DemaConsulting.Speech.Onnx.Kokoro` package adds a raw ONNX Runtime
 through `AddKokoroModels()`: **`OnnxKokoroEnglishSynthesisModel`** (`kokoro-onnx-v1_0-en`,
 Kokoro v1.0 running directly on ONNX Runtime, 24,000 Hz, licensed **Apache-2.0**). It declares a
 29-value English `voice` `ChoiceParameter` (default `af_heart`), declares no audio-tag support, and
-needs no sherpa-onnx. The fourth synthesis model, the Chatterbox Turbo voice-cloning model, is
+needs no sherpa-onnx. The optional `DemaConsulting.Speech.Onnx.Piper` package adds a second raw ONNX
+Runtime model through `AddPiperModels()`: **`OnnxPiperLibriTtsEnSynthesisModel`**
+(`piper-onnx-libritts-r-en-us-medium`, the Piper LibriTTS-R English (US) medium voice running directly on ONNX
+Runtime, 904 speakers, 22,050 Hz, licensed **CC BY 4.0**, no audio-tag support); it is described in "Kokoro and Piper"
+below and is not the same model as the Sherpa `vits-piper-en_US-libritts_r-medium` above, which uses the espeak-ng
+phonemizer inside sherpa-onnx. The fifth synthesis model, the Chatterbox Turbo voice-cloning model, is
 described in the "Chatterbox Turbo" subsection below and in the CLI subsection "Reference voices
 (Chatterbox Turbo)".
+
+## Kokoro and Piper
+
+The two raw ONNX Runtime English voices, Kokoro v1.0 (`kokoro-onnx-v1_0-en`) and Piper LibriTTS-R
+(`piper-onnx-libritts-r-en-us-medium`), run a voice graph that takes phonemes, not text, so these packages do the
+whole text-to-speech pipeline themselves and no speech-engine native library or espeak-ng is involved. Both build on
+the same two preview packages of this repository, which flow in transitively: `DemaConsulting.Speech.Text.En`
+(see "English Text Analysis") and `DemaConsulting.Speech.Phonemes.En`.
+
+```bash
+speech-cli download kokoro-onnx-v1_0-en
+speech-cli speak --tts-model kokoro-onnx-v1_0-en --tts-param voice=af_heart --text "I will record the record." \
+  --output-audio kokoro.wav
+
+speech-cli download piper-onnx-libritts-r-en-us-medium
+speech-cli speak --tts-model piper-onnx-libritts-r-en-us-medium --tts-param speaker=5 \
+  --text "Call 555-0100 or write to help@example.com." --output-audio piper.wav
+```
+
+In code, register the package and select the voice with a parameter exactly as for the other models:
+
+```csharp
+using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
+
+using var catalog = new SpeechModelCatalog().AddPiperModels();
+await catalog.DownloadAsync(OnnxPiperLibriTtsEnSynthesisModel.ModelId);
+var model = (ISynthesisModel)catalog.Enumerate().First(d => d.Model.Id == OnnxPiperLibriTtsEnSynthesisModel.ModelId).Model;
+await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+    model, catalog, parameterValues: new Dictionary<string, object> { ["speaker"] = 5 });
+```
+
+**How the text is spoken.** A session analyzes each request before it is synthesized, so these behaviors apply to
+everything spoken through `SpeakAsync`, `SynthesizeAsync` and the CLI:
+
+- Numbers, currency, dates, times, units, abbreviations and acronyms are written out as words (`$1,250.50`,
+  `March 14th`, `Dr.`, `FBI`), URLs and e-mail addresses are read piece by piece (`john.smith@example.com` is `john dot
+  smith at example dot com`) and identifiers such as `A4` or `MP3` are spelled; see "English Text Analysis" for the
+  full list and its limits.
+- Heteronyms are read by meaning: in `I will record the record` the verb and the noun get different stress, as do
+  `present`, `lead`, `read` (in clear cases), `wind` and the other 207 words of the inventory. The reading model
+  decides one sentence at a time and can be wrong; see "Accuracy" in the text analysis chapter.
+- Words are pronounced from the CMU Pronouncing Dictionary and the sound rules for inflections. A word that no
+  dictionary knows (a name, a product, a typo) is spoken by a small trained letter-to-sound model rather than skipped,
+  so unusual words are spoken but not always as a person would say them. A host can correct a word with a
+  pronunciation override dictionary (see "Pronunciation Overrides").
+- A long text is split between words, preferably at a comma, a colon or the end of a sentence, into parts that fit the
+  voice graph (Kokoro takes at most 510 phoneme tokens; a Piper part holds at most 256 phoneme symbols), and the audio
+  of the parts is joined; text is never truncated.
+- Kokoro reduces the common function words (`the`, `of`, `to`, `and`, ...) the way its training data does, and Piper
+  reduces a table of function words as well.
+
+A host that calls a model's backend directly, outside a synthesis session, with plain `Generate(text, ...)` gets the
+default reading of every word and no text normalization (digits are read digit by digit); only the session path
+analyzes the text.
+
+**Kokoro.** The `voice` parameter chooses one of 29 English voices (default `af_heart`). The British voices (`bf_*`,
+`bm_*`) are given American phonemes, so expect an American pronunciation spoken in a British voice. Kokoro has no
+audio-tag support.
+
+**Piper.** The `speaker` parameter chooses one of 904 speakers by number, `0` to `903` (default `0`); LibriTTS-R
+publishes no speaker names and the speakers differ in quality. Speaking speed has no parameter of its own: the voice's
+length scale is divided by the library's speed argument (1.0 unless a caller asks otherwise). The voice produces
+22,050 Hz mono audio. The speaking style is this repository's rule-based approximation of the espeak-ng phoneme style
+the voice was trained with, not espeak-ng itself, so some words, stress and reductions differ from the original Piper
+output.
+
+**Downloads.** Neither voice is bundled. `SpeechModelCatalog.DownloadAsync` (or `speech-cli download <id>`) fetches
+Kokoro from the `onnx-community/Kokoro-82M-v1.0-ONNX` repository and the Piper voice from the sherpa-onnx project's
+release archive of the same voice, each verified by SHA-256. For Piper the archive is about 82 MB; only the voice graph
+and its configuration file are extracted and the rest of the archive (it also contains espeak-ng data, a different
+license) is discarded, so the installed model holds two files.
+
+**Licenses and attribution.** Kokoro is Apache-2.0. The Piper voice is **CC BY 4.0**, an attribution license: credit the
+LibriTTS-R corpus (Koizumi et al.; OpenSLR resource 141) and the Piper project when you redistribute the voice or audio
+generated by it. The suggested credit is in the Piper package's `THIRD-PARTY-NOTICES.md`. The pronunciation data of both
+packages is derived from the CMU Pronouncing Dictionary only (a BSD-style license; the notice is in the
+`DemaConsulting.Speech.Phonemes.En` package), and the letter-to-sound model is trained on that dictionary by this
+repository.
 
 ## Chatterbox Turbo
 

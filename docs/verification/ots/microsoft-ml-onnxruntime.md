@@ -25,7 +25,7 @@ scenario runs without model downloads, a GPU, or network access:
 - The Nemotron streaming encoder runs consecutive chunks over a real session and feeds the caches
   of one chunk into the next
 
-The Nemotron joint/decoder steps and the Kokoro engine also use ONNX Runtime but are not given
+The Nemotron joint/decoder steps and the Kokoro and Piper engines also use ONNX Runtime but are not given
 separate OTS scenarios: they bind tensors through the same `OrtValue` mechanism proven by the
 scenarios below, and their behavior is verified by their own unit tests.
 

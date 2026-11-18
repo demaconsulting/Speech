@@ -99,7 +99,7 @@ resampling) to a new timestamped `capture-{yyyyMMdd-HHmmss}-{suffix}.wav` file i
 directory. The console prints the exact path written for each session. Leave the variable unset
 for normal use - this has no effect and no overhead when disabled.
 
-The model catalog contains all seven production models (see "Recognizing Speech" and
+The model catalog contains all eight production models (see "Recognizing Speech" and
 "Synthesizing Speech" above), so the Model Catalog, Text-to-Speech, and Speech-to-Text panels
 populate rows for every one of them once the library composes, each with its own installation
 state and download action. A model needing a bespoke, non-generic UI beyond the generic Model

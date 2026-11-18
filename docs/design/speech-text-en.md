@@ -564,7 +564,9 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   reference to an analyzed text or a result after the call returns, and serves any number of concurrent requests; the
   normalizer, the lexicon units, the inventory and a loaded model are immutable after loading
 - **Platform**: the library targets the same frameworks as the Speech library (`net8.0`, `net9.0`, `net10.0`, `net11.0`)
-- **No command-line or demo integration** in this release, and no inference dependency (see *Architecture*)
+- **No command-line or demo integration of its own** in this release, and no inference dependency (see
+  *Architecture*); the command-line tool and the demo application use it only through the Kokoro and Piper model
+  packages, which build on it
 - **Compliance**: all functionality must be traceable to requirements
 
 ### Not Provided

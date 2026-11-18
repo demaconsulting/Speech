@@ -7,7 +7,10 @@ its own.
 
 **Data Model**: Immutable and thread-safe. Holds the `KokoroPhonemeVocabulary` it was constructed with, one
 Phonemes.En `EnglishPhonemizer` and one `MisakiRenderer(MisakiProfile.Us, UseWeakForms)`. `UseWeakForms` is an
-internal constant, `true`: the single switch for how the small function words are rendered (see below).
+internal constant, `true`: the single switch for how the small function words are rendered (see below). This is the
+Kokoro pipeline's choice; the Phonemes.En `MisakiRenderer` itself defaults to full forms (weak forms off, see
+*SpeechPhonemesEn RenderingSubsystem Design*), and the pipeline turns them on because Kokoro was trained on reduced
+function words.
 
 **Key Methods**:
 

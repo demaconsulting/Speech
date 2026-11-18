@@ -25,10 +25,11 @@ This document is intended for:
 This document covers the detailed design of the Speech system and its constituent software
 items, of the SpeechDemo application system and its constituent software items, of the
 SpeechCli command-line tool system and its constituent software items, of the SpeechSherpa
-model-provider library system and its constituent software items, of the four ONNX
-Runtime-based sibling library systems (SpeechOnnx, SpeechOnnxKokoro, SpeechOnnxNemotronStt, and
-SpeechOnnxChatterboxTurbo) and their constituent software items, and of the SpeechTextEn English
-text-analysis library system and its constituent software items, specifically:
+model-provider library system and its constituent software items, of the five ONNX
+Runtime-based sibling library systems (SpeechOnnx, SpeechOnnxKokoro, SpeechOnnxPiper,
+SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo) and their constituent software items, of the
+SpeechTextEn English text-analysis library system and its constituent software items, and of the
+SpeechPhonemesEn English phonemizer library system and its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -161,7 +162,7 @@ The following software items of the SpeechSherpa system are also covered:
 - **SynthesisSubsystem (Subsystem)** — The real sherpa-onnx offline text-to-speech engine
   implementing Speech's public synthesis-backend seam
 
-The following software items of the four ONNX Runtime-based sibling systems are also covered.
+The following software items of the five ONNX Runtime-based sibling systems are also covered.
 Each is a sibling system to Speech, not a subsystem of it, and the library must never depend on
 any of them:
 
@@ -173,13 +174,27 @@ any of them:
   providers (each optionally validated by a probe) before falling back to the CPU provider
 - **SpeechOnnxKokoro (System)** — The `DemaConsulting.Speech.Onnx.Kokoro` library, a concrete
   ONNX Runtime-backed Kokoro-82M text-to-speech model and engine built on SpeechOnnx and
-  implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, with its own embedded
-  lexicon phonemizer and phoneme vocabulary
+  implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, which turns text into phoneme
+  token ids with the English text analysis of SpeechTextEn, the phonemizer and Kokoro renderer of
+  SpeechPhonemesEn, and its own embedded phoneme vocabulary
 - **ModelManagementSubsystem (Subsystem of SpeechOnnxKokoro)** — The `AddKokoroModels()` catalog
-  extension, the Kokoro model class, and the text normalizer, lexicon phonemizer and phoneme
-  vocabulary units
+  extension, the Kokoro model class (with the shared English text analyzer it hands to the session),
+  and the phoneme vocabulary unit
 - **SynthesisSubsystem (Subsystem of SpeechOnnxKokoro)** — `OnnxKokoroSynthesisEngine`, the real
-  synthesis backend
+  synthesis backend, and `KokoroPhonemePipeline`, which turns text and annotations into phoneme
+  token ids in parts of bounded length
+- **SpeechOnnxPiper (System)** — The `DemaConsulting.Speech.Onnx.Piper` library, a concrete ONNX
+  Runtime-backed Piper (VITS) text-to-speech model and engine for the English (US) `libritts_r`
+  medium voice (904 speakers, 22,050 Hz) built on SpeechOnnx and implementing Speech's
+  `ISynthesisModel`/`ISynthesisBackend` seam, which turns text into phoneme ids with the English text
+  analysis of SpeechTextEn, the phonemizer and espeak-style IPA renderer of SpeechPhonemesEn, and the
+  voice's own symbol table, with no espeak-ng
+- **ModelManagementSubsystem (Subsystem of SpeechOnnxPiper)** — The `AddPiperModels()` catalog
+  extension, the Piper voice model class with its internal archive extractor, and the voice
+  configuration reader `PiperVoiceConfig`
+- **SynthesisSubsystem (Subsystem of SpeechOnnxPiper)** — `OnnxPiperSynthesisEngine`, the real
+  synthesis backend, and `PiperPhonemePipeline`, which turns text and annotations into framed
+  phoneme ids in parts of bounded length
 - **SpeechOnnxNemotronStt (System)** — The `DemaConsulting.Speech.Onnx.NemotronStt` library, a
   concrete ONNX Runtime-backed streaming speech-recognition model and engine for NVIDIA Nemotron
   built on SpeechOnnx and implementing Speech's `IRecognitionModel`/`IRecognitionBackend` seam
@@ -201,15 +216,14 @@ any of them:
 The following software items of the SpeechTextEn system are also covered. It is a sibling system to
 Speech, not a subsystem of it, and the library must never depend on it:
 
-- **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` library (a preview), an English
-  implementation of Speech's `ITextAnalyzer` seam that annotates the words of a speech request with
-  their Universal Dependencies part of speech, describes with replacement-span annotations how
-  English text (abbreviations, symbols, apostrophes, acronyms and initialisms, and en-US numbers,
-  currency, units, times and dates) is spoken, marks letter sequences to be spoken by letter name,
-  lets a host override how individual words are spoken, pronounced or read (which reading of a heteronym such as
-  `record` is meant), assigns heteronym reading ids with a confidence from an embedded trained model, and
-  supplies authoritative sentence boundaries reconciled with that normalization, built
-  on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
+- **SpeechTextEn (System)** — The `DemaConsulting.Speech.Text.En` library (a preview), an English implementation of
+  Speech's `ITextAnalyzer` seam that annotates the words of a speech request with their Universal Dependencies part of
+  speech, describes with replacement-span annotations how English text (abbreviations, symbols, apostrophes, acronyms
+  and initialisms, web addresses, e-mail addresses, letter-digit identifiers, and en-US numbers, currency, units, times
+  and dates) is spoken, marks letter sequences to be spoken by letter name, lets a host override how individual words
+  are spoken, pronounced or read (which reading of a heteronym such as `record` is meant), assigns heteronym reading ids
+  with a confidence from an embedded trained model, and supplies authoritative sentence boundaries reconciled with that
+  normalization, built on the `DemaConsulting.PartOfSpeech` OTS package and with no inference-runtime dependency
 - **AnalysisSubsystem (Subsystem of SpeechTextEn)** — The `EnglishTextAnalyzer` analyzer with its
   detailed-result types, the `EnglishTextAnalyzerOptions` options, the `TextEnAnnotations`
   vocabulary and typed readers, the `PronunciationOverrides` dictionary of host-supplied
@@ -229,7 +243,9 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `TextNormalizer` orchestrator, the internal `NumericExpressionRecognizer` that finds numeric
   expressions and decides how each token of one is spoken, the internal `NumberVerbalizer` that builds
   the English words of a number, the internal `AbbreviationResolver` with its embedded abbreviation
-  lexicon, and the internal `AcronymRecognizer` with its embedded initialism lexicon
+  lexicon, the internal `AcronymRecognizer` with its embedded initialism lexicon, the internal
+  `WebAddressRecognizer` that speaks URLs, e-mail addresses and bare domains, and the internal
+  `AlphanumericTokenRecognizer` that spells letter-digit identifiers such as `A4` or `MP3`
 - **TrainingDataSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `check-data` command of the
   `DemaConsulting.Speech.Text.En.Trainer` tool, which verifies the training and evaluation data in `data/text-en/`: the
   internal `TsvTable` strict file reader, the `TextEnDataSet` typed loader with its source vocabulary, the
@@ -250,15 +266,38 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `ExternalRowConversion` of offsets, labels and rows, the `WikipediaHomographAdapter` and `HeteronymBenchAdapter`
   readers, the `ExternalEvaluationRecord` files and the `EvaluateExternalCommand` entry (with the `Program.cs` glue)
 
+The following software items of the SpeechPhonemesEn system are also covered. It is a sibling system to Speech, not a
+subsystem of it, and the library must never depend on it:
+
+- **SpeechPhonemesEn (System)** — The `DemaConsulting.Speech.Phonemes.En` library (a preview), which turns English text
+  and the annotations of SpeechTextEn into the phoneme input of a voice model: an `EnglishPhonemizer` that gives every
+  word an ARPAbet pronunciation from the embedded CMU Pronouncing Dictionary, the reading tables, the morphology rules
+  or an embedded trained letter-to-sound model, and renderers that write the result in the Piper (espeak-style IPA) or
+  the Kokoro (misaki-style) symbols. It is plain managed code over embedded data, with no inference runtime, and is
+  used only by the Kokoro and Piper model packages
+- **LexiconSubsystem (Subsystem of SpeechPhonemesEn)** — The pronunciation data and the laws over it: the internal
+  `CmuLexicon` with its binary image format, the `Phone`/`Pronunciation` value types with the letter names,
+  `Morphology` (stem-derived and clitic pronunciations) and `ReadingPronunciations` (the pronunciation of every reading
+  id of SpeechTextEn)
+- **LetterToSoundSubsystem (Subsystem of SpeechPhonemesEn)** — The pronunciation of a word that no dictionary knows:
+  the internal `LtsModel` (an integer-only trained network and its image) and `LetterToSound` (the caching converter
+  that never leaves a word silent)
+- **PhonemizerSubsystem (Subsystem of SpeechPhonemesEn)** — The public `EnglishPhonemizer` with its `PhonemizedText`
+  and `PhonemizedItem` results, the internal `WordTokenizer` (with the spoken-text and annotation index helpers) and
+  the internal `WordPronouncer` with its priority list for one word
+- **RenderingSubsystem (Subsystem of SpeechPhonemesEn)** — The public `EspeakIpaRenderer` (Piper) and `MisakiRenderer`
+  (Kokoro), the internal `WeakForms` function-word table and the internal `PhonemeStream` layout and long-text
+  splitting that both renderers share
+
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
 - **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by `WavFileAudioCaptureDevice`,
   `SynthesisSession`, and `WindowedSincLowpassFilter`
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx family of
-  libraries
+  libraries, including the Kokoro and Piper model packages
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
-- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa and SpeechOnnxPiper model installs
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
 - **BuildMark** — build-notes documentation tool
@@ -376,17 +415,24 @@ offline text-to-speech backend). Unlike `SpeechDemo` and `SpeechCli`, `SpeechShe
 dependency still runs one way only: `SpeechSherpa` references `Speech`, and `Speech` neither
 references nor knows about `SpeechSherpa`, naming no sherpa-onnx type even internally.
 
-Four further sibling systems extend `Speech` in the same way, each a separately packaged library
-that `Speech` neither references nor knows about, and a fifth, `SpeechTextEn`, supplies a language
-analyzer to them:
+Five further sibling systems extend `Speech` in the same way, each a separately packaged library
+that `Speech` neither references nor knows about, and two more, `SpeechTextEn` and
+`SpeechPhonemesEn`, supply the English language processing to the Kokoro and Piper packages:
 
 - `SpeechOnnx` (`DemaConsulting.Speech.Onnx`) holds shared ONNX Runtime infrastructure in one
   subsystem, `OnnxRuntimeSubsystem`, whose `OnnxExecutionProviderSelector` creates inference
   sessions with a layered accelerated-then-CPU provider fallback.
 - `SpeechOnnxKokoro` (`DemaConsulting.Speech.Onnx.Kokoro`) supplies a Kokoro-82M text-to-speech
-  model and engine in two subsystems, `ModelManagementSubsystem` (catalog extension, model, text
-  normalizer, lexicon phonemizer, phoneme vocabulary) and `SynthesisSubsystem` (the engine). It
-  depends on `Speech` and `SpeechOnnx`.
+  model and engine in two subsystems, `ModelManagementSubsystem` (catalog extension, model with its
+  shared English text analyzer, phoneme vocabulary) and `SynthesisSubsystem` (the engine and the
+  `KokoroPhonemePipeline`). It depends on `Speech`, `SpeechOnnx`, `SpeechTextEn` and `SpeechPhonemesEn`. The pipeline
+  turns the renderer's weak forms on (the renderer's own default is off), because Kokoro was trained on phonemes with
+  reduced function words.
+- `SpeechOnnxPiper` (`DemaConsulting.Speech.Onnx.Piper`) supplies the Piper (VITS) English (US) `libritts_r` voice
+  with 904 speakers as a text-to-speech model and engine in two subsystems, `ModelManagementSubsystem` (catalog
+  extension, model with its archive extractor, voice configuration reader) and `SynthesisSubsystem` (the engine and
+  the `PiperPhonemePipeline`). It depends on `Speech`, `SpeechOnnx`, `SpeechTextEn` and `SpeechPhonemesEn`, and on the
+  SharpCompress OTS package to extract the two voice files from the downloaded archive; it bundles no espeak-ng.
 - `SpeechOnnxNemotronStt` (`DemaConsulting.Speech.Onnx.NemotronStt`) supplies a streaming
   Nemotron speech-recognition model and engine in two subsystems, `ModelManagementSubsystem`
   and `RecognitionSubsystem` (the engine, feature extractor, RNN-T decoder, and silence limiter).
@@ -400,7 +446,8 @@ analyzer to them:
   `AnalysisSubsystem` (the `EnglishTextAnalyzer`, its options, the annotation vocabulary, the pronunciation-override
   dictionary, the part-of-speech adapter and the counts-only diagnostics reporter), `NormalizationSubsystem` (the
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the abbreviation
-  resolver and the acronym recognizer, with two embedded lexicons) and `HeteronymSubsystem` (the reading inventory with
+  resolver, the acronym recognizer, the web address recognizer and the alphanumeric token recognizer, with two embedded
+  lexicons) and `HeteronymSubsystem` (the reading inventory with
   its two embedded tables, the feature extractor, the sparse perceptron model and the classifier, which uses the trained
   model embedded in the package); the first uses the other two, never the reverse. It implements Speech's
   `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on the `DemaConsulting.PartOfSpeech`
@@ -416,6 +463,22 @@ analyzer to them:
   dataset adapters, the external evaluation record and the command) is the `evaluate-external` command that measures the
   model on pinned, evaluation-only external datasets; it uses the evaluator and corpus loader of the `TrainingSubsystem`
   and the data folder discovery of the `TrainingDataSubsystem`, and none of them uses it.
+- `SpeechPhonemesEn` (`DemaConsulting.Speech.Phonemes.En`, a preview) supplies English phonemization in four
+  subsystems, one per step of the pipeline: `LexiconSubsystem` (the embedded CMU Pronouncing Dictionary, the phone and
+  pronunciation types, the morphology rules and the pronunciation of every reading id), `LetterToSoundSubsystem` (the
+  trained integer network for words no dictionary knows and the converter around it), `PhonemizerSubsystem` (the
+  `EnglishPhonemizer`, the word tokenizer and the word pronouncer) and `RenderingSubsystem` (the Piper IPA and Kokoro
+  symbol renderers with the weak-form table and the layout and splitting they share). It depends on `Speech` (for the
+  annotation type) and `SpeechTextEn` (for the annotation vocabulary and the reading inventory), uses no inference
+  runtime, and is used only by the Kokoro and Piper packages. The data it embeds, the non-shipped tools project that
+  builds and measures it (`tools/DemaConsulting.Speech.Phonemes.En.Tools`) and its evaluation records are tool inputs
+  and outputs rather than software items; see *Modeling Scope and Exclusions*.
+
+The command-line tool and the demo application compose these packages without any code of their own for them: both
+register every model package's catalog extension - `AddSherpaModels()`, `AddKokoroModels()`, `AddPiperModels()`,
+`AddNemotronSttModels()` and `AddChatterboxTurboModels()` - with the library's `SpeechModelCatalog` (the CLI in its
+catalog adapter, the demo in its application class), so the Piper voice is listed, downloaded and selected like every
+other model.
 
 These systems implement the public `IRecognitionModel`/`ISynthesisModel` and
 `IRecognitionBackend`/`ISynthesisBackend` seams, so they behave as ordinary external consumers of
@@ -774,11 +837,80 @@ src/DemaConsulting.Speech.Onnx.Kokoro/
 ├── SpeechModelCatalogKokoroExtensions.cs                  — `AddKokoroModels()` registration
 ├── ModelManagementSubsystem/
 │   ├── OnnxKokoroEnglishSynthesisModel.cs                 — Kokoro multi-voice synthesis model
-│   ├── KokoroTextNormalizer.cs                            — Text normalization for the lexicon
-│   ├── KokoroLexiconPhonemizer.cs                         — Embedded-lexicon word-to-phoneme
 │   └── KokoroPhonemeVocabulary.cs                         — Phoneme-to-token-id vocabulary
+├── Resources/
+│   └── kokoro-v1.0-tokenizer.json                         — Embedded Kokoro phoneme vocabulary (Apache-2.0 data)
 └── SynthesisSubsystem/
-    └── OnnxKokoroSynthesisEngine.cs                       — Real ONNX Runtime synthesis backend
+    ├── OnnxKokoroSynthesisEngine.cs                       — Real ONNX Runtime synthesis backend
+    └── KokoroPhonemePipeline.cs                           — Text and annotations to phoneme token ids, in parts
+```
+
+The SpeechOnnxPiper library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx.Piper/
+├── PACKAGE-LICENSE.md                                     — Package license file (packaging file, not a software item)
+├── THIRD-PARTY-NOTICES.md                                 — Voice license, attribution and notices (packaging file, not a software item)
+├── SpeechModelCatalogPiperExtensions.cs                   — `AddPiperModels()` registration
+├── ModelManagementSubsystem/
+│   ├── OnnxPiperLibriTtsEnSynthesisModel.cs               — Piper libritts_r English (US) voice model
+│   ├── PiperArchiveExtractor.cs                           — Extracts only the voice and its configuration from the archive
+│   └── PiperVoiceConfig.cs                                — Voice configuration reader (symbol table, sample rate, scales)
+└── SynthesisSubsystem/
+    ├── OnnxPiperSynthesisEngine.cs                        — Real ONNX Runtime synthesis backend
+    └── PiperPhonemePipeline.cs                            — Text and annotations to framed phoneme ids, in parts
+```
+
+The SpeechPhonemesEn library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Phonemes.En/
+├── PACKAGE-LICENSE.md                                     — Package license file, MIT with the CMUdict notice (packaging file, not a software item)
+├── THIRD-PARTY-NOTICES.md                                 — Notices for the embedded data (packaging file, not a software item)
+├── Resources/
+│   ├── cmudict-en.bin.gz                                  — Embedded CMU Pronouncing Dictionary image (data, built and verified by the tools project)
+│   └── lts-en.bin.gz                                      — Embedded trained letter-to-sound network image (data, trained and verified by the tools project)
+├── LexiconSubsystem/
+│   ├── CmuLexicon.cs                                      — Internal dictionary lookup over the embedded image (with LexiconEntry)
+│   ├── LexiconImageFormat.cs                              — Internal binary layout of the dictionary image
+│   ├── Phone.cs                                           — Internal ARPAbet phone value type
+│   ├── Pronunciation.cs                                   — Internal immutable sequence of phones
+│   ├── LetterNames.cs                                     — Internal letter-name pronunciations
+│   ├── Morphology.cs                                      — Internal stem-derived and clitic pronunciations (with SuffixKind and Derivation)
+│   ├── ReadingPronunciations.cs                           — Internal pronunciation of every reading id (with ReadingEntry)
+│   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+├── LetterToSoundSubsystem/
+│   ├── LetterToSound.cs                                   — Internal caching converter that never leaves a word silent
+│   ├── LtsModel.cs                                        — Internal letter-to-sound model: image reader, features and conversion
+│   ├── LtsNetwork.cs                                      — Internal integer-only network
+│   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+├── PhonemizerSubsystem/
+│   ├── EnglishPhonemizer.cs                               — Public text-to-phonemes entry point
+│   ├── PhonemizedText.cs                                  — Public result: items, out-of-vocabulary words and unsupported tokens
+│   ├── PhonemizedItem.cs                                  — Public result item (with PhonemizedItemKind and PronunciationSource)
+│   ├── WordTokenizer.cs                                   — Internal tokenizer (with Token and TokenKind)
+│   ├── SpokenText.cs                                      — Internal replacement application and origin map
+│   ├── AnnotationIndex.cs                                 — Internal annotation lookup by span
+│   ├── WordPronouncer.cs                                  — Internal priority list for the pronunciation of one word
+│   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+└── RenderingSubsystem/
+    ├── EspeakIpaRenderer.cs                               — Public Piper IPA renderer (with EspeakIpaProfile)
+    ├── EspeakWordRules.cs                                 — Internal Piper per-word sound rules
+    ├── MisakiRenderer.cs                                  — Public Kokoro symbol renderer (with MisakiProfile)
+    ├── MisakiWordRules.cs                                 — Internal Kokoro per-word sound rules
+    ├── WeakForms.cs                                       — Internal function-word reduction table
+    ├── PhonemeStream.cs                                   — Internal layout and long-text splitting shared by both renderers
+    ├── WordShape.cs                                       — Internal word-shape helper of the rules
+    └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
+```
+
+The Phonemes.En tools project is a non-shipped tool whose data and evidence are inputs and outputs of the library, not
+software items:
+
+```text
+tools/DemaConsulting.Speech.Phonemes.En.Tools/            — Console tool: build-lexicon, train-lts, propose-readings, benchmark-lts, measure-morphology, measure-oracle and regenerate-goldens, with a README of their use
+data/phonemes-en/                                         — Provenance README, MANIFEST.tsv pins, reading tables, renderer corpora (CMUdict itself is fetched into a git-ignored folder)
+docs/evaluation/phonemes-en/                              — Recorded benchmark and measurement results: OOV model, renderers, Kokoro adoption, summary
 ```
 
 The SpeechOnnxNemotronStt library's folder structure likewise mirrors its software structure:
@@ -841,6 +973,8 @@ src/DemaConsulting.Speech.Text.En/
     ├── NumberVerbalizer.cs                                — Internal builder of the English words of a number (with the SpokenWriter helper)
     ├── AbbreviationResolver.cs                            — Internal abbreviation lexicon and neighbor-based reading choice
     ├── AcronymRecognizer.cs                               — Internal case-sensitive initialism lexicon and rules
+    ├── WebAddressRecognizer.cs                            — Internal recognizer of URLs, e-mail addresses and bare domains
+    ├── AlphanumericTokenRecognizer.cs                     — Internal recognizer of letter-digit identifiers such as A4 and MP3
     └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ```
 
@@ -947,11 +1081,11 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   design document and are enforced by the project files; the model's `part` ownership expresses
   only decomposition (system, subsystem, unit), not inter-system dependency.
 - **OTS parts are modeled only where integration code uses the item.** SpeechCli and SpeechDemo
-  reference `Microsoft.ML.OnnxRuntime` in their project files only to exclude its native assets
-  (`ExcludeAssets="native"`) so the sherpa-onnx native runtime is used; they contain no code that
-  calls it, so they carry no OnnxRuntime OTS part usage. The OTS item itself is modeled and
-  verified under SpeechOnnx. Build-tool OTS items are repository-level tooling (see the note in
-  `ots.sysml`).
+  reference no ONNX Runtime package directly; the managed `Microsoft.ML.OnnxRuntime` assembly reaches
+  them transitively through the raw ONNX model packages, and its native runtime (Microsoft's, which
+  the sherpa-onnx native library also loads) is deployed with them. They contain no code that calls it, so they
+  carry no OnnxRuntime OTS part usage. The OTS item itself is modeled and verified under SpeechOnnx. Build-tool OTS
+  items are repository-level tooling (see the note in `ots.sysml`).
 - **Non-unit source files are not modeled.** `NamespaceDoc.cs` files (documentation-only
   namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
   behavior and are covered by the view-model or panel unit they accompany. The trainer's `Program.cs`
@@ -968,6 +1102,13 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   external record in `docs/evaluation/text-en/external/` (verified by `evaluate-external --check`) are tool inputs and
   outputs described by the design of *SpeechTextEn ExternalEvaluationSubsystem Design*; the external datasets themselves
   are never committed and are not a software item, an OTS item or a shared package of this repository.
+- **SpeechPhonemesEn data is a tool input, not a software item either.** The embedded dictionary and letter-to-sound
+  images (`Resources/cmudict-en.bin.gz`, `Resources/lts-en.bin.gz`) are produced and verified by the non-shipped
+  `DemaConsulting.Speech.Phonemes.En.Tools` project (`build-lexicon --check`, `train-lts --check`, `propose-readings
+  --check`) from the pinned CMU Pronouncing Dictionary and the reading tables in `data/phonemes-en/`, whose pins are in
+  `data/phonemes-en/MANIFEST.tsv`; the measurements are recorded in `docs/evaluation/phonemes-en/`. They are described
+  by *SpeechPhonemesEn Design* and its subsystems (the data provenance section), have no software item of their own,
+  and the CMU Pronouncing Dictionary is data, not an OTS item.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
   ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.

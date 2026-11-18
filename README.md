@@ -15,7 +15,7 @@ DemaConsulting.Speech is a cross-platform .NET library providing local, offline 
 The diagram below shows how an application uses the core library and the optional model packages to recognize
 and synthesize speech.
 
-![Speech architecture: your desktop application uses the engine-neutral DemaConsulting.Speech core, whose Recognition, Synthesis, and ModelManagement subsystems build on the Audio and Diagnostics subsystems, with optional Sherpa, Kokoro, NemotronStt, and ChatterboxTurbo model packages plugged in, to turn microphone audio into recognized text and tagged text into synthesized audio, built on PortAudioSharp2, sherpa-onnx, and ONNX Runtime][architecture]
+![Speech architecture: your desktop application uses the engine-neutral DemaConsulting.Speech core, whose Recognition, Synthesis, and ModelManagement subsystems build on the Audio and Diagnostics subsystems, with optional Sherpa, Kokoro, Piper, NemotronStt, and ChatterboxTurbo model packages plugged in, to turn microphone audio into recognized text and tagged text into synthesized audio, built on PortAudioSharp2, sherpa-onnx, and ONNX Runtime][architecture]
 
 ## Features
 
@@ -25,7 +25,9 @@ and synthesize speech.
 - 📦 On-demand model download & verification
 - 🏷️ Natural Language Audio Tag support
 - 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates,
-  times, units, and host pronunciation overrides (preview)
+  times, units, web addresses, and host pronunciation overrides (preview)
+- 🗣️ Raw ONNX Runtime English voices (Kokoro and the 904-speaker Piper LibriTTS-R) with heteronym-aware phonemization
+  (preview)
 - ✍️ Casing & punctuation restoration
 - 🎚️ Per-model tunable voice parameters
 - 🖥️ Runs on Windows, Linux, macOS
@@ -57,7 +59,8 @@ they require); calling `.AddSherpaModels()` on a `SpeechModelCatalog` registers 
 as the noun and the verb `record` - and phonemizes it with `DemaConsulting.Speech.Phonemes.En`; its British voices speak
 General American phonemes, so expect an American pronunciation in a British voice), the optional
 `DemaConsulting.Speech.Onnx.Piper` package adds a sixth, raw ONNX Runtime Piper LibriTTS-R English (US, 904 speakers)
-voice via `.AddPiperModels()` (same text analysis and phonemization as Kokoro, rendered as espeak-style IPA), and the
+voice via `.AddPiperModels()` (same text analysis and phonemization as Kokoro, rendered as espeak-style IPA, with no
+espeak-ng; see [Kokoro and Piper on raw ONNX Runtime](#kokoro-and-piper-on-raw-onnx-runtime-preview) below), and the
 optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5 ASR
 recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds
 a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that only
@@ -405,11 +408,54 @@ language model and are not human-verified, the natural set shares data with the 
 informational: they cover only 162 of the 207 heteronym words and are lower. A reading below a confidence of 0.60 is
 right only about half the time.
 
-Limitations: US English only; Roman numerals, hyphenated compounds with digits, prefix currency codes, URLs, e-mail and
-markup are passed through unchanged; the heteronym model sees one sentence at a time; and the package is a preview
-whose annotation details may still change, with no command-line or demo support yet. The annotations, options,
+Limitations: US English only; Roman numerals, names before a number (`mid-1990s`), prefix currency codes, file names
+such as `report.pdf`, and markup are passed through unchanged (URLs, e-mail addresses, bare domains, letter-digit
+identifiers such as `A4`, and `12-year-old`-style compounds are read); the heteronym model sees one sentence at a
+time; and the package is a preview whose annotation details may still change, with no command-line or demo switch of its
+own (the Kokoro and Piper voices below use it). The annotations, options,
 diagnostics, accuracy with its caveats and the limitations are described in the [text analysis chapter of the user
 guide][link-text-analysis].
+
+## Kokoro and Piper on raw ONNX Runtime (preview)
+
+The optional `DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.Piper` packages run an English voice
+directly on ONNX Runtime. A voice graph takes phonemes, not text, so each package does the whole pipeline: the English
+text analysis of `DemaConsulting.Speech.Text.En` (numbers, dates, currency, URLs, e-mail addresses and the reading of
+each heteronym), then `DemaConsulting.Speech.Phonemes.En`, which gives every word a pronunciation and renders it in the
+phoneme symbols of the voice. Both preview packages flow in transitively with a model package. The data of
+`DemaConsulting.Speech.Phonemes.En` comes from the CMU Pronouncing Dictionary only (BSD-style license), plus a small
+letter-to-sound model trained on that dictionary by this repository for words the dictionary does not have; no misaki,
+WikiPron or espeak-ng data is used.
+
+| | Kokoro | Piper |
+| --- | --- | --- |
+| Model id | `kokoro-onnx-v1_0-en` | `piper-onnx-libritts-r-en-us-medium` |
+| Registration | `.AddKokoroModels()` | `.AddPiperModels()` |
+| Voices | 29 English voices (`voice=af_heart`) | 904 speakers (`speaker=0` to `903`) |
+| Sample rate | 24,000 Hz | 22,050 Hz |
+| License | Apache-2.0 | CC BY 4.0 |
+
+Kokoro downloads from the Hugging Face `onnx-community/Kokoro-82M-v1.0-ONNX` repository. The Piper voice downloads from
+the sherpa-onnx release archive of the same voice (about 82 MB); both are SHA-256 verified. Only the voice graph and its
+configuration file are extracted from the Piper archive, and the espeak-ng data in it is discarded. The Piper license
+requires you to credit the LibriTTS-R corpus and the Piper project.
+
+```bash
+speech-cli download piper-onnx-libritts-r-en-us-medium
+speech-cli speak --tts-model piper-onnx-libritts-r-en-us-medium --tts-param speaker=5 \
+  --text "I will record the record. Write to help@example.com." --output-audio piper.wav
+```
+
+In a synthesis session the text is always analyzed, so `record` the verb and `record` the noun are read differently,
+numbers and dates are spoken as words, and a word that no dictionary knows is spoken by the trained letter-to-sound
+model instead of being skipped. A long text is split between words into parts that fit the voice graph and the audio is
+joined; nothing is truncated. A host that calls a backend's plain `Generate(text, ...)` directly, outside a session,
+gets the default reading of each word and no normalization. Caveats: Kokoro's British voices speak American phonemes, so
+expect an American pronunciation in a British voice; the Piper speaking style is a rule-based approximation of the
+espeak-ng style the voice was trained with, not espeak-ng itself; the heteronym model can pick the wrong reading
+(see the accuracy figures above); and the Sherpa model `vits-piper-en_US-libritts_r-medium` is a different
+implementation of the same LibriTTS-R voice that phonemizes with espeak-ng inside sherpa-onnx. See the
+[synthesizing chapter of the user guide][link-user-guide] for details.
 
 ## Demo Application
 
@@ -565,10 +611,20 @@ license text and attribution in its `THIRD-PARTY-NOTICES.md` file at the package
 the notice in that package) and its English text analysis from `DemaConsulting.Speech.Text.En`; both packages carry
 their own license files. No pronunciation data of the misaki project is used.
 
+The `DemaConsulting.Speech.Onnx.Piper` package (pre-release) declares `MIT AND CC-BY-4.0` in its `PACKAGE-LICENSE.md`.
+Its code is under the MIT License; it embeds no voice data, and the voice it downloads on demand (Piper
+`en_US-libritts_r-medium`, trained on the LibriTTS-R corpus, 904 speakers) is licensed CC BY 4.0, which requires
+attribution: credit the LibriTTS-R corpus (Koizumi et al.; OpenSLR resource 141) and the Piper project. The suggested
+credit, the source archive and its SHA-256 are in the package's `THIRD-PARTY-NOTICES.md`. Only the voice graph and its
+configuration file are kept from the downloaded archive; the espeak-ng data in it (a different license) is never
+installed. The pronunciation data again comes from `DemaConsulting.Speech.Phonemes.En` (CMU Pronouncing Dictionary
+only).
+
 The `DemaConsulting.Speech.Phonemes.En` package (pre-release) declares `MIT AND LicenseRef-CMUdict` in its
 `PACKAGE-LICENSE.md`: its code is under the MIT License and its embedded pronunciation lexicon is derived from the CMU
 Pronouncing Dictionary, whose license text and the statement of the changes are in the package's
-`THIRD-PARTY-NOTICES.md`.
+`THIRD-PARTY-NOTICES.md`; the same notice covers the package's small letter-to-sound model, which DEMA Consulting
+trained on that dictionary. No other pronunciation source is used.
 
 The `DemaConsulting.Speech.Text.En` package (pre-release) declares `MIT AND CC-BY-3.0-US` in its `PACKAGE-LICENSE.md`.
 Its code and two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote from scratch are under the

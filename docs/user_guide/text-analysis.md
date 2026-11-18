@@ -8,9 +8,12 @@ in, and which reading a heteronym such as "record" has. The analysis is delivere
 original text**; the text itself is never rewritten.
 
 The package is a preview. It is published only in pre-release versions (it depends on the pre-release
-`DemaConsulting.PartOfSpeech` tagger, and NuGet does not allow a stable package to depend on a pre-release one), the
-details of the annotation values may still change before a first release, and nothing in the command-line tool or the
-demo application uses it yet. Install it with a pre-release version:
+`DemaConsulting.PartOfSpeech` tagger, and NuGet does not allow a stable package to depend on a pre-release one), and the
+details of the annotation values may still change before a first release. The command-line tool and the demo
+application have no switch for it, but they use it: the Kokoro and Piper models (see "Kokoro and Piper" in the
+synthesizing chapter) return an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`, so `speech-cli speak` and
+the demo speak numbers, dates, URLs and heteronyms the way this chapter describes. Install it with a pre-release
+version:
 
 ```bash
 dotnet add package DemaConsulting.Speech.Text.En --prerelease
@@ -66,7 +69,14 @@ spoken differently from how it is written:
 - en-US numbers: cardinals, thousands separators, negatives, decimals, ordinals, percentages, fractions, years and
   decades, currency (`$5.50` is `five dollars and fifty cents`), a closed list of units (`5 kg`, `72°F`), clock times,
   numeric and month-name dates, ranges, phone numbers and dotted numbers (`1,234` is `one thousand two hundred thirty
-  four`, `1990s` is `nineteen nineties`)
+  four`, `1990s` is `nineteen nineties`), the number of a hyphenated compound (`12-year-old`), and a number with a
+  glued capital letter or `k` (`10K` is `ten K`, `5G`, `3D`)
+- web addresses: a URL with an `http`, `https` or `ftp` scheme or a leading `www`, an e-mail address and a bare domain
+  with a well-known top-level domain are spoken with their separators as words (`john.smith@example.com` is `john dot
+  smith at example dot com`; the scheme is spelled `H T T P S`, `www` is spelled, and the two slashes after the scheme
+  are dropped); the words inside an address are left for the phonemizer
+- letter-digit identifiers (`A4` is `A four`, `MP3`, `H2O`, `R2D2`) and a name joined to a number by a hyphen
+  (`COVID-19`, `Catch-22`)
 - invisible formatting characters such as a soft hyphen or a zero-width space, as an `en.norm` annotation with an empty
   value ("speak nothing") rather than a silent loss
 
@@ -274,9 +284,10 @@ These numbers come with limits that you should know:
 - **US English only.** The lexicons, the spelling of the spoken forms and the number conventions are those of written US
   English: a comma separates thousands, the period is the decimal point and a numeric date is month first. Text in other
   conventions (`1,23`) is left as written and counted.
-- **Not read yet; passed through unchanged.** Roman numerals (`World War II`), hyphenated compounds with digits
-  (`5-year-old`, `F-16`), prefix currency codes (`USD 5`), `h:mm:ss` times, ratios, `10k` without a currency symbol,
-  non-ASCII digits, URLs, e-mail addresses and markup. A backend must be ready to receive digits.
+- **Not read yet; passed through unchanged.** Roman numerals (`World War II`), names before a number (`mid-1990s`),
+  prefix currency codes (`USD 5`), `h:mm:ss` times, ratios, `1.5M`, feet and inches, non-ASCII digits, file names and
+  dotted names such as `report.pdf` or `Node.js`, a domain with a top-level domain outside the short list, and markup
+  (the address of a Markdown link is spoken after its text). A backend must be ready to receive digits.
 - **Number limits.** A cardinal has at most 15 digits; 16 to 64 digits are read digit by digit; longer runs, tokens over
   128 characters and decimals with more than 32 fraction digits are left as written. Each case is counted as a numeric
   fallback.

@@ -154,10 +154,10 @@ homophones, so the figures show only that the new path is not less intelligible 
 PENDING. The blinded listening packs were regenerated after the refinement pass (same sentences and structure as
 before; the earlier packs are kept beside them as a backup). They are outside the repository:
 
-- Kokoro: `C:\Users\mnixon\.copilot\session-state\b3581152-65fd-4a2a-a4f8-3432d8fd8a03\files\listening\kokoro\`
+- Kokoro: a pack kept in a local working folder of the maintainer
   (30 sentences; the old pipeline, the new pipeline with weak forms and the new pipeline with full forms, shuffled per
   sentence; the answer key is a separate file).
-- Piper: `C:\Users\mnixon\.copilot\session-state\b3581152-65fd-4a2a-a4f8-3432d8fd8a03\files\listening\piper\`
+- Piper: a pack kept beside it in the same local working folder
   (the same 30 sentences; the new pipeline against the old Sherpa and espeak-ng path, shuffled; separate answer key).
 
 The verdict, with the weak-form decision for Kokoro, will be recorded here.

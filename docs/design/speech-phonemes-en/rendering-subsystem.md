@@ -63,7 +63,9 @@ stress (`but`, `not`). A function word and the article after it are one group wr
 flap of `it` and `at` before a vowel, `on the` with an unmarked `on`, `for the` as `fɚðə`, the secondary stress of
 `made`, `make`, `which`, `what` and a few more) apply to Piper only. The Kokoro renderer renders full forms by default
 (the renderer's own default), and a caller can ask for the weak forms, which agree better with the reference phonemizer
-for function words; the Kokoro model package asks for them.
+for function words; the Kokoro model package asks for them (see *SpeechOnnxKokoro KokoroPhonemePipeline Design*, where
+the pipeline's `UseWeakForms` constant is `true`, so the weak-forms-off default described here is the renderer's, not
+the one Kokoro speech uses).
 
 **Layout and parts.** Both renderers join the rendered pieces of the items with one space between words, a closing mark
 attached to the word before and an opening mark attached to the word after (`PhonemeStream.Join`). `RenderParts` renders

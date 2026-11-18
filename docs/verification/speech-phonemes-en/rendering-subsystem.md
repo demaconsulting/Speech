@@ -36,7 +36,9 @@ every weak form, mark and renderer mode render only to symbols of both tables; `
 `həlˈoʊ, wˈɜːld!` for Piper and `həlˈO, wˈɜɹld!` for Kokoro; quotation marks and dashes are a pause for Piper and
 Kokoro's own marks for Kokoro; an ellipsis is three dots for Piper and `…` for Kokoro; a hyphenated compound keeps every
 stress for Piper and only the first for Kokoro; the flap, the linking r and the stress rules give the documented
-strings; function words are weak only when weak forms are enabled (on by default for Piper, off by default for Kokoro);
+strings; function words are weak only when weak forms are enabled (on by default for the Piper renderer, off by default
+for the Kokoro renderer, which the Kokoro model package switches on; see *SpeechOnnxKokoro KokoroPhonemePipeline
+Verification*);
 and a long text is rendered as parts within the limit that lose nothing.
 
 ### Test Scenarios
