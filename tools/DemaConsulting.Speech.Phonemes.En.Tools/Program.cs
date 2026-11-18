@@ -3,6 +3,7 @@ using DemaConsulting.Speech.Phonemes.En.Tools.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.MorphologySubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.ReadingSubsystem;
+using DemaConsulting.Speech.Phonemes.En.Tools.RenderingSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tools;
 
@@ -30,6 +31,7 @@ internal static class Program
           regenerate-goldens   Regenerate the expected column of the sentence golden corpus (run 'regenerate-goldens --help').
           train-lts            Train the letter-to-sound model on the whole CMUdict, or verify it with --check (run 'train-lts --help').
           benchmark-lts        Benchmark the out-of-vocabulary candidates on the held-out split (run 'benchmark-lts --help').
+          measure-oracle       Export our renderings for the local reference-engine comparison (run 'measure-oracle --help').
         """;
 
     /// <summary>
@@ -86,6 +88,11 @@ internal static class Program
         if (string.Equals(args[0], BenchmarkLtsCommand.Name, StringComparison.Ordinal))
         {
             return BenchmarkLtsCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], MeasureOracleCommand.Name, StringComparison.Ordinal))
+        {
+            return MeasureOracleCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
         }
 
         error.WriteLine($"Unknown command '{args[0]}'.");

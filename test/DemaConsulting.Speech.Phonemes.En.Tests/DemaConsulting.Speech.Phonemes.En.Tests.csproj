@@ -76,14 +76,20 @@
     <!-- The golden-corpus machinery of the tools project (pipeline, one-line format, corpus files) is compiled into
          this assembly too, so the regenerate-goldens command and the golden tests cannot disagree. -->
     <Compile Include="..\..\tools\DemaConsulting.Speech.Phonemes.En.Tools\PhonemizerSubsystem\GoldenCorpus.cs" Link="Linked\GoldenCorpus.cs" />
+    <!-- The symbol inventories of the two voice models (Piper phoneme_id_map, Kokoro vocabulary) with the same loader
+         the tools project uses to write the renderer goldens. -->
+    <Compile Include="..\..\tools\DemaConsulting.Speech.Phonemes.En.Tools\PhonemizerSubsystem\SymbolInventory.cs" Link="Linked\SymbolInventory.cs" />
   </ItemGroup>
 
   <!-- The golden corpora (own-written sentences, CC0) and the data the contract tests check, copied beside the test
        assembly: the reading inventory's form table of the text analysis package, and the committed gap list. -->
   <ItemGroup>
     <None Update="TestData\*.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="TestData\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\text-en\forms.tsv" Link="TestData\forms.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\phonemes-en\reading-gaps.tsv" Link="TestData\reading-gaps.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Kokoro's own tokenizer vocabulary, linked from the Kokoro package so the vocabulary-coverage test checks the real one. -->
+    <None Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-v1.0-tokenizer.json" Link="TestData\kokoro-v1.0-tokenizer.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

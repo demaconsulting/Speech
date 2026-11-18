@@ -17,6 +17,8 @@ resource lives in the library. Nothing here is legal advice.
 | [reading-pronunciations.tsv](reading-pronunciations.tsv) | the reviewed, frozen ARPAbet pronunciation of every heteronym reading id of `DemaConsulting.Speech.Text.En` (395 rows: `reading_id`, `arpabet`, `source`); embedded in the library |
 | [form-overrides.tsv](form-overrides.tsv) | the few inflected spellings the morphology rules cannot derive from a reading's headword (`does`, `lives`, `dove` ...); embedded in the library |
 | [reading-gaps.tsv](reading-gaps.tsv) | the committed list of (spelling, reading id) pairs that cannot be resolved; expected to be empty (header only) |
+| [renderer-corpus.tsv](renderer-corpus.tsv) | 300 own-written sentences (CC0) that, with the golden sentences, make the tuning corpus of the renderer measurement (`measure-oracle`; see `docs/evaluation/phonemes-en/renderers.md`) |
+| [renderer-validation.tsv](renderer-validation.tsv) | 60 further own-written sentences (CC0), written after the renderer rules were frozen and used only for the held-out measurement |
 | `external/` | git-ignored local cache: `external/cmudict/cmudict.dict` and its `LICENSE` (never committed) |
 | `work/` | git-ignored scratch for measurements (never committed) |
 
@@ -102,6 +104,18 @@ the decision against the rules and g2p_en alternatives.
 
 ## Measurement Oracles (local only)
 
-espeak-ng (GPL-3) and misaki may be installed on a developer machine **outside the repository** purely to measure the renderers
-that come later. No project references them, and their outputs and any data derived from them are never committed; only aggregate
-numbers and this project's own golden files are.
+espeak-ng (GPL-3) and misaki may be installed on a developer machine **outside the repository** purely to measure the renderers.
+No project references them, and their outputs and any data derived from them are never committed; only aggregate numbers and this
+project's own golden files are. The tools command `measure-oracle` exports our renderings of the corpora
+(`renderer-corpus.tsv`, `renderer-validation.tsv`, the golden sentences and the most frequent dictionary words of the text-analysis
+training sentences) to a folder outside the repository (or the git-ignored `work/` folder) for a comparison script kept outside the
+repository; the aggregate numbers
+and the phonetic classes of disagreement are recorded in `docs/evaluation/phonemes-en/renderers.md` and `renderers.tsv`.
+
+## Third-Party Test Data
+
+`test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/piper-en_US-libritts_r-medium.phoneme-map.json` is a trimmed copy of the
+symbol table (`phoneme_id_map`, 159 symbols) of the Piper `en_US` `libritts_r` medium voice, as packaged by sherpa-onnx. The voice is
+licensed CC BY 4.0 (trained on LibriTTS-R, OpenSLR resource 141, <http://www.openslr.org/141/>; voice from the Piper project,
+<https://github.com/OHF-Voice/piper1-gpl>); the attribution is in the file itself. It is used only to prove that the renderer emits
+no symbol the voice does not know.

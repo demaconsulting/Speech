@@ -29,6 +29,16 @@ internal sealed record ReadingCase(string ReadingId, string Mode, string Sentenc
 internal sealed record SentenceCase(string Id, string Sentence, string Expected);
 
 /// <summary>
+///     One case of a renderer golden corpus: a sentence of the sentences corpus and the phoneme string a renderer
+///     produces for it, with the token ids of that string.
+/// </summary>
+/// <param name="Id">The case id (that of the sentence).</param>
+/// <param name="Sentence">The sentence.</param>
+/// <param name="Phonemes">The rendered phoneme string; empty until generated.</param>
+/// <param name="Ids">The model's token id of every character of the phoneme string, separated by spaces; empty until generated.</param>
+internal sealed record RenderedCase(string Id, string Sentence, string Phonemes, string Ids);
+
+/// <summary>
 ///     The shared machinery of the phonemizer golden corpora: running the whole pipeline (real text analysis, then
 ///     the phonemizer), the one-line text form of a result, locating a target word, and reading and writing the
 ///     corpus files.
@@ -148,6 +158,22 @@ internal static class GoldenCorpus
     /// <param name="cases">The cases.</param>
     public static void WriteSentences(string path, IEnumerable<SentenceCase> cases) =>
         File.WriteAllText(path, "id\tsentence\texpected\n" + string.Concat(cases.Select(c => $"{c.Id}\t{c.Sentence}\t{c.Expected}\n")), new UTF8Encoding(false));
+
+    /// <summary>
+    ///     Reads a renderer golden corpus.
+    /// </summary>
+    /// <param name="path">The file: a header line, then <c>id</c>, <c>sentence</c>, <c>phonemes</c> and <c>ids</c>.</param>
+    /// <returns>The cases.</returns>
+    public static IReadOnlyList<RenderedCase> ReadRendered(string path) =>
+        [.. Rows(path).Select(f => new RenderedCase(f[0], Field(f, 1), Field(f, 2), Field(f, 3)))];
+
+    /// <summary>
+    ///     Writes a renderer golden corpus.
+    /// </summary>
+    /// <param name="path">The file.</param>
+    /// <param name="cases">The cases.</param>
+    public static void WriteRendered(string path, IEnumerable<RenderedCase> cases) =>
+        File.WriteAllText(path, "id\tsentence\tphonemes\tids\n" + string.Concat(cases.Select(c => $"{c.Id}\t{c.Sentence}\t{c.Phonemes}\t{c.Ids}\n")), new UTF8Encoding(false));
 
     /// <summary>
     ///     Writes the readings corpus.

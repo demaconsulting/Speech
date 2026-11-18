@@ -1,6 +1,7 @@
 using System.Globalization;
 using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
+using DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
 
@@ -38,14 +39,15 @@ internal static class RegenerateGoldensCommand
 
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: regenerate-goldens [--sentences] [--readings [--redraft]] [--oov] [options]
+        Usage: regenerate-goldens [--sentences] [--readings [--redraft]] [--oov] [--renderers] [options]
                regenerate-goldens --try "<sentence>"
 
         Regenerates the expected column of test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/sentences-golden.tsv
-        (--sentences), the mode and drafted expected columns of readings-golden.tsv (--readings) and the expected column
-        of oov-golden.tsv (--oov), and prints the text analysis' hit rate on the readings corpus. With --try prints the
-        analysis and the phonemized result of one sentence. Without --sentences, --readings and --oov all three corpora
-        are processed.
+        (--sentences), the mode and drafted expected columns of readings-golden.tsv (--readings), the expected column
+        of oov-golden.tsv (--oov) and the Piper and Kokoro renderings piper-ipa-golden.tsv and kokoro-misaki-golden.tsv
+        (--renderers), and prints the text analysis' hit rate on the readings corpus. With --try prints the
+        analysis and the phonemized result of one sentence. Without --sentences, --readings, --oov and --renderers all
+        four corpora are processed.
 
         Options:
           --root <dir>   The repository root (default: searched upward from the current directory for Speech.slnx).
@@ -75,6 +77,7 @@ internal static class RegenerateGoldensCommand
         var doSentences = false;
         var doReadings = false;
         var doOov = false;
+        var doRenderers = false;
         var redraft = false;
         var pending = new Queue<string>(args);
         while (pending.TryDequeue(out var option))
@@ -92,6 +95,9 @@ internal static class RegenerateGoldensCommand
                     break;
                 case "--oov":
                     doOov = true;
+                    break;
+                case "--renderers":
+                    doRenderers = true;
                     break;
                 case "--redraft":
                     redraft = true;
@@ -125,7 +131,7 @@ internal static class RegenerateGoldensCommand
             }
 
             var testData = Path.Combine(root, "test", "DemaConsulting.Speech.Phonemes.En.Tests", "TestData");
-            var both = !doSentences && !doReadings && !doOov;
+            var both = !doSentences && !doReadings && !doOov && !doRenderers;
             if (doSentences || both)
             {
                 RegenerateSentences(Path.Combine(testData, "sentences-golden.tsv"), output);
@@ -139,6 +145,11 @@ internal static class RegenerateGoldensCommand
             if (doOov || both)
             {
                 RegenerateOov(Path.Combine(testData, "oov-golden.tsv"), output);
+            }
+
+            if (doRenderers || both)
+            {
+                RegenerateRenderers(root, testData, output);
             }
 
             return 0;
@@ -203,6 +214,45 @@ internal static class RegenerateGoldensCommand
 
         File.WriteAllText(path, string.Join('\n', result) + "\n", new System.Text.UTF8Encoding(false));
         output.WriteLine($"oov-golden.tsv: {words} words, {changed} expected values changed or drafted");
+    }
+
+    /// <summary>
+    ///     Rewrites the renderer golden corpora from the sentences corpus: the Piper IPA and the Kokoro misaki phoneme
+    ///     string of every sentence, with the token ids of each.
+    /// </summary>
+    /// <param name="root">The repository root.</param>
+    /// <param name="testData">The test data folder.</param>
+    /// <param name="output">Receives the report.</param>
+    private static void RegenerateRenderers(string root, string testData, TextWriter output)
+    {
+        var sentences = GoldenCorpus.ReadSentences(Path.Combine(testData, "sentences-golden.tsv"));
+        var piper = SymbolInventory.LoadPiper(Path.Combine(testData, "piper-en_US-libritts_r-medium.phoneme-map.json"));
+        var kokoro = SymbolInventory.LoadKokoro(Path.Combine(root, "src", "DemaConsulting.Speech.Onnx.Kokoro", "Resources", "kokoro-v1.0-tokenizer.json"));
+        var piperRenderer = new EspeakIpaRenderer();
+        var kokoroRenderer = new MisakiRenderer();
+        WriteRendered(Path.Combine(testData, "piper-ipa-golden.tsv"), sentences, piperRenderer.Render, piper, output);
+        WriteRendered(Path.Combine(testData, "kokoro-misaki-golden.tsv"), sentences, kokoroRenderer.Render, kokoro, output);
+    }
+
+    /// <summary>
+    ///     Writes one renderer golden corpus.
+    /// </summary>
+    /// <param name="path">The corpus file.</param>
+    /// <param name="sentences">The sentences.</param>
+    /// <param name="render">The renderer of a phonemized text.</param>
+    /// <param name="inventory">The symbol inventory whose ids are recorded.</param>
+    /// <param name="output">Receives the report.</param>
+    private static void WriteRendered(string path, IReadOnlyList<SentenceCase> sentences, Func<PhonemizedText, string> render, SymbolInventory inventory, TextWriter output)
+    {
+        var old = File.Exists(path) ? GoldenCorpus.ReadRendered(path).ToDictionary(c => c.Id, c => c.Phonemes, StringComparer.Ordinal) : [];
+        var cases = sentences.Select(s =>
+        {
+            var phonemes = render(GoldenCorpus.RunEndToEnd(s.Sentence));
+            return new RenderedCase(s.Id, s.Sentence, phonemes, inventory.ToIds(phonemes));
+        }).ToList();
+        var changed = cases.Count(c => !old.TryGetValue(c.Id, out var before) || before != c.Phonemes);
+        GoldenCorpus.WriteRendered(path, cases);
+        output.WriteLine($"{Path.GetFileName(path)}: {cases.Count} sentences, {changed} phoneme lines changed or drafted");
     }
 
     /// <summary>
