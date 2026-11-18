@@ -1,13 +1,12 @@
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
-using DemaConsulting.Speech.Phonemes.En.ReadingSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
 using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests for the reading pronunciations: the contract that every reading id and every (spelling,
+///     Lexicon subsystem tests, reading pronunciations part: the contract that every reading id and every (spelling,
 ///     reading) pair of the English text analysis inventory resolves to a pronunciation, with every gap explicit; the
 ///     golden corpus of one reviewed sentence per reading id run through the real text analysis and the phonemizer; and
 ///     the default reading of a heteronym when no analysis is available.
@@ -18,14 +17,14 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 ///     golden is not bent to the classifier, so the phonemizer is tested with a synthetic reading annotation instead.
 ///     The share of <c>e2e</c> rows is the classifier's hit rate on these own-written sentences and is gated below.
 /// </remarks>
-public sealed class ReadingPronunciationTests
+public sealed partial class LexiconSubsystemTests
 {
     /// <summary>The share of reading sentences the real classifier must label correctly (measured 97.5%).</summary>
     private const double MinimumClassifierHitRate = 0.95;
 
     /// <summary>Proves the table has a row for exactly every reading id of the inventory and that every <c>cmu#N</c> row is that variant of the lexicon.</summary>
     [Fact]
-    public void ReadingSubsystem_Table_CoversTheInventoryAndMatchesTheLexicon()
+    public void LexiconSubsystem_Readings_Table_CoversTheInventoryAndMatchesTheLexicon()
     {
         // Arrange
         var inventoryIds = ReadingInventory.Default.ReadingIds.ToHashSet(StringComparer.Ordinal);
@@ -51,7 +50,7 @@ public sealed class ReadingPronunciationTests
 
     /// <summary>Proves every (form, reading id) pair of the inventory resolves to a non-empty pronunciation, and that the gap list is explicit and empty.</summary>
     [Fact]
-    public void ReadingSubsystem_Resolve_EveryInventoryPair_ResolvesWithNoSilentGap()
+    public void LexiconSubsystem_Readings_Resolve_EveryInventoryPair_ResolvesWithNoSilentGap()
     {
         // Arrange: the committed copy of the inventory's form table, checked against the embedded inventory first
         var pairs = ReadTsv("forms.tsv").Select(f => (Form: f[0], ReadingId: f[1])).ToList();
@@ -77,7 +76,7 @@ public sealed class ReadingPronunciationTests
 
     /// <summary>Proves the readings golden: every reading id has one sentence and its reviewed pronunciation comes out of the pipeline (end to end, or with the reading forced where the classifier labels the sentence differently).</summary>
     [Fact]
-    public void ReadingSubsystem_ReadingsGolden_EveryReadingIsPronouncedAsReviewed()
+    public void LexiconSubsystem_Readings_Golden_EveryReadingIsPronouncedAsReviewed()
     {
         // Arrange
         var cases = GoldenCorpus.ReadReadings(TestDataPath("readings-golden.tsv"));
@@ -103,7 +102,7 @@ public sealed class ReadingPronunciationTests
 
     /// <summary>Proves the real classifier labels at least the gated share of the readings golden sentences correctly (its hit rate on own-written sentences).</summary>
     [Fact]
-    public void ReadingSubsystem_ReadingsGolden_ClassifierHitRate_MeetsTheGate()
+    public void LexiconSubsystem_Readings_Golden_ClassifierHitRate_MeetsTheGate()
     {
         // Arrange
         var cases = GoldenCorpus.ReadReadings(TestDataPath("readings-golden.tsv"));
@@ -119,7 +118,7 @@ public sealed class ReadingPronunciationTests
 
     /// <summary>Proves that without an analysis every spelling of the inventory is pronounced as its default reading: the first variant of the dictionary.</summary>
     [Fact]
-    public void ReadingSubsystem_NoAnnotations_EveryInventoryFormGetsItsDefaultReading()
+    public void LexiconSubsystem_Readings_NoAnnotations_EveryInventoryFormGetsItsDefaultReading()
     {
         // Arrange
         var phonemizer = new EnglishPhonemizer();

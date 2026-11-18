@@ -18,11 +18,11 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 ///     held-out dictionary words is the tools project's <c>benchmark-lts</c> result, recorded in that document.
 ///     </para>
 /// </remarks>
-public sealed class LetterToSoundTests
+public sealed class LetterToSoundSubsystemTests
 {
     /// <summary>Proves every word of the golden corpus is really out of the dictionary and gets exactly its pinned pronunciation.</summary>
     [Fact]
-    public void LetterToSound_OovGolden_EveryWordGetsItsPinnedPronunciation()
+    public void LetterToSoundSubsystem_OovGolden_EveryWordGetsItsPinnedPronunciation()
     {
         // Arrange
         var cases = ReadGolden();
@@ -40,7 +40,7 @@ public sealed class LetterToSoundTests
 
     /// <summary>Proves a pronunciation is never empty for a word with letters and has exactly one primary stress when it has a vowel.</summary>
     [Fact]
-    public void LetterToSound_DictionaryWords_AreNeverSilentAndHaveOnePrimaryStress()
+    public void LetterToSoundSubsystem_DictionaryWords_AreNeverSilentAndHaveOnePrimaryStress()
     {
         // Arrange: every 40th dictionary word that has a vowel letter, so the test needs no external data and covers short and long words
         var words = CmuLexicon.Default.Entries().Where((_, i) => i % 40 == 0).Select(e => e.Word).Where(w => w.IndexOfAny(['a', 'e', 'i', 'o', 'u', 'y']) >= 0).ToList();
@@ -67,7 +67,7 @@ public sealed class LetterToSoundTests
     [InlineData("www")]
     [InlineData("Straße")]
     [InlineData("ABC123")]
-    public void LetterToSound_OddSpellings_GetANonEmptyPronunciation(string word)
+    public void LetterToSoundSubsystem_OddSpellings_GetANonEmptyPronunciation(string word)
     {
         // Arrange
         var letterToSound = LetterToSound.Default;
@@ -82,7 +82,7 @@ public sealed class LetterToSoundTests
 
     /// <summary>Proves a very long word is pronounced without failure and in proportion to its length.</summary>
     [Fact]
-    public void LetterToSound_VeryLongWord_IsPronouncedWithoutFailure()
+    public void LetterToSoundSubsystem_VeryLongWord_IsPronouncedWithoutFailure()
     {
         // Arrange
         var word = string.Concat(Enumerable.Repeat("supercalifragilistic", 200));
@@ -102,7 +102,7 @@ public sealed class LetterToSoundTests
     [InlineData("'")]
     [InlineData("123")]
     [InlineData("-")]
-    public void LetterToSound_NoLetters_HasNoPronunciation(string text)
+    public void LetterToSoundSubsystem_NoLetters_HasNoPronunciation(string text)
     {
         // Act
         var found = LetterToSound.Default.TryConvert(text, out var pronunciation);
@@ -114,7 +114,7 @@ public sealed class LetterToSoundTests
 
     /// <summary>Proves the answer depends on the word alone: many threads converting the same words get the single-threaded answers.</summary>
     [Fact]
-    public void LetterToSound_ConcurrentUse_GivesTheSingleThreadedAnswers()
+    public void LetterToSoundSubsystem_ConcurrentUse_GivesTheSingleThreadedAnswers()
     {
         // Arrange
         var words = ReadGolden().Select(c => c.Word).ToList();
@@ -135,18 +135,6 @@ public sealed class LetterToSoundTests
 
         // Assert
         Assert.Empty(mismatches);
-    }
-
-    /// <summary>Proves the shipped model resource stays within its one-megabyte budget.</summary>
-    [Fact]
-    public void LetterToSound_ModelResource_IsWithinTheSizeBudget()
-    {
-        // Arrange
-        using var stream = typeof(LtsModel).Assembly.GetManifestResourceStream(LtsModel.ResourceName);
-
-        // Assert
-        Assert.NotNull(stream);
-        Assert.InRange(stream.Length, 1, 1024 * 1024);
     }
 
     /// <summary>

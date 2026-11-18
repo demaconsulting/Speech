@@ -83,13 +83,6 @@ internal sealed class SpokenText
     }
 
     /// <summary>
-    ///     Gets the original index of a spoken character.
-    /// </summary>
-    /// <param name="index">The index in <see cref="Text"/>.</param>
-    /// <returns>The index in the original text, or <c>-1</c> when the character came from a replacement.</returns>
-    public int OriginAt(int index) => _origin[index];
-
-    /// <summary>
     ///     Tells whether a spoken character belongs to a spelled replacement.
     /// </summary>
     /// <param name="index">The index in <see cref="Text"/>.</param>

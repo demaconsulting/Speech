@@ -62,15 +62,8 @@ public sealed class EspeakIpaRenderer
             throw new ArgumentOutOfRangeException(nameof(profile), profile, "The profile is not defined.");
         }
 
-        Profile = profile;
         _useWeakForms = useWeakForms;
     }
-
-    /// <summary>Gets the dialect profile.</summary>
-    public EspeakIpaProfile Profile { get; }
-
-    /// <summary>Gets a value indicating whether the small function words are rendered in their weak form.</summary>
-    public bool UsesWeakForms => _useWeakForms;
 
     /// <summary>
     ///     Renders a phonemized text.
@@ -85,16 +78,36 @@ public sealed class EspeakIpaRenderer
     }
 
     /// <summary>
+    ///     Renders a phonemized text as parts that each stay within a symbol limit, for a voice model that accepts only
+    ///     so much per call.
+    /// </summary>
+    /// <param name="text">The phonemized text.</param>
+    /// <param name="maxSymbols">The most symbols (Unicode scalar values, spaces included) a part may have; at least 16.</param>
+    /// <returns>
+    ///     The phoneme strings of the parts in speaking order, each rendered exactly as <see cref="Render(PhonemizedText)"/>
+    ///     would render that stretch of text; empty when the text has no sound. The text is split between words,
+    ///     preferably after a clause mark, so no text is dropped; only a single word longer than the limit exceeds it.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxSymbols"/> is less than 16.</exception>
+    public IReadOnlyList<string> RenderParts(PhonemizedText text, int maxSymbols)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxSymbols, PhonemeStream.MinPartSymbols);
+        return PhonemeStream.Split(text.Items, RenderItems(text.Items), maxSymbols, Render);
+    }
+
+    /// <summary>
     ///     Renders a sequence of items.
     /// </summary>
     /// <param name="items">The items, for example a slice of <see cref="PhonemizedText.Items"/> (a chunk of a long text).</param>
     /// <returns>The phoneme string.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="items"/> is null.</exception>
-    public string Render(IReadOnlyList<PhonemizedItem> items) =>
+    internal string Render(IReadOnlyList<PhonemizedItem> items) =>
         PhonemeStream.Join(RenderItems(items), items, string.Empty, string.Empty, _useWeakForms ? WeakForms.GroupedWithPrevious(items) : null);
 
     /// <summary>
-    ///     Renders every item on its own, so a caller can split a long text between items.
+    ///     Renders every item on its own, so a long text can be split between items.
     /// </summary>
     /// <param name="items">The items.</param>
     /// <returns>
@@ -102,7 +115,7 @@ public sealed class EspeakIpaRenderer
     ///     item that has no sound in this voice (a quotation mark, an unsupported token).
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="items"/> is null.</exception>
-    public IReadOnlyList<string> RenderItems(IReadOnlyList<PhonemizedItem> items)
+    internal IReadOnlyList<string> RenderItems(IReadOnlyList<PhonemizedItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);
         var pieces = new string[items.Count];
@@ -180,4 +193,14 @@ public sealed class EspeakIpaRenderer
         // Dashes, brackets and the ellipsis only pause; after a mark that already pauses they add nothing
         return PauseMarks.Contains(mark, StringComparison.Ordinal) && !previousMark ? "," : string.Empty;
     }
+}
+
+/// <summary>
+///     The dialect profile of an <see cref="EspeakIpaRenderer"/>.
+/// </summary>
+/// <remarks>Single-valued today; it is the seam through which another dialect (British English) can be added without changing the constructor.</remarks>
+public enum EspeakIpaProfile
+{
+    /// <summary>General American English, as the Piper <c>en_US</c> voices were trained on it.</summary>
+    EnUs = 0,
 }

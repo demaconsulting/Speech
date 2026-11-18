@@ -226,7 +226,7 @@ internal static class RegenerateGoldensCommand
     private static void RegenerateRenderers(string root, string testData, TextWriter output)
     {
         var sentences = GoldenCorpus.ReadSentences(Path.Combine(testData, "sentences-golden.tsv"));
-        var piper = SymbolInventory.LoadPiper(Path.Combine(testData, "piper-en_US-libritts_r-medium.phoneme-map.json"));
+        var piper = SymbolInventory.LoadPiper(Path.Combine(root, "test", "DemaConsulting.Speech.Onnx.Piper.Tests", "TestData", "en_US-libritts_r-medium.onnx.trimmed.json"));
         var kokoro = SymbolInventory.LoadKokoro(Path.Combine(root, "src", "DemaConsulting.Speech.Onnx.Kokoro", "Resources", "kokoro-v1.0-tokenizer.json"));
         var piperRenderer = new EspeakIpaRenderer();
         var kokoroRenderer = new MisakiRenderer();

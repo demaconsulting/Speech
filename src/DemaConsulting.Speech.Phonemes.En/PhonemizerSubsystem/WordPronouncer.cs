@@ -1,8 +1,7 @@
 using System.Globalization;
 using System.Text;
+using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.MorphologySubsystem;
-using DemaConsulting.Speech.Phonemes.En.ReadingSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 
@@ -77,7 +76,7 @@ internal sealed class WordPronouncer
     private readonly ReadingPronunciations _readings;
 
     /// <summary>The out-of-vocabulary fallback.</summary>
-    private readonly ILetterToSound _letterToSound;
+    private readonly LetterToSound _letterToSound;
 
     /// <summary>
     ///     Initializes a pronouncer.
@@ -85,7 +84,7 @@ internal sealed class WordPronouncer
     /// <param name="lexicon">The lexicon.</param>
     /// <param name="readings">The reading tables.</param>
     /// <param name="letterToSound">The fallback for words the lexicon and the morphology cannot pronounce.</param>
-    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, ILetterToSound letterToSound)
+    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, LetterToSound letterToSound)
     {
         _lexicon = lexicon;
         _readings = readings;

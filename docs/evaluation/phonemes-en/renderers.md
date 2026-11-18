@@ -181,14 +181,14 @@ systematic problem of framing, pauses or word boundaries was found; 38 of the 13
 this pass and 42 are after it. The classes it did find were:
 
 1. **Hyphenated compounds (Piper).** All 40 of 40 sentences of a forty-compound probe differed from espeak-ng, and the
-   cause was general: the engine gives every content part of a compound its own primary stress, where the
-   phonemizer demoted the later parts to secondary stress, and it used the dictionary's closed spelling (for example
-   the entry for full-time, whose stress pattern is that of one word) when one was listed. A compound is now pronounced part by part, each part
-   with its own stress; a closed dictionary spelling is used only when a part is not a word of its own (`wi-fi`, where
-   `wi` and `fi` are not words); the small function words inside a compound are unstressed (`of` keeps its full vowel
-   without a mark, `to` is reduced). 26 of the 40 probe sentences now agree exactly, the rest differ only in the
-   spelling-driven vowels. The text-analysis item records where the second part starts, and the Kokoro renderer, whose
-   reference stresses the first part of a compound, demotes the primary stresses after that point (as before).
+   cause was general: the engine gives every content part of a compound its own primary stress, where the phonemizer
+   demoted the later parts to secondary stress, and it used the dictionary's closed spelling (for example the entry for
+   full-time, whose stress pattern is that of one word) when one was listed. A compound is now pronounced part by part,
+   each part with its own stress; a closed dictionary spelling is used only when a part is not a word of its own
+   (`wi-fi`, where `wi` and `fi` are not words); the small function words inside a compound are unstressed (`of` keeps
+   its full vowel without a mark, `to` is reduced). 26 of the 40 probe sentences now agree exactly, the rest differ only
+   in the spelling-driven vowels. The text-analysis item records where the second part starts, and the Kokoro renderer,
+   whose reference stresses the first part of a compound, demotes the primary stresses after that point (as before).
 2. **Function-word details (Piper only).** The espeak-style text flaps the final `t` of `it` and `at` before a vowel
    (3 of 3 each), leaves `on` unstressed in `on the` (14 of 14) and says `for the` as one group with
    the reduced vowel (7 of 7), and gives a secondary stress to `made`, `make`, `put`, `which`, `what`,
@@ -197,8 +197,8 @@ this pass and 42 are after it. The classes it did find were:
    to the Piper renderer only; the misaki-based profile does not use them (misaki keeps the primary stress and the `t`).
 
 Two candidate rules were measured and rejected because they made the figures worse: a reduced vowel for `for` before any
-consonant (the engine keeps the full vowel of `for` there except in `for the`), and a medial `ɪ` for an unstressed `IY` before a
-consonant (the engine writes `ɪ` in `everyone` but `i` in `twenty-one`).
+consonant (the engine keeps the full vowel of `for` there except in `for the`), and a medial `ɪ` for an unstressed `IY`
+before a consonant (the engine writes `ɪ` in `everyone` but `i` in `twenty-one`).
 
 The numbers above are after this pass: Piper word match 88.05 to 89.44, PER 3.14 to 3.01, primary stress agreement
 94.34 to 95.98 on the 450 tuning sentences; 90.09 to 91.82, 2.58 to 2.47 and 97.05 to 98.10 on the 60 held-out ones.

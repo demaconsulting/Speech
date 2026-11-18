@@ -1,6 +1,4 @@
-using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-
-namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
+namespace DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 
 /// <summary>
 ///     The names of the 26 letters of the English alphabet as ARPAbet pronunciations.

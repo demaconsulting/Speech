@@ -57,17 +57,15 @@ internal sealed class CmuLexicon
 
         WordCount = BitConverter.ToInt32(image, 6);
 
-        // Walk every entry once to learn the block starts and the variant count
+        // Walk every entry once to validate it and learn the block starts
         var blockWords = new List<string>();
         var blockOffsets = new List<int>();
         var position = LexiconImageFormat.HeaderSize;
         var buffer = new byte[LexiconImageFormat.MaxWordLength];
-        var variants = 0;
         for (var index = 0; index < WordCount; index++)
         {
             var offset = position;
-            var length = ReadWord(image, ref position, buffer, index % LexiconImageFormat.BlockSize == 0, out var variantCount);
-            variants += variantCount;
+            var length = ReadWord(image, ref position, buffer, index % LexiconImageFormat.BlockSize == 0);
             if (index % LexiconImageFormat.BlockSize == 0)
             {
                 blockWords.Add(Encoding.ASCII.GetString(buffer, 0, length));
@@ -82,7 +80,6 @@ internal sealed class CmuLexicon
 
         _blockWords = [.. blockWords];
         _blockOffsets = [.. blockOffsets];
-        PronunciationCount = variants;
     }
 
     /// <summary>Gets the lexicon embedded in this assembly, loaded on first use.</summary>
@@ -91,9 +88,6 @@ internal sealed class CmuLexicon
 
     /// <summary>Gets the number of words.</summary>
     public int WordCount { get; }
-
-    /// <summary>Gets the number of pronunciations of all words together.</summary>
-    public int PronunciationCount { get; }
 
     /// <summary>
     ///     Reads a lexicon from a gzip-compressed image stream.
@@ -164,7 +158,7 @@ internal sealed class CmuLexicon
         for (var i = 0; i < last; i++)
         {
             var start = position;
-            var length = ReadWord(_image, ref position, buffer, i == 0, out _);
+            var length = ReadWord(_image, ref position, buffer, i == 0);
             var order = buffer.AsSpan(0, length).SequenceCompareTo(key);
             if (order == 0)
             {
@@ -198,7 +192,7 @@ internal sealed class CmuLexicon
         for (var index = 0; index < WordCount; index++)
         {
             var start = position;
-            var length = ReadWord(_image, ref position, buffer, index % LexiconImageFormat.BlockSize == 0, out _);
+            var length = ReadWord(_image, ref position, buffer, index % LexiconImageFormat.BlockSize == 0);
             yield return new LexiconEntry(Encoding.ASCII.GetString(buffer, 0, length), ReadVariants(start));
         }
     }
@@ -228,10 +222,9 @@ internal sealed class CmuLexicon
     /// <param name="position">The entry offset; advanced to the next entry.</param>
     /// <param name="buffer">Holds the previous word on entry (the shared prefix) and the decoded word on return.</param>
     /// <param name="blockStart">Whether the entry starts a block and must therefore have no shared prefix.</param>
-    /// <param name="variantCount">Receives the number of pronunciation variants.</param>
     /// <returns>The length of the word in <paramref name="buffer"/>.</returns>
     /// <exception cref="InvalidDataException">Thrown when the entry is truncated or inconsistent.</exception>
-    private static int ReadWord(byte[] image, ref int position, byte[] buffer, bool blockStart, out int variantCount)
+    private static int ReadWord(byte[] image, ref int position, byte[] buffer, bool blockStart)
     {
         var p = position;
         if (p + 2 > image.Length)
@@ -251,7 +244,7 @@ internal sealed class CmuLexicon
         p += suffix;
 
         // Skip the variants: a phone count and that many phone codes each
-        variantCount = image[p++];
+        var variantCount = image[p++];
         for (var v = 0; v < variantCount; v++)
         {
             if (p >= image.Length)
@@ -347,3 +340,10 @@ internal sealed class CmuLexicon
         return text.Length - key.Length;
     }
 }
+
+/// <summary>
+///     One word of the lexicon with all of its pronunciation variants.
+/// </summary>
+/// <param name="Word">The lower-case headword (letters a to z and apostrophes).</param>
+/// <param name="Pronunciations">The variants in dictionary order: the first is the default, later ones are alternatives. Never empty.</param>
+internal readonly record struct LexiconEntry(string Word, IReadOnlyList<Pronunciation> Pronunciations);

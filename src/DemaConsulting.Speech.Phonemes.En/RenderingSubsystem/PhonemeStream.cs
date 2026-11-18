@@ -9,6 +9,15 @@ namespace DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
 /// </summary>
 internal static class PhonemeStream
 {
+    /// <summary>The smallest <c>maxSymbols</c> a caller may ask for: below it the reserve would leave no budget at all.</summary>
+    public const int MinPartSymbols = 16;
+
+    /// <summary>The symbols kept free in every part for the edge effects of rendering a run of items (see <see cref="Split"/>).</summary>
+    private const int PartReserve = 10;
+
+    /// <summary>The marks after which a long text is preferably split.</summary>
+    private const string ClauseMarks = ",;:.!?—…";
+
     /// <summary>
     ///     Joins the rendered pieces of a sequence of items.
     /// </summary>
@@ -80,4 +89,81 @@ internal static class PhonemeStream
     /// <returns>The text of the item at <paramref name="index"/> when it is a word; otherwise <see langword="null"/>.</returns>
     public static string? NextWordText(IReadOnlyList<PhonemizedItem> items, int index) =>
         index < items.Count && items[index].Kind == PhonemizedItemKind.Word ? items[index].Text : null;
+
+    /// <summary>
+    ///     Splits a long text between items into parts that each render to at most a given number of symbols.
+    /// </summary>
+    /// <param name="items">The items of the whole text.</param>
+    /// <param name="pieces">The rendered piece of every item, parallel to <paramref name="items"/>.</param>
+    /// <param name="maxSymbols">The largest number of symbols (Unicode scalar values) a part may render to.</param>
+    /// <param name="render">Renders a run of items to the phoneme string of one part.</param>
+    /// <returns>The rendered parts in speaking order; empty parts are omitted.</returns>
+    /// <remarks>
+    ///     Each part takes as many items as fit its budget (the symbols of the piece plus one for the space that
+    ///     separates it). When that is not all the remaining items, the part ends after the last clause mark in its
+    ///     second half if there is one, otherwise after the last word that fits, so no text is ever dropped. The budget
+    ///     is <see cref="PartReserve"/> symbols below <paramref name="maxSymbols"/> because rendering a run of items
+    ///     can differ from the pieces by a few symbols at its edges (a linking <c>ɹ</c>, a different weak form of
+    ///     <c>the</c>), and a part must never exceed the limit. A single item longer than the budget is still one part.
+    /// </remarks>
+    public static IReadOnlyList<string> Split(
+        IReadOnlyList<PhonemizedItem> items,
+        IReadOnlyList<string> pieces,
+        int maxSymbols,
+        Func<IReadOnlyList<PhonemizedItem>, string> render)
+    {
+        var budget = maxSymbols - PartReserve;
+        var parts = new List<string>();
+        var start = 0;
+        while (start < items.Count)
+        {
+            var end = PlanPart(pieces, start, budget);
+            var part = render(start == 0 && end == items.Count ? items : items.Skip(start).Take(end - start).ToList());
+            if (part.Length > 0)
+            {
+                parts.Add(part);
+            }
+
+            start = end;
+        }
+
+        return parts;
+    }
+
+    /// <summary>
+    ///     Chooses where the part that starts at an item ends.
+    /// </summary>
+    /// <param name="pieces">The rendered piece of each item.</param>
+    /// <param name="start">The index of the first item of the part.</param>
+    /// <param name="budget">The symbol budget of the part.</param>
+    /// <returns>The index after the last item of the part; always greater than <paramref name="start"/>.</returns>
+    private static int PlanPart(IReadOnlyList<string> pieces, int start, int budget)
+    {
+        var symbols = 0;
+        var end = start;
+        var lastClauseEnd = -1;
+        while (end < pieces.Count)
+        {
+            var cost = pieces[end].EnumerateRunes().Count() + 1;
+            if (symbols + cost > budget && end > start)
+            {
+                break;
+            }
+
+            symbols += cost;
+            end++;
+            if (pieces[end - 1].Length > 0 && ClauseMarks.Contains(pieces[end - 1][^1], StringComparison.Ordinal))
+            {
+                lastClauseEnd = end;
+            }
+        }
+
+        if (end == pieces.Count)
+        {
+            return end;
+        }
+
+        // Prefer a clause boundary when it leaves a reasonably full part
+        return lastClauseEnd > start + ((end - start) / 2) ? lastClauseEnd : end;
+    }
 }

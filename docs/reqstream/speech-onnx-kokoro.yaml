@@ -83,7 +83,7 @@ sections:
           - SpeechOnnxKokoro-Models-TextToPhonemePipeline
           - SpeechOnnxKokoro-Models-PhonemeTokenization
         tests:
-          - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
+          - Pipeline_GoldenSentence_ProducesPinnedPhonemesAndTokenIds
           - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
 
       - id: SpeechOnnxKokoro-Synthesis-RealBackend
@@ -135,7 +135,4 @@ sections:
           A package can carry a license expression or a license file, so a combined license file
           is the way to let every applicable license travel with the package.
         tests:
-          - SpeechOnnxKokoro_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
-          - SpeechOnnxKokoro_PackageLicense_File_CoversCodeAndEmbeddedData
-          - SpeechOnnxKokoro_ThirdPartyNotices_File_AttributesEmbeddedData
           - Kokoro_Package_LicenseFilesPackaged

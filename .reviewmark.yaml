@@ -2643,7 +2643,6 @@ reviews:
       - "docs/verification/speech-onnx-kokoro.md"                # system verification
       - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"       # package license file
       - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"   # third-party notices
-      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechOnnxKokoroTests.cs"  # system tests
 
   # SpeechOnnxKokoro-Design Review (one per system)
   - id: SpeechOnnxKokoro-Design
@@ -2705,25 +2704,6 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModel.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/DisposalTrackingInferenceSession.cs"
-
-  # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer Review (one per unit)
-  - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer
-    title: >-
-      Review that SpeechOnnxKokoro ModelManagementSubsystem
-      KokoroLexiconPhonemizer Implementation is Correct
-    context:
-      - "docs/design/speech-onnx-kokoro.md"
-      - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"
-      - "docs/reqstream/speech-onnx-kokoro.yaml"
-      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml"
-      - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
-      - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
-      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroLexiconPhonemizer.cs"
-      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroTextNormalizer.cs"
-      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroLexiconPhonemizerTests.cs"
-      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroTextNormalizerTests.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary Review (one per unit)
   - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary

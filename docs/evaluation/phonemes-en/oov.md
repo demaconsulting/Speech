@@ -180,7 +180,7 @@ Each criterion of the owner's rule, with the result:
   verified license, so our own model is preferred.
 
 The rules baseline is therefore not shipped; it lives only in the tools project as the reference of this benchmark. The
-shipped fallback is `LetterToSound` in the library, behind the unchanged `ILetterToSound` seam.
+shipped fallback is `LetterToSound` in the library; the phonemizer asks it only whether a word can be pronounced.
 
 ## What Ships
 

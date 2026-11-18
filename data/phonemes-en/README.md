@@ -114,8 +114,9 @@ and the phonetic classes of disagreement are recorded in `docs/evaluation/phonem
 
 ## Third-Party Test Data
 
-`test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/piper-en_US-libritts_r-medium.phoneme-map.json` is a trimmed copy of the
-symbol table (`phoneme_id_map`, 159 symbols) of the Piper `en_US` `libritts_r` medium voice, as packaged by sherpa-onnx. The voice is
+`test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/en_US-libritts_r-medium.onnx.trimmed.json` is a trimmed copy of the
+configuration of the Piper `en_US` `libritts_r` medium voice, as packaged by sherpa-onnx (the fields this repository reads, including the
+symbol table `phoneme_id_map` with 159 symbols). The voice is
 licensed CC BY 4.0 (trained on LibriTTS-R, OpenSLR resource 141, <http://www.openslr.org/141/>; voice from the Piper project,
-<https://github.com/OHF-Voice/piper1-gpl>); the attribution is in the file itself. It is used only to prove that the renderer emits
-no symbol the voice does not know.
+<https://github.com/OHF-Voice/piper1-gpl>); the attribution is in the file itself. The Piper tests use it to build the voice's symbol
+table, and the Phonemes.En tests link the same file to prove that the renderer emits no symbol the voice does not know.

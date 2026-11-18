@@ -1,15 +1,14 @@
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.MorphologySubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.MorphologySubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests for the morphology of the English pronunciation package: golden derivations of words
+///     Lexicon subsystem tests, morphology part: golden derivations of words
 ///     from their stems, the sound rules for endings and clitics, and the measured agreement of the rules with
 ///     the lexicon itself (the evidence behind the rules).
 /// </summary>
-public sealed class MorphologySubsystemTests
+public sealed partial class LexiconSubsystemTests
 {
     /// <summary>Proves regular inflections, possessives and contractions are derived from the lexicon's stem pronunciation with the ending that stem requires.</summary>
     [Theory]
@@ -30,7 +29,7 @@ public sealed class MorphologySubsystemTests
     [InlineData("they'll", "DH EY1 L")]
     [InlineData("it'll", "IH1 T AH0 L")]
     [InlineData("isn't", "IH1 Z AH0 N T")]
-    public void MorphologySubsystem_TryDerive_RegularForm_DerivesFromStem(string word, string expected)
+    public void LexiconSubsystem_Morphology_TryDerive_RegularForm_DerivesFromStem(string word, string expected)
     {
         // Act
         var found = Morphology.TryDerive(word, CmuLexicon.Default, out var derivation);
@@ -46,7 +45,7 @@ public sealed class MorphologySubsystemTests
     [InlineData("qwxzs")]
     [InlineData("")]
     [InlineData("s")]
-    public void MorphologySubsystem_TryDerive_NoKnownStem_ReturnsFalse(string word)
+    public void LexiconSubsystem_Morphology_TryDerive_NoKnownStem_ReturnsFalse(string word)
     {
         // Act
         var found = Morphology.TryDerive(word, CmuLexicon.Default, out var derivation);
@@ -65,7 +64,7 @@ public sealed class MorphologySubsystemTests
     [InlineData("P L EY1", "PastEd", "P L EY1 D")]
     [InlineData("W AA1 N T", "PastEd", "W AA1 N T IH0 D")]
     [InlineData("W AO1 K", "Ing", "W AO1 K IH0 NG")]
-    public void MorphologySubsystem_Apply_EndingByLastPhone(string stem, string kind, string expected)
+    public void LexiconSubsystem_Morphology_Apply_EndingByLastPhone(string stem, string kind, string expected)
     {
         // Act
         var result = Morphology.Apply(Pronunciation.Parse(stem), Enum.Parse<SuffixKind>(kind));
@@ -81,7 +80,7 @@ public sealed class MorphologySubsystemTests
     [InlineData("D AA1 G", "PossessiveS", "D AA1 G Z")]
     [InlineData("AY1", "ContractionM", "AY1 M")]
     [InlineData("K UH1 D", "ContractionVe", "K UH1 D AH0 V")]
-    public void MorphologySubsystem_AppendClitic_ByHostLastPhone(string host, string clitic, string expected)
+    public void LexiconSubsystem_Morphology_AppendClitic_ByHostLastPhone(string host, string clitic, string expected)
     {
         // Act
         var result = Morphology.AppendClitic(Pronunciation.Parse(host), Enum.Parse<SuffixKind>(clitic));
@@ -97,7 +96,7 @@ public sealed class MorphologySubsystemTests
     ///     syllabic ending).
     /// </summary>
     [Fact]
-    public void MorphologySubsystem_Audit_RegularEndings_AgreeWithLexiconAtLeast98Percent()
+    public void LexiconSubsystem_Morphology_Audit_RegularEndings_AgreeWithLexiconAtLeast98Percent()
     {
         // Act
         var reports = MorphologyAudit.Run(CmuLexicon.Default).ToDictionary(r => r.Kind);

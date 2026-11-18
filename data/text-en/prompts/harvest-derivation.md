@@ -37,7 +37,7 @@ Also write `SPIKE\data\labels.tsv`: `homograph	label	ipa	type` copied/derived fr
 3. **Other test sets** (test only):
    - `gold-v2` heteronym targets from PartOfSpeech data\eval\gold-v2 (scout found 256 targets with sense/tense labels) mapped to WHD labels where possible -> `pos-gold.tsv`.
    - heteronym-bench English readset: clone https://github.com/adventists-ai/heteronym-bench to SPIKE\external\, map its readings to WHD labels via IPA/ARPA where the word is a WHD homograph -> `bench.tsv`.
-   - The user's 36 adversarial sentences from the unpushed Speech branch: `git -C <SPEECH-REPO> show feature/piper-onnx-tts-heteronyms:test/DemaConsulting.Speech.Tests/TestData/heteronym-gold.tsv`, rows tagged user36-*; map to WHD labels where possible -> `user36.tsv`. Also map the remaining rows to `branch-gold.tsv` (test).
+   - The project owner's 36 adversarial sentences (a local `heteronym-gold.tsv`, outside the repository), rows tagged user36-*; map to WHD labels where possible -> `user36.tsv`. Also map the remaining rows to `branch-gold.tsv` (test).
 4. **Gap report** `SPIKE\data\gaps.tsv`: for each WHD homograph and label: count in harvest train, WHD train count, and `needed` = max(0, 40 - harvest_train_count) - this drives synthetic sentence generation later.
 5. `SPIKE\data\README.md`: provenance, license per file (WHD = eval/ceiling only, CC BY-SA text; Llama HD not used; harvest licenses from PartOfSpeech READMEs; bench Apache-2.0), counts per file, mapping decisions and anything dropped.
 

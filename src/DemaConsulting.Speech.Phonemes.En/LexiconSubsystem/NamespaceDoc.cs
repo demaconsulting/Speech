@@ -1,13 +1,20 @@
 namespace DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 
 /// <summary>
-///     The lexicon subsystem of the English pronunciation package: the ARPAbet phone and pronunciation
-///     value types, the binary image format of the embedded CMU Pronouncing Dictionary lexicon and the
-///     lazily loaded lexicon that serves lookups from it.
+///     The lexicon subsystem of the English pronunciation package: where every pronunciation the package knows
+///     comes from before any rule of speech is applied.
 /// </summary>
 /// <remarks>
-///     Everything here is internal while the surface that renderers need is settled. The subsystem knows
-///     nothing of morphology or of any speech model: the morphology subsystem depends on it, never the reverse.
+///     <para>
+///     It holds the ARPAbet phone and pronunciation value types, the binary image format and the lazily loaded
+///     lexicon of the embedded CMU Pronouncing Dictionary, the morphology that derives the pronunciation of an
+///     inflected or derived word (and attaches contraction clitics) from the pronunciation of its stem, and the
+///     frozen table that gives every heteronym reading id of the English text analysis a pronunciation.
+///     </para>
+///     <para>
+///     Everything here is internal: the phonemizer is the only consumer, and the renderers see only what the
+///     phonemizer's public result types expose. The subsystem depends on no other subsystem of the package.
+///     </para>
 /// </remarks>
 internal static class NamespaceDoc
 {

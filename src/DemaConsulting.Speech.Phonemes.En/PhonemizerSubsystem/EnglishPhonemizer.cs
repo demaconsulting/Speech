@@ -1,7 +1,5 @@
 using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.MorphologySubsystem;
-using DemaConsulting.Speech.Phonemes.En.ReadingSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
@@ -46,23 +44,13 @@ public sealed class EnglishPhonemizer
     private readonly WordPronouncer _pronouncer;
 
     /// <summary>
-    ///     Initializes a phonemizer over the embedded pronunciation data.
+    ///     Initializes a phonemizer over the embedded pronunciation data (the lexicon, the reading tables and the
+    ///     letter-to-sound model, each loaded once on first use and shared).
     /// </summary>
     public EnglishPhonemizer()
-        : this(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default)
     {
-    }
-
-    /// <summary>
-    ///     Initializes a phonemizer over the given data.
-    /// </summary>
-    /// <param name="lexicon">The lexicon.</param>
-    /// <param name="readings">The reading tables.</param>
-    /// <param name="letterToSound">The fallback for words the lexicon and morphology cannot pronounce.</param>
-    internal EnglishPhonemizer(CmuLexicon lexicon, ReadingPronunciations readings, ILetterToSound letterToSound)
-    {
-        _lexicon = lexicon;
-        _pronouncer = new WordPronouncer(lexicon, readings, letterToSound);
+        _lexicon = CmuLexicon.Default;
+        _pronouncer = new WordPronouncer(_lexicon, ReadingPronunciations.Default, LetterToSound.Default);
     }
 
     /// <summary>

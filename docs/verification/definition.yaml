@@ -170,7 +170,6 @@ input-files:
   - docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md
   - docs/verification/speech-onnx-kokoro.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem.md
-  - docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md
   - docs/verification/speech-onnx-kokoro/synthesis-subsystem.md

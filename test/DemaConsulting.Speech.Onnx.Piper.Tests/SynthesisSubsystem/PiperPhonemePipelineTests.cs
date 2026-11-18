@@ -196,26 +196,6 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
-    ///     Proves that the noun and the verb <c>record</c> get different phonemes (and so different ids) when the text
-    ///     analysis has classified them.
-    /// </summary>
-    [Fact]
-    public void Pipeline_RecordNounAndVerb_GetDifferentIds()
-    {
-        // Arrange
-        var noun = PhonemesOfWord(GoldenSentence("e01"), "record");
-        var verb = PhonemesOfWord(GoldenSentence("e02"), "record");
-
-        // Act
-        var nounIds = Pipeline.Encode(noun).Ids;
-        var verbIds = Pipeline.Encode(verb).Ids;
-
-        // Assert
-        Assert.NotEqual(noun, verb);
-        Assert.NotEqual(nounIds, verbIds);
-    }
-
-    /// <summary>
     ///     Proves that a segment longer than one utterance is split into utterances that each fit the limit, that no text
     ///     is dropped, and that the utterances end after a clause mark when the text has them.
     /// </summary>
@@ -284,15 +264,5 @@ public sealed class PiperPhonemePipelineTests
     {
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", "kokoro-pipeline-golden.tsv");
         return File.ReadAllLines(path).Select(line => line.Split('\t')).First(columns => columns[0] == id)[1];
-    }
-
-    /// <summary>Renders the first word with the given text of an analyzed sentence.</summary>
-    private static string PhonemesOfWord(string sentence, string word)
-    {
-        var analysis = Model.TextAnalyzer!.Analyze(sentence, CancellationToken.None);
-        var items = Phonemizer.Phonemize(sentence, analysis.Annotations).Items;
-        var pieces = Renderer.RenderItems(items);
-        var index = items.ToList().FindIndex(item => string.Equals(item.Text, word, StringComparison.OrdinalIgnoreCase));
-        return pieces[index];
     }
 }

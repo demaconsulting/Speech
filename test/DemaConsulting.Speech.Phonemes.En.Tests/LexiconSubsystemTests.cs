@@ -4,20 +4,18 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
 ///     Subsystem tests for the lexicon of the English pronunciation package: the embedded CMU Pronouncing
-///     Dictionary lexicon read through its public lookup contract (all variants, case folding, apostrophes),
-///     the size budget of the shipped resource, and the phone text form renderers build on.
+///     Dictionary lexicon read through its lookup contract (all variants, case folding, apostrophes) and the phone
+///     text form the rest of the package builds on. The morphology and the reading pronunciations of the subsystem
+///     are tested in the other parts of this class.
 /// </summary>
 /// <remarks>
 ///     The pronunciations asserted here are a handful of well-known CMUdict entries used as golden values. The
-///     full-content evidence (every dictionary entry reads back identical) comes from the tools project
-///     (<c>build-lexicon --check</c>), which needs the pinned CMUdict download, and from the enumeration/lookup
-///     consistency test below, which needs nothing external.
+///     full-content evidence (every dictionary entry reads back identical, and the resource stays within its size
+///     budget) comes from the tools project (<c>build-lexicon --check</c>), which needs the pinned CMUdict download,
+///     and from the enumeration/lookup consistency test below, which needs nothing external.
 /// </remarks>
-public sealed class LexiconSubsystemTests
+public sealed partial class LexiconSubsystemTests
 {
-    /// <summary>The size budget of the embedded resource in bytes.</summary>
-    private const long SizeBudgetBytes = 1024 * 1024;
-
     /// <summary>Proves a word with one pronunciation and a heteronym with three come back with every variant in dictionary order.</summary>
     [Fact]
     public void LexiconSubsystem_Lookup_KnownWords_ReturnsAllVariantsInOrder()
@@ -90,21 +88,28 @@ public sealed class LexiconSubsystemTests
         Assert.True(count > 120_000);
     }
 
-    /// <summary>Proves the shipped resource stays within its size budget and the default lexicon is one shared instance under concurrent first use.</summary>
+    /// <summary>Proves the shared default lexicon answers the same from many threads at once, including the first use.</summary>
     [Fact]
-    public void LexiconSubsystem_EmbeddedResource_WithinBudgetAndSharedAcrossThreads()
+    public void LexiconSubsystem_Lookup_ConcurrentUse_GivesTheSingleThreadedAnswers()
     {
         // Arrange
-        using var stream = typeof(CmuLexicon).Assembly.GetManifestResourceStream(CmuLexicon.ResourceName);
+        string[] words = ["cat", "record", "don't", "zzxqvk", "photograph"];
+        var expected = words.Select(w => string.Join('|', CmuLexicon.Default.Lookup(w))).ToArray();
+        var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
 
-        // Act: touch the default lexicon from many threads at once
-        var instances = new CmuLexicon[16];
-        Parallel.For(0, instances.Length, i => instances[i] = CmuLexicon.Default);
+        // Act
+        Parallel.For(0, 64, i =>
+        {
+            var word = words[i % words.Length];
+            var actual = string.Join('|', CmuLexicon.Default.Lookup(word));
+            if (actual != expected[i % words.Length])
+            {
+                failures.Add(word);
+            }
+        });
 
         // Assert
-        Assert.NotNull(stream);
-        Assert.InRange(stream.Length, 1, SizeBudgetBytes);
-        Assert.All(instances, instance => Assert.Same(instances[0], instance));
+        Assert.Empty(failures);
     }
 
     /// <summary>Proves the CMUdict text form of a pronunciation parses and prints back unchanged and exposes stress.</summary>

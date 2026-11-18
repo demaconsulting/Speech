@@ -90,6 +90,8 @@
     <None Include="..\..\data\phonemes-en\reading-gaps.tsv" Link="TestData\reading-gaps.tsv" CopyToOutputDirectory="PreserveNewest" />
     <!-- Kokoro's own tokenizer vocabulary, linked from the Kokoro package so the vocabulary-coverage test checks the real one. -->
     <None Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-v1.0-tokenizer.json" Link="TestData\kokoro-v1.0-tokenizer.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The Piper voice's symbol table, linked from the Piper tests' trimmed copy of the real voice configuration (the single committed copy). -->
+    <None Include="..\DemaConsulting.Speech.Onnx.Piper.Tests\TestData\en_US-libritts_r-medium.onnx.trimmed.json" Link="TestData\en_US-libritts_r-medium.onnx.trimmed.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

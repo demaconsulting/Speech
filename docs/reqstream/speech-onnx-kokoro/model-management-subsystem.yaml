@@ -101,23 +101,9 @@ sections:
               which bundles phonemization internally, the bare ONNX export leaves text-to-phoneme
               conversion entirely to the caller. This subsystem must own that responsibility
               itself for Kokoro v1.0 synthesis to produce correct pronunciation.
-            children:
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-Phonemize
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-WhitespaceCollapse
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ContractionRecognition
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationPassThrough
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationDrop
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EllipsisToken
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EmptyInput
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NumberToWords
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-HugeNumberResilience
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-SpellingCorrection
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-AcronymSpelling
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordReporting
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NormalizationArgumentValidation
+            tests:
+              - Pipeline_GoldenSentence_ProducesPinnedPhonemesAndTokenIds
+              - Pipeline_HeteronymSentence_UsesTheChosenReadings
 
           - id: SpeechOnnxKokoro-Models-PhonemeTokenization
             title: >-

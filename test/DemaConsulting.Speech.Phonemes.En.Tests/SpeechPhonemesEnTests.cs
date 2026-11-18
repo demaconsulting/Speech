@@ -14,11 +14,11 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 ///     never accepted into the golden. A word marked <c>!oov</c> is pronounced by the trained letter-to-sound model
 ///     (see <c>oov-golden.tsv</c> for its pinned behavior), so those lines change when the model is retrained.
 /// </remarks>
-public sealed class SentenceGoldenTests
+public sealed class SpeechPhonemesEnTests
 {
     /// <summary>Proves every sentence of the golden corpus produces exactly its reviewed word stream.</summary>
     [Fact]
-    public void SentenceGolden_Pipeline_EverySentenceProducesItsReviewedWordStream()
+    public void SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream()
     {
         // Arrange
         var cases = GoldenCorpus.ReadSentences(Path.Combine(AppContext.BaseDirectory, "TestData", "sentences-golden.tsv"));

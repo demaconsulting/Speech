@@ -177,7 +177,6 @@ includes:
   - docs/reqstream/speech-onnx-kokoro.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.yaml
-  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml

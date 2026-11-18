@@ -32,7 +32,7 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 public sealed class RenderingSubsystemTests
 {
     /// <summary>The symbols of the Piper voice.</summary>
-    private static readonly SymbolInventory Piper = SymbolInventory.LoadPiper(TestFile("piper-en_US-libritts_r-medium.phoneme-map.json"));
+    private static readonly SymbolInventory Piper = SymbolInventory.LoadPiper(TestFile("en_US-libritts_r-medium.onnx.trimmed.json"));
 
     /// <summary>The symbols of the Kokoro vocabulary.</summary>
     private static readonly SymbolInventory Kokoro = SymbolInventory.LoadKokoro(TestFile("kokoro-v1.0-tokenizer.json"));
@@ -308,21 +308,44 @@ public sealed class RenderingSubsystemTests
         Assert.Equal("hˈI ðˈɛɹ", new MisakiRenderer().Render(unsupported));
     }
 
-    /// <summary>Proves invalid arguments are rejected: a missing text or item list, and a profile that is not defined.</summary>
+    /// <summary>Proves a long text is rendered as parts that stay within the symbol limit, end after a clause mark and lose no sound, for both renderers.</summary>
+    [Fact]
+    public void Parts_LongText_StayWithinTheLimitAtClauseBoundariesWithoutLoss()
+    {
+        // Arrange: 40 sentences of about 40 symbols each
+        const int limit = 100;
+        var text = Phonemizer.Phonemize(string.Join(' ', Enumerable.Repeat("The cat sat on the mat, and the dog barked.", 40)));
+        var piper = new EspeakIpaRenderer();
+        var kokoro = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true);
+
+        foreach (var (parts, whole) in new[] { (piper.RenderParts(text, limit), piper.Render(text)), (kokoro.RenderParts(text, limit), kokoro.Render(text)) })
+        {
+            // Assert: several parts, each within the limit and ending at a clause mark, and together all the sounds of the whole
+            Assert.True(parts.Count >= 10);
+            Assert.All(parts, part => Assert.InRange(part.EnumerateRunes().Count(), 1, limit));
+            Assert.All(parts.Take(parts.Count - 1), part => Assert.Contains(part[^1], ",."));
+            Assert.Equal(whole.Replace(" ", string.Empty, StringComparison.Ordinal), string.Concat(parts).Replace(" ", string.Empty, StringComparison.Ordinal));
+        }
+
+        // Assert: a short text is one part equal to the plain rendering, and a soundless text has no part
+        var short1 = Phonemizer.Phonemize("Hello there.");
+        Assert.Equal([piper.Render(short1)], piper.RenderParts(short1, limit));
+        Assert.Empty(kokoro.RenderParts(Phonemizer.Phonemize("\U0001F600"), limit));
+    }
+
+    /// <summary>Proves invalid arguments are rejected: a missing text, a part limit that is too small, and a profile that is not defined.</summary>
     [Fact]
     public void Arguments_Invalid_AreRejected()
     {
         // Assert
         Assert.Throws<ArgumentNullException>(() => new EspeakIpaRenderer().Render((PhonemizedText)null!));
-        Assert.Throws<ArgumentNullException>(() => new EspeakIpaRenderer().RenderItems(null!));
+        Assert.Throws<ArgumentNullException>(() => new EspeakIpaRenderer().RenderParts(null!, 100));
         Assert.Throws<ArgumentNullException>(() => new MisakiRenderer().Render((PhonemizedText)null!));
-        Assert.Throws<ArgumentNullException>(() => new MisakiRenderer().RenderItems(null!));
+        Assert.Throws<ArgumentNullException>(() => new MisakiRenderer().RenderParts(null!, 100));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer().RenderParts(Phonemizer.Phonemize("Hi."), 15));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new MisakiRenderer().RenderParts(Phonemizer.Phonemize("Hi."), 15));
         Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer((EspeakIpaProfile)99));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MisakiRenderer((MisakiProfile)99));
-        Assert.Equal(EspeakIpaProfile.EnUs, new EspeakIpaRenderer().Profile);
-        Assert.Equal(MisakiProfile.Us, new MisakiRenderer().Profile);
-        Assert.True(new EspeakIpaRenderer().UsesWeakForms);
-        Assert.False(new MisakiRenderer().UsesWeakForms);
     }
 
     /// <summary>

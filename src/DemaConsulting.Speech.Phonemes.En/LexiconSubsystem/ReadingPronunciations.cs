@@ -1,10 +1,8 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.MorphologySubsystem;
 
-namespace DemaConsulting.Speech.Phonemes.En.ReadingSubsystem;
+namespace DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 
 /// <summary>
 ///     The pronunciation of every heteronym reading id of the English text analysis, and the rule that turns the
@@ -330,3 +328,11 @@ internal sealed class ReadingPronunciations
             && int.TryParse(source.AsSpan(4), NumberStyles.None, CultureInfo.InvariantCulture, out var n)
             && n >= 1);
 }
+
+/// <summary>
+///     One row of the reading table: the pronunciation of a reading's headword and where it came from.
+/// </summary>
+/// <param name="ReadingId">The reading id, such as <c>record.noun</c>.</param>
+/// <param name="Pronunciation">The ARPAbet pronunciation of the reading's lemma.</param>
+/// <param name="Source">The provenance: <c>cmu#N</c>, <c>rule:&lt;name&gt;</c> or <c>authored</c>.</param>
+internal sealed record ReadingEntry(string ReadingId, Pronunciation Pronunciation, string Source);

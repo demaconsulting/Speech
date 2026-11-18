@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 
@@ -10,7 +9,7 @@ namespace DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     The phonemizer only knows the <see cref="ILetterToSound"/> seam, so the strategy (the trained model chosen
+///     The phonemizer only asks whether a word can be pronounced, never how, so the strategy (the trained model chosen
 ///     by the benchmark in <c>docs/evaluation/phonemes-en/oov.md</c>) can be exchanged without touching it. A word is
 ///     never silent: when the model yields no vowel for a word that has letters (an initialism or interjection such as
 ///     <c>www</c> or <c>sq</c>, which a voice cannot say as a word), the word is spoken letter by letter by letter
@@ -21,7 +20,7 @@ namespace DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 ///     deterministic) in a bounded, thread-safe map. The class is thread-safe.
 ///     </para>
 /// </remarks>
-internal sealed class LetterToSound : ILetterToSound
+internal sealed class LetterToSound
 {
     /// <summary>The number of words the cache keeps; when it is full new words are simply not cached.</summary>
     private const int CacheLimit = 4096;
@@ -51,7 +50,13 @@ internal sealed class LetterToSound : ILetterToSound
     /// <summary>Gets the shared converter of the embedded model; the model loads on first use.</summary>
     public static LetterToSound Default => SharedInstance.Value;
 
-    /// <inheritdoc/>
+    /// <summary>
+    ///     Pronounces a word.
+    /// </summary>
+    /// <param name="word">The lower-case word; letters <c>a</c> to <c>z</c> and apostrophes (other characters are ignored).</param>
+    /// <param name="pronunciation">Receives the pronunciation when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when the word could be pronounced (it has at least one letter).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="word"/> is null.</exception>
     public bool TryConvert(string word, out Pronunciation pronunciation)
     {
         ArgumentNullException.ThrowIfNull(word);

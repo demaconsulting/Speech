@@ -8,15 +8,15 @@ using DemaConsulting.Speech.Phonemes.En.Tools.RenderingSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.Tools;
 
 /// <summary>
-///     Hosts the Phonemes.En tools command line: <c>build-lexicon</c>, <c>measure-morphology</c>, <c>propose-readings</c>
-///     and <c>regenerate-goldens</c>.
+///     Hosts the Phonemes.En tools command line: the reproducibility gates (<c>build-lexicon</c>, <c>train-lts</c> and
+///     <c>propose-readings</c>, each with <c>--check</c>), <c>regenerate-goldens</c>, and the measurements
+///     (<c>measure-morphology</c>, <c>benchmark-lts</c>, <c>measure-oracle</c>).
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it builds and verifies the embedded
-///     lexicon and measures the pronunciation rules, locally and in CI. <see cref="Main"/> only wires the real
-///     console, current directory and environment to <see cref="Run"/>. Unknown or missing commands are a usage
-///     error (exit code 2). Further commands (reading proposer, OOV benchmark, renderer measurement) are added
-///     here by later work.
+///     lexicon, reading table and letter-to-sound model and measures the pronunciation rules, locally and in CI.
+///     <see cref="Main"/> only wires the real console, current directory and environment to <see cref="Run"/>.
+///     Unknown or missing commands are a usage error (exit code 2). See the README of this folder.
 /// </remarks>
 internal static class Program
 {
