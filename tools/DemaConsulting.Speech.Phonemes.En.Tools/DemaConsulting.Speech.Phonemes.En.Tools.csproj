@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Developer tool for the Phonemes.En package: build-lexicon derives (and with the check option verifies) the
+         embedded CMUdict lexicon resource from the pinned CMUdict in data/phonemes-en/external/; measure-morphology
+         measures the morphology rules against the lexicon itself. Later commands (reading proposer, OOV
+         benchmark, renderer measurement) are added here. Never packed or shipped. The tool references the
+         library (internals visible to this tool) so it builds and checks the resource with the library's own
+         image format, phone model and morphology instead of a copy of them. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Phonemes.En.Tools</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Phonemes.En.Tools</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- Code Quality Configuration (mirrors the Text.En trainer tool) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- The library whose internal lexicon image format, phone model and morphology the tool reuses. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Phonemes.En\DemaConsulting.Speech.Phonemes.En.csproj" />
+  </ItemGroup>
+
+</Project>

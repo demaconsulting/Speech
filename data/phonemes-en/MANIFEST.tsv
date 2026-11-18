@@ -1,0 +1,5 @@
+# Pins of the Phonemes.En lexicon build, verified by 'build-lexicon --check' of the Phonemes.En tools; the local caches external/ and work/ and the compressed resource are not listed
+# kind = input (fetched, never committed) or image (the uncompressed content of src/DemaConsulting.Speech.Phonemes.En/Resources/cmudict-en.bin.gz)
+# columns = name, kind, sha256, bytes, rows (lines of an input, words of an image)
+cmudict.dict	input	81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22	3618488	135166
+cmudict-en.bin	image	0f155835811f21dbad744d4751756d8159d7e80395966704c71299c345a0ae14	1675386	124926
