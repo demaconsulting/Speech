@@ -18,9 +18,10 @@
       uses an embedded pronunciation lexicon derived from the CMU Pronouncing Dictionary (every pronunciation
       variant of each word), a reviewed table that gives every heteronym reading of the text analysis its
       pronunciation, and a morphology that derives the pronunciation of inflected forms that the lexicon does not
-      list (plurals, past tenses, -ing forms, possessives, contractions). Words the dictionary cannot pronounce are
-      reported, never silent. Text-to-speech model packages turn the phones into the symbols their voice model
-      expects.</Description>
+      list (plurals, past tenses, -ing forms, possessives, contractions). Words the dictionary and these rules cannot
+      pronounce get a pronunciation, with stress, from a small neural letter-to-sound model trained on the dictionary
+      alone, and are reported as out of vocabulary, never silent. Text-to-speech model packages turn the phones into
+      the symbols their voice model expects.</Description>
     <!-- A package carries a license expression or a license file, never both. This package names a
          file (MIT code, plus the BSD-style CMUdict license of the embedded lexicon) so the CMUdict
          license text travels with the lexicon. See PACKAGE-LICENSE.md. -->
@@ -120,6 +121,14 @@
        and would put the resource in a satellite assembly. -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\cmudict-en.bin.gz" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.cmudict-en.bin.gz" WithCulture="false" />
+  </ItemGroup>
+
+  <!-- The letter-to-sound model (gzip-compressed, quantized weights of three small neural networks), trained by the
+       non-shipped tools project (train-lts) from the pinned CMUdict alone and verified by its check option against
+       data/phonemes-en/MANIFEST.tsv. It pronounces the words the lexicon and the morphology cannot. The resource
+       name is the one LtsModel.Default reads; the file is required. WithCulture="false" for the same reason as above. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\lts-en.bin.gz" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.lts-en.bin.gz" WithCulture="false" />
   </ItemGroup>
 
   <!-- The frozen reading tables (written and reviewed by DEMA Consulting from the CMU Pronouncing Dictionary and

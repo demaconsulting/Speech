@@ -11,7 +11,8 @@ and in `PACKAGE-LICENSE.md`, covers only the code of this repository. It does no
 - **Copyright**: Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
 - **License**: a BSD-style license (the BSD-2-Clause conditions plus an acknowledgment of funding), reproduced in
   full below.
-- **Used in**: the embedded lexicon `cmudict-en.bin.gz`, and the reading table `reading-pronunciations.tsv`, whose
+- **Used in**: the embedded lexicon `cmudict-en.bin.gz`, the letter-to-sound model `lts-en.bin.gz`, and the reading
+  table `reading-pronunciations.tsv`, whose
   rows for the heteronym readings of `DemaConsulting.Speech.Text.En` are either pronunciation variants copied from
   CMUdict (`cmu#N`), derived from a CMUdict entry by a named sound rule (`rule:<name>`) or written by DEMA Consulting
   from CMUdict and phonetic knowledge alone (`authored`).
@@ -19,7 +20,10 @@ and in `PACKAGE-LICENSE.md`, covers only the code of this repository. It does no
   (133,973 of its 135,166 entries), grouped by word with the numbered variants of a word (`word(2)`) stored as
   ordered pronunciation variants of that word, two repeated identical variants were dropped, and the result was
   converted to a compact binary form (one byte per ARPAbet phone, words sorted and front-coded, gzip-compressed).
-  The pronunciations themselves are unchanged. No other dictionary is used.
+  The pronunciations themselves are unchanged. The letter-to-sound model is a derived work in a different form: the
+  weights of three small neural networks that DEMA Consulting trained on the spelling and first pronunciation of
+  every entry of this dictionary (by the `train-lts` command of the repository's tools project), so that a word the
+  dictionary does not list can be pronounced. It contains no dictionary text. No other dictionary is used.
 
 The license text, as published by the CMUdict project:
 

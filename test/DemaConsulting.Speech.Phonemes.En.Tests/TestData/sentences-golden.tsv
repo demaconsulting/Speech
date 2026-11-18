@@ -99,12 +99,12 @@ s097	The project will project onto the wall.	The=DH AH0 | project=P R AA1 JH EH0
 s098	The cast took a bow at the end of the play.	The=DH AH0 | cast=K AE1 S T | took=T UH1 K | a=AH0 | bow=B AW1 | at=AE1 T | the=DH AH0 | end=EH1 N D | of=AH1 V | the=DH AH0 | play=P L EY1 | .
 s099	Her mouth moves as she mouths the words.	Her=HH ER1 | mouth=M AW1 TH | moves=M UW1 V Z | as=AE1 Z | she=SH IY1 | mouths=M AW1 DH Z | the=DH AH0 | words=W ER1 D Z | .
 s100	The wound was wound with cloth.	The=DH AH0 | wound=W UW1 N D | was=W AA1 Z | wound=W AW1 N D | with=W IH1 DH | cloth=K L AO1 TH | .
-s101	Zorblax is a made-up word.	Zorblax=Z IY1 OW1 AA1 R B IY1 EH1 L EY1 EH1 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH2 P | word=W ER1 D | .
-s102	We visited Xanadu and Kathmandu.	We=W IY1 | visited=V IH1 Z IH0 T IH0 D | Xanadu=Z AA1 N AH0 D UW2 | and=AH0 N D | Kathmandu=K EY1 EY1 T IY1 EY1 CH EH1 M EY1 EH1 N D IY1 Y UW1 !oov | .
-s103	The qwerty keyboard is common.	The=DH AH0 | qwerty=K Y UW1 D AH1 B AH0 L Y UW0 IY1 AA1 R T IY1 W AY1 !oov | keyboard=K IY1 B AO2 R D | is=IH1 Z | common=K AA1 M AH0 N | .
+s101	Zorblax is a made-up word.	Zorblax=Z AO1 R B L AE0 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH2 P | word=W ER1 D | .
+s102	We visited Xanadu and Kathmandu.	We=W IY1 | visited=V IH1 Z IH0 T IH0 D | Xanadu=Z AA1 N AH0 D UW2 | and=AH0 N D | Kathmandu=K AE1 TH M AH0 N D UW2 !oov | .
+s103	The qwerty keyboard is common.	The=DH AH0 | qwerty=K ER1 T IY0 !oov | keyboard=K IY1 B AO2 R D | is=IH1 Z | common=K AA1 M AH0 N | .
 s104	Frodo carried the ring to Mordor.	Frodo=F R OW1 D OW2 | carried=K AE1 R IY0 D | the=DH AH0 | ring=R IH1 NG | to=T UW1 | Mordor=M AO1 R D AO2 R | .
-s105	She named her cat Fluffernutter.	She=SH IY1 | named=N EY1 M D | her=HH ER1 | cat=K AE1 T | Fluffernutter=EH1 F EH1 L Y UW1 EH1 F EH1 F IY1 AA1 R EH1 N Y UW1 T IY1 T IY1 IY1 AA1 R !oov | .
-s106	Cryptocurrency exchanges rose again.	Cryptocurrency=S IY1 AA1 R W AY1 P IY1 T IY1 OW1 S IY1 Y UW1 AA1 R AA1 R IY1 EH1 N S IY1 W AY1 !oov | exchanges=IH0 K S CH EY1 N JH AH0 Z | rose=R OW1 Z | again=AH0 G EH1 N | .
+s105	She named her cat Fluffernutter.	She=SH IY1 | named=N EY1 M D | her=HH ER1 | cat=K AE1 T | Fluffernutter=F L AH1 F ER0 N AH2 T ER0 !oov | .
+s106	Cryptocurrency exchanges rose again.	Cryptocurrency=K R IH0 P T OW1 K ER0 AH0 N S IY0 !oov | exchanges=IH0 K S CH EY1 N JH AH0 Z | rose=R OW1 Z | again=AH0 G EH1 N | .
 s107	He tweeted about the iPhone.	He=HH IY1 | tweeted=T W IY1 T IH0 D | about=AH0 B AW1 T | the=DH AH0 | iPhone=AY1 F OW2 N | .
 s108	The unfollowed accounts disappeared.	The=DH AH0 | unfollowed=AH0 N F AA1 L OW0 D | accounts=AH0 K AW1 N T S | disappeared=D IH2 S AH0 P IH1 R D | .
 s109	Their cats' toys are everywhere.	Their=DH EH1 R | cats'=K AE1 T S | toys=T OY1 Z | are=AA1 R | everywhere=EH1 V R IY0 W EH2 R | .
@@ -126,7 +126,7 @@ s124	To be, or not to be, that is the question.	To=T UW1 | be=B IY1 | , | or=AO1
 s125	Use the # key and the @ symbol.	Use=Y UW1 Z | the=DH AH0 | <#> | key=K IY1 | and=AH0 N D | the=DH AH0 | at=AE1 T | symbol=S IH1 M B AH0 L | .
 s126	Smile 😀 please.	Smile=S M AY1 L | <😀> | please=P L IY1 Z | .
 s127	He wrote 日本 on the card.	He=HH IY1 | wrote=R OW1 T | <日本> | on=AA1 N | the=DH AH0 | card=K AA1 R D | .
-s128	The café serves crème brûlée.	The=DH AH0 | café=K AH0 F EY1 | serves=S ER1 V Z | crème=K R IY1 M | brûlée=B IY1 AA1 R Y UW1 EH1 L IY1 IY1 !oov | .
+s128	The café serves crème brûlée.	The=DH AH0 | café=K AH0 F EY1 | serves=S ER1 V Z | crème=K R IY1 M | brûlée=B R UW1 L IY0 !oov | .
 s129	The naïve façade fooled them.	The=DH AH0 | naïve=N AY2 IY1 V | façade=F AH0 S AA1 D | fooled=F UW1 L D | them=DH EH1 M | .
 s130	Wi-Fi is available in room 204.	Wi-Fi=W AY1 F AY2 | is=IH1 Z | available=AH0 V EY1 L AH0 B AH0 L | in=IH0 N | room=R UW1 M | two=T UW1 | hundred=HH AH1 N D R AH0 D | four=F AO1 R | .
 s131	The model is A1 or B2.	The=DH AH0 | model=M AA1 D AH0 L | is=IH1 Z | A=AH0 | 1=W AH1 N | or=AO1 R | B=B IY1 | 2=T UW1 | .
@@ -140,7 +140,7 @@ s138	He weighs 180 lbs.	He=HH IY1 | weighs=W EY1 Z | one=W AH1 N | hundred=HH AH
 s139	The race is 10K long.	The=DH AH0 | race=R EY1 S | is=IH1 Z | 1=W AH1 N | 0=Z IH1 R OW0 | K=K EY1 | long=L AO1 NG | .
 s140	An ID card is required.	An=AE1 N | I=AY1 | D=D IY1 | card=K AA1 R D | is=IH1 Z | required=R IY0 K W AY1 ER0 D | .
 s141	A 3D printer made it.	A=AH0 | 3=TH R IY1 | D=D IY1 | printer=P R IH1 N T ER0 | made=M EY1 D | it=IH1 T | .
-s142	The area is 25 sq. ft.	The=DH AH0 | area=EH1 R IY0 AH0 | is=IH1 Z | twenty=T W EH1 N T IY0 | five=F AY1 V | sq=EH1 S K Y UW1 !oov | . | ft=EH1 F T IY1 !oov | .
+s142	The area is 25 sq. ft.	The=DH AH0 | area=EH1 R IY0 AH0 | is=IH1 Z | twenty=T W EH1 N T IY0 | five=F AY1 V | sq=EH1 S K Y UW1 !oov | . | ft=EH1 F T IY0 !oov | .
 s143	She drove 60 mph for 2 hrs.	She=SH IY1 | drove=D R OW1 V | sixty=S IH1 K S T IY0 | miles=M AY1 L Z | per=P ER1 | hour=AW1 ER0 | for=F AO1 R | two=T UW1 | hours=AW1 ER0 Z | .
 s144	Add 2 + 2 to get 4.	Add=AE1 D | two=T UW1 | plus=P L AH1 S | two=T UW1 | to=T UW1 | get=G EH1 T | four=F AO1 R | .
 s145	After the storm, the town's mayor thanked the volunteers who had worked tirelessly.	After=AE1 F T ER0 | the=DH AH0 | storm=S T AO1 R M | , | the=DH AH0 | town's=T AW1 N Z | mayor=M EY1 ER0 | thanked=TH AE1 NG K T | the=DH AH0 | volunteers=V AA2 L AH0 N T IH1 R Z | who=HH UW1 | had=HH AE1 D | worked=W ER1 K T | tirelessly=T AY1 R L AH0 S L IY0 | .

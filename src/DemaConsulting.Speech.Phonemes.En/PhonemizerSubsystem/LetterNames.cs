@@ -6,8 +6,8 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 ///     The names of the 26 letters of the English alphabet as ARPAbet pronunciations.
 /// </summary>
 /// <remarks>
-///     Used to speak an initialism the text analysis marked for spelling (<c>F B I</c>) and by the temporary
-///     letter-to-sound placeholder. The names are written out here rather than read from the lexicon because the
+///     Used to speak an initialism the text analysis marked for spelling (<c>F B I</c>) and as the last resort of the
+///     letter-to-sound fallback. The names are written out here rather than read from the lexicon because the
 ///     lexicon's entry for a single letter is a word (<c>a</c> is the article first), and a spelled letter must
 ///     never be read as a word.
 /// </remarks>

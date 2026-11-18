@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Phonemes.En.Tools.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.MorphologySubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
@@ -27,6 +28,8 @@ internal static class Program
           measure-morphology   Measure the morphology rules against the lexicon (run 'measure-morphology --help').
           propose-readings     Propose reading-id pronunciations, or verify the frozen table with --check (run 'propose-readings --help').
           regenerate-goldens   Regenerate the expected column of the sentence golden corpus (run 'regenerate-goldens --help').
+          train-lts            Train the letter-to-sound model on the whole CMUdict, or verify it with --check (run 'train-lts --help').
+          benchmark-lts        Benchmark the out-of-vocabulary candidates on the held-out split (run 'benchmark-lts --help').
         """;
 
     /// <summary>
@@ -73,6 +76,16 @@ internal static class Program
         if (string.Equals(args[0], RegenerateGoldensCommand.Name, StringComparison.Ordinal))
         {
             return RegenerateGoldensCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], TrainLtsCommand.Name, StringComparison.Ordinal))
+        {
+            return TrainLtsCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], BenchmarkLtsCommand.Name, StringComparison.Ordinal))
+        {
+            return BenchmarkLtsCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
         }
 
         error.WriteLine($"Unknown command '{args[0]}'.");

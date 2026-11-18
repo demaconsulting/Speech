@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.MorphologySubsystem;
 using DemaConsulting.Speech.Phonemes.En.ReadingSubsystem;
@@ -24,7 +25,8 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 ///     <b>Priority for each word.</b> host override, then the reading's pronunciation, then the lexicon's first
 ///     variant, then the morphology rules (plurals, past tenses, <c>-ing</c>, possessives, contractions), then the
 ///     letter-to-sound fallback, which marks the word as out of vocabulary so an unknown word is reported, never
-///     silent. The fallback is currently a placeholder that spells the word by letter names.
+///     silent. The fallback is the trained model of the letter-to-sound subsystem (see
+///     <c>docs/evaluation/phonemes-en/oov.md</c> for its measured quality).
 ///     </para>
 ///     <para>
 ///     <b>Tokens.</b> Words are runs of Latin letters with inner apostrophes and hyphens (a hyphenated compound is one
@@ -47,7 +49,7 @@ public sealed class EnglishPhonemizer
     ///     Initializes a phonemizer over the embedded pronunciation data.
     /// </summary>
     public EnglishPhonemizer()
-        : this(CmuLexicon.Default, ReadingPronunciations.Default, SpellingLetterToSound.Instance)
+        : this(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default)
     {
     }
 

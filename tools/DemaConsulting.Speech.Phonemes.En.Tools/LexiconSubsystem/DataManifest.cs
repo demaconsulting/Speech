@@ -26,9 +26,9 @@ internal static class DataManifest
     /// <summary>The comment lines written at the top of the manifest.</summary>
     private static readonly string[] Header =
     [
-        "# Pins of the Phonemes.En lexicon build, verified by 'build-lexicon --check' of the Phonemes.En tools; the local caches external/ and work/ and the compressed resource are not listed",
-        "# kind = input (fetched, never committed) or image (the uncompressed content of src/DemaConsulting.Speech.Phonemes.En/Resources/cmudict-en.bin.gz)",
-        "# columns = name, kind, sha256, bytes, rows (lines of an input, words of an image)",
+        "# Pins of the Phonemes.En data builds, verified by 'build-lexicon --check' and 'train-lts --check' of the Phonemes.En tools; the local caches external/ and work/ and the compressed resources are not listed",
+        "# kind = input (fetched, never committed) or image (the uncompressed content of the gzip resource of the same name in src/DemaConsulting.Speech.Phonemes.En/Resources/: cmudict-en.bin.gz or lts-en.bin.gz)",
+        "# columns = name, kind, sha256, bytes, rows (lines of an input, words of an image: the dictionary words of the lexicon, the dictionary entries the model was trained on)",
     ];
 
     /// <summary>

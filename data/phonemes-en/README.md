@@ -13,7 +13,7 @@ resource lives in the library. Nothing here is legal advice.
 
 | File | What |
 | --- | --- |
-| [MANIFEST.tsv](MANIFEST.tsv) | pins: SHA-256, size and row count of the CMUdict input and of the uncompressed lexicon image; verified by `build-lexicon --check` |
+| [MANIFEST.tsv](MANIFEST.tsv) | pins: SHA-256, size and row count of the CMUdict input and of the uncompressed lexicon and letter-to-sound model images; verified by `build-lexicon --check` and `train-lts --check` |
 | [reading-pronunciations.tsv](reading-pronunciations.tsv) | the reviewed, frozen ARPAbet pronunciation of every heteronym reading id of `DemaConsulting.Speech.Text.En` (395 rows: `reading_id`, `arpabet`, `source`); embedded in the library |
 | [form-overrides.tsv](form-overrides.tsv) | the few inflected spellings the morphology rules cannot derive from a reading's headword (`does`, `lives`, `dove` ...); embedded in the library |
 | [reading-gaps.tsv](reading-gaps.tsv) | the committed list of (spelling, reading id) pairs that cannot be resolved; expected to be empty (header only) |
@@ -81,6 +81,24 @@ about a quarter of the heteronyms lack a variant altogether, so the mapping is a
 dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- propose-readings            # writes work/reading-review.tsv and a proposed table
 dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- propose-readings --check    # verifies the committed tables (exit 1 when inconsistent)
 ```
+
+## The Embedded Letter-To-Sound Model
+
+`src/DemaConsulting.Speech.Phonemes.En/Resources/lts-en.bin.gz` pronounces a word that neither the lexicon nor the morphology
+rules know. It holds the weights of three small neural networks (a phone network, a primary-stress network and a
+secondary-stress network, quantized to integers) that the tools project trains from the pinned CMUdict alone:
+
+```pwsh
+dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- train-lts           # trains on all entries (about 8 minutes), writes the resource and the lts-en.bin row of MANIFEST.tsv
+dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- train-lts --check   # retrains and verifies them (exit 1 when stale)
+dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- benchmark-lts       # the held-out benchmark behind docs/evaluation/phonemes-en/oov.md
+```
+
+The training is deterministic (seeded, fixed-order arithmetic, no dependence on the number of cores), so `--check` compares the
+re-derived image with the committed resource decompressed and with the image row of `MANIFEST.tsv`. The shipped model is trained
+on all entries with exactly the settings of the model that `benchmark-lts` trains on the training part of a stem-family
+split to measure held-out quality; the evaluation record `docs/evaluation/phonemes-en/oov.md` states the numbers, the split and
+the decision against the rules and g2p_en alternatives.
 
 ## Measurement Oracles (local only)
 

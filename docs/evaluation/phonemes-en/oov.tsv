@@ -1,0 +1,6 @@
+candidate	test_words	per_with_stress_pct	per_without_stress_pct	word_accuracy_pct	word_accuracy_no_stress_pct	primary_stress_position_pct	primary_stress_position_two_plus_syllables_pct	artifact_bytes
+rules-nrl	12258	25.53	22.01	26.69	30.76	76.87	73.62	0
+model-small	12258	12.23	9.38	56.13	61.78	88.08	86.39	344566
+model-shipped	12258	11.59	8.81	57.71	63.57	88.73	87.16	664484
+model-large	12258	11.27	8.44	59.13	65.12	88.80	87.26	960792
+g2p_en	12258	9.80	7.85	68.90	73.40	92.32	91.23	3342298

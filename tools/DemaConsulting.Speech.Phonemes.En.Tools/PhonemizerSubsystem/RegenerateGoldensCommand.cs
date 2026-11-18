@@ -1,4 +1,5 @@
 using System.Globalization;
+using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
@@ -22,6 +23,12 @@ namespace DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
 ///     <c>expected</c> from the phonemizer with the reading forced. The draft is then reviewed by hand; a reviewed
 ///     <c>expected</c> is never overwritten unless <c>--redraft</c> is given.
 ///     </para>
+///     <para>
+///     <b>Out-of-vocabulary words</b> (<c>oov-golden.tsv</c>): rewrites the <c>expected</c> column with the shipped
+///     letter-to-sound model's pronunciation of each listed word. It pins the model's output to detect weight drift;
+///     the listed words are chosen by hand (names, brands, neologisms and compounds that the dictionary lacks) and the
+///     output is reviewed, never hand-corrected.
+///     </para>
 ///     <para>Exit codes: <c>0</c> done, <c>2</c> usage or I/O error.</para>
 /// </remarks>
 internal static class RegenerateGoldensCommand
@@ -31,13 +38,14 @@ internal static class RegenerateGoldensCommand
 
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: regenerate-goldens [--sentences] [--readings [--redraft]] [options]
+        Usage: regenerate-goldens [--sentences] [--readings [--redraft]] [--oov] [options]
                regenerate-goldens --try "<sentence>"
 
         Regenerates the expected column of test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/sentences-golden.tsv
-        (--sentences) and/or the mode and drafted expected columns of readings-golden.tsv (--readings), and prints the
-        text analysis' hit rate on the readings corpus. With --try prints the analysis and the phonemized result of one
-        sentence. Without --sentences and --readings both corpora are processed.
+        (--sentences), the mode and drafted expected columns of readings-golden.tsv (--readings) and the expected column
+        of oov-golden.tsv (--oov), and prints the text analysis' hit rate on the readings corpus. With --try prints the
+        analysis and the phonemized result of one sentence. Without --sentences, --readings and --oov all three corpora
+        are processed.
 
         Options:
           --root <dir>   The repository root (default: searched upward from the current directory for Speech.slnx).
@@ -66,6 +74,7 @@ internal static class RegenerateGoldensCommand
         string? sentence = null;
         var doSentences = false;
         var doReadings = false;
+        var doOov = false;
         var redraft = false;
         var pending = new Queue<string>(args);
         while (pending.TryDequeue(out var option))
@@ -80,6 +89,9 @@ internal static class RegenerateGoldensCommand
                     break;
                 case "--readings":
                     doReadings = true;
+                    break;
+                case "--oov":
+                    doOov = true;
                     break;
                 case "--redraft":
                     redraft = true;
@@ -113,7 +125,7 @@ internal static class RegenerateGoldensCommand
             }
 
             var testData = Path.Combine(root, "test", "DemaConsulting.Speech.Phonemes.En.Tests", "TestData");
-            var both = !doSentences && !doReadings;
+            var both = !doSentences && !doReadings && !doOov;
             if (doSentences || both)
             {
                 RegenerateSentences(Path.Combine(testData, "sentences-golden.tsv"), output);
@@ -122,6 +134,11 @@ internal static class RegenerateGoldensCommand
             if (doReadings || both)
             {
                 RegenerateReadings(Path.Combine(testData, "readings-golden.tsv"), redraft, output);
+            }
+
+            if (doOov || both)
+            {
+                RegenerateOov(Path.Combine(testData, "oov-golden.tsv"), output);
             }
 
             return 0;
@@ -155,6 +172,37 @@ internal static class RegenerateGoldensCommand
         var changed = updated.Where((c, i) => !string.Equals(c.Expected, cases[i].Expected, StringComparison.Ordinal)).Count();
         GoldenCorpus.WriteSentences(path, updated);
         output.WriteLine($"sentences-golden.tsv: {updated.Count} sentences, {changed} expected lines changed or drafted");
+    }
+
+    /// <summary>
+    ///     Rewrites the expected column of the out-of-vocabulary word corpus from the shipped letter-to-sound model.
+    /// </summary>
+    /// <param name="path">The corpus file: <c>#</c> comment lines, then <c>word</c> and <c>expected</c> separated by a tab.</param>
+    /// <param name="output">Receives the report.</param>
+    private static void RegenerateOov(string path, TextWriter output)
+    {
+        var lines = File.ReadAllLines(path);
+        var result = new List<string>(lines.Length);
+        var words = 0;
+        var changed = 0;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0 || line[0] == '#')
+            {
+                result.Add(line);
+                continue;
+            }
+
+            var cells = line.Split('\t');
+            LetterToSound.Default.TryConvert(cells[0], out var pronunciation);
+            var expected = pronunciation.ToString();
+            words++;
+            changed += cells.Length < 2 || cells[1] != expected ? 1 : 0;
+            result.Add(cells[0] + "\t" + expected);
+        }
+
+        File.WriteAllText(path, string.Join('\n', result) + "\n", new System.Text.UTF8Encoding(false));
+        output.WriteLine($"oov-golden.tsv: {words} words, {changed} expected values changed or drafted");
     }
 
     /// <summary>
